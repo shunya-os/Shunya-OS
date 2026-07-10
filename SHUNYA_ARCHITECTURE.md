@@ -22,30 +22,77 @@ The same OS will later power healthcare, education, legal, finance, manufacturin
 
 ## 2. Core Philosophy
 
-### 2.1 The System Shall Reduce Humans, Not Serve Them
+### 2.1 Humans Own Intent. Shunya Owns Intelligence Amplification.
 
-Humans focus only on:
-- Building relationships with clients
-- Delivering quality work
-- Creating a fabulous experience
+The human decides what they want to achieve. Shunya helps determine *how* to achieve it in the best possible way.
 
-Everything else — thinking, reasoning, planning, executing, observing, learning — is Shunya's responsibility.
+```
+Human
+   │
+Intent (Why)
+   │
+Shunya
+   │
+Knowledge → Reasoning → Planning → Execution → Learning
+   │
+Human (wiser, better informed)
+   │
+Better Intent
+```
 
-### 2.2 Trust Compounds
+The loop always returns to the human. Humans are not replaced — they become exponentially more capable.
+
+**Human + AI > Human Alone**
+
+### 2.2 Every Human Should Become a Better Decision Maker
+
+Every interaction should leave the user wiser than before. Instead of simply answering, Shunya should teach.
+
+**Customer asks:** *Should I visit Thailand in June?*
+
+**Normal AI:** Yes.
+
+**Shunya:**
+> June is monsoon season. Here are the trade-offs. Here is why Phuket differs from Krabi. Here are three better options. Here's what experienced travelers usually choose. Based on your preferences, I recommend Option B.
+
+The goal isn't merely to solve the problem. It's to improve the user's future judgment.
+
+### 2.3 AI Proposes. Humans Dispose.
+
+Shunya should:
+- Recommend
+- Simulate
+- Compare
+- Forecast
+- Warn
+
+But humans approve important decisions.
+
+### 2.4 Trust Compounds
 
 Every successful cycle strengthens future decisions. Security isn't about preventing attacks — it's about making the system progressively more trustworthy.
 
-### 2.3 Architectural Trust Over Perimeter Security
+### 2.5 Architectural Trust Over Perimeter Security
 
 No single component can independently compromise correctness, security, or execution. Every critical action passes through independent layers of validation, governance, and observation.
 
-### 2.4 Self-Sustaining Intelligence
+### 2.6 Continuous Improvement
 
-The system must:
-- Learn from every interaction
-- Grow its knowledge base autonomously
-- Teach the human (not the other way around)
-- Adapt to new domains without rewrites
+Every completed workflow should make both better.
+
+```
+Human learns
+    ↓
+Shunya learns
+    ↓
+Next decision improves
+    ↓
+Next workflow improves
+    ↓
+Next organization improves
+```
+
+Knowledge compounds. Trust compounds. Intelligence compounds.
 
 ---
 
@@ -320,7 +367,7 @@ To move from travel to healthcare:
 ## 10. Locked
 
 This architecture is locked. No feature, tool, or UI screen will be built unless it:
-1. Reduces human involvement
-2. Strengthens the compounding loop
-3. Respects a clear layer boundary
-4. Passes through Governance before execution
+1. **Amplifies human intelligence** — leaves the user wiser than before
+2. **Strengthens the compounding loop** — Knowledge → Reasoning → Plan → Execute → Observe → Learn
+3. **Respects a clear layer boundary** — each package has one responsibility
+4. **Passes through Governance before execution** — AI proposes, humans dispose
