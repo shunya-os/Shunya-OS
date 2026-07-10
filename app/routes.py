@@ -253,6 +253,55 @@ def lead_edit(lead_id):
     return render_template("lead_form.html", lead=lead, editing=True)
 
 
+@main.route("/itineraries")
+def itinerary_builder():
+    """Itinerary builder — create, edit, share travel plans."""
+    lead_id = request.args.get("lead_id", type=int)
+    leads = Lead.query.order_by(Lead.created_at.desc()).limit(50).all()
+    selected_lead = None
+    plan_days = []
+    total_cost = 0
+    plan_name = ""
+
+    if lead_id:
+        selected_lead = Lead.query.get(lead_id)
+        if selected_lead:
+            plan_name = f"{selected_lead.customer_name or 'Trip'} — {selected_lead.destination or 'Adventure'}"
+            # Generate Shunya itinerary if one doesn't exist
+            from app.shunya.knowledge import KnowledgeLayer
+            from app.shunya.reasoning import ReasoningLayer
+            from app.shunya.planner import PlannerLayer
+
+            k = KnowledgeLayer()
+            r = ReasoningLayer(k)
+            p = PlannerLayer()
+            inquiry = {
+                "customer_name": selected_lead.customer_name or "",
+                "destination": selected_lead.destination or "",
+                "pax": selected_lead.pax or "2",
+                "dates": selected_lead.dates or "",
+                "notes": selected_lead.notes or "",
+            }
+            profile = r.analyze_inquiry(inquiry)
+            strategy = r.suggest_approach(profile)
+            plan = p.create_itinerary(profile, strategy)
+            total_cost = plan.total_estimated_cost or 0
+
+            for day in plan.days:
+                plan_days.append({
+                    "day": day.day_num,
+                    "title": day.title or f"Day {day.day_num}",
+                    "morning": day.morning or "",
+                    "afternoon": day.afternoon or "",
+                    "evening": day.evening or "",
+                    "accommodation": day.accommodation or "",
+                })
+
+    return render_template("itinerary_builder.html", leads=leads,
+                           selected_lead=selected_lead, plan_days=plan_days,
+                           total_cost=total_cost, plan_name=plan_name)
+
+
 @main.route("/leads/<int:lead_id>/delete", methods=["POST"])
 def lead_delete(lead_id):
     lead = Lead.query.get_or_404(lead_id)
