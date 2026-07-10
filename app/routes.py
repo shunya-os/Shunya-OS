@@ -402,6 +402,7 @@ def telegram_setwebhook():
 @api.route("/shunya/process", methods=["POST"])
 def shunya_process():
     data = request.get_json(silent=True) or {}
+    fmt = data.get("format", "text")
     inquiry = {
         "customer_name": data.get("customer_name", ""),
         "destination": data.get("destination", ""),
@@ -413,13 +414,16 @@ def shunya_process():
     }
     from app.shunya import WorkflowLayer
     wf = WorkflowLayer(db.session)
-    result = wf.process_inquiry(inquiry)
+    result = wf.process_inquiry(inquiry, fmt=fmt)
     if result.success() and data.get("create_lead"):
         lead_id = wf.create_lead_from_inquiry(inquiry)
         if lead_id:
             _log_activity(lead_id, "created", "Lead created via Shunya API")
         result.lead_id = lead_id
-    return jsonify(result.to_dict())
+    resp = result.to_dict()
+    if fmt in ("html", "all"):
+        resp["proposal_html"] = result.proposal_html
+    return jsonify(resp)
 
 
 @api.route("/shunya/knowledge", methods=["GET"])
@@ -442,6 +446,7 @@ def shunya_summary():
 @api.route("/shunya/proposal/<int:lead_id>", methods=["GET"])
 def shunya_proposal(lead_id):
     lead = Lead.query.get_or_404(lead_id)
+    fmt = request.args.get("format", "text")
     inquiry = {
         "customer_name": lead.customer_name or "",
         "destination": lead.destination or "",
@@ -452,14 +457,19 @@ def shunya_proposal(lead_id):
     }
     from app.shunya import WorkflowLayer
     wf = WorkflowLayer(db.session)
-    result = wf.process_inquiry(inquiry)
+    result = wf.process_inquiry(inquiry, fmt=fmt)
     if result.success():
-        _log_activity(lead_id, "proposal_sent", f"Proposal generated ({result.plan.days[0].day_num}d itinerary)")
-        return jsonify({
+        _log_activity(lead_id, "proposal_sent",
+                      f"Proposal generated ({fmt}, {result.plan.days[0].day_num if result.plan else 3}d itinerary)")
+        resp = {
             "lead_code": lead.code,
+            "format": fmt,
             "proposal": result.proposal_text,
             "itinerary": result.plan.to_dict() if result.plan else None,
-        })
+        }
+        if fmt in ("html", "all"):
+            resp["proposal_html"] = result.proposal_html
+        return jsonify(resp)
     return jsonify({"error": result.errors}), 400
 
 

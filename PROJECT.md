@@ -66,16 +66,18 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 | pgvector 0.6.0 | ✅ Done | Extension loaded for future AI search |
 | Data migration (SQLite → PG) | ✅ Done | Existing schema + data preserved |
 
-### ✅ 1.4 Shunya Pipeline — COMPLETE (v1)
+### ✅ 1.4 Shunya Pipeline — BUILT (v2)
 
 | Item | Status | Notes |
 |------|--------|-------|
-| KnowledgeLayer | ✅ Done | KB file, past itineraries, supplier lookup |
-| ReasoningLayer | ✅ Done | Customer profiling, strategy suggestion |
-| PlannerLayer | ✅ Done | Day-by-day itinerary, proposal text |
-| WorkflowLayer | ✅ Done | Orchestrator, lead lifecycle |
+| KnowledgeLayer with structured data | ✅ V2 | 5 destinations (Sri Lanka, Bali, Maldives, Thailand, India) |
+| Destination KB parsing | ✅ V2 | Visa, weather, taxes, venues, transport, wedding requirements |
+| ReasoningLayer — occasion detection | ✅ V2 | wedding, honeymoon, family, group, solo detected automatically |
+| ReasoningLayer — budget estimation | ✅ V2 | Per-destination daily budget estimate |
+| PlannerLayer — occasion templates | ✅ V2 | Wedding, honeymoon, family, destination wedding day templates |
+| PlannerLayer — multi-format output | ✅ V2 | Markdown + HTML proposal generation (`?format=html`) |
+| WorkflowLayer — orchestration | ✅ V2 | Knowledge → Reasoning → Planner, format selection |
 | API endpoints | ✅ Done | /shunya/process, /shunya/knowledge, /shunya/summary, /shunya/proposal/<id> |
-| 7-day itinerary generation | ✅ Verified | Tested with Arshlin & Dilpreet inquiry |
 
 ### ✅ 1.5 Deployment — COMPLETE
 
@@ -125,7 +127,7 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 | 1 | Core App (app/__init__.py) | ✅ Built (v2) | Factory, DB, blueprints, request IDs, JSON logging, security headers, CORS, rate limiting, error handlers, health endpoint, config_override for testing |
 | 2 | Data Layer (app/models.py) | ✅ Built (v2) | 6 tables (new: activity_logs), enums, indexes, to_dict, __repr__, helper properties |
 | 3 | Routing & API (app/routes.py) | ✅ Built (v2) | 20+ routes, activity logging, status updates, lead edit, supplier gstin/terms, API activity log, fixed reports |
-| 4 | Shunya Pipeline (app/shunya/) | ✅ Complete v1 | 4 layers, KB + reasoning + planning + orchestration |
+| 4 | Shunya Pipeline (app/shunya/) | ✅ Built (v2) | 4 layers, 5 destinations KB, occasion detection, wedding templates, HTML proposals, structured venue data |
 | 5 | Telegram Integration (app/services.py) | ✅ Complete | Webhook, parse, token mgmt |
 | 6 | Cache & Async (app/cache.py, celery_worker.py) | ✅ Complete | Redis + mem fallback, Celery scaffold |
 | 7 | Deployment (systemd, Docker, CI) | ✅ Complete | Contabo VPS live, Docker ready, CI active |
