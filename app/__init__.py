@@ -9,7 +9,7 @@ import os
 import uuid
 import logging
 from datetime import datetime
-from flask import Flask, g, request, jsonify
+from flask import Flask, g, request, jsonify, session, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 
@@ -241,19 +241,48 @@ def create_app(config_override: dict | None = None):
     _register_health(app)
 
     # ---- Blueprints -------------------------------------------------------
+    from app.auth_routes import auth_bp, login_required, inject_auth_globals
     from app.routes import main, api
 
+    app.register_blueprint(auth_bp)
     app.register_blueprint(main)
     # Keep API at /shunya/* for backward compat (routes.py defines @api.route('/shunya/...'))
     app.register_blueprint(api)
 
-    # ---- Context processor (all templates) --------------------------------
+    # ---- Auth Middleware ----------------------------------------------------
+    @app.before_request
+    def _check_auth():
+        """Protect all routes by default. Public paths are exempt."""
+        if app.config.get("TESTING"):
+            return None
+        path = request.path
+        if path.startswith("/static/") or path.startswith("/health"):
+            return None
+        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout"):
+            return None
+        user_id = session.get("user_id")
+        if not user_id:
+            if path.startswith("/shunya/") or path.startswith("/api/"):
+                return jsonify({"error": "Authentication required"}), 401
+            return redirect(url_for("auth.login_page", next=path))
+        from app.auth import TeamMember
+        user = db.session.get(TeamMember, user_id)
+        if not user or not user.is_active:
+            session.clear()
+            return redirect(url_for("auth.login_page"))
+        from flask import g
+        g.user = user
+
     @app.context_processor
     def inject_globals():
+        user = getattr(g, "user", None)
         return {
             "brand": "Panchi Club",
             "assistant_identity": "AI@panchi.club",
             "year": datetime.utcnow().year,
+            "current_user": user,
+            "is_admin": user and user.role == "admin",
+            "is_manager": user and user.role == "manager",
         }
 
     # ---- Auto-create tables (safe for first run) --------------------------
