@@ -1,0 +1,181 @@
+# Panchi Club Travel OS — Project Tracker
+
+**Project:** Panchi Club Travel Operating System  
+**Launch:** Q3 2026 (Internal) → Q4 2026 (Public)  
+**Status:** 🟡 Phase 1 — Internal Testing  
+**Repo:** https://github.com/trips-ui/panchi-club-backend
+
+---
+
+## Project Timeline
+
+```
+Phase 1: Internal (Jul–Oct 2026) ████████░░░░░░░░ 60%
+Phase 2: Public   (Nov 2026+)     ░░░░░░░░░░░░░░░░  0%
+```
+
+---
+
+## Phase 1 — Internal Team Dashboard (3–4 months)
+
+Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for operations.
+
+### ✅ 1.1 Core Backend — COMPLETE
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Flask app factory (create_app) | ✅ Done | PostgreSQL, blueprints, context processors |
+| Database models (5 tables) | ✅ Done | leads, payments, invoices, suppliers, itinerary_refs |
+| Inquiry code generator (PC format) | ✅ Done | PC{DD}{MM}{YY}{##} — space-free |
+| Dashboard CRUD routes | ✅ Done | /leads, /payments, /invoices, /reports, /settings |
+| Settings + supplier management | ✅ Done | CRUD via /settings |
+
+### ✅ 1.2 Telegram Integration — COMPLETE
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Telegram webhook receiver | ✅ Done | POST /telegram/webhook |
+| Bot token management | ✅ Done | Save via /setup, persist to file |
+| Webhook registration | ✅ Done | /setwebhook → Telegram API |
+| Inquiry text parser | ✅ Done | Regex extracts destination, pax, dates |
+| Auto lead creation from Telegram | ✅ Done | Creates code + lead record |
+| Reply confirmation to chat | ✅ Done | "✅ Inquiry logged: PC10072601" |
+
+### ✅ 1.3 Database — COMPLETE
+
+| Item | Status | Notes |
+|------|--------|-------|
+| PostgreSQL 16 | ✅ Done | Installed + running on Contabo VPS |
+| pgvector 0.6.0 | ✅ Done | Extension loaded for future AI search |
+| Data migration (SQLite → PG) | ✅ Done | Existing schema + data preserved |
+
+### ✅ 1.4 Shunya Pipeline — COMPLETE (v1)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| KnowledgeLayer | ✅ Done | KB file, past itineraries, supplier lookup |
+| ReasoningLayer | ✅ Done | Customer profiling, strategy suggestion |
+| PlannerLayer | ✅ Done | Day-by-day itinerary, proposal text |
+| WorkflowLayer | ✅ Done | Orchestrator, lead lifecycle |
+| API endpoints | ✅ Done | /shunya/process, /shunya/knowledge, /shunya/summary, /shunya/proposal/<id> |
+| 7-day itinerary generation | ✅ Verified | Tested with Arshlin & Dilpreet inquiry |
+
+### ✅ 1.5 Deployment — COMPLETE
+
+| Item | Status | Notes |
+|------|--------|-------|
+| systemd service | ✅ Done | panchi.service — auto-restart on boot/crash |
+| Gunicorn workers (2) | ✅ Done | Port 5000, access + error logs |
+| Local testing verified | ✅ Done | Dashboard, leads, PDFs, Shunya pipeline |
+
+### 🔄 1.6 Infrastructure — IN PROGRESS (75%)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Redis cache with fallback | ✅ Done | Graceful memory:// fallback |
+| Celery worker scaffold | ✅ Done | Async PDF generation |
+| Sentry monitoring | ✅ Done | Optional — no-op when not configured |
+| GitHub repo | ✅ Done | https://github.com/trips-ui/panchi-club-backend |
+| ARCHITECTURE.md | ✅ Done | Build breakdown by unit |
+| Dockerfile | ✅ Done | Python 3.11 + wkhtmltopdf |
+| docker-compose.yml | ✅ Done | web + celery + redis + nginx |
+| CI pipeline | ✅ Done | GitHub Actions — pytest on push |
+| **Public HTTPS (nginx + certbot)** | ❌ Pending | Needed for Telegram webhook in prod |
+| **Domain setup** | ❌ Pending | For public-facing endpoints |
+| **Telegram webhook live** | ❌ Blocked | Blocked on HTTPS |
+
+### 🔜 1.7 Features — PHASE 2
+
+| Item | Status | Priority |
+|------|--------|----------|
+| Multi-format proposals (PDF, infographic, clip, movie) | 🟡 Scaffold | High |
+| Offline executable itineraries | 🟡 Design | High |
+| Local union tax guidance per itinerary | 🟡 KB data | Medium |
+| Tally-like supplier accounting | 🟡 Scaffold | High |
+| Sales analytics dashboard | 🟡 Partial | Medium |
+| Activity history per lead | 🔴 Not started | Medium |
+| Customer feedback mapping | 🔴 Not started | Low |
+| Follow-up automation | 🔴 Not started | Low |
+
+---
+
+## Build Units — Completion Status
+
+(from ARCHITECTURE.md)
+
+| # | Unit | Status | Coverage |
+|---|------|--------|----------|
+| 1 | Core App (app/__init__.py) | ✅ Complete | Factory, DB, blueprints, branding |
+| 2 | Data Layer (app/models.py) | ✅ Complete | 5 tables, PC code generator |
+| 3 | Routing & API (app/routes.py) | ✅ Complete | 15+ routes, 2 blueprints |
+| 4 | Shunya Pipeline (app/shunya/) | ✅ Complete v1 | 4 layers, KB + reasoning + planning + orchestration |
+| 5 | Telegram Integration (app/services.py) | ✅ Complete | Webhook, parse, token mgmt |
+| 6 | Cache & Async (app/cache.py, celery_worker.py) | ✅ Complete | Redis + mem fallback, Celery scaffold |
+| 7 | Deployment (systemd, Docker, CI) | ✅ Complete | Contabo VPS live, Docker ready, CI active |
+| 8 | Presentation (templates/) | ✅ Complete | 9 Jinja2 templates + static assets |
+| 9 | PDF Generation | ✅ Complete | wkhtmltopdf invoice generation |
+| 10 | Testing (tests/) | ✅ Complete | Model tests + CI pipeline |
+
+---
+
+## Known Issues & Bugs
+
+| # | Issue | Severity | Status |
+|---|-------|----------|--------|
+| 1 | python-dotenv version conflict (system 1.0.1 vs hermes 1.2.2) | Low | 🟡 Not blocking |
+| 2 | Public here.now page expired (24h from Jul 2) | Low | 🔴 Needs email sign-in for permanent |
+| 3 | Telegram webhook needs public HTTPS | High | 🔴 Blocked on nginx + certbot setup |
+| 4 | KB still plain markdown (no vector search) | Low | 🟡 Phase 2 |
+| 5 | Plotly/pandas not in dependencies (for reports) | Low | 🟡 Phase 2 |
+
+---
+
+## Architecture Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Primary intake | Telegram | Team preference, webhook-based, lightweight |
+| Database | PostgreSQL 16 | Production-ready, pgvector for AI search |
+| AI pipeline | Shunya (4-layer) | Clean separation: Knowledge → Reasoning → Planner → Workflow |
+| Inquiry codes | PC{DD}{MM}{YY}{##} | No spaces, auto-sequential per day, globally unique |
+| Assistant identity | AI@panchi.club | Consistent brand across dashboard, Telegram, proposals |
+| Deployment | systemd + gunicorn | Direct VPS control, no container overhead for internal phase |
+| Caching | Redis + memory fallback | Zero-crash on Redis failure |
+| PDF generation | wkhtmltopdf | Simple, no browser dependency |
+
+---
+
+## Phase 2 — Public Launch Checklist
+
+- [ ] Public HTTPS — nginx + certbot + domain
+- [ ] Live Telegram webhook (requires HTTPS)
+- [ ] Multi-format delivery: real infographic, short video, short movie
+- [ ] LLM integration — wire API into Reasoning & Planner
+- [ ] pgvector semantic search for knowledge base
+- [ ] Redis + Celery in production
+- [ ] Sales analytics — conversion funnels, trend reports
+- [ ] Customer feedback loop — automated follow-up
+- [ ] Public landing page with self-service
+- [ ] Supplier payment reconciliation (Tally-like)
+- [ ] Multi-destination wedding support
+- [ ] Payment gateway integration
+
+---
+
+## Current Sprint
+
+```
+Focus: Phase 1 hardening
+  1. Set up nginx + certbot → HTTPS → Telegram webhook live
+  2. Fill knowledge base with destination data
+  3. Test end-to-end Telegram → lead → proposal flow
+```
+
+## Key Contacts
+
+| Role | Name |
+|------|------|
+| Owner | Rajat |
+| Team | Chaya |
+| AI Identity | AI@panchi.club |
+| Bot Account | trips-ui (GitHub) |
