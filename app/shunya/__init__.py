@@ -10,6 +10,8 @@ from .governance import GovernanceLayer, GovernanceVerdict, Policy, PolicyRegist
 from .executor import ExecutorLayer, OutboundMessage, InboundMessage, DeliveryResult, ChannelType, MessageType, ChannelAdapter, WhatsAppAdapter, TelegramAdapter
 from .knowledge_store import ImmutableKnowledgeStore, KnowledgeFact
 from .observer_learning import ObserverLayer, LearningLayer, Observation, LearningEntry
+from .doctor import DoctorLayer, DoctorReport
+from .interface import ShunyaInterface
 from .workflow import WorkflowLayer
 
 __all__ = [
