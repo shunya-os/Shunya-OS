@@ -129,6 +129,16 @@ def leads_list():
             | Lead.phone.contains(q)
         )
     leads = query.order_by(Lead.created_at.desc()).limit(200).all()
+    # Check if pipeline view is requested
+    if request.args.get("view") == "pipeline":
+        from collections import defaultdict
+        pipeline_counts = defaultdict(int)
+        for l in leads:
+            pipeline_counts[l.status or "new"] += 1
+        pipeline_total = sum(l.budget or 0 for l in leads)
+        return render_template("pipeline.html", leads=leads,
+                               pipeline_counts=dict(pipeline_counts),
+                               pipeline_total={"value": f"₹{pipeline_total:,.0f}"})
     return render_template("leads.html", leads=leads, q=q)
 
 
@@ -194,16 +204,33 @@ def lead_detail(lead_id):
 def lead_update_status(lead_id):
     """Update lead status and log the change."""
     lead = Lead.query.get_or_404(lead_id)
-    new_status = request.form.get("status") or request.get_json(silent=True).get("status", "")
+    json_data = request.get_json(silent=True)
+    if json_data:
+        new_status = json_data.get("status", "")
+    else:
+        new_status = request.form.get("status", "")
+
     if new_status and new_status in [s.value for s in LeadStatus]:
         old = lead.status
         lead.status = new_status
         db.session.commit()
         _log_activity(lead_id, "status_changed", f"{old} → {new_status}")
+        
+        # Return JSON for API calls (kanban drag-drop), redirect for form posts
+        if json_data:
+            return jsonify({"success": True, "status": new_status})
         flash(f"Status updated: {new_status}", "success")
     else:
+        if json_data:
+            return jsonify({"success": False, "error": f"Invalid status: {new_status}"}), 400
         flash(f"Invalid status: {new_status}", "error")
     return redirect(url_for("main.lead_detail", lead_id=lead_id))
+
+
+# API endpoint for kanban drag-and-drop
+@api.route("/leads/<int:lead_id>/status", methods=["POST"])
+def api_lead_status(lead_id):
+    return lead_update_status(lead_id)
 
 
 @main.route("/leads/<int:lead_id>/edit", methods=["GET", "POST"])
