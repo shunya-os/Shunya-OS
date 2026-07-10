@@ -68,16 +68,14 @@
     </div>
 
     <nav class="flex-1 overflow-y-auto p-3 space-y-1">
-      {% set nav_items = [
-        ('/', '🏠', 'Overview', 'overview'),
-      ] %}
       {% if nav_modules %}
+        {% set nav_items = [] %}
         {% for m in nav_modules %}
           {% set _ = nav_items.append((m.route, m.icon, m.label, m.id)) %}
         {% endfor %}
       {% else %}
         {% set nav_items = [
-          ('/', '📊', 'Overview', 'overview'),
+          ('/', '🏠', 'Overview', 'overview'),
           ('/leads?view=pipeline', '📋', 'Pipeline', 'pipeline'),
           ('/payments', '💰', 'Payments', 'payments'),
           ('/invoices', '🧾', 'Invoices', 'invoices'),
