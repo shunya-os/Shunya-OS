@@ -8,6 +8,7 @@ from typing import Optional
 from .knowledge import KnowledgeLayer
 from .reasoning import ReasoningLayer, CustomerProfile
 from .planner import PlannerLayer, ItineraryPlan
+from sqlalchemy import func
 
 
 class WorkflowResult:
@@ -104,16 +105,19 @@ class WorkflowLayer:
         leads = db_session.query(Lead).order_by(Lead.created_at.desc()).limit(20).all()
         summary = []
         for lead in leads:
-            total_paid = sum(
-                (p.amount or 0) for p in lead.payments if p.type == "guest_payment"
+            total_paid = float(
+                db_session.query(func.coalesce(func.sum(Payment.amount), 0))
+                .filter(Payment.lead_id == lead.id, Payment.type == "guest_payment")
+                .scalar() or 0
             )
+            invoice_count = db_session.query(func.count(Invoice.id)).filter(Invoice.lead_id == lead.id).scalar() or 0
             summary.append({
                 "code": lead.code,
                 "customer": lead.customer_name,
                 "destination": lead.destination,
                 "status": lead.status,
                 "total_paid": float(total_paid),
-                "invoices": len(lead.invoices),
+                "invoices": invoice_count,
                 "created": lead.created_at.isoformat(),
             })
         return summary

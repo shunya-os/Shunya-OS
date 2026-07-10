@@ -26,7 +26,11 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 |------|--------|-------|
 | Flask app factory (create_app + config_override) | ✅ Done | Supports test overrides, safe defaults |
 | PostgreSQL database init | ✅ Done | pgvector-ready, auto-create tables |
-| Database models (5 tables) | ✅ Done | leads, payments, invoices, suppliers, itinerary_refs |
+| Database models (6 tables) | ✅ V2 | leads, payments, invoices, suppliers, itinerary_refs, **activity_logs** |
+| Enums (LeadStatus, PaymentType, InvoiceStatus, LeadSource) | ✅ V2 | Typed enums for status/type fields |
+| Database indexes | ✅ V2 | Composite indexes on status+created, source+created, destination |
+| ActivityLog model | ✅ V2 | Audit trail per lead: action, detail, user, timestamp |
+| Model helpers | ✅ V2 | to_dict(), __repr__(), total_revenue, profit_margin, log_activity() |
 | Inquiry code generator (PC format) | ✅ Done | PC{DD}{MM}{YY}{##} — space-free |
 | Dashboard CRUD routes | ✅ Done | /leads, /payments, /invoices, /reports, /settings |
 | Settings + supplier management | ✅ Done | CRUD via /settings |
@@ -116,7 +120,7 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 | # | Unit | Status | Coverage |
 |---|------|--------|----------|
 | 1 | Core App (app/__init__.py) | ✅ Built (v2) | Factory, DB, blueprints, request IDs, JSON logging, security headers, CORS, rate limiting, error handlers, health endpoint, config_override for testing |
-| 2 | Data Layer (app/models.py) | ✅ Complete | 5 tables, PC code generator |
+| 2 | Data Layer (app/models.py) | ✅ Built (v2) | 6 tables (new: activity_logs), enums, indexes, to_dict, __repr__, helper properties |
 | 3 | Routing & API (app/routes.py) | ✅ Complete | 15+ routes, 2 blueprints |
 | 4 | Shunya Pipeline (app/shunya/) | ✅ Complete v1 | 4 layers, KB + reasoning + planning + orchestration |
 | 5 | Telegram Integration (app/services.py) | ✅ Complete | Webhook, parse, token mgmt |
