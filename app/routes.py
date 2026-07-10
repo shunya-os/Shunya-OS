@@ -112,7 +112,30 @@ def lead_new():
 def lead_detail(lead_id):
     lead = Lead.query.get_or_404(lead_id)
     activities = lead.activities.order_by(Lead.activities.property.mapper.class_.created_at.desc()).limit(50).all()
-    return render_template("lead_detail.html", lead=lead, activities=activities)
+
+    # AI Coach insights
+    from app.coach import CoachEngine
+    coach = CoachEngine()
+    coach_insights = coach.get_insights({
+        "action": "lead_view",
+        "customer": {
+            "budget": str(lead.budget or 0),
+            "first_time_traveler": not bool(lead.destination and lead.destination.strip()),
+            "has_children": "kids" in (lead.pax or "").lower() or "child" in (lead.pax or "").lower(),
+        }
+    }, skill_level="new")
+
+    # Dynamic field values
+    try:
+        from app.dynamic_fields import DynamicFieldManager
+        dyn_fields = DynamicFieldManager.get_fields("lead")
+        dyn_values = DynamicFieldManager.get_values(lead_id, entity="lead")
+    except Exception:
+        dyn_fields = []
+        dyn_values = {}
+
+    return render_template("lead_detail.html", lead=lead, activities=activities,
+                           coach_insights=coach_insights, dyn_fields=dyn_fields, dyn_values=dyn_values)
 
 
 @main.route("/leads/<int:lead_id>/status", methods=["POST"])
@@ -310,6 +333,29 @@ def settings():
         return redirect(url_for("main.settings"))
     suppliers = Supplier.query.order_by(Supplier.created_at.desc()).limit(200).all()
     return render_template("settings.html", suppliers=suppliers)
+
+
+@main.route("/settings/fields/add", methods=["POST"])
+def settings_fields_add():
+    """Superadmin: create a custom dynamic field."""
+    from app.dynamic_fields import DynamicFieldManager
+    f = request.form
+    field_name = f.get("field_name", "").strip()
+    field_label = f.get("field_label", "").strip()
+    entity = f.get("entity", "lead")
+    field_type = f.get("field_type", "text")
+    options_raw = f.get("options", "")
+    options = [o.strip() for o in options_raw.split("\n") if o.strip()] if options_raw else None
+    searchable = f.get("searchable") == "1"
+    try:
+        DynamicFieldManager.create_field(
+            entity=entity, field_name=field_name, field_label=field_label,
+            field_type=field_type, options=options, searchable=searchable,
+        )
+        flash(f"Field '{field_label}' created for {entity}", "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    return redirect(url_for("main.settings"))
 
 
 # ---------------------------------------------------------------------------

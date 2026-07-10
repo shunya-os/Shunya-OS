@@ -105,4 +105,52 @@
     </table>
   </div>
 </div>
+
+{% if is_admin %}
+<div class="mt-6 bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+  <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">⚙️ Custom Fields (Superadmin)</h3>
+  <form method="post" action="/settings/fields/add" class="space-y-3">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Entity</label>
+        <select name="entity" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+          <option value="lead">Lead</option>
+          <option value="payment">Payment</option>
+          <option value="invoice">Invoice</option>
+          <option value="supplier">Supplier</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Field Type</label>
+        <select name="field_type" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+          <option value="text">Text</option>
+          <option value="number">Number</option>
+          <option value="date">Date</option>
+          <option value="dropdown">Dropdown</option>
+          <option value="multi_select">Multi-Select</option>
+          <option value="boolean">Yes/No</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Field Name (snake_case)</label>
+        <input name="field_name" required placeholder="passport_number" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Display Label</label>
+        <input name="field_label" required placeholder="Passport Number" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Options (for dropdown/multi-select, one per line)</label>
+      <textarea name="options" rows="2" placeholder="Option A&#10;Option B&#10;Option C" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-vertical"></textarea>
+    </div>
+    <label class="flex items-center gap-2 text-sm cursor-pointer">
+      <input type="checkbox" name="searchable" value="1" class="rounded border-slate-300"> Searchable
+    </label>
+    <button type="submit" class="bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">Create Field</button>
+  </form>
+</div>
+{% endif %}
 {% endblock %}
