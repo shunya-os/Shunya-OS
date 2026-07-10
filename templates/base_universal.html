@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>{% block title %}{{ brand or 'Shunya OS' }}{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter','system-ui','sans-serif'], mono: ['JetBrains Mono','monospace'] },
+          colors: {
+            brand: { 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81' },
+            surface: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1', 400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155', 800: '#1e293b', 900: '#0f172a', 950: '#020617' },
+          },
+          animation: { 'float': 'float 3s ease-in-out infinite', 'pulse-slow': 'pulse 3s ease-in-out infinite', 'slide-up': 'slideUp 0.4s ease-out', 'fade-in': 'fadeIn 0.6s ease-out', 'count-up': 'countUp 0.8s ease-out' },
+          keyframes: {
+            float: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-8px)' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(12px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    *{scrollbar-width:thin;scrollbar-color:rgba(148,163,184,0.3) transparent}
+    body{font-family:'Inter',system-ui,sans-serif}
+    .glass{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(16px)}
+    .glass-light{background:rgba(255,255,255,0.6);border:1px solid rgba(0,0,0,0.06);backdrop-filter:blur(16px)}
+    .nav-link{transition:all 0.2s ease;position:relative}
+    .nav-link::after{content:'';position:absolute;left:0;bottom:0;width:0;height:2px;background:#6366f1;transition:width 0.3s ease}
+    .nav-link:hover::after,.nav-link.active::after{width:100%}
+    .stat-card{transition:all 0.3s cubic-bezier(0.4,0,0.2,1)}
+    .stat-card:hover{transform:translateY(-2px)}
+    .kanban-col{transition:all 0.3s ease}
+    .kanban-card{transition:all 0.2s ease;cursor:grab}
+    .kanban-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.12)}
+    .kanban-card:active{cursor:grabbing}
+    @media(max-width:768px){.sidebar{position:fixed;left:-100%;transition:left 0.3s ease;z-index:50}.sidebar.open{left:0}}
+    .ai-avatar{transition:all 0.3s ease}
+    .ai-avatar:hover{transform:scale(1.05)}
+    .pulse-ring{animation:pulseRing 2s ease-in-out infinite}
+    @keyframes pulseRing{0%{box-shadow:0 0 0 0 rgba(99,102,241,0.4)}70%{box-shadow:0 0 0 12px rgba(99,102,241,0)}100%{box-shadow:0 0 0 0 rgba(99,102,241,0)}}
+  </style>
+</head>
+<body class="bg-surface-950 text-white min-h-screen antialiased">
+  <!-- Mobile menu overlay -->
+  <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar fixed left-0 top-0 h-full w-64 bg-surface-900/95 border-r border-white/5 z-50 flex flex-col transition-all">
+    <div class="p-5 border-b border-white/5">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+          {{ brand[:2] if brand else 'SO' }}
+        </div>
+        <div>
+          <div class="text-sm font-semibold">{{ brand or 'Shunya OS' }}</div>
+          <div class="text-[10px] text-surface-400">{{ assistant_identity or 'AI@work' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto p-3 space-y-1">
+      {% set nav_items = [
+        ('/', '📊', 'Overview', 'overview'),
+        ('/leads', '📋', 'Pipeline', 'pipeline'),
+        ('/itineraries', '🗺️', 'Itineraries', 'itineraries'),
+        ('/payments', '💰', 'Payments', 'payments'),
+        ('/invoices', '🧾', 'Invoices', 'invoices'),
+        ('/calendar', '📅', 'Calendar', 'calendar'),
+        ('/team', '👥', 'Team', 'team'),
+        ('/reports', '📈', 'Reports', 'reports'),
+      ] %}
+      {% for href, icon, label, id in nav_items %}
+        {% if not (id == 'team' and not is_admin) %}
+        <a href="{{ href }}" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-surface-300 hover:text-white hover:bg-white/5 transition-all {% if request.path == href %}active text-white bg-white/5{% endif %}">
+          <span class="text-base">{{ icon }}</span>
+          <span>{{ label }}</span>
+        </a>
+        {% endif %}
+      {% endfor %}
+    </nav>
+
+    <div class="p-3 border-t border-white/5">
+      <a href="/settings" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-surface-400 hover:text-white hover:bg-white/5 transition-all">
+        <span>⚙️</span>
+        <span>Settings</span>
+      </a>
+      <a href="/logout" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-surface-400 hover:text-red-400 hover:bg-red-500/5 transition-all">
+        <span>🚪</span>
+        <span>Logout {{ '(' + current_user.name + ')' if current_user else '' }}</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <div class="lg:ml-64 min-h-screen flex flex-col">
+    <!-- Top bar -->
+    <header class="sticky top-0 z-30 bg-surface-950/90 backdrop-blur-xl border-b border-white/5">
+      <div class="flex items-center justify-between px-4 md:px-6 h-14">
+        <div class="flex items-center gap-3">
+          <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg hover:bg-white/5 text-surface-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div class="flex items-center gap-2">
+            <span class="text-lg">{% block page_icon %}🏠{% endblock %}</span>
+            <h1 class="text-lg font-semibold">{% block page_title %}Overview{% endblock %}</h1>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          {% if current_user %}
+          <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 text-xs text-surface-300">
+            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+            {{ current_user.name }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="px-4 md:px-6 pt-4 space-y-2">
+        {% for category, msg in messages %}
+        <div class="flash-message px-4 py-3 rounded-xl text-sm animate-slide-up flex items-center justify-between
+          {% if category == 'error' %}bg-red-500/10 border border-red-500/20 text-red-300
+          {% else %}bg-emerald-500/10 border border-emerald-500/20 text-emerald-300{% endif %}">
+          <span>{{ msg }}</span>
+          <button onclick="this.parentElement.remove()" class="opacity-60 hover:opacity-100">✕</button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Content -->
+    <main class="flex-1 px-4 md:px-6 py-6 animate-fade-in">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- AI Assistant Bar — persistent always -->
+    <div class="sticky bottom-0 z-30 bg-surface-900/90 backdrop-blur-xl border-t border-white/5">
+      <div class="flex items-center gap-3 px-4 md:px-6 py-3">
+        <div class="relative ai-avatar flex-shrink-0">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-sm pulse-ring">🧠</div>
+        </div>
+        <div class="flex-1 relative">
+          <input id="ai-command-input" type="text" 
+            placeholder="Ask Shunya anything... (new lead, show pipeline, create module)"
+            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all">
+          <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            <kbd class="hidden md:inline text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-surface-400">⌘K</kbd>
+            <button class="text-surface-500 hover:text-white transition-colors">🎤</button>
+          </div>
+        </div>
+        <button onclick="document.getElementById('ai-command-input').focus()" class="flex-shrink-0 text-xs text-surface-400 hover:text-white transition-colors hidden md:block">
+          Ask AI
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sidebar toggle (mobile)
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open')
+      document.getElementById('mobile-overlay').classList.toggle('hidden')
+    }
+
+    // Auto-dismiss flashes
+    setTimeout(() => {
+      document.querySelectorAll('.flash-message').forEach(el => {
+        el.style.transition = 'opacity .3s, transform .3s'
+        el.style.opacity = '0'
+        setTimeout(() => el.remove(), 300)
+      })
+    }, 5000)
+
+    // Cmd+K focus AI input
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        document.getElementById('ai-command-input').focus()
+      }
+    })
+
+    // AI command input — simple responses
+    document.getElementById('ai-command-input')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const val = e.target.value.trim().toLowerCase()
+        if (!val) return
+        // Route common commands
+        if (val.includes('new lead') || val.includes('create lead')) {
+          window.location.href = '/leads/new'
+        } else if (val.includes('pipeline') || val.includes('leads')) {
+          window.location.href = '/leads'
+        } else if (val.includes('payment')) {
+          window.location.href = '/payments'
+        } else if (val.includes('invoice')) {
+          window.location.href = '/invoices'
+        } else if (val.includes('report') || val.includes('stats')) {
+          window.location.href = '/reports'
+        } else if (val.includes('team')) {
+          window.location.href = '/team'
+        } else if (val.includes('hello') || val.includes('hi') || val.includes('hey')) {
+          alert('👋 Hey there! How can I help you today?')
+        } else {
+          alert('🧠 Let me think about that... Try: "new lead", "show pipeline", "create report"')
+        }
+        e.target.value = ''
+      }
+    })
+
+    // Active nav link
+    document.querySelectorAll('.nav-link').forEach(a => {
+      if (a.getAttribute('href') === window.location.pathname) {
+        a.classList.add('text-white', 'bg-white/5')
+      }
+    })
+  </script>
+</body>
+</html>

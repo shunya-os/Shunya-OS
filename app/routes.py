@@ -60,6 +60,8 @@ def index():
     recent = Lead.query.order_by(Lead.created_at.desc()).limit(8).all()
     # Companion greeting
     companion_greeting = "Hey! Ready to make today productive? 🚀"
+    ai_insight = "Your team is active. Your pipeline is moving. Let's make today count."
+    ai_tip = "Your team's conversion rate improves when leads get first response within 5 minutes. Consider assigning a dedicated intake agent."
     companion_suggestions_data = [
         {"icon": "📋", "text": "Review pending leads", "action": "/leads"},
         {"icon": "💰", "text": "Check payments", "action": "/payments"},
@@ -70,14 +72,16 @@ def index():
         c = CompanionEngine()
         if g.user:
             companion_greeting = c.greet(g.user.name).get("text", companion_greeting)
-            companion_suggestions_data = c.companion_suggestions(
-                role=g.user.role, pending_tasks=0
-            )
+            companion_suggestions_data = c.companion_suggestions(role=g.user.role)
     except Exception:
         pass
-    return render_template("dashboard.html", summary=s, recent=recent,
+    from app.models import ActivityLog
+    activities = ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(10).all()
+    return render_template("dashboard_universal.html", summary=s, recent=recent,
                            companion_greeting=companion_greeting,
-                           companion_suggestions=companion_suggestions_data)
+                           ai_insight=ai_insight, ai_tip=ai_tip,
+                           companion_suggestions=companion_suggestions_data,
+                           activities=activities)
 
 
 @main.route("/welcome")

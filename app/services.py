@@ -313,11 +313,25 @@ def get_summary(period: str = "today") -> dict:
 
     revenue = float(q_revenue.scalar() or 0)
     supplier_out = float(q_supplier.scalar() or 0)
+    
+    # Pipeline stats
+    pipeline_new = db.session.query(func.count(Lead.id)).filter(Lead.status == "new").scalar() or 0
+    pipeline_progress = db.session.query(func.count(Lead.id)).filter(
+        Lead.status.in_(["in_progress", "converted"])).scalar() or 0
+    pipeline_done = db.session.query(func.count(Lead.id)).filter(Lead.status == "completed").scalar() or 0
+    team_online = db.session.query(func.count(Lead.id)).filter().scalar() or 0  # placeholder
+    
     data = {
         "leads": q_leads.scalar() or 0,
+        "leads_today": q_leads.scalar() or 0,
         "revenue": revenue,
+        "revenue_mtd": revenue,
         "supplier_out": supplier_out,
         "profit": revenue - supplier_out,
+        "pipeline_new": pipeline_new,
+        "pipeline_progress": pipeline_progress,
+        "pipeline_done": pipeline_done,
+        "team_online": team_online or "—",
     }
 
     try:
