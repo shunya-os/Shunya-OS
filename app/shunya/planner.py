@@ -289,15 +289,31 @@ class PlannerLayer:
         if not dates_str:
             return 3
         try:
-            parts = dates_str.lower().replace("to", "-").replace("till", "-").replace("–", "-").split("-")
+            raw = dates_str.replace("to", "-").replace("till", "-").replace("–", "-").replace("—", "-")
+            parts = [p.strip() for p in raw.split("-") if p.strip()]
             if len(parts) >= 2:
-                for fmt in ("%d %B %Y", "%d %B", "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
+                # Try standard date formats first
+                for fmt in ("%d %b %Y", "%d %B %Y", "%d %b", "%d %B",
+                           "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
                     try:
-                        start = datetime.strptime(parts[0].strip(), fmt)
-                        end = datetime.strptime(parts[-1].strip(), fmt)
+                        start = datetime.strptime(parts[0], fmt)
+                        end = datetime.strptime(parts[-1], fmt)
                         return max(1, (end - start).days + 1)
                     except ValueError:
                         continue
+                # Handle "10-14 Jan 2027" → start day=10, end day=14, month+year from last part
+                if parts[0].isdigit() and len(parts) > 1:
+                    end_parts = parts[-1].split()
+                    if len(end_parts) >= 2:
+                        start_str = f"{parts[0]} {' '.join(end_parts[1:])}".strip()
+                        end_str = parts[-1].strip()
+                        for fmt in ("%d %b %Y", "%d %B %Y", "%d %b", "%d %B"):
+                            try:
+                                start = datetime.strptime(start_str, fmt)
+                                end = datetime.strptime(end_str, fmt)
+                                return max(1, (end - start).days + 1)
+                            except ValueError:
+                                continue
         except Exception:
             pass
         return 3

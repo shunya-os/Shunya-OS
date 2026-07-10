@@ -5,6 +5,15 @@
       "claimToken": "3f90e97e0751a11bb931f12822010c87b1733f52ba29e048ff121ed4c958aa65",
       "claimUrl": "https://here.now/claim?slug=cobalt-incense-gzpm&token=3f90e97e0751a11bb931f12822010c87b1733f52ba29e048ff121ed4c958aa65",
       "expiresAt": "2026-07-03T17:16:32.848Z"
+    },
+    "hallowed-quail-8apg": {
+      "siteUrl": "https://hallowed-quail-8apg.here.now/",
+      "claimToken": "f6535e242fbc362243ce0ffa25da2d9a033da810c055e602f6cb340660a35971",
+      "claimUrl": "https://here.now/claim?slug=hallowed-quail-8apg&token=f6535e242fbc362243ce0ffa25da2d9a033da810c055e602f6cb340660a35971",
+      "expiresAt": "2026-07-11T15:33:06.664Z"
+    },
+    "dewy-plover-x9h7": {
+      "siteUrl": "https://dewy-plover-x9h7.here.now/"
     }
   }
 }

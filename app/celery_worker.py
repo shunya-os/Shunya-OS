@@ -1,16 +1,8 @@
 """
-Celery worker config for async tasks like PDF generation.
-Requires REDIS_URL/CELERY_BROKER_URL env var.
+Legacy Celery worker entry point.
+Routes to app.cache which has the consolidated Celery + cache logic.
 """
-from celery import Celery
-import os
-celery = Celery('panchi', broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'), backend=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
-celery.conf.task_serializer = 'json'
-celery.conf.result_serializer = 'json'
-celery.conf.accept_content = ['json']
-celery.conf.task_track_started = True
-
-@celery.task()
-def generate_invoice_pdf(invoice_id: int, path: str):
-    from app.services import _generate_invoice_pdf
-    _generate_invoice_pdf(invoice_id, path)
+# Re-export tasks for `celery -A app.celery_worker worker` compatibility
+from app.cache import get_celery
+celery = get_celery()
+app = celery  # provides `celery_app` for CLI: celery -A app.celery_worker worker

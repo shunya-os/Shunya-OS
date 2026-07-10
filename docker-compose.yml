@@ -6,42 +6,31 @@ services:
       - "8000:8000"
     environment:
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=sqlite:///data/panchi.db
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://panchi:panchi_club_2024@postgres:5432/panchi_db
+    env_file:
+      - .env
     volumes:
-      - ./data:/app/data
       - ./invoices:/app/invoices
     depends_on:
-      redis:
+      postgres:
         condition: service_healthy
     restart: unless-stopped
-  celery:
-    build: .
-    command: celery -A app.celery_worker worker --loglevel=info
+
+  postgres:
+    image: pgvector/pgvector:0.8.0-pg16
     environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=sqlite:///data/panchi.db
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      POSTGRES_USER: panchi
+      POSTGRES_PASSWORD: panchi_club_2024
+      POSTGRES_DB: panchi_db
     volumes:
-      - ./data:/app/data
-      - ./invoices:/app/invoices
-    depends_on:
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis-data:/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U panchi -d panchi_db"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
     restart: unless-stopped
+
   nginx:
     image: nginx:1-alpine
     ports:
@@ -49,8 +38,11 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
     depends_on:
       - web
     restart: unless-stopped
+
 volumes:
-  redis-data:
+  pgdata:

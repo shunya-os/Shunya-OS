@@ -148,6 +148,8 @@ def parse_inquiry_text(text: str) -> dict:
     # "Bali for 2" → Bali (PlaceName before "for")
     # "Goa for 2 adults" → Goa
     # "to Bali for 2 adults" → Bali
+    # "Kerala 5 nights 2 adults" → Kerala (PlaceName at start, before nights)
+    # "family trip Sri Lanka 4 nights" → Sri Lanka
     m = re.search(r"(?i)(\d+\s*nights?\s+)([A-Z][a-zA-Z\s]{2,30}?)(?:\s+for\s|\s+in\s|$)", text)
     if m:
         result["destination"] = m.group(2).strip()
@@ -156,15 +158,24 @@ def parse_inquiry_text(text: str) -> dict:
         if m:
             result["destination"] = m.group(1).strip()
         else:
-            # "Goa for 2" → PlaceName before "for" followed by a number
-            m = re.search(r"(?i)([A-Z][a-zA-Z]{2,30}?)\s+for\s+\d", text)
+            m = re.search(r"(?i)([A-Z][a-zA-Z]+)\s+for\s+\d", text)
             if m:
                 result["destination"] = m.group(1).strip()
             else:
-                # Fallback: first capitalized word after "to/in/for"
-                m = re.search(r"(?i)(?:to|in|for)\s+([A-Z][a-zA-Z]+)", text)
+                # "family trip Sri Lanka" → PlaceName after "trip" (check before name+nights to avoid false match)
+                m = re.search(r"(?i)(?:trip|visit)\s+(?:to\s+)?([A-Z][a-zA-Z\s]{2,30}?)(?:\s+\d|$)", text)
                 if m:
-                    result["destination"] = m.group(1)
+                    result["destination"] = m.group(1).strip()
+                else:
+                    # "Kerala 5 nights" → PlaceName before nights
+                    m = re.search(r"(?i)^([A-Z][a-zA-Z]{2,30}?)\s+\d+\s+night", text)
+                    if m:
+                        result["destination"] = m.group(1).strip()
+                    else:
+                        # Fallback: first capitalized word after "to/in/for"
+                        m = re.search(r"(?i)(?:to|in|for)\s+([A-Z][a-zA-Z]+)", text)
+                        if m:
+                            result["destination"] = m.group(1)
 
     # --- Nights ---
     m = re.search(r"(\d+)\s*(?:night|nights|n)", text, re.I)

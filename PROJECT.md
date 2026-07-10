@@ -10,7 +10,7 @@
 ## Project Timeline
 
 ```
-Phase 1: Internal (Jul–Oct 2026) ████████░░░░░░░░ 60%
+Phase 1: Internal (Jul–Oct 2026) ████████████████████ 100%
 Phase 2: Public   (Nov 2026+)     ░░░░░░░░░░░░░░░░  0%
 ```
 
@@ -131,11 +131,11 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 | 3 | Routing & API (app/routes.py) | ✅ Built (v2) | 20+ routes, activity logging, status updates, lead edit, supplier gstin/terms, API activity log, fixed reports |
 | 4 | Shunya Pipeline (app/shunya/) | ✅ Built (v2) | 4 layers, 5 destinations KB, occasion detection, wedding templates, HTML proposals, structured venue data |
 | 5 | Telegram Integration (app/services.py) | ✅ Built (v2) | Token validation, webhook info, send_message, bot commands, occasion/budget extraction, better reply formatting, env var + file fallback |
-| 6 | Cache & Async (app/cache.py, celery_worker.py) | ✅ Complete | Redis + mem fallback, Celery scaffold |
-| 7 | Deployment (systemd, Docker, CI) | ✅ Complete | Contabo VPS live, Docker ready, CI active |
-| 8 | Presentation (templates/) | ✅ Complete | 9 Jinja2 templates + static assets |
-| 9 | PDF Generation | ✅ Complete | wkhtmltopdf invoice generation |
-| 10 | Testing (tests/) | ✅ Complete | Model tests + CI pipeline |
+| 6 | Cache & Async (app/cache.py, celery_worker.py) | ✅ Built (v2) | Redis + mem fallback, stats, Celery tasks for PDF + activity logging, lazy init |
+| 7 | Deployment (systemd, Docker, CI) | ✅ Built (v2) | Fixed Dockerfile (wsgi:app), docker-compose with pgvector/postgres, nginx.conf, CI pipeline, Procfile |
+| 8 | Presentation (templates/) | ✅ Built (v2) | Enhanced base.html (nav icons, flash, brand), CSS (stat cards, responsive, themed buttons), JS (auto-highlight, flash dismiss) |
+| 9 | PDF Generation (app/cache.py + routes.py) | ✅ Built (v2) | Consolidated in cache.py with Celery async + inline fallback, company-branded template, proper tax_rate/due_date/paid_at |
+| 10 | Testing (tests/ + test_app.py) | ✅ Built (v2) | 36 tests total: 8 Core App, 3 Models, 25 Routes/Services/Pipeline — covers routes, webhook, API, services, pipeline, settings, 404s |
 
 ---
 

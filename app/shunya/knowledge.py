@@ -178,7 +178,8 @@ def _extract_first_line(current_line: str, lines: list[str], idx: int) -> str:
 
 def _parse_taxes(text: str) -> list[dict]:
     taxes = []
-    for line in text.split(". "):
+    for line in text.split("\n"):
+        line = line.strip("- ").strip()
         m = re.match(r"([A-Za-z\s]+):\s*(\d+)%", line)
         if m:
             taxes.append({"name": m.group(1).strip(), "rate": int(m.group(2)) / 100})

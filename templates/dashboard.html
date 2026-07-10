@@ -1,27 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Dashboard</h2>
-<div class="grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:12px 0">
-  <div class="card"><div>Today's Leads</div><div style="font-size:24px;font-weight:700">{{ summary.leads }}</div></div>
-  <div class="card"><div>Guest Revenue</div><div style="font-size:24px;font-weight:700">₹{{ "{:,.2f}".format(summary.revenue) }}</div></div>
-  <div class="card"><div>Supplier Outflow</div><div style="font-size:24px;font-weight:700">₹{{ "{:,.2f}".format(summary.supplier_out) }}</div></div>
-  <div class="card"><div>Profit</div><div style="font-size:24px;font-weight:700">₹{{ "{:,.2f}".format(summary.profit) }}</div></div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="label">Today's Leads</div>
+    <div class="value blue">{{ summary.leads }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Guest Revenue</div>
+    <div class="value green">₹{{ "{:,.0f}".format(summary.revenue) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Supplier Outflow</div>
+    <div class="value red">₹{{ "{:,.0f}".format(summary.supplier_out) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Profit</div>
+    <div class="value {% if summary.profit >= 0 %}green{% else %}red{% endif %}">
+      ₹{{ "{:,.0f}".format(summary.profit) }}
+    </div>
+  </div>
 </div>
+
 <div class="card">
-  <h3>Recent leads</h3>
+  <h3>Recent Leads</h3>
   <table>
-    <thead><tr><th>Code</th><th>Destination</th><th>Phone</th><th>Created</th><th>Actions</th></tr></thead>
+    <thead>
+      <tr><th>Code</th><th>Customer</th><th>Destination</th><th>Status</th><th>Created</th><th></th></tr>
+    </thead>
     <tbody>
       {% for r in recent %}
       <tr>
         <td class="badge">{{ r.code }}</td>
+        <td>{{ r.customer_name or '-' }}</td>
         <td>{{ r.destination or '-' }}</td>
-        <td>{{ r.phone }}</td>
+        <td>
+          {% if r.status == 'new' %}
+            <span class="badge badge-warn">{{ r.status }}</span>
+          {% elif r.status == 'converted' %}
+            <span class="badge badge-success">{{ r.status }}</span>
+          {% elif r.status == 'cancelled' %}
+            <span class="badge badge-danger">{{ r.status }}</span>
+          {% else %}
+            <span class="badge">{{ r.status }}</span>
+          {% endif %}
+        </td>
         <td>{{ r.created_at.strftime('%d-%m-%Y %H:%M') }}</td>
-        <td><a href="{{url_for('main.lead_detail',lead_id=r.id)}}">View</a></td>
+        <td><a href="{{ url_for('main.lead_detail', lead_id=r.id) }}" class="button small">View</a></td>
       </tr>
       {% else %}
-      <tr><td colspan="5">No leads yet.</td></tr>
+      <tr><td colspan="6">No leads yet. <a href="{{ url_for('main.lead_new') }}">Create one</a>.</td></tr>
       {% endfor %}
     </tbody>
   </table>
