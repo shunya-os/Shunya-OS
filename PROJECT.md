@@ -32,8 +32,11 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 | ActivityLog model | ✅ V2 | Audit trail per lead: action, detail, user, timestamp |
 | Model helpers | ✅ V2 | to_dict(), __repr__(), total_revenue, profit_margin, log_activity() |
 | Inquiry code generator (PC format) | ✅ Done | PC{DD}{MM}{YY}{##} — space-free |
-| Dashboard CRUD routes | ✅ Done | /leads, /payments, /invoices, /reports, /settings |
-| Settings + supplier management | ✅ Done | CRUD via /settings |
+| Dashboard CRUD routes | ✅ V2 | /leads, /payments, /invoices, /reports, /settings + /leads/<id>/edit, /leads/<id>/status |
+| Activity logging on all actions | ✅ V2 | Auto-log on lead create, payment, invoice, status change |
+| Lead edit + status update | ✅ V2 | Edit form, dropdown status change with audit trail |
+| Supplier with GSTIN/terms | ✅ V2 | gstin, payment_terms, rating fields in form + list |
+| Reports with real data | ✅ V2 | Destinations count — fixed broken queries |
 | Request ID middleware | ✅ V2 | Every request gets X-Request-Id, echo from client |
 | JSON structured logging | ✅ V2 | python-json-logger for production, plain for dev |
 | Security headers | ✅ V2 | X-Content-Type-Options, X-Frame-Options, X-XSS, Referrer, Permissions |
@@ -121,7 +124,7 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 |---|------|--------|----------|
 | 1 | Core App (app/__init__.py) | ✅ Built (v2) | Factory, DB, blueprints, request IDs, JSON logging, security headers, CORS, rate limiting, error handlers, health endpoint, config_override for testing |
 | 2 | Data Layer (app/models.py) | ✅ Built (v2) | 6 tables (new: activity_logs), enums, indexes, to_dict, __repr__, helper properties |
-| 3 | Routing & API (app/routes.py) | ✅ Complete | 15+ routes, 2 blueprints |
+| 3 | Routing & API (app/routes.py) | ✅ Built (v2) | 20+ routes, activity logging, status updates, lead edit, supplier gstin/terms, API activity log, fixed reports |
 | 4 | Shunya Pipeline (app/shunya/) | ✅ Complete v1 | 4 layers, KB + reasoning + planning + orchestration |
 | 5 | Telegram Integration (app/services.py) | ✅ Complete | Webhook, parse, token mgmt |
 | 6 | Cache & Async (app/cache.py, celery_worker.py) | ✅ Complete | Redis + mem fallback, Celery scaffold |

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Settings / Suppliers</h2>
+<h2>Settings</h2>
+
 <div class="card">
   <h3>Telegram Bot</h3>
   <form method="post" action="/telegram/setup">
@@ -13,30 +14,47 @@
     <button type="submit">Set Telegram Webhook</button>
   </form>
 </div>
+
 <div class="card">
+  <h3>Add Supplier</h3>
   <form method="post">
-    <label>Name <input name="name" required /></label>
-    <label>Category
-      <select name="category"><option>hotel</option><option>flight</option><option>activity</option><option>transport</option><option>visa</option></select>
-    </label>
-    <label>Contact <input name="contact" /></label>
-    <label>Email <input name="email" /></label>
-    <label>Phone <input name="phone" /></label>
-    <label>City <input name="city" /></label>
-    <label>Notes <textarea name="notes" rows="3"></textarea></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <label>Name <input name="name" required /></label>
+      <label>Category
+        <select name="category"><option>hotel</option><option>flight</option><option>activity</option><option>transport</option><option>visa</option><option>venue</option></select>
+      </label>
+      <label>Contact Person <input name="contact" /></label>
+      <label>Email <input name="email" type="email" /></label>
+      <label>Phone <input name="phone" /></label>
+      <label>City <input name="city" /></label>
+      <label>GSTIN <input name="gstin" placeholder="22AAAAA0000A1Z5" /></label>
+      <label>Payment Terms <input name="payment_terms" placeholder="30 days" /></label>
+    </div>
+    <label>Notes <textarea name="notes" rows="2"></textarea></label>
     <button type="submit">Add Supplier</button>
   </form>
 </div>
+
 <div class="card">
-  <table>
-    <thead><tr><th>Name</th><th>Category</th><th>City</th><th>Phone</th></tr></thead>
-    <tbody>
-      {% for s in suppliers %}
-      <tr><td>{{ s.name }}</td><td>{{ s.category or '-' }}</td><td>{{ s.city or '-' }}</td><td>{{ s.phone or '-' }}</td></tr>
-      {% else %}
-      <tr><td colspan="4">No suppliers.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <h3>Suppliers ({{ suppliers|length }})</h3>
+  <div style="max-height:400px;overflow-y:auto">
+    <table>
+      <thead><tr><th>Name</th><th>Category</th><th>City</th><th>Phone</th><th>GSTIN</th><th>Terms</th></tr></thead>
+      <tbody>
+        {% for s in suppliers %}
+        <tr>
+          <td>{{ s.name }}</td>
+          <td>{{ s.category or '-' }}</td>
+          <td>{{ s.city or '-' }}</td>
+          <td>{{ s.phone or '-' }}</td>
+          <td>{{ s.gstin or '-' }}</td>
+          <td>{{ s.payment_terms or '-' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">No suppliers.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

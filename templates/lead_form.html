@@ -1,46 +1,37 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>New Lead</h2>
-<form method="post" class="card" style="max-width:760px">
-  <label>Code</label>
-  <input type="text" name="code" value="{{ code }}" readonly>
-
-  <label>Status</label>
-  <select name="status">
-    {% set s = request.form.get('status', 'new') %}
-    <option value="new" {{ 'selected' if s=='new' }}>New</option>
-    <option value="in_progress" {{ 'selected' if s=='in_progress' }}>In Progress</option>
-    <option value="converted" {{ 'selected' if s=='converted' }}>Converted</option>
-    <option value="cancelled" {{ 'selected' if s=='cancelled' }}>Cancelled</option>
-  </select>
-
-  <label>Customer Name</label>
-  <input type="text" name="customer_name" value="{{ request.form.get('customer_name','') }}" required>
-
-  <label>Phone</label>
-  <input type="tel" name="phone" value="{{ request.form.get('phone','') }}">
-
-  <label>Destination</label>
-  <input type="text" name="destination" value="{{ request.form.get('destination','') }}">
-
-  <label>Source</label>
-  <select name="source">
-    {% set src = request.form.get('source', 'telegram') %}
-    <option value="telegram" {{ 'selected' if src=='telegram' }}>Telegram</option>
-    <option value="web" {{ 'selected' if src=='web' }}>Web</option>
-    <option value="other" {{ 'selected' if src=='other' }}>Other</option>
-  </select>
-
-  <label>Pax</label>
-  <input type="text" name="pax" placeholder="e.g. 2 adults, 1 kid" value="{{ request.form.get('pax','') }}">
-
-  <label>Dates</label>
-  <input type="text" name="dates" placeholder="e.g. 10 Jan - 15 Jan" value="{{ request.form.get('dates','') }}">
-
-  <label>Notes</label>
-  <textarea name="notes" rows="4">{{ request.form.get('notes','') }}</textarea>
-
-  <button type="submit">Save Lead</button>
-  <a href="{{ url_for('main.leads_list') }}">Cancel</a>
-</form>
+<h2>{% if editing %}Edit Lead{% else %}New Lead{% endif %}</h2>
+<div class="card">
+  <form method="post">
+    <label>Code <input name="code" value="{{ lead.code if editing else code }}" readonly /></label>
+    <label>Source
+      <select name="source">
+        <option value="telegram" {% if editing and lead.source=='telegram' %}selected{% endif %}>Telegram</option>
+        <option value="manual" {% if editing and lead.source=='manual' %}selected{% endif %}>Manual</option>
+        <option value="api" {% if editing and lead.source=='api' %}selected{% endif %}>API</option>
+        <option value="email" {% if editing and lead.source=='email' %}selected{% endif %}>Email</option>
+      </select>
+    </label>
+    <label>Customer Name <input name="customer_name" value="{{ lead.customer_name or '' }}" required /></label>
+    <label>Phone <input name="phone" value="{{ lead.phone or '' }}" /></label>
+    <label>Email <input name="email" type="email" value="{{ lead.email or '' }}" /></label>
+    <label>Destination <input name="destination" value="{{ lead.destination or '' }}" /></label>
+    <label>Pax <input name="pax" value="{{ lead.pax or '' }}" /></label>
+    <label>Dates <input name="dates" value="{{ lead.dates or '' }}" /></label>
+    <label>Budget (INR) <input name="budget" type="number" step="0.01" min="0" value="{{ lead.budget or '' }}" /></label>
+    <label>Assigned To <input name="assigned_to" value="{{ lead.assigned_to or '' }}" /></label>
+    <label>Status
+      <select name="status">
+        <option value="new" {% if (editing and lead.status=='new') or not editing %}selected{% endif %}>New</option>
+        <option value="in_progress" {% if editing and lead.status=='in_progress' %}selected{% endif %}>In Progress</option>
+        <option value="converted" {% if editing and lead.status=='converted' %}selected{% endif %}>Converted</option>
+        <option value="cancelled" {% if editing and lead.status=='cancelled' %}selected{% endif %}>Cancelled</option>
+        <option value="on_hold" {% if editing and lead.status=='on_hold' %}selected{% endif %}>On Hold</option>
+      </select>
+    </label>
+    <label>Notes <textarea name="notes" rows="3">{{ lead.notes or '' }}</textarea></label>
+    <button type="submit">{% if editing %}Update Lead{% else %}Create Lead{% endif %}</button>
+    <a href="{{ url_for('main.leads_list') }}" class="button secondary">Cancel</a>
+  </form>
+</div>
 {% endblock %}
