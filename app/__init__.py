@@ -291,6 +291,8 @@ def create_app(config_override: dict | None = None):
             "current_tenant": None,
             "nav_modules": nav_modules,
             "companion_greeting": "Hey! Ready to make today productive? 🚀",
+            "current_lang": "en",
+            "ui_labels": {},
             "companion_suggestions": [
                 {"icon": "📋", "text": "Review pending leads", "action": "/leads"},
                 {"icon": "💰", "text": "Check payments", "action": "/payments"},

@@ -160,14 +160,34 @@
           <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-sm pulse-ring">🧠</div>
         </div>
         <div class="flex-1 relative">
-          <input id="ai-command-input" type="text" 
-            placeholder="Ask Shunya anything... (new lead, show pipeline, create module)"
-            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all">
-          <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-            <kbd class="hidden md:inline text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-surface-400">⌘K</kbd>
-            <button class="text-surface-500 hover:text-white transition-colors">🎤</button>
-          </div>
-        </div>
+                    <input id="ai-command-input" type="text" 
+                      placeholder="{{ ui_labels.ask_anything if ui_labels else 'Ask Shunya anything... (new lead, show pipeline, create module)' }}"
+                      class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all">
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                      <kbd class="hidden md:inline text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-surface-400">⌘K</kbd>
+                      <button onclick="startVoiceInput()" class="text-surface-500 hover:text-white transition-colors" title="Voice input">🎤</button>
+                      <select id="lang-select" onchange="changeLanguage(this.value)" 
+                        class="text-[10px] bg-white/10 border border-white/10 rounded px-1.5 py-0.5 text-surface-400 outline-none">
+                        <option value="en" {% if current_lang == 'en' %}selected{% endif %}>EN</option>
+                        <option value="hi" {% if current_lang == 'hi' %}selected{% endif %}>हि</option>
+                        <option value="bn" {% if current_lang == 'bn' %}selected{% endif %}>বাং</option>
+                        <option value="te" {% if current_lang == 'te' %}selected{% endif %}>తె</option>
+                        <option value="ta" {% if current_lang == 'ta' %}selected{% endif %}>த</option>
+                        <option value="ml" {% if current_lang == 'ml' %}selected{% endif %}>മ</option>
+                        <option value="gu" {% if current_lang == 'gu' %}selected{% endif %}>ગુ</option>
+                        <option value="mr" {% if current_lang == 'mr' %}selected{% endif %}>म</option>
+                        <option value="kn" {% if current_lang == 'kn' %}selected{% endif %}>ಕ</option>
+                        <option value="pa" {% if current_lang == 'pa' %}selected{% endif %}>ਪ</option>
+                        <option value="ar" {% if current_lang == 'ar' %}selected{% endif %}>ع</option>
+                        <option value="fr" {% if current_lang == 'fr' %}selected{% endif %}>FR</option>
+                        <option value="es" {% if current_lang == 'es' %}selected{% endif %}>ES</option>
+                        <option value="de" {% if current_lang == 'de' %}selected{% endif %}>DE</option>
+                        <option value="zh" {% if current_lang == 'zh' %}selected{% endif %}>中</option>
+                        <option value="ja" {% if current_lang == 'ja' %}selected{% endif %}>日</option>
+                        <option value="ko" {% if current_lang == 'ko' %}selected{% endif %}>한</option>
+                      </select>
+                    </div>
+                  </div>
         <button onclick="document.getElementById('ai-command-input').focus()" class="flex-shrink-0 text-xs text-surface-400 hover:text-white transition-colors hidden md:block">
           Ask AI
         </button>
@@ -176,6 +196,43 @@
   </div>
 
   <script>
+    // Language switching
+    function changeLanguage(lang) {
+      document.cookie = `shunya_lang=${lang};path=/;max-age=86400`;
+      window.location.reload();
+    }
+
+    // Voice input using Web Speech API
+    function startVoiceInput() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert('Voice input is not supported in your browser. Try Chrome.');
+        return;
+      }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      const langMap = {
+        'en': 'en-US', 'hi': 'hi-IN', 'bn': 'bn-IN', 'te': 'te-IN',
+        'ta': 'ta-IN', 'ml': 'ml-IN', 'gu': 'gu-IN', 'mr': 'mr-IN',
+        'kn': 'kn-IN', 'pa': 'pa-IN', 'or': 'or-IN', 'as': 'as-IN',
+        'fr': 'fr-FR', 'es': 'es-ES', 'de': 'de-DE', 'zh': 'zh-CN',
+        'ja': 'ja-JP', 'ko': 'ko-KR', 'ar': 'ar-SA', 'ru': 'ru-RU',
+      };
+      const langSelect = document.getElementById('lang-select');
+      const currentLang = langSelect ? langSelect.value : 'en';
+      recognition.lang = langMap[currentLang] || 'en-US';
+      
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('ai-command-input').value = transcript;
+        // Auto-submit after voice input
+        setTimeout(() => {
+          const event = new KeyboardEvent('keydown', { key: 'Enter' });
+          document.getElementById('ai-command-input').dispatchEvent(event);
+        }, 500);
+      };
+      recognition.start();
+    }
+
     // Sidebar toggle (mobile)
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('open')
