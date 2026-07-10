@@ -47,16 +47,18 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 | Context processor (brand, AI@panchi.club) | ✅ V2 | Injected into all templates |
 | Tests (11 passing) | ✅ V2 | 8 new Core App tests + 3 model tests |
 
-### ✅ 1.2 Telegram Integration — COMPLETE
+### ✅ 1.2 Telegram Integration — BUILT (v2)
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Telegram webhook receiver | ✅ Done | POST /telegram/webhook |
-| Bot token management | ✅ Done | Save via /setup, persist to file |
-| Webhook registration | ✅ Done | /setwebhook → Telegram API |
-| Inquiry text parser | ✅ Done | Regex extracts destination, pax, dates |
-| Auto lead creation from Telegram | ✅ Done | Creates code + lead record |
-| Reply confirmation to chat | ✅ Done | "✅ Inquiry logged: PC10072601" |
+| Webhook receiver | ✅ Done | POST /telegram/webhook — creates lead, logs activity |
+| Bot token management (file + env) | ✅ V2 | Env var first, file fallback |
+| Token validation | ✅ V2 | getMe API to verify token before saving |
+| Webhook status | ✅ V2 | getWebhookInfo to check current state |
+| Bot commands menu | ✅ V2 | /start, /lead, /status, /help via setMyCommands |
+| Inquiry text parser | ✅ V2 | Extracts destination, nights, adults, kids, dates, **budget**, **occasion** |
+| Rich reply formatting | ✅ V2 | Location, nights, dates, pax, budget, occasion in reply |
+| Dashboard summary engine | ✅ V2 | today/month/all periods, cached |
 
 ### ✅ 1.3 Database — COMPLETE
 
@@ -128,7 +130,7 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 | 2 | Data Layer (app/models.py) | ✅ Built (v2) | 6 tables (new: activity_logs), enums, indexes, to_dict, __repr__, helper properties |
 | 3 | Routing & API (app/routes.py) | ✅ Built (v2) | 20+ routes, activity logging, status updates, lead edit, supplier gstin/terms, API activity log, fixed reports |
 | 4 | Shunya Pipeline (app/shunya/) | ✅ Built (v2) | 4 layers, 5 destinations KB, occasion detection, wedding templates, HTML proposals, structured venue data |
-| 5 | Telegram Integration (app/services.py) | ✅ Complete | Webhook, parse, token mgmt |
+| 5 | Telegram Integration (app/services.py) | ✅ Built (v2) | Token validation, webhook info, send_message, bot commands, occasion/budget extraction, better reply formatting, env var + file fallback |
 | 6 | Cache & Async (app/cache.py, celery_worker.py) | ✅ Complete | Redis + mem fallback, Celery scaffold |
 | 7 | Deployment (systemd, Docker, CI) | ✅ Complete | Contabo VPS live, Docker ready, CI active |
 | 8 | Presentation (templates/) | ✅ Complete | 9 Jinja2 templates + static assets |

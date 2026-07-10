@@ -14,7 +14,7 @@ from app.models import (
     Lead, Payment, Supplier, Invoice, ItineraryRef,
     LeadStatus, PaymentType, InvoiceStatus, next_inquiry_code,
 )
-from app.services import parse_inquiry_text, get_summary, _cached_or_new_code
+from app.services import parse_inquiry_text, get_summary, _cached_or_new_code, format_inquiry_reply
 
 main = Blueprint("main", __name__)
 api = Blueprint("api", __name__)
@@ -354,11 +354,7 @@ def telegram_webhook():
     reply = {
         "method": "sendMessage",
         "chat_id": sender,
-        "text": (
-            f"✅ Inquiry logged: {code}\n"
-            f"Destination: {parsed.get('destination') or 'N/A'}\n"
-            f"Dates: {parsed.get('dates') or 'N/A'}"
-        ),
+        "text": format_inquiry_reply(parsed, code),
     }
     return jsonify(reply), 200
 
