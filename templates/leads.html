@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Leads</h2>
+<div class="card">
+  <form method="get">
+    <input name="q" placeholder="Search code / destination / name" value="{{q}}" />
+    <button type="submit">Search</button>
+  </form>
+</div>
+<div class="card">
+  <a href="{{url_for('main.lead_new')}}"><button>+ New Lead</button></a>
+  <table>
+    <thead><tr><th>Code</th><th>Source</th><th>Name</th><th>Destination</th><th>Pax</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody>
+      {% for l in leads %}
+      <tr>
+        <td class="badge">{{ l.code }}</td>
+        <td>{{ l.source }}</td>
+        <td>{{ l.customer_name or '-' }}</td>
+        <td>{{ l.destination or '-' }}</td>
+        <td>{{ l.pax or '-' }}</td>
+        <td>{{ l.dates or '-' }}</td>
+        <td>{{ l.status }}</td>
+        <td><a href="{{url_for('main.lead_detail',lead_id=l.id)}}">Open</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8">No leads.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Reports</h2>
+<div class="card">
+  <h3>Top Destinations</h3>
+  <table>
+    <thead><tr><th>Destination</th><th>Leads</th></tr></thead>
+    <tbody>
+      {% for d,c in dest_counts %}
+      <tr><td>{{ d }}</td><td>{{ c }}</td></tr>
+      {% else %}
+      <tr><td colspan="2">No data yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.env
+data/panchi.db
+panchi.db
+invoices/
+node_modules/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Dashboard</h2>
+<div class="grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:12px 0">
+  <div class="card"><div>Today's Leads</div><div style="font-size:24px;font-weight:700">{{ summary.leads }}</div></div>
+  <div class="card"><div>Guest Revenue</div><div style="font-size:24px;font-weight:700">₹{{ "{:,.2f}".format(summary.revenue) }}</div></div>
+  <div class="card"><div>Supplier Outflow</div><div style="font-size:24px;font-weight:700">₹{{ "{:,.2f}".format(summary.supplier_out) }}</div></div>
+  <div class="card"><div>Profit</div><div style="font-size:24px;font-weight:700">₹{{ "{:,.2f}".format(summary.profit) }}</div></div>
+</div>
+<div class="card">
+  <h3>Recent leads</h3>
+  <table>
+    <thead><tr><th>Code</th><th>Destination</th><th>Phone</th><th>Created</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for r in recent %}
+      <tr>
+        <td class="badge">{{ r.code }}</td>
+        <td>{{ r.destination or '-' }}</td>
+        <td>{{ r.phone }}</td>
+        <td>{{ r.created_at.strftime('%d-%m-%Y %H:%M') }}</td>
+        <td><a href="{{url_for('main.lead_detail',lead_id=r.id)}}">View</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">No leads yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Settings / Suppliers</h2>
+<div class="card">
+  <h3>Telegram Bot</h3>
+  <form method="post" action="/telegram/setup">
+    <label>Bot Token
+      <input name="bot_token" placeholder="123456:ABC-DEF..." required />
+    </label>
+    <button type="submit">Save Telegram Token</button>
+  </form>
+  <form method="post" action="/telegram/setwebhook" style="margin-top:10px">
+    <button type="submit">Set Telegram Webhook</button>
+  </form>
+</div>
+<div class="card">
+  <form method="post">
+    <label>Name <input name="name" required /></label>
+    <label>Category
+      <select name="category"><option>hotel</option><option>flight</option><option>activity</option><option>transport</option><option>visa</option></select>
+    </label>
+    <label>Contact <input name="contact" /></label>
+    <label>Email <input name="email" /></label>
+    <label>Phone <input name="phone" /></label>
+    <label>City <input name="city" /></label>
+    <label>Notes <textarea name="notes" rows="3"></textarea></label>
+    <button type="submit">Add Supplier</button>
+  </form>
+</div>
+<div class="card">
+  <table>
+    <thead><tr><th>Name</th><th>Category</th><th>City</th><th>Phone</th></tr></thead>
+    <tbody>
+      {% for s in suppliers %}
+      <tr><td>{{ s.name }}</td><td>{{ s.category or '-' }}</td><td>{{ s.city or '-' }}</td><td>{{ s.phone or '-' }}</td></tr>
+      {% else %}
+      <tr><td colspan="4">No suppliers.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

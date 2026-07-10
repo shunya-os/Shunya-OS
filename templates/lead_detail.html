@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Lead {{ lead.code }}</h2>
+
+<div class="card">
+  <p><strong>Source:</strong> {{ lead.source }}</p>
+  <p><strong>Customer:</strong> {{ lead.customer_name or '-' }}</p>
+  <p><strong>Phone:</strong> {{ lead.phone or '-' }}</p>
+  <p><strong>Destination:</strong> {{ lead.destination or '-' }}</p>
+  <p><strong>Pax:</strong> {{ lead.pax or '-' }}</p>
+  <p><strong>Dates:</strong> {{ lead.dates or '-' }}</p>
+  <p><strong>Status:</strong> {{ lead.status }}</p>
+  <p><strong>Notes:</strong> {{ lead.notes or '-' }}</p>
+  <p><strong>Created:</strong> {{ lead.created_at.strftime('%d-%m-%Y %H:%M') }}</p>
+  <p><strong>Updated:</strong> {{ lead.updated_at.strftime('%d-%m-%Y %H:%M') }}</p>
+  <a href="{{ url_for('main.leads_list') }}">← Back to Leads</a>
+</div>
+
+<div class="card">
+  <h3>Payments</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Paid At</th>
+        <th>Type</th>
+        <th>Amount</th>
+        <th>Method</th>
+        <th>Ref</th>
+        <th>Notes</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in lead.payments %}
+      <tr>
+        <td>{{ p.paid_at.strftime('%d-%m-%Y %H:%M') }}</td>
+        <td>{{ p.type }}</td>
+        <td>₹{{ "{:,.2f}".format(p.amount) }}</td>
+        <td>{{ p.method or '-' }}</td>
+        <td>{{ p.ref_number or '-' }}</td>
+        <td>{{ p.notes or '-' }}</td>
+        <td>
+          <form method="post" action="{{ url_for('main.payment_delete', payment_id=p.id) }}" onsubmit="return confirm('Delete payment?')" style="display:inline">
+            <button type="submit" class="secondary">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">No payments.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Invoices</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Invoice</th>
+        <th>Raised</th>
+        <th>Total</th>
+        <th>Tax</th>
+        <th>Discount</th>
+        <th>Grand</th>
+        <th>Currency</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in lead.invoices %}
+      <tr>
+        <td class="badge">{{ inv.invoice_number }}</td>
+        <td>{{ inv.raised_at.strftime('%d-%m-%Y') }}</td>
+        <td>₹{{ "{:,.2f}".format(inv.total_amount) }}</td>
+        <td>₹{{ "{:,.2f}".format(inv.tax) }}</td>
+        <td>₹{{ "{:,.2f}".format(inv.discount) }}</td>
+        <td><strong>₹{{ "{:,.2f}".format(inv.grand_total) }}</strong></td>
+        <td>{{ inv.currency }}</td>
+        <td>{{ inv.status }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8">No invoices.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Add Payment</h3>
+  <form method="post" action="{{ url_for('main.payments') }}">
+    <input type="hidden" name="lead_id" value="{{ lead.id }}" />
+    <label>Type
+      <select name="type">
+        <option value="guest_payment" selected>Guest Payment</option>
+        <option value="supplier_payment">Supplier Payment</option>
+      </select>
+    </label>
+    <label>Amount <input name="amount" type="number" step="0.01" min="0" required /></label>
+    <label>Method <input name="method" /></label>
+    <label>Ref Number <input name="ref_number" /></label>
+    <label>Notes <textarea name="notes" rows="2"></textarea></label>
+    <button type="submit">Add Payment</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Add Invoice</h3>
+  <form method="post" action="{{ url_for('main.invoices') }}">
+    <input type="hidden" name="lead_id" value="{{ lead.id }}" />
+    <label>Invoice Number <input name="invoice_number" required /></label>
+    <label>Total Amount <input name="total_amount" type="number" step="0.01" min="0" required /></label>
+    <label>Tax <input name="tax" type="number" step="0.01" min="0" value="0" /></label>
+    <label>Discount <input name="discount" type="number" step="0.01" min="0" value="0" /></label>
+    <label>Status
+      <select name="status">
+        <option value="draft">Draft</option>
+        <option value="paid">Paid</option>
+        <option value="void">Void</option>
+      </select>
+    </label>
+    <label>Currency <input name="currency" value="INR" /></label>
+    <button type="submit">Create Invoice</button>
+  </form>
+</div>
+{% endblock %}

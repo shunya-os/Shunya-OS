@@ -1,0 +1,10 @@
+{
+  "publishes": {
+    "cobalt-incense-gzpm": {
+      "siteUrl": "https://cobalt-incense-gzpm.here.now/",
+      "claimToken": "3f90e97e0751a11bb931f12822010c87b1733f52ba29e048ff121ed4c958aa65",
+      "claimUrl": "https://here.now/claim?slug=cobalt-incense-gzpm&token=3f90e97e0751a11bb931f12822010c87b1733f52ba29e048ff121ed4c958aa65",
+      "expiresAt": "2026-07-03T17:16:32.848Z"
+    }
+  }
+}

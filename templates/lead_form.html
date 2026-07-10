@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>New Lead</h2>
+<form method="post" class="card" style="max-width:760px">
+  <label>Code</label>
+  <input type="text" name="code" value="{{ code }}" readonly>
+
+  <label>Status</label>
+  <select name="status">
+    {% set s = request.form.get('status', 'new') %}
+    <option value="new" {{ 'selected' if s=='new' }}>New</option>
+    <option value="in_progress" {{ 'selected' if s=='in_progress' }}>In Progress</option>
+    <option value="converted" {{ 'selected' if s=='converted' }}>Converted</option>
+    <option value="cancelled" {{ 'selected' if s=='cancelled' }}>Cancelled</option>
+  </select>
+
+  <label>Customer Name</label>
+  <input type="text" name="customer_name" value="{{ request.form.get('customer_name','') }}" required>
+
+  <label>Phone</label>
+  <input type="tel" name="phone" value="{{ request.form.get('phone','') }}">
+
+  <label>Destination</label>
+  <input type="text" name="destination" value="{{ request.form.get('destination','') }}">
+
+  <label>Source</label>
+  <select name="source">
+    {% set src = request.form.get('source', 'telegram') %}
+    <option value="telegram" {{ 'selected' if src=='telegram' }}>Telegram</option>
+    <option value="web" {{ 'selected' if src=='web' }}>Web</option>
+    <option value="other" {{ 'selected' if src=='other' }}>Other</option>
+  </select>
+
+  <label>Pax</label>
+  <input type="text" name="pax" placeholder="e.g. 2 adults, 1 kid" value="{{ request.form.get('pax','') }}">
+
+  <label>Dates</label>
+  <input type="text" name="dates" placeholder="e.g. 10 Jan - 15 Jan" value="{{ request.form.get('dates','') }}">
+
+  <label>Notes</label>
+  <textarea name="notes" rows="4">{{ request.form.get('notes','') }}</textarea>
+
+  <button type="submit">Save Lead</button>
+  <a href="{{ url_for('main.leads_list') }}">Cancel</a>
+</form>
+{% endblock %}

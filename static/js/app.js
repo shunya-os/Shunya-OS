@@ -1,0 +1,1 @@
+document.querySelectorAll('.topbar a[href^="/"]').forEach(a=>{if(a.host!==location.host)return;if(a.getAttribute('href')===location.pathname){a.style.background='#eff6ff';a.style.color='#2563eb'}})
