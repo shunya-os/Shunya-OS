@@ -9,6 +9,7 @@ from .planner import PlannerLayer
 from .governance import GovernanceLayer, GovernanceVerdict, Policy, PolicyRegistry, PolicySeverity, PolicyScope
 from .executor import ExecutorLayer, OutboundMessage, InboundMessage, DeliveryResult, ChannelType, MessageType, ChannelAdapter, WhatsAppAdapter, TelegramAdapter
 from .knowledge_store import ImmutableKnowledgeStore, KnowledgeFact
+from .observer_learning import ObserverLayer, LearningLayer, Observation, LearningEntry
 from .workflow import WorkflowLayer
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "ExecutorLayer", "OutboundMessage", "InboundMessage", "DeliveryResult",
     "ChannelType", "MessageType", "ChannelAdapter", "WhatsAppAdapter", "TelegramAdapter",
     "ImmutableKnowledgeStore", "KnowledgeFact",
+    "ObserverLayer", "LearningLayer", "Observation", "LearningEntry",
     "WorkflowLayer",
 ]
