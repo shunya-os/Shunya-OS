@@ -1,25 +1,273 @@
+"""
+Panchi Club Travel OS — Core App Unit
+Flask application factory with production scaffolding.
+
+Unit 1 of 10 — foundation layer.
+"""
+
 import os
-from flask import Flask
+import uuid
+import logging
+from datetime import datetime
+from flask import Flask, g, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
+
+# ---------------------------------------------------------------------------
+# Extensions (initialized without app, bound in create_app)
+# ---------------------------------------------------------------------------
 db = SQLAlchemy()
-load_dotenv()
-def create_app():
-    app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), '..', 'templates'), static_folder=os.path.join(os.path.dirname(__file__), '..', 'static'))
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY','dev-secret')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://panchi:panchi_club_2024@localhost:5432/panchi_db')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# ---------------------------------------------------------------------------
+# Logging setup
+# ---------------------------------------------------------------------------
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+
+def _setup_logging(app: Flask):
+    """Configure structured JSON logging for production, plain for dev."""
+    is_dev = os.getenv("FLASK_ENV", "production") == "development"
+
+    if not is_dev:
+        try:
+            from pythonjsonlogger import jsonlogger
+
+            handler = logging.StreamHandler()
+            fmt = jsonlogger.JsonFormatter(
+                "%(asctime)s %(name)s %(levelname)s %(message)s %(request_id)s"
+            )
+            handler.setFormatter(fmt)
+            app.logger.handlers.clear()
+            app.logger.addHandler(handler)
+            app.logger.setLevel(LOG_LEVEL)
+        except ImportError:
+            pass  # fallback to default Flask logger
+
+    app.logger.info("Logging initialised", extra={"request_id": "bootstrap"})
+
+
+# ---------------------------------------------------------------------------
+# Middleware
+# ---------------------------------------------------------------------------
+
+def _request_id_middleware(app: Flask):
+    """Attach a unique request_id to every request for tracing."""
+
+    @app.before_request
+    def _attach_request_id():
+        rid = request.headers.get("X-Request-Id") or str(uuid.uuid4())
+        g.request_id = rid
+
+    @app.after_request
+    def _tag_response(response):
+        rid = getattr(g, "request_id", "")
+        response.headers["X-Request-Id"] = rid
+        return response
+
+
+def _security_headers_middleware(app: Flask):
+    """Apply standard security headers to every response."""
+
+    @app.after_request
+    def _add_security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        return response
+
+
+def _cors_setup(app: Flask):
+    """Enable CORS for API routes (Shunya endpoints)."""
+    try:
+        from flask_cors import CORS
+
+        CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+        app.logger.info("CORS enabled for /api/*")
+    except ImportError:
+        app.logger.warning("flask-cors not available — CORS disabled")
+
+
+def _rate_limiter_setup(app: Flask):
+    """Rate-limit webhook and API endpoints."""
+    try:
+        from flask_limiter import Limiter
+        from flask_limiter.util import get_remote_address
+
+        store = os.getenv("REDIS_URL") or "memory://"
+        limiter = Limiter(
+            app=app,
+            key_func=get_remote_address,
+            storage_uri=store,
+            default_limits=["200 per day", "50 per hour"],
+            enabled=not os.getenv("DISABLE_RATE_LIMIT", ""),
+        )
+
+        # Tighten limits on Telegram webhook
+        limiter.limit("10 per minute")(lambda: None)  # applied per-route in routes.py
+
+        app.logger.info("Rate limiter initialised (storage: %s)", store)
+    except ImportError:
+        app.logger.warning("flask-limiter not available — rate limiting disabled")
+
+
+# ---------------------------------------------------------------------------
+# Error handlers
+# ---------------------------------------------------------------------------
+
+def _register_error_handlers(app: Flask):
+    """Return JSON for API errors, HTML for UI errors."""
+
+    @app.errorhandler(400)
+    def bad_request(e):
+        return _error_response(400, "Bad request", str(e))
+
+    @app.errorhandler(403)
+    def forbidden(e):
+        return _error_response(403, "Forbidden", str(e))
+
+    @app.errorhandler(404)
+    def not_found(e):
+        return _error_response(404, "Not found", str(e))
+
+    @app.errorhandler(405)
+    def method_not_allowed(e):
+        return _error_response(405, "Method not allowed", str(e))
+
+    @app.errorhandler(500)
+    def server_error(e):
+        rid = getattr(g, "request_id", "")
+        app.logger.error("Internal server error", extra={
+            "request_id": rid,
+            "error": str(e),
+        })
+        return _error_response(500, "Internal server error", "Contact support with request ID")
+
+    def _error_response(code, message, detail=""):
+        is_api = request.path.startswith("/api/") or request.path.startswith("/shunya/")
+        if is_api or request.accept_mimetypes.best == "application/json":
+            return jsonify({
+                "error": message,
+                "detail": str(detail),
+                "request_id": getattr(g, "request_id", ""),
+            }), code
+        # HTML fallback for browser routes
+        return (
+            f"<!doctype html><title>{code} {message}</title>"
+            f"<h1>{code}</h1><p>{message}</p>",
+            code,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Health endpoint (built in, consolidates standalone healthcheck.py)
+# ---------------------------------------------------------------------------
+
+def _register_health(app: Flask):
+    """Built-in health check — DB, table counts, uptime."""
+
+    @app.route("/health")
+    def health():
+        from sqlalchemy import text
+        from app.models import Lead, Payment, Supplier, Invoice, ItineraryRef
+
+        checks = {"status": "ok"}
+        try:
+            db.session.execute(text("SELECT 1"))
+            checks["database"] = "connected"
+            checks["tables"] = {
+                "leads": db.session.query(Lead).count(),
+                "payments": db.session.query(Payment).count(),
+                "suppliers": db.session.query(Supplier).count(),
+                "invoices": db.session.query(Invoice).count(),
+                "itinerary_refs": db.session.query(ItineraryRef).count(),
+            }
+        except Exception as e:
+            checks["database"] = f"error: {e}"
+            checks["status"] = "degraded"
+
+        checks["version"] = "1.0.0"
+        checks["request_id"] = getattr(g, "request_id", "")
+        status_code = 200 if checks["status"] == "ok" else 503
+        return jsonify(checks), status_code
+
+
+# ---------------------------------------------------------------------------
+# Factory
+# ---------------------------------------------------------------------------
+
+def create_app(config_override: dict | None = None):
+    """
+    Flask application factory.
+
+    Usage:
+        app = create_app()
+        app.run()
+
+    For testing, pass config_override to override DATABASE_URL etc.
+    """
+    load_dotenv()
+
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(os.path.dirname(__file__), "..", "templates"),
+        static_folder=os.path.join(os.path.dirname(__file__), "..", "static"),
+    )
+
+    # ---- Config -----------------------------------------------------------
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-in-production")
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
+        "DATABASE_URL", "postgresql://panchi:panchi_club_2024@localhost:5432/panchi_db"
+    )
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["JSON_SORT_KEYS"] = False
+    app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB upload limit
+
+    # Apply test/config overrides
+    if config_override:
+        app.config.update(config_override)
+
+    # ---- Extensions -------------------------------------------------------
     db.init_app(app)
+
+    # ---- Middleware stack --------------------------------------------------
+    _setup_logging(app)
+    _request_id_middleware(app)
+    _security_headers_middleware(app)
+    _cors_setup(app)
+    _rate_limiter_setup(app)
+    _register_error_handlers(app)
+    _register_health(app)
+
+    # ---- Blueprints -------------------------------------------------------
     from app.routes import main, api
+
     app.register_blueprint(main)
+    # Keep API at /shunya/* for backward compat (routes.py defines @api.route('/shunya/...'))
     app.register_blueprint(api)
+
+    # ---- Context processor (all templates) --------------------------------
     @app.context_processor
     def inject_globals():
-        return {'brand':'Panchi Club','assistant_identity':'AI@panchi.club'}
+        return {
+            "brand": "Panchi Club",
+            "assistant_identity": "AI@panchi.club",
+            "year": datetime.utcnow().year,
+        }
+
+    # ---- Auto-create tables (safe for first run) --------------------------
     with app.app_context():
-        from sqlalchemy.exc import OperationalError
+        from sqlalchemy.exc import OperationalError, ProgrammingError
+
         try:
             db.create_all()
-        except OperationalError:
-            pass
+            app.logger.info("Database tables verified")
+        except (OperationalError, ProgrammingError) as e:
+            app.logger.warning("Tables may already exist or DB not ready: %s", e)
+
+    app.logger.info(
+        "Panchi Club Travel OS initialised",
+        extra={"request_id": "bootstrap", "db": app.config["SQLALCHEMY_DATABASE_URI"][:30]},
+    )
     return app

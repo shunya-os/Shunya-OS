@@ -20,15 +20,25 @@ Phase 2: Public   (Nov 2026+)     ░░░░░░░░░░░░░░░�
 
 Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for operations.
 
-### ✅ 1.1 Core Backend — COMPLETE
+### ✅ 1.1 Core App Unit — BUILT (v2)
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Flask app factory (create_app) | ✅ Done | PostgreSQL, blueprints, context processors |
+| Flask app factory (create_app + config_override) | ✅ Done | Supports test overrides, safe defaults |
+| PostgreSQL database init | ✅ Done | pgvector-ready, auto-create tables |
 | Database models (5 tables) | ✅ Done | leads, payments, invoices, suppliers, itinerary_refs |
 | Inquiry code generator (PC format) | ✅ Done | PC{DD}{MM}{YY}{##} — space-free |
 | Dashboard CRUD routes | ✅ Done | /leads, /payments, /invoices, /reports, /settings |
 | Settings + supplier management | ✅ Done | CRUD via /settings |
+| Request ID middleware | ✅ V2 | Every request gets X-Request-Id, echo from client |
+| JSON structured logging | ✅ V2 | python-json-logger for production, plain for dev |
+| Security headers | ✅ V2 | X-Content-Type-Options, X-Frame-Options, X-XSS, Referrer, Permissions |
+| CORS support | ✅ V2 | flask-cors enabled for /api/* |
+| Rate limiting | ✅ V2 | flask-limiter, memory:// fallback, 10/min on webhook |
+| Error handlers (400/403/404/405/500) | ✅ V2 | JSON for API routes, HTML fallback for UI |
+| Built-in /health endpoint | ✅ V2 | DB ping + table counts + version |
+| Context processor (brand, AI@panchi.club) | ✅ V2 | Injected into all templates |
+| Tests (11 passing) | ✅ V2 | 8 new Core App tests + 3 model tests |
 
 ### ✅ 1.2 Telegram Integration — COMPLETE
 
@@ -105,7 +115,7 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 
 | # | Unit | Status | Coverage |
 |---|------|--------|----------|
-| 1 | Core App (app/__init__.py) | ✅ Complete | Factory, DB, blueprints, branding |
+| 1 | Core App (app/__init__.py) | ✅ Built (v2) | Factory, DB, blueprints, request IDs, JSON logging, security headers, CORS, rate limiting, error handlers, health endpoint, config_override for testing |
 | 2 | Data Layer (app/models.py) | ✅ Complete | 5 tables, PC code generator |
 | 3 | Routing & API (app/routes.py) | ✅ Complete | 15+ routes, 2 blueprints |
 | 4 | Shunya Pipeline (app/shunya/) | ✅ Complete v1 | 4 layers, KB + reasoning + planning + orchestration |
