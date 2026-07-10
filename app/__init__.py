@@ -276,6 +276,11 @@ def create_app(config_override: dict | None = None):
     @app.context_processor
     def inject_globals():
         user = getattr(g, "user", None)
+        # Load ontology for navigation
+        from app.ontology import registry
+        from app.tenant import Tenant
+        ont = registry.get("travel")
+        nav_modules = [m for m in ont.modules if m.enabled] if ont else []
         return {
             "brand": "Panchi Club",
             "assistant_identity": "AI@panchi.club",
@@ -284,6 +289,7 @@ def create_app(config_override: dict | None = None):
             "is_admin": user and user.role == "admin",
             "is_manager": user and user.role == "manager",
             "current_tenant": None,
+            "nav_modules": nav_modules,
             "companion_greeting": "Hey! Ready to make today productive? 🚀",
             "companion_suggestions": [
                 {"icon": "📋", "text": "Review pending leads", "action": "/leads"},

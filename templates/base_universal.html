@@ -69,15 +69,22 @@
 
     <nav class="flex-1 overflow-y-auto p-3 space-y-1">
       {% set nav_items = [
-        ('/', '📊', 'Overview', 'overview'),
-        ('/leads?view=pipeline', '📋', 'Pipeline', 'pipeline'),
-        ('/itineraries', '🗺️', 'Itineraries', 'itineraries'),
-        ('/payments', '💰', 'Payments', 'payments'),
-        ('/invoices', '🧾', 'Invoices', 'invoices'),
-        ('/calendar', '📅', 'Calendar', 'calendar'),
-        ('/team', '👥', 'Team', 'team'),
-        ('/reports', '📈', 'Reports', 'reports'),
+        ('/', '🏠', 'Overview', 'overview'),
       ] %}
+      {% if nav_modules %}
+        {% for m in nav_modules %}
+          {% set _ = nav_items.append((m.route, m.icon, m.label, m.id)) %}
+        {% endfor %}
+      {% else %}
+        {% set nav_items = [
+          ('/', '📊', 'Overview', 'overview'),
+          ('/leads?view=pipeline', '📋', 'Pipeline', 'pipeline'),
+          ('/payments', '💰', 'Payments', 'payments'),
+          ('/invoices', '🧾', 'Invoices', 'invoices'),
+          ('/team', '👥', 'Team', 'team'),
+          ('/reports', '📈', 'Reports', 'reports'),
+        ] %}
+      {% endif %}
       {% for href, icon, label, id in nav_items %}
         {% if not (id == 'team' and not is_admin) %}
         <a href="{{ href }}" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-surface-300 hover:text-white hover:bg-white/5 transition-all {% if request.path == href %}active text-white bg-white/5{% endif %}">

@@ -77,11 +77,26 @@ def index():
         pass
     from app.models import ActivityLog
     activities = ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(10).all()
-    return render_template("dashboard_universal.html", summary=s, recent=recent,
+    
+    # Business-type adaptive data
+    from app.ontology import registry
+    business_type = "travel"  # Default for Panchi Club
+    ontology = registry.get(business_type)
+    lead_counts = {"new": 0, "active": 0, "won": 0}
+    for l in recent:
+        status = l.status or "new"
+        if status in ("new", "inquiry", "application"): lead_counts["new"] += 1
+        elif status in ("in_progress", "proposal", "negotiation", "active", "enrolled"): lead_counts["active"] += 1
+        elif status in ("converted", "booked", "completed", "graduated", "won"): lead_counts["won"] += 1
+    quick_actions = [{"icon": m.icon, "label": m.label, "route": m.route} for m in ontology.modules if m.enabled][:4]
+    
+    return render_template("dashboard_adaptive.html", summary=s, recent=recent,
                            companion_greeting=companion_greeting,
                            ai_insight=ai_insight, ai_tip=ai_tip,
                            companion_suggestions=companion_suggestions_data,
-                           activities=activities)
+                           activities=activities, ontology=ontology,
+                           lead_counts=lead_counts, quick_actions=quick_actions,
+                           recent_items=[{"name": l.customer_name, "detail": l.destination, "date": l.created_at.strftime('%d %b') if l.created_at else ''} for l in recent],)
 
 
 @main.route("/welcome")

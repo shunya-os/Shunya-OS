@@ -1,10 +1,11 @@
 """
-Shunya — Tenant/Company Model & Branding Engine (Phase 3G)
+Shunya — Tenant/Company Model & Branding Engine (Phase 3G + Universal)
 
 Multi-company white-label foundation. Every company gets:
 - Isolated data namespace
 - Custom logo, theme, brand name, welcome message
 - Own AI Companion personality
+- Business-type specific ontology (travel, healthcare, school, retail, etc.)
 """
 
 import json
@@ -57,10 +58,12 @@ class Tenant(db.Model):
     id = Column(Integer, primary_key=True)
     company_name = Column(String(255), nullable=False)
     slug = Column(String(120), unique=True, nullable=False, index=True)
+    business_type = Column(String(60), default="other")  # travel, hospital, school, retail, other, multi_brand
+    parent_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)  # For multi-brand
     subdomain = Column(String(120), unique=True)
     domain = Column(String(255))
     is_active = Column(Boolean, default=True)
-    plan = Column(String(30), default="free")                # free, premium
+    plan = Column(String(30), default="free")
     max_team_members = Column(Integer, default=10)
     created_at = Column(DateTime, default=datetime.utcnow)
     theme = db.relationship("TenantTheme", uselist=False, backref="tenant", cascade="all,delete")
@@ -70,6 +73,8 @@ class Tenant(db.Model):
             "id": self.id,
             "company_name": self.company_name,
             "slug": self.slug,
+            "business_type": self.business_type,
+            "parent_id": self.parent_id,
             "subdomain": self.subdomain,
             "domain": self.domain,
             "is_active": self.is_active,
