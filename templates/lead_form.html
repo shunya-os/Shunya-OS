@@ -1,37 +1,94 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>{% if editing %}Edit Lead{% else %}New Lead{% endif %}</h2>
-<div class="card">
-  <form method="post">
-    <label>Code <input name="code" value="{{ lead.code if editing else code }}" readonly /></label>
-    <label>Source
-      <select name="source">
-        <option value="telegram" {% if editing and lead.source=='telegram' %}selected{% endif %}>Telegram</option>
-        <option value="manual" {% if editing and lead.source=='manual' %}selected{% endif %}>Manual</option>
-        <option value="api" {% if editing and lead.source=='api' %}selected{% endif %}>API</option>
-        <option value="email" {% if editing and lead.source=='email' %}selected{% endif %}>Email</option>
-      </select>
-    </label>
-    <label>Customer Name <input name="customer_name" value="{{ lead.customer_name or '' }}" required /></label>
-    <label>Phone <input name="phone" value="{{ lead.phone or '' }}" /></label>
-    <label>Email <input name="email" type="email" value="{{ lead.email or '' }}" /></label>
-    <label>Destination <input name="destination" value="{{ lead.destination or '' }}" /></label>
-    <label>Pax <input name="pax" value="{{ lead.pax or '' }}" /></label>
-    <label>Dates <input name="dates" value="{{ lead.dates or '' }}" /></label>
-    <label>Budget (INR) <input name="budget" type="number" step="0.01" min="0" value="{{ lead.budget or '' }}" /></label>
-    <label>Assigned To <input name="assigned_to" value="{{ lead.assigned_to or '' }}" /></label>
-    <label>Status
-      <select name="status">
-        <option value="new" {% if (editing and lead.status=='new') or not editing %}selected{% endif %}>New</option>
-        <option value="in_progress" {% if editing and lead.status=='in_progress' %}selected{% endif %}>In Progress</option>
-        <option value="converted" {% if editing and lead.status=='converted' %}selected{% endif %}>Converted</option>
-        <option value="cancelled" {% if editing and lead.status=='cancelled' %}selected{% endif %}>Cancelled</option>
-        <option value="on_hold" {% if editing and lead.status=='on_hold' %}selected{% endif %}>On Hold</option>
-      </select>
-    </label>
-    <label>Notes <textarea name="notes" rows="3">{{ lead.notes or '' }}</textarea></label>
-    <button type="submit">{% if editing %}Update Lead{% else %}Create Lead{% endif %}</button>
-    <a href="{{ url_for('main.leads_list') }}" class="button secondary">Cancel</a>
-  </form>
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-slate-900">{% if editing %}Edit Lead{% else %}New Lead{% endif %}</h1>
+  <a href="{{ url_for('main.leads_list') }}" class="text-sm text-slate-500 hover:text-slate-700 font-medium">← Back</a>
+</div>
+
+<div class="max-w-2xl mx-auto">
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <form method="post" class="space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Code</label>
+          <input name="code" value="{{ lead.code if editing else code }}" readonly class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-500 cursor-not-allowed" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Source</label>
+          <select name="source" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+            <option value="telegram" {% if editing and lead.source=='telegram' %}selected{% endif %}>Telegram</option>
+            <option value="manual" {% if editing and lead.source=='manual' %}selected{% endif %}>Manual</option>
+            <option value="api" {% if editing and lead.source=='api' %}selected{% endif %}>API</option>
+            <option value="email" {% if editing and lead.source=='email' %}selected{% endif %}>Email</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Customer Name *</label>
+          <input name="customer_name" value="{{ lead.customer_name or '' }}" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Phone</label>
+          <input name="phone" value="{{ lead.phone or '' }}" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
+          <input name="email" type="email" value="{{ lead.email or '' }}" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Destination</label>
+          <input name="destination" value="{{ lead.destination or '' }}" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Pax</label>
+          <input name="pax" value="{{ lead.pax or '' }}" placeholder="2 adults, 1 kid" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Dates</label>
+          <input name="dates" value="{{ lead.dates or '' }}" placeholder="15-20 Dec 2026" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Budget (INR)</label>
+          <input name="budget" type="number" step="0.01" min="0" value="{{ lead.budget or '' }}" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Assigned To</label>
+          <input name="assigned_to" value="{{ lead.assigned_to or '' }}" placeholder="Team member name" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Status</label>
+        <select name="status" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+          <option value="new" {% if (editing and lead.status=='new') or not editing %}selected{% endif %}>New</option>
+          <option value="in_progress" {% if editing and lead.status=='in_progress' %}selected{% endif %}>In Progress</option>
+          <option value="converted" {% if editing and lead.status=='converted' %}selected{% endif %}>Converted</option>
+          <option value="cancelled" {% if editing and lead.status=='cancelled' %}selected{% endif %}>Cancelled</option>
+          <option value="on_hold" {% if editing and lead.status=='on_hold' %}selected{% endif %}>On Hold</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Notes</label>
+        <textarea name="notes" rows="3" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-vertical">{{ lead.notes or '' }}</textarea>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">{% if editing %}Update Lead{% else %}Create Lead{% endif %}</button>
+        <a href="{{ url_for('main.leads_list') }}" class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">Cancel</a>
+      </div>
+    </form>
+  </div>
 </div>
 {% endblock %}

@@ -1,57 +1,105 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Settings</h2>
-
-<div class="card">
-  <h3>Telegram Bot</h3>
-  <form method="post" action="/telegram/setup">
-    <label>Bot Token
-      <input name="bot_token" placeholder="123456:ABC-DEF..." required />
-    </label>
-    <button type="submit">Save Telegram Token</button>
-  </form>
-  <form method="post" action="/telegram/setwebhook" style="margin-top:10px">
-    <button type="submit">Set Telegram Webhook</button>
-  </form>
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
 </div>
 
-<div class="card">
-  <h3>Add Supplier</h3>
-  <form method="post">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <label>Name <input name="name" required /></label>
-      <label>Category
-        <select name="category"><option>hotel</option><option>flight</option><option>activity</option><option>transport</option><option>visa</option><option>venue</option></select>
-      </label>
-      <label>Contact Person <input name="contact" /></label>
-      <label>Email <input name="email" type="email" /></label>
-      <label>Phone <input name="phone" /></label>
-      <label>City <input name="city" /></label>
-      <label>GSTIN <input name="gstin" placeholder="22AAAAA0000A1Z5" /></label>
-      <label>Payment Terms <input name="payment_terms" placeholder="30 days" /></label>
-    </div>
-    <label>Notes <textarea name="notes" rows="2"></textarea></label>
-    <button type="submit">Add Supplier</button>
-  </form>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Telegram Bot</h3>
+    <form method="post" action="/telegram/setup" class="space-y-3">
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Bot Token</label>
+        <input name="bot_token" placeholder="123456:ABC-DEF..." required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+      </div>
+      <button type="submit" class="w-full bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">Save Token</button>
+    </form>
+    <form method="post" action="/telegram/setwebhook" class="mt-3">
+      <button type="submit" class="w-full bg-slate-100 text-slate-700 text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">Set Webhook</button>
+    </form>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Add Supplier</h3>
+    <form method="post" class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Name *</label>
+          <input name="name" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Category</label>
+          <select name="category" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+            <option>hotel</option><option>flight</option><option>activity</option><option>transport</option><option>visa</option><option>venue</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Contact Person</label>
+          <input name="contact" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
+          <input name="email" type="email" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Phone</label>
+          <input name="phone" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">City</label>
+          <input name="city" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">GSTIN</label>
+          <input name="gstin" placeholder="22AAAAA0000A1Z5" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Payment Terms</label>
+          <input name="payment_terms" placeholder="30 days" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Notes</label>
+        <textarea name="notes" rows="2" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-vertical"></textarea>
+      </div>
+      <button type="submit" class="w-full bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">Add Supplier</button>
+    </form>
+  </div>
 </div>
 
-<div class="card">
-  <h3>Suppliers ({{ suppliers|length }})</h3>
-  <div style="max-height:400px;overflow-y:auto">
-    <table>
-      <thead><tr><th>Name</th><th>Category</th><th>City</th><th>Phone</th><th>GSTIN</th><th>Terms</th></tr></thead>
-      <tbody>
+<div class="mt-6 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Suppliers</h3>
+    <span class="text-xs text-slate-400">{{ suppliers|length }} total</span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <th class="px-5 py-3 text-left">Name</th>
+        <th class="px-5 py-3 text-left">Category</th>
+        <th class="px-5 py-3 text-left">City</th>
+        <th class="px-5 py-3 text-left">Phone</th>
+        <th class="px-5 py-3 text-left">GSTIN</th>
+        <th class="px-5 py-3 text-left">Terms</th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100">
         {% for s in suppliers %}
-        <tr>
-          <td>{{ s.name }}</td>
-          <td>{{ s.category or '-' }}</td>
-          <td>{{ s.city or '-' }}</td>
-          <td>{{ s.phone or '-' }}</td>
-          <td>{{ s.gstin or '-' }}</td>
-          <td>{{ s.payment_terms or '-' }}</td>
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-5 py-3.5 font-medium">{{ s.name }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ s.category or '-' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ s.city or '-' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ s.phone or '-' }}</td>
+          <td class="px-5 py-3.5 font-mono text-xs text-slate-500">{{ s.gstin or '-' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ s.payment_terms or '-' }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="6">No suppliers.</td></tr>
+        <tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">No suppliers.</td></tr>
         {% endfor %}
       </tbody>
     </table>

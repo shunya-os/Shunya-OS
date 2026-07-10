@@ -1,58 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Dashboard</h2>
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
+  <a href="{{ url_for('main.lead_new') }}" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">+ New Lead</a>
+</div>
 
-<div class="stat-grid">
-  <div class="stat-card">
-    <div class="label">Today's Leads</div>
-    <div class="value blue">{{ summary.leads }}</div>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+    <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Today's Leads</div>
+    <div class="text-3xl font-bold text-blue-600">{{ summary.leads }}</div>
   </div>
-  <div class="stat-card">
-    <div class="label">Guest Revenue</div>
-    <div class="value green">₹{{ "{:,.0f}".format(summary.revenue) }}</div>
+  <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+    <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Guest Revenue</div>
+    <div class="text-3xl font-bold text-green-600">₹{{ "{:,.0f}".format(summary.revenue) }}</div>
   </div>
-  <div class="stat-card">
-    <div class="label">Supplier Outflow</div>
-    <div class="value red">₹{{ "{:,.0f}".format(summary.supplier_out) }}</div>
+  <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+    <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Supplier Outflow</div>
+    <div class="text-3xl font-bold text-red-600">₹{{ "{:,.0f}".format(summary.supplier_out) }}</div>
   </div>
-  <div class="stat-card">
-    <div class="label">Profit</div>
-    <div class="value {% if summary.profit >= 0 %}green{% else %}red{% endif %}">
-      ₹{{ "{:,.0f}".format(summary.profit) }}
-    </div>
+  <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+    <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Profit</div>
+    <div class="text-3xl font-bold {% if summary.profit >= 0 %}text-green-600{% else %}text-red-600{% endif %}">₹{{ "{:,.0f}".format(summary.profit) }}</div>
   </div>
 </div>
 
-<div class="card">
-  <h3>Recent Leads</h3>
-  <table>
-    <thead>
-      <tr><th>Code</th><th>Customer</th><th>Destination</th><th>Status</th><th>Created</th><th></th></tr>
-    </thead>
-    <tbody>
-      {% for r in recent %}
-      <tr>
-        <td class="badge">{{ r.code }}</td>
-        <td>{{ r.customer_name or '-' }}</td>
-        <td>{{ r.destination or '-' }}</td>
-        <td>
-          {% if r.status == 'new' %}
-            <span class="badge badge-warn">{{ r.status }}</span>
-          {% elif r.status == 'converted' %}
-            <span class="badge badge-success">{{ r.status }}</span>
-          {% elif r.status == 'cancelled' %}
-            <span class="badge badge-danger">{{ r.status }}</span>
-          {% else %}
-            <span class="badge">{{ r.status }}</span>
-          {% endif %}
-        </td>
-        <td>{{ r.created_at.strftime('%d-%m-%Y %H:%M') }}</td>
-        <td><a href="{{ url_for('main.lead_detail', lead_id=r.id) }}" class="button small">View</a></td>
-      </tr>
-      {% else %}
-      <tr><td colspan="6">No leads yet. <a href="{{ url_for('main.lead_new') }}">Create one</a>.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-slate-100">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Recent Leads</h3>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <th class="px-5 py-3 text-left">Code</th>
+          <th class="px-5 py-3 text-left">Customer</th>
+          <th class="px-5 py-3 text-left">Destination</th>
+          <th class="px-5 py-3 text-left">Status</th>
+          <th class="px-5 py-3 text-left">Created</th>
+          <th class="px-5 py-3 text-right">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in recent %}
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-5 py-3.5 font-mono text-xs font-semibold text-blue-600 bg-blue-50 rounded-full inline-block px-2.5 py-0.5">{{ r.code }}</td>
+          <td class="px-5 py-3.5">{{ r.customer_name or '-' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ r.destination or '-' }}</td>
+          <td class="px-5 py-3.5">{% include "_status_badge.html" %}</td>
+          <td class="px-5 py-3.5 text-slate-500 text-xs">{{ r.created_at.strftime('%d-%m-%Y %H:%M') }}</td>
+          <td class="px-5 py-3.5 text-right"><a href="{{ url_for('main.lead_detail',lead_id=r.id) }}" class="text-sm text-blue-600 hover:text-blue-700 font-medium">View →</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">No leads yet. <a href="{{ url_for('main.lead_new') }}" class="text-blue-600 hover:underline">Create one</a>.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

@@ -1,43 +1,99 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Invoices</h2>
-<div class="card">
-  <form method="post">
-    <label>Lead
-      <select name="lead_id"><option value="">--select--</option>
-        {% for l in leads %}<option value="{{l.id}}">{{l.code}} — {{l.destination or '-'}}</option>{% endfor %}
-      </select>
-    </label>
-    <label>Invoice Number <input name="invoice_number" required /></label>
-    <label>Total Amount <input name="total_amount" type="number" step="0.01" min="0" required /></label>
-    <label>Tax <input name="tax" type="number" step="0.01" min="0" value="0" /></label>
-    <label>Discount <input name="discount" type="number" step="0.01" min="0" value="0" /></label>
-    <label>Status
-      <select name="status"><option value="draft">Draft</option><option value="paid">Paid</option><option value="void">Void</option></select>
-    </label>
-    <label>Currency <input name="currency" value="INR" /></label>
-    <button type="submit">Create Invoice</button>
-  </form>
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-slate-900">Invoices</h1>
 </div>
-<div class="card">
-  <table>
-    <thead><tr><th>Raised</th><th>Invoice</th><th>Code</th><th>Total</th><th>Tax</th><th>Discount</th><th>Grand</th><th>Status</th></tr></thead>
-    <tbody>
-      {% for inv in invoices %}
-      <tr>
-        <td>{{ inv.raised_at.strftime('%d-%m-%Y') }}</td>
-        <td class="badge">{{ inv.invoice_number }}</td>
-        <td>{{ inv.lead.code if inv.lead else '-' }}</td>
-        <td>₹{{ "{:,.2f}".format(inv.total_amount) }}</td>
-        <td>₹{{ "{:,.2f}".format(inv.tax) }}</td>
-        <td>₹{{ "{:,.2f}".format(inv.discount) }}</td>
-        <td><strong>₹{{ "{:,.2f}".format(inv.grand_total) }}</strong></td>
-        <td>{{ inv.status }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="8">No invoices.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Create Invoice</h3>
+    <form method="post" class="space-y-3">
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Lead</label>
+        <select name="lead_id" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+          <option value="">-- Select --</option>
+          {% for l in leads %}<option value="{{ l.id }}">{{ l.code }} — {{ l.destination or '-' }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Invoice Number *</label>
+        <input name="invoice_number" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Total</label>
+          <input name="total_amount" type="number" step="0.01" min="0" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Tax Rate %</label>
+          <input name="tax_rate" type="number" step="0.01" min="0" value="0" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Discount</label>
+          <input name="discount" type="number" step="0.01" min="0" value="0" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Currency</label>
+          <input name="currency" value="INR" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Due Date</label>
+          <input name="due_date" type="date" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Status</label>
+          <select name="status" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="paid">Paid</option>
+            <option value="void">Void</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="w-full bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">Create Invoice</button>
+    </form>
+  </div>
+
+  <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">All Invoices</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <th class="px-5 py-3 text-left">Raised</th>
+          <th class="px-5 py-3 text-left">Invoice</th>
+          <th class="px-5 py-3 text-left">Code</th>
+          <th class="px-5 py-3 text-left">Total</th>
+          <th class="px-5 py-3 text-left">Tax</th>
+          <th class="px-5 py-3 text-left">Disc.</th>
+          <th class="px-5 py-3 text-left">Grand</th>
+          <th class="px-5 py-3 text-left">Status</th>
+          <th class="px-5 py-3 text-left">PDF</th>
+        </tr></thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for inv in invoices %}
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-5 py-3.5 text-xs">{{ inv.raised_at.strftime('%d-%m-%Y') }}</td>
+            <td class="px-5 py-3.5 font-mono text-xs font-semibold text-blue-600">{{ inv.invoice_number }}</td>
+            <td class="px-5 py-3.5 font-mono text-xs text-slate-600">{{ inv.lead.code if inv.lead else '-' }}</td>
+            <td class="px-5 py-3.5">₹{{ "{:,.2f}".format(inv.total_amount) }}</td>
+            <td class="px-5 py-3.5">₹{{ "{:,.2f}".format(inv.tax) }}</td>
+            <td class="px-5 py-3.5">₹{{ "{:,.2f}".format(inv.discount) }}</td>
+            <td class="px-5 py-3.5 font-semibold">₹{{ "{:,.2f}".format(inv.grand_total) }}</td>
+            <td class="px-5 py-3.5"><span class="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{{ inv.status }}</span></td>
+            <td class="px-5 py-3.5"><a href="{{ url_for('main.invoice_pdf',invoice_id=inv.id) }}" class="text-blue-600 hover:text-blue-700 text-sm font-medium">PDF</a></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="px-5 py-8 text-center text-slate-400">No invoices.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 {% endblock %}
