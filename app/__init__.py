@@ -9,7 +9,7 @@ import os
 import uuid
 import logging
 from datetime import datetime
-from flask import Flask, g, request, jsonify, session, redirect, url_for
+from flask import Flask, g, request, jsonify, session, redirect, url_for, current_app
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 
@@ -283,6 +283,13 @@ def create_app(config_override: dict | None = None):
             "current_user": user,
             "is_admin": user and user.role == "admin",
             "is_manager": user and user.role == "manager",
+            "current_tenant": None,
+            "companion_greeting": "Hey! Ready to make today productive? 🚀",
+            "companion_suggestions": [
+                {"icon": "📋", "text": "Review pending leads", "action": "/leads"},
+                {"icon": "💰", "text": "Check payments", "action": "/payments"},
+                {"icon": "📊", "text": "View reports", "action": "/reports"},
+            ],
         }
 
     # ---- Auto-create tables (safe for first run) --------------------------

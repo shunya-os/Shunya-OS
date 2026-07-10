@@ -58,7 +58,55 @@ def _log_activity(lead_id: int, action: str, detail: str = ""):
 def index():
     s = get_summary("today")
     recent = Lead.query.order_by(Lead.created_at.desc()).limit(8).all()
-    return render_template("dashboard.html", summary=s, recent=recent)
+    # Companion greeting
+    companion_greeting = "Hey! Ready to make today productive? 🚀"
+    companion_suggestions_data = [
+        {"icon": "📋", "text": "Review pending leads", "action": "/leads"},
+        {"icon": "💰", "text": "Check payments", "action": "/payments"},
+        {"icon": "📊", "text": "View reports", "action": "/reports"},
+    ]
+    try:
+        from app.companion import CompanionEngine
+        c = CompanionEngine()
+        if g.user:
+            companion_greeting = c.greet(g.user.name).get("text", companion_greeting)
+            companion_suggestions_data = c.companion_suggestions(
+                role=g.user.role, pending_tasks=0
+            )
+    except Exception:
+        pass
+    return render_template("dashboard.html", summary=s, recent=recent,
+                           companion_greeting=companion_greeting,
+                           companion_suggestions=companion_suggestions_data)
+
+
+@main.route("/welcome")
+def welcome():
+    """Welcome screen with logo, greeting, voice."""
+    from app.companion import CompanionEngine
+    c = CompanionEngine()
+    employee_name = g.user.name if hasattr(g, "user") and g.user else "there"
+    welcome_data = c.greet(employee_name)
+    stats = [
+        {"value": "4", "label": "Today's Leads"},
+        {"value": "₹45K", "label": "Revenue"},
+        {"value": "6", "label": "Team Online"},
+    ]
+    return render_template("welcome.html",
+        greeting=welcome_data["text"],
+        message="Your team is ready. Your pipeline is active. Let's make today count.",
+        voice_text=welcome_data["voice_text"],
+        stats=stats,
+        company_name="Panchi Club",
+        company_emoji="🏝️",
+        bg_color="#0f172a",
+        sidebar_bg="#1e293b",
+        primary_color="#2563eb",
+        accent_color="#7c3aed",
+        logo_style="circle",
+        logo_path="",
+        cta_text="Start Your Day",
+    )
 
 
 # ---------------------------------------------------------------------------
