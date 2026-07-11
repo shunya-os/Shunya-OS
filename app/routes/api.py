@@ -133,46 +133,49 @@ def api_delete_entity(entity_type, entity_id):
 @api_bp.route("/ai/query", methods=["POST"])
 @login_required
 def ai_query():
-    """Ask the AI a question — searches internal data first, then web."""
+    """Ask the AI a question — searches internal data first, then web.
+    
+    Returns structured context with source attribution so the frontend
+    can show whether the answer came from company knowledge or the web.
+    """
     data = request.get_json(silent=True) or {}
     query = data.get("query", "").strip()
     if not query:
         return jsonify({"error": "Query required"}), 400
 
-    # 1. Search knowledge base
-    kb_results = KnowledgeEntry.query.filter(
-        KnowledgeEntry.tenant_id == g.tenant.id,
-        KnowledgeEntry.question.ilike(f"%{query}%")
-    ).order_by(KnowledgeEntry.use_count.desc()).limit(5).all()
+    from app.shunya.knowledge import KnowledgePipeline
 
-    # 2. Search entity data
-    entity_results = Entity.query.filter(
-        Entity.tenant_id == g.tenant.id,
-        Entity.is_archived == False
-    ).order_by(Entity.created_at.desc()).limit(10).all()
+    # Search internal data first, fall back to web
+    context = KnowledgePipeline.get_context_for_ai(query, g.tenant.id)
 
-    # Build context for AI
-    context_parts = []
-    if kb_results:
-        context_parts.append("KNOWLEDGE BASE:")
-        for k in kb_results:
-            context_parts.append(f"Q: {k.question}\nA: {k.answer}")
-            k.use_count += 1
+    # Build a human-readable response with source attribution
+    response_parts = []
 
-    if entity_results:
-        context_parts.append("RECENT ENTITIES:")
-        for e in entity_results:
-            def_label = e.definition.label if e.definition else "Entity"
-            context_parts.append(f"[{def_label}] {e.code}: {e.display_name} (Status: {e.status})")
+    if context["internal_sources"]:
+        for src in context["internal_sources"]:
+            label = src.get("label", "Source")
+            content = src.get("content", "")
+            confidence = src.get("confidence", 0)
+            confidence_label = "High" if confidence >= 0.8 else "Medium" if confidence >= 0.5 else "Low"
+            response_parts.append(f"[{label}] (Confidence: {confidence_label})\n{content}")
 
-    context = "\n\n".join(context_parts) if context_parts else "No internal data found."
+    if context["web_sources"]:
+        for src in context["web_sources"]:
+            title = src.get("title", "")
+            url = src.get("url", "")
+            snippet = src.get("snippet", "")
+            response_parts.append(f"[Web Search] {title}\n{snippet}\nSource: {url}")
 
-    db.session.commit()
+    if not response_parts:
+        response_parts.append("I couldn't find information on this in your company data or the web. "
+                              "Would you like to add this information to your knowledge base?")
 
     return jsonify({
-        "context": context,
-        "internal_results": len(kb_results) + len(entity_results),
         "query": query,
+        "response": "\n\n".join(response_parts[:3]),
+        "context": context,
+        "has_internal_data": context["has_internal_data"],
+        "has_web_data": context["has_web_data"],
     })
 
 
