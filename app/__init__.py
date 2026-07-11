@@ -74,7 +74,7 @@ def _security_headers_middleware(app: Flask):
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("X-XSS-Protection", "1; mode=block")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(self), camera=()")
         return response
 
 
@@ -258,7 +258,7 @@ def create_app(config_override: dict | None = None):
         path = request.path
         if path.startswith("/static/") or path.startswith("/health"):
             return None
-        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout"):
+        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process":
             return None
         user_id = session.get("user_id")
         if not user_id:
@@ -281,6 +281,13 @@ def create_app(config_override: dict | None = None):
         from app.tenant import Tenant
         ont = registry.get("travel")
         nav_modules = [m for m in ont.modules if m.enabled] if ont else []
+
+        # Notification context
+        from app.notifications import NotificationManager
+        nm = NotificationManager()
+        user_id = user.id if user else None
+        unread_count = nm.get_unread_count(user_id=user_id)
+        recent_notifications = nm.get_recent_unread(user_id=user_id, limit=10)
         return {
             "brand": "Panchi Club",
             "assistant_identity": "AI@panchi.club",
@@ -298,6 +305,10 @@ def create_app(config_override: dict | None = None):
                 {"icon": "💰", "text": "Check payments", "action": "/payments"},
                 {"icon": "📊", "text": "View reports", "action": "/reports"},
             ],
+            # Notification context
+            "unread_count": unread_count,
+            "recent_notifications": recent_notifications,
+            "datetime": datetime,
         }
 
     # ---- Auto-create tables (safe for first run) --------------------------

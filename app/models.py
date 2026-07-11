@@ -308,6 +308,145 @@ class ItineraryRef(db.Model):
 
 
 # ---------------------------------------------------------------------------
+# TaskList
+# ---------------------------------------------------------------------------
+
+class TaskList(db.Model):
+    """Grouped task lists for checklists, lead onboarding, and team workflows."""
+
+    __tablename__ = "task_lists"
+    __table_args__ = (
+        Index("ix_task_lists_created", "created_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, nullable=True)
+    name = db.Column(db.String(255), nullable=False)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    created_by = db.Column(db.String(120))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    tasks = db.relationship("Task", backref="task_list", lazy="dynamic",
+                            cascade="all,delete-orphan",
+                            order_by="Task.created_at")
+
+    def __repr__(self):
+        return f"<TaskList #{self.id} {self.name}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "name": self.name,
+            "lead_id": self.lead_id,
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "task_count": self.tasks.count(),
+        }
+
+
+# ---------------------------------------------------------------------------
+# Task
+# ---------------------------------------------------------------------------
+
+class Task(db.Model):
+    """Individual checklist item within a TaskList."""
+
+    __tablename__ = "tasks"
+    __table_args__ = (
+        Index("ix_tasks_list_status", "task_list_id", "status"),
+        Index("ix_tasks_assigned", "assigned_to"),
+        Index("ix_tasks_due", "due_date"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    task_list_id = db.Column(db.Integer, db.ForeignKey("task_lists.id"), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, default="")
+    assigned_to = db.Column(db.String(120))
+    priority = db.Column(db.String(20), default="medium")  # low / medium / high / urgent
+    status = db.Column(db.String(30), default="pending")   # pending / in_progress / completed / cancelled
+    sort_order = db.Column(db.Integer, default=0)
+    due_date = db.Column(db.Date, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<Task #{self.id} [{self.status}] {self.title}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "task_list_id": self.task_list_id,
+            "title": self.title,
+            "description": self.description,
+            "assigned_to": self.assigned_to,
+            "priority": self.priority,
+            "status": self.status,
+            "sort_order": self.sort_order,
+            "due_date": self.due_date.isoformat() if self.due_date else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Notification
+# ---------------------------------------------------------------------------
+
+class NotificationType(str, PyEnum):
+    LEAD_CREATED = "lead_created"
+    PAYMENT_RECEIVED = "payment_received"
+    STATUS_CHANGED = "status_changed"
+    TASK_ASSIGNED = "task_assigned"
+    CELEBRATION = "celebration"
+    SYSTEM = "system"
+
+
+class Notification(db.Model):
+    """In-app notification for users, with optional lead/tenant scoping."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (
+        Index("ix_notifications_user_read", "user_id", "is_read", "created_at"),
+        Index("ix_notifications_lead", "lead_id", "created_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, nullable=True)
+    user_id = db.Column(db.Integer, nullable=True, index=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    type = db.Column(db.String(30), default=NotificationType.SYSTEM.value, nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, default="")
+    icon = db.Column(db.String(50), default="🔔")
+    link = db.Column(db.String(500))
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    lead = db.relationship("Lead", backref="notifications", lazy="select")
+
+    def __repr__(self):
+        return f"<Notification #{self.id} [{self.type}] {self.title[:50]}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "user_id": self.user_id,
+            "lead_id": self.lead_id,
+            "type": self.type,
+            "title": self.title,
+            "message": self.message,
+            "icon": self.icon,
+            "link": self.link,
+            "is_read": self.is_read,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
 # ActivityLog
 # ---------------------------------------------------------------------------
 

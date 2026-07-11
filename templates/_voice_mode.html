@@ -1,0 +1,920 @@
+<!-- ============================================================== -->
+<!-- Panchi Club — Voice Conversation Mode                          -->
+<!-- Magical glassmorphism floating mic + speech-to-speech UI        -->
+<!-- ============================================================== -->
+
+{% set voice_lang = current_lang or 'en' %}
+{% set voice_user = current_user.name if current_user else 'there' %}
+
+<div id="voice-mode-root" data-user-name="{{ voice_user }}">
+  <!-- Floating Voice Button -->
+  <button id="voice-btn"
+    class="voice-btn"
+    onclick="toggleVoiceMode()"
+    title="Voice Mode (V)"
+    aria-label="Toggle voice mode">
+    <span id="voice-btn-icon" class="voice-btn-icon">🎤</span>
+  </button>
+
+  <!-- Pulse ring (only shows when listening) -->
+  <div id="voice-pulse" class="voice-pulse"></div>
+
+  <!-- Settings Panel -->
+  <div id="voice-settings" class="voice-settings">
+    <div class="voice-settings-header">
+      <span>🎙️ Voice Settings</span>
+      <button onclick="toggleVoiceSettings()" class="voice-settings-close">✕</button>
+    </div>
+    <div class="voice-settings-body">
+      <label class="voice-settings-label">Language</label>
+      <select id="voice-lang" class="voice-settings-select">
+        <option value="en-US" {% if voice_lang == 'en' %}selected{% endif %}>English</option>
+        <option value="hi-IN" {% if voice_lang == 'hi' %}selected{% endif %}>हिन्दी (Hindi)</option>
+        <option value="bn-IN" {% if voice_lang == 'bn' %}selected{% endif %}>বাংলা (Bengali)</option>
+        <option value="te-IN" {% if voice_lang == 'te' %}selected{% endif %}>తెలుగు (Telugu)</option>
+        <option value="ta-IN" {% if voice_lang == 'ta' %}selected{% endif %}>தமிழ் (Tamil)</option>
+        <option value="ml-IN" {% if voice_lang == 'ml' %}selected{% endif %}>മലയാളം (Malayalam)</option>
+        <option value="gu-IN" {% if voice_lang == 'gu' %}selected{% endif %}>ગુજરાતી (Gujarati)</option>
+        <option value="mr-IN" {% if voice_lang == 'mr' %}selected{% endif %}>मराठी (Marathi)</option>
+        <option value="kn-IN" {% if voice_lang == 'kn' %}selected{% endif %}>ಕನ್ನಡ (Kannada)</option>
+        <option value="pa-IN" {% if voice_lang == 'pa' %}selected{% endif %}>ਪੰਜਾਬੀ (Punjabi)</option>
+        <option value="fr-FR" {% if voice_lang == 'fr' %}selected{% endif %}>Français</option>
+        <option value="es-ES" {% if voice_lang == 'es' %}selected{% endif %}>Español</option>
+        <option value="de-DE" {% if voice_lang == 'de' %}selected{% endif %}>Deutsch</option>
+        <option value="ar-SA" {% if voice_lang == 'ar' %}selected{% endif %}>العربية</option>
+        <option value="zh-CN" {% if voice_lang == 'zh' %}selected{% endif %}>中文</option>
+        <option value="ja-JP" {% if voice_lang == 'ja' %}selected{% endif %}>日本語</option>
+        <option value="ko-KR" {% if voice_lang == 'ko' %}selected{% endif %}>한국어</option>
+      </select>
+
+      <label class="voice-settings-label">Speech Speed</label>
+      <div class="voice-speed-row">
+        <span class="voice-speed-label">Slow</span>
+        <input type="range" id="voice-speed" class="voice-speed-slider" min="0.5" max="2.0" step="0.1" value="1.0">
+        <span class="voice-speed-label">Fast</span>
+        <span id="voice-speed-val" class="voice-speed-val">1.0×</span>
+      </div>
+
+      <label class="voice-settings-toggle-label">
+        <span>Activate on page load</span>
+        <label class="voice-toggle-switch">
+          <input type="checkbox" id="voice-auto-start">
+          <span class="voice-toggle-slider"></span>
+        </label>
+      </label>
+
+      <label class="voice-settings-toggle-label">
+        <span>Speak responses aloud</span>
+        <label class="voice-toggle-switch">
+          <input type="checkbox" id="voice-tts" checked>
+          <span class="voice-toggle-slider"></span>
+        </label>
+      </label>
+    </div>
+  </div>
+
+  <!-- Transcript Overlay -->
+  <div id="voice-transcript" class="voice-transcript">
+    <div id="voice-transcript-content">
+      <div id="voice-user-text" class="voice-user-text"></div>
+      <div id="voice-ai-text" class="voice-ai-text"></div>
+    </div>
+    <div id="voice-listening-indicator" class="voice-listening-indicator">
+      <span class="voice-dot voice-dot-1"></span>
+      <span class="voice-dot voice-dot-2"></span>
+      <span class="voice-dot voice-dot-3"></span>
+      <span class="voice-listening-label">Listening...</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- Styles — glassmorphism + animations                             -->
+<!-- ============================================================== -->
+<style>
+/* ---- Root ---- */
+#voice-mode-root {
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  z-index: 9999;
+  font-family: 'Inter', system-ui, sans-serif;
+  pointer-events: none;
+}
+#voice-mode-root * {
+  pointer-events: auto;
+}
+
+/* ---- Floating Button ---- */
+.voice-btn {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Glassmorphism base */
+  background: rgba(99, 102, 241, 0.25);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 8px 32px rgba(99, 102, 241, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 80px rgba(99, 102, 241, 0.1);
+  color: white;
+  outline: none;
+  pointer-events: auto;
+}
+
+.voice-btn:hover {
+  transform: scale(1.08) translateY(-2px);
+  box-shadow:
+    0 12px 40px rgba(99, 102, 241, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 0 100px rgba(99, 102, 241, 0.2);
+  background: rgba(99, 102, 241, 0.35);
+}
+
+.voice-btn:active {
+  transform: scale(0.95);
+}
+
+.voice-btn.listening {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow:
+    0 8px 32px rgba(239, 68, 68, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 80px rgba(239, 68, 68, 0.15);
+  animation: voiceMicPulse 1.5s ease-in-out infinite;
+}
+
+.voice-btn.listening:hover {
+  background: rgba(239, 68, 68, 0.4);
+  box-shadow:
+    0 12px 40px rgba(239, 68, 68, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.voice-btn.speaking {
+  background: rgba(52, 211, 153, 0.3);
+  border-color: rgba(52, 211, 153, 0.4);
+  box-shadow:
+    0 8px 32px rgba(52, 211, 153, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 80px rgba(52, 211, 153, 0.15);
+}
+
+.voice-btn.speaking:hover {
+  background: rgba(52, 211, 153, 0.4);
+}
+
+.voice-btn-icon {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  line-height: 1;
+}
+
+.voice-btn.listening .voice-btn-icon {
+  animation: voiceIconBounce 0.8s ease-in-out infinite;
+}
+
+@keyframes voiceMicPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 8px 32px rgba(239, 68, 68, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 12px 48px rgba(239, 68, 68, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 120px rgba(239, 68, 68, 0.2);
+  }
+}
+
+@keyframes voiceIconBounce {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.15) rotate(-5deg); }
+  75% { transform: scale(1.15) rotate(5deg); }
+}
+
+/* ---- Pulse Ring ---- */
+.voice-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 64px;
+  height: 64px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.voice-pulse.active {
+  opacity: 1;
+  animation: voiceRingExpand 2s ease-out infinite;
+}
+
+@keyframes voiceRingExpand {
+  0% {
+    width: 64px;
+    height: 64px;
+    opacity: 0.6;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  100% {
+    width: 160px;
+    height: 160px;
+    opacity: 0;
+    box-shadow: 0 0 0 40px rgba(239, 68, 68, 0);
+  }
+}
+
+/* ---- Transcript Overlay ---- */
+.voice-transcript {
+  position: absolute;
+  bottom: 80px;
+  right: 0;
+  width: 320px;
+  max-height: 0;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 20px;
+  opacity: 0;
+  transform: translateY(12px) scale(0.95);
+}
+
+.voice-transcript.visible {
+  max-height: 300px;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  padding: 0;
+}
+
+.voice-transcript-content {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 16px 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.voice-user-text {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: 12px;
+  border-left: 3px solid rgba(99, 102, 241, 0.6);
+  line-height: 1.5;
+  word-wrap: break-word;
+  display: none;
+}
+
+.voice-user-text.visible {
+  display: block;
+  animation: voiceSlideIn 0.3s ease-out;
+}
+
+.voice-user-text::before {
+  content: "You: ";
+  font-weight: 600;
+  color: rgba(99, 102, 241, 0.8);
+}
+
+.voice-ai-text {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 8px 12px;
+  background: rgba(52, 211, 153, 0.1);
+  border-radius: 12px;
+  border-left: 3px solid rgba(52, 211, 153, 0.6);
+  line-height: 1.5;
+  word-wrap: break-word;
+  display: none;
+}
+
+.voice-ai-text.visible {
+  display: block;
+  animation: voiceSlideIn 0.3s ease-out;
+}
+
+.voice-ai-text::before {
+  content: "AI: ";
+  font-weight: 600;
+  color: rgba(52, 211, 153, 0.8);
+}
+
+/* ---- Listening Indicator ---- */
+.voice-listening-indicator {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 4px;
+  justify-content: center;
+}
+
+.voice-listening-indicator.visible {
+  display: flex;
+}
+
+.voice-listening-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-left: 4px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.voice-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.7);
+  animation: voiceDotBounce 1.4s ease-in-out infinite;
+}
+
+.voice-dot-1 { animation-delay: 0s; }
+.voice-dot-2 { animation-delay: 0.2s; }
+.voice-dot-3 { animation-delay: 0.4s; }
+
+@keyframes voiceDotBounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1.2); opacity: 1; }
+}
+
+@keyframes voiceSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Settings Panel ---- */
+.voice-settings {
+  position: absolute;
+  bottom: 80px;
+  right: 0;
+  width: 280px;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(16px) scale(0.92);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.voice-settings.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.voice-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.voice-settings-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.voice-settings-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.voice-settings-body {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.voice-settings-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.voice-settings-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='rgba(255,255,255,0.4)' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.voice-settings-select:focus {
+  border-color: rgba(99, 102, 241, 0.4);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.voice-settings-select option {
+  background: #1e293b;
+  color: white;
+}
+
+.voice-speed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.voice-speed-label {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+}
+
+.voice-speed-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+  cursor: pointer;
+}
+
+.voice-speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.voice-speed-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: rgba(99, 102, 241, 1);
+}
+
+.voice-speed-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+}
+
+.voice-speed-val {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  min-width: 32px;
+  text-align: right;
+  font-feature-settings: "tnum";
+}
+
+/* ---- Toggle Switch ---- */
+.voice-settings-toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 2px 0;
+}
+
+.voice-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.voice-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.voice-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.12);
+  transition: 0.3s ease;
+  border-radius: 22px;
+}
+
+.voice-toggle-slider::before {
+  content: "";
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  transition: 0.3s ease;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.voice-toggle-switch input:checked + .voice-toggle-slider {
+  background: rgba(99, 102, 241, 0.7);
+}
+
+.voice-toggle-switch input:checked + .voice-toggle-slider::before {
+  transform: translateX(18px);
+}
+
+.voice-toggle-switch input:focus + .voice-toggle-slider {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+/* ---- Fade-out animation for transcript ---- */
+.voice-fade-out {
+  animation: voiceFadeOut 0.6s ease-in forwards;
+}
+
+@keyframes voiceFadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 640px) {
+  #voice-mode-root {
+    bottom: 80px;
+    right: 16px;
+  }
+  .voice-btn {
+    width: 54px;
+    height: 54px;
+    font-size: 1.3rem;
+  }
+  .voice-transcript {
+    width: 280px;
+    right: 0;
+  }
+  .voice-settings {
+    width: 260px;
+    right: 0;
+  }
+}
+</style>
+
+<!-- ============================================================== -->
+<!-- JavaScript — Full voice interaction logic                       -->
+<!-- ============================================================== -->
+<script>
+(function() {
+  'use strict';
+
+  // ---- State ----
+  const STATE = {
+    IDLE: 'idle',
+    LISTENING: 'listening',
+    PROCESSING: 'processing',
+    SPEAKING: 'speaking',
+  };
+
+  let currentState = STATE.IDLE;
+  let recognition = null;
+  let transcriptTimer = null;
+  let settingsOpen = false;
+
+  // ---- DOM refs ----
+  const btn = document.getElementById('voice-btn');
+  const icon = document.getElementById('voice-btn-icon');
+  const pulse = document.getElementById('voice-pulse');
+  const transcript = document.getElementById('voice-transcript');
+  const userText = document.getElementById('voice-user-text');
+  const aiText = document.getElementById('voice-ai-text');
+  const listeningIndicator = document.getElementById('voice-listening-indicator');
+  const settings = document.getElementById('voice-settings');
+  const langSelect = document.getElementById('voice-lang');
+  const speedSlider = document.getElementById('voice-speed');
+  const speedVal = document.getElementById('voice-speed-val');
+  const autoStartCheck = document.getElementById('voice-auto-start');
+  const ttsCheck = document.getElementById('voice-tts');
+
+  // ---- Init SpeechRecognition ----
+  function getRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return null;
+    const r = new SpeechRecognition();
+    r.continuous = false;
+    r.interimResults = false;
+    r.lang = langSelect ? langSelect.value : 'en-US';
+    return r;
+  }
+
+  // ---- Set state + UI ----
+  function setState(state) {
+    currentState = state;
+    btn.className = 'voice-btn';
+    pulse.classList.remove('active');
+    listeningIndicator.classList.remove('visible');
+
+    switch (state) {
+      case STATE.IDLE:
+        icon.textContent = '🎤';
+        transcript.classList.remove('visible');
+        break;
+
+      case STATE.LISTENING:
+        btn.classList.add('listening');
+        icon.textContent = '🎙️';
+        pulse.classList.add('active');
+        transcript.classList.add('visible');
+        listeningIndicator.classList.add('visible');
+        userText.classList.remove('visible');
+        aiText.classList.remove('visible');
+        break;
+
+      case STATE.PROCESSING:
+        icon.textContent = '⏳';
+        pulse.classList.remove('active');
+        listeningIndicator.classList.remove('visible');
+        break;
+
+      case STATE.SPEAKING:
+        btn.className = 'voice-btn speaking';
+        icon.textContent = '🔊';
+        pulse.classList.remove('active');
+        listeningIndicator.classList.remove('visible');
+        break;
+    }
+  }
+
+  // ---- Show transcript with auto-fade ----
+  function showTranscript(userSpeech, aiResponse) {
+    clearTimeout(transcriptTimer);
+    userText.textContent = userSpeech;
+    aiText.textContent = aiResponse;
+    userText.classList.remove('voice-fade-out');
+    aiText.classList.remove('voice-fade-out');
+    userText.classList.add('visible');
+    aiText.classList.add('visible');
+    transcript.classList.add('visible');
+
+    // Auto-fade after 5 seconds
+    transcriptTimer = setTimeout(() => {
+      userText.classList.add('voice-fade-out');
+      aiText.classList.add('voice-fade-out');
+      setTimeout(() => {
+        userText.classList.remove('visible', 'voice-fade-out');
+        aiText.classList.remove('visible', 'voice-fade-out');
+        if (currentState === STATE.IDLE) {
+          transcript.classList.remove('visible');
+        }
+      }, 600);
+    }, 5000);
+  }
+
+  // ---- Speak response via SpeechSynthesis ----
+  function speakResponse(text) {
+    if (!ttsCheck || !ttsCheck.checked) {
+      setState(STATE.IDLE);
+      return;
+    }
+    if (!window.speechSynthesis) {
+      setState(STATE.IDLE);
+      return;
+    }
+
+    setState(STATE.SPEAKING);
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langSelect ? langSelect.value : 'en-US';
+    utterance.rate = speedSlider ? parseFloat(speedSlider.value) : 1.0;
+
+    // Try to find a matching voice
+    const voices = window.speechSynthesis.getVoices();
+    const langCode = langSelect ? langSelect.value.split('-')[0] : 'en';
+    const matchingVoice = voices.find(v => v.lang.startsWith(langCode));
+    if (matchingVoice) {
+      utterance.voice = matchingVoice;
+    }
+
+    utterance.onend = function() {
+      setState(STATE.IDLE);
+    };
+    utterance.onerror = function() {
+      setState(STATE.IDLE);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }
+
+  // ---- Process voice text via API ----
+  function processVoiceText(text) {
+    setState(STATE.PROCESSING);
+
+    const userName = document.getElementById('voice-mode-root')?.getAttribute('data-user-name') || 'there';
+
+    fetch('/api/voice/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text }),
+    })
+    .then(r => r.json())
+    .then(data => {
+      const aiReply = data.response || "Got it!";
+      showTranscript(text, aiReply);
+      speakResponse(aiReply);
+
+      // Handle redirect
+      if (data.action === 'redirect' && data.redirect_url) {
+        setTimeout(() => {
+          window.location.href = data.redirect_url;
+        }, 1200);
+      }
+    })
+    .catch(err => {
+      console.error('Voice API error:', err);
+      const fallback = "Sorry, I couldn't process that right now.";
+      showTranscript(text, fallback);
+      speakResponse(fallback);
+      setState(STATE.IDLE);
+    });
+  }
+
+  // ---- Start listening ----
+  function startListening() {
+    if (currentState === STATE.LISTENING) return;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showTranscript('', 'Voice recognition is not supported in this browser. Try Chrome or Edge.');
+      return;
+    }
+
+    setState(STATE.LISTENING);
+
+    try {
+      if (recognition) {
+        try { recognition.abort(); } catch(e) {}
+      }
+
+      recognition = getRecognition();
+      if (!recognition) {
+        setState(STATE.IDLE);
+        return;
+      }
+
+      recognition.lang = langSelect ? langSelect.value : 'en-US';
+
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        processVoiceText(transcript);
+      };
+
+      recognition.onerror = function(event) {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          showTranscript('', 'Microphone access denied. Please allow microphone permissions in your browser settings.');
+        } else if (event.error === 'no-speech') {
+          showTranscript('', 'No speech detected. Please try again.');
+        } else {
+          showTranscript('', 'Voice recognition error: ' + event.error);
+        }
+        setState(STATE.IDLE);
+      };
+
+      recognition.onend = function() {
+        // Only go idle if we're not already processing/speaking
+        if (currentState === STATE.LISTENING) {
+          setState(STATE.IDLE);
+        }
+      };
+
+      recognition.start();
+    } catch (e) {
+      console.error('Failed to start recognition:', e);
+      setState(STATE.IDLE);
+    }
+  }
+
+  // ---- Stop listening ----
+  function stopListening() {
+    if (recognition) {
+      try { recognition.stop(); } catch(e) {}
+      try { recognition.abort(); } catch(e) {}
+    }
+    setState(STATE.IDLE);
+    window.speechSynthesis.cancel();
+  }
+
+  // ---- Toggle voice mode ----
+  window.toggleVoiceMode = function() {
+    if (settingsOpen) {
+      toggleVoiceSettings();
+    }
+    if (currentState === STATE.IDLE) {
+      startListening();
+    } else {
+      stopListening();
+    }
+  };
+
+  // ---- Toggle settings ----
+  window.toggleVoiceSettings = function() {
+    settingsOpen = !settingsOpen;
+    settings.classList.toggle('open', settingsOpen);
+  };
+
+  // ---- Settings: speed slider ----
+  if (speedSlider && speedVal) {
+    speedSlider.addEventListener('input', function() {
+      speedVal.textContent = this.value + '×';
+    });
+  }
+
+  // ---- Keyboard shortcut: V ----
+  document.addEventListener('keydown', function(e) {
+    // Don't trigger if user is typing in an input/textarea
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+    if (e.key === 'v' || e.key === 'V') {
+      e.preventDefault();
+      window.toggleVoiceMode();
+    }
+  });
+
+  // ---- Load voices (some browsers load async) ----
+  if (window.speechSynthesis) {
+    window.speechSynthesis.getVoices(); // Trigger initial load
+    window.speechSynthesis.onvoiceschanged = function() {
+      window.speechSynthesis.getVoices();
+    };
+  }
+
+  // ---- Auto-start on page load ----
+  if (autoStartCheck && autoStartCheck.checked) {
+    setTimeout(function() {
+      if (currentState === STATE.IDLE) {
+        startListening();
+      }
+    }, 1000);
+  }
+
+  console.log('🎙️ Voice Conversation Mode loaded. Press V to toggle.');
+})();
+</script>

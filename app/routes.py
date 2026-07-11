@@ -129,6 +129,35 @@ def welcome():
 
 
 # ---------------------------------------------------------------------------
+# Calendar View
+# ---------------------------------------------------------------------------
+
+
+@main.route("/calendar")
+def calendar_view():
+    """Full-page calendar view showing trips, tasks, and events."""
+    return render_template("calendar.html")
+
+
+@api.route("/calendar/events")
+def calendar_events():
+    """JSON feed of events for the calendar. Requires start= and end= params."""
+    from datetime import date as dt_date
+    start_str = request.args.get("start", "")
+    end_str = request.args.get("end", "")
+    import datetime
+    try:
+        start = datetime.date.fromisoformat(start_str) if start_str else dt_date.today().replace(day=1)
+        end = datetime.date.fromisoformat(end_str) if end_str else dt_date.today()
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+    from app.calendar_service import CalendarService
+    svc = CalendarService()
+    events = svc.get_events(start, end)
+    return jsonify(events)
+
+
+# ---------------------------------------------------------------------------
 # Leads
 # ---------------------------------------------------------------------------
 
@@ -721,6 +750,99 @@ def api_lead_activities(lead_id):
         .all()
     )
     return jsonify([a.to_dict() for a in activities])
+
+
+    # ---------------------------------------------------------------------------
+    # API: Notifications
+    # ---------------------------------------------------------------------------
+
+    @api.route("/notifications", methods=["GET"])
+    def api_get_notifications():
+        """Get notifications for the current user (or all if no user)."""
+        from app.notifications import NotificationManager
+        limit = min(int(request.args.get("limit", 20)), 100)
+        user_id = g.user.id if hasattr(g, "user") and g.user else None
+        nm = NotificationManager()
+        notifications = nm.get_for_user(user_id=user_id, limit=limit)
+        return jsonify([n.to_dict() for n in notifications])
+
+
+    @api.route("/notifications/unread/count", methods=["GET"])
+    def api_unread_count():
+        """Get unread notification count for the current user."""
+        from app.notifications import NotificationManager
+        user_id = g.user.id if hasattr(g, "user") and g.user else None
+        nm = NotificationManager()
+        count = nm.get_unread_count(user_id=user_id)
+        return jsonify({"count": count})
+
+
+    @api.route("/notifications/<int:notification_id>/read", methods=["POST"])
+    def api_mark_read(notification_id):
+        """Mark a single notification as read."""
+        from app.notifications import NotificationManager
+        nm = NotificationManager()
+        success = nm.mark_read(notification_id)
+        if not success:
+            return jsonify({"error": "Notification not found"}), 404
+        return jsonify({"success": True})
+
+
+    @api.route("/notifications/read-all", methods=["POST"])
+    def api_mark_all_read():
+        """Mark all notifications as read for the current user."""
+        from app.notifications import NotificationManager
+        user_id = g.user.id if hasattr(g, "user") and g.user else None
+        nm = NotificationManager()
+        count = nm.mark_all_read(user_id=user_id)
+        return jsonify({"success": True, "marked": count})
+
+
+    @api.route("/notifications/create", methods=["POST"])
+    def api_create_notification():
+        """Create a notification (for system events / programmatic use)."""
+        from app.notifications import NotificationManager
+        data = request.get_json(silent=True) or {}
+        required = ["type", "title"]
+        for field in required:
+            if not data.get(field):
+                return jsonify({"error": f"'{field}' is required"}), 400
+        nm = NotificationManager()
+        notif = nm.create_notification(
+            type=data["type"],
+            title=data["title"],
+            message=data.get("message", ""),
+            user_id=data.get("user_id"),
+            lead_id=data.get("lead_id"),
+            tenant_id=data.get("tenant_id"),
+            icon=data.get("icon"),
+            link=data.get("link"),
+        )
+        return jsonify(notif.to_dict()), 201
+
+
+    # ---------------------------------------------------------------------------
+    # PDF Generation (inline helper)
+    # ---------------------------------------------------------------------------
+
+@api.route("/voice/process", methods=["POST"])
+def voice_process():
+    """Process voice input from the browser SpeechRecognition API.
+
+    Accepts: {text: "user speech text"}
+    Returns: {response: "AI reply", action: "suggestions"|"redirect"|"none", redirect_url: ""}
+    """
+    from app.voice import VoiceProcessor
+
+    data = request.get_json(silent=True) or {}
+    text = data.get("text", "")
+
+    user_name = getattr(g, "user", None)
+    name = user_name.name if user_name else "there"
+
+    processor = VoiceProcessor(user_name=name)
+    result = processor.process(text)
+    return jsonify(result)
 
 
 # ---------------------------------------------------------------------------
