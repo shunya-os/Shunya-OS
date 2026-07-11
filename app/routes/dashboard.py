@@ -71,3 +71,10 @@ def analytics_api():
     data = AnalyticsEngine.get_overview(g.tenant.id)
     insights = AnalyticsEngine.get_founder_insights(g.tenant.id)
     return jsonify({"overview": data, "insights": insights})
+
+
+@dashboard_bp.route("/learning")
+@login_required
+def learning_page():
+    """Learning Engine dashboard."""
+    return render_template("learning.html")

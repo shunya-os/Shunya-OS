@@ -242,3 +242,43 @@ def export_data():
         }
 
     return jsonify({"export": export, "exported_at": datetime.utcnow().isoformat()})
+
+
+# ---------------------------------------------------------------------------
+# Learning Engine API
+# ---------------------------------------------------------------------------
+
+@api_bp.route("/learning/proposals", methods=["GET"])
+@login_required
+def get_learning_proposals():
+    """Get learning proposals for the current tenant."""
+    from app.shunya.learning import LearningEngine
+    status = request.args.get("status")
+    proposals = LearningEngine.get_proposals(g.tenant.id, status)
+    return jsonify({"proposals": proposals})
+
+
+@api_bp.route("/learning/scan", methods=["POST"])
+@login_required
+def scan_for_learning():
+    """Run pattern scan and create learning proposals."""
+    from app.shunya.learning import LearningEngine
+    result = LearningEngine.run_auto_scan(g.tenant.id, g.user.id)
+    return jsonify(result)
+
+
+@api_bp.route("/learning/review", methods=["POST"])
+@login_required
+def review_learning():
+    """Review a learning proposal (approve/reject/request_more)."""
+    from app.shunya.learning import LearningEngine
+    data = request.get_json(silent=True) or {}
+    proposal_id = data.get("proposal_id")
+    decision = data.get("decision", "")
+    feedback = data.get("feedback")
+    
+    if not proposal_id or not decision:
+        return jsonify({"error": "proposal_id and decision required"}), 400
+    
+    result = LearningEngine.review_proposal(proposal_id, g.tenant.id, g.user.id, decision, feedback)
+    return jsonify({"success": result.success, "data": result.data})
