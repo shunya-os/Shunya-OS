@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900">📋 Operations</h1>
+    <p class="text-sm text-slate-500 mt-1">Projects, tasks, and workflow management</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">Total Projects</p>
+    <p class="text-2xl font-bold text-slate-900 mt-1">{{ projects|length }}</p>
+    <p class="text-xs text-slate-400">{{ project_statuses.get('active', 0) }} active</p>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">Total Tasks</p>
+    <p class="text-2xl font-bold text-slate-900 mt-1">{{ tasks|length }}</p>
+    <p class="text-xs text-blue-500">{{ task_statuses.get('pending', 0) + task_statuses.get('ready', 0) }} to do</p>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">In Progress</p>
+    <p class="text-2xl font-bold text-amber-600 mt-1">{{ task_statuses.get('active', 0) }}</p>
+    <p class="text-xs text-amber-500">Active tasks</p>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">Blocked</p>
+    <p class="text-2xl font-bold text-red-600 mt-1">{{ task_statuses.get('blocked', 0) }}</p>
+    <p class="text-xs text-red-500">Need attention</p>
+  </div>
+</div>
+
+{% if blocked_tasks %}
+<div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+  <div class="flex items-center gap-2 mb-2">
+    <span class="text-lg">🚫</span>
+    <h3 class="font-semibold text-red-800 text-sm">{{ blocked_tasks|length }} Blocked Task(s)</h3>
+  </div>
+  <div class="space-y-2">
+    {% for t in blocked_tasks %}
+    <div class="flex items-start gap-2 text-sm">
+      <span class="text-red-500 mt-1">•</span>
+      <div>
+        <span class="font-medium text-red-700">{{ t.data.get('title', t.display_name) }}</span>
+        {% if t.data.get('blocker_reason') %}
+        <span class="text-red-600">— {{ t.data.get('blocker_reason')[:100] }}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">⚡ Quick Actions</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <a href="/entities/project/new" class="p-4 bg-blue-50 rounded-xl text-center hover:bg-blue-100 transition-colors">
+        <span class="text-2xl block mb-1">📋</span>
+        <span class="text-xs font-medium text-blue-700">New Project</span>
+      </a>
+      <a href="/entities/task/new" class="p-4 bg-green-50 rounded-xl text-center hover:bg-green-100 transition-colors">
+        <span class="text-2xl block mb-1">✅</span>
+        <span class="text-xs font-medium text-green-700">New Task</span>
+      </a>
+      <a href="/entities/project" class="p-4 bg-purple-50 rounded-xl text-center hover:bg-purple-100 transition-colors">
+        <span class="text-2xl block mb-1">🔍</span>
+        <span class="text-xs font-medium text-purple-700">All Projects</span>
+      </a>
+      <a href="/entities/task" class="p-4 bg-amber-50 rounded-xl text-center hover:bg-amber-100 transition-colors">
+        <span class="text-2xl block mb-1">📊</span>
+        <span class="text-xs font-medium text-amber-700">All Tasks</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">📊 Task Status</h3>
+    <div class="space-y-2">
+      {% for status, count in task_statuses.items() %}
+      {% set colors = {'pending':'bg-slate-100 text-slate-600','ready':'bg-blue-50 text-blue-600','active':'bg-amber-50 text-amber-600','blocked':'bg-red-50 text-red-600','completed':'bg-green-50 text-green-600','cancelled':'bg-slate-50 text-slate-400'} %}
+      <div class="flex items-center justify-between text-sm">
+        <span class="capitalize {{ colors.get(status, 'bg-slate-50 text-slate-500') }} px-2 py-0.5 rounded-full">{{ status }}</span>
+        <span class="font-medium text-slate-700">{{ count }}</span>
+      </div>
+      <div class="w-full bg-slate-100 rounded-full h-1.5">
+        <div class="h-1.5 rounded-full {% if status == 'blocked' %}bg-red-500{% elif status == 'active' %}bg-amber-500{% elif status == 'completed' %}bg-green-500{% else %}bg-blue-500{% endif %}" style="width:{{ (count / tasks|length * 100)|round if tasks else 0 }}%"></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Recent Projects -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">📋 Projects</h3>
+      <a href="/entities/project" class="text-xs text-blue-600 hover:underline">View all →</a>
+    </div>
+    {% if projects %}
+    <div class="space-y-2">
+      {% for p in projects[:8] %}
+      <a href="/entities/project/{{ p.id }}" class="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors">
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-slate-700 truncate">{{ p.data.get('name', p.display_name) }}</p>
+          <p class="text-xs text-slate-400">{{ p.data.get('priority', 'medium') }} priority · {{ p.data.get('department', 'General') }}</p>
+        </div>
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium
+          {% if p.status == 'active' %}bg-green-50 text-green-600
+          {% elif p.status == 'on_hold' %}bg-amber-50 text-amber-600
+          {% elif p.status == 'completed' %}bg-slate-100 text-slate-500
+          {% elif p.status == 'planning' %}bg-blue-50 text-blue-600
+          {% else %}bg-slate-50 text-slate-500{% endif %}">{{ p.status }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-400 text-center py-8">No projects yet. Create your first one! 📋</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">✅ Recent Tasks</h3>
+      <a href="/entities/task" class="text-xs text-blue-600 hover:underline">View all →</a>
+    </div>
+    {% if tasks %}
+    <div class="space-y-2">
+      {% for t in tasks[:8] %}
+      <div class="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors">
+        <div class="flex items-center gap-2 min-w-0">
+          <span>
+            {% if t.status == 'completed' %}✅
+            {% elif t.status == 'blocked' %}🚫
+            {% elif t.status == 'active' %}🔄
+            {% elif t.status == 'ready' %}📌
+            {% else %}⏳{% endif %}
+          </span>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-slate-700 truncate">{{ t.data.get('title', t.display_name) }}</p>
+            <p class="text-xs text-slate-400">{{ t.data.get('assigned_to', 'Unassigned') }}</p>
+          </div>
+        </div>
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium
+          {% if t.status == 'completed' %}bg-green-50 text-green-600
+          {% elif t.status == 'blocked' %}bg-red-50 text-red-600
+          {% elif t.status == 'active' %}bg-amber-50 text-amber-600
+          {% elif t.status == 'ready' %}bg-blue-50 text-blue-600
+          {% else %}bg-slate-100 text-slate-500{% endif %}">{{ t.status }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-400 text-center py-8">No tasks yet. Create your first one! ✅</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

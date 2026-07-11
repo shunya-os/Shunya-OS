@@ -56,6 +56,7 @@ def _register_blueprints(app):
     from app.shunya.whatsapp import whatsapp_bp
     from app.shunya.ingestion import ingestion_bp
     from app.shunya.finance import finance_bp
+    from app.shunya.operations import ops_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(entities_bp)
@@ -67,6 +68,7 @@ def _register_blueprints(app):
     app.register_blueprint(whatsapp_bp)
     app.register_blueprint(ingestion_bp)
     app.register_blueprint(finance_bp)
+    app.register_blueprint(ops_bp)
 
 
 # ---------------------------------------------------------------------------
