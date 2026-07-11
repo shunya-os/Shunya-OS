@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
+    <p class="text-sm text-slate-500">Welcome back, {{ user.name }}</p>
+  </div>
+  <div class="flex items-center gap-3">
+    {% for d in definitions %}
+    <a href="/entities/{{ d.type }}/new" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+      <span>{{ d.icon }}</span> New {{ d.label }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+  {% for type_key, info in def_counts.items() %}
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 card-hover">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-2xl">{{ info.icon }}</span>
+      <span class="text-sm font-semibold text-blue-600">{{ info.count }}</span>
+    </div>
+    <h3 class="text-sm font-medium text-slate-700">{{ info.label }}</h3>
+    <a href="/entities/{{ type_key }}" class="text-xs text-blue-500 hover:underline">View all →</a>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Recent Activity</h3>
+    <div class="space-y-3">
+      {% for a in recent_activities %}
+      <div class="flex items-start gap-3 text-sm">
+        <span class="text-lg mt-0.5">
+          {% if a.action == 'created' %}📋{% elif a.action == 'status_changed' %}🔄{% elif a.action == 'updated' %}✏️{% else %}🔔{% endif %}
+        </span>
+        <div>
+          <p class="text-slate-700">{{ a.detail or a.action }}</p>
+          <p class="text-xs text-slate-400">{{ a.created_at.strftime('%d %b %Y, %I:%M %p') if a.created_at else '' }}</p>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-400 text-center py-4">No activity yet. Create your first entity!</p>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Quick Actions</h3>
+    <div class="space-y-2">
+      {% for d in definitions %}
+      <a href="/entities/{{ d.type }}/new" class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors text-sm">
+        <span>{{ d.icon }}</span>
+        <span class="text-slate-700 font-medium">New {{ d.label }}</span>
+        <span class="ml-auto text-xs text-slate-400">→</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

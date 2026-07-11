@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ entity.display_name }} | {{ current_tenant.company_name if current_tenant else 'Client Portal' }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased">
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <span class="text-4xl">{{ definition.icon if definition else '📋' }}</span>
+      <h1 class="text-2xl font-bold mt-2">{{ entity.display_name }}</h1>
+      <p class="text-slate-500 text-sm">{{ definition.label if definition else 'Record' }} · {{ entity.code }}</p>
+    </div>
+
+    <!-- Status -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-slate-500">Status</span>
+        <span class="px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700">{{ entity.status }}</span>
+      </div>
+    </div>
+
+    <!-- Details -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Details</h3>
+      <div class="space-y-3">
+        {% if definition %}
+        {% for field in definition.schema %}
+        <div class="flex justify-between">
+          <span class="text-sm text-slate-500">{{ field.label }}</span>
+          <span class="text-sm font-medium text-slate-800">{{ entity.data.get(field.name, '-') }}</span>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Payments -->
+    {% if payments %}
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">💰 Payments</h3>
+      <div class="space-y-2">
+        {% for p in payments %}
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-600">{{ p.gateway }} · {{ p.status }}</span>
+          <span class="font-medium">₹{{ "{:,.2f}".format(p.amount|float) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="border-t border-slate-100 mt-3 pt-3 flex justify-between text-sm font-semibold">
+        <span>Total Paid</span>
+        <span class="text-green-600">₹{{ "{:,.2f}".format(total_paid) }}</span>
+      </div>
+      {% if total_due > 0 %}
+      <div class="flex justify-between text-sm mt-1">
+        <span class="text-slate-500">Due</span>
+        <span class="text-red-600 font-medium">₹{{ "{:,.2f}".format(total_due) }}</span>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Messages -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">💬 Messages</h3>
+      <div class="space-y-3 max-h-64 overflow-y-auto">
+        {% for m in messages %}
+        <div class="flex items-start gap-3 text-sm">
+          <span class="text-lg mt-0.5">{{ '👤' if m.is_from_client else '🧑‍💼' }}</span>
+          <div>
+            <p class="text-slate-700">{{ m.content }}</p>
+            <p class="text-xs text-slate-400 mt-0.5">{{ m.created_at.strftime('%d %b, %I:%M %p') if m.created_at else '' }}</p>
+          </div>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-400 text-center py-4">No messages yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <p class="text-center text-xs text-slate-400 mt-8">Powered by Shunya OS</p>
+  </div>
+</body>
+</html>

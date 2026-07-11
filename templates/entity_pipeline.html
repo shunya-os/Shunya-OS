@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+{% set status_colors = {'new':'bg-blue-100 text-blue-800','pending':'bg-amber-100 text-amber-800','active':'bg-green-100 text-green-800','done':'bg-slate-100 text-slate-800','cancelled':'bg-red-100 text-red-800'} %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-slate-900">{{ definition.icon }} {{ definition.label_plural or definition.label }}</h1>
+  <a href="/entities/{{ definition.type }}/new" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">+ New {{ definition.label }}</a>
+</div>
+
+<div class="flex gap-3 mb-6 overflow-x-auto pb-2">
+  <button onclick="filterPipeline('')" class="px-4 py-2 rounded-lg text-sm font-medium border transition-colors {% if not request.args.get('status') %}bg-blue-600 text-white border-blue-600{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}">All</button>
+  {% for s in definition.statuses %}
+  <button onclick="filterPipeline('{{ s }}')" class="px-4 py-2 rounded-lg text-sm font-medium border transition-colors {% if request.args.get('status') == s %}bg-blue-600 text-white border-blue-600{% else %}bg-white text-slate-600 border-slate-200 hover:bg-slate-50{% endif %}">{{ s }}</button>
+  {% endfor %}
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+  {% for e in entities %}
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 card-hover cursor-pointer" onclick="window.location='/entities/{{ definition.type }}/{{ e.id }}'">
+    <div class="flex items-start justify-between mb-2">
+      <span class="text-lg">{{ definition.icon }}</span>
+      <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ status_colors.get(e.status, 'bg-slate-100 text-slate-700') }}">{{ e.status }}</span>
+    </div>
+    <h3 class="text-sm font-semibold text-slate-900">{{ e.display_name }}</h3>
+    {% for field in definition.schema[:3] %}
+    {% if e.data.get(field.name) %}
+    <p class="text-xs text-slate-500 mt-1"><span class="text-slate-400">{{ field.label }}:</span> {{ e.data.get(field.name) }}</p>
+    {% endif %}
+    {% endfor %}
+    {% if e.ai_summary %}
+    <p class="text-xs text-blue-600 mt-2 italic">{{ e.ai_summary[:100] }}{% if e.ai_summary|length > 100 %}...{% endif %}</p>
+    {% endif %}
+    <p class="text-xs text-slate-400 mt-2">{{ e.created_at.strftime('%d %b %Y') if e.created_at else '' }}</p>
+  </div>
+  {% else %}
+  <div class="col-span-full text-center py-12 text-slate-400">No {{ definition.label_plural|lower }} yet.</div>
+  {% endfor %}
+</div>
+
+<script>
+function filterPipeline(status) {
+  const url = new URL(window.location);
+  if (status) url.searchParams.set('status', status);
+  else url.searchParams.delete('status');
+  window.location = url;
+}
+</script>
+{% endblock %}

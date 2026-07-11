@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="min-h-screen flex items-center justify-center py-12">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <span class="text-4xl">🧠</span>
+      <h1 class="text-2xl font-bold text-slate-900 mt-2">Shunya OS</h1>
+      <p class="text-slate-500 text-sm mt-1">Sign in to your account</p>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
+      <form id="login-form" onsubmit="loginPassword(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
+          <input name="email" type="email" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
+          <input name="password" type="password" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+        </div>
+        <button type="submit" class="w-full bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">Sign In</button>
+      </form>
+      <div class="relative my-4">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div>
+        <div class="relative flex justify-center text-sm"><span class="px-2 bg-white text-slate-400">or</span></div>
+      </div>
+      <button onclick="sendMagicLink()" class="w-full bg-slate-100 text-slate-700 text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">Send Magic Link</button>
+      <p class="text-center text-xs text-slate-400 mt-4">
+        Don't have an account? <a href="/auth/signup" class="text-blue-600 hover:underline">Sign up</a>
+      </p>
+    </div>
+  </div>
+</div>
+<script>
+async function loginPassword(e) {
+  e.preventDefault(); const f = e.target;
+  const r = await fetch('/auth/login/password', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email: f.email.value, password: f.password.value})});
+  const d = await r.json();
+  if (d.success) window.location.href = d.redirect; else alert(d.error);
+}
+async function sendMagicLink() {
+  const email = prompt('Enter your email:');
+  if (!email) return;
+  const r = await fetch('/auth/login/magic-link', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email})});
+  const d = await r.json();
+  alert(d.message || d.error);
+}
+</script>
+{% endblock %}

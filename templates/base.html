@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% if current_tenant %}{{ current_tenant.company_name }}{% else %}Shunya{% endif %} | Shunya OS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+  <style>
+    .glass{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(12px)}
+    .card-hover{transition:all .2s ease}.card-hover:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.1)}
+    .companion-bubble{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.15);transition:all .3s ease;border:none}
+    .companion-bubble:hover{transform:scale(1.1)}
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen">
+  {% if current_user %}
+  <nav class="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-3">
+          <span class="text-xl">{{ current_tenant.theme_config.get('icon','🏝️') if current_tenant else '🧠' }}</span>
+          <span class="font-bold text-base text-slate-900">{{ current_tenant.company_name if current_tenant else 'Shunya OS' }}</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <a href="/" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Dashboard</a>
+          <a href="/settings" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Settings</a>
+          <a href="/auth/logout" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+  {% endif %}
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, msg in messages %}
+        <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium border 
+          {% if category == 'error' %}bg-red-50 border-red-200 text-red-700
+          {% elif category == 'success' %}bg-green-50 border-green-200 text-green-700
+          {% else %}bg-amber-50 border-amber-200 text-amber-700{% endif %}">
+          {{ msg }}
+        </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="text-center py-6 text-xs text-slate-400">
+    Shunya OS · AI-Native Universal Operating System
+  </footer>
+</body>
+</html>
