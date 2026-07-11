@@ -3,7 +3,7 @@
 <div class="flex items-center justify-between mb-6">
   <div>
     <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
-    <p class="text-sm text-slate-500">Welcome back, {{ user.name }}</p>
+    <p class="text-sm text-slate-500">{{ welcome_message }}</p>
   </div>
   <div class="flex items-center gap-3">
     {% for d in definitions %}
@@ -28,6 +28,25 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  {% if proactive_suggestions %}
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🧠 Suggestions</h3>
+    <div class="space-y-3">
+      {% for s in proactive_suggestions %}
+      <a href="{{ s.action }}" class="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+        <span class="text-lg">{{ s.icon }}</span>
+        <div class="flex-1">
+          <p class="text-sm font-medium text-slate-700">{{ s.title }}</p>
+          <p class="text-xs text-slate-500">{{ s.message }}</p>
+        </div>
+        {% if s.priority == 'high' %}<span class="text-xs font-medium text-red-500">Urgent</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
     <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Recent Activity</h3>
     <div class="space-y-3">

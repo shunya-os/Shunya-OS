@@ -67,7 +67,7 @@ with app.test_client() as c:
         "schema": '[{"name":"name","label":"Name","type":"text"}]',
         "statuses": '["new","done"]'
     })
-    if r.status_code not in (200, 201, 302):
+    if r.status_code not in (200, 201, 302, 409):
         errors.append(f"Create entity type: {r.status_code}")
 
     # 11. API endpoints

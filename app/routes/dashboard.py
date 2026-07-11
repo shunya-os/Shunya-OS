@@ -9,12 +9,12 @@ dashboard_bp = Blueprint("dashboard", __name__)
 @login_required
 def index():
     """Home dashboard — shows summary based on tenant's business type."""
-    from app.models import Entity, EntityDefinition
+    from app.models import Entity, EntityDefinition, ActivityLog
+    from app.proactive import ProactiveEngine
 
     tenant = g.tenant
     user = g.user
 
-    # Get all entity types for this tenant
     definitions = EntityDefinition.query.filter_by(
         tenant_id=tenant.id, is_active=True
     ).all()
@@ -28,12 +28,17 @@ def index():
         def_counts[d.type] = {"label": d.label_plural or d.label, "icon": d.icon, "count": count}
 
     # Recent activity
-    from app.models import ActivityLog
     recent = ActivityLog.query.filter_by(tenant_id=tenant.id)\
         .order_by(ActivityLog.created_at.desc()).limit(10).all()
+
+    # Proactive suggestions
+    suggestions = ProactiveEngine.get_suggestions(tenant.id, user.id, user.role)
+    welcome = ProactiveEngine.get_welcome_message(tenant.id, user.name)
 
     return render_template("dashboard.html",
         tenant=tenant, user=user,
         definitions=definitions,
         def_counts=def_counts,
-        recent_activities=recent)
+        recent_activities=recent,
+        proactive_suggestions=suggestions,
+        welcome_message=welcome)
