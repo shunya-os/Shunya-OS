@@ -75,15 +75,16 @@
         {% endfor %}
       {% else %}
         {% set nav_items = [
-          ('/', '🏠', 'Overview', 'overview'),
-          ('/leads?view=pipeline', '📋', 'Pipeline', 'pipeline'),
-          ('/calendar', '📅', 'Calendar', 'calendar'),
-          ('/payments', '💰', 'Payments', 'payments'),
-          ('/invoices', '🧾', 'Invoices', 'invoices'),
-          ('/tasks', '✅', 'Tasks', 'tasks'),
-          ('/team', '👥', 'Team', 'team'),
-          ('/reports', '📈', 'Reports', 'reports'),
-        ] %}
+                  ('/', '🏠', 'Overview', 'overview'),
+                  ('/leads?view=pipeline', '📋', 'Pipeline', 'pipeline'),
+                  ('/calendar', '📅', 'Calendar', 'calendar'),
+                  ('/payments', '💰', 'Payments', 'payments'),
+                  ('/invoices', '🧾', 'Invoices', 'invoices'),
+                  ('/documents', '📄', 'Documents', 'documents'),
+                  ('/tasks', '✅', 'Tasks', 'tasks'),
+                  ('/team', '👥', 'Team', 'team'),
+                  ('/reports', '📈', 'Reports', 'reports'),
+                ] %}
       {% endif %}
       {% for href, icon, label, id in nav_items %}
         {% if not (id == 'team' and not is_admin) %}
@@ -260,24 +261,51 @@
       }
     })
 
-    // AI command input — smart routing + creative generation
+    // AI command input — smart routing + web intelligence + creative
         document.getElementById('ai-command-input')?.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
             const val = e.target.value.trim()
             if (!val) return
 
             const lower = val.toLowerCase()
-        
-            // Creative generation detection
-            const creativeKeywords = ['create', 'make', 'generate', 'design', 'write',
-                                       'instagram', 'facebook', 'post', 'story', 'reel',
-                                       'brochure', 'flyer', 'ad', 'banner', 'invitation',
-                                       'video', 'script', 'email campaign', 'newsletter']
-            const isCreative = creativeKeywords.some(k => lower.includes(k)) &&
+
+            // Web intelligence queries
+            const webQueries = ['weather', 'time', 'date', 'today', 'tomorrow',
+                                'visa', 'currency', 'travel', 'destination',
+                                'bali', 'thailand', 'dubai', 'maldives', 'sri lanka',
+                                'news', 'search', 'find', 'what is', 'tell me about']
+            const isWebQuery = webQueries.some(k => lower.includes(k)) &&
                               !lower.includes('lead') && !lower.includes('pipeline') &&
                               !lower.includes('payment') && !lower.includes('invoice')
 
-            if (isCreative) {
+            if (isWebQuery) {
+              e.target.value = '🔍 Searching...'
+              fetch('/voice/process', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({text: val, web_search: true})
+              })
+              .then(r => r.json())
+              .then(data => {
+                e.target.value = ''
+                if (data.response) {
+                  showCompanionMessage(data.response)
+                  // Speak response
+                  if ('speechSynthesis' in window) {
+                    const utter = new SpeechSynthesisUtterance(data.response.replace(/[*📍🌤️🛂💵📅💡✨🔔📋💰🧾👥📈]/g, ''))
+                    utter.rate = 1.0
+                    window.speechSynthesis.speak(utter)
+                  }
+                }
+              })
+              .catch(() => {
+                e.target.value = ''
+                showCompanionMessage('Could not fetch information right now.')
+              })
+              return
+            }
+
+            // Creative generation detection
               e.target.value = 'Generating...'
               fetch('/api/creative/generate', {
                 method: 'POST',
@@ -393,5 +421,6 @@
     })
   </script>
 {% include '_voice_mode.html' %}
+{% include '_celebrations.html' %}
 </body>
 </html>

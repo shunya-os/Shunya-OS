@@ -1387,17 +1387,33 @@ def api_create_celebration():
 def voice_process():
     """Process voice input from the browser SpeechRecognition API.
 
-    Accepts: {text: "user speech text"}
-    Returns: {response: "AI reply", action: "suggestions"|"redirect"|"none", redirect_url: ""}
+    Accepts: {text: "user speech text", web_search: true}
+    Returns: {response: "AI reply", action: "suggestions"|"redirect"|"none"|"info", redirect_url: ""}
     """
-    from app.voice import VoiceProcessor
-
     data = request.get_json(silent=True) or {}
     text = data.get("text", "")
+    web_search = data.get("web_search", False)
 
+    if not text:
+        return jsonify({"response": "I didn't catch that. Could you say it again?", "action": "none", "redirect_url": ""})
+
+    # Web intelligence for travel/destination/weather queries
+    if web_search or any(k in text.lower() for k in ["weather", "visa", "currency", "destination",
+                                                       "bali", "thailand", "dubai", "maldives",
+                                                       "time", "date", "today", "tell me about"]):
+        from app.web_intel import WebIntelligence
+        result = WebIntelligence.answer(text)
+        if result["action"] == "info":
+            return jsonify({"response": result["response"], "action": "none", "redirect_url": ""})
+        # Check travel info
+        for dest in ["bali", "thailand", "dubai", "maldives", "sri lanka"]:
+            if dest in text.lower():
+                result = WebIntelligence.search_travel_info(dest)
+                return jsonify({"response": result["response"], "action": "none", "redirect_url": ""})
+
+    from app.voice import VoiceProcessor
     user_name = getattr(g, "user", None)
     name = user_name.name if user_name else "there"
-
     processor = VoiceProcessor(user_name=name)
     result = processor.process(text)
     return jsonify(result)
@@ -1497,7 +1513,7 @@ def documents_detail(doc_id):
     return render_template("documents.html", view_doc=doc, documents=documents, leads=leads)
 
 
-@api.route("/documents/extract", methods=["POST"])
+@main.route("/api/documents/extract", methods=["POST"])
 def api_documents_extract():
     """API: Upload a file, return extracted text + structured data as JSON."""
     if "file" not in request.files:
@@ -1539,7 +1555,7 @@ def api_documents_extract():
     })
 
 
-@api.route("/documents/classify", methods=["POST"])
+@main.route("/api/documents/classify", methods=["POST"])
 def api_documents_classify():
     """API: Classify a document (text-based classification)."""
     data = request.get_json(silent=True) or {}
