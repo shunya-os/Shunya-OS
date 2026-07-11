@@ -11,7 +11,7 @@ from datetime import datetime, date
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, g
 from app import db
 from app.models import (
-    Lead, Payment, Supplier, Invoice, ItineraryRef, TaskList, Task,
+    Lead, Payment, Supplier, Invoice, ItineraryRef, TaskList, Task, Document,
     LeadStatus, PaymentType, InvoiceStatus, next_inquiry_code,
 )
 from app.services import parse_inquiry_text, get_summary, _cached_or_new_code, format_inquiry_reply
@@ -259,7 +259,16 @@ def lead_update_status(lead_id):
         lead.status = new_status
         db.session.commit()
         _log_activity(lead_id, "status_changed", f"{old} → {new_status}")
-        
+
+        # Auto-celebrate on lead conversion
+        if new_status == LeadStatus.CONVERTED.value and old != LeadStatus.CONVERTED.value:
+            try:
+                from app.celebrations import CelebrationEngine
+                ce = CelebrationEngine()
+                celeb = ce.celebrate_lead_conversion(lead_id, user=getattr(g, "user", ""))
+            except Exception:
+                pass
+
         # Return JSON for API calls (kanban drag-drop), redirect for form posts
         if json_data:
             return jsonify({"success": True, "status": new_status})
@@ -422,6 +431,13 @@ def payments():
         if obj and obj.lead_id:
             type_label = "Guest payment" if p.type == "guest_payment" else "Supplier payment"
             _log_activity(obj.lead_id, "payment_received", f"{type_label}: ₹{p.amount:.0f}")
+            # Auto-celebrate
+            try:
+                from app.celebrations import CelebrationEngine
+                ce = CelebrationEngine()
+                ce.celebrate_payment(obj.lead_id, float(p.amount), user=getattr(g, "user", ""))
+            except Exception:
+                pass
         return redirect(url_for("main.payments"))
     payments = Payment.query.order_by(Payment.paid_at.desc()).limit(200).all()
     leads = Lead.query.order_by(Lead.created_at.desc()).limit(300).all()
@@ -599,6 +615,14 @@ def payment_complete():
             lead_id=p.lead_id,
             icon="💰",
         )
+    except Exception:
+        pass
+
+    # Auto-celebrate via CelebrationEngine
+    try:
+        from app.celebrations import CelebrationEngine
+        ce = CelebrationEngine()
+        ce.celebrate_payment(p.lead_id, float(p.amount), user=getattr(g, "user", ""))
     except Exception:
         pass
 
@@ -948,6 +972,117 @@ def settings_fields_add():
 
 
 # ---------------------------------------------------------------------------
+# WhatsApp Business API
+# ---------------------------------------------------------------------------
+
+@main.route("/whatsapp/webhook", methods=["GET", "POST"])
+def whatsapp_webhook():
+    """WhatsApp Business API webhook handler."""
+    # GET = webhook verification challenge
+    if request.method == "GET":
+        mode = request.args.get("hub.mode", "")
+        token = request.args.get("hub.verify_token", "")
+        challenge = request.args.get("hub.challenge", "")
+        expected_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "panchi_verify_2026")
+        if mode == "subscribe" and token == expected_token:
+            return challenge, 200
+        return "Verification failed", 403
+
+    # POST = incoming message
+    payload = request.get_json(silent=True) or {}
+    try:
+        entry = payload.get("entry", [{}])[0]
+        change = entry.get("changes", [{}])[0]
+        value = change.get("value", {})
+        messages = value.get("messages", [])
+        if not messages:
+            return jsonify({"status": "ignored"}), 200
+        msg = messages[0]
+        sender = msg.get("from", "")
+        msg_type = msg.get("type", "text")
+        text = ""
+        if msg_type == "text":
+            text = msg.get("text", {}).get("body", "")
+        elif msg_type == "interactive":
+            text = msg.get("interactive", {}).get("button_reply", {}).get("title", "")
+        if not text:
+            return jsonify({"status": "ignored"}), 200
+
+        # Process as lead inquiry
+        from app.services import parse_inquiry_text, format_inquiry_reply
+        parsed = parse_inquiry_text(text)
+        with db.session.no_autoflush:
+            code = _cached_or_new_code(db.session)
+        lead = Lead(
+            code=code,
+            source="whatsapp",
+            customer_name=parsed.get("name") or sender,
+            phone=sender,
+            destination=parsed.get("destination"),
+            pax=(
+                f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
+                if parsed.get("adults") or parsed.get("kids")
+                else None
+            ),
+            dates=parsed.get("dates"),
+            notes=text,
+            status="new",
+        )
+        db.session.add(lead)
+        db.session.commit()
+        _log_activity(lead.id, "created", f"Lead created via WhatsApp: {text[:200]}")
+
+        # Auto-reply
+        reply_text = format_inquiry_reply(parsed, code)
+        try:
+            from app.shunya.executor import WhatsAppAdapter, OutboundMessage, ChannelType, MessageType
+            adapter = WhatsAppAdapter()
+            if adapter.is_configured():
+                adapter.send(OutboundMessage(
+                    channel=ChannelType.WHATSAPP,
+                    recipient=sender,
+                    text=reply_text,
+                ))
+        except Exception:
+            pass
+    except (IndexError, KeyError, TypeError) as e:
+        app.logger.warning("WhatsApp webhook parse error: %s", e)
+
+    return jsonify({"status": "ok"}), 200
+
+
+@main.route("/whatsapp/send", methods=["POST"])
+def whatsapp_send():
+    """Send a WhatsApp message manually from the dashboard."""
+    from app.shunya.executor import WhatsAppAdapter, OutboundMessage, ChannelType, MessageType
+    phone = request.form.get("phone", "").strip()
+    message = request.form.get("message", "").strip()
+    lead_id = request.form.get("lead_id", type=int)
+    if not phone or not message:
+        flash("Phone number and message required", "error")
+        return redirect(request.referrer or url_for("main.leads_list"))
+    # Format phone for WhatsApp
+    if not phone.startswith("+"):
+        phone = "+" + phone
+    adapter = WhatsAppAdapter()
+    if not adapter.is_configured():
+        flash("WhatsApp not configured. Set WHATSAPP_API_TOKEN and WHATSAPP_PHONE_NUMBER_ID in .env", "error")
+        return redirect(request.referrer or url_for("main.leads_list"))
+    result = adapter.send(OutboundMessage(
+        channel=ChannelType.WHATSAPP,
+        recipient=phone,
+        text=message,
+    ))
+    if result.success:
+        flash(f"Message sent to {phone} ✅", "success")
+        if lead_id:
+            _log_activity(lead_id, "whatsapp_sent", f"Message to {phone}: {message[:100]}")
+    else:
+        flash(f"Failed: {result.error}", "error")
+    return redirect(request.referrer or url_for("main.leads_list"))
+
+
+# ---------------------------------------------------------------------------
 # Telegram webhook & Bot endpoints
 # ---------------------------------------------------------------------------
 
@@ -1192,6 +1327,59 @@ def api_create_notification():
 
 
 # ---------------------------------------------------------------------------
+# Celebrations API
+# ---------------------------------------------------------------------------
+
+@api.route("/celebrations", methods=["GET"])
+def api_get_celebrations():
+    """Get recent celebrations."""
+    from app.celebrations import CelebrationEngine
+    limit = min(int(request.args.get("limit", 10)), 50)
+    ce = CelebrationEngine()
+    celebrations = ce.get_recent_celebrations(limit=limit)
+    count = ce.get_celebration_count_since()
+    return jsonify({"celebrations": celebrations, "count": count})
+
+
+@api.route("/celebrations/scan", methods=["GET"])
+def api_scan_celebrations():
+    """Scan for new wins and record any that haven't been recorded yet."""
+    from app.celebrations import CelebrationEngine
+    ce = CelebrationEngine()
+    new_celebrations = ce.scan_and_record()
+    celebrations = ce.get_recent_celebrations(limit=10)
+    count = ce.get_celebration_count_since()
+    return jsonify({
+        "new": new_celebrations,
+        "celebrations": celebrations,
+        "count": count,
+    })
+
+
+@api.route("/celebrations", methods=["POST"])
+def api_create_celebration():
+    """Manually create a celebration."""
+    from app.celebrations import CelebrationEngine
+    data = request.get_json(silent=True) or {}
+    required = ["title"]
+    for field in required:
+        if not data.get(field):
+            return jsonify({"error": f"'{field}' is required"}), 400
+
+    ce = CelebrationEngine()
+    celebration = ce.record_celebration(
+        celebration_type=data.get("type", "manual"),
+        title=data["title"],
+        message=data.get("message", ""),
+        icon=data.get("icon", "🎉"),
+        animation=data.get("animation", "woosh"),
+        lead_id=data.get("lead_id"),
+        created_by=data.get("created_by", ""),
+    )
+    return jsonify(celebration), 201
+
+
+# ---------------------------------------------------------------------------
 # PDF Generation (inline helper)
 # ---------------------------------------------------------------------------
 
@@ -1213,6 +1401,162 @@ def voice_process():
     processor = VoiceProcessor(user_name=name)
     result = processor.process(text)
     return jsonify(result)
+
+
+# ---------------------------------------------------------------------------
+# Documents — AI Document Reading
+# ---------------------------------------------------------------------------
+
+@main.route("/documents")
+def documents_page():
+    """Document management page — upload, view, classify documents."""
+    documents = Document.query.order_by(Document.created_at.desc()).limit(100).all()
+    leads = Lead.query.order_by(Lead.created_at.desc()).limit(300).all()
+    return render_template("documents.html", documents=documents, leads=leads)
+
+
+@main.route("/documents/upload", methods=["POST"])
+def documents_upload():
+    """Upload and process a document — extract text, classify, parse lead info."""
+    if "file" not in request.files:
+        flash("No file selected", "error")
+        return redirect(url_for("main.documents_page"))
+
+    f = request.files["file"]
+    if not f or not f.filename:
+        flash("No file selected", "error")
+        return redirect(url_for("main.documents_page"))
+
+    # Determine file type
+    ext = os.path.splitext(f.filename)[1].lower()
+    file_type = "text"
+    if ext in (".pdf",):
+        file_type = "pdf"
+    elif ext in (".docx", ".doc"):
+        file_type = "docx"
+    elif ext in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp"):
+        file_type = "image"
+    elif ext in (".txt", ".csv", ".json", ".xml", ".md", ".log", ".ini", ".cfg"):
+        file_type = "text"
+    else:
+        flash(f"Unsupported file type: {ext}", "error")
+        return redirect(url_for("main.documents_page"))
+
+    # Save file
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "documents")
+    os.makedirs(upload_dir, exist_ok=True)
+    safe_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{f.filename}"
+    file_path = os.path.join(upload_dir, safe_name)
+    try:
+        f.save(file_path)
+    except Exception as e:
+        flash(f"Failed to save file: {e}", "error")
+        return redirect(url_for("main.documents_page"))
+
+    # Process document with DocumentReader
+    from app.document_reader import DocumentReader
+    reader = DocumentReader()
+    result = reader.process_document(file_path, file_type)
+    structured_json = json.dumps(result.get("structured_data", {}))
+
+    # Optional lead association
+    lead_id = request.form.get("lead_id", type=int)
+    if not lead_id:
+        lead_id = None
+
+    doc = Document(
+        lead_id=lead_id,
+        filename=f.filename,
+        file_path=file_path,
+        file_type=file_type,
+        extracted_text=result.get("extracted_text", ""),
+        structured_data=structured_json,
+        classification=result.get("classification", "other"),
+        uploaded_by=getattr(g, "user", ""),
+    )
+    try:
+        db.session.add(doc)
+        db.session.commit()
+        if doc.lead_id:
+            _log_activity(doc.lead_id, "document_uploaded",
+                          f"Document '{doc.filename}' uploaded ({doc.classification})")
+        flash(f"✅ Document processed: {doc.filename} — classified as {doc.classification}", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"Failed to save document record: {e}", "error")
+
+    return redirect(url_for("main.documents_page"))
+
+
+@main.route("/documents/<int:doc_id>")
+def documents_detail(doc_id):
+    """View document details — extracted text, structured data, classification."""
+    doc = Document.query.get_or_404(doc_id)
+    documents = [doc]
+    leads = Lead.query.order_by(Lead.created_at.desc()).limit(300).all()
+    return render_template("documents.html", view_doc=doc, documents=documents, leads=leads)
+
+
+@api.route("/documents/extract", methods=["POST"])
+def api_documents_extract():
+    """API: Upload a file, return extracted text + structured data as JSON."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    f = request.files["file"]
+    if not f or not f.filename:
+        return jsonify({"error": "No file provided"}), 400
+
+    ext = os.path.splitext(f.filename)[1].lower()
+    file_type = "text"
+    if ext in (".pdf",):
+        file_type = "pdf"
+    elif ext in (".docx", ".doc"):
+        file_type = "docx"
+    elif ext in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp"):
+        file_type = "image"
+
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "documents")
+    os.makedirs(upload_dir, exist_ok=True)
+    safe_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{f.filename}"
+    file_path = os.path.join(upload_dir, safe_name)
+    try:
+        f.save(file_path)
+    except Exception as e:
+        return jsonify({"error": f"Failed to save file: {e}"}), 500
+
+    from app.document_reader import DocumentReader
+    reader = DocumentReader()
+    result = reader.process_document(file_path, file_type)
+
+    return jsonify({
+        "filename": f.filename,
+        "file_type": file_type,
+        "extracted_text": result.get("extracted_text", ""),
+        "summary": result.get("summary", ""),
+        "classification": result.get("classification", "other"),
+        "structured_data": result.get("structured_data", {}),
+    })
+
+
+@api.route("/documents/classify", methods=["POST"])
+def api_documents_classify():
+    """API: Classify a document (text-based classification)."""
+    data = request.get_json(silent=True) or {}
+    text = data.get("text", "")
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    from app.document_reader import DocumentReader
+    reader = DocumentReader()
+    classification = reader.classify_document(text)
+    summary = reader.summarize_document(text)
+
+    return jsonify({
+        "classification": classification,
+        "summary": summary,
+        "text_length": len(text),
+    })
 
 
 # ---------------------------------------------------------------------------

@@ -290,6 +290,14 @@ def create_app(config_override: dict | None = None):
         user_id = user.id if user else None
         unread_count = nm.get_unread_count(user_id=user_id)
         recent_notifications = nm.get_recent_unread(user_id=user_id, limit=10)
+        # Celebration context
+        celebration_count = 0
+        try:
+            from app.celebrations import CelebrationEngine
+            ce = CelebrationEngine()
+            celebration_count = ce.get_celebration_count_since()
+        except Exception:
+            pass
         return {
             "brand": "Panchi Club",
             "assistant_identity": "AI@panchi.club",
@@ -310,6 +318,8 @@ def create_app(config_override: dict | None = None):
             # Notification context
             "unread_count": unread_count,
             "recent_notifications": recent_notifications,
+            # Celebration context
+            "celebration_count": celebration_count,
             "datetime": datetime,
         }
 

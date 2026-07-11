@@ -542,6 +542,59 @@ class ClientMessage(db.Model):
 
 
 # ---------------------------------------------------------------------------
+# Document — AI Document Reading
+# ---------------------------------------------------------------------------
+
+class Document(db.Model):
+    """Uploaded documents with AI-extracted text and structured data."""
+
+    __tablename__ = "documents"
+    __table_args__ = (
+        Index("ix_documents_lead", "lead_id"),
+        Index("ix_documents_classification", "classification"),
+        Index("ix_documents_created", "created_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True, index=True)
+    filename = db.Column(db.String(500), nullable=False)
+    file_path = db.Column(db.String(1000), nullable=False)
+    file_type = db.Column(db.String(20), nullable=False)  # pdf / docx / image / text
+    extracted_text = db.Column(db.Text, default="")
+    structured_data = db.Column(db.Text, default="")  # JSON string
+    classification = db.Column(db.String(50), default="other")
+    uploaded_by = db.Column(db.String(120), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationship
+    lead = db.relationship("Lead", backref=db.backref("documents", lazy="dynamic", cascade="all,delete-orphan"))
+
+    def __repr__(self):
+        return f"<Document #{self.id} {self.filename} [{self.classification}]>"
+
+    def to_dict(self) -> dict:
+        import json
+        struct = {}
+        try:
+            if self.structured_data:
+                struct = json.loads(self.structured_data)
+        except (json.JSONDecodeError, TypeError):
+            struct = {}
+        return {
+            "id": self.id,
+            "lead_id": self.lead_id,
+            "filename": self.filename,
+            "file_path": self.file_path,
+            "file_type": self.file_type,
+            "extracted_text": self.extracted_text,
+            "structured_data": struct,
+            "classification": self.classification,
+            "uploaded_by": self.uploaded_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
 # ActivityLog
 # ---------------------------------------------------------------------------
 
@@ -570,6 +623,49 @@ class ActivityLog(db.Model):
             "action": self.action,
             "detail": self.detail,
             "user": self.user,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Celebration — System-level wins and celebrations
+# ---------------------------------------------------------------------------
+
+class Celebration(db.Model):
+    """A recorded win or celebration event, auto-detected or manually created."""
+
+    __tablename__ = "celebrations"
+    __table_args__ = (
+        Index("ix_celebrations_type_created", "type", "created_at"),
+        Index("ix_celebrations_lead", "lead_id", "created_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(30), nullable=False, default="generic", index=True)
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, default="")
+    icon = db.Column(db.String(20), default="🎉")
+    animation = db.Column(db.String(30), default="woosh")
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    created_by = db.Column(db.String(120), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationship
+    lead = db.relationship("Lead", backref="celebrations", lazy="select")
+
+    def __repr__(self):
+        return f"<Celebration #{self.id} [{self.type}] {self.title[:50]}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "type": self.type,
+            "title": self.title,
+            "message": self.message,
+            "icon": self.icon,
+            "animation": self.animation,
+            "lead_id": self.lead_id,
+            "created_by": self.created_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
