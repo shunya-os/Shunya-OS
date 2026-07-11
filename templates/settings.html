@@ -5,10 +5,32 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- Integrations -->
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🔌 Integrations</h3>
+    <div class="space-y-4">
+      <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+        <div class="flex items-center gap-2">
+          <span>📞</span>
+          <div><p class="text-sm font-medium text-slate-700">WhatsApp Business</p>
+          <p class="text-xs text-slate-400">Connected</p></div>
+        </div>
+        <span class="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600">Active</span>
+      </div>
+      <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+        <div class="flex items-center gap-2">
+          <span>🎤</span>
+          <div><p class="text-sm font-medium text-slate-700">Voice (37 languages)</p>
+          <p class="text-xs text-slate-400">STT + TTS via OpenAI</p></div>
+        </div>
+        <span class="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600">Active</span>
+      </div>
+    </div>
+  </div>
 
   <!-- Entity Types -->
   <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">📋 Entity Types / Modules</h3>
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">📋 Entity Types</h3>
     <div class="space-y-2 mb-4">
       {% for d in definitions %}
       <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
@@ -23,42 +45,17 @@
     </div>
     <details class="group">
       <summary class="text-sm text-blue-600 cursor-pointer hover:underline">+ New Entity Type</summary>
-      <form method="post" action="/settings/entity-types" class="mt-3 space-y-3">
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Type (snake_case)</label>
-            <input name="type" required placeholder="patient" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Label</label>
-            <input name="label" required placeholder="Patient" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Icon</label>
-            <input name="icon" placeholder="👤" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-600 mb-1">Layout</label>
-            <select name="layout" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-              <option value="table">Table</option><option value="kanban">Kanban</option><option value="cards">Cards</option><option value="calendar">Calendar</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Primary Field (used for display)</label>
-          <input name="primary_field" placeholder="name" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Schema (JSON)</label>
-          <textarea name="schema" rows="6" placeholder='[{"name":"name","label":"Name","type":"text","required":true},{"name":"phone","label":"Phone","type":"text"}]' class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono text-xs"></textarea>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Statuses (JSON array)</label>
-          <input name="statuses" placeholder='["new","active","done","cancelled"]' class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-        </div>
-        <button type="submit" class="w-full bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">Create Entity Type</button>
+      <form method="post" action="/settings/entity-types" class="mt-3 space-y-2">
+        <input name="type" required placeholder="type (snake_case)" class="w-full px-3 py-2 border rounded-lg text-sm">
+        <input name="label" required placeholder="Label" class="w-full px-3 py-2 border rounded-lg text-sm">
+        <input name="icon" placeholder="Icon (emoji)" class="w-full px-3 py-2 border rounded-lg text-sm">
+        <select name="layout" class="w-full px-3 py-2 border rounded-lg text-sm">
+          <option value="table">Table</option><option value="kanban">Kanban</option>
+          <option value="cards">Cards</option><option value="calendar">Calendar</option>
+        </select>
+        <textarea name="schema" rows="4" placeholder='Schema JSON: [{"name":"name","label":"Name","type":"text","required":true}]' class="w-full px-3 py-2 border rounded-lg text-sm font-mono"></textarea>
+        <input name="statuses" placeholder='Statuses: ["new","active","done"]' class="w-full px-3 py-2 border rounded-lg text-sm">
+        <button type="submit" class="w-full bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">Create</button>
       </form>
     </details>
   </div>
@@ -69,38 +66,17 @@
     <div class="space-y-2">
       {% for m in team %}
       <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-        <div>
-          <span class="text-sm font-medium text-slate-700">{{ m.name }}</span>
-          <span class="text-xs text-slate-400 ml-2">{{ m.email }}</span>
-        </div>
+        <div><span class="text-sm font-medium text-slate-700">{{ m.name }}</span><span class="text-xs text-slate-400 ml-2">{{ m.email }}</span></div>
         <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{{ m.role }}</span>
       </div>
       {% endfor %}
     </div>
   </div>
 
-  <!-- Suppliers -->
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🏢 Suppliers</h3>
-    {% if suppliers %}
-    <div class="space-y-2 mb-4">
-      {% for s in suppliers[:10] %}
-      <div class="flex items-center justify-between p-2 text-sm">
-        <span class="font-medium text-slate-700">{{ s.name }}</span>
-        <span class="text-xs text-slate-400">{{ s.category }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-sm text-slate-400 mb-4">No suppliers yet.</p>
-    {% endif %}
-  </div>
-
-  <!-- Session Management -->
+  <!-- Sessions -->
   <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
     <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🔐 Sessions</h3>
-    <p class="text-sm text-slate-600 mb-3">Manage your active login sessions across devices.</p>
-    <a href="/auth/sessions" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">Manage Sessions</a>
+    <a href="/auth/sessions" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">Manage Sessions</a>
   </div>
 </div>
 {% endblock %}
