@@ -351,6 +351,10 @@ class KnowledgeEntry(db.Model):
     use_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    category = Column(String(50), default="general")
+    meta_data = Column(Text, nullable=True)  # JSON blob
+    file_type = Column(String(20), nullable=True)
+
 
 # ---------------------------------------------------------------------------
 # Feedback / Corrections

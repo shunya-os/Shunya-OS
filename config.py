@@ -6,7 +6,8 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "shunya-dev-key-change-in-production")
-    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://shunya:shunya@localhost:5432/shunya_os")
+    DB_PASS = os.getenv("DB_PASSWORD", "shunya")
+    DATABASE_URL = os.getenv("DATABASE_URL", f"postgresql://shunya:{DB_PASS}@localhost:5432/shunya_os")
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JSON_SORT_KEYS = False
@@ -40,7 +41,6 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "postgresql://shunya:shunya@localhost:5432/shunya_os")
 
 class ProductionConfig(Config):
     DEBUG = False

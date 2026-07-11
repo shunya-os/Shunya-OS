@@ -54,6 +54,7 @@ def _register_blueprints(app):
     from app.routes.api import api_bp
     from app.routes.voice import voice_bp
     from app.shunya.whatsapp import whatsapp_bp
+    from app.shunya.ingestion import ingestion_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(entities_bp)
@@ -63,6 +64,7 @@ def _register_blueprints(app):
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(voice_bp)
     app.register_blueprint(whatsapp_bp)
+    app.register_blueprint(ingestion_bp)
 
 
 # ---------------------------------------------------------------------------
