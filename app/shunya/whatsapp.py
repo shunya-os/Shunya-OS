@@ -176,8 +176,8 @@ def webhook():
 
 
 def _process_incoming_message(from_number: str, text: str, msg_id: str):
-    """Process an incoming WhatsApp message — Bird handles the response."""
-    from app.shunya.bird import Bird
+    """Process an incoming WhatsApp message through the Personal Agent."""
+    from app.shunya.agent.channels import get_router
     from app.shunya.next_best_action import NextBestActionEngine
 
     # Find the tenant/entity for this phone number
@@ -209,30 +209,37 @@ def _process_incoming_message(from_number: str, text: str, msg_id: str):
         db.session.add(activity)
         db.session.commit()
 
+        # Acknowledge
+        from app.shunya.whatsapp import WhatsAppChannel
+        WhatsAppChannel.send(from_number,
+            "Thanks! Your message has been received. Our team will get back to you shortly.",
+            entity.tenant_id, entity.id)
+
     elif team_member:
-        # Team member message — Bird processes it
-        tenant_id = team_member.tenant_id
-        bird = Bird(tenant_id, team_member.id, team_member.role, team_member.name)
+        # Team member message — route through Personal Agent
+        router = get_router()
+        payload = {"from": from_number, "text": text, "msg_id": msg_id}
+        result = router.process_message("whatsapp", payload)
 
-        # Route through Bird
-        result = bird.handle_query(text)
-
-        # Get next actions
-        actions = NextBestActionEngine.get_for_user(tenant_id, team_member.id, team_member.role)
-
-        # Send response back via WhatsApp
-        response = f"🧠 I found this:\n\n"
-        if result.get("context") and result["context"].get("results"):
-            for r in result["context"]["results"][:2]:
-                response += f"• {r.get('summary', r.get('answer', ''))[:200]}\n"
+        if result:
+            response = result.get("text", "")
         else:
-            response += "Let me check on that for you.\n"
-        response += "\nReply with what you need!"
+            # Fallback
+            bird = __import__("app.shunya.bird", fromlist=["Bird"]).Bird(
+                team_member.tenant_id, team_member.id, team_member.role, team_member.name
+            )
+            q_result = bird.handle_query(text)
+            response = "Let me check on that for you."
+            if q_result.get("context") and q_result["context"].get("results"):
+                for r in q_result["context"]["results"][:2]:
+                    response = f"• {r.get('summary', r.get('answer', ''))[:200]}"
 
-        WhatsAppChannel.send(from_number, response, tenant_id)
+        from app.shunya.whatsapp import WhatsAppChannel
+        WhatsAppChannel.send(from_number, response, team_member.tenant_id)
 
     else:
         # Unknown number — Bird treats as new lead inquiry
+        from app.shunya.whatsapp import WhatsAppChannel
         WhatsAppChannel.send(from_number,
             "👋 Welcome! I'm Shunya AI. How can I help you today? "
             "Tell me about your requirements and I'll get things started.",

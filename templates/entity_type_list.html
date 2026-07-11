@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900">📋 Entity Types</h1>
+    <p class="text-sm text-slate-400 mt-1">Define the types of records your business manages</p>
+  </div>
+  <a href="{{ url_for('settings.new_entity_type') }}"
+     class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+    + New Type
+  </a>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for d in definitions %}
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden card-hover">
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">{{ d.icon }}</span>
+          <div>
+            <h3 class="font-semibold text-slate-900">{{ d.label }}</h3>
+            <p class="text-xs text-slate-400">{{ d.type }}</p>
+          </div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" class="sr-only peer" onchange="toggleActive({{ d.id }})" {{ 'checked' if d.is_active else '' }}>
+          <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+        </label>
+      </div>
+
+      <!-- Schema summary -->
+      <div class="mb-3">
+        <div class="flex flex-wrap gap-1.5">
+          {% for f in d.schema[:6] %}
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs
+            {% if f.get('required') %}bg-rose-50 text-rose-600 border border-rose-200
+            {% elif f.get('type') == 'number' %}bg-emerald-50 text-emerald-600 border border-emerald-200
+            {% elif f.get('type') == 'select' %}bg-amber-50 text-amber-600 border border-amber-200
+            {% elif f.get('type') == 'date' %}bg-violet-50 text-violet-600 border border-violet-200
+            {% elif f.get('type') == 'textarea' %}bg-indigo-50 text-indigo-600 border border-indigo-200
+            {% else %}bg-slate-50 text-slate-600 border border-slate-200{% endif %}">
+            {{ f.get('label', f.get('name', '?')) }}
+          </span>
+          {% endfor %}
+          {% if d.schema|length > 6 %}
+          <span class="px-2 py-0.5 rounded-md text-xs bg-slate-50 text-slate-400 border border-slate-200">+{{ d.schema|length - 6 }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Meta info -->
+      <div class="flex items-center gap-3 text-xs text-slate-400">
+        <span class="flex items-center gap-1">📊 {{ counts.get(d.id, 0) }} records</span>
+        <span class="flex items-center gap-1">📐 {{ d.layout }}</span>
+        <span class="flex items-center gap-1">{{ d.statuses|length }} statuses</span>
+      </div>
+    </div>
+    <div class="border-t border-slate-100 px-5 py-3 bg-slate-50/50 flex items-center justify-between">
+      <a href="{{ url_for('settings.edit_entity_type', def_id=d.id) }}"
+         class="text-sm text-blue-600 hover:text-blue-800 font-medium">Edit Schema</a>
+      <form action="{{ url_for('settings.delete_entity_type', def_id=d.id) }}" method="post"
+            onsubmit="return confirm('Delete {{ d.label }}? {{ counts.get(d.id, 0) }} records will be preserved (deactivated).')">
+        <button type="submit" class="text-sm text-red-500 hover:text-red-700 font-medium">Delete</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if not definitions %}
+<div class="text-center py-16">
+  <span class="text-5xl block mb-4">📋</span>
+  <h3 class="text-lg font-semibold text-slate-700 mb-1">No entity types yet</h3>
+  <p class="text-sm text-slate-400 mb-6">Start by creating your first business record type</p>
+  <a href="{{ url_for('settings.new_entity_type') }}" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-6 py-2.5 rounded-lg hover:bg-blue-700 transition">+ Create Entity Type</a>
+</div>
+{% endif %}
+
+<script>
+function toggleActive(id) {
+  fetch('/settings/entity-types/' + id + '/toggle', { method: 'POST' })
+    .then(() => location.reload())
+    .catch(() => location.reload());
+}
+</script>
+{% endblock %}

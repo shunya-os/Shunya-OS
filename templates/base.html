@@ -1,5 +1,6 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="{{ current_tenant.ai_config.get('theme', 'modern') if current_tenant else 'modern' }}" 
+      {% if brand_colors %}style="--brand-h:{{ brand_colors.h }};--brand-s:{{ brand_colors.s }}%;--brand-l:{{ brand_colors.l }}%"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8,9 +9,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/themes.css">
   <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
   <style>
     .card-hover{transition:all .2s ease}.card-hover:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.1)}
+    .bird-scroll::-webkit-scrollbar{width:4px}
+    .bird-scroll::-webkit-scrollbar-track{background:transparent}
+    .bird-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px}
+    @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+    .voice-active{animation:pulse-dot 1s ease-in-out infinite}
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-20">
@@ -29,8 +36,27 @@
           <a href="/ingestion" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Ingest</a>
           <a href="/analytics" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Analytics</a>
           <a href="/learning" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Learn</a>
+          <a href="/modules" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Modules</a>
           <a href="/settings" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Settings</a>
           <a href="/ai-settings" class="text-sm text-slate-500 hover:text-slate-700 font-medium">AI</a>
+          <a href="/governance" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Governance</a>
+          <!-- Theme Switcher -->
+          <div class="relative" style="display:inline-block;">
+            <button onclick="toggleThemeMenu()" id="theme-toggle-btn" class="text-sm text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1" title="Switch theme">
+              <span id="theme-icon">💼</span>
+            </button>
+            <div id="theme-menu" style="display:none;position:absolute;top:100%;right:0;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.15);padding:8px;z-index:100;min-width:180px;">
+              <div class="theme-option" data-theme="modern" onclick="switchTheme('modern')" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+                <span>💼</span> <span>Modern</span> <span style="margin-left:auto;font-size:0.65rem;color:#94a3b8;">Professional</span>
+              </div>
+              <div class="theme-option" data-theme="playful" onclick="switchTheme('playful')" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+                <span>🎨</span> <span>Playful</span> <span style="margin-left:auto;font-size:0.65rem;color:#94a3b8;">Vibrant</span>
+              </div>
+              <div class="theme-option" data-theme="elegant" onclick="switchTheme('elegant')" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+                <span>✨</span> <span>Elegant</span> <span style="margin-left:auto;font-size:0.65rem;color:#94a3b8;">Minimal</span>
+              </div>
+            </div>
+          </div>
           <a href="/auth/logout" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
         </div>
       </div>
@@ -57,68 +83,299 @@
   <!-- Bird Floating Assistant — persistent on every screen -->
   {% if current_user %}
   <div id="bird-widget" style="position:fixed;bottom:24px;right:24px;z-index:9999;font-family:Inter,system-ui,sans-serif">
+    <!-- Main bubble button -->
     <div id="bird-bubble" onclick="toggleBird()"
       style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.15);transition:all .3s ease;border:none;"
-      onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🧠</div>
-    <div id="bird-panel" style="display:none;position:absolute;bottom:70px;right:0;width:360px;max-height:520px;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.2);overflow:hidden;border:1px solid rgba(0,0,0,0.06);">
-      <div style="padding:16px 20px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;">
+      onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"
+      title="Ask Shunya AI (Ctrl+B)">🧠</div>
+
+    <!-- Chat panel -->
+    <div id="bird-panel" style="display:none;position:absolute;bottom:70px;right:0;width:380px;max-height:560px;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.2);overflow:hidden;border:1px solid rgba(0,0,0,0.06);">
+
+      <!-- Header -->
+      <div style="padding:14px 18px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;">
         <div style="display:flex;align-items:center;justify-content:space-between;">
           <div style="display:flex;align-items:center;gap:10px;">
             <span style="font-size:1.3rem;">🧠</span>
-            <div><div style="font-weight:600;font-size:0.9rem;">Shunya AI</div><div style="font-size:0.7rem;opacity:0.7;">Ask me anything</div></div>
+            <div>
+              <div style="font-weight:600;font-size:0.9rem;">Shunya AI</div>
+              <div style="font-size:0.7rem;opacity:0.7;">Ask, create, search — I'm here</div>
+            </div>
           </div>
-          <button onclick="toggleBird()" style="background:none;border:none;color:white;font-size:1.2rem;cursor:pointer;opacity:0.7;">✕</button>
+          <button onclick="toggleBird()" style="background:none;border:none;color:white;font-size:1.2rem;cursor:pointer;opacity:0.7;" title="Close (Esc)">✕</button>
         </div>
       </div>
-      <div id="bird-messages" style="padding:12px;max-height:300px;overflow-y:auto;background:#f8fafc;">
+
+      <!-- Capability bar -->
+      <div style="padding:8px 14px;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap;background:#f8fafc;">
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🔍 Web search</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🎤 Voice (37 lang)</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">📝 Create records</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">📊 Ask data</span>
+      </div>
+
+      <!-- Messages -->
+      <div id="bird-messages" class="bird-scroll" style="padding:12px;max-height:320px;overflow-y:auto;background:#f8fafc;">
         <div class="bird-msg bird-ai" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px 16px 16px 4px;font-size:0.85rem;color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-          Hey! What can I help you with?
+          Hey! I can help you with:
+          <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">
+            <span onclick="insertExample('create a lead for Sharma family, Bali trip, 2 adults, budget 2.5L')" style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">➕ Create a lead</span>
+            <span onclick="insertExample('show me pending invoices')" style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">📊 Pending invoices</span>
+            <span onclick="insertExample('search web for Bali travel restrictions')" style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🌐 Search web</span>
+          </div>
         </div>
       </div>
+
+      <!-- Input area -->
       <div style="padding:10px 12px;border-top:1px solid #e2e8f0;display:flex;gap:8px;background:white;">
-        <button onclick="startVoice()" id="voice-btn" title="Voice input" style="padding:10px;background:#f1f5f9;border:none;border-radius:12px;font-size:1.2rem;cursor:pointer;">🎤</button>
-        <input id="bird-input" type="text" placeholder="Ask me anything..." style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:0.85rem;outline:none;"
+        <div style="position:relative;">
+          <button onclick="startVoice()" id="voice-btn" title="🎤 Voice input — supports 37 languages. Say anything in English, Hindi, or your language." style="padding:10px;background:#f1f5f9;border:none;border-radius:12px;font-size:1.2rem;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">🎤</button>
+          <div id="voice-tooltip" style="display:none;position:absolute;bottom:48px;left:0;background:#1e293b;color:white;font-size:0.65rem;padding:6px 10px;border-radius:8px;white-space:nowrap;max-width:240px;">🎤 Voice input — 37 languages</div>
+        </div>
+        <input id="bird-input" type="text" placeholder="Ask, create, or search..." style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:0.85rem;outline:none;transition:border-color .2s;"
+          onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#e2e8f0'"
           onkeydown="if(event.key==='Enter')birdChat()">
-        <button onclick="birdChat()" style="padding:10px 16px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;border-radius:12px;font-size:0.85rem;cursor:pointer;font-weight:500;">Send</button>
+        <button onclick="birdChat()" style="padding:10px 16px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;border-radius:12px;font-size:0.85rem;cursor:pointer;font-weight:500;transition:opacity .2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Send</button>
       </div>
     </div>
   </div>
+
   <script>
+  // ── Toggle Bird ──
   function toggleBird() {
     const p = document.getElementById('bird-panel');
     p.style.display = p.style.display === 'none' ? 'block' : 'none';
-    if (p.style.display === 'block') document.getElementById('bird-input').focus();
+    if (p.style.display === 'block') {
+      document.getElementById('bird-input').focus();
+    }
   }
+
+  // ── Chat ──
   async function birdChat() {
     const input = document.getElementById('bird-input');
     const q = input.value.trim();
     if (!q) return;
+
     const msgs = document.getElementById('bird-messages');
-    msgs.innerHTML += `<div class="bird-msg" style="margin-bottom:8px;padding:10px 14px;background:#2563eb;color:white;border-radius:16px 16px 4px 16px;font-size:0.85rem;text-align:right;max-width:85%;margin-left:auto;">${q}</div>`;
+    addMsg(msgs, q, 'user');
     input.value = '';
-    msgs.innerHTML += `<div class="bird-msg" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px;font-size:0.85rem;color:#94a3b8;">🧠 Thinking...</div>`;
-    msgs.scrollTop = msgs.scrollHeight;
+    const thinkingId = addThinking(msgs);
+
     try {
-      const r = await fetch('/api/ai/query', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query: q})});
+      // Use the personal agent endpoint
+      const r = await fetch('/api/agent/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({query: q, channel: 'web'})
+      });
       const d = await r.json();
-      const thinking = msgs.querySelector('.bird-msg:last-child');
-      if (thinking) thinking.remove();
-      const resp = d.response || 'I searched but couldn\'t find a clear answer. Could you try rephrasing?';
-      const needsVerify = d.needs_verification;
-      const html = resp.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') + 
-        (needsVerify ? '<br><br><span style="color:#eab308;font-size:0.75rem;">⚠️ Verify with manager</span>' : '');
-      msgs.innerHTML += `<div class="bird-msg" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px 16px 16px 4px;font-size:0.85rem;color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,0.05);max-width:85%;">${html}</div>`;
+      removeThinking(msgs, thinkingId);
+
+      const intent = d.intent || {};
+      const badge = d.verification_badge || '';
+      const responseText = d.response || buildFallbackResponse(q, d);
+
+      // Get the intent type
+      const intentType = intent.type || 'question';
+
+      // Check for confirmation card from create intent
+      if (intentType === 'create' && d.confidence >= 0.7) {
+        // For tool-based create, the response already has the result
+        let html = responseText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+        // Add verification badge
+        if (badge) {
+          html = '<div style="margin-bottom:4px;">' + getBadgeHtml(badge) + '</div>' + html;
+        }
+        addMsg(msgs, html, 'ai');
+      } else {
+        // Show response with badge
+        let html = responseText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+        if (badge) {
+          html = getBadgeHtml(badge) + ' ' + html;
+        }
+        addMsg(msgs, html, 'ai');
+      }
     } catch(e) {
-      const thinking = msgs.querySelector('.bird-msg:last-child');
-      if (thinking) thinking.remove();
-      msgs.innerHTML += `<div class="bird-msg" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px;font-size:0.85rem;color:#1e293b;">I'm here! What would you like to know? Try asking about your business data, or just say "Hi" 👋</div>`;
+      removeThinking(msgs, thinkingId);
+      addMsg(msgs, buildFallbackResponse(q, {}), 'ai');
     }
     msgs.scrollTop = msgs.scrollHeight;
   }
-  // Voice input using Web Speech API
+
+  function getBadgeHtml(badge) {
+    const badges = {
+      'verified': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#dcfce7;color:#16a34a;font-weight:500;margin-right:4px;">✅ Verified</span>',
+      'company': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#dbeafe;color:#2563eb;font-weight:500;margin-right:4px;">📚 Company Data</span>',
+      'web_single': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#fef3c7;color:#d97706;font-weight:500;margin-right:4px;">🌐 Web (Single)</span>',
+      'conflicting': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#fef2f2;color:#dc2626;font-weight:500;margin-right:4px;">⚠️ Conflicting</span>',
+      'low_confidence': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#f1f5f9;color:#64748b;font-weight:500;margin-right:4px;">❓ Low Confidence</span>',
+      'not_found': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#fef2f2;color:#dc2626;font-weight:500;margin-right:4px;">🔴 Not Found</span>',
+      'cached': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#f3e8ff;color:#7c3aed;font-weight:500;margin-right:4px;">💾 Cached</span>',
+    };
+    return badges[badge] || '';
+  }
+
+      function renderConfirmationCard(container, intent, data) {
+        const card = intent.confirmation_card || {};
+        const fields = card.fields || [];
+        const missing = data.missing_required || [];
+        const icon = intent.entity_type_icon || '📋';
+
+        let html = '<div style="background:white;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">';
+        // Header
+        html += '<div style="padding:12px 14px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;display:flex;align-items:center;gap:8px;">';
+        html += '<span style="font-size:1.2rem;">' + icon + '</span>';
+        html += '<div><div style="font-weight:600;font-size:0.85rem;">' + esc(card.title || 'New Record') + '</div>';
+        html += '<div style="font-size:0.7rem;opacity:0.7;">' + esc(card.code || '') + '</div></div></div>';
+        // Body
+        html += '<div style="padding:10px 14px;">';
+        fields.forEach(f => {
+          html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:0.8rem;">';
+          html += '<span style="color:#64748b;">' + esc(f.label) + '</span>';
+          html += '<span style="font-weight:500;color:#1e293b;">' + esc(String(f.value || '')) + '</span>';
+          html += '</div>';
+        });
+        if (missing.length) {
+          html += '<div style="margin-top:8px;padding:8px;background:#fef2f2;border-radius:8px;font-size:0.75rem;color:#dc2626;">';
+          html += '⚠️ Missing: ' + missing.join(', ');
+          html += '</div>';
+        }
+        html += '</div>';
+        // Actions
+        html += '<div style="padding:10px 14px;border-top:1px solid #e2e8f0;display:flex;gap:8px;">';
+        html += '<button onclick="executeIntent()" style="flex:1;padding:8px;background:#059669;color:white;border:none;border-radius:10px;font-size:0.8rem;font-weight:500;cursor:pointer;">✅ Confirm</button>';
+        html += '<button onclick="cancelIntent()" style="flex:1;padding:8px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:0.8rem;cursor:pointer;">✕ Cancel</button>';
+        html += '</div></div>';
+
+        // Store intent data for confirm/cancel
+        window._pendingIntent = intent;
+
+        addMsg(container, html, 'ai');
+      }
+
+      async function executeIntent() {
+        const intent = window._pendingIntent;
+        if (!intent) return;
+        window._pendingIntent = null;
+
+        const msgs = document.getElementById('bird-messages');
+        const thinkingId = addThinking(msgs);
+
+        try {
+          const r = await fetch('/api/ai/action/execute', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({intent_data: intent})
+          });
+          const d = await r.json();
+          removeThinking(msgs, thinkingId);
+
+          if (d.success) {
+            let html = d.message ? d.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') : '✅ Done!';
+            html += '<div style="margin-top:8px;"><a href="' + d.target + '" style="display:inline-block;padding:6px 14px;background:#2563eb;color:white;border-radius:8px;font-size:0.8rem;text-decoration:none;">View →</a></div>';
+            addMsg(msgs, html, 'ai');
+          } else {
+            addMsg(msgs, '❌ ' + (d.error || 'Something went wrong'), 'ai');
+          }
+        } catch(e) {
+          removeThinking(msgs, thinkingId);
+          addMsg(msgs, '❌ Failed to execute', 'ai');
+        }
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+
+      function cancelIntent() {
+        window._pendingIntent = null;
+        const msgs = document.getElementById('bird-messages');
+        addMsg(msgs, 'Cancelled. What else?', 'ai');
+      }
+
+  function addMsg(container, html, role) {
+    const div = document.createElement('div');
+    div.className = 'bird-msg bird-' + role;
+    div.style.marginBottom = '8px';
+    div.style.padding = '10px 14px';
+    div.style.fontSize = '0.85rem';
+    div.style.maxWidth = '90%';
+    div.style.wordBreak = 'break-word';
+    div.innerHTML = html;
+
+    if (role === 'user') {
+      div.style.background = '#2563eb';
+      div.style.color = 'white';
+      div.style.borderRadius = '16px 16px 4px 16px';
+      div.style.textAlign = 'right';
+      div.style.marginLeft = 'auto';
+    } else {
+      div.style.background = 'white';
+      div.style.color = '#1e293b';
+      div.style.borderRadius = '16px 16px 16px 4px';
+      div.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)';
+    }
+    container.appendChild(div);
+  }
+
+  function addThinking(container) {
+    const id = 'thinking-' + Date.now();
+    const div = document.createElement('div');
+    div.id = id;
+    div.style.marginBottom = '8px';
+    div.style.padding = '10px 14px';
+    div.style.background = 'white';
+    div.style.borderRadius = '16px';
+    div.style.fontSize = '0.85rem';
+    div.style.color = '#94a3b8';
+    div.textContent = '🧠 Thinking...';
+    container.appendChild(div);
+    return id;
+  }
+
+  function removeThinking(container, id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  }
+
+  function buildFallbackResponse(query, ctx) {
+    const q = query.toLowerCase();
+    const hasCreate = /create|add|new|make|register|track/i.test(q);
+    const hasSearch = /search|find|look up|google|web/i.test(q);
+    const hasQuery = /show|list|how many|what|tell me|dashboard|report|analytics/i.test(q);
+
+    if (hasCreate) {
+      return 'I can help create that! Try being more specific, like:<br><br>'
+        + '<span style="display:inline-block;padding:4px 10px;margin:2px;background:#f1f5f9;border-radius:8px;font-size:0.75rem;">📝 "Create a lead for Sharma family, Bali, 2 adults, budget 2.5L"</span><br><br>'
+        + 'Or go to <a href="/modules" style="color:#2563eb;text-decoration:underline;">Modules</a> to build a custom entity type.';
+    }
+    if (hasSearch) {
+      return 'I can search the web for you! Try:<br><br>'
+        + '<span style="display:inline-block;padding:4px 10px;margin:2px;background:#f1f5f9;border-radius:8px;font-size:0.75rem;">🌐 "Search web for Bali travel restrictions"</span><br><br>'
+        + 'Web search is enabled in your AI settings.';
+    }
+    if (hasQuery) {
+      return 'Let me look that up for you. You can ask things like:<br><br>'
+        + '<span style="display:inline-block;padding:4px 10px;margin:2px;background:#f1f5f9;border-radius:8px;font-size:0.75rem;">📊 "Show me pending invoices"</span><br>'
+        + '<span style="display:inline-block;padding:4px 10px;margin:2px;background:#f1f5f9;border-radius:8px;font-size:0.75rem;">📋 "List my leads"</span><br><br>'
+        + 'Or browse your data in the <a href="/" style="color:#2563eb;text-decoration:underline;">Dashboard</a>.';
+    }
+    // Generic helpful fallback
+    return 'I\'m here! I can:<br>'
+      + '📝 <strong>Create records</strong> — "create a lead for..."<br>'
+      + '🔍 <strong>Search your data</strong> — "show pending invoices"<br>'
+      + '🌐 <strong>Search the web</strong> — "search web for..."<br>'
+      + '🎤 <strong>Use voice</strong> — tap the 🎤 button<br><br>'
+      + 'What would you like to do?';
+  }
+
+  function insertExample(text) {
+    document.getElementById('bird-input').value = text;
+    birdChat();
+  }
+
+  // ── Voice ──
   function startVoice() {
+    const btn = document.getElementById('voice-btn');
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Voice input is not supported in this browser. Try Chrome or Edge.');
+      showVoiceHint('Voice input needs Chrome or Edge on desktop, or any modern phone browser.');
       return;
     }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -126,30 +383,102 @@
     recognition.lang = 'en-US';
     recognition.interimResults = false;
     recognition.continuous = false;
-    document.getElementById('voice-btn').textContent = '🔴';
+
+    btn.textContent = '🔴';
+    btn.classList.add('voice-active');
+    btn.style.background = '#fef2f2';
+
     recognition.onresult = function(event) {
       const transcript = event.results[0][0].transcript;
       document.getElementById('bird-input').value = transcript;
-      document.getElementById('voice-btn').textContent = '🎤';
+      resetVoiceBtn(btn);
       birdChat();
     };
-    recognition.onerror = function() {
-      document.getElementById('voice-btn').textContent = '🎤';
-    };
-    recognition.onend = function() {
-      document.getElementById('voice-btn').textContent = '🎤';
-    };
+    recognition.onerror = function() { resetVoiceBtn(btn); };
+    recognition.onend = function() { resetVoiceBtn(btn); };
     recognition.start();
   }
-  // Listen for / key to focus search, Escape to close Bird
+
+  function resetVoiceBtn(btn) {
+    btn.textContent = '🎤';
+    btn.classList.remove('voice-active');
+    btn.style.background = '#f1f5f9';
+  }
+
+  function showVoiceHint(msg) {
+    const tooltip = document.getElementById('voice-tooltip');
+    tooltip.textContent = msg;
+    tooltip.style.display = 'block';
+    setTimeout(() => { tooltip.style.display = 'none'; }, 4000);
+  }
+
+  // Show voice tooltip briefly on hover
+  document.getElementById('voice-btn').addEventListener('mouseenter', function() {
+    document.getElementById('voice-tooltip').style.display = 'block';
+  });
+  document.getElementById('voice-btn').addEventListener('mouseleave', function() {
+    document.getElementById('voice-tooltip').style.display = 'none';
+  });
+
+  // ── Theme Switcher ──
+  const THEME_ICONS = { modern: '💼', playful: '🎨', elegant: '✨' };
+
+  function toggleThemeMenu() {
+    const m = document.getElementById('theme-menu');
+    m.style.display = m.style.display === 'none' ? 'block' : 'none';
+  }
+
+  // Close theme menu on click outside
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('theme-menu');
+    const btn = document.getElementById('theme-toggle-btn');
+    if (menu && btn && !btn.contains(e.target) && !menu.contains(e.target)) {
+      menu.style.display = 'none';
+    }
+  });
+
+  async function switchTheme(theme) {
+    // Save to server
+    try {
+      await fetch('/api/theme/set', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({theme: theme})
+      });
+    } catch(e) {}
+
+    // Apply immediately
+    document.documentElement.setAttribute('data-theme', theme);
+    document.getElementById('theme-icon').textContent = THEME_ICONS[theme] || '💼';
+    document.getElementById('theme-menu').style.display = 'none';
+  }
+
+  // Init theme icon on load
+  document.addEventListener('DOMContentLoaded', function() {
+    const current = document.documentElement.getAttribute('data-theme') || 'modern';
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.textContent = THEME_ICONS[current] || '💼';
+  });
+
+  // ── Keyboard shortcuts ──
   document.addEventListener('keydown', function(e) {
+    // Ctrl+B or Cmd+B to toggle Bird
+    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      e.preventDefault();
+      toggleBird();
+    }
+    // Escape to close Bird
+    if (e.key === 'Escape') {
+      const panel = document.getElementById('bird-panel');
+      if (panel.style.display === 'block') {
+        toggleBird();
+      }
+    }
+    // / to focus global search
     if (e.key === '/' && !['INPUT','TEXTAREA'].includes(e.target.tagName)) {
       e.preventDefault();
       const s = document.getElementById('global-search');
       if (s) s.focus();
-    }
-    if (e.key === 'Escape' && document.getElementById('bird-panel').style.display === 'block') {
-      toggleBird();
     }
   });
   </script>

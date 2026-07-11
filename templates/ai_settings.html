@@ -4,28 +4,53 @@
   <div class="flex items-center justify-between mb-6">
     <div>
       <h1 class="text-2xl font-bold text-slate-900">🧠 AI Settings</h1>
-      <p class="text-sm text-slate-500 mt-1">Configure how your AI assistant behaves</p>
+      <p class="text-sm text-slate-400 mt-1">Configure how your AI assistant behaves</p>
+    </div>
+    <a href="/governance" class="text-sm text-blue-600 hover:underline">⚖️ Governance →</a>
+  </div>
+
+  <!-- Capability Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div class="bg-white border border-slate-200 rounded-xl p-4 text-center">
+      <span class="text-2xl block mb-1">🌐</span>
+      <div class="text-xs font-medium text-slate-700">Web Search</div>
+      <div class="text-xs {{ 'text-green-500' if web_search_enabled else 'text-slate-300' }}">{{ 'Active' if web_search_enabled else 'Off' }}</div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 text-center">
+      <span class="text-2xl block mb-1">🎤</span>
+      <div class="text-xs font-medium text-slate-700">Voice</div>
+      <div class="text-xs text-green-500">37 languages</div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 text-center">
+      <span class="text-2xl block mb-1">📝</span>
+      <div class="text-xs font-medium text-slate-700">Create Records</div>
+      <div class="text-xs text-green-500">Conversational</div>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 text-center">
+      <span class="text-2xl block mb-1">📚</span>
+      <div class="text-xs font-medium text-slate-700">Knowledge Base</div>
+      <div class="text-xs text-green-500">{{ kb_count }} entries</div>
     </div>
   </div>
 
   <div class="space-y-6">
-    <!-- Knowledge Base Stats -->
+    <!-- Knowledge Base -->
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">📚 Knowledge Base</h3>
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-600">{{ kb_count }} entries stored</p>
-          <p class="text-xs text-slate-400 mt-1">Upload documents on the Ingest page to grow this</p>
-        </div>
-        <a href="/ingestion" class="text-sm text-blue-600 hover:underline">Upload →</a>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">📚 Knowledge Base</h3>
+        <a href="/ingestion" class="text-xs text-blue-600 hover:underline font-medium">+ Upload</a>
       </div>
+      <div id="kb-list" class="space-y-2 max-h-48 overflow-y-auto">
+        <div class="text-sm text-slate-400 text-center py-4">Loading...</div>
+      </div>
+      <button onclick="loadKnowledge()" class="mt-2 text-xs text-blue-600 hover:underline">Refresh</button>
     </div>
 
-    <!-- Behavior Settings -->
+    <!-- Behavior -->
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
       <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">⚙️ Behavior</h3>
       <div class="space-y-5">
-        <label class="flex items-center justify-between">
+        <label class="flex items-center justify-between cursor-pointer">
           <div>
             <p class="text-sm font-medium text-slate-700">🌐 Web Search</p>
             <p class="text-xs text-slate-400">Let the AI search the internet for answers</p>
@@ -33,7 +58,7 @@
           <input type="checkbox" {{ 'checked' if web_search_enabled else '' }} onchange="updateSetting('web_search_enabled', this.checked)" class="w-5 h-5 rounded border-slate-300 text-blue-600">
         </label>
 
-        <label class="flex items-center justify-between">
+        <label class="flex items-center justify-between cursor-pointer">
           <div>
             <p class="text-sm font-medium text-slate-700">🧠 Silent Mentor</p>
             <p class="text-xs text-slate-400">Show coaching tips before actions (calls, approvals, etc.)</p>
@@ -41,7 +66,7 @@
           <input type="checkbox" {{ 'checked' if not silence_mentor else '' }} onchange="updateSetting('silence_mentor', !this.checked)" class="w-5 h-5 rounded border-slate-300 text-blue-600">
         </label>
 
-        <label class="flex items-center justify-between">
+        <label class="flex items-center justify-between cursor-pointer">
           <div>
             <p class="text-sm font-medium text-slate-700">📖 Auto-Learn</p>
             <p class="text-xs text-slate-400">Automatically store new information in the knowledge base</p>
@@ -52,15 +77,17 @@
         <div>
           <label class="text-sm font-medium text-slate-700 block mb-1">🎯 Confidence Threshold</label>
           <p class="text-xs text-slate-400 mb-2">Below this, the AI flags answers for verification</p>
-          <input type="range" min="0.1" max="0.9" step="0.1" value="{{ confidence_threshold }}"
-            onchange="updateSetting('confidence_threshold', parseFloat(this.value)); document.getElementById('ct-label').textContent = this.value"
-            class="w-full">
-          <span id="ct-label" class="text-sm font-medium text-blue-600">{{ confidence_threshold }}</span>
+          <div class="flex items-center gap-3">
+            <input type="range" min="0.1" max="0.9" step="0.1" value="{{ confidence_threshold }}"
+              onchange="updateSetting('confidence_threshold', parseFloat(this.value)); document.getElementById('ct-label').textContent = this.value"
+              class="flex-1">
+            <span id="ct-label" class="text-sm font-medium text-blue-600 min-w-[3ch]">{{ confidence_threshold }}</span>
+          </div>
         </div>
 
         <div>
           <label class="text-sm font-medium text-slate-700 block mb-1">🗣️ Response Style</label>
-          <select onchange="updateSetting('response_style', this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+          <select onchange="updateSetting('response_style', this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
             <option value="concise" {{ 'selected' if response_style == 'concise' else '' }}>Concise — short answers, no fluff</option>
             <option value="balanced" {{ 'selected' if response_style == 'balanced' else '' }}>Balanced — clear with context</option>
             <option value="detailed" {{ 'selected' if response_style == 'detailed' else '' }}>Detailed — thorough explanations</option>
@@ -71,7 +98,7 @@
         <div>
           <label class="text-sm font-medium text-slate-700 block mb-1">📤 Max Sources</label>
           <p class="text-xs text-slate-400 mb-2">How many sources to show per answer</p>
-          <select onchange="updateSetting('max_sources', parseInt(this.value))" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+          <select onchange="updateSetting('max_sources', parseInt(this.value))" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
             <option value="1" {{ 'selected' if max_sources == 1 else '' }}>1 — Best source only</option>
             <option value="3" {{ 'selected' if max_sources == 3 else '' }}>3 — Top sources</option>
             <option value="5" {{ 'selected' if max_sources == 5 else '' }}>5 — Comprehensive</option>
@@ -80,8 +107,8 @@
       </div>
     </div>
 
-    <!-- Save indicator -->
-    <div id="save-indicator" class="fixed bottom-24 right-80 bg-green-500 text-white text-xs px-3 py-1.5 rounded-full shadow-lg hidden transition-all">
+    <!-- Saved indicator -->
+    <div id="save-indicator" class="fixed bottom-24 right-80 bg-green-500 text-white text-xs px-3 py-1.5 rounded-full shadow-lg hidden transition-all z-50">
       ✅ Saved
     </div>
   </div>
@@ -89,6 +116,7 @@
 
 <script>
 let saveTimer;
+
 function updateSetting(key, value) {
   fetch('/ai-settings/update', {
     method: 'POST',
@@ -103,5 +131,30 @@ function updateSetting(key, value) {
     }
   });
 }
+
+function loadKnowledge() {
+  fetch('/ai-settings/knowledge')
+    .then(r => r.json())
+    .then(d => {
+      const list = document.getElementById('kb-list');
+      if (!d.entries || d.entries.length === 0) {
+        list.innerHTML = '<div class="text-sm text-slate-400 text-center py-4">No knowledge entries yet. Upload documents on the Ingest page.</div>';
+        return;
+      }
+      list.innerHTML = d.entries.map(e =>
+        '<div class="p-3 bg-slate-50 rounded-lg">' +
+        '  <div class="text-sm font-medium text-slate-700">' + esc(e.question) + '</div>' +
+        '  <div class="text-xs text-slate-400 mt-0.5">' + esc(e.answer) + ' <span class="text-blue-500">(' + e.source + ', ' + Math.round(e.confidence*100) + '%)</span></div>' +
+        '</div>'
+      ).join('');
+    });
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+loadKnowledge();
 </script>
 {% endblock %}

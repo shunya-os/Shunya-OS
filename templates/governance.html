@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">⚖️ Governance</h1>
+      <p class="text-sm text-slate-400 mt-1">Control what the AI can do automatically vs. what needs human approval</p>
+    </div>
+    <span class="text-xs px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 font-medium border border-blue-200">
+      Role: {{ g.user.role }}
+    </span>
+  </div>
+
+  <!-- Governance Tiers Explained -->
+  <div class="grid grid-cols-3 gap-3 mb-6">
+    <div class="bg-white border border-slate-200 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-lg">📝</span>
+        <span class="font-semibold text-sm">Draft</span>
+      </div>
+      <p class="text-xs text-slate-400">AI proposes → User confirms → Executes</p>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-lg">⚡</span>
+        <span class="font-semibold text-sm">Auto</span>
+      </div>
+      <p class="text-xs text-slate-400">AI executes immediately. Logged. Reversible.</p>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-lg">🔐</span>
+        <span class="font-semibold text-sm">Govern</span>
+      </div>
+      <p class="text-xs text-slate-400">Needs admin/manager approval before execution</p>
+    </div>
+  </div>
+
+  <!-- Action Rules -->
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">AI Action Rules</h3>
+      {% if g.user.role == 'admin' %}
+      <button onclick="saveRules()" id="save-rules-btn"
+              class="hidden bg-blue-600 text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+        💾 Save Changes
+      </button>
+      {% endif %}
+    </div>
+    <div class="divide-y divide-slate-100">
+      {% for action in actions %}
+      <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50">
+        <div class="flex items-center gap-3">
+          <span class="text-lg">{{ action.icon }}</span>
+          <div>
+            <div class="text-sm font-medium text-slate-900">{{ action.label }}</div>
+            <div class="text-xs text-slate-400">{{ action.description }}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          {% if g.user.role == 'admin' %}
+          <select onchange="onRuleChange('{{ action.key }}', this.value)"
+                  class="px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-medium bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  data-action="{{ action.key }}">
+            <option value="draft" {{ 'selected' if action.effective_level == 'draft' else '' }}>📝 Draft</option>
+            <option value="auto" {{ 'selected' if action.effective_level == 'auto' else '' }}>⚡ Auto</option>
+            <option value="govern" {{ 'selected' if action.effective_level == 'govern' else '' }}>🔐 Govern</option>
+          </select>
+          {% else %}
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+            {% if action.effective_level == 'auto' %}bg-emerald-50 text-emerald-600 border border-emerald-200
+            {% elif action.effective_level == 'draft' %}bg-amber-50 text-amber-600 border border-amber-200
+            {% else %}bg-rose-50 text-rose-600 border border-rose-200{% endif %}">
+            {% if action.effective_level == 'auto' %}⚡ Auto
+            {% elif action.effective_level == 'draft' %}📝 Draft
+            {% else %}🔐 Govern{% endif %}
+          </span>
+          {% endif %}
+          {% if action.default_level != action.effective_level %}
+          <span class="text-xs text-blue-500 italic">(overridden)</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Pending Approvals -->
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">🕐 Pending Approvals</h3>
+      <span class="text-xs px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-medium">{{ pending|length }}</span>
+    </div>
+    {% if pending %}
+    <div class="divide-y divide-slate-100">
+      {% for log in pending %}
+      <div class="px-6 py-4 flex items-center justify-between">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium text-slate-900 truncate">{{ log.detail[:100] }}</div>
+          <div class="flex items-center gap-2 mt-1 text-xs text-slate-400">
+            <span>{{ log.action }}</span>
+            <span>·</span>
+            <span>{{ log.created_at.strftime('%d %b %Y, %I:%M %p') if log.created_at else '' }}</span>
+          </div>
+        </div>
+        {% if g.user.role == 'admin' or g.user.role == 'manager' %}
+        <div class="flex items-center gap-2 ml-4">
+          <button onclick="resolveApproval({{ log.id }}, 'approved')"
+                  class="text-xs bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 font-medium">
+            ✅ Approve
+          </button>
+          <button onclick="resolveApproval({{ log.id }}, 'rejected')"
+                  class="text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 font-medium">
+            ❌ Reject
+          </button>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-10">
+      <span class="text-3xl block mb-2">✅</span>
+      <p class="text-sm text-slate-400">No pending approvals. All actions are flowing smoothly.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+let changedRules = {};
+
+function onRuleChange(action, value) {
+  changedRules[action] = value;
+  document.getElementById('save-rules-btn').classList.remove('hidden');
+}
+
+async function saveRules() {
+  const btn = document.getElementById('save-rules-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Saving…';
+
+  try {
+    const res = await fetch('/governance/rules', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ overrides: changedRules }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      changedRules = {};
+      btn.classList.add('hidden');
+      btn.textContent = '💾 Save Changes';
+      // Reload to reflect changes
+      location.reload();
+    }
+  } catch (e) {
+    alert('Failed to save');
+    btn.disabled = false;
+    btn.textContent = '💾 Save Changes';
+  }
+}
+
+async function resolveApproval(id, decision) {
+  try {
+    const res = await fetch(`/governance/approvals/${id}/resolve`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ decision }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      location.reload();
+    }
+  } catch (e) {
+    alert('Failed to resolve');
+  }
+}
+</script>
+{% endblock %}

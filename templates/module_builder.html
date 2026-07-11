@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <!-- Hero -->
+  <div class="text-center mb-8">
+    <span class="text-4xl block mb-2">🧩</span>
+    <h1 class="text-2xl font-bold text-slate-900">Module Builder</h1>
+    <p class="text-sm text-slate-400 mt-1">Describe what you want to track — the AI will build it for you</p>
+  </div>
+
+  <!-- Input -->
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-6">
+    <label class="block text-sm font-medium text-slate-700 mb-2">Describe your workflow</label>
+    <div class="flex gap-2">
+      <input id="description-input" type="text"
+             placeholder='e.g. "I need to track equipment rentals — item name, customer, rental period, return date, deposit"'
+             class="flex-1 px-4 py-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+             onkeydown="if(event.key==='Enter') generate()">
+      <button onclick="generate()" id="generate-btn"
+              class="bg-blue-600 text-white text-sm font-medium px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 disabled:opacity-50">
+        <span>✨ Generate</span>
+      </button>
+    </div>
+    <div class="mt-2 flex flex-wrap gap-2">
+      {% for example in [
+        'Track patient visits — patient name, age, symptoms, doctor assigned, blood group, admission date',
+        'Manage orders — product name, quantity, price, customer, delivery date, status',
+        'Track student applications — student name, course, grade, phone, interview date, status',
+        'Log equipment rentals — item name, customer, rental period, return date, deposit amount',
+      ] %}
+      <button onclick="useExample('{{ example|e }}')"
+              class="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 border border-slate-200">
+        {{ example[:50] }}…
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" class="hidden text-center py-12">
+    <div class="inline-block animate-spin text-3xl mb-3">🧩</div>
+    <p class="text-sm text-slate-400">Generating your module…</p>
+  </div>
+
+  <!-- Preview -->
+  <div id="preview-area" class="hidden space-y-6">
+    <!-- Summary card -->
+    <div id="summary-card" class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
+      <span id="preview-icon" class="text-2xl">📋</span>
+      <div class="flex-1">
+        <span id="preview-label" class="font-semibold text-slate-900"></span>
+        <span id="preview-type" class="text-xs text-slate-400 ml-2"></span>
+        <div class="text-xs text-slate-500 mt-0.5">
+          <span id="field-count"></span> fields · <span id="status-count"></span> statuses · <span id="preview-layout"></span> layout
+        </div>
+      </div>
+      <span id="confidence-badge" class="text-xs px-2 py-1 rounded-full font-medium"></span>
+    </div>
+
+    <!-- Field editor -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Fields</h3>
+        <button onclick="addPreviewField()" class="text-xs bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 font-medium">+ Add Field</button>
+      </div>
+      <div id="fields-preview" class="divide-y divide-slate-100">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- Statuses -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Status Pipeline</h3>
+        <button onclick="addPreviewStatus()" class="text-xs bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 font-medium">+ Add Status</button>
+      </div>
+      <div id="statuses-preview" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center justify-between gap-4">
+      <button onclick="regenerate()" class="text-sm text-slate-500 hover:text-slate-700">← Try Again</button>
+      <button onclick="saveDefinition()" id="save-btn"
+              class="bg-emerald-600 text-white text-sm font-medium px-6 py-3 rounded-lg hover:bg-emerald-700 transition flex items-center gap-2 disabled:opacity-50">
+        ✅ Create Module
+      </button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-area" class="hidden bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700"></div>
+
+  <!-- Empty state -->
+  <div id="empty-state" class="text-center py-16">
+    <span class="text-5xl block mb-4">🧩</span>
+    <h3 class="text-lg font-semibold text-slate-700 mb-1">Describe what you need</h3>
+    <p class="text-sm text-slate-400">The AI understands natural language. Just tell it what you want to track.</p>
+  </div>
+</div>
+
+<script>
+let currentPreview = null;
+
+function useExample(text) {
+  document.getElementById('description-input').value = text;
+  generate();
+}
+
+async function generate() {
+  const desc = document.getElementById('description-input').value.trim();
+  if (!desc || desc.length < 10) {
+    showError('Please describe your workflow (at least 10 characters)');
+    return;
+  }
+
+  setLoading(true);
+  hideError();
+  hidePreview();
+
+  try {
+    const res = await fetch('/modules/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({description: desc}),
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      showError(data.error || 'Generation failed');
+      setLoading(false);
+      return;
+    }
+
+    currentPreview = data.preview;
+    renderPreview(currentPreview);
+    setLoading(false);
+  } catch (e) {
+    showError('Network error. Please try again.');
+    setLoading(false);
+  }
+}
+
+function renderPreview(preview) {
+  // Summary
+  document.getElementById('preview-icon').textContent = preview.icon || '📋';
+  document.getElementById('preview-label').textContent = preview.label || 'New Entity';
+  document.getElementById('preview-type').textContent = `(${preview.type})`;
+  document.getElementById('field-count').textContent = (preview.schema || []).length;
+  document.getElementById('status-count').textContent = (preview.statuses || []).length;
+  document.getElementById('preview-layout').textContent = preview.layout || 'table';
+
+  const conf = Math.round((preview.confidence || 0) * 100);
+  const badge = document.getElementById('confidence-badge');
+  badge.textContent = conf + '% confident';
+  badge.className = 'text-xs px-2 py-1 rounded-full font-medium ' +
+    (conf >= 80 ? 'bg-green-50 text-green-600' :
+     conf >= 50 ? 'bg-amber-50 text-amber-600' :
+     'bg-slate-50 text-slate-400');
+
+  // Fields
+  const fieldsContainer = document.getElementById('fields-preview');
+  fieldsContainer.innerHTML = '';
+  (preview.schema || []).forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'px-6 py-3 flex items-center gap-3 hover:bg-slate-50';
+    row.innerHTML = `
+      <div class="flex items-center gap-1 text-slate-300 cursor-move">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+      </div>
+      <input value="${esc(f.name)}" onchange="updatePreviewField(${i},'name',this.value)"
+             class="w-36 px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+             placeholder="field_name">
+      <input value="${esc(f.label)}" onchange="updatePreviewField(${i},'label',this.value)"
+             class="flex-1 px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+             placeholder="Field Label">
+      <select onchange="updatePreviewField(${i},'type',this.value)"
+              class="px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+        ${['text','number','email','phone','date','select','multi_select','textarea','boolean','url','price'].map(t =>
+          `<option value="${t}" ${t === f.type ? 'selected' : ''}>${t}</option>`
+        ).join('')}
+      </select>
+      <label class="flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap">
+        <input type="checkbox" ${f.required ? 'checked' : ''} onchange="updatePreviewField(${i},'required',this.checked)"
+               class="rounded border-slate-300 text-blue-600">
+        req
+      </label>
+      <label class="flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap">
+        <input type="checkbox" ${f.searchable ? 'checked' : ''} onchange="updatePreviewField(${i},'searchable',this.checked)"
+               class="rounded border-slate-300 text-blue-600">
+        search
+      </label>
+      <button onclick="removePreviewField(${i})" class="text-red-300 hover:text-red-500 text-sm">✕</button>
+    `;
+    fieldsContainer.appendChild(row);
+  });
+
+  // Statuses
+  const statusContainer = document.getElementById('statuses-preview');
+  statusContainer.innerHTML = '';
+  (preview.statuses || []).forEach((s, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-blue-50 text-blue-700 border border-blue-200';
+    chip.innerHTML = `
+      ${esc(s)}
+      <button onclick="removePreviewStatus(${i})" class="text-blue-400 hover:text-blue-600 ml-1">✕</button>
+    `;
+    statusContainer.appendChild(chip);
+  });
+
+  showPreview();
+}
+
+function updatePreviewField(i, key, value) {
+  if (!currentPreview) return;
+  if (!currentPreview.schema[i]) return;
+  currentPreview.schema[i][key] = value;
+}
+
+function removePreviewField(i) {
+  if (!currentPreview) return;
+  currentPreview.schema.splice(i, 1);
+  renderPreview(currentPreview);
+}
+
+function addPreviewField() {
+  if (!currentPreview) return;
+  currentPreview.schema.push({
+    name: 'field_' + (currentPreview.schema.length + 1),
+    label: 'Field ' + (currentPreview.schema.length + 1),
+    type: 'text',
+    required: false,
+    searchable: false,
+  });
+  renderPreview(currentPreview);
+}
+
+function removePreviewStatus(i) {
+  if (!currentPreview) return;
+  currentPreview.statuses.splice(i, 1);
+  renderPreview(currentPreview);
+}
+
+function addPreviewStatus() {
+  if (!currentPreview) return;
+  const s = prompt('Status name:');
+  if (s && s.trim()) {
+    currentPreview.statuses.push(s.trim());
+    renderPreview(currentPreview);
+  }
+}
+
+function regenerate() {
+  document.getElementById('description-input').focus();
+  hidePreview();
+  hideError();
+}
+
+async function saveDefinition() {
+  if (!currentPreview) return;
+
+  document.getElementById('save-btn').disabled = true;
+  document.getElementById('save-btn').textContent = '⏳ Creating…';
+
+  try {
+    const res = await fetch('/modules/create', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(currentPreview),
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      showError(data.error || 'Save failed');
+      document.getElementById('save-btn').disabled = false;
+      document.getElementById('save-btn').textContent = '✅ Create Module';
+      return;
+    }
+
+    // Success — redirect to edit the new entity type
+    window.location.href = data.redirect || '/settings/entity-types';
+  } catch (e) {
+    showError('Network error. Please try again.');
+    document.getElementById('save-btn').disabled = false;
+    document.getElementById('save-btn').textContent = '✅ Create Module';
+  }
+}
+
+function setLoading(v) {
+  document.getElementById('loading').classList.toggle('hidden', !v);
+  document.getElementById('empty-state').classList.toggle('hidden', v);
+}
+
+function showPreview() {
+  document.getElementById('preview-area').classList.remove('hidden');
+  document.getElementById('empty-state').classList.add('hidden');
+}
+
+function hidePreview() {
+  document.getElementById('preview-area').classList.add('hidden');
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-area');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function hideError() {
+  document.getElementById('error-area').classList.add('hidden');
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

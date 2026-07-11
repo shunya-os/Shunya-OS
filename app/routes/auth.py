@@ -88,6 +88,13 @@ def login_page():
     return render_template("login.html")
 
 
+# Redirect /login → /auth/login for convenience
+login_redirect_bp = Blueprint("login_redirect", __name__)
+@login_redirect_bp.route("/login")
+def login_redirect():
+    return redirect(url_for("auth.login_page"))
+
+
 @auth_bp.route("/signup", methods=["GET"])
 def signup_page():
     if _get_current_user():

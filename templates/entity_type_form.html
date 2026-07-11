@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">{{ 'Edit' if definition else 'New' }} Entity Type</h1>
+      <p class="text-sm text-slate-400 mt-1">Define the fields and behavior of this record type</p>
+    </div>
+    <a href="{{ url_for('settings.list_entity_types') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back</a>
+  </div>
+
+  <form method="post" id="entity-form" class="space-y-6">
+    <!-- Basics -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Basic Info</h3>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Type (snake_case)</label>
+          <input name="type" value="{{ definition.type if definition else '' }}" required
+                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                 placeholder="lead, patient, student, order...">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Icon (emoji)</label>
+          <input name="icon" value="{{ definition.icon if definition else '📋' }}"
+                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                 placeholder="📋">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Label (singular)</label>
+          <input name="label" value="{{ definition.label if definition else '' }}" required
+                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                 placeholder="Lead, Patient, Student...">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Label (plural)</label>
+          <input name="label_plural" value="{{ definition.label_plural if definition else '' }}"
+                 class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                 placeholder="Leads, Patients, Students...">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Default Layout</label>
+          <select name="layout" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+            <option value="table" {{ 'selected' if definition and definition.layout == 'table' else '' }}>📊 Table</option>
+            <option value="kanban" {{ 'selected' if definition and definition.layout == 'kanban' else '' }}>📋 Kanban</option>
+            <option value="cards" {{ 'selected' if definition and definition.layout == 'cards' else '' }}>🃏 Cards</option>
+            <option value="calendar" {{ 'selected' if definition and definition.layout == 'calendar' else '' }}>📅 Calendar</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Default Sort</label>
+          <select name="default_sort" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+            <option value="created_at" {{ 'selected' if definition and definition.default_sort == 'created_at' else '' }}>Created Date</option>
+            <option value="updated_at" {{ 'selected' if definition and definition.default_sort == 'updated_at' else '' }}>Updated Date</option>
+            <option value="name" {{ 'selected' if definition and definition.default_sort == 'name' else '' }}>Name</option>
+            <option value="status" {{ 'selected' if definition and definition.default_sort == 'status' else '' }}>Status</option>
+          </select>
+        </div>
+      </div>
+      {% if definition %}
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="is_active" value="1" id="is_active" {{ 'checked' if definition.is_active else '' }}
+               class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        <label for="is_active" class="text-sm text-slate-600">Active (visible to users)</label>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Schema Editor -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Fields</h3>
+        <button type="button" onclick="addField()"
+                class="text-xs bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 font-medium">
+          + Add Field
+        </button>
+      </div>
+
+      <div id="fields-container" class="space-y-2">
+        <!-- Fields rendered by JS -->
+      </div>
+
+      <div id="no-fields-msg" class="text-center py-8 text-slate-400 text-sm hidden">
+        No fields defined yet. Click "Add Field" above.
+      </div>
+
+      <!-- Hidden textarea for JSON submission -->
+      <textarea id="schema-json" name="schema_json" class="hidden">[]</textarea>
+    </div>
+
+    <!-- Statuses -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Statuses (Pipeline Stages)</h3>
+        <button type="button" onclick="addStatus()"
+                class="text-xs bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 font-medium">
+          + Add Status
+        </button>
+      </div>
+
+      <div id="statuses-container" class="flex flex-wrap gap-2">
+        <!-- Status chips rendered by JS -->
+      </div>
+
+      <textarea id="statuses-json" name="statuses_json" class="hidden">[]</textarea>
+    </div>
+
+    <!-- Submit -->
+    <div class="flex items-center justify-end gap-3">
+      <a href="{{ url_for('settings.list_entity_types') }}" class="px-4 py-2 text-sm text-slate-600 hover:text-slate-800">Cancel</a>
+      <button type="submit" class="bg-blue-600 text-white text-sm font-medium px-6 py-2.5 rounded-lg hover:bg-blue-700 transition">
+        {{ 'Save Changes' if definition else 'Create Entity Type' }}
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+// ============================================================
+// Load initial data
+// ============================================================
+let schema = {{ definition.schema | tojson | safe if definition else '[]' }};
+let statuses = {{ (definition.statuses if definition else ['new', 'active', 'archived']) | tojson | safe }};
+const FIELD_TYPES = [
+  { value: 'text', label: 'Text', icon: 'Aa' },
+  { value: 'number', label: 'Number', icon: '#' },
+  { value: 'email', label: 'Email', icon: '@' },
+  { value: 'phone', label: 'Phone', icon: '📞' },
+  { value: 'date', label: 'Date', icon: '📅' },
+  { value: 'select', label: 'Select (Dropdown)', icon: '▼' },
+  { value: 'multi_select', label: 'Multi Select', icon: '☑' },
+  { value: 'textarea', label: 'Text Area', icon: '¶' },
+  { value: 'boolean', label: 'Yes/No', icon: '✓' },
+  { value: 'url', label: 'URL', icon: '🔗' },
+  { value: 'price', label: 'Price/Currency', icon: '₹' },
+];
+
+// ============================================================
+// Render all fields
+// ============================================================
+function renderFields() {
+  const container = document.getElementById('fields-container');
+  const noMsg = document.getElementById('no-fields-msg');
+  container.innerHTML = '';
+
+  if (schema.length === 0) {
+    noMsg.classList.remove('hidden');
+    document.getElementById('schema-json').value = '[]';
+    return;
+  }
+  noMsg.classList.add('hidden');
+
+  schema.forEach((f, i) => {
+    const typeInfo = FIELD_TYPES.find(t => t.value === f.type) || FIELD_TYPES[0];
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-100';
+    div.dataset.index = i;
+    div.innerHTML = `
+      <div class="flex items-center gap-1 text-slate-400 cursor-move" title="Drag to reorder">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <input value="${esc(f.name)}" onchange="updateField(${i},'name',this.value)"
+                 class="flex-1 px-2 py-1 border border-slate-200 rounded text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                 placeholder="field_name">
+          <input value="${esc(f.label)}" onchange="updateField(${i},'label',this.value)"
+                 class="flex-1 px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                 placeholder="Field Label">
+          <select onchange="updateField(${i},'type',this.value)"
+                  class="px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            ${FIELD_TYPES.map(t => `<option value="${t.value}" ${t.value === f.type ? 'selected' : ''}>${t.icon} ${t.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="flex items-center gap-3 mt-1.5 text-xs">
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" ${f.required ? 'checked' : ''} onchange="updateField(${i},'required',this.checked)"
+                   class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+            Required
+          </label>
+          <label class="flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" ${f.searchable ? 'checked' : ''} onchange="updateField(${i},'searchable',this.checked)"
+                   class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+            Searchable
+          </label>
+          ${f.type === 'select' || f.type === 'multi_select' ? `
+            <span class="text-slate-400">Options:</span>
+            <input value="${esc((f.options||[]).join(', '))}" onchange="updateField(${i},'options',this.value.split(',').map(s=>s.trim()))"
+                   placeholder="opt1, opt2, opt3"
+                   class="flex-1 px-2 py-0.5 border border-slate-200 rounded bg-white focus:ring-2 focus:ring-blue-500 outline-none max-w-[200px]">
+          ` : ''}
+          ${i > 0 ? `<button type="button" onclick="moveField(${i},-1)" class="text-slate-400 hover:text-slate-600" title="Move up">↑</button>` : ''}
+          ${i < schema.length - 1 ? `<button type="button" onclick="moveField(${i},1)" class="text-slate-400 hover:text-slate-600" title="Move down">↓</button>` : ''}
+          <button type="button" onclick="removeField(${i})" class="text-red-400 hover:text-red-600" title="Remove field">✕</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+  syncJson();
+}
+
+// ============================================================
+// CRUD operations
+// ============================================================
+function addField() {
+  schema.push({
+    name: 'field_' + (schema.length + 1),
+    label: 'Field ' + (schema.length + 1),
+    type: 'text',
+    required: false,
+    searchable: false,
+    options: [],
+  });
+  renderFields();
+}
+
+function removeField(i) {
+  schema.splice(i, 1);
+  renderFields();
+}
+
+function updateField(i, key, value) {
+  schema[i][key] = value;
+  renderFields();
+  syncJson();
+}
+
+function moveField(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= schema.length) return;
+  [schema[i], schema[j]] = [schema[j], schema[i]];
+  renderFields();
+}
+
+function syncJson() {
+  document.getElementById('schema-json').value = JSON.stringify(schema);
+}
+
+// ============================================================
+// Statuses
+// ============================================================
+function renderStatuses() {
+  const container = document.getElementById('statuses-container');
+  container.innerHTML = '';
+  statuses.forEach((s, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-blue-50 text-blue-700 border border-blue-200';
+    chip.innerHTML = `
+      ${esc(s)}
+      <button type="button" onclick="removeStatus(${i})" class="text-blue-400 hover:text-blue-600 ml-1">✕</button>
+    `;
+    container.appendChild(chip);
+  });
+  document.getElementById('statuses-json').value = JSON.stringify(statuses);
+}
+
+function addStatus() {
+  const s = prompt('Status name:');
+  if (s && s.trim()) {
+    statuses.push(s.trim());
+    renderStatuses();
+  }
+}
+
+function removeStatus(i) {
+  statuses.splice(i, 1);
+  renderStatuses();
+}
+
+// ============================================================
+// Utils
+// ============================================================
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Init
+renderFields();
+renderStatuses();
+</script>
+{% endblock %}

@@ -46,7 +46,7 @@ def create_app(config_name: str = "development"):
 # ---------------------------------------------------------------------------
 
 def _register_blueprints(app):
-    from app.routes.auth import auth_bp
+    from app.routes.auth import auth_bp, login_redirect_bp
     from app.routes.entities import entities_bp
     from app.routes.dashboard import dashboard_bp
     from app.routes.settings import settings_bp
@@ -59,8 +59,13 @@ def _register_blueprints(app):
     from app.shunya.operations import ops_bp
     from app.shunya.onboarding import onboarding_bp
     from app.shunya.ai_settings import ai_settings_bp
+    from app.shunya.module_builder_routes import module_builder_bp
+    from app.shunya.governance_routes import governance_bp
+    from app.shunya.agent_routes import agent_bp
+    from app.shunya.theme_routes import theme_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(login_redirect_bp)
     app.register_blueprint(entities_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(settings_bp)
@@ -73,6 +78,10 @@ def _register_blueprints(app):
     app.register_blueprint(ops_bp)
     app.register_blueprint(onboarding_bp)
     app.register_blueprint(ai_settings_bp)
+    app.register_blueprint(module_builder_bp)
+    app.register_blueprint(governance_bp)
+    app.register_blueprint(agent_bp)
+    app.register_blueprint(theme_bp)
 
 
 # ---------------------------------------------------------------------------
@@ -87,9 +96,14 @@ def _register_context_processors(app):
     def inject_globals():
         user = getattr(g, "user", None)
         tenant = getattr(g, "tenant", None)
+        brand_colors = None
+        if tenant:
+            from app.shunya.theme import get_brand_colors
+            brand_colors = get_brand_colors(tenant)
         return {
             "current_user": user,
             "current_tenant": tenant,
+            "brand_colors": brand_colors,
             "year": __import__("datetime").datetime.utcnow().year,
             "app_name": "Shunya OS",
         }

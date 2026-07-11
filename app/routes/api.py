@@ -191,6 +191,301 @@ def ai_query():
 # Webhook receiver (for integrations)
 # ---------------------------------------------------------------------------
 
+@api_bp.route("/ai/action", methods=["POST"])
+@login_required
+def ai_action():
+    """Parse intent from natural language and execute or return confirmation card.
+    
+    Detects if a query is an action (create/update/delete/send) or a question.
+    For actions: returns structured intent with parsed data for confirmation.
+    For questions: falls through to the existing knowledge pipeline.
+    """
+    data = request.get_json(silent=True) or {}
+    query = data.get("query", "").strip()
+    confirmed = data.get("confirmed", False)
+    intent_data = data.get("intent_data")  # Passed on confirm step
+    
+    if not query:
+        return jsonify({"error": "Query required"}), 400
+    
+    # If this is a confirmation of a previous intent
+    if confirmed and intent_data:
+        return _execute_intent(intent_data, g.tenant.id, g.user.id, g.user.name)
+    
+    # Detect action intent
+    intent = _detect_intent(query, g.tenant.id)
+    
+    if intent["type"] == "question":
+        # Fall through to existing knowledge pipeline
+        from app.shunya.knowledge import KnowledgePipeline
+        context = KnowledgePipeline.get_context_for_ai(query, g.tenant.id)
+        return jsonify({
+            "intent": {"type": "question"},
+            "query": query,
+            "response": _build_knowledge_response(context),
+            "has_internal_data": context.get("has_internal_data", False),
+            "has_web_data": context.get("has_web_data", False),
+            "needs_verification": context.get("needs_verification", False),
+        })
+    
+    # For action intents, return the confirmation card
+    return jsonify({
+        "intent": intent,
+        "query": query,
+        "confirmation_card": intent.get("confirmation_card"),
+        "missing_required": intent.get("missing_required", []),
+    })
+
+
+@api_bp.route("/ai/action/execute", methods=["POST"])
+@login_required
+def ai_execute():
+    """Execute a confirmed action intent."""
+    data = request.get_json(silent=True) or {}
+    intent_data = data.get("intent_data", {})
+    if not intent_data:
+        return jsonify({"error": "Intent data required"}), 400
+    result = _execute_intent(intent_data, g.tenant.id, g.user.id, g.user.name)
+    return jsonify(result)
+
+
+def _detect_intent(query: str, tenant_id: int) -> dict:
+    """Detect whether a query is an action or a question, parse it."""
+    from app.models import EntityDefinition
+    import re
+    
+    q = query.lower().strip()
+    
+    # ── Detect action types ──
+    create_patterns = [r"^(?:create|add|new|make|register|record|track)\s+(?:a\s+|an\s+|the\s+)?(.+)"]
+    search_patterns = [r"^(?:search|find|look\s*up|google|web)\s+(.+)"]
+    show_patterns = [r"^(?:show|list|get|find|display|view)\s+(?:me\s+)?(.+)"]
+    update_patterns = [r"^(?:update|change|edit|modify|set)\s+(?:the\s+)?(.+)"]
+    
+    # Check create patterns first
+    for pat in create_patterns:
+        m = re.search(pat, q)
+        if m:
+            rest = m.group(1).strip()
+            # Try to match entity type
+            return _parse_create_intent(rest, query, tenant_id)
+    
+    # Check show/list patterns (these could be queries OR data requests)
+    for pat in show_patterns:
+        m = re.search(pat, q)
+        if m:
+            rest = m.group(1).strip()
+            # Check if it's a known entity type
+            entity_type = _match_entity_type(rest, tenant_id)
+            if entity_type:
+                return {
+                    "type": "show",
+                    "entity_type": entity_type,
+                    "display": f"Show {entity_type.replace('_', ' ')}s",
+                    "target": f"/entities/{entity_type}",
+                    "confirmation_card": {
+                        "icon": "📊",
+                        "title": f"Show {entity_type.replace('_', ' ').title()}s",
+                        "action": "redirect",
+                        "url": f"/entities/{entity_type}",
+                    }
+                }
+    
+    # Check search patterns (web search)
+    for pat in search_patterns:
+        m = re.search(pat, q)
+        if m:
+            search_term = m.group(1).strip()
+            return {
+                "type": "question",
+                "hint": "web_search",
+                "query": search_term,
+            }
+    
+    # Default: question
+    return {"type": "question"}
+
+
+def _parse_create_intent(rest: str, full_query: str, tenant_id: int) -> dict:
+    """Parse a 'create X for...' intent into structured data."""
+    from app.models import EntityDefinition
+    from app.conversational import ConversationalEngine
+    from app.models import next_entity_code
+    
+    q = full_query
+    entity_type = _extract_entity_type_from_query(q, tenant_id)
+    
+    if not entity_type:
+        # Try to find the entity type from the first word of rest
+        first_word = rest.split()[0].rstrip("s")
+        definition = EntityDefinition.query.filter(
+            EntityDefinition.tenant_id == tenant_id,
+            EntityDefinition.is_active == True,
+            EntityDefinition.type.ilike(first_word)
+        ).first()
+        if not definition:
+            # Try broader match
+            definitions = EntityDefinition.query.filter_by(
+                tenant_id=tenant_id, is_active=True
+            ).all()
+            for d in definitions:
+                if d.type in rest or d.label.lower() in rest:
+                    entity_type = d.type
+                    break
+        
+        if not entity_type:
+            return {
+                "type": "question",
+                "hint": "unknown_entity",
+                "message": "I'm not sure what to create. Try 'create a lead for...' or check your entity types in Settings."
+            }
+    
+    definition = EntityDefinition.query.filter_by(
+        tenant_id=tenant_id, type=entity_type
+    ).first()
+    
+    # Parse fields using conversational engine
+    parsed = ConversationalEngine.parse_and_fill(full_query, entity_type, tenant_id)
+    
+    if "error" in parsed:
+        return {"type": "question", "hint": "error", "message": parsed["error"]}
+    
+    code = next_entity_code(__import__("flask").current_app.extensions["sqlalchemy"].session, tenant_id)
+    
+    confirmation_card = ConversationalEngine.build_confirmation_card(
+        parsed["parsed_data"], definition, code
+    )
+    
+    return {
+        "type": "create",
+        "entity_type": entity_type,
+        "parsed_data": parsed["parsed_data"],
+        "missing_required": parsed["missing_required"],
+        "confidence": parsed["confidence"],
+        "suggested_status": parsed["suggested_status"],
+        "code": code,
+        "entity_type_label": definition.label,
+        "entity_type_icon": definition.icon,
+        "confirmation_card": confirmation_card,
+    }
+
+
+def _execute_intent(intent_data: dict, tenant_id: int, user_id: int, user_name: str) -> dict:
+    """Execute a confirmed action intent."""
+    from app import db
+    from app.models import Entity, EntityDefinition, ActivityLog, next_entity_code
+    from datetime import datetime
+    
+    intent_type = intent_data.get("type")
+    
+    if intent_type == "create":
+        entity_type = intent_data.get("entity_type")
+        parsed_data = intent_data.get("parsed_data", {})
+        status = intent_data.get("suggested_status", "new")
+        code = intent_data.get("code")
+        
+        definition = EntityDefinition.query.filter_by(
+            tenant_id=tenant_id, type=entity_type
+        ).first()
+        if not definition:
+            return {"success": False, "error": f"Entity type '{entity_type}' not found"}
+        
+        if not code:
+            code = next_entity_code(db.session, tenant_id)
+        
+        entity = Entity(
+            tenant_id=tenant_id,
+            definition_id=definition.id,
+            code=code,
+            status=status,
+            data=parsed_data,
+            created_by=user_id,
+        )
+        db.session.add(entity)
+        db.session.flush()
+        
+        activity = ActivityLog(
+            tenant_id=tenant_id,
+            entity_id=entity.id,
+            user_id=user_id,
+            action="created",
+            detail=f"Created via Bird AI: {definition.label} ({code})",
+            governance_level="auto",
+        )
+        db.session.add(activity)
+        db.session.commit()
+        
+        return {
+            "success": True,
+            "action": "created",
+            "entity_type": entity_type,
+            "entity_id": entity.id,
+            "code": code,
+            "label": definition.label,
+            "icon": definition.icon,
+            "message": f"✅ **{definition.label} created** ({code})",
+            "target": f"/entities/{entity_type}/{entity.id}",
+        }
+    
+    return {"success": False, "error": f"Unknown action type: {intent_type}"}
+
+
+def _match_entity_type(text: str, tenant_id: int) -> str:
+    """Try to match text to an entity type slug."""
+    from app.models import EntityDefinition
+    definitions = EntityDefinition.query.filter_by(
+        tenant_id=tenant_id, is_active=True
+    ).all()
+    text_lower = text.lower().rstrip("s")
+    for d in definitions:
+        if d.type in text_lower or d.label.lower() in text_lower:
+            return d.type
+    return None
+
+
+def _extract_entity_type_from_query(query: str, tenant_id: int) -> str:
+    """Extract the entity type from a query string."""
+    from app.models import EntityDefinition
+    definitions = EntityDefinition.query.filter_by(
+        tenant_id=tenant_id, is_active=True
+    ).all()
+    q = query.lower()
+    
+    # Score each definition by how many of its keywords appear in the query
+    best_match = None
+    best_score = 0
+    for d in definitions:
+        keywords = [d.type, d.label.lower()] + [d.label.lower().rstrip("s")]
+        score = sum(1 for kw in keywords if kw in q)
+        if score > best_score:
+            best_score = score
+            best_match = d.type
+    
+    return best_match if best_score > 0 else None
+
+
+def _build_knowledge_response(context: dict) -> str:
+    """Build a conversational response from knowledge context."""
+    parts = []
+    for src in context.get("internal_sources", []):
+        content = src.get("content", "")
+        label = src.get("label", "Company Knowledge")
+        parts.append(f"📚 *From {label}*\n{content[:500]}")
+    
+    for src in context.get("web_sources", []):
+        title = src.get("title", "")
+        url = src.get("url", "")
+        snippet = src.get("snippet", "")
+        parts.append(f"🌐 *From the web: {title}*\n{snippet[:300]}\n_{url}_")
+    
+    if not parts:
+        return ("I searched your company data but couldn't find a clear answer. "
+                "Try asking differently, or upload a document on the **Ingest** page "
+                "and I'll learn from it.")
+    
+    return "\n\n".join(parts[:3])
+
+
 @api_bp.route("/webhook/<integration>", methods=["POST"])
 def webhook_receiver(integration):
     """Generic webhook receiver for external integrations."""
