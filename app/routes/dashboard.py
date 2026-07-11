@@ -1,5 +1,5 @@
 """Shunya OS — Dashboard."""
-from flask import Blueprint, render_template, g
+from flask import Blueprint, render_template, g, jsonify
 from app.routes.auth import login_required
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -47,3 +47,23 @@ def index():
         bird_greeting=greeting,
         next_actions=next_actions,
         welcome_message=greeting["message"])
+
+
+@dashboard_bp.route("/analytics")
+@login_required
+def analytics():
+    """Analytics dashboard — founder visibility."""
+    from app.shunya.analytics import AnalyticsEngine
+    data = AnalyticsEngine.get_overview(g.tenant.id)
+    insights = AnalyticsEngine.get_founder_insights(g.tenant.id)
+    return render_template("analytics.html", data=data, insights=insights)
+
+
+@dashboard_bp.route("/api/analytics")
+@login_required
+def analytics_api():
+    """Analytics data as JSON."""
+    from app.shunya.analytics import AnalyticsEngine
+    data = AnalyticsEngine.get_overview(g.tenant.id)
+    insights = AnalyticsEngine.get_founder_insights(g.tenant.id)
+    return jsonify({"overview": data, "insights": insights})

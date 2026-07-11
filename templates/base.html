@@ -10,23 +10,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
   <style>
-    .glass{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(12px)}
     .card-hover{transition:all .2s ease}.card-hover:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.1)}
-    .companion-bubble{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.15);transition:all .3s ease;border:none}
-    .companion-bubble:hover{transform:scale(1.1)}
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen">
+<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-20">
   {% if current_user %}
   <nav class="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         <div class="flex items-center gap-3">
-          <span class="text-xl">{{ current_tenant.theme_config.get('icon','🏝️') if current_tenant else '🧠' }}</span>
+          <span class="text-xl">{{ current_tenant.theme_config.get('icon','🧠') if current_tenant else '🧠' }}</span>
           <span class="font-bold text-base text-slate-900">{{ current_tenant.company_name if current_tenant else 'Shunya OS' }}</span>
         </div>
         <div class="flex items-center gap-4">
           <a href="/" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Dashboard</a>
+          <a href="/analytics" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Analytics</a>
           <a href="/settings" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Settings</a>
           <a href="/auth/logout" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
         </div>
@@ -51,8 +49,63 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="text-center py-6 text-xs text-slate-400">
-    Shunya OS · AI-Native Universal Operating System
-  </footer>
+  <!-- Bird Floating Assistant — persistent on every screen -->
+  {% if current_user %}
+  <div id="bird-widget" style="position:fixed;bottom:24px;right:24px;z-index:9999;font-family:Inter,system-ui,sans-serif">
+    <div id="bird-bubble" onclick="toggleBird()"
+      style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.15);transition:all .3s ease;border:none;"
+      onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🧠</div>
+    <div id="bird-panel" style="display:none;position:absolute;bottom:70px;right:0;width:360px;max-height:520px;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.2);overflow:hidden;border:1px solid rgba(0,0,0,0.06);">
+      <div style="padding:16px 20px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.3rem;">🧠</span>
+            <div><div style="font-weight:600;font-size:0.9rem;">Shunya AI</div><div style="font-size:0.7rem;opacity:0.7;">Ask me anything</div></div>
+          </div>
+          <button onclick="toggleBird()" style="background:none;border:none;color:white;font-size:1.2rem;cursor:pointer;opacity:0.7;">✕</button>
+        </div>
+      </div>
+      <div id="bird-messages" style="padding:12px;max-height:300px;overflow-y:auto;background:#f8fafc;">
+        <div class="bird-msg bird-ai" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px 16px 16px 4px;font-size:0.85rem;color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+          Hey! What can I help you with?
+        </div>
+      </div>
+      <div style="padding:10px 12px;border-top:1px solid #e2e8f0;display:flex;gap:8px;background:white;">
+        <input id="bird-input" type="text" placeholder="Ask me anything..." style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:0.85rem;outline:none;"
+          onkeydown="if(event.key==='Enter')birdChat()">
+        <button onclick="birdChat()" style="padding:10px 16px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;border-radius:12px;font-size:0.85rem;cursor:pointer;font-weight:500;">Send</button>
+      </div>
+    </div>
+  </div>
+  <script>
+  function toggleBird() {
+    const p = document.getElementById('bird-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  }
+  async function birdChat() {
+    const input = document.getElementById('bird-input');
+    const q = input.value.trim();
+    if (!q) return;
+    const msgs = document.getElementById('bird-messages');
+    msgs.innerHTML += `<div class="bird-msg bird-user" style="margin-bottom:8px;padding:10px 14px;background:#2563eb;color:white;border-radius:16px 16px 4px 16px;font-size:0.85rem;text-align:right;">${q}</div>`;
+    input.value = '';
+    msgs.innerHTML += `<div class="bird-msg bird-thinking" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px;font-size:0.85rem;color:#94a3b8;">Thinking...</div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+    try {
+      const r = await fetch('/api/ai/query', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query: q})});
+      const d = await r.json();
+      const thinking = msgs.querySelector('.bird-thinking:last-child');
+      if (thinking) thinking.remove();
+      const ctx = d.context || 'Let me check on that.';
+      msgs.innerHTML += `<div class="bird-msg bird-ai" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px 16px 16px 4px;font-size:0.85rem;color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,0.05);">${ctx.slice(0,300)}</div>`;
+    } catch(e) {
+      const thinking = msgs.querySelector('.bird-thinking:last-child');
+      if (thinking) thinking.remove();
+      msgs.innerHTML += `<div class="bird-msg bird-ai" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px;font-size:0.85rem;color:#ef4444;">Sorry, I couldn't process that.</div>`;
+    }
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  </script>
+  {% endif %}
 </body>
 </html>
