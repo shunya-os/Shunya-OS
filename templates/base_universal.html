@@ -77,8 +77,10 @@
         {% set nav_items = [
           ('/', '🏠', 'Overview', 'overview'),
           ('/leads?view=pipeline', '📋', 'Pipeline', 'pipeline'),
+          ('/calendar', '📅', 'Calendar', 'calendar'),
           ('/payments', '💰', 'Payments', 'payments'),
           ('/invoices', '🧾', 'Invoices', 'invoices'),
+          ('/tasks', '✅', 'Tasks', 'tasks'),
           ('/team', '👥', 'Team', 'team'),
           ('/reports', '📈', 'Reports', 'reports'),
         ] %}
@@ -120,6 +122,7 @@
           </div>
         </div>
         <div class="flex items-center gap-2">
+          {% include "_notifications.html" %}
           {% if current_user %}
           <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 text-xs text-surface-300" data-user-name="{{ current_user.name }}">
             <span class="w-2 h-2 rounded-full bg-green-500"></span>
@@ -389,5 +392,6 @@
       }
     })
   </script>
+{% include '_voice_mode.html' %}
 </body>
 </html>

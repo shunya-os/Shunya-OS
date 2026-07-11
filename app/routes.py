@@ -11,7 +11,7 @@ from datetime import datetime, date
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, g
 from app import db
 from app.models import (
-    Lead, Payment, Supplier, Invoice, ItineraryRef,
+    Lead, Payment, Supplier, Invoice, ItineraryRef, TaskList, Task,
     LeadStatus, PaymentType, InvoiceStatus, next_inquiry_code,
 )
 from app.services import parse_inquiry_text, get_summary, _cached_or_new_code, format_inquiry_reply
@@ -530,6 +530,184 @@ def reports():
 
 
 # ---------------------------------------------------------------------------
+# Tasks & Checklists
+# ---------------------------------------------------------------------------
+
+@main.route("/tasks")
+def tasks_list():
+    """Task dashboard — lists on left, tasks on right."""
+    from app.tasks import TaskManager
+    tm = TaskManager()
+    all_lists = tm.get_all_lists()
+    list_id = request.args.get("list", type=int)
+
+    # Pre-compute counts for each list
+    lists_data = []
+    for lst in all_lists:
+        total = lst.tasks.count()
+        done = Task.query.filter(
+            Task.task_list_id == lst.id, Task.status == "completed"
+        ).count()
+        lists_data.append({"id": lst.id, "name": lst.name,
+                           "count": total, "done": done,
+                           "created_by": lst.created_by})
+
+    selected_list = None
+    tasks = []
+    total_count = done_count = pending_count = 0
+    progress_pct = 0
+
+    if list_id:
+        selected_list = tm.get_list(list_id)
+        if selected_list:
+            tasks = tm.get_tasks_for_list(list_id)
+            total_count = len(tasks)
+            done_count = sum(1 for t in tasks if t.status == "completed")
+            pending_count = total_count - done_count
+            progress_pct = round(done_count / total_count * 100) if total_count else 0
+
+    stats = tm.get_statistics()
+    companion_greeting = "Stay on top of your tasks! Mark items done as you go. ✅"
+    companion_suggestions = [
+        {"icon": "📋", "text": "Review pending tasks", "action": "/tasks"},
+        {"icon": "📊", "text": "View reports", "action": "/reports"},
+        {"icon": "💰", "text": "Check payments", "action": "/payments"},
+    ]
+
+    return render_template("tasks.html",
+                           lists_data=lists_data,
+                           selected_list=selected_list,
+                           tasks=tasks,
+                           total_count=total_count,
+                           done_count=done_count,
+                           pending_count=pending_count,
+                           progress_pct=progress_pct,
+                           stats=stats,
+                           today=date.today(),
+                           companion_greeting=companion_greeting,
+                           companion_suggestions=companion_suggestions)
+
+
+@main.route("/tasks/create", methods=["POST"])
+def tasks_create_list():
+    """Create a new task list."""
+    from app.tasks import TaskManager
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("List name is required", "error")
+        return redirect(url_for("main.tasks_list"))
+    tm = TaskManager()
+    tm.create_list(name=name, created_by=getattr(g, "user", ""))
+    flash(f"List '{name}' created", "success")
+    return redirect(url_for("main.tasks_list"))
+
+
+@main.route("/tasks/<int:id>/delete", methods=["POST"])
+def tasks_delete_list(id):
+    """Delete a task list and all its tasks."""
+    from app.tasks import TaskManager
+    tm = TaskManager()
+    if tm.delete_list(id):
+        flash("List deleted", "success")
+    else:
+        flash("List not found", "error")
+    return redirect(url_for("main.tasks_list"))
+
+
+@main.route("/tasks/<int:id>/add", methods=["POST"])
+def tasks_add_item(id):
+    """Add a task to a list."""
+    from app.tasks import TaskManager
+    title = request.form.get("title", "").strip()
+    if not title:
+        flash("Task title is required", "error")
+        return redirect(url_for("main.tasks_list", list=id))
+    tm = TaskManager()
+    task = tm.add_task(
+        list_id=id,
+        title=title,
+        description=request.form.get("description", ""),
+        assigned_to=request.form.get("assigned_to", ""),
+        priority=request.form.get("priority", "medium"),
+        due_date=request.form.get("due_date"),
+    )
+    if task:
+        flash(f"Task '{title}' added", "success")
+    else:
+        flash("Could not add task — list not found", "error")
+    return redirect(url_for("main.tasks_list", list=id))
+
+
+@main.route("/tasks/item/<int:id>/status", methods=["POST"])
+def tasks_update_status(id):
+    """Update task status (checkbox toggle). Accepts JSON."""
+    from app.tasks import TaskManager
+    json_data = request.get_json(silent=True)
+    if json_data:
+        new_status = json_data.get("status", "")
+    else:
+        new_status = request.form.get("status", "")
+
+    tm = TaskManager()
+    task = tm.update_status(id, new_status)
+    if task:
+        if json_data:
+            return jsonify({"success": True, "status": task.status})
+        flash(f"Task updated: {task.status}", "success")
+    else:
+        if json_data:
+            return jsonify({"success": False, "error": "Task not found or invalid status"}), 400
+        flash("Task not found", "error")
+    return redirect(url_for("main.tasks_list"))
+
+
+@main.route("/tasks/item/<int:id>/delete", methods=["POST"])
+def tasks_delete_item(id):
+    """Delete a task. Accepts JSON."""
+    from app.tasks import TaskManager
+    json_data = request.get_json(silent=True)
+    tm = TaskManager()
+    if tm.delete_task(id):
+        if json_data:
+            return jsonify({"success": True})
+        flash("Task deleted", "success")
+    else:
+        if json_data:
+            return jsonify({"success": False, "error": "Task not found"}), 400
+        flash("Task not found", "error")
+    return redirect(url_for("main.tasks_list"))
+
+
+@main.route("/tasks/reorder", methods=["POST"])
+def tasks_reorder():
+    """Reorder tasks within a list (drag & drop). Accepts JSON."""
+    from app.tasks import TaskManager
+    data = request.get_json(silent=True) or {}
+    order = data.get("order", [])
+    tm = TaskManager()
+    for idx, task_id in enumerate(order):
+        tm.update_task(task_id, sort_order=idx)
+    return jsonify({"success": True})
+
+
+@api.route("/tasks")
+def api_tasks():
+    """JSON endpoint returning all tasks."""
+    from app.tasks import TaskManager
+    tm = TaskManager()
+    all_lists = tm.get_all_lists()
+    result = []
+    for lst in all_lists:
+        tasks = tm.get_tasks_for_list(lst.id)
+        result.append({
+            "id": lst.id,
+            "name": lst.name,
+            "tasks": [t.to_dict() for t in tasks],
+        })
+    return jsonify(result)
+
+
+# ---------------------------------------------------------------------------
 # Settings / Suppliers
 # ---------------------------------------------------------------------------
 
@@ -752,78 +930,78 @@ def api_lead_activities(lead_id):
     return jsonify([a.to_dict() for a in activities])
 
 
-    # ---------------------------------------------------------------------------
-    # API: Notifications
-    # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# API: Notifications
+# ---------------------------------------------------------------------------
 
-    @api.route("/notifications", methods=["GET"])
-    def api_get_notifications():
-        """Get notifications for the current user (or all if no user)."""
-        from app.notifications import NotificationManager
-        limit = min(int(request.args.get("limit", 20)), 100)
-        user_id = g.user.id if hasattr(g, "user") and g.user else None
-        nm = NotificationManager()
-        notifications = nm.get_for_user(user_id=user_id, limit=limit)
-        return jsonify([n.to_dict() for n in notifications])
-
-
-    @api.route("/notifications/unread/count", methods=["GET"])
-    def api_unread_count():
-        """Get unread notification count for the current user."""
-        from app.notifications import NotificationManager
-        user_id = g.user.id if hasattr(g, "user") and g.user else None
-        nm = NotificationManager()
-        count = nm.get_unread_count(user_id=user_id)
-        return jsonify({"count": count})
+@api.route("/notifications", methods=["GET"])
+def api_get_notifications():
+    """Get notifications for the current user (or all if no user)."""
+    from app.notifications import NotificationManager
+    limit = min(int(request.args.get("limit", 20)), 100)
+    user_id = g.user.id if hasattr(g, "user") and g.user else None
+    nm = NotificationManager()
+    notifications = nm.get_for_user(user_id=user_id, limit=limit)
+    return jsonify([n.to_dict() for n in notifications])
 
 
-    @api.route("/notifications/<int:notification_id>/read", methods=["POST"])
-    def api_mark_read(notification_id):
-        """Mark a single notification as read."""
-        from app.notifications import NotificationManager
-        nm = NotificationManager()
-        success = nm.mark_read(notification_id)
-        if not success:
-            return jsonify({"error": "Notification not found"}), 404
-        return jsonify({"success": True})
+@api.route("/notifications/unread/count", methods=["GET"])
+def api_unread_count():
+    """Get unread notification count for the current user."""
+    from app.notifications import NotificationManager
+    user_id = g.user.id if hasattr(g, "user") and g.user else None
+    nm = NotificationManager()
+    count = nm.get_unread_count(user_id=user_id)
+    return jsonify({"count": count})
 
 
-    @api.route("/notifications/read-all", methods=["POST"])
-    def api_mark_all_read():
-        """Mark all notifications as read for the current user."""
-        from app.notifications import NotificationManager
-        user_id = g.user.id if hasattr(g, "user") and g.user else None
-        nm = NotificationManager()
-        count = nm.mark_all_read(user_id=user_id)
-        return jsonify({"success": True, "marked": count})
+@api.route("/notifications/<int:notification_id>/read", methods=["POST"])
+def api_mark_read(notification_id):
+    """Mark a single notification as read."""
+    from app.notifications import NotificationManager
+    nm = NotificationManager()
+    success = nm.mark_read(notification_id)
+    if not success:
+        return jsonify({"error": "Notification not found"}), 404
+    return jsonify({"success": True})
 
 
-    @api.route("/notifications/create", methods=["POST"])
-    def api_create_notification():
-        """Create a notification (for system events / programmatic use)."""
-        from app.notifications import NotificationManager
-        data = request.get_json(silent=True) or {}
-        required = ["type", "title"]
-        for field in required:
-            if not data.get(field):
-                return jsonify({"error": f"'{field}' is required"}), 400
-        nm = NotificationManager()
-        notif = nm.create_notification(
-            type=data["type"],
-            title=data["title"],
-            message=data.get("message", ""),
-            user_id=data.get("user_id"),
-            lead_id=data.get("lead_id"),
-            tenant_id=data.get("tenant_id"),
-            icon=data.get("icon"),
-            link=data.get("link"),
-        )
-        return jsonify(notif.to_dict()), 201
+@api.route("/notifications/read-all", methods=["POST"])
+def api_mark_all_read():
+    """Mark all notifications as read for the current user."""
+    from app.notifications import NotificationManager
+    user_id = g.user.id if hasattr(g, "user") and g.user else None
+    nm = NotificationManager()
+    count = nm.mark_all_read(user_id=user_id)
+    return jsonify({"success": True, "marked": count})
 
 
-    # ---------------------------------------------------------------------------
-    # PDF Generation (inline helper)
-    # ---------------------------------------------------------------------------
+@api.route("/notifications/create", methods=["POST"])
+def api_create_notification():
+    """Create a notification (for system events / programmatic use)."""
+    from app.notifications import NotificationManager
+    data = request.get_json(silent=True) or {}
+    required = ["type", "title"]
+    for field in required:
+        if not data.get(field):
+            return jsonify({"error": f"'{field}' is required"}), 400
+    nm = NotificationManager()
+    notif = nm.create_notification(
+        type=data["type"],
+        title=data["title"],
+        message=data.get("message", ""),
+        user_id=data.get("user_id"),
+        lead_id=data.get("lead_id"),
+        tenant_id=data.get("tenant_id"),
+        icon=data.get("icon"),
+        link=data.get("link"),
+    )
+    return jsonify(notif.to_dict()), 201
+
+
+# ---------------------------------------------------------------------------
+# PDF Generation (inline helper)
+# ---------------------------------------------------------------------------
 
 @api.route("/voice/process", methods=["POST"])
 def voice_process():

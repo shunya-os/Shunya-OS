@@ -447,6 +447,101 @@ class Notification(db.Model):
 
 
 # ---------------------------------------------------------------------------
+# ClientUser — Client Portal Accounts
+# ---------------------------------------------------------------------------
+
+class ClientUser(db.Model):
+    """Client portal user account. Created when a lead registers or is invited."""
+
+    __tablename__ = "client_users"
+    __table_args__ = (
+        Index("ix_client_users_email", "email"),
+        Index("ix_client_users_lead", "lead_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, nullable=True)
+    name = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    phone = db.Column(db.String(30), default="")
+    password_hash = db.Column(db.String(128), nullable=False)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_login = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    lead = db.relationship("Lead", backref="client_users", lazy="select")
+
+    def set_password(self, password: str):
+        import hashlib, secrets
+        salt = secrets.token_hex(16)
+        self.password_hash = f"{salt}${hashlib.sha256((salt + password).encode()).hexdigest()}"
+
+    def check_password(self, password: str) -> bool:
+        import hashlib
+        if not self.password_hash or "$" not in self.password_hash:
+            return False
+        salt, hsh = self.password_hash.split("$", 1)
+        return hsh == hashlib.sha256((salt + password).encode()).hexdigest()
+
+    def __repr__(self):
+        return f"<ClientUser #{self.id} {self.email}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "email": self.email,
+            "phone": self.phone,
+            "lead_id": self.lead_id,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# ClientMessage — Client <-> Team Messaging
+# ---------------------------------------------------------------------------
+
+class ClientMessage(db.Model):
+    """Messages between clients and the Panchi team."""
+
+    __tablename__ = "client_messages"
+    __table_args__ = (
+        Index("ix_client_messages_lead", "lead_id"),
+        Index("ix_client_messages_created", "created_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=False)
+    client_user_id = db.Column(db.Integer, db.ForeignKey("client_users.id"), nullable=True)
+    sender = db.Column(db.String(20), nullable=False)  # 'client' or 'team'
+    message = db.Column(db.Text, nullable=False)
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    lead = db.relationship("Lead", backref="client_messages", lazy="select")
+    client_user = db.relationship("ClientUser", backref="messages", lazy="select")
+
+    def __repr__(self):
+        return f"<ClientMessage #{self.id} [{self.sender}] on lead #{self.lead_id}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "lead_id": self.lead_id,
+            "client_user_id": self.client_user_id,
+            "sender": self.sender,
+            "message": self.message,
+            "is_read": self.is_read,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
 # ActivityLog
 # ---------------------------------------------------------------------------
 
