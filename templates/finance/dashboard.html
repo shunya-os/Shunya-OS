@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-slate-900">💰 Finance</h1>
+    <p class="text-sm text-slate-500 mt-1">Invoicing, expenses, and financial overview</p>
+  </div>
+</div>
+
+<!-- Top metrics -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">Total Invoiced</p>
+    <p class="text-2xl font-bold text-slate-900 mt-1">₹{{ "{:,.0f}".format(total_invoiced) }}</p>
+    <p class="text-xs text-slate-400">{{ invoices|length }} invoices</p>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">Total Paid</p>
+    <p class="text-2xl font-bold text-green-600 mt-1">₹{{ "{:,.0f}".format(total_paid) }}</p>
+    <p class="text-xs text-green-500">Collected</p>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">Total Due</p>
+    <p class="text-2xl font-bold text-amber-600 mt-1">₹{{ "{:,.0f}".format(total_due) }}</p>
+    <p class="text-xs text-amber-500">{{ invoice_statuses.get('sent', 0) + invoice_statuses.get('overdue', 0) }} pending</p>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">Net Income</p>
+    <p class="text-2xl font-bold {% if net_income >= 0 %}text-green-600{% else %}text-red-600{% endif %} mt-1">₹{{ "{:,.0f}".format(net_income) }}</p>
+    <p class="text-xs text-slate-400">Revenue - Expenses</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <!-- Quick Actions -->
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">⚡ Quick Actions</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <a href="/entities/invoice/new" class="p-4 bg-blue-50 rounded-xl text-center hover:bg-blue-100 transition-colors">
+        <span class="text-2xl block mb-1">🧾</span>
+        <span class="text-xs font-medium text-blue-700">New Invoice</span>
+      </a>
+      <a href="/entities/expense/new" class="p-4 bg-amber-50 rounded-xl text-center hover:bg-amber-100 transition-colors">
+        <span class="text-2xl block mb-1">💸</span>
+        <span class="text-xs font-medium text-amber-700">Add Expense</span>
+      </a>
+      <a href="/finance" class="p-4 bg-green-50 rounded-xl text-center hover:bg-green-100 transition-colors">
+        <span class="text-2xl block mb-1">📊</span>
+        <span class="text-xs font-medium text-green-700">P&L Summary</span>
+      </a>
+      <a href="/entities/account/new" class="p-4 bg-purple-50 rounded-xl text-center hover:bg-purple-100 transition-colors">
+        <span class="text-2xl block mb-1">🏦</span>
+        <span class="text-xs font-medium text-purple-700">Add Account</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Expense by Category -->
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">📊 Expenses by Category</h3>
+    {% if expense_categories %}
+    <div class="space-y-2">
+      {% for cat, amt in expense_categories.items() | sort(attribute='1', reverse=True) %}
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-slate-600 capitalize">{{ cat }}</span>
+        <span class="font-medium text-slate-700">₹{{ "{:,.0f}".format(amt) }}</span>
+      </div>
+      <div class="w-full bg-slate-100 rounded-full h-1.5">
+        <div class="bg-blue-500 h-1.5 rounded-full" style="width:{{ (amt / expense_categories.values() | sum * 100) | round }}%"></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-400 text-center py-8">No expenses recorded yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Recent Invoices -->
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-6">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">🧾 Recent Invoices</h3>
+    <a href="/entities/invoice" class="text-xs text-blue-600 hover:underline">View all →</a>
+  </div>
+  {% if invoices %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-slate-400 border-b border-slate-100">
+          <th class="pb-3 font-medium">Invoice</th>
+          <th class="pb-3 font-medium">Customer</th>
+          <th class="pb-3 font-medium">Amount</th>
+          <th class="pb-3 font-medium">Status</th>
+          <th class="pb-3 font-medium">Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices[:10] %}
+        <tr class="border-b border-slate-50 hover:bg-slate-50">
+          <td class="py-3 font-medium text-slate-700">{{ inv.data.get('invoice_number', inv.code) }}</td>
+          <td class="py-3 text-slate-600">{{ inv.data.get('customer_name', '-') }}</td>
+          <td class="py-3 font-medium">₹{{ "{:,.0f}".format(inv.data.get('total', 0) | float) }}</td>
+          <td class="py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium 
+              {% if inv.status == 'paid' %}bg-green-50 text-green-600
+              {% elif inv.status == 'overdue' %}bg-red-50 text-red-600
+              {% elif inv.status == 'draft' %}bg-slate-100 text-slate-500
+              {% elif inv.status == 'sent' %}bg-blue-50 text-blue-600
+              {% else %}bg-slate-50 text-slate-500{% endif %}">
+              {{ inv.status }}
+            </span>
+          </td>
+          <td class="py-3 text-slate-400">{{ inv.data.get('due_date', inv.created_at.strftime('%d %b %Y') if inv.created_at else '') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-400 text-center py-8">No invoices yet. Create your first one! 🧾</p>
+  {% endif %}
+</div>
+
+<!-- Recent Expenses -->
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">💸 Recent Expenses</h3>
+    <a href="/entities/expense" class="text-xs text-blue-600 hover:underline">View all →</a>
+  </div>
+  {% if expenses %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-slate-400 border-b border-slate-100">
+          <th class="pb-3 font-medium">Description</th>
+          <th class="pb-3 font-medium">Category</th>
+          <th class="pb-3 font-medium">Amount</th>
+          <th class="pb-3 font-medium">Status</th>
+          <th class="pb-3 font-medium">Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for exp in expenses[:10] %}
+        <tr class="border-b border-slate-50 hover:bg-slate-50">
+          <td class="py-3 font-medium text-slate-700">{{ exp.data.get('description', '-')[:50] }}</td>
+          <td class="py-3"><span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">{{ exp.data.get('category', 'other') }}</span></td>
+          <td class="py-3 font-medium">₹{{ "{:,.0f}".format(exp.data.get('amount', 0) | float) }}</td>
+          <td class="py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium
+              {% if exp.status == 'approved' %}bg-green-50 text-green-600
+              {% elif exp.status == 'pending' %}bg-amber-50 text-amber-600
+              {% elif exp.status == 'reimbursed' %}bg-blue-50 text-blue-600
+              {% else %}bg-slate-50 text-slate-500{% endif %}">
+              {{ exp.status }}
+            </span>
+          </td>
+          <td class="py-3 text-slate-400">{{ exp.data.get('expense_date', exp.created_at.strftime('%d %b %Y') if exp.created_at else '') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-400 text-center py-8">No expenses recorded yet.</p>
+  {% endif %}
+</div>
+{% endblock %}
