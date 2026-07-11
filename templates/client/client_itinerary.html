@@ -1,0 +1,107 @@
+{% extends "client/client_base.html" %}
+{% block title %}Itinerary — Panchi Club Client Portal{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Your Itinerary</h1>
+      {% if lead %}
+      <p class="text-gray-500 mt-1">{{ lead.destination or 'Destination TBD' }} · {{ lead.pax or '?' }} travelers</p>
+      {% endif %}
+    </div>
+    <a href="{{ url_for('client.client_dashboard') }}"
+      class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors">
+      ← Back to Dashboard
+    </a>
+  </div>
+
+  {% if lead and plan_days %}
+  <!-- Itinerary Days -->
+  <div class="space-y-4">
+    {% for day in plan_days %}
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <!-- Day Header -->
+      <div class="bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-4 border-b border-amber-100">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold shadow-sm">
+              {{ day.day }}
+            </div>
+            <div>
+              <h3 class="font-bold text-gray-900">{{ day.title }}</h3>
+            </div>
+          </div>
+          {% if day.accommodation %}
+          <span class="text-xs font-medium text-gray-500 bg-white/80 px-3 py-1.5 rounded-lg">
+            🏨 {{ day.accommodation }}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Day Activities -->
+      <div class="divide-y divide-gray-100">
+        {% if day.morning %}
+        <div class="px-6 py-4 flex items-start gap-4">
+          <div class="flex-shrink-0 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-sm">🌅</div>
+          <div>
+            <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1">Morning</p>
+            <p class="text-sm text-gray-700 leading-relaxed">{{ day.morning }}</p>
+          </div>
+        </div>
+        {% endif %}
+        {% if day.afternoon %}
+        <div class="px-6 py-4 flex items-start gap-4">
+          <div class="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-sm">☀️</div>
+          <div>
+            <p class="text-xs font-semibold text-orange-600 uppercase tracking-wider mb-1">Afternoon</p>
+            <p class="text-sm text-gray-700 leading-relaxed">{{ day.afternoon }}</p>
+          </div>
+        </div>
+        {% endif %}
+        {% if day.evening %}
+        <div class="px-6 py-4 flex items-start gap-4">
+          <div class="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-sm">🌙</div>
+          <div>
+            <p class="text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-1">Evening</p>
+            <p class="text-sm text-gray-700 leading-relaxed">{{ day.evening }}</p>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% elif lead and not plan_days %}
+  <!-- No itinerary yet -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+    <div class="w-20 h-20 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
+      <span class="text-4xl">🗺️</span>
+    </div>
+    <h2 class="text-xl font-bold text-gray-900 mb-2">Itinerary Coming Soon</h2>
+    <p class="text-gray-500 max-w-md mx-auto mb-6">
+      Your travel team is working on crafting the perfect itinerary for your trip. 
+      Check back soon or send them a message!
+    </p>
+    <a href="{{ url_for('client.client_messages') }}"
+      class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-700 transition-all shadow-md">
+      💬 Ask About Your Itinerary
+    </a>
+  </div>
+
+  {% else %}
+  <!-- No lead linked -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+    <div class="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+      <span class="text-4xl">🗺️</span>
+    </div>
+    <h2 class="text-xl font-bold text-gray-900 mb-2">No Trip Found</h2>
+    <p class="text-gray-500 max-w-md mx-auto">
+      Your account hasn't been linked to a trip yet. Please contact your travel team for assistance.
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

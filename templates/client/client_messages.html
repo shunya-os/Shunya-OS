@@ -1,0 +1,92 @@
+{% extends "client/client_base.html" %}
+{% block title %}Messages — Panchi Club Client Portal{% endblock %}
+{% block extra_head %}
+<style>
+  .chat-scroll { scroll-behavior: smooth; }
+  .msg-client { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #fff; border-radius: 18px 18px 4px 18px; }
+  .msg-team { background: #f1f5f9; color: #334155; border-radius: 18px 18px 18px 4px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Messages</h1>
+      <p class="text-gray-500 text-sm mt-1">Chat with your travel team</p>
+    </div>
+    <a href="{{ url_for('client.client_dashboard') }}"
+      class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors">
+      ← Back to Dashboard
+    </a>
+  </div>
+
+  {% if lead %}
+  <!-- Chat Container -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <!-- Messages -->
+    <div id="chat-messages" class="h-[450px] overflow-y-auto px-6 py-4 space-y-3 chat-scroll">
+      {% if messages %}
+        {% for msg in messages %}
+        <div class="flex {% if msg.sender == 'client' %}justify-end{% endif %} fade-in">
+          <div class="max-w-[80%] sm:max-w-[65%]">
+            <div class="px-4 py-3 {% if msg.sender == 'client' %}msg-client{% else %}msg-team{% endif %}">
+              <p class="text-sm leading-relaxed">{{ msg.message }}</p>
+            </div>
+            <p class="text-[10px] text-gray-400 mt-1 {% if msg.sender == 'client' %}text-right{% endif %}">
+              {{ msg.created_at.strftime('%d %b %Y, %I:%M %p') }}
+            </p>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <!-- Empty state -->
+      <div class="h-full flex items-center justify-center">
+        <div class="text-center">
+          <div class="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-3">
+            <span class="text-3xl">💬</span>
+          </div>
+          <p class="text-gray-500 font-medium">No messages yet</p>
+          <p class="text-sm text-gray-400 mt-1">Send a message to start the conversation</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Input -->
+    <div class="border-t border-gray-200 px-6 py-4 bg-gray-50">
+      <form method="post" class="flex items-center gap-3">
+        <input type="text" name="message" required autocomplete="off" placeholder="Type your message..."
+          class="flex-1 px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-white">
+        <button type="submit"
+          class="flex-shrink-0 px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all shadow-md">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19V5m0 0l-7 7m7-7l7 7"/>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- No lead linked -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+    <div class="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+      <span class="text-4xl">💬</span>
+    </div>
+    <h2 class="text-xl font-bold text-gray-900 mb-2">No Active Conversation</h2>
+    <p class="text-gray-500 max-w-md mx-auto">
+      Your account hasn't been linked to a trip yet. Please contact your travel team to get started.
+    </p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  // Auto-scroll to bottom on load
+  const chatContainer = document.getElementById('chat-messages');
+  if (chatContainer) {
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+</script>
+{% endblock %}

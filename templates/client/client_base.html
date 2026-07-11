@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Panchi Club Client Portal{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.3) transparent; }
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+    @keyframes fadeIn { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: translateY(0); } }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen flex flex-col">
+  <!-- Top Navigation -->
+  <nav class="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="flex items-center justify-between h-16">
+        <a href="{{ url_for('client.client_dashboard') }}" class="flex items-center gap-2.5 group">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:shadow-lg transition-shadow">
+            P
+          </div>
+          <div>
+            <span class="font-bold text-base text-gray-900">Panchi Club</span>
+            <span class="text-xs text-amber-600 font-medium block leading-tight -mt-0.5">Client Portal</span>
+          </div>
+        </a>
+        {% if client_user %}
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-gray-500 hidden sm:inline">{{ client_user.name }}</span>
+          <a href="{{ url_for('client.client_logout') }}"
+             class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 hover:text-gray-800 transition-all">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            Logout
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 pt-4 fade-in">
+    {% for category, message in messages %}
+    <div class="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium shadow-sm
+      {% if category == 'error' %}bg-red-50 text-red-700 border border-red-200
+      {% elif category == 'warning' %}bg-amber-50 text-amber-700 border border-amber-200
+      {% elif category == 'success' %}bg-emerald-50 text-emerald-700 border border-emerald-200
+      {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+      <span class="flex-shrink-0">
+        {% if category == 'error' %}❌{% elif category == 'warning' %}⚠️{% elif category == 'success' %}✅{% else %}ℹ️{% endif %}
+      </span>
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-6xl mx-auto px-4 sm:px-6 py-6 w-full fade-in">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-gray-200 py-4 mt-8">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-xs text-gray-400">&copy; {{ year or 2026 }} Panchi Club. All rights reserved.</p>
+        <p class="text-xs text-gray-400">Made with ❤️ for your journey</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

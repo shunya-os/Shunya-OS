@@ -243,9 +243,11 @@ def create_app(config_override: dict | None = None):
     # ---- Blueprints -------------------------------------------------------
     from app.auth_routes import auth_bp, login_required, inject_auth_globals
     from app.routes import main, api
+    from app.client_portal import client_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main)
+    app.register_blueprint(client_bp)
     # Keep API at /shunya/* for backward compat (routes.py defines @api.route('/shunya/...'))
     app.register_blueprint(api)
 
@@ -258,7 +260,7 @@ def create_app(config_override: dict | None = None):
         path = request.path
         if path.startswith("/static/") or path.startswith("/health"):
             return None
-        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process":
+        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/"):
             return None
         user_id = session.get("user_id")
         if not user_id:
