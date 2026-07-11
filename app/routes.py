@@ -972,117 +972,6 @@ def settings_fields_add():
 
 
 # ---------------------------------------------------------------------------
-# WhatsApp Business API
-# ---------------------------------------------------------------------------
-
-@main.route("/whatsapp/webhook", methods=["GET", "POST"])
-def whatsapp_webhook():
-    """WhatsApp Business API webhook handler."""
-    # GET = webhook verification challenge
-    if request.method == "GET":
-        mode = request.args.get("hub.mode", "")
-        token = request.args.get("hub.verify_token", "")
-        challenge = request.args.get("hub.challenge", "")
-        expected_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "panchi_verify_2026")
-        if mode == "subscribe" and token == expected_token:
-            return challenge, 200
-        return "Verification failed", 403
-
-    # POST = incoming message
-    payload = request.get_json(silent=True) or {}
-    try:
-        entry = payload.get("entry", [{}])[0]
-        change = entry.get("changes", [{}])[0]
-        value = change.get("value", {})
-        messages = value.get("messages", [])
-        if not messages:
-            return jsonify({"status": "ignored"}), 200
-        msg = messages[0]
-        sender = msg.get("from", "")
-        msg_type = msg.get("type", "text")
-        text = ""
-        if msg_type == "text":
-            text = msg.get("text", {}).get("body", "")
-        elif msg_type == "interactive":
-            text = msg.get("interactive", {}).get("button_reply", {}).get("title", "")
-        if not text:
-            return jsonify({"status": "ignored"}), 200
-
-        # Process as lead inquiry
-        from app.services import parse_inquiry_text, format_inquiry_reply
-        parsed = parse_inquiry_text(text)
-        with db.session.no_autoflush:
-            code = _cached_or_new_code(db.session)
-        lead = Lead(
-            code=code,
-            source="whatsapp",
-            customer_name=parsed.get("name") or sender,
-            phone=sender,
-            destination=parsed.get("destination"),
-            pax=(
-                f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
-                if parsed.get("adults") or parsed.get("kids")
-                else None
-            ),
-            dates=parsed.get("dates"),
-            notes=text,
-            status="new",
-        )
-        db.session.add(lead)
-        db.session.commit()
-        _log_activity(lead.id, "created", f"Lead created via WhatsApp: {text[:200]}")
-
-        # Auto-reply
-        reply_text = format_inquiry_reply(parsed, code)
-        try:
-            from app.shunya.executor import WhatsAppAdapter, OutboundMessage, ChannelType, MessageType
-            adapter = WhatsAppAdapter()
-            if adapter.is_configured():
-                adapter.send(OutboundMessage(
-                    channel=ChannelType.WHATSAPP,
-                    recipient=sender,
-                    text=reply_text,
-                ))
-        except Exception:
-            pass
-    except (IndexError, KeyError, TypeError) as e:
-        app.logger.warning("WhatsApp webhook parse error: %s", e)
-
-    return jsonify({"status": "ok"}), 200
-
-
-@main.route("/whatsapp/send", methods=["POST"])
-def whatsapp_send():
-    """Send a WhatsApp message manually from the dashboard."""
-    from app.shunya.executor import WhatsAppAdapter, OutboundMessage, ChannelType, MessageType
-    phone = request.form.get("phone", "").strip()
-    message = request.form.get("message", "").strip()
-    lead_id = request.form.get("lead_id", type=int)
-    if not phone or not message:
-        flash("Phone number and message required", "error")
-        return redirect(request.referrer or url_for("main.leads_list"))
-    # Format phone for WhatsApp
-    if not phone.startswith("+"):
-        phone = "+" + phone
-    adapter = WhatsAppAdapter()
-    if not adapter.is_configured():
-        flash("WhatsApp not configured. Set WHATSAPP_API_TOKEN and WHATSAPP_PHONE_NUMBER_ID in .env", "error")
-        return redirect(request.referrer or url_for("main.leads_list"))
-    result = adapter.send(OutboundMessage(
-        channel=ChannelType.WHATSAPP,
-        recipient=phone,
-        text=message,
-    ))
-    if result.success:
-        flash(f"Message sent to {phone} ✅", "success")
-        if lead_id:
-            _log_activity(lead_id, "whatsapp_sent", f"Message to {phone}: {message[:100]}")
-    else:
-        flash(f"Failed: {result.error}", "error")
-    return redirect(request.referrer or url_for("main.leads_list"))
-
-
-# ---------------------------------------------------------------------------
 # Telegram webhook & Bot endpoints
 # ---------------------------------------------------------------------------
 
@@ -1158,6 +1047,35 @@ def telegram_setwebhook():
         flash(f"Telegram webhook set: {url}", "success")
     else:
         flash(f"Webhook setup failed: {data}", "error")
+    return redirect(url_for("main.settings"))
+
+
+# ---------------------------------------------------------------------------
+# WhatsApp Webhook — plug-and-play
+# ---------------------------------------------------------------------------
+
+@main.route("/whatsapp/webhook", methods=["GET", "POST"])
+def whatsapp_webhook():
+    """WhatsApp Business API webhook. GET = verification, POST = incoming msg."""
+    if request.method == "GET":
+        from app.whatsapp_webhook import handle_whatsapp_verification
+        return handle_whatsapp_verification()
+
+    from app.whatsapp_webhook import handle_whatsapp_incoming
+    payload = request.get_json(silent=True) or {}
+    return handle_whatsapp_incoming(payload)
+
+
+@main.route("/whatsapp/setup", methods=["POST"])
+def whatsapp_setup():
+    """Configure WhatsApp Business API settings."""
+    token = request.form.get("whatsapp_token", "")
+    phone_id = request.form.get("phone_number_id", "")
+    if token:
+        os.environ["WHATSAPP_TOKEN"] = token
+    if phone_id:
+        os.environ["WHATSAPP_PHONE_ID"] = phone_id
+    flash("WhatsApp settings saved. Webhook is ready at /whatsapp/webhook", "success")
     return redirect(url_for("main.settings"))
 
 
