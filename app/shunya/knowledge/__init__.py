@@ -201,28 +201,14 @@ class KnowledgePipeline:
     def search_web(query: str, limit: int = 3) -> list:
         """Search the web as a secondary source.
         
-        Uses web_search tool when available, falls back gracefully.
+        Uses Serper.dev (if configured) or DuckDuckGo fallback.
         """
-        results = []
-        try:
-            # Try web_search tool
-            from hermes_tools import web_search
-            raw = web_search(query=query, limit=limit)
-            web_data = raw.get("data", {}).get("web", [])
-            for item in web_data[:limit]:
-                results.append({
-                    "title": item.get("title", ""),
-                    "url": item.get("url", ""),
-                    "snippet": item.get("description", ""),
-                    "confidence": 0.4,  # Lower confidence — needs verification
-                    "type": "web",
-                })
-            logger.info("Web search returned %d results for: %s", len(results), query)
-        except ImportError:
-            logger.warning("web_search tool not available")
-        except Exception as e:
-            logger.warning("Web search failed: %s", e)
-
+        from app.shunya.web_search import search_web as _search_web
+        results = _search_web(query, limit)
+        if results:
+            logger.info("Web search: %d results for '%s'", len(results), query)
+        else:
+            logger.info("Web search: no results for '%s' (API may be rate-limited)", query)
         return results
 
     @staticmethod

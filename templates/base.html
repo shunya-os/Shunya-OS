@@ -74,6 +74,7 @@
         </div>
       </div>
       <div style="padding:10px 12px;border-top:1px solid #e2e8f0;display:flex;gap:8px;background:white;">
+        <button onclick="startVoice()" id="voice-btn" title="Voice input" style="padding:10px;background:#f1f5f9;border:none;border-radius:12px;font-size:1.2rem;cursor:pointer;">🎤</button>
         <input id="bird-input" type="text" placeholder="Ask me anything..." style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:0.85rem;outline:none;"
           onkeydown="if(event.key==='Enter')birdChat()">
         <button onclick="birdChat()" style="padding:10px 16px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;border-radius:12px;font-size:0.85rem;cursor:pointer;font-weight:500;">Send</button>
@@ -84,30 +85,71 @@
   function toggleBird() {
     const p = document.getElementById('bird-panel');
     p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    if (p.style.display === 'block') document.getElementById('bird-input').focus();
   }
   async function birdChat() {
     const input = document.getElementById('bird-input');
     const q = input.value.trim();
     if (!q) return;
     const msgs = document.getElementById('bird-messages');
-    msgs.innerHTML += `<div class="bird-msg bird-user" style="margin-bottom:8px;padding:10px 14px;background:#2563eb;color:white;border-radius:16px 16px 4px 16px;font-size:0.85rem;text-align:right;">${q}</div>`;
+    msgs.innerHTML += `<div class="bird-msg" style="margin-bottom:8px;padding:10px 14px;background:#2563eb;color:white;border-radius:16px 16px 4px 16px;font-size:0.85rem;text-align:right;max-width:85%;margin-left:auto;">${q}</div>`;
     input.value = '';
-    msgs.innerHTML += `<div class="bird-msg bird-thinking" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px;font-size:0.85rem;color:#94a3b8;">Thinking...</div>`;
+    msgs.innerHTML += `<div class="bird-msg" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px;font-size:0.85rem;color:#94a3b8;">🧠 Thinking...</div>`;
     msgs.scrollTop = msgs.scrollHeight;
     try {
       const r = await fetch('/api/ai/query', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query: q})});
       const d = await r.json();
-      const thinking = msgs.querySelector('.bird-thinking:last-child');
+      const thinking = msgs.querySelector('.bird-msg:last-child');
       if (thinking) thinking.remove();
-      const ctx = d.context || 'Let me check on that.';
-      msgs.innerHTML += `<div class="bird-msg bird-ai" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px 16px 16px 4px;font-size:0.85rem;color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,0.05);">${ctx.slice(0,300)}</div>`;
+      const resp = d.response || 'I searched but couldn\'t find a clear answer. Could you try rephrasing?';
+      const needsVerify = d.needs_verification;
+      const html = resp.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>') + 
+        (needsVerify ? '<br><br><span style="color:#eab308;font-size:0.75rem;">⚠️ Verify with manager</span>' : '');
+      msgs.innerHTML += `<div class="bird-msg" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px 16px 16px 4px;font-size:0.85rem;color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,0.05);max-width:85%;">${html}</div>`;
     } catch(e) {
-      const thinking = msgs.querySelector('.bird-thinking:last-child');
+      const thinking = msgs.querySelector('.bird-msg:last-child');
       if (thinking) thinking.remove();
-      msgs.innerHTML += `<div class="bird-msg bird-ai" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px;font-size:0.85rem;color:#ef4444;">Sorry, I couldn't process that.</div>`;
+      msgs.innerHTML += `<div class="bird-msg" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px;font-size:0.85rem;color:#1e293b;">I'm here! What would you like to know? Try asking about your business data, or just say "Hi" 👋</div>`;
     }
     msgs.scrollTop = msgs.scrollHeight;
   }
+  // Voice input using Web Speech API
+  function startVoice() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Voice input is not supported in this browser. Try Chrome or Edge.');
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    document.getElementById('voice-btn').textContent = '🔴';
+    recognition.onresult = function(event) {
+      const transcript = event.results[0][0].transcript;
+      document.getElementById('bird-input').value = transcript;
+      document.getElementById('voice-btn').textContent = '🎤';
+      birdChat();
+    };
+    recognition.onerror = function() {
+      document.getElementById('voice-btn').textContent = '🎤';
+    };
+    recognition.onend = function() {
+      document.getElementById('voice-btn').textContent = '🎤';
+    };
+    recognition.start();
+  }
+  // Listen for / key to focus search, Escape to close Bird
+  document.addEventListener('keydown', function(e) {
+    if (e.key === '/' && !['INPUT','TEXTAREA'].includes(e.target.tagName)) {
+      e.preventDefault();
+      const s = document.getElementById('global-search');
+      if (s) s.focus();
+    }
+    if (e.key === 'Escape' && document.getElementById('bird-panel').style.display === 'block') {
+      toggleBird();
+    }
+  });
   </script>
   {% endif %}
 </body>

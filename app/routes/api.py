@@ -148,35 +148,37 @@ def ai_query():
     # Search internal data AND web, then compare
     context = KnowledgePipeline.get_context_for_ai(query, g.tenant.id)
 
-    # Build a human-readable response with source attribution
+    # Build a conversational response
     response_parts = []
 
     if context["internal_sources"]:
         for src in context["internal_sources"]:
-            label = src.get("label", "Source")
             content = src.get("content", "")
-            confidence = src.get("confidence", 0)
-            confidence_label = "High" if confidence >= 0.8 else "Medium" if confidence >= 0.5 else "Low"
-            response_parts.append(f"[{label}] (Confidence: {confidence_label})\n{content}")
+            label = src.get("label", "Company Knowledge")
+            response_parts.append(f"📚 *From {label}*\n{content[:500]}")
 
     if context["web_sources"]:
         for src in context["web_sources"]:
             title = src.get("title", "")
             url = src.get("url", "")
             snippet = src.get("snippet", "")
-            response_parts.append(f"[Web Search] {title}\n{snippet}\nSource: {url}")
+            response_parts.append(f"🌐 *From the web: {title}*\n{snippet[:300]}\n_{url}_")
 
     if not response_parts:
-        response_parts.append("I couldn't find information on this in your company data or the web. "
-                              "Would you like to add this information to your knowledge base?")
+        response_parts.append("I searched your company data and the web but couldn't find a clear answer. "
+                              "Could you tell me more about what you're looking for? "
+                              "If you have a document with this information, upload it on the **Ingest** page and I'll learn from it.")
 
-    # Add verification warning if needed
     needs_verify = context.get("needs_verification", False)
     verify_reason = context.get("verification_reason", "")
 
+    response_text = "\n\n".join(response_parts[:3])
+    if needs_verify:
+        response_text += f"\n\n⚠️ *Note:* {verify_reason}"
+
     return jsonify({
         "query": query,
-        "response": "\n\n".join(response_parts[:3]),
+        "response": response_text,
         "context": context,
         "has_internal_data": context["has_internal_data"],
         "has_web_data": context["has_web_data"],
