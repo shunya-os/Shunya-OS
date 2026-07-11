@@ -441,6 +441,198 @@ def payment_delete(payment_id):
 
 
 # ---------------------------------------------------------------------------
+# Payment Gateway — Checkout, Links, Receipts
+# ---------------------------------------------------------------------------
+
+@main.route("/payment/link/<int:lead_id>")
+def payment_link(lead_id):
+    """Generate a payment link page for a lead."""
+    lead = Lead.query.get_or_404(lead_id)
+    amount = request.args.get("amount", type=float) or float(lead.budget or 0)
+    description = request.args.get("description", f"Payment for Lead {lead.code}")
+    
+    from app.payment_gateway import PaymentGateway
+    gw = PaymentGateway()
+    link_data = gw.create_payment_link(
+        lead_id=lead.id,
+        amount=amount,
+        description=description,
+        currency=request.args.get("currency", "INR"),
+    )
+    return redirect(url_for("main.payment_checkout", payment_id=link_data["payment_id"]))
+
+
+@api.route("/payment/create", methods=["POST"])
+def api_create_payment():
+    """API: Create a payment intent."""
+    data = request.get_json(silent=True) or {}
+    lead_id = data.get("lead_id")
+    amount = data.get("amount")
+    description = data.get("description", "Payment")
+    currency = data.get("currency", "INR")
+
+    if not lead_id or not amount:
+        return jsonify({"error": "lead_id and amount are required"}), 400
+
+    lead = Lead.query.get(lead_id)
+    if not lead:
+        return jsonify({"error": "Lead not found"}), 404
+
+    try:
+        from app.payment_gateway import PaymentGateway
+        gw = PaymentGateway()
+        result = gw.create_payment_link(
+            lead_id=lead.id,
+            amount=float(amount),
+            description=description,
+            currency=currency,
+        )
+        return jsonify(result), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@api.route("/payment/verify", methods=["POST"])
+def api_verify_payment():
+    """API: Verify a payment."""
+    data = request.get_json(silent=True) or {}
+    payment_id = data.get("payment_id")
+    if not payment_id:
+        return jsonify({"error": "payment_id is required"}), 400
+
+    from app.payment_gateway import PaymentGateway
+    gw = PaymentGateway()
+    result = gw.verify_payment(payment_id)
+    return jsonify(result)
+
+
+@main.route("/payment/checkout/<payment_id>")
+def payment_checkout(payment_id):
+    """Checkout page — simulated payment form."""
+    from app.payment_gateway import PaymentGateway
+    gw = PaymentGateway()
+    payment = gw.get_payment(payment_id)
+
+    if not payment:
+        flash("Payment link invalid or expired.", "error")
+        return redirect(url_for("main.payments"))
+
+    lead = Lead.query.get(payment["lead_id"]) if payment.get("lead_id") else None
+
+    return render_template(
+        "payment_checkout.html",
+        payment=payment,
+        lead=lead,
+        gateway_provider=gw.PROVIDER,
+    )
+
+
+@main.route("/payment/complete", methods=["POST"])
+def payment_complete():
+    """
+    Complete payment (simulated). Creates a Payment record in the DB,
+    logs activity, and triggers CompanionEngine celebration.
+    """
+    payment_id = request.form.get("payment_id", "")
+    if not payment_id:
+        flash("Missing payment reference.", "error")
+        return redirect(url_for("main.payments"))
+
+    from app.payment_gateway import PaymentGateway
+    gw = PaymentGateway()
+
+    # "Process" the payment
+    verification = gw.verify_payment(payment_id)
+    if not verification["verified"]:
+        flash("Payment verification failed.", "error")
+        return redirect(url_for("main.payment_checkout", payment_id=payment_id))
+
+    payment_data = gw.get_payment(payment_id)
+    if not payment_data:
+        flash("Payment record not found.", "error")
+        return redirect(url_for("main.payments"))
+
+    # Create a real Payment record in the database
+    p = Payment(
+        lead_id=payment_data.get("lead_id"),
+        type="guest_payment",
+        amount=payment_data["amount"],
+        method="online",
+        ref_number=verification["transaction_id"],
+        paid_at=datetime.utcnow(),
+        notes=f"Online payment via {gw.PROVIDER}. Gateway ID: {payment_id}",
+    )
+    db.session.add(p)
+    db.session.commit()
+
+    # Log activity
+    if p.lead_id:
+        _log_activity(
+            p.lead_id,
+            "payment_received",
+            f"Online payment: ₹{p.amount:.0f} · Txn: {p.ref_number}",
+        )
+
+    # Determine lead display code for messages
+    lead_display = p.lead.code if p.lead else f"Lead #{p.lead_id}"
+
+    # Companion celebration
+    try:
+        from app.companion import CompanionEngine
+        c = CompanionEngine()
+        celebration_msg = c.celebrate(
+            achievement=f"Payment of ₹{p.amount:,.0f} received for {lead_display}!",
+            name=getattr(g, "user", ""),
+        )
+        flash(celebration_msg, "success")
+    except Exception:
+        flash(f"Payment of ₹{p.amount:,.0f} completed successfully! 🎉", "success")
+
+    # Create a notification
+    try:
+        from app.notifications import NotificationManager
+        nm = NotificationManager()
+        nm.create_notification(
+            type="payment_received",
+            title="Payment Received",
+            message=f"Online payment of ₹{p.amount:,.0f} completed for {lead_display}",
+            lead_id=p.lead_id,
+            icon="💰",
+        )
+    except Exception:
+        pass
+
+    return redirect(url_for("main.payment_receipt", payment_id=payment_id))
+
+
+@main.route("/payment/receipt/<payment_id>")
+def payment_receipt(payment_id):
+    """View payment receipt page."""
+    from app.payment_gateway import PaymentGateway
+    gw = PaymentGateway()
+    payment = gw.get_payment(payment_id)
+
+    if not payment:
+        flash("Receipt not found.", "error")
+        return redirect(url_for("main.payments"))
+
+    lead = Lead.query.get(payment["lead_id"]) if payment.get("lead_id") else None
+
+    # Get the associated Payment record from DB
+    db_payment = None
+    if payment.get("transaction_id"):
+        db_payment = Payment.query.filter_by(ref_number=payment["transaction_id"]).first()
+
+    return render_template(
+        "payment_receipt.html",
+        payment=payment,
+        lead=lead,
+        db_payment=db_payment,
+        gateway_provider=gw.PROVIDER,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Invoices
 # ---------------------------------------------------------------------------
 
