@@ -52,6 +52,7 @@ def _register_blueprints(app):
     from app.routes.settings import settings_bp
     from app.routes.client_portal import client_bp
     from app.routes.api import api_bp
+    from app.routes.voice import voice_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(entities_bp)
@@ -59,6 +60,7 @@ def _register_blueprints(app):
     app.register_blueprint(settings_bp)
     app.register_blueprint(client_bp, url_prefix="/client")
     app.register_blueprint(api_bp, url_prefix="/api")
+    app.register_blueprint(voice_bp)
 
 
 # ---------------------------------------------------------------------------
