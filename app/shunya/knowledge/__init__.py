@@ -126,25 +126,76 @@ class KnowledgePipeline:
             "total_internal": len(results),
         }
 
-        # 5. Web search (fallback — only if internal has no good answer)
-        if allow_web and (not has_internal or len(results) < 3):
-            web_results = KnowledgePipeline.search_web(query, limit=limit - len(results))
-            if web_results:
-                response["web_results"] = web_results
-                response["has_web_results"] = True
+        # 5. ALWAYS search web too — for comparison and freshness check
+        web_results = KnowledgePipeline.search_web(query, limit=3)
+        if web_results:
+            response["web_results"] = web_results
+            response["has_web_results"] = True
 
-                # Store web knowledge for future use
-                for wr in web_results[:2]:
-                    KnowledgePipeline.store_knowledge(
-                        tenant_id=tenant_id,
-                        question=query,
-                        answer=wr["snippet"],
-                        source="web",
-                        confidence=0.5,
-                        source_url=wr.get("url", ""),
-                    )
+            # Store web knowledge for future use
+            for wr in web_results[:2]:
+                KnowledgePipeline.store_knowledge(
+                    tenant_id=tenant_id,
+                    question=query,
+                    answer=wr["snippet"],
+                    source="web",
+                    confidence=0.5,
+                    source_url=wr.get("url", ""),
+                )
+
+        # 6. ANALYSIS: Compare internal vs web, flag discrepancies
+        analysis = KnowledgePipeline._analyze_sources(results[:limit], web_results, query)
+        response["analysis"] = analysis
+        response["needs_verification"] = analysis.get("needs_verification", False)
+        response["verification_reason"] = analysis.get("reason", "")
 
         return response
+
+    @staticmethod
+    def _analyze_sources(internal: list, web: list, query: str) -> dict:
+        """Compare internal and web sources, flag discrepancies.
+
+        If both agree → high confidence.
+        If they differ → flag for human verification.
+        If internal has data and web is silent → medium confidence, use internal.
+        If web has updates that internal doesn't → flag as 'may need update'.
+        """
+        if not internal and not web:
+            return {"needs_verification": False, "reason": "", "confidence": "none"}
+
+        if internal and not web:
+            return {"needs_verification": False, "reason": "Internal data only, no web comparison available",
+                    "confidence": "medium"}
+
+        if not internal and web:
+            return {"needs_verification": True,
+                    "reason": "No internal company data found. Based on web search — please verify with a senior/manager before acting on this.",
+                    "confidence": "low"}
+
+        # Both have data — check for alignment
+        internal_text = " ".join([r.get("answer", "") or r.get("summary", "") or r.get("detail", "") for r in internal]).lower()
+        web_text = " ".join([r.get("snippet", "") or r.get("title", "") for r in web]).lower()
+
+        # Simple keyword overlap check
+        internal_keywords = set(internal_text.split())
+        web_keywords = set(web_text.split())
+        common = internal_keywords & web_keywords
+        overlap_ratio = len(common) / max(len(internal_keywords | web_keywords), 1)
+
+        if overlap_ratio > 0.3:
+            # Sources agree
+            return {"needs_verification": False, "reason": "Internal data and web sources agree",
+                    "confidence": "high", "overlap": round(overlap_ratio, 2)}
+        elif overlap_ratio > 0.1:
+            # Partial agreement — may need review
+            return {"needs_verification": True,
+                    "reason": "Internal data partially matches web sources. There may be developments. Recommend verification with senior/manager.",
+                    "confidence": "medium", "overlap": round(overlap_ratio, 2)}
+        else:
+            # Significant discrepancy
+            return {"needs_verification": True,
+                    "reason": "Internal company data differs from current web information. There may be recent developments. Please verify with a senior/manager before proceeding.",
+                    "confidence": "low", "overlap": round(overlap_ratio, 2)}
 
     @staticmethod
     def search_web(query: str, limit: int = 3) -> list:
@@ -290,6 +341,9 @@ class KnowledgePipeline:
             "web_sources": [],
             "has_internal_data": result.get("has_internal_data", False),
             "has_web_data": result.get("has_web_results", False),
+            "needs_verification": result.get("needs_verification", False),
+            "verification_reason": result.get("verification_reason", ""),
+            "analysis": result.get("analysis", {}),
         }
 
         for r in result.get("results", []):

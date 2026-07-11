@@ -145,7 +145,7 @@ def ai_query():
 
     from app.shunya.knowledge import KnowledgePipeline
 
-    # Search internal data first, fall back to web
+    # Search internal data AND web, then compare
     context = KnowledgePipeline.get_context_for_ai(query, g.tenant.id)
 
     # Build a human-readable response with source attribution
@@ -170,12 +170,18 @@ def ai_query():
         response_parts.append("I couldn't find information on this in your company data or the web. "
                               "Would you like to add this information to your knowledge base?")
 
+    # Add verification warning if needed
+    needs_verify = context.get("needs_verification", False)
+    verify_reason = context.get("verification_reason", "")
+
     return jsonify({
         "query": query,
         "response": "\n\n".join(response_parts[:3]),
         "context": context,
         "has_internal_data": context["has_internal_data"],
         "has_web_data": context["has_web_data"],
+        "needs_verification": needs_verify,
+        "verification_reason": verify_reason,
     })
 
 
