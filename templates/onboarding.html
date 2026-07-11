@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Get Started | Shunya OS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans min-h-screen">
+  <div class="max-w-3xl mx-auto px-4 py-12 text-center">
+    <span class="text-5xl block mb-4">🧠</span>
+    <h1 class="text-3xl font-bold mb-2">Welcome to Shunya OS</h1>
+    <p class="text-white/60 mb-8">Let's get your business set up. What type of business are you running?</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <button onclick="selectTemplate('travel')" class="p-6 rounded-2xl bg-white/10 border border-white/10 hover:border-blue-400/50 hover:bg-white/15 text-left transition-all card-hover">
+        <span class="text-3xl block mb-2">✈️</span>
+        <h3 class="font-bold text-lg">Travel Agency</h3>
+        <p class="text-sm text-white/50">Leads, bookings, itineraries, suppliers</p>
+      </button>
+      <button onclick="selectTemplate('healthcare')" class="p-6 rounded-2xl bg-white/10 border border-white/10 hover:border-blue-400/50 hover:bg-white/15 text-left transition-all card-hover">
+        <span class="text-3xl block mb-2">🏥</span>
+        <h3 class="font-bold text-lg">Healthcare / Clinic</h3>
+        <p class="text-sm text-white/50">Patients, appointments, prescriptions</p>
+      </button>
+      <button onclick="selectTemplate('education')" class="p-6 rounded-2xl bg-white/10 border border-white/10 hover:border-blue-400/50 hover:bg-white/15 text-left transition-all card-hover">
+        <span class="text-3xl block mb-2">🎓</span>
+        <h3 class="font-bold text-lg">School / Institute</h3>
+        <p class="text-sm text-white/50">Students, courses, attendance, fees</p>
+      </button>
+      <button onclick="selectTemplate('retail')" class="p-6 rounded-2xl bg-white/10 border border-white/10 hover:border-blue-400/50 hover:bg-white/15 text-left transition-all card-hover">
+        <span class="text-3xl block mb-2">🏪</span>
+        <h3 class="font-bold text-lg">Retail / E-Commerce</h3>
+        <p class="text-sm text-white/50">Products, orders, customers, inventory</p>
+      </button>
+      <button onclick="selectTemplate('coworking')" class="p-6 rounded-2xl bg-white/10 border border-white/10 hover:border-blue-400/50 hover:bg-white/15 text-left transition-all card-hover">
+        <span class="text-3xl block mb-2">🏠</span>
+        <h3 class="font-bold text-lg">Co-Working Space</h3>
+        <p class="text-sm text-white/50">Members, desks, bookings, plans</p>
+      </button>
+      <button onclick="selectTemplate('general')" class="p-6 rounded-2xl bg-white/10 border border-white/10 hover:border-blue-400/50 hover:bg-white/15 text-left transition-all card-hover">
+        <span class="text-3xl block mb-2">🏢</span>
+        <h3 class="font-bold text-lg">General Business</h3>
+        <p class="text-sm text-white/50">Projects, tasks, invoices, expenses</p>
+      </button>
+    </div>
+
+    <div id="company-form" class="hidden max-w-md mx-auto">
+      <div class="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+        <h3 class="font-bold mb-4" id="selected-template-name">Travel Agency</h3>
+        <div class="space-y-4">
+          <input id="company-name" type="text" placeholder="Your company name" value="{{ g.tenant.company_name if g.tenant else 'My Company' }}"
+            class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white placeholder-white/40 text-sm focus:outline-none focus:border-blue-400">
+          <button onclick="startOnboarding()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors">
+            🚀 Set Up My Business
+          </button>
+          <button onclick="skipOnboarding()" class="w-full py-2 text-sm text-white/40 hover:text-white/60 transition-colors">Skip for now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  let selectedTemplate = 'travel';
+  function selectTemplate(key) {
+    selectedTemplate = key;
+    const names = {'travel':'✈️ Travel Agency','healthcare':'🏥 Healthcare','education':'🎓 School/Institute','retail':'🏪 Retail','coworking':'🏠 Co-Working','general':'🏢 General Business'};
+    document.getElementById('selected-template-name').textContent = names[key] || 'General Business';
+    document.getElementById('company-form').classList.remove('hidden');
+    document.querySelectorAll('.card-hover').forEach(c => c.style.borderColor = '');
+    event.currentTarget.style.borderColor = '#60a5fa';
+  }
+  async function startOnboarding() {
+    const name = document.getElementById('company-name').value || 'My Company';
+    const btn = document.querySelector('#company-form button');
+    btn.textContent = '⏳ Setting up...'; btn.disabled = true;
+    try {
+      const r = await fetch('/onboarding/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({template: selectedTemplate, company_name: name})});
+      const d = await r.json();
+      if (d.redirect) { window.location.href = d.redirect; }
+    } catch(e) { alert('Setup failed: ' + e.message); btn.textContent = '🚀 Set Up My Business'; btn.disabled = false; }
+  }
+  function skipOnboarding() { window.location.href = '/onboarding/skip'; }
+  </script>
+</body>
+</html>

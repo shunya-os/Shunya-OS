@@ -1,5 +1,5 @@
 """Shunya OS — Dashboard."""
-from flask import Blueprint, render_template, g, jsonify
+from flask import Blueprint, render_template, g, jsonify, redirect, url_for
 from app.routes.auth import login_required
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -9,6 +9,10 @@ dashboard_bp = Blueprint("dashboard", __name__)
 @login_required
 def index():
     """Home dashboard — context-aware, never dead-end."""
+    # Redirect to onboarding if not completed
+    if not g.tenant.onboarding_completed:
+        return redirect(url_for("onboarding.onboarding_page"))
+
     from app.models import Entity, EntityDefinition, ActivityLog
     from app.shunya.bird import Bird
     from app.shunya.next_best_action import NextBestActionEngine

@@ -58,7 +58,8 @@ class Tenant(db.Model):
     max_storage_mb = Column(Integer, default=500)
     max_ai_calls_daily = Column(Integer, default=100)
     logo_url = Column(String(500), default="")
-    theme_config = Column(JSONB, default=dict)  # primary_color, accent, etc.
+    onboarding_completed = Column(Boolean, default=False)
+    theme_config = Column(JSONB, default=dict)  # primary_color, accent, icon
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
