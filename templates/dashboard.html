@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<!-- Bird Hero — AI Assistant as the primary interface -->
+<!-- Bird Context Hero — dynamic, not static cards -->
 <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 md:p-8 mb-6 text-white">
   <div class="flex items-start gap-4">
     <div class="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-3xl flex-shrink-0">🧠</div>
@@ -21,102 +21,107 @@
   </div>
 </div>
 
-<!-- Quick Stats Row -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-  {% for type_key, info in def_counts.items() %}
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 card-hover">
-    <div class="flex items-center justify-between mb-2">
-      <span class="text-2xl">{{ info.icon }}</span>
-      <span class="text-sm font-semibold text-blue-600">{{ info.count }}</span>
+<!-- Next Best Actions — primary focus, not buried -->
+{% if next_actions %}
+<div class="mb-6">
+  <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">🎯 Needs Your Attention</h2>
+  <div class="space-y-2">
+    {% for a in next_actions[:5] %}
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 hover:border-blue-300 transition-colors group">
+      <div class="flex items-start gap-3">
+        <span class="text-lg mt-0.5 flex-shrink-0">
+          {% if a.priority.value in ('high', 'critical') %}🔴
+          {% elif a.priority.value == 'medium' %}🟡
+          {% else %}🔵{% endif %}
+        </span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="font-semibold text-slate-800 text-sm">{{ a.title }}</p>
+              <p class="text-sm text-slate-500 mt-0.5">{{ a.description }}</p>
+            </div>
+            <a href="{{ a.target_url }}" class="text-xs font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity px-3 py-1.5 bg-blue-50 rounded-lg">View →</a>
+          </div>
+          {% if a.reason %}
+          <p class="text-xs text-blue-600 mt-1.5 flex items-center gap-1">
+            <span>💡</span> {{ a.reason }}
+          </p>
+          {% endif %}
+        </div>
+      </div>
     </div>
-    <h3 class="text-sm font-medium text-slate-700">{{ info.label }}</h3>
-    <a href="/entities/{{ type_key }}" class="text-xs text-blue-500 hover:underline">View all →</a>
+    {% endfor %}
   </div>
+</div>
+{% endif %}
+
+<!-- Quick Stats Row — minimal, at-a-glance -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+  {% for type_key, info in def_counts.items() %}
+  <a href="/entities/{{ type_key }}" class="bg-white border border-slate-200 rounded-xl shadow-sm p-3 hover:shadow-md transition-shadow">
+    <div class="flex items-center justify-between">
+      <span class="text-lg">{{ info.icon }}</span>
+      <span class="text-lg font-bold text-slate-800">{{ info.count }}</span>
+    </div>
+    <p class="text-xs text-slate-500 mt-1">{{ info.label }}</p>
+  </a>
   {% endfor %}
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-  <!-- Next Best Actions (primary) -->
-  {% if next_actions %}
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🎯 Next Best Actions</h3>
-    <div class="space-y-2">
-      {% for a in next_actions %}
-      <div class="group flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
-        <span class="text-lg mt-0.5">{{ '🔴' if a.priority.value == 'high' or a.priority.value == 'critical' else '🟡' }}</span>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-slate-700">{{ a.title }}</p>
-          <p class="text-xs text-slate-500">{{ a.description }}</p>
-          {% if a.reason %}<p class="text-xs text-blue-600 mt-0.5">{{ a.reason }}</p>{% endif %}
-        </div>
-        <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <a href="{{ a.target_url }}" class="text-xs font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap">View →</a>
-        </div>
+<!-- Recent Activity — narrow, secondary -->
+{% if recent_activities %}
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+  <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">📋 Recent</h3>
+  <div class="space-y-2">
+    {% for a in recent_activities[:5] %}
+    <div class="flex items-start gap-2.5 text-sm">
+      <span class="mt-0.5 text-xs">
+        {% if a.action == 'created' %}📋{% elif a.action == 'status_changed' %}🔄{% elif a.action == 'updated' %}✏️{% elif a.action == 'data_ingested' %}📥{% else %}🔔{% endif %}
+      </span>
+      <div class="min-w-0">
+        <p class="text-slate-600 text-sm truncate">{{ a.detail or a.action }}</p>
+        <p class="text-xs text-slate-400">{{ a.created_at.strftime('%d %b, %I:%M %p') if a.created_at else '' }}</p>
       </div>
-      {% endfor %}
     </div>
-  </div>
-  {% endif %}
-
-  <!-- Recent Activity -->
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">📋 Recent Activity</h3>
-    <div class="space-y-3">
-      {% for a in recent_activities %}
-      <div class="flex items-start gap-3 text-sm">
-        <span class="text-lg mt-0.5">
-          {% if a.action == 'created' %}📋{% elif a.action == 'status_changed' %}🔄{% elif a.action == 'updated' %}✏️{% else %}🔔{% endif %}
-        </span>
-        <div>
-          <p class="text-slate-700">{{ a.detail or a.action }}</p>
-          <p class="text-xs text-slate-400">{{ a.created_at.strftime('%d %b %Y, %I:%M %p') if a.created_at else '' }}</p>
-        </div>
-      </div>
-      {% else %}
-      <p class="text-sm text-slate-400 text-center py-4">No activity yet.</p>
-      {% endfor %}
-    </div>
+    {% endfor %}
   </div>
 </div>
+{% endif %}
 
-<!-- Global Search Bar (Cmd+K) -->
-<div class="mt-6 bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-  <div class="flex items-center gap-3">
-    <span class="text-lg">🔍</span>
-    <input id="global-search" type="text" placeholder="Search anything... (or press / to search, try 'lead' or 'Sharma')"
-      class="flex-1 px-0 py-2 border-0 text-sm focus:outline-none focus:ring-0 placeholder-slate-400"
+<!-- Global Search -->
+<div class="mt-6">
+  <div class="relative">
+    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-lg text-slate-400">🔍</span>
+    <input id="global-search" type="text" placeholder="Search anything... (press / to search)"
+      class="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
       onkeydown="if(event.key==='Enter')globalSearch(this.value)">
-    <kbd class="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-mono text-slate-400 bg-slate-100 rounded">⌘K</kbd>
   </div>
-  <div id="search-results" class="hidden mt-3 space-y-2"></div>
+  <div id="search-results" class="hidden mt-2 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden"></div>
 </div>
 
 <script>
 async function globalSearch(query) {
-  if (!query.trim()) { document.getElementById('search-results').classList.add('hidden'); return; }
+  const c = document.getElementById('search-results');
+  if (!query.trim()) { c.classList.add('hidden'); return; }
   const r = await fetch('/api/search?q=' + encodeURIComponent(query));
   const d = await r.json();
-  const container = document.getElementById('search-results');
-  container.innerHTML = '';
-  container.classList.remove('hidden');
+  c.innerHTML = '';
+  c.classList.remove('hidden');
   if (d.results && d.results.length) {
     d.results.forEach(r => {
-      container.innerHTML +=
-        `<a href="${r.url || '#'}" class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
-          <span>${r.icon || '📌'}</span>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-slate-700 truncate">${r.title}</p>
-            <p class="text-xs text-slate-400 truncate">${r.subtitle || r.category || ''}</p>
-          </div>
-          <span class="text-xs text-slate-300">${r.category || ''}</span>
-        </a>`;
+      c.innerHTML += `<a href="${r.url || '#'}" class="flex items-center gap-3 p-3 hover:bg-slate-50 border-b border-slate-100 last:border-0">
+        <span>${r.icon || '📌'}</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-slate-700 truncate">${r.title}</p>
+          <p class="text-xs text-slate-400 truncate">${r.subtitle || r.category || ''}</p>
+        </div>
+        <span class="text-xs text-slate-300 bg-slate-100 px-2 py-0.5 rounded-full">${r.category || ''}</span>
+      </a>`;
     });
   } else {
-    container.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No results found</p>';
+    c.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No results found. Try a different search.</p>';
   }
 }
-// Listen for / key to focus search
 document.addEventListener('keydown', function(e) {
   if (e.key === '/' && !['INPUT','TEXTAREA'].includes(e.target.tagName)) {
     e.preventDefault();

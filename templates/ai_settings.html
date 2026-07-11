@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">🧠 AI Settings</h1>
+      <p class="text-sm text-slate-500 mt-1">Configure how your AI assistant behaves</p>
+    </div>
+  </div>
+
+  <div class="space-y-6">
+    <!-- Knowledge Base Stats -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">📚 Knowledge Base</h3>
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-slate-600">{{ kb_count }} entries stored</p>
+          <p class="text-xs text-slate-400 mt-1">Upload documents on the Ingest page to grow this</p>
+        </div>
+        <a href="/ingestion" class="text-sm text-blue-600 hover:underline">Upload →</a>
+      </div>
+    </div>
+
+    <!-- Behavior Settings -->
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">⚙️ Behavior</h3>
+      <div class="space-y-5">
+        <label class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-700">🌐 Web Search</p>
+            <p class="text-xs text-slate-400">Let the AI search the internet for answers</p>
+          </div>
+          <input type="checkbox" {{ 'checked' if web_search_enabled else '' }} onchange="updateSetting('web_search_enabled', this.checked)" class="w-5 h-5 rounded border-slate-300 text-blue-600">
+        </label>
+
+        <label class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-700">🧠 Silent Mentor</p>
+            <p class="text-xs text-slate-400">Show coaching tips before actions (calls, approvals, etc.)</p>
+          </div>
+          <input type="checkbox" {{ 'checked' if not silence_mentor else '' }} onchange="updateSetting('silence_mentor', !this.checked)" class="w-5 h-5 rounded border-slate-300 text-blue-600">
+        </label>
+
+        <label class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-700">📖 Auto-Learn</p>
+            <p class="text-xs text-slate-400">Automatically store new information in the knowledge base</p>
+          </div>
+          <input type="checkbox" {{ 'checked' if auto_learn else '' }} onchange="updateSetting('auto_learn', this.checked)" class="w-5 h-5 rounded border-slate-300 text-blue-600">
+        </label>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700 block mb-1">🎯 Confidence Threshold</label>
+          <p class="text-xs text-slate-400 mb-2">Below this, the AI flags answers for verification</p>
+          <input type="range" min="0.1" max="0.9" step="0.1" value="{{ confidence_threshold }}"
+            onchange="updateSetting('confidence_threshold', parseFloat(this.value)); document.getElementById('ct-label').textContent = this.value"
+            class="w-full">
+          <span id="ct-label" class="text-sm font-medium text-blue-600">{{ confidence_threshold }}</span>
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700 block mb-1">🗣️ Response Style</label>
+          <select onchange="updateSetting('response_style', this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <option value="concise" {{ 'selected' if response_style == 'concise' else '' }}>Concise — short answers, no fluff</option>
+            <option value="balanced" {{ 'selected' if response_style == 'balanced' else '' }}>Balanced — clear with context</option>
+            <option value="detailed" {{ 'selected' if response_style == 'detailed' else '' }}>Detailed — thorough explanations</option>
+            <option value="coaching" {{ 'selected' if response_style == 'coaching' else '' }}>Coaching — teaches as it answers</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-sm font-medium text-slate-700 block mb-1">📤 Max Sources</label>
+          <p class="text-xs text-slate-400 mb-2">How many sources to show per answer</p>
+          <select onchange="updateSetting('max_sources', parseInt(this.value))" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm">
+            <option value="1" {{ 'selected' if max_sources == 1 else '' }}>1 — Best source only</option>
+            <option value="3" {{ 'selected' if max_sources == 3 else '' }}>3 — Top sources</option>
+            <option value="5" {{ 'selected' if max_sources == 5 else '' }}>5 — Comprehensive</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save indicator -->
+    <div id="save-indicator" class="fixed bottom-24 right-80 bg-green-500 text-white text-xs px-3 py-1.5 rounded-full shadow-lg hidden transition-all">
+      ✅ Saved
+    </div>
+  </div>
+</div>
+
+<script>
+let saveTimer;
+function updateSetting(key, value) {
+  fetch('/ai-settings/update', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({[key]: value})
+  }).then(r => r.json()).then(d => {
+    if (d.success) {
+      const el = document.getElementById('save-indicator');
+      el.classList.remove('hidden');
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => el.classList.add('hidden'), 2000);
+    }
+  });
+}
+</script>
+{% endblock %}
