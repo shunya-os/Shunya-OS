@@ -1,0 +1,20 @@
+{
+  "name": "shunya",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Shunya OS — Compounding Intelligence Operating System for Organizations",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "clean": "turbo clean",
+    "format": "prettier --write \"packages/*/src/**/*.ts\"",
+    "doctor": "pnpm -F @shunya/doctor run start"
+  },
+  "engines": {
+    "pnpm": ">=9.0",
+    "node": ">=20.0"
+  },
+  "packageManager": "pnpm@9.1.0"
+}

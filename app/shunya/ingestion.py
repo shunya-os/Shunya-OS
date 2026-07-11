@@ -102,6 +102,9 @@ class IngestionPipeline:
         # Step 2: AI Analysis — extract entities, summary, key points
         analysis = IngestionPipeline._ai_analyze(raw_text, tenant_id)
 
+        # Step 2b: Generate a concise crux (one-liner essence)
+        crux = IngestionPipeline._generate_crux(raw_text, analysis, path.stem)
+
         # Step 3: Store in knowledge base
         kb_entry = IngestionPipeline._store_in_knowledge_base(
             tenant_id=tenant_id,
@@ -132,10 +135,41 @@ class IngestionPipeline:
             "characters_extracted": len(raw_text),
             "summary": analysis.get("summary", ""),
             "key_points": analysis.get("key_points", []),
+            "crux": crux,
             "entities_detected": analysis.get("entities", []),
             "knowledge_entry_id": kb_entry.id if kb_entry else None,
             "metadata": metadata,
         }
+
+    @staticmethod
+    def _generate_crux(text: str, analysis: dict, title: str) -> str:
+        """Generate a concise one-line crux about what was ingested."""
+        category = analysis.get("suggested_category", "general")
+        chars = len(text)
+        lines = text.count("\n")
+        words = len(text.split())
+        
+        category_emoji = {
+            "finance": "💰", "hr": "👥", "legal": "⚖️",
+            "marketing": "📈", "operations": "📋", "customer": "🤝",
+        }
+        emoji = category_emoji.get(category, "📄")
+        
+        parts = []
+        if chars > 0:
+            parts.append(f"{emoji} {title} — {category} document")
+        
+        if analysis.get("key_points"):
+            top = analysis["key_points"][0][:80]
+            parts.append(f"Key insight: {top}")
+        elif analysis.get("summary"):
+            parts.append(f"Starts with: {analysis['summary'][:80]}")
+        
+        if chars > 0:
+            size_kb = chars / 1024
+            parts.append(f"{'📃' if chars > 10000 else '📝'} {words:,} words, {size_kb:.0f}KB")
+        
+        return " · ".join(parts) if parts else f"📄 {title} processed ({chars} chars)"
 
     @staticmethod
     def _extract_pdf(file_path: str) -> tuple:
@@ -435,10 +469,29 @@ def ingestion_page():
 @ingestion_bp.route("/upload", methods=["POST"])
 @login_required
 def upload_file():
-    """Upload a file for ingestion."""
+    """Upload a file or URL for ingestion."""
+    files = request.files.getlist("files") if request.files else []
     file = request.files.get("file")
     url = request.form.get("url", "").strip()
     category = request.form.get("category", "general")
+
+    # Multi-file upload
+    if files and len(files) > 1:
+        results = []
+        for f in files:
+            ext = Path(f.filename).suffix.lower() or ".bin"
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+                f.save(tmp.name)
+                fp = tmp.name
+            try:
+                r = IngestionPipeline.process_file(fp, g.tenant.id, g.user.id,
+                    source_label=f"Upload: {f.filename}", category=category)
+                results.append(r)
+            finally:
+                try: os.unlink(fp)
+                except: pass
+        return jsonify({"success": True, "batch": True, "count": len(results), "results": results})
 
     if not file and not url:
         return jsonify({"error": "No file or URL provided"}), 400
