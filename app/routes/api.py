@@ -189,6 +189,23 @@ def webhook_receiver(integration):
 
 
 # ---------------------------------------------------------------------------
+# Global Search (Cmd+K)
+# ---------------------------------------------------------------------------
+
+@api_bp.route("/search", methods=["GET"])
+@login_required
+def global_search():
+    """Search across all data sources — entities, knowledge, customer memory."""
+    query = request.args.get("q", "").strip()
+    if not query or len(query) < 2:
+        return jsonify({"results": []})
+
+    from app.shunya.command_palette import CommandPalette
+    results = CommandPalette.search(query, g.tenant.id, g.user.id, g.user.role)
+    return jsonify({"results": results, "query": query})
+
+
+# ---------------------------------------------------------------------------
 # Data export
 # ---------------------------------------------------------------------------
 
