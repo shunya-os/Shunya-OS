@@ -282,3 +282,42 @@ def review_learning():
     
     result = LearningEngine.review_proposal(proposal_id, g.tenant.id, g.user.id, decision, feedback)
     return jsonify({"success": result.success, "data": result.data})
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator API
+# ---------------------------------------------------------------------------
+
+@api_bp.route("/orchestrate", methods=["POST"])
+@login_required
+def orchestrate():
+    """Route a query through the multi-agent orchestrator."""
+    data = request.get_json(silent=True) or {}
+    query = data.get("query", "").strip()
+    capabilities = data.get("capabilities")
+    entity_id = data.get("entity_id")
+    
+    if not query:
+        return jsonify({"error": "Query required"}), 400
+    
+    from app.shunya.orchestrator import get_orchestrator
+    orchestrator = get_orchestrator()
+    result = orchestrator.route(
+        query=query,
+        tenant_id=g.tenant.id,
+        user_id=g.user.id,
+        user_role=g.user.role,
+        entity_id=entity_id,
+        capabilities=capabilities,
+    )
+    return jsonify(result)
+
+
+@api_bp.route("/orchestrate/agents", methods=["GET"])
+@login_required
+def list_agents():
+    """List all registered specialist agents."""
+    from app.shunya.orchestrator import get_orchestrator
+    orchestrator = get_orchestrator()
+    agents = orchestrator.list_agents()
+    return jsonify({"agents": agents, "count": len(agents)})
