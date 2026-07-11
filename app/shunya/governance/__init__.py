@@ -90,6 +90,49 @@ class GovernanceEngine:
                 "execute": execute_fn,
             }
 
+    @staticmethod
+    def get_governance_level(action_type_name, user_role, tenant_id=None) -> 'GovernanceLevel':
+        """Get the governance level for a given action type and user role.
+        
+        Admins get AUTO for most actions.
+        Agents get the configured level from GOVERNANCE_RULES.
+        """
+        # action_type_name is a string like "update_status", "send_message"
+        action_map = {
+            "update_status": ActionType.CHANGE_STATUS,
+            "send_message": ActionType.SEND_MESSAGE,
+            "create_entity": ActionType.CREATE_ENTITY,
+            "delete_entity": ActionType.DELETE_ENTITY,
+            "archive_entity": ActionType.DELETE_ENTITY,
+            "send_notification": ActionType.SEND_MESSAGE,
+            "assign_entity": ActionType.CHANGE_STATUS,
+        }
+        
+        gov_action = action_map.get(action_type_name, ActionType.UPDATE_ENTITY)
+        level = GOVERNANCE_RULES.get(gov_action, GovernanceLevel.DRAFT)
+        
+        if user_role == "admin":
+            return GovernanceLevel.AUTO
+        
+        return level
+
+    @staticmethod
+    def check_policy(action_type_name, user_role, tenant_id, params=None) -> bool:
+        """Check if an action is allowed by policy for this user role."""
+        role_hierarchy = {"admin": 3, "manager": 2, "agent": 1, "viewer": 0}
+        user_level = role_hierarchy.get(user_role, 0)
+        
+        action_requirements = {
+            "delete_permanent": 3,
+            "modify_rules": 3,
+            "create_module": 2,
+            "delete_entity": 1,
+            "archive_entity": 1,
+        }
+        
+        required = action_requirements.get(action_type_name, 0)
+        return user_level >= required
+
 
 def _log_action(tenant_id, entity_id, user_id, action, detail, governance_level):
     log = ActivityLog(
