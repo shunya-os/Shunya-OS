@@ -81,7 +81,19 @@ def entity_detail(entity_type, entity_id):
             "created_at": a.created_at.isoformat() if a.created_at else None
         } for a in activities]})
 
-    return render_template("entity_detail.html", entity=entity, definition=definition, activities=activities)
+    # Next Best Action for this entity
+    from app.shunya.next_best_action import NextBestActionEngine
+    next_actions = NextBestActionEngine.get_for_user(
+        g.tenant.id, g.user.id, g.user.role, entity_id=entity.id
+    )
+
+    # Workflow state
+    from app.shunya.workflow import WorkflowEngine
+    workflow = WorkflowEngine.get_state(g.tenant.id, entity.id)
+
+    return render_template("entity_detail.html", entity=entity, definition=definition,
+                           activities=activities, next_actions=next_actions,
+                           workflow=workflow)
 
 
 # ---------------------------------------------------------------------------

@@ -8,9 +8,10 @@ dashboard_bp = Blueprint("dashboard", __name__)
 @dashboard_bp.route("/")
 @login_required
 def index():
-    """Home dashboard — shows summary based on tenant's business type."""
+    """Home dashboard — context-aware, never dead-end."""
     from app.models import Entity, EntityDefinition, ActivityLog
-    from app.proactive import ProactiveEngine
+    from app.shunya.bird import Bird
+    from app.shunya.next_best_action import NextBestActionEngine
 
     tenant = g.tenant
     user = g.user
@@ -31,14 +32,18 @@ def index():
     recent = ActivityLog.query.filter_by(tenant_id=tenant.id)\
         .order_by(ActivityLog.created_at.desc()).limit(10).all()
 
-    # Proactive suggestions
-    suggestions = ProactiveEngine.get_suggestions(tenant.id, user.id, user.role)
-    welcome = ProactiveEngine.get_welcome_message(tenant.id, user.name)
+    # Bird greeting (context-aware, not a static wall of charts)
+    bird = Bird(tenant.id, user.id, user.role, user.name)
+    greeting = bird.greet()
+
+    # Next Best Actions
+    next_actions = NextBestActionEngine.get_for_user(tenant.id, user.id, user.role)
 
     return render_template("dashboard.html",
         tenant=tenant, user=user,
         definitions=definitions,
         def_counts=def_counts,
         recent_activities=recent,
-        proactive_suggestions=suggestions,
-        welcome_message=welcome)
+        bird_greeting=greeting,
+        next_actions=next_actions,
+        welcome_message=greeting["message"])

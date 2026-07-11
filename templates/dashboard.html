@@ -3,7 +3,7 @@
 <div class="flex items-center justify-between mb-6">
   <div>
     <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
-    <p class="text-sm text-slate-500">{{ welcome_message }}</p>
+    <p class="text-sm text-slate-500">{{ bird_greeting.greeting }} {{ bird_greeting.message }}</p>
   </div>
   <div class="flex items-center gap-3">
     {% for d in definitions %}
@@ -29,18 +29,19 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-  {% if proactive_suggestions %}
+  {% if next_actions %}
   <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🧠 Suggestions</h3>
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🧠 Next Best Actions</h3>
     <div class="space-y-3">
-      {% for s in proactive_suggestions %}
-      <a href="{{ s.action }}" class="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-        <span class="text-lg">{{ s.icon }}</span>
+      {% for a in next_actions %}
+      <a href="{{ a.target_url }}" class="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+        <span class="text-lg">{{ '🔴' if a.priority.value == 'high' or a.priority.value == 'critical' else '🟡' }}</span>
         <div class="flex-1">
-          <p class="text-sm font-medium text-slate-700">{{ s.title }}</p>
-          <p class="text-xs text-slate-500">{{ s.message }}</p>
+          <p class="text-sm font-medium text-slate-700">{{ a.title }}</p>
+          <p class="text-xs text-slate-500">{{ a.description }}</p>
+          {% if a.reason %}<p class="text-xs text-blue-600 mt-0.5">{{ a.reason }}</p>{% endif %}
         </div>
-        {% if s.priority == 'high' %}<span class="text-xs font-medium text-red-500">Urgent</span>{% endif %}
+        {% if a.priority.value == 'high' or a.priority.value == 'critical' %}<span class="text-xs font-medium text-red-500">Urgent</span>{% endif %}
       </a>
       {% endfor %}
     </div>

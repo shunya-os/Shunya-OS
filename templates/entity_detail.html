@@ -72,7 +72,28 @@
           {% endfor %}
         </select>
       </div>
+      {% if workflow and workflow.blocked %}
+      <p class="text-xs text-red-600 mt-2">⛔ Blocked: {{ workflow.blocker_reason }}</p>
+      {% endif %}
     </div>
+
+    {% if next_actions %}
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+      <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Next Steps</span>
+      <div class="mt-2 space-y-2">
+        {% for a in next_actions[:3] %}
+        <a href="{{ a.target_url }}" class="flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 transition-colors text-sm">
+          <span>{{ '🔴' if a.priority.value == 'high' or a.priority.value == 'critical' else '🟡' }}</span>
+          <div>
+            <p class="font-medium text-slate-700">{{ a.title }}</p>
+            <p class="text-xs text-slate-500">{{ a.description[:80] }}</p>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
       <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Created</span>
       <p class="text-sm text-slate-700 mt-1">{{ entity.created_at.strftime('%d %b %Y, %I:%M %p') if entity.created_at else '-' }}</p>
