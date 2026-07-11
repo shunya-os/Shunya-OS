@@ -248,6 +248,53 @@ def api_lead_status(lead_id):
     return lead_update_status(lead_id)
 
 
+# Creative AI — generate content on demand
+@api.route("/creative/generate", methods=["POST"])
+def creative_generate():
+    """Generate a creative asset from user input."""
+    data = request.get_json(silent=True) or {}
+    user_input = data.get("input", "")
+    created_by = data.get("created_by", "AI Assistant")
+
+    if not user_input:
+        return jsonify({"error": "No input provided"}), 400
+
+    from app.creative import CreativeEngine
+    engine = CreativeEngine()
+
+    intent = engine.understand_intent(user_input)
+    copy_text = engine.generate_copy(intent)
+
+    # Try to generate an image
+    image_path = ""
+    image_url = ""
+    try:
+        from hermes_tools import terminal
+        result = terminal(f"Generate image for: {intent['topic']}")
+        if result and result.get("output"):
+            image_url = result["output"].strip()
+    except Exception:
+        pass
+
+    asset = engine.save_asset(intent, copy_text, image_path=image_path,
+                               image_url=image_url, created_by=created_by)
+    response = engine.preview_response(asset)
+    return jsonify(response)
+
+
+@api.route("/creative/<int:asset_id>/approve", methods=["POST"])
+def creative_approve(asset_id):
+    """Approve a creative asset (mark as ready to post)."""
+    from app.creative import CreativeAsset
+    asset = db.session.get(CreativeAsset, asset_id)
+    if not asset:
+        return jsonify({"error": "Asset not found"}), 404
+    asset.status = "approved"
+    asset.approved_by = g.user.name if hasattr(g, "user") and g.user else "admin"
+    db.session.commit()
+    return jsonify({"success": True, "message": f"✅ '{asset.title}' approved! Ready to post on {asset.platform}."})
+
+
 @main.route("/leads/<int:lead_id>/edit", methods=["GET", "POST"])
 def lead_edit(lead_id):
     lead = Lead.query.get_or_404(lead_id)

@@ -121,7 +121,7 @@
         </div>
         <div class="flex items-center gap-2">
           {% if current_user %}
-          <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 text-xs text-surface-300">
+          <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 text-xs text-surface-300" data-user-name="{{ current_user.name }}">
             <span class="w-2 h-2 rounded-full bg-green-500"></span>
             {{ current_user.name }}
           </div>
@@ -156,6 +156,9 @@
       <div class="flex items-center gap-3 px-4 md:px-6 py-3">
         <div class="relative ai-avatar flex-shrink-0">
           <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-sm pulse-ring">🧠</div>
+        </div>
+        <div id="companion-message" class="hidden md:block text-xs text-surface-400 max-w-xs truncate flex-shrink-0">
+          Ask me anything
         </div>
         <div class="flex-1 relative">
                     <input id="ai-command-input" type="text" 
@@ -254,32 +257,130 @@
       }
     })
 
-    // AI command input — simple responses
-    document.getElementById('ai-command-input')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const val = e.target.value.trim().toLowerCase()
-        if (!val) return
-        // Route common commands
-        if (val.includes('new lead') || val.includes('create lead')) {
-          window.location.href = '/leads/new'
-        } else if (val.includes('pipeline') || val.includes('leads')) {
-          window.location.href = '/leads'
-        } else if (val.includes('payment')) {
-          window.location.href = '/payments'
-        } else if (val.includes('invoice')) {
-          window.location.href = '/invoices'
-        } else if (val.includes('report') || val.includes('stats')) {
-          window.location.href = '/reports'
-        } else if (val.includes('team')) {
-          window.location.href = '/team'
-        } else if (val.includes('hello') || val.includes('hi') || val.includes('hey')) {
-          alert('👋 Hey there! How can I help you today?')
-        } else {
-          alert('🧠 Let me think about that... Try: "new lead", "show pipeline", "create report"')
+    // AI command input — smart routing + creative generation
+        document.getElementById('ai-command-input')?.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            const val = e.target.value.trim()
+            if (!val) return
+
+            const lower = val.toLowerCase()
+        
+            // Creative generation detection
+            const creativeKeywords = ['create', 'make', 'generate', 'design', 'write',
+                                       'instagram', 'facebook', 'post', 'story', 'reel',
+                                       'brochure', 'flyer', 'ad', 'banner', 'invitation',
+                                       'video', 'script', 'email campaign', 'newsletter']
+            const isCreative = creativeKeywords.some(k => lower.includes(k)) &&
+                              !lower.includes('lead') && !lower.includes('pipeline') &&
+                              !lower.includes('payment') && !lower.includes('invoice')
+
+            if (isCreative) {
+              e.target.value = 'Generating...'
+              fetch('/api/creative/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({input: val, created_by: currentUserName})
+              })
+              .then(r => r.json())
+              .then(data => {
+                if (data.copy) {
+                  e.target.value = ''
+                  showCreativePreview(data)
+                } else {
+                  e.target.value = ''
+                  alert(data.message || '✅ Creative generated! Check the preview.')
+                }
+              })
+              .catch(() => {
+                e.target.value = ''
+                alert('Let me think about that... Try being more specific about what you need.')
+              })
+              return
+            }
+
+            // Route common commands
+            if (lower.includes('new lead') || lower.includes('create lead')) {
+              window.location.href = '/leads/new'
+            } else if (lower.includes('pipeline') || lower.includes('leads')) {
+              window.location.href = '/leads?view=pipeline'
+            } else if (lower.includes('payment')) {
+              window.location.href = '/payments'
+            } else if (lower.includes('invoice')) {
+              window.location.href = '/invoices'
+            } else if (lower.includes('report') || lower.includes('stats')) {
+              window.location.href = '/reports'
+            } else if (lower.includes('team')) {
+              window.location.href = '/team'
+            } else if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
+              showCompanionMessage('👋 Hey there! How can I help you today? Try saying "Create an Instagram post for Bali" or "Show my pipeline."')
+            } else if (lower.includes('who needs me') || lower.includes('pending')) {
+              showCompanionMessage('📋 You have items needing attention. Check your pipeline for follow-ups.')
+            } else {
+              showCompanionMessage(`🧠 Let me think about that... Try: "Create an Instagram post", "New lead", "Show pipeline"`)
+            }
+            e.target.value = ''
+          }
+        })
+
+        // Show creative preview modal
+        function showCreativePreview(data) {
+          const existing = document.getElementById('creative-preview-modal')
+          if (existing) existing.remove()
+      
+          const modal = document.createElement('div')
+          modal.id = 'creative-preview-modal'
+          modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px)'
+          modal.onclick = (e) => { if (e.target === modal) modal.remove() }
+      
+          modal.innerHTML = `
+            <div class="glass" style="max-width:600px;width:100%;border-radius:24px;padding:2rem;max-height:90vh;overflow-y:auto;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                  <span style="font-size:1.5rem;">🧠</span>
+                  <h3 style="font-size:1.1rem;font-weight:700;">${data.title}</h3>
+                </div>
+                <button onclick="this.closest('#creative-preview-modal').remove()" style="background:none;border:none;color:#94a3b8;font-size:1.2rem;cursor:pointer;">✕</button>
+              </div>
+          
+              ${data.image_url ? `<div style="margin-bottom:1.5rem;border-radius:16px;overflow:hidden;background:rgba(255,255,255,0.05);"><img src="${data.image_url}" style="width:100%;display:block;" alt="Preview"></div>` : ''}
+          
+              <div style="background:rgba(255,255,255,0.05);border-radius:16px;padding:1.25rem;margin-bottom:1.5rem;white-space:pre-wrap;font-size:0.9rem;line-height:1.6;color:#e2e8f0;font-family:monospace;">
+                ${data.copy || 'Generated content...'}
+              </div>
+          
+              <div style="display:flex;gap:0.75rem;">
+                <button onclick="approveCreative(${data.asset_id})" 
+                  style="flex:1;padding:0.75rem;background:#6366f1;color:white;border:none;border-radius:14px;font-weight:600;font-size:0.9rem;cursor:pointer;">
+                  ✅ Approve
+                </button>
+                <button onclick="this.closest('#creative-preview-modal').remove()" 
+                  style="flex:1;padding:0.75rem;background:rgba(255,255,255,0.05);color:#e2e8f0;border:1px solid rgba(255,255,255,0.1);border-radius:14px;font-weight:500;font-size:0.9rem;cursor:pointer;">
+                  ✏️ Edit
+                </button>
+              </div>
+            </div>
+          `
+          document.body.appendChild(modal)
         }
-        e.target.value = ''
-      }
-    })
+
+        // Approve creative
+        function approveCreative(assetId) {
+          fetch(`/api/creative/${assetId}/approve`, {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+              document.getElementById('creative-preview-modal')?.remove()
+              showCompanionMessage(data.message || '✅ Approved!')
+            })
+        }
+
+        // Show companion message
+        function showCompanionMessage(msg) {
+          const el = document.getElementById('companion-message')
+          if (el) el.textContent = msg
+        }
+
+        // Get current user name from the page
+        const currentUserName = document.querySelector('[data-user-name]')?.getAttribute('data-user-name') || 'User'
 
     // Active nav link
     document.querySelectorAll('.nav-link').forEach(a => {
