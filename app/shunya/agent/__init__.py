@@ -19,6 +19,7 @@ class ToolCategory(Enum):
     DOCUMENT = "document"
     KNOWLEDGE = "knowledge"
     TRAVEL_INTEL = "travel_intel"
+    INTELLIGENCE = "intelligence"
     WORKFLOW = "workflow"
     ADMIN = "admin"
     ANALYTICS = "analytics"
@@ -118,6 +119,7 @@ COMMON_ACTIONS = {
     'update': ['update', 'change', 'modify', 'edit', 'set'],
     'delete': ['delete', 'remove', 'cancel', 'archive'],
     'analyze': ['analyze', 'analytics', 'report', 'dashboard', 'stats'],
+    'ask_web': ['show', 'tell', 'what', 'where', 'when', 'which', 'how', 'who'],
 }
 
 ENTITY_TYPES = {
@@ -129,6 +131,7 @@ ENTITY_TYPES = {
     'feedback': ['feedback', 'review'],
     'campaign': ['campaign', 'campaigns', 'offer', 'promotion'],
     'ticket': ['ticket', 'tickets', 'support', 'complaint'],
+    'location': ['near', 'nearby', 'in', 'at', 'around', 'city', 'town', 'location', 'place'],
 }
 
 def parse_intent(text: str) -> Intent:
@@ -200,6 +203,18 @@ class Agent:
         """Process a natural language request."""
         intent = parse_intent(text)
         self.history.append({"role": "user", "intent": intent})
+        
+        # Route ask_web / location-based queries to search_local
+        location_keywords = ['near', 'nearby', 'in', 'at', 'around', 'city', 'town', 'location', 'place']
+        internal_keywords = ['lead', 'booking', 'invoice', 'quote', 'payment', 'ticket', 'campaign', 'feedback']
+        text_lower = text.lower().strip()
+        has_location = any(kw in text_lower for kw in location_keywords)
+        has_internal = any(kw in text_lower for kw in internal_keywords)
+        
+        if intent.action == 'ask_web' or (has_location and not has_internal):
+            local_tool = registry.get("search_local")
+            if local_tool:
+                return local_tool.handler({"query": text, "raw": text})
         
         # Find matching tools
         matches = registry.match_intent(intent)
