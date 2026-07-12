@@ -64,7 +64,7 @@ def _register_blueprints(app):
     from app.shunya.ai_settings import ai_settings_bp
     from app.shunya.module_builder_routes import module_builder_bp
     from app.shunya.governance_routes import governance_bp
-    from app.shunya.agent_routes import agent_bp
+    from app.routes.agent import agent_bp
     from app.shunya.theme_routes import theme_bp
     from app.routes.supply_chain import supply_chain_bp
     from app.routes.field_services import field_services_bp
@@ -74,6 +74,7 @@ def _register_blueprints(app):
     from app.shunya.user_mood import mood_bp
     from app.routes.admin import admin_bp
     from app.routes.webhooks import webhooks_bp
+    from app.routes.agent import agent_bp
 
     try:
         from app.routes.hr import hr_bp
