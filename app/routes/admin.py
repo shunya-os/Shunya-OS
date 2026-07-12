@@ -1,6 +1,6 @@
 """Admin routes — company profile, brand, team management, permissions."""
 import os, json, hashlib
-from datetime import datetime
+from datetime import datetime, date
 from flask import Blueprint, request, jsonify, render_template, g, redirect, url_for, current_app
 from app import db
 from app.models import Tenant, TeamMember, UserRole
@@ -761,7 +761,85 @@ def save_whatsapp_config():
     return jsonify({"success": True, "message": "WhatsApp settings saved"})
 
 
-# ── Telegram Bot Config ──
+# ── Kanban Pipeline View ──
+
+@admin_bp.route("/kanban/<entity_type>", methods=["GET"])
+@login_required
+def kanban_page(entity_type):
+    """Render kanban pipeline view for an entity type."""
+    from app.models import EntityDefinition
+    definition = EntityDefinition.query.filter_by(
+        tenant_id=g.tenant.id, type=entity_type
+    ).first_or_404()
+    return render_template("admin/kanban.html", definition=definition)
+
+
+@admin_bp.route("/api/kanban/<entity_type>", methods=["GET"])
+@login_required
+def kanban_api(entity_type):
+    """Return entities grouped by status for the kanban board."""
+    from app.models import EntityDefinition, Entity
+    definition = EntityDefinition.query.filter_by(
+        tenant_id=g.tenant.id, type=entity_type
+    ).first()
+    if not definition:
+        return jsonify({"error": f"Entity type '{entity_type}' not found"}), 404
+
+    statuses = definition.statuses or []
+    if not statuses:
+        return jsonify({
+            "statuses": [],
+            "columns": {},
+            "counts": {},
+            "definition": {"type": definition.type, "label": definition.label, "icon": definition.icon},
+        })
+
+    # Query all non-archived entities for this definition, ordered by created_at desc
+    entities = Entity.query.filter_by(
+        tenant_id=g.tenant.id, definition_id=definition.id, is_archived=False
+    ).order_by(Entity.created_at.desc()).limit(200).all()
+
+    # Group by status
+    columns = {s: [] for s in statuses}
+    for e in entities:
+        s = e.status
+        if s not in columns:
+            columns[s] = []
+        primary_val = e.data.get(definition.primary_field, "") if definition.primary_field else ""
+        columns[s].append({
+            "id": e.id,
+            "code": e.code or f"#{e.id}",
+            "display_name": e.display_name,
+            "icon": definition.icon or "📄",
+            "status": e.status,
+            "primary_value": primary_val,
+            "data": {k: v for k, v in (e.data or {}).items()
+                     if k in (definition.searchable_fields or []) or k == definition.primary_field},
+        })
+
+    # Add entities in statuses not in the definition's pipeline (catch-all)
+    counts = {}
+    for s in statuses:
+        counts[s] = len(columns.get(s, []))
+    for s in columns:
+        if s not in counts:
+            counts[s] = len(columns[s])
+
+    return jsonify({
+        "statuses": statuses,
+        "columns": columns,
+        "counts": counts,
+        "definition": {
+            "type": definition.type,
+            "label": definition.label,
+            "label_plural": definition.label_plural,
+            "icon": definition.icon,
+            "primary_field": definition.primary_field,
+        },
+    })
+
+
+# ── Telegram Bot Configuration ──
 
 
 @admin_bp.route("/telegram", methods=["GET"])
@@ -866,3 +944,313 @@ def test_telegram_bot():
             "error": "Failed to send test message",
             "details": errors,
         }), 400
+
+
+# ── Entity Relationship Graph ──
+
+
+@admin_bp.route("/entity-graph/<int:entity_id>")
+@login_required
+def entity_graph_page(entity_id):
+    """Render the entity relationship graph page."""
+    from app.models import Entity
+    entity = Entity.query.filter_by(
+        id=entity_id, tenant_id=g.tenant.id
+    ).first_or_404()
+    entity_type = entity.definition.type if entity.definition else "entity"
+    return render_template(
+        "admin/entity_graph.html",
+        entity=entity,
+        entity_id=entity.id,
+        entity_type=entity_type,
+    )
+
+
+@admin_bp.route("/api/entity-graph/<int:entity_id>")
+@login_required
+def entity_graph_api(entity_id):
+    """Return JSON of linked entities for the graph."""
+    from app.models import Entity, EntityDefinition
+    from app.shunya.entity_linker import EntityLinker
+
+    entity = Entity.query.filter_by(
+        id=entity_id, tenant_id=g.tenant.id
+    ).first_or_404()
+
+    # Central entity info
+    center = {
+        "id": entity.id,
+        "code": entity.code,
+        "type": entity.definition.type if entity.definition else "unknown",
+        "label": entity.definition.label if entity.definition else "Entity",
+        "icon": entity.definition.icon if entity.definition else "📌",
+        "status": entity.status,
+        "display_name": entity.display_name,
+        "url": f"/entities/{entity.definition.type if entity.definition else 'entity'}/{entity.id}",
+    }
+
+    # Get linked entities via EntityLinker
+    raw_links = EntityLinker.get_linked_entities(entity.id)
+
+    parents = [l for l in raw_links if l["direction"] == "parent"]
+    children = [l for l in raw_links if l["direction"] == "child"]
+
+    # Also find ActivityLog cross-references for additional context
+    from app.models import ActivityLog
+    activity_refs = (
+        db.session.query(ActivityLog.entity_id, ActivityLog.detail)
+        .filter(
+            ActivityLog.tenant_id == g.tenant.id,
+            ActivityLog.entity_id != entity.id,
+            ActivityLog.detail.ilike(f"%{entity.code}%"),
+        )
+        .order_by(ActivityLog.created_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    related_ids = set()
+    for ref_entity_id, ref_detail in activity_refs:
+        related_ids.add(int(ref_entity_id))
+
+    # Fetch referenced entities not already in parents/children
+    existing_ids = {l["id"] for l in raw_links}
+    extra_entities = []
+    for rid in related_ids:
+        if rid not in existing_ids:
+            ref_entity = db.session.get(Entity, rid)
+            if ref_entity and ref_entity.tenant_id == g.tenant.id and not ref_entity.is_archived:
+                extra_entities.append({
+                    "id": ref_entity.id,
+                    "code": ref_entity.code,
+                    "type": ref_entity.definition.type if ref_entity.definition else "unknown",
+                    "label": ref_entity.definition.label if ref_entity.definition else "Entity",
+                    "icon": ref_entity.definition.icon if ref_entity.definition else "📌",
+                    "status": ref_entity.status,
+                    "display_name": ref_entity.display_name,
+                    "url": f"/entities/{ref_entity.definition.type if ref_entity.definition else 'entity'}/{ref_entity.id}",
+                    "direction": "activity",
+                })
+
+    return jsonify({
+        "entity": center,
+        "entity_label": f"{center['label']} {center['display_name']}",
+        "entity_code": entity.code,
+        "parents": parents,
+        "children": children,
+        "related": extra_entities,
+    })
+
+
+# ── Entity Export (CSV / PDF) ──
+
+
+@admin_bp.route("/api/export/<entity_type>/csv", methods=["GET"])
+@login_required
+@admin_required
+def export_entities_csv(entity_type):
+    """Export all entities of a given type as CSV."""
+    from app.models import EntityDefinition, Entity
+    from app.shunya.export import export_csv
+
+    definition = db.session.query(EntityDefinition).filter_by(
+        tenant_id=g.tenant.id, type=entity_type
+    ).first()
+    if not definition:
+        return jsonify({"error": f"Entity type '{entity_type}' not found"}), 404
+
+    entities = db.session.query(Entity).filter_by(
+        tenant_id=g.tenant.id, definition_id=definition.id, is_archived=False
+    ).order_by(Entity.created_at.desc()).all()
+
+    csv_string = export_csv(entity_type, entities, definition.schema)
+
+    filename = f"{entity_type}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    from flask import Response
+    return Response(
+        csv_string,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@admin_bp.route("/api/export/<entity_type>/pdf", methods=["GET"])
+@login_required
+@admin_required
+def export_entities_pdf(entity_type):
+    """Export all entities of a given type as JSON list (PDF placeholder)."""
+    from app.models import EntityDefinition, Entity
+    from app.shunya.export import export_json
+
+    definition = db.session.query(EntityDefinition).filter_by(
+        tenant_id=g.tenant.id, type=entity_type
+    ).first()
+    if not definition:
+        return jsonify({"error": f"Entity type '{entity_type}' not found"}), 404
+
+    entities = db.session.query(Entity).filter_by(
+        tenant_id=g.tenant.id, definition_id=definition.id, is_archived=False
+    ).order_by(Entity.created_at.desc()).all()
+
+    rows = export_json(entity_type, entities, definition.schema)
+
+    return jsonify({
+        "entity_type": entity_type,
+        "label": definition.label,
+        "total": len(rows),
+        "rows": rows,
+    })
+
+
+# ── Calendar View ──
+
+
+@admin_bp.route("/calendar", methods=["GET"])
+@login_required
+@admin_required
+def calendar_page():
+    """Render the unified calendar view."""
+    today = date.today()
+    return render_template("admin/calendar.html",
+        tenant=g.tenant,
+        year=today.year,
+        month=today.month,
+        today=today.isoformat(),
+    )
+
+
+@admin_bp.route("/api/calendar", methods=["GET"])
+@login_required
+def get_calendar_events():
+    """Return events for a given month (all date-based entities)."""
+    import calendar as cal_mod
+    from app.shunya.calendar import get_events_for_month
+
+    year = request.args.get("year", type=int) or date.today().year
+    month = request.args.get("month", type=int) or date.today().month
+
+    # Clamp month to valid range
+    if month < 1:
+        month = 1
+        year -= 1
+    elif month > 12:
+        month = 12
+        year += 1
+
+    events = get_events_for_month(g.tenant.id, year, month)
+
+    # Month metadata
+    _, days_in_month = cal_mod.monthrange(year, month)
+    first_weekday = date(year, month, 1).weekday()  # Monday=0, Sunday=6
+
+    # Build day grid (7 columns: Mon Tue Wed Thu Fri Sat Sun)
+    days = []
+    # Pad leading empty cells
+    for _ in range(first_weekday):
+        days.append(None)
+    for d in range(1, days_in_month + 1):
+        days.append(d)
+
+    return jsonify({
+        "year": year,
+        "month": month,
+        "month_name": date(year, month, 1).strftime("%B"),
+        "days_in_month": days_in_month,
+        "first_weekday": first_weekday,
+        "days": days,
+        "events": events,
+        "today": date.today().isoformat(),
+    })
+
+
+# ── Global Search ──
+
+
+@admin_bp.route("/search", methods=["GET"])
+@login_required
+@admin_required
+def global_search_page():
+    """Render the global search page."""
+    return render_template("admin/global_search.html")
+
+
+@admin_bp.route("/api/search", methods=["GET"])
+@login_required
+def global_search_api():
+    """Search across ALL entity types for the current tenant."""
+    q = request.args.get("q", "").strip()
+    if not q or len(q) < 2:
+        return jsonify({"results": {}, "total": 0, "query": q})
+
+    from app.models import EntityDefinition, Entity
+
+    # Get all active entity definitions for this tenant
+    definitions = EntityDefinition.query.filter_by(
+        tenant_id=g.tenant.id, is_active=True
+    ).order_by(EntityDefinition.label).all()
+
+    results = {}
+    total_count = 0
+    max_per_type = 5
+    max_total = 50
+
+    search_term = f"%{q}%"
+
+    for definition in definitions:
+        if total_count >= max_total:
+            break
+
+        # Search by code, status, and data['name'] (JSONB text search)
+        search_filter = db.or_(
+            Entity.code.ilike(search_term),
+            Entity.status.ilike(search_term),
+            Entity.data["name"].as_string().ilike(search_term),
+        )
+
+        # Also search searchable_fields if defined
+        if definition.searchable_fields:
+            extra_filters = []
+            for field_name in definition.searchable_fields:
+                if field_name and field_name != "name":
+                    extra_filters.append(
+                        Entity.data[field_name].as_string().ilike(search_term)
+                    )
+            if extra_filters:
+                search_filter = db.or_(search_filter, *extra_filters)
+
+        entities = (
+            Entity.query.filter_by(
+                tenant_id=g.tenant.id,
+                definition_id=definition.id,
+                is_archived=False,
+            )
+            .filter(search_filter)
+            .order_by(Entity.updated_at.desc())
+            .limit(max_per_type)
+            .all()
+        )
+
+        if entities:
+            remaining = max_total - total_count
+            if remaining <= 0:
+                break
+            results[definition.type] = {
+                "label": definition.label,
+                "label_plural": definition.label_plural or definition.label,
+                "icon": definition.icon or "📋",
+                "count": len(entities),
+                "entities": [
+                    {
+                        **e.to_dict(),
+                        "display_name": e.display_name,
+                    }
+                    for e in entities
+                ],
+            }
+            total_count += len(entities)
+
+    return jsonify({
+        "results": results,
+        "total": total_count,
+        "query": q,
+    })

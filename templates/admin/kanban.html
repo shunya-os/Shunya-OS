@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  :root {
+    --kanban-bg: #0f172a;
+    --kanban-card-bg: #1e293b;
+    --kanban-column-bg: #1a2332;
+    --kanban-border: #334155;
+    --kanban-text: #e2e8f0;
+    --kanban-muted: #94a3b8;
+    --kanban-accent: #3b82f6;
+  }
+  body { background: var(--kanban-bg); }
+  .kanban-header {
+    background: var(--kanban-card-bg);
+    border: 1px solid var(--kanban-border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .kanban-title { font-size: 1.25rem; font-weight: 700; color: var(--kanban-text); }
+  .kanban-subtitle { font-size: 0.8rem; color: var(--kanban-muted); margin-top: 2px; }
+  .kanban-board {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    min-height: 500px;
+    align-items: flex-start;
+  }
+  .kanban-column {
+    background: var(--kanban-column-bg);
+    border: 1px solid var(--kanban-border);
+    border-radius: 14px;
+    min-width: 280px;
+    max-width: 320px;
+    flex: 1 0 280px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 220px);
+  }
+  .kanban-column-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--kanban-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .kanban-column-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--kanban-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .kanban-column-count {
+    font-size: 0.7rem;
+    background: rgba(59,130,246,0.15);
+    color: var(--kanban-accent);
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .kanban-cards {
+    padding: 10px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .kanban-card {
+    background: var(--kanban-card-bg);
+    border: 1px solid var(--kanban-border);
+    border-radius: 12px;
+    padding: 14px;
+    cursor: default;
+    transition: all .2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .kanban-card:hover {
+    border-color: var(--kanban-accent);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  }
+  .kanban-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .kanban-card-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+  }
+  .kanban-card-code {
+    font-size: 0.65rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    color: var(--kanban-muted);
+  }
+  .kanban-card-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--kanban-text);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kanban-card-field {
+    font-size: 0.75rem;
+    color: var(--kanban-muted);
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kanban-card-status {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 2px 10px;
+    border-radius: 8px;
+    background: rgba(51,65,85,0.6);
+    color: var(--kanban-muted);
+  }
+  .kanban-card-status.active { background: rgba(16,185,129,0.15); color: #10b981; }
+  .kanban-card-status.warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .kanban-card-status.danger { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .kanban-card-status.info { background: rgba(59,130,246,0.15); color: #3b82f6; }
+  .kanban-card a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .kanban-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: var(--kanban-muted);
+    text-align: center;
+    min-height: 200px;
+  }
+  .kanban-empty .big-icon { font-size: 2.5rem; margin-bottom: 10px; opacity: 0.4; }
+  .kanban-loading {
+    text-align: center;
+    padding: 60px;
+    color: var(--kanban-muted);
+  }
+  .kanban-error {
+    text-align: center;
+    padding: 40px;
+    color: #ef4444;
+  }
+  .kanban-board::-webkit-scrollbar { height: 6px; }
+  .kanban-board::-webkit-scrollbar-track { background: transparent; }
+  .kanban-board::-webkit-scrollbar-thumb { background: var(--kanban-border); border-radius: 3px; }
+  .kanban-board::-webkit-scrollbar-thumb:hover { background: #475569; }
+  .kanban-cards::-webkit-scrollbar { width: 4px; }
+  .kanban-cards::-webkit-scrollbar-track { background: transparent; }
+  .kanban-cards::-webkit-scrollbar-thumb { background: var(--kanban-border); border-radius: 2px; }
+  @media (max-width: 768px) {
+    .kanban-board { flex-direction: column; align-items: stretch; }
+    .kanban-column { min-width: 100%; max-width: 100%; max-height: none; }
+  }
+</style>
+
+<div class="kanban-header">
+  <div>
+    <div class="kanban-title"><span id="kanban-icon">{{ definition.icon or '📋' }}</span> <span id="kanban-label">{{ definition.label_plural or definition.label }}</span></div>
+    <div class="kanban-subtitle" id="kanban-subtitle">Loading kanban board...</div>
+  </div>
+  <div>
+    <a href="/entities/{{ definition.type }}" class="px-4 py-2 rounded-lg text-sm font-medium" style="background:var(--kanban-border);color:var(--kanban-text);text-decoration:none;">
+      ← Back to List
+    </a>
+  </div>
+</div>
+
+<div class="kanban-board" id="kanban-board">
+  <div class="kanban-loading" id="kanban-loading">
+    <div style="font-size:2rem;margin-bottom:8px;">🔄</div>
+    Loading kanban board...
+  </div>
+</div>
+
+<script>
+const ENTITY_TYPE = '{{ definition.type }}';
+
+async function loadKanban() {
+  const board = document.getElementById('kanban-board');
+  const loading = document.getElementById('kanban-loading');
+  const subtitle = document.getElementById('kanban-subtitle');
+
+  try {
+    const r = await fetch('/admin/api/kanban/' + ENTITY_TYPE);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+
+    loading.style.display = 'none';
+
+    if (data.error) {
+      board.innerHTML = '<div class="kanban-error">❌ ' + esc(data.error) + '</div>';
+      return;
+    }
+
+    // Build empty state
+    if (!data.statuses || data.statuses.length === 0) {
+      board.innerHTML = '<div class="kanban-empty"><div class="big-icon">📋</div><div style="font-size:1rem;font-weight:600;color:var(--kanban-text);margin-bottom:4px;">No status pipeline defined</div><div style="font-size:0.8rem;">Configure statuses in the entity definition to enable the kanban view.</div></div>';
+      subtitle.textContent = 'No pipeline configured';
+      return;
+    }
+
+    // Update subtitle
+    const totalCount = Object.values(data.columns || {}).reduce(function(sum, arr) { return sum + (arr ? arr.length : 0); }, 0);
+    subtitle.textContent = totalCount + ' ' + ('{{ definition.label_plural or definition.label }}').toLowerCase() + ' across ' + data.statuses.length + ' columns';
+
+    // Render board
+    board.innerHTML = '';
+    data.statuses.forEach(function(status) {
+      const items = (data.columns && data.columns[status]) || [];
+      board.appendChild(renderColumn(status, items, data.counts || {}));
+    });
+
+  } catch (e) {
+    loading.style.display = 'none';
+    board.innerHTML = '<div class="kanban-error">❌ Failed to load kanban: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderColumn(status, items, counts) {
+  // Status display formatting
+  const statusLabel = status.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  const count = counts[status] || items.length;
+  const dotColor = statusColor(status);
+
+  const col = document.createElement('div');
+  col.className = 'kanban-column';
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'kanban-column-header';
+  header.innerHTML = '<div class="kanban-column-title">'
+    + '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;"></span>'
+    + esc(statusLabel)
+    + '</div>'
+    + '<span class="kanban-column-count">' + count + '</span>';
+  col.appendChild(header);
+
+  // Cards
+  const cardsContainer = document.createElement('div');
+  cardsContainer.className = 'kanban-cards';
+
+  if (!items || items.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'kanban-empty';
+    empty.innerHTML = '<div style="font-size:1.5rem;opacity:0.3;margin-bottom:6px;">📄</div><div style="font-size:0.8rem;">No items</div>';
+    cardsContainer.appendChild(empty);
+  } else {
+    items.forEach(function(item) {
+      cardsContainer.appendChild(renderCard(item, status));
+    });
+  }
+
+  col.appendChild(cardsContainer);
+  return col;
+}
+
+function renderCard(item, status) {
+  const card = document.createElement('div');
+  card.className = 'kanban-card';
+
+  const icon = item.icon || '📄';
+  const code = item.code || '#' + item.id;
+  const name = item.display_name || item.code || '#' + item.id;
+  const primaryVal = item.primary_value || '';
+
+  const statusCls = 'kanban-card-status ' + statusClass(status);
+
+  card.innerHTML = '<a href="/entities/' + ENTITY_TYPE + '/' + item.id + '">'
+    + '<div class="kanban-card-top">'
+    + '<span class="kanban-card-icon">' + esc(icon) + '</span>'
+    + '<span class="kanban-card-code">' + esc(code) + '</span>'
+    + '</div>'
+    + '<div class="kanban-card-name">' + esc(name) + '</div>'
+    + (primaryVal ? '<div class="kanban-card-field">' + esc(primaryVal) + '</div>' : '')
+    + '<span class="' + statusCls + '">' + esc(status.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); })) + '</span>'
+    + '</a>';
+
+  return card;
+}
+
+function statusColor(status) {
+  const s = (status || '').toLowerCase();
+  if (/new|fresh|open/.test(s)) return '#3b82f6';
+  if (/contacted|reached|called|responded/.test(s)) return '#f59e0b';
+  if (/qualified|interested|hot/.test(s)) return '#10b981';
+  if (/proposal|quoted|negotia/.test(s)) return '#8b5cf6';
+  if (/won|closed.*won|completed|shipped/.test(s)) return '#059669';
+  if (/lost|closed.*lost|rejected|dead/.test(s)) return '#ef4444';
+  if (/pending|hold|waiting/.test(s)) return '#f97316';
+  return '#64748b';
+}
+
+function statusClass(status) {
+  const s = (status || '').toLowerCase();
+  if (/new|fresh|open|contacted/.test(s)) return 'info';
+  if (/qualified|interested|hot|proposal|quoted/.test(s)) return 'active';
+  if (/won|closed.*won|completed|shipped/.test(s)) return 'active';
+  if (/lost|closed.*lost|rejected|dead/.test(s)) return 'danger';
+  if (/pending|hold|waiting/.test(s)) return 'warning';
+  return '';
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', loadKanban);
+</script>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; color: #e2e8f0; }
+  .gs-container { max-width: 800px; margin: 0 auto; }
+  .gs-input-wrap { position: relative; }
+  .gs-input { width: 100%; padding: 14px 20px 14px 48px; background: #1e293b; border: 1px solid #334155; border-radius: 14px; color: #e2e8f0; font-size: 1rem; outline: none; transition: border-color .2s, box-shadow .2s; }
+  .gs-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,0.15); }
+  .gs-input::placeholder { color: #64748b; }
+  .gs-search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 1.15rem; pointer-events: none; }
+  .gs-clear-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 1.1rem; padding: 4px 8px; border-radius: 8px; display: none; }
+  .gs-clear-btn:hover { color: #e2e8f0; background: rgba(51,65,85,0.5); }
+  .gs-clear-btn.visible { display: block; }
+  .gs-section { margin-bottom: 24px; }
+  .gs-section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .gs-section-icon { font-size: 1.2rem; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(59,130,246,0.1); border-radius: 10px; }
+  .gs-section-title { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; }
+  .gs-section-count { font-size: 0.72rem; color: #64748b; background: rgba(51,65,85,0.5); padding: 2px 8px; border-radius: 20px; }
+  .gs-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; transition: all .2s; cursor: pointer; text-decoration: none; margin-bottom: 6px; }
+  .gs-card:hover { background: rgba(51,65,85,0.8); border-color: #3b82f6; transform: translateX(4px); }
+  .gs-card-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(59,130,246,0.1); border-radius: 10px; font-size: 1rem; flex-shrink: 0; }
+  .gs-card-body { flex: 1; min-width: 0; }
+  .gs-card-name { font-size: 0.9rem; font-weight: 500; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gs-card-meta { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  .gs-card-code { font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; color: #64748b; }
+  .gs-card-status { font-size: 0.68rem; padding: 1px 8px; border-radius: 20px; font-weight: 500; }
+  .gs-card-status.new { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .gs-card-status.active { background: rgba(16,185,129,0.15); color: #34d399; }
+  .gs-card-status.closed { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .gs-card-status.archived { background: rgba(239,68,68,0.15); color: #f87171; }
+  .gs-card-arrow { color: #475569; font-size: 0.85rem; flex-shrink: 0; }
+  .gs-card:hover .gs-card-arrow { color: #3b82f6; }
+  .gs-empty { text-align: center; padding: 60px 20px; color: #64748b; }
+  .gs-empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.5; }
+  .gs-empty-title { font-size: 1rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px; }
+  .gs-empty-desc { font-size: 0.85rem; }
+  .gs-loading { text-align: center; padding: 60px 20px; }
+  .gs-spinner { width: 36px; height: 36px; border: 3px solid #334155; border-top: 3px solid #3b82f6; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .gs-error { text-align: center; padding: 40px 20px; }
+  .gs-error-text { color: #f87171; font-size: 0.9rem; }
+</style>
+
+<div class="gs-container">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-xl font-bold text-white">🔍 Global Search</h1>
+  </div>
+
+  <!-- Search Input -->
+  <div class="gs-input-wrap mb-8">
+    <span class="gs-search-icon">🔍</span>
+    <input id="gs-input" class="gs-input" type="text" placeholder="Search across all records — name, code, or status..." autofocus>
+    <button id="gs-clear" class="gs-clear-btn" onclick="clearSearch()">✕</button>
+  </div>
+
+  <!-- Results -->
+  <div id="gs-results">
+    <div class="gs-empty">
+      <div class="gs-empty-icon">🔍</div>
+      <div class="gs-empty-title">Search Across Everything</div>
+      <div class="gs-empty-desc">Type a name, code, or status to search across all entity types at once.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const input = document.getElementById('gs-input');
+const results = document.getElementById('gs-results');
+const clearBtn = document.getElementById('gs-clear');
+let debounceTimer = null;
+
+input.addEventListener('input', function() {
+  const q = this.value.trim();
+  clearBtn.classList.toggle('visible', q.length > 0);
+  clearTimeout(debounceTimer);
+  if (q.length < 2) {
+    showEmpty();
+    return;
+  }
+  debounceTimer = setTimeout(() => doSearch(q), 300);
+});
+
+input.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    this.value = '';
+    clearBtn.classList.remove('visible');
+    showEmpty();
+  }
+});
+
+function clearSearch() {
+  input.value = '';
+  clearBtn.classList.remove('visible');
+  showEmpty();
+  input.focus();
+}
+
+function showEmpty() {
+  results.innerHTML = '<div class="gs-empty"><div class="gs-empty-icon">🔍</div><div class="gs-empty-title">Search Across Everything</div><div class="gs-empty-desc">Type a name, code, or status to search across all entity types at once.</div></div>';
+}
+
+function statusClass(status) {
+  if (!status) return '';
+  const s = status.toLowerCase();
+  if (s === 'new' || s === 'open') return 'new';
+  if (s === 'active' || s === 'in_progress' || s === 'confirmed') return 'active';
+  if (s === 'closed' || s === 'done' || s === 'completed' || s === 'cancelled') return 'closed';
+  if (s === 'archived') return 'archived';
+  return '';
+}
+
+async function doSearch(q) {
+  results.innerHTML = '<div class="gs-loading"><div class="gs-spinner"></div><div class="text-sm text-slate-400">Searching...</div></div>';
+  try {
+    const r = await fetch(`/admin/api/search?q=${encodeURIComponent(q)}`);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({error: 'Search failed'}));
+      results.innerHTML = `<div class="gs-error"><div class="gs-error-text">❌ ${err.error || 'Search failed'}</div></div>`;
+      return;
+    }
+    const data = await r.json();
+    renderResults(data, q);
+  } catch(e) {
+    results.innerHTML = `<div class="gs-error"><div class="gs-error-text">❌ Network error — ${e.message}</div></div>`;
+  }
+}
+
+function renderResults(data, q) {
+  const groups = data.results || {};
+  const total = data.total || 0;
+  const keys = Object.keys(groups);
+  if (keys.length === 0) {
+    results.innerHTML = `<div class="gs-empty"><div class="gs-empty-icon">🔍</div><div class="gs-empty-title">No Results</div><div class="gs-empty-desc">No records found matching "<strong>${esc(q)}</strong>". Try a different search term.</div></div>`;
+    return;
+  }
+  let html = `<div class="text-xs text-slate-500 mb-4">${total} result${total !== 1 ? 's' : ''} for "<strong style="color:#94a3b8;">${esc(q)}</strong>"</div>`;
+  keys.forEach(type => {
+    const group = groups[type];
+    html += `<div class="gs-section">
+      <div class="gs-section-header">
+        <div class="gs-section-icon">${group.icon || '📋'}</div>
+        <span class="gs-section-title">${esc(group.label)}</span>
+        <span class="gs-section-count">${group.count} result${group.count !== 1 ? 's' : ''}</span>
+      </div>`;
+    group.entities.forEach(entity => {
+      const name = entity.display_name || entity.code || `#${entity.id}`;
+      const link = `/entities/${type}/${entity.id}`;
+      const status = entity.status || '';
+      html += `<a href="${link}" class="gs-card">
+        <div class="gs-card-icon">${group.icon || '📋'}</div>
+        <div class="gs-card-body">
+          <div class="gs-card-name">${esc(name)}</div>
+          <div class="gs-card-meta">
+            ${entity.code ? `<span class="gs-card-code">${esc(entity.code)}</span>` : ''}
+            ${status ? `<span class="gs-card-status ${statusClass(status)}">${esc(status)}</span>` : ''}
+          </div>
+        </div>
+        <span class="gs-card-arrow">→</span>
+      </a>`;
+    });
+    html += '</div>';
+  });
+  results.innerHTML = html;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

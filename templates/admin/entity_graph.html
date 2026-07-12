@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  :root {
+    --graph-bg: #0f172a;
+    --graph-card-bg: #1e293b;
+    --graph-border: #334155;
+    --graph-text: #e2e8f0;
+    --graph-muted: #94a3b8;
+    --graph-accent: #3b82f6;
+    --graph-line: #475569;
+    --graph-parent-color: #f59e0b;
+    --graph-child-color: #10b981;
+    --graph-center-color: #3b82f6;
+  }
+  body { background: var(--graph-bg); }
+  .graph-header {
+    background: var(--graph-card-bg);
+    border: 1px solid var(--graph-border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .graph-title { font-size: 1.25rem; font-weight: 700; color: var(--graph-text); }
+  .graph-subtitle { font-size: 0.8rem; color: var(--graph-muted); margin-top: 2px; }
+  .graph-container {
+    background: var(--graph-card-bg);
+    border: 1px solid var(--graph-border);
+    border-radius: 16px;
+    padding: 40px 20px;
+    position: relative;
+    overflow-x: auto;
+    min-height: 420px;
+  }
+  .graph-svg-layer {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .graph-svg-layer svg {
+    width: 100%;
+    height: 100%;
+  }
+  .graph-nodes {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 60px;
+    position: relative;
+    z-index: 2;
+    min-height: 300px;
+  }
+  .graph-node {
+    background: var(--graph-card-bg);
+    border: 2px solid var(--graph-border);
+    border-radius: 14px;
+    padding: 16px;
+    min-width: 180px;
+    max-width: 220px;
+    text-align: center;
+    transition: all .2s ease;
+    position: relative;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .graph-node:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .graph-node.node-center {
+    border-color: var(--graph-center-color);
+    background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.04));
+    min-width: 220px;
+  }
+  .graph-node.node-parent {
+    border-color: var(--graph-parent-color);
+  }
+  .graph-node.node-child {
+    border-color: var(--graph-child-color);
+  }
+  .graph-node .node-icon {
+    font-size: 2rem;
+    margin-bottom: 6px;
+  }
+  .graph-node .node-type {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+  }
+  .graph-node.node-center .node-type { color: var(--graph-center-color); }
+  .graph-node.node-parent .node-type { color: var(--graph-parent-color); }
+  .graph-node.node-child .node-type { color: var(--graph-child-color); }
+  .graph-node .node-code {
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+  }
+  .graph-node .node-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--graph-text);
+    margin: 4px 0;
+  }
+  .graph-node .node-status {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: rgba(51,65,85,0.6);
+    color: var(--graph-muted);
+    margin-top: 4px;
+  }
+  .graph-node a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .graph-label {
+    font-size: 0.7rem;
+    color: var(--graph-muted);
+    text-align: center;
+    margin-top: 8px;
+    font-weight: 500;
+  }
+  .graph-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    color: var(--graph-muted);
+    text-align: center;
+  }
+  .graph-empty .big-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; }
+  .graph-legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .graph-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--graph-muted);
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .graph-loading {
+    text-align: center;
+    padding: 60px;
+    color: var(--graph-muted);
+  }
+  .graph-error {
+    text-align: center;
+    padding: 40px;
+    color: #ef4444;
+  }
+  .entity-link { cursor: pointer; }
+  .entity-link:hover { text-decoration: underline; }
+  @media (max-width: 768px) {
+    .graph-nodes { flex-direction: column; gap: 30px; }
+    .graph-container { padding: 20px 10px; }
+    .graph-svg-layer { display: none; }
+  }
+</style>
+
+<div class="graph-header">
+  <div>
+    <div class="graph-title">🔗 Entity Relationships</div>
+    <div class="graph-subtitle" id="graph-subtitle">Loading...</div>
+  </div>
+  <div>
+    <a href="/entities/{{ entity_type }}/{{ entity_id }}" class="px-4 py-2 rounded-lg text-sm font-medium" style="background:var(--graph-border);color:var(--graph-text);text-decoration:none;">
+      ← Back to Entity
+    </a>
+  </div>
+</div>
+
+<div class="graph-container" id="graph-container">
+  <div class="graph-loading" id="graph-loading">
+    <div style="font-size:2rem;margin-bottom:8px;">🔄</div>
+    Loading relationship graph...
+  </div>
+</div>
+
+<div class="graph-legend" id="graph-legend" style="display:none;">
+  <div class="graph-legend-item">
+    <div class="legend-dot" style="background:var(--graph-parent-color);"></div>
+    Parent (linked from)
+  </div>
+  <div class="graph-legend-item">
+    <div class="legend-dot" style="background:var(--graph-center-color);"></div>
+    Current Entity
+  </div>
+  <div class="graph-legend-item">
+    <div class="legend-dot" style="background:var(--graph-child-color);"></div>
+    Child (linked to)
+  </div>
+</div>
+
+<script>
+async function loadGraph() {
+  const container = document.getElementById('graph-container');
+  const loading = document.getElementById('graph-loading');
+  const legend = document.getElementById('graph-legend');
+  const subtitle = document.getElementById('graph-subtitle');
+
+  try {
+    const r = await fetch('/admin/api/entity-graph/{{ entity_id }}');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+
+    loading.style.display = 'none';
+
+    if (data.error) {
+      container.innerHTML = '<div class="graph-error">❌ ' + esc(data.error) + '</div>';
+      return;
+    }
+
+    // Update subtitle
+    subtitle.textContent = data.entity_label + ' (' + data.entity_code + ') — '
+      + (data.parents ? data.parents.length : 0) + ' parent(s), '
+      + (data.children ? data.children.length : 0) + ' child(ren)';
+
+    // Build graph
+    const parents = data.parents || [];
+    const children = data.children || [];
+    const center = data.entity;
+
+    if (!parents.length && !children.length) {
+      container.innerHTML = renderCenterOnly(center);
+      legend.style.display = 'block';
+      return;
+    }
+
+    container.innerHTML = renderGraph(center, parents, children);
+    legend.style.display = 'block';
+
+    // Draw SVG connection lines after DOM renders
+    setTimeout(drawConnections, 100);
+
+  } catch (e) {
+    loading.style.display = 'none';
+    container.innerHTML = '<div class="graph-error">❌ Failed to load graph: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderCenterOnly(center) {
+  return '<div class="graph-empty">'
+    + '<div class="big-icon">🔗</div>'
+    + '<div style="font-size:1rem;font-weight:600;color:var(--graph-text);margin-bottom:4px;">' + esc(center.label) + '</div>'
+    + '<div style="font-size:0.85rem;">' + esc(center.code) + '</div>'
+    + '<div style="margin-top:12px;font-size:0.8rem;">No linked entities found</div>'
+    + '</div>';
+}
+
+function renderGraph(center, parents, children) {
+  let html = '<div class="graph-nodes" id="graph-nodes">';
+
+  // Parents column
+  html += '<div style="display:flex;flex-direction:column;gap:12px;">';
+  if (parents.length) {
+    html += '<div class="graph-label">⬆ Parents</div>';
+    parents.forEach(function(p) {
+      html += renderNode(p, 'parent');
+    });
+  } else {
+    html += '<div class="graph-label" style="opacity:0.4;">⬆ No parents</div>';
+  }
+  html += '</div>';
+
+  // Connector arrow (SVG handles actual lines; this is visual)
+  html += '<div style="display:flex;align-items:center;font-size:1.5rem;color:var(--graph-line);">→</div>';
+
+  // Center
+  html += '<div style="display:flex;flex-direction:column;gap:12px;">';
+  html += '<div class="graph-label">⬡ Current</div>';
+  html += renderNode(center, 'center');
+  html += '</div>';
+
+  // Connector arrow
+  html += '<div style="display:flex;align-items:center;font-size:1.5rem;color:var(--graph-line);">→</div>';
+
+  // Children column
+  html += '<div style="display:flex;flex-direction:column;gap:12px;">';
+  if (children.length) {
+    html += '<div class="graph-label">⬇ Children</div>';
+    children.forEach(function(c) {
+      html += renderNode(c, 'child');
+    });
+  } else {
+    html += '<div class="graph-label" style="opacity:0.4;">⬇ No children</div>';
+  }
+  html += '</div>';
+
+  html += '</div>';
+
+  // SVG layer for connection lines
+  html += '<div class="graph-svg-layer" id="graph-svg-layer">'
+    + '<svg id="graph-svg"></svg>'
+    + '</div>';
+
+  return html;
+}
+
+function renderNode(node, role) {
+  const cls = role === 'center' ? 'node-center' : (role === 'parent' ? 'node-parent' : 'node-child');
+  const url = node.url || '#';
+  return '<div class="graph-node ' + cls + '" id="node-' + role + '-' + node.id + '">'
+    + '<a href="' + url + '">'
+    + '<div class="node-icon">' + (node.icon || '📌') + '</div>'
+    + '<div class="node-type">' + esc(node.label || node.type || 'Entity') + '</div>'
+    + '<div class="node-code">' + esc(node.code || '') + '</div>'
+    + '<div class="node-name">' + esc(node.display_name || '') + '</div>'
+    + '<div class="node-status">' + esc(node.status || '') + '</div>'
+    + '</a>'
+    + '</div>';
+}
+
+function drawConnections() {
+  const svg = document.getElementById('graph-svg');
+  const nodes = document.getElementById('graph-nodes');
+  if (!svg || !nodes) return;
+
+  const containerRect = nodes.closest('.graph-container').getBoundingClientRect();
+  const centerNodes = nodes.querySelectorAll('.node-center');
+  const parentNodes = nodes.querySelectorAll('.node-parent');
+  const childNodes = nodes.querySelectorAll('.node-child');
+
+  if (!centerNodes.length) return;
+  const centerEl = centerNodes[0];
+  const centerRect = centerEl.getBoundingClientRect();
+  const cx = centerRect.left - containerRect.left + centerRect.width / 2;
+  const cy = centerRect.top - containerRect.top + centerRect.height / 2;
+
+  svg.innerHTML = '';
+
+  parentNodes.forEach(function(el) {
+    const r = el.getBoundingClientRect();
+    const px = r.left - containerRect.left + r.width;
+    const py = r.top - containerRect.top + r.height / 2;
+    appendLine(svg, px, py, cx - 20, cy, '#f59e0b');
+  });
+
+  childNodes.forEach(function(el) {
+    const r = el.getBoundingClientRect();
+    const px = r.left - containerRect.left;
+    const py = r.top - containerRect.top + r.height / 2;
+    appendLine(svg, cx + 20, cy, px, py, '#10b981');
+  });
+}
+
+function appendLine(svg, x1, y1, x2, y2, color) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const line = document.createElementNS(ns, 'line');
+  line.setAttribute('x1', x1);
+  line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2);
+  line.setAttribute('y2', y2);
+  line.setAttribute('stroke', color);
+  line.setAttribute('stroke-width', '2.5');
+  line.setAttribute('stroke-dasharray', '6,4');
+  line.setAttribute('opacity', '0.6');
+
+  // Add arrowhead marker
+  const markerId = 'arrow-' + Math.random().toString(36).substr(2, 6);
+  const marker = document.createElementNS(ns, 'defs');
+  const m = document.createElementNS(ns, 'marker');
+  m.setAttribute('id', markerId);
+  m.setAttribute('viewBox', '0 0 10 10');
+  m.setAttribute('refX', '10');
+  m.setAttribute('refY', '5');
+  m.setAttribute('markerWidth', '6');
+  m.setAttribute('markerHeight', '6');
+  m.setAttribute('orient', 'auto');
+  const arrow = document.createElementNS(ns, 'polygon');
+  arrow.setAttribute('points', '0,0 10,5 0,10');
+  arrow.setAttribute('fill', color);
+  m.appendChild(arrow);
+  marker.appendChild(m);
+  svg.appendChild(marker);
+
+  line.setAttribute('marker-end', 'url(#' + markerId + ')');
+
+  svg.appendChild(line);
+
+  // Animate the dash offset for a flowing effect
+  const style = document.createElementNS(ns, 'style');
+  style.textContent = '@keyframes dash { to { stroke-dashoffset: -20; } }';
+  svg.appendChild(style);
+  line.style.strokeDasharray = '8,6';
+  line.style.animation = 'dash 0.8s linear infinite';
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Load on page ready
+document.addEventListener('DOMContentLoaded', loadGraph);
+</script>
+{% endblock %}

@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-header { text-align: center; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; padding: 8px 4px; }
+  .cal-cell { min-height: 100px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 6px; cursor: pointer; transition: all .15s; position: relative; }
+  .cal-cell:hover { border-color: #3b82f6; background: #1e2d4a; }
+  .cal-cell.other-month { opacity: 0.3; }
+  .cal-cell.today { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
+  .cal-cell.has-events { border-color: #6366f1; }
+  .cal-day-num { font-size: 0.8rem; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
+  .cal-event-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 1px; }
+  .cal-event-row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 4px; font-size: 0.65rem; color: #cbd5e1; cursor: pointer; transition: background .15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-event-row:hover { background: rgba(59,130,246,0.15); }
+  .cal-nav-btn { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 8px 16px; color: #e2e8f0; font-size: 0.85rem; cursor: pointer; transition: all .15s; }
+  .cal-nav-btn:hover { background: #334155; border-color: #3b82f6; }
+  .cal-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+  .cal-legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #94a3b8; }
+  /* Day detail panel */
+  #day-detail { display: none; }
+  #day-detail.active { display: block; }
+  .detail-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; }
+  .detail-event { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px; background: rgba(51,65,85,0.5); border-radius: 8px; border: 1px solid transparent; transition: all .15s; cursor: pointer; }
+  .detail-event:hover { border-color: #334155; background: rgba(51,65,85,0.8); }
+  .detail-event .status-badge { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+</style>
+
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-xl font-bold text-white">📅 Unified Calendar</h1>
+    <button onclick="goToday()" class="cal-nav-btn text-xs">📌 Today</button>
+  </div>
+
+  <!-- Month Navigation -->
+  <div class="flex items-center justify-between mb-4">
+    <button onclick="navMonth(-1)" class="cal-nav-btn">← Previous</button>
+    <h2 id="month-title" class="text-lg font-semibold text-white"></h2>
+    <button onclick="navMonth(1)" class="cal-nav-btn">Next →</button>
+  </div>
+
+  <!-- Color Legend -->
+  <div id="cal-legend" class="cal-legend mb-4"></div>
+
+  <!-- Calendar Grid -->
+  <div class="cal-grid" id="cal-grid">
+    <div class="cal-header">Mon</div>
+    <div class="cal-header">Tue</div>
+    <div class="cal-header">Wed</div>
+    <div class="cal-header">Thu</div>
+    <div class="cal-header">Fri</div>
+    <div class="cal-header">Sat</div>
+    <div class="cal-header">Sun</div>
+  </div>
+
+  <!-- Day Detail Panel -->
+  <div id="day-detail" class="detail-card mt-6">
+    <h3 id="detail-date" class="text-sm font-semibold text-white mb-3"></h3>
+    <div id="detail-events"></div>
+    <p id="detail-empty" class="text-sm text-slate-500 text-center py-4 hidden">No events on this day.</p>
+  </div>
+</div>
+
+<script>
+  const COLORS = [
+    '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444',
+    '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16',
+  ];
+  let currentYear = {{ year }};
+  let currentMonth = {{ month }};
+  let entityColors = {};
+
+  function getColor(type) {
+    if (!entityColors[type]) {
+      entityColors[type] = COLORS[Object.keys(entityColors).length % COLORS.length];
+    }
+    return entityColors[type];
+  }
+
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function render(events) {
+    // Build color legend
+    var types = {};
+    events.forEach(function(e) {
+      if (!types[e.entity_type]) {
+        types[e.entity_type] = { icon: e.icon, color: getColor(e.entity_type) };
+      }
+    });
+    var legendEl = document.getElementById('cal-legend');
+    legendEl.innerHTML = '';
+    Object.keys(types).forEach(function(t) {
+      legendEl.innerHTML += '<div class="cal-legend-item">' +
+        '<span class="cal-event-dot" style="background:' + types[t].color + '"></span>' +
+        esc(types[t].icon + ' ' + t) + '</div>';
+    });
+    if (Object.keys(types).length === 0) {
+      legendEl.innerHTML = '<span class="text-xs text-slate-500">No events this month</span>';
+    }
+
+    // Build event lookup by day
+    var byDay = {};
+    events.forEach(function(e) {
+      var dayNum = parseInt(e.date.split('-')[2], 10);
+      if (!byDay[dayNum]) byDay[dayNum] = [];
+      byDay[dayNum].push(e);
+    });
+
+    // Render cells
+    var grid = document.getElementById('cal-grid');
+    // Keep header rows
+    while (grid.children.length > 7) { grid.removeChild(grid.lastChild); }
+
+    var todayStr = '{{ today }}';
+
+    // Reset detail
+    document.getElementById('day-detail').classList.remove('active');
+
+    // We need month metadata from API — fetch it
+    fetchCalendarData();
+  }
+
+  // ── State ──
+  var stateYear = {{ year }};
+  var stateMonth = {{ month }};
+  var stateEvents = [];
+
+  function fetchCalendarData() {
+    fetch('/admin/api/calendar?year=' + stateYear + '&month=' + stateMonth)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        stateEvents = d.events;
+        renderGrid(d);
+      })
+      .catch(function(err) { console.error('Calendar fetch failed:', err); });
+  }
+
+  function renderGrid(d) {
+    var grid = document.getElementById('cal-grid');
+    // Keep header rows (first 7 children)
+    while (grid.children.length > 7) { grid.removeChild(grid.lastChild); }
+
+    document.getElementById('month-title').textContent = d.month_name + ' ' + d.year;
+
+    var todayStr = d.today;
+    var byDay = {};
+    d.events.forEach(function(e) {
+      var dayNum = parseInt(e.date.split('-')[2], 10);
+      if (!byDay[dayNum]) byDay[dayNum] = [];
+      byDay[dayNum].push(e);
+    });
+
+    d.days.forEach(function(dayNum) {
+      var cell = document.createElement('div');
+      cell.className = 'cal-cell';
+      cell.dataset.day = dayNum || '';
+      cell.dataset.date = dayNum ? d.year + '-' + String(d.month).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0') : '';
+
+      if (dayNum === null) {
+        cell.style.visibility = 'hidden';
+        grid.appendChild(cell);
+        return;
+      }
+
+      // Today highlight
+      var cellDate = cell.dataset.date;
+      if (cellDate === todayStr) cell.classList.add('today');
+
+      // Day number
+      var dayLabel = document.createElement('div');
+      dayLabel.className = 'cal-day-num';
+      dayLabel.textContent = dayNum;
+      cell.appendChild(dayLabel);
+
+      // Events
+      var dayEvents = byDay[dayNum] || [];
+      if (dayEvents.length > 0) cell.classList.add('has-events');
+
+      // Show up to 3 events as bars + count
+      var maxShow = 3;
+      dayEvents.slice(0, maxShow).forEach(function(e) {
+        var row = document.createElement('div');
+        row.className = 'cal-event-row';
+        row.title = e.title + ' (' + e.entity_type + ')';
+        row.innerHTML = '<span class="cal-event-dot" style="background:' + getColor(e.entity_type) + '"></span>' +
+          '<span>' + esc(e.title || e.code || '#' + e.entity_id) + '</span>';
+        row.addEventListener('click', function(ev) {
+          ev.stopPropagation();
+          showDetail(e.date);
+        });
+        cell.appendChild(row);
+      });
+
+      if (dayEvents.length > maxShow) {
+        var more = document.createElement('div');
+        more.className = 'text-[0.6rem] text-slate-500 mt-1 pl-1';
+        more.textContent = '+' + (dayEvents.length - maxShow) + ' more';
+        cell.appendChild(more);
+      }
+
+      // Click cell → show day detail
+      cell.addEventListener('click', function() {
+        showDetail(cell.dataset.date);
+      });
+
+      grid.appendChild(cell);
+    });
+  }
+
+  function showDetail(dateStr) {
+    if (!dateStr) return;
+    var el = document.getElementById('day-detail');
+    el.classList.add('active');
+
+    var dateLabel = document.getElementById('detail-date');
+    dateLabel.textContent = '📅 ' + dateStr;
+
+    var list = document.getElementById('detail-events');
+    list.innerHTML = '';
+    var empty = document.getElementById('detail-empty');
+
+    var dayEvents = stateEvents.filter(function(e) { return e.date === dateStr; });
+    if (dayEvents.length === 0) {
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+
+    dayEvents.forEach(function(e) {
+      var div = document.createElement('a');
+      div.className = 'detail-event';
+      div.href = '/entities/' + encodeURIComponent(e.entity_type) + '/' + e.entity_id;
+      div.target = '_blank';
+
+      var colorDot = document.createElement('span');
+      colorDot.className = 'cal-event-dot';
+      colorDot.style.background = getColor(e.entity_type);
+      colorDot.style.width = '10px';
+      colorDot.style.height = '10px';
+
+      var info = document.createElement('div');
+      info.style.flex = '1';
+      info.innerHTML = '<div class="text-sm font-medium text-white">' + esc(e.icon + ' ' + e.title) +
+        (e.code ? ' <span class="text-slate-400 text-xs">(' + esc(e.code) + ')</span>' : '') + '</div>' +
+        '<div class="text-xs text-slate-400">' + esc(e.entity_type) + ' · ' + esc(e.field_label) + '</div>';
+
+      var badge = document.createElement('span');
+      badge.className = 'status-badge';
+      badge.style.background = getStatusColor(e.status);
+      badge.textContent = e.status;
+
+      div.appendChild(colorDot);
+      div.appendChild(info);
+      div.appendChild(badge);
+      list.appendChild(div);
+    });
+  }
+
+  function getStatusColor(status) {
+    var map = {
+      'new': '#3b82f680', 'active': '#10b98180', 'pending': '#f59e0b80',
+      'closed': '#64748b80', 'won': '#10b98180', 'lost': '#ef444480',
+      'open': '#3b82f680', 'completed': '#10b98180', 'cancelled': '#ef444480',
+    };
+    return map[status] || '#64748b80';
+  }
+
+  function navMonth(delta) {
+    stateMonth += delta;
+    if (stateMonth < 1) { stateMonth = 12; stateYear -= 1; }
+    if (stateMonth > 12) { stateMonth = 1; stateYear += 1; }
+    fetchCalendarData();
+  }
+
+  function goToday() {
+    var t = new Date();
+    stateYear = t.getFullYear();
+    stateMonth = t.getMonth() + 1;
+    fetchCalendarData();
+  }
+
+  // ── Init ──
+  fetchCalendarData();
+</script>
+{% endblock %}

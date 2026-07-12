@@ -11,7 +11,7 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 from sqlalchemy import or_
 from app import db
-from app.models import Entity, EntityDefinition, KnowledgeEntry, Relationship, Opportunity
+from app.models import Entity, EntityDefinition, KnowledgeEntry, Relationship, Opportunity, ActivityLog, LearningCandidate
 from app.shunya.foundation import Result, NextAction, Priority
 from app.shunya.next_best_action import NextBestActionEngine
 
@@ -468,3 +468,157 @@ class Bird:
         }
         formatter = templates.get(template, templates["attention"])
         return formatter.format(**kwargs)
+
+    # ------------------------------------------------------------------ #
+    # Memory Compounding — Learn from Past Outcomes (D7)
+    # ------------------------------------------------------------------ #
+
+    def learn_from_outcome(self, outcome_id: int, entity_type: str,
+                           action_taken: str, result: str, rating: int) -> dict:
+        """Learn from an outcome by storing it as a learning candidate.
+
+        Queries ActivityLog for that outcome.
+        If rating >= 4: marks this action as 'confirmed good'
+        If rating <= 2: marks this action as 'avoid repeating'
+        """
+        # Query the ActivityLog for this outcome
+        activity = db.session.query(ActivityLog).filter_by(
+            id=outcome_id, tenant_id=self.tenant_id
+        ).first()
+
+        # Build evidence from the activity if found
+        evidence = []
+        if activity:
+            evidence.append({
+                "activity_id": activity.id,
+                "action": activity.action,
+                "detail": (activity.detail or "")[:500],
+                "metadata": activity.metadata_json or {},
+                "timestamp": activity.created_at.isoformat() if activity.created_at else None,
+            })
+
+        # Determine status based on rating
+        if rating >= 4:
+            status = "confirmed_good"
+        elif rating <= 2:
+            status = "avoid_repeating"
+        else:
+            status = "neutral"
+
+        # Create the learning candidate
+        candidate = LearningCandidate(
+            tenant_id=self.tenant_id,
+            pattern=f"outcome:{entity_type}:{action_taken}",
+            evidence=evidence,
+            confidence=rating / 5.0,
+            category="outcome",
+            status=status,
+            related_outcomes=[outcome_id] if outcome_id else [],
+            source_observations=[{
+                "entity_type": entity_type,
+                "action_taken": action_taken,
+                "result": result,
+                "rating": rating,
+            }],
+        )
+        db.session.add(candidate)
+        db.session.commit()
+
+        return {
+            "id": candidate.id,
+            "pattern": candidate.pattern,
+            "confidence": candidate.confidence,
+            "status": candidate.status,
+            "timestamp": candidate.created_at.isoformat() if candidate.created_at else None,
+        }
+
+    def get_learned_preferences(self, entity_type: str = None) -> list:
+        """Return learned patterns from learning candidates.
+
+        Returns list of dicts: {action, confidence, evidence_count, last_applied, trend}
+        Sorts by confidence descending.
+        If entity_type is None, returns all.
+        """
+        query = db.session.query(LearningCandidate).filter(
+            LearningCandidate.tenant_id == self.tenant_id,
+            LearningCandidate.category == "outcome",
+        )
+
+        if entity_type:
+            query = query.filter(
+                LearningCandidate.pattern.ilike(f"outcome:{entity_type}:%")
+            )
+
+        candidates = query.order_by(LearningCandidate.confidence.desc()).all()
+
+        results = []
+        for c in candidates:
+            # Parse pattern to extract action
+            pattern_parts = c.pattern.split(":", 2)
+            action = pattern_parts[2] if len(pattern_parts) > 2 else c.pattern
+
+            # Determine trend based on status
+            if c.status == "confirmed_good":
+                trend = "positive"
+            elif c.status == "avoid_repeating":
+                trend = "negative"
+            else:
+                trend = "neutral"
+
+            results.append({
+                "action": action,
+                "confidence": c.confidence,
+                "evidence_count": len(c.evidence or []),
+                "last_applied": c.updated_at.isoformat() if c.updated_at else None,
+                "trend": trend,
+                "pattern": c.pattern,
+                "status": c.status,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            })
+
+        return results
+
+    def adjust_suggestion(self, suggestion: dict, entity_type: str) -> dict:
+        """Adjust a suggestion based on learned preferences.
+
+        Checks if a similar action was tried before.
+        If yes, adjusts confidence and adds context:
+        'Last time we did X, the outcome was Y'
+        Returns adjusted suggestion with learned_context field.
+        """
+        action = suggestion.get("action", "")
+        if not action:
+            suggestion["learned_context"] = None
+            return suggestion
+
+        # Find similar past outcomes
+        preferences = self.get_learned_preferences(entity_type)
+        similar = [p for p in preferences if p["action"] == action]
+
+        learned_context = None
+        adjusted_confidence = suggestion.get("confidence", 0.5)
+
+        if similar:
+            best = similar[0]  # Already sorted by confidence desc
+            if best["trend"] == "positive":
+                adjusted_confidence = min(1.0, adjusted_confidence + 0.15)
+                learned_context = (
+                    f"Last time we did '{action}', the outcome was positive "
+                    f"(confidence: {best['confidence']:.1f}, "
+                    f"evidence: {best['evidence_count']} time(s))"
+                )
+            elif best["trend"] == "negative":
+                adjusted_confidence = max(0.1, adjusted_confidence - 0.25)
+                learned_context = (
+                    f"⚠️ Last time we tried '{action}', the outcome was unfavorable "
+                    f"(confidence: {best['confidence']:.1f}). "
+                    f"Consider a different approach."
+                )
+
+        if not learned_context:
+            # No prior experience with this action on this entity type
+            learned_context = f"No prior experience with '{action}' on {entity_type}."
+
+        suggestion["confidence"] = round(adjusted_confidence, 2)
+        suggestion["learned_context"] = learned_context
+        return suggestion
