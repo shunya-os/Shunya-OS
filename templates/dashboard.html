@@ -68,7 +68,7 @@
 <!-- Quick Stats — vertical-specific KPIs, not hardcoded -->
 {% if vertical_metrics %}
 <div class="mb-5">
-  <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📊 {{ tenant.vertical_config.get('vertical','business').title() }} Overview</h2>
+  <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📊 {% set vname = tenant.vertical_config.get('vertical','business') if tenant.vertical_config else 'business' %}{{ vname.title() }} Overview</h2>
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
     {% for m in vertical_metrics[:4] %}
     <div class="stat-card bg-[#1e293b] border border-[#334155] rounded-xl p-3">

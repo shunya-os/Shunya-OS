@@ -161,11 +161,12 @@ def index():
     vertical_metrics = []
     vertical_actions = []
     try:
-        vid = (tenant.vertical_config or {}).get("vertical", "custom")
-        vc = get_vertical(vid)
-        if vc:
-            vertical_metrics = vc.get("dashboard_metrics", [])
-            vertical_actions = vc.get("quick_actions", [])
+        vc = (tenant.vertical_config or {})
+        vid = vc.get("vertical", "custom")
+        t = get_vertical(vid)
+        if t:
+            vertical_metrics = t.get("dashboard_metrics", [])
+            vertical_actions = t.get("quick_actions", [])
     except Exception:
         pass
 
