@@ -4,7 +4,7 @@ from datetime import datetime, date
 from enum import Enum as PyEnum
 from typing import Optional
 from app import db
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Float, ForeignKey, JSON, Numeric, Index
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Date, Float, ForeignKey, JSON, Numeric, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
@@ -1310,4 +1310,84 @@ class UserMoodCheckin(db.Model):
             "energy": self.energy,
             "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# User Activity & Intelligence Tracking
+# ---------------------------------------------------------------------------
+
+class UserActivityLog(db.Model):
+    """Granular tracking of every user interaction on the platform.
+
+    Records page views, feature usage, Bird AI queries, mood check-ins,
+    relationship touches, and entertainment/social media activity.
+    """
+    __tablename__ = "user_activity_logs"
+    __table_args__ = (
+        Index("ix_user_activity_type", "tenant_id", "user_id", "activity_type"),
+        Index("ix_user_activity_date", "tenant_id", "user_id", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
+    session_id = Column(String(64), nullable=True)
+    page_path = Column(String(500), default="")
+    page_title = Column(String(255), default="")
+    activity_type = Column(String(40), nullable=False)  # page_view, feature_use, bird_ai_query, mood_checkin, relationship_touch, social_media, entertainment, focus_time, break
+    duration_seconds = Column(Integer, default=0)
+    metadata_json = Column(JSONB, default=dict)
+    device_info = Column(String(255), default="")
+    ip_address = Column(String(45), default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "activity_type": self.activity_type,
+            "page_path": self.page_path, "page_title": self.page_title,
+            "duration_seconds": self.duration_seconds,
+            "metadata": self.metadata_json or {},
+            "session_id": self.session_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class UserDailySummary(db.Model):
+    """Rolled-up daily summary for a user — pre-computed for dashboards."""
+    __tablename__ = "user_daily_summaries"
+    __table_args__ = (
+        Index("ix_uds_user_date", "tenant_id", "user_id", "date", unique=True),
+    )
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    total_active_minutes = Column(Integer, default=0)
+    total_sessions = Column(Integer, default=0)
+    mood_entries = Column(Integer, default=0)
+    relationship_touches = Column(Integer, default=0)
+    bird_ai_queries = Column(Integer, default=0)
+    entertainment_minutes = Column(Integer, default=0)
+    social_media_minutes = Column(Integer, default=0)
+    focus_minutes = Column(Integer, default=0)
+    break_minutes = Column(Integer, default=0)
+    pages_visited = Column(JSONB, default=list)
+    summary_text = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "date": self.date.isoformat() if self.date else None,
+            "total_active_minutes": self.total_active_minutes,
+            "total_sessions": self.total_sessions,
+            "mood_entries": self.mood_entries,
+            "relationship_touches": self.relationship_touches,
+            "bird_ai_queries": self.bird_ai_queries,
+            "entertainment_minutes": self.entertainment_minutes,
+            "social_media_minutes": self.social_media_minutes,
+            "focus_minutes": self.focus_minutes,
+            "break_minutes": self.break_minutes,
+            "summary_text": self.summary_text,
         }

@@ -75,6 +75,8 @@ def _register_blueprints(app):
     from app.routes.admin import admin_bp
     from app.routes.webhooks import webhooks_bp
     from app.routes.agent import agent_bp
+    from app.routes.user_intelligence import user_intel_bp
+    from app.routes.user_intel_page import user_intel_page_bp
 
     try:
         from app.routes.hr import hr_bp
@@ -122,6 +124,10 @@ def _register_blueprints(app):
     app.register_blueprint(mood_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(webhooks_bp)
+
+    app.register_blueprint(user_intel_page_bp)
+
+    app.register_blueprint(user_intel_bp)
 
 
 # ---------------------------------------------------------------------------

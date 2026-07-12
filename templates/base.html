@@ -59,6 +59,7 @@
               <a href="/ingestion" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📥 Ingest</a>
               <a href="/analytics" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📊 Analytics</a>
               <a href="/learning" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🧠 Learn</a>
+              <a href="/user-intel" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🧠 Intelligence</a>
             </div>
           </div>
           <!-- Admin dropdown -->
@@ -125,6 +126,7 @@
       <a href="/ingestion" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📥 Ingest</a>
       <a href="/analytics" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📊 Analytics</a>
       <a href="/learning" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🧠 Learn</a>
+      <a href="/user-intel" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🧠 Intelligence</a>
       <a href="/admin/brand" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🏢 Brand</a>
       <a href="/admin/email" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📧 Email</a>
       <a href="/modules" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📦 Modules</a>
@@ -179,11 +181,69 @@
 
       <!-- Capability bar + Journey insights -->
       <div style="padding:8px 14px;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap;background:#f8fafc;">
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;cursor:pointer;" onclick="insertExample('movies now showing near me')">🎬 Movies</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;cursor:pointer;" onclick="insertExample('weather forecast')">🌤️ Weather</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;cursor:pointer;" onclick="insertExample('best restaurants nearby')">🍽️ Food</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;cursor:pointer;" onclick="insertExample('latest news')">📰 News</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;cursor:pointer;" onclick="insertExample('events this weekend')">🎉 Events</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#ecfdf5;color:#065f46;font-weight:500;cursor:pointer;" onclick="openMoodCheckin()">😊 Mood check</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#ecfdf5;color:#065f46;font-weight:500;cursor:pointer;" onclick="insertExample('my focus score')">📊 Insights</span>
         <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🔍 Web search</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🎤 Voice (37 lang)</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">📝 Create records</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">📊 Ask data</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#ecfdf5;color:#065f46;font-weight:500;">🔄 Journey</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🎤 Voice</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🔄 Journey</span>
+      </div>
+
+      <!-- Quick Actions (collapsible) -->
+      <div id="bird-quick-actions" style="display:none;padding:6px 14px;border-bottom:1px solid #e2e8f0;background:#f0fdf4;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:0.7rem;font-weight:600;color:#065f46;">⚡ Quick Actions</span>
+          <span onclick="document.getElementById('bird-quick-actions').style.display='none'" style="font-size:0.7rem;color:#94a3b8;cursor:pointer;">✕</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+          <span onclick="insertExample('movies now showing near Delhi')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🎬 Movies near me</span>
+          <span onclick="insertExample('weather forecast today')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🌤️ Weather today</span>
+          <span onclick="insertExample('best restaurants near me')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🍽️ Best restaurants</span>
+          <span onclick="insertExample('latest news')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">📰 Latest news</span>
+          <span onclick="insertExample('events this weekend near me')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🎉 Events this weekend</span>
+          <span onclick="openMoodCheckin()" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">😊 Log my mood</span>
+          <span onclick="insertExample('my focus score and insights')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">📊 My activity insights</span>
+          <span onclick="insertExample('top tourist places to visit')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🗺️ Nearby attractions</span>
+        </div>
+      </div>
+
+      <!-- Mood check-in mini form (inside Bird) -->
+      <div id="bird-mood-form" style="display:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#fff7ed;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:0.75rem;font-weight:600;color:#9a3412;">😊 How are you feeling?</span>
+          <span onclick="closeMoodCheckin()" style="font-size:0.7rem;color:#94a3b8;cursor:pointer;">✕</span>
+        </div>
+        <div id="mood-buttons" style="display:flex;gap:6px;margin-bottom:6px;">
+          <span onclick="selectMood('great')" data-mood="great" style="font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:8px;background:#f1f5f9;border:2px solid transparent;">😄</span>
+          <span onclick="selectMood('good')" data-mood="good" style="font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:8px;background:#f1f5f9;border:2px solid transparent;">😊</span>
+          <span onclick="selectMood('okay')" data-mood="okay" style="font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:8px;background:#f1f5f9;border:2px solid transparent;">😐</span>
+          <span onclick="selectMood('rough')" data-mood="rough" style="font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:8px;background:#f1f5f9;border:2px solid transparent;">😔</span>
+          <span onclick="selectMood('tough')" data-mood="tough" style="font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:8px;background:#f1f5f9;border:2px solid transparent;">😢</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span style="font-size:0.65rem;color:#64748b;">Energy:</span>
+          <input id="mood-energy" type="range" min="1" max="5" step="1" value="3" style="flex:1;height:4px;">
+          <span id="mood-energy-label" style="font-size:0.7rem;font-weight:600;color:#9a3412;">3/5</span>
+        </div>
+        <input id="mood-notes" type="text" placeholder="Notes (optional)..." style="width:100%;padding:6px 10px;border:1px solid #fed7aa;border-radius:8px;font-size:0.75rem;color:#1e293b;background:white;outline:none;margin-bottom:6px;box-sizing:border-box;">
+        <div style="display:flex;gap:6px;">
+          <button onclick="submitMoodCheckin()" style="flex:1;padding:6px;background:#059669;color:white;border:none;border-radius:8px;font-size:0.75rem;cursor:pointer;font-weight:500;">✅ Log Check-in</button>
+          <button onclick="closeMoodCheckin()" style="padding:6px 12px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:0.75rem;cursor:pointer;">Cancel</button>
+        </div>
+        <div id="mood-result" style="display:none;font-size:0.75rem;color:#059669;margin-top:4px;"></div>
+      </div>
+
+      <!-- Mood reminder (shown if no check-in today) -->
+      <div id="bird-mood-reminder" style="display:none;padding:6px 14px;border-bottom:1px solid #e2e8f0;background:#fef3c7;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:0.8rem;">😊</span>
+          <span style="font-size:0.7rem;color:#92400e;flex:1;">You haven't checked in today! <a href="#" onclick="event.preventDefault();openMoodCheckin()" style="color:#2563eb;text-decoration:underline;">Log now</a></span>
+          <span onclick="this.parentElement.parentElement.style.display='none'" style="font-size:0.7rem;color:#94a3b8;cursor:pointer;">✕</span>
+        </div>
       </div>
       
       <!-- Journey mini-view (collapsible) -->
@@ -288,12 +348,39 @@
       removeThinking(msgs, thinkingId);
 
       let html = (d.message || 'Done!').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-      
+
+      // Render web results as rich cards
+      if (d.data && d.data.results && d.data.results.length > 0) {
+        var resultType = 'web';
+        if (d.data.query && d.data.query.indexOf('movies') !== -1) resultType = 'movie';
+        else if (d.data.query && (d.data.query.indexOf('weather') !== -1 || d.data.query.indexOf('forecast') !== -1)) resultType = 'weather';
+        else if (d.data.query && (d.data.query.indexOf('restaurant') !== -1 || d.data.query.indexOf('food') !== -1 || d.data.query.indexOf('cuisine') !== -1)) resultType = 'restaurant';
+        else if (d.data.query && (d.data.query.indexOf('news') !== -1)) resultType = 'news';
+        else if (d.data.query && (d.data.query.indexOf('event') !== -1 || d.data.query.indexOf('concert') !== -1 || d.data.query.indexOf('festival') !== -1)) resultType = 'event';
+        else if (d.data.query && (d.data.query.indexOf('place') !== -1 || d.data.query.indexOf('attraction') !== -1 || d.data.query.indexOf('tourist') !== -1)) resultType = 'place';
+        html += renderWebResults(msgs, d.data.results, resultType);
+      }
+
+      // Render quick actions if present
+      if (d.data && d.data.quick_actions && d.data.quick_actions.length > 0) {
+        html += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">';
+        for (var qi = 0; qi < d.data.quick_actions.length; qi++) {
+          var qa = d.data.quick_actions[qi];
+          if (qa.action && qa.action.indexOf('bird_query:') === 0) {
+            var qText = qa.action.substring(11);
+            html += '<span onclick="insertExample(\'' + qText.replace(/'/g, "\\'") + '\')" style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:#f0fdf4;color:#065f46;cursor:pointer;border:1px solid #bbf7d0;">' + qa.label + '</span>';
+          } else {
+            html += '<span style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">' + qa.label + '</span>';
+          }
+        }
+        html += '</div>';
+      }
+
       // Add action link if present
       if (d.target_url) {
         html += '<div style="margin-top:8px;"><a href="' + d.target_url + '" style="display:inline-block;padding:6px 14px;background:#2563eb;color:white;border-radius:8px;font-size:0.8rem;text-decoration:none;">View →</a></div>';
       }
-      
+
       // Show error styling if failed
       if (!d.success) {
         html = '<div style="padding:8px 12px;background:#fef2f2;border-radius:12px;color:#991b1b;font-size:0.85rem;">' + html + '</div>';
@@ -660,6 +747,186 @@
       updateDefaultLabel(current);
     }).catch(() => {});
   })();
+
+  // ── Mood Check-in Functions ──
+  var _selectedMood = '';
+  var _moodState = {};
+
+  function openMoodCheckin() {
+    var f = document.getElementById('bird-mood-form');
+    var p = document.getElementById('bird-mood-reminder');
+    if (p) p.style.display = 'none';
+    if (f) {
+      f.style.display = 'block';
+      document.getElementById('bird-energy-label').textContent = document.getElementById('mood-energy').value + '/5';
+    }
+    var qa = document.getElementById('bird-quick-actions');
+    if (qa) qa.style.display = 'block';
+  }
+
+  function closeMoodCheckin() {
+    var f = document.getElementById('bird-mood-form');
+    if (f) f.style.display = 'none';
+    document.getElementById('mood-result').style.display = 'none';
+    _selectedMood = '';
+    var btns = document.querySelectorAll('#mood-buttons span');
+    for (var i = 0; i < btns.length; i++) btns[i].style.borderColor = 'transparent';
+  }
+
+  function selectMood(mood) {
+    _selectedMood = mood;
+    var btns = document.querySelectorAll('#mood-buttons span');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].style.borderColor = btns[i].getAttribute('data-mood') === mood ? '#2563eb' : 'transparent';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var eslider = document.getElementById('mood-energy');
+    if (eslider) {
+      eslider.addEventListener('input', function() {
+        document.getElementById('mood-energy-label').textContent = this.value + '/5';
+      });
+    }
+  });
+
+  async function submitMoodCheckin() {
+    if (!_selectedMood) {
+      document.getElementById('mood-result').style.display = 'block';
+      document.getElementById('mood-result').style.color = '#dc2626';
+      document.getElementById('mood-result').textContent = 'Please select your mood';
+      return;
+    }
+    var mood = _selectedMood;
+    var energy = parseInt(document.getElementById('mood-energy').value) || 3;
+    var notes = document.getElementById('mood-notes').value || '';
+
+    try {
+      var r = await fetch('/api/checkin', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mood: mood, energy: energy, notes: notes})
+      });
+      var d = await r.json();
+      if (d.success) {
+        document.getElementById('mood-result').style.display = 'block';
+        document.getElementById('mood-result').style.color = '#059669';
+        document.getElementById('mood-result').textContent = '✅ Thanks! Feeling ' + mood + ', energy ' + energy + '/5 logged.';
+        closeMoodCheckin();
+        logActivity('mood_checkin', window.location.pathname, 'Mood: ' + mood);
+        setTimeout(function() {
+          document.getElementById('mood-result').style.display = 'none';
+        }, 3000);
+      } else {
+        document.getElementById('mood-result').style.display = 'block';
+        document.getElementById('mood-result').style.color = '#dc2626';
+        document.getElementById('mood-result').textContent = '❌ ' + (d.error || 'Failed');
+      }
+    } catch(e) {
+      document.getElementById('mood-result').style.display = 'block';
+      document.getElementById('mood-result').style.color = '#dc2626';
+      document.getElementById('mood-result').textContent = '❌ Network error';
+    }
+  }
+
+  // ── Rich Web Results Rendering ──
+  function renderWebResults(container, results, type) {
+    if (!results || results.length === 0) return '';
+    var typeIcons = {movie: '🎬', weather: '🌤️', restaurant: '🍽️', news: '📰', event: '🎉', place: '🗺️', web: '🌐'};
+    var icon = typeIcons[type] || '🌐';
+    var html = '<div style="margin-top:4px;">';
+    var maxShow = Math.min(results.length, 5);
+    for (var i = 0; i < maxShow; i++) {
+      var r = results[i];
+      var snippet = (r.snippet || '').substring(0, 120);
+      if (snippet.length >= 120) snippet += '...';
+      html += '<div style="padding:6px 10px;margin-bottom:4px;background:white;border:1px solid #e2e8f0;border-radius:10px;font-size:0.75rem;">';
+      html += '<div style="font-weight:600;color:#1e293b;margin-bottom:2px;">' + (r.title || 'Result') + '</div>';
+      if (snippet) html += '<div style="color:#64748b;margin-bottom:3px;line-height:1.3;">' + escapeHtml(snippet) + '</div>';
+      if (r.url) html += '<a href="' + r.url + '" target="_blank" style="color:#2563eb;text-decoration:none;font-size:0.7rem;">🔗 Open →</a>';
+      html += '</div>';
+    }
+    if (results.length > 5) {
+      html += '<div style="text-align:center;padding:4px;font-size:0.7rem;color:#94a3b8;">+ ' + (results.length - 5) + ' more results</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function escapeHtml(t) {
+    if (!t) return '';
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(t));
+    return d.innerHTML;
+  }
+
+  // ── Activity Tracking ──
+  async function logActivity(type, path, title) {
+    try {
+      await fetch('/api/user-intel/log', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          activity_type: type,
+          page_path: path || window.location.pathname,
+          page_title: title || document.title,
+          duration: 0
+        })
+      });
+    } catch(e) { /* silent */ }
+  }
+
+  // ── Mood Reminder Check ──
+  async function checkMoodReminder() {
+    try {
+      var r = await fetch('/api/checkin/status');
+      var d = await r.json();
+      if (!d.checked_in) {
+        var rem = document.getElementById('bird-mood-reminder');
+        if (rem) rem.style.display = 'block';
+      }
+    } catch(e) { /* silent */ }
+  }
+
+  // Trigger mood check when Bird opens
+  (function() {
+    var origToggle = window.toggleBird;
+    // Already the function exists, we hook via checking the panel after toggle
+  })();
+  // Enhance the toggle function to check mood on open
+  var _origToggleBird = window.toggleBird;
+  window.toggleBird = function() {
+    var p = document.getElementById('bird-panel');
+    var wasHidden = p.style.display === 'none' || p.style.display === '';
+    _origToggleBird();
+    if (wasHidden) {
+      checkMoodReminder();
+      var qa = document.getElementById('bird-quick-actions');
+      if (qa) qa.style.display = 'block';
+    }
+  };
+
+  // Auto-track page views
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+      logActivity('page_view', window.location.pathname, document.title);
+    }, 2000);
+  });
+
+  // Enhance birdChat to track queries
+  var _origBirdChat = window.birdChat;
+  window.birdChat = function() {
+    var input = document.getElementById('bird-input');
+    var q = input.value.trim();
+    if (q) {
+      logActivity('bird_ai_query', window.location.pathname, q.substring(0, 100));
+    }
+    return _origBirdChat();
+  };
+
+  // Enhance birdChat response rendering for web results
+  var _origAddMsg = window.addMsg;
+  // Enhanced version that also renders quick_actions if present
 
   // ── Keyboard shortcuts ──
   document.addEventListener('keydown', function(e) {
