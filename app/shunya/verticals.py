@@ -9,6 +9,14 @@ When a new business signs up, its vertical template defines:
 - Default AI configuration
 """
 
+from app.shunya.ontology import (
+    OntologyRegistry,
+    OntologyLoader,
+    VerticalOntology,
+    OntologyEntity,
+    OntologyStatus,
+)
+
 # Each vertical defines a set of entity type definitions to auto-create.
 # The entity engine is the same — only terminology, icons, and flows change.
 
@@ -681,3 +689,13 @@ def get_dashboard_config(vertical_id: str) -> dict:
         "metrics": v.get("dashboard_metrics", []),
         "quick_actions": v.get("quick_actions", []),
     }
+
+
+def get_ontology_registry() -> OntologyRegistry:
+    """Create and return a populated OntologyRegistry from VERTICAL_TEMPLATES.
+    
+    Uses OntologyLoader to hydrate all 8 vertical templates into typed
+    VerticalOntology objects. Caches nothing — caller may cache as needed.
+    """
+    loader = OntologyLoader()
+    return loader.load()

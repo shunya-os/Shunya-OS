@@ -14,6 +14,11 @@ from app import db
 from app.models import Entity, EntityDefinition, KnowledgeEntry, Relationship, Opportunity, ActivityLog, LearningCandidate
 from app.shunya.foundation import Result, NextAction, Priority
 from app.shunya.next_best_action import NextBestActionEngine
+from app.shunya.planner import SequentialPlanner, DependencyGraph
+from app.shunya.reasoning import (
+    RuleReasoner, Goal, Fact, Decision, ReasoningRequest,
+    ReasoningResult, ReasoningStatus, get_last_reasoning_trace,
+)
 
 
 class Bird:
@@ -26,12 +31,80 @@ class Bird:
         self.user_role = user_role
         self.user_name = user_name
 
+        # ── Reasoning engine ─────────────────────────────────────── #
+        self.reasoner = RuleReasoner()
+        self._register_reasoning_rules()
+
+    # ── Reasoning rules ────────────────────────────────────────── #
+
+    def _register_reasoning_rules(self):
+        """Register default Bird reasoning rules."""
+
+        # Rule 1: High priority — user has overdue items
+        def _overdue_rule(facts, goals):
+            overdue = facts.get("overdue_count")
+            return overdue is not None and int(overdue.confidence) > 0
+
+        def _overdue_action(facts, goals, request):
+            overdue = facts["overdue_count"]
+            return f"Flag {overdue.statement} for immediate attention"
+
+        self.reasoner.add_rule(
+            "high_overdue_alert", _overdue_rule, _overdue_action, priority=8
+        )
+
+        # Rule 2: Medium priority — user has many open items
+        def _open_items_rule(facts, goals):
+            open_total = facts.get("total_open")
+            return open_total is not None and int(open_total.confidence) > 0
+
+        def _open_items_action(facts, goals, request):
+            open_total = facts["total_open"]
+            return (
+                f"Prioritise from {open_total.statement}"
+            )
+
+        self.reasoner.add_rule(
+            "open_items_backlog", _open_items_rule, _open_items_action,
+            priority=6,
+        )
+
+        # Rule 3: Low priority — user has recent activity
+        def _recent_activity_rule(facts, goals):
+            recent = facts.get("recent_activity")
+            return recent is not None and int(recent.confidence) > 0
+
+        def _recent_activity_action(facts, goals, request):
+            recent = facts["recent_activity"]
+            return f"Follow up on {recent.statement}"
+
+        self.reasoner.add_rule(
+            "recent_activity_followup", _recent_activity_rule,
+            _recent_activity_action, priority=4,
+        )
+
+        # Rule 4: Default — smooth sailing
+        def _default_rule(facts, goals):
+            return True
+
+        def _default_action(facts, goals, request):
+            return "Everything on track — maintain current course"
+
+        self.reasoner.add_rule(
+            "default_steady_state", _default_rule, _default_action,
+            priority=1,
+        )
+
     # ------------------------------------------------------------------ #
     # Greeting
     # ------------------------------------------------------------------ #
 
     def greet(self) -> dict:
-        """Personalized greeting with time-of-day AND relationship context."""
+        """Personalized greeting with time-of-day AND relationship context.
+
+        Backward-compatible: existing callers receive the same shape,
+        with an additional 'reasoning_trace' key.
+        """
         hour = datetime.utcnow().hour
 
         if hour < 12:
@@ -58,13 +131,60 @@ class Bird:
         else:
             message = "Ready to make today productive?"
 
+        # ── Reasoning trace via RuleReasoner ─────────────────────── #
+        reasoning_result = self._reason_on_greeting(ctx)
+
         return {
             "greeting": f"{greeting}, {self.user_name}!",
             "icon": "🧠",
             "message": message,
             "context": ctx,
             "suggestions": self._quick_suggestions(),
+            "reasoning_trace": {
+                "trace": reasoning_result.reasoning_trace,
+                "decision": reasoning_result.decision.outcome,
+                "confidence": reasoning_result.confidence,
+                "rationale": reasoning_result.decision.rationale,
+                "alternative_count": len(reasoning_result.alternative_decisions),
+            },
         }
+
+    def _reason_on_greeting(self, ctx: dict) -> ReasoningResult:
+        """Run RuleReasoner over the greeting context to produce a trace."""
+        facts = []
+        if ctx["total_open"] > 0:
+            facts.append(Fact(
+                id="total_open",
+                statement=f"{ctx['total_open']} open items",
+                source="system",
+                confidence=min(1.0, ctx["total_open"] / 20),
+            ))
+        if ctx["overdue_count"] > 0:
+            facts.append(Fact(
+                id="overdue_count",
+                statement=f"{ctx['overdue_count']} overdue items",
+                source="system",
+                confidence=min(1.0, ctx["overdue_count"] / 5),
+            ))
+        if ctx["recent_activity_count"] > 0:
+            facts.append(Fact(
+                id="recent_activity",
+                statement=f"{ctx['recent_activity_count']} recent updates",
+                source="system",
+                confidence=min(1.0, ctx["recent_activity_count"] / 10),
+            ))
+
+        request = ReasoningRequest(
+            query=f"greeting for user {self.user_name}",
+            facts=facts,
+            goals=[Goal(
+                id="productive_start",
+                description="Start the day productively",
+                priority=5,
+            )],
+            context={"user_role": self.user_role, "user_id": self.user_id},
+        )
+        return self.reasoner.reason(request)
 
     def _quick_suggestions(self) -> list:
         """Quick action suggestions for the greeting."""
@@ -364,23 +484,130 @@ class Bird:
     # Next Action Advisory
     # ------------------------------------------------------------------ #
 
-    def suggest_next_action(self) -> dict:
-        """Return real advisory context from the NextBestActionEngine."""
+    def suggest_next_action(self, use_reasoner: bool = True) -> dict:
+        """Return real advisory context from NextBestActionEngine, optionally
+        enhanced by RuleReasoner for prioritisation.
+
+        When use_reasoner=True (default), the action list is run through the
+        RuleReasoner and each action gets an enriched 'reasoning' block.
+        Backward-compatible: old callers passing no args get the same shape
+        with an additional reasoning key per action.
+        """
         nba = NextBestActionEngine.get_for_user(
             self.tenant_id, self.user_id, self.user_role
         )
+        actions = [{
+            "title": a.title,
+            "description": a.description,
+            "action_type": a.action_type,
+            "target_url": a.target_url,
+            "priority": a.priority.value,
+            "reason": a.reason,
+            "expected_outcome": a.expected_outcome,
+        } for a in (nba or [])[:5]]
+
+        if use_reasoner and actions:
+            # Build facts from the action list
+            facts = [
+                Fact(
+                    id=f"action_{i}",
+                    statement=f"Suggested action: {a['title']} (priority {a['priority']})",
+                    source="next_best_action",
+                    confidence=1.0 / (i + 1),
+                )
+                for i, a in enumerate(actions)
+            ]
+            request = ReasoningRequest(
+                query="suggest next action prioritisation",
+                facts=facts,
+                goals=[Goal(
+                    id="efficient_workflow",
+                    description="Prioritise work efficiently",
+                    priority=6,
+                )],
+                context={"user_role": self.user_role},
+            )
+            result = self.reasoner.reason(request)
+            # Enrich each action with the reasoning result
+            for a in actions:
+                a["reasoning"] = {
+                    "decision": result.decision.outcome,
+                    "confidence": result.confidence,
+                    "trace": result.reasoning_trace[:3],  # summary
+                }
+
         return {
-            "next_actions": [{
-                "title": a.title,
-                "description": a.description,
-                "action_type": a.action_type,
-                "target_url": a.target_url,
-                "priority": a.priority.value,
-                "reason": a.reason,
-                "expected_outcome": a.expected_outcome,
-            } for a in (nba or [])[:5]],
+            "next_actions": actions,
             "total_actions": len(nba) if nba else 0,
         }
+
+    # ------------------------------------------------------------------ #
+    # Sequential Planning — Dependency-Aware Action Ordering
+    # ------------------------------------------------------------------ #
+
+    def plan_for(self, entity_type: str, actions: List[dict]) -> dict:
+        """Create a dependency-ordered plan from a list of action dicts.
+
+        Each action should contain:
+            - action (str): the action name
+            - depends_on (List[str], optional): step IDs this action depends on
+            - priority (int, optional): priority value (lower = higher)
+
+        Steps are automatically assigned IDs (step_0, step_1, ...) based on
+        their position in the list, then reordered by the SequentialPlanner
+        so that dependencies run before their dependents.
+
+        Returns a serialisable dict with sorted steps.
+        """
+        planner = SequentialPlanner()
+        plan = planner.plan_for_actions(entity_type, actions)
+        return {
+            "entity_type": entity_type,
+            "total_steps": plan.total_steps,
+            "steps": [
+                {
+                    "id": s.id,
+                    "action": s.action,
+                    "entity_type": s.entity_type,
+                    "depends_on": s.depends_on,
+                    "priority": s.priority,
+                    "metadata": s.metadata,
+                }
+                for s in plan.steps
+            ],
+        }
+
+    def plan_for_next_actions(self, entity_type: str) -> dict:
+        """Create a dependency-ordered plan from NextBestActionEngine results.
+
+        Fetches current next-best actions for the user and pipes them
+        through the SequentialPlanner for dependency-aware ordering.
+        """
+        nba = NextBestActionEngine.get_for_user(
+            self.tenant_id, self.user_id, self.user_role
+        )
+        if not nba:
+            return {
+                "entity_type": entity_type,
+                "total_steps": 0,
+                "steps": [],
+            }
+
+        actions = [
+            {
+                "action": a.action_type,
+                "depends_on": [],  # No external deps — maintained in NBA order
+                "priority": {"low": 3, "medium": 5, "high": 8, "critical": 10}.get(
+                    a.priority.value, 5
+                ),
+                "title": a.title,
+                "description": a.description,
+                "target_url": a.target_url,
+                "reason": a.reason,
+            }
+            for a in nba
+        ]
+        return self.plan_for(entity_type, actions)
 
     # ------------------------------------------------------------------ #
     # User Context

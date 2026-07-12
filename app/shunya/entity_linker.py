@@ -3,13 +3,28 @@
 When a lead becomes a booking, the booking data should be pre-filled
 from the lead. When a booking is confirmed, an itinerary should be
 auto-generated. No manual re-entry across the workflow.
+
+Includes typed RelationshipType integration with the Knowledge Graph.
 """
-from typing import Optional, List
+from typing import Optional, List, Dict, Tuple
 from datetime import datetime
 from app import db
 from app.models import Entity, EntityDefinition, ActivityLog, Notification
 from app.shunya.foundation import Result
 from app.shunya.observer import Observer
+
+# Typed relationship support (imported lazily to avoid circular deps)
+_RelationshipType = None
+_Relationship = None
+
+def _get_kg_types():
+    """Lazy-import knowledge graph types to avoid circular imports."""
+    global _RelationshipType, _Relationship
+    if _RelationshipType is None:
+        from app.shunya.knowledge_graph import RelationshipType, Relationship
+        _RelationshipType = RelationshipType
+        _Relationship = Relationship
+    return _RelationshipType, _Relationship
 
 
 class EntityLinker:
@@ -182,6 +197,169 @@ class EntityLinker:
                 })
 
         return links
+
+    # ── Typed Relationship Support (Knowledge Graph integration) ──
+
+    LINK_TYPE_MAP: Dict[Tuple[str, str], str] = {
+        # (source_type, target_type) → relationship_type_value
+        ("lead", "booking"): "creates",
+        ("lead", "itinerary"): "creates",
+        ("booking", "itinerary"): "creates",
+        ("booking", "invoice"): "creates",
+        ("itinerary", "booking"): "references",
+        ("invoice", "booking"): "references",
+    }
+
+    @staticmethod
+    def _infer_typed_relationship(
+        source_type: str,
+        target_type: str,
+        direction: str,
+    ) -> str:
+        """Infer a RelationshipType label from source/target entity types and direction.
+
+        Returns a RelationshipType value string (e.g. 'creates', 'owns', 'depends_on').
+        """
+        RelationshipType, _ = _get_kg_types()
+
+        if direction == "parent":
+            return "depends_on"
+
+        # Check explicit type map
+        key = (source_type, target_type)
+        mapped = EntityLinker.LINK_TYPE_MAP.get(key)
+        if mapped:
+            return mapped
+
+        # Fallback heuristics
+        target_heuristics = {
+            "lead": "creates",
+            "booking": "creates",
+            "invoice": "performs",
+            "task": "executes",
+            "project": "owns",
+        }
+        matched = target_heuristics.get(target_type)
+        if matched:
+            return matched
+
+        return "uses"
+
+    @staticmethod
+    def get_typed_links(entity_id: int) -> List[dict]:
+        """Get linked entities with typed relationship annotations.
+
+        Extends get_linked_entities() by adding a ``relationship_type`` key
+        to each link dict.
+
+        Returns:
+            List of link dicts, each with additional 'relationship_type' and
+            'relationship_label' keys.
+        """
+        RelationshipType, _ = _get_kg_types()
+        links = EntityLinker.get_linked_entities(entity_id)
+        entity = db.session.get(Entity, entity_id)
+        source_type = entity.definition.type if entity and entity.definition else "unknown"
+
+        for link in links:
+            type_value = EntityLinker._infer_typed_relationship(
+                source_type=source_type,
+                target_type=link.get("type", "unknown"),
+                direction=link.get("direction", "child"),
+            )
+            link["relationship_type"] = type_value
+            try:
+                link["relationship_label"] = RelationshipType(type_value).label
+            except ValueError:
+                link["relationship_label"] = type_value.replace("_", " ").title()
+
+        return links
+
+    @staticmethod
+    def get_links_structured_for_graph(entity_id: int) -> dict:
+        """Get a structured graph-API response with typed relationships.
+
+        Returns a dict structured for graph visualization::
+
+            {
+                "entity": {... center node ...},
+                "entity_label": "...",
+                "entity_code": "...",
+                "parents": [... typed nodes ...],
+                "children": [... typed nodes ...],
+                "related": [... activity-linked nodes ...],
+            }
+
+        Each node includes ``relationship_type`` and ``relationship_label``.
+        """
+        from app.models import ActivityLog
+
+        entity = db.session.get(Entity, entity_id)
+        if not entity:
+            return {"error": "Entity not found"}
+
+        # Center entity
+        center = {
+            "id": entity.id,
+            "code": entity.code,
+            "type": entity.definition.type if entity.definition else "unknown",
+            "label": entity.definition.label if entity.definition else "Entity",
+            "icon": entity.definition.icon if entity.definition else "📌",
+            "status": entity.status,
+            "display_name": entity.display_name,
+            "url": f"/entities/{entity.definition.type if entity.definition else 'entity'}/{entity.id}",
+        }
+
+        # Typed links
+        typed_links = EntityLinker.get_typed_links(entity.id)
+        parents = [l for l in typed_links if l["direction"] == "parent"]
+        children = [l for l in typed_links if l["direction"] == "child"]
+
+        # Activity cross-references
+        activity_refs = (
+            db.session.query(ActivityLog.entity_id, ActivityLog.detail)
+            .filter(
+                ActivityLog.tenant_id == entity.tenant_id,
+                ActivityLog.entity_id != entity.id,
+                ActivityLog.detail.ilike(f"%{entity.code}%"),
+            )
+            .order_by(ActivityLog.created_at.desc())
+            .limit(10)
+            .all()
+        )
+
+        related_ids = set()
+        for ref_entity_id, ref_detail in activity_refs:
+            related_ids.add(int(ref_entity_id))
+
+        existing_ids = {l["id"] for l in typed_links}
+        extra_entities = []
+        for rid in related_ids:
+            if rid not in existing_ids:
+                ref_entity = db.session.get(Entity, rid)
+                if ref_entity and ref_entity.tenant_id == entity.tenant_id and not ref_entity.is_archived:
+                    extra_entities.append({
+                        "id": ref_entity.id,
+                        "code": ref_entity.code,
+                        "type": ref_entity.definition.type if ref_entity.definition else "unknown",
+                        "label": ref_entity.definition.label if ref_entity.definition else "Entity",
+                        "icon": ref_entity.definition.icon if ref_entity.definition else "📌",
+                        "status": ref_entity.status,
+                        "display_name": ref_entity.display_name,
+                        "url": f"/entities/{ref_entity.definition.type if ref_entity.definition else 'entity'}/{ref_entity.id}",
+                        "direction": "activity",
+                        "relationship_type": "references",
+                        "relationship_label": "References",
+                    })
+
+        return {
+            "entity": center,
+            "entity_label": f"{center['label']} {center['display_name']}",
+            "entity_code": entity.code,
+            "parents": parents,
+            "children": children,
+            "related": extra_entities,
+        }
 
 
 class WorkflowAutomator:

@@ -1,0 +1,459 @@
+version: 2
+
+capabilities:
+
+  # ═══════════════════════════════════════════════════
+  #  Foundation Layer — no dependencies
+  # ═══════════════════════════════════════════════════
+
+  - id: SYS-001
+    name: Foundation
+    status: completed
+    progress: 100
+    dependsOn: []
+
+  - id: SYS-002
+    name: Orchestrator
+    status: in-progress
+    progress: 65
+    dependsOn:
+      - SYS-001
+
+  - id: SYS-003
+    name: Workflow Engine
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: SYS-004
+    name: Entity System
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: SYS-005
+    name: Theme Engine
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: SYS-006
+    name: Brand Guardian
+    status: in-progress
+    progress: 40
+    dependsOn:
+      - SYS-005
+
+  # ═══════════════════════════════════════════════════
+  #  Intelligence Layer — depends on Foundation
+  # ═══════════════════════════════════════════════════
+
+  - id: AI-001
+    name: Agent System
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+      - SYS-003
+
+  - id: AI-002
+    name: Knowledge Engine
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: AI-003
+    name: Memory System
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+      - AI-002
+
+  - id: AI-004
+    name: Reasoning Engine
+    status: in-progress
+    progress: 70
+    dependsOn:
+      - AI-003
+
+  - id: AI-005
+    name: Learning Engine
+    status: in-progress
+    progress: 55
+    dependsOn:
+      - AI-004
+      - AI-003
+
+  - id: AI-006
+    name: Planner
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-002
+      - AI-001
+
+  - id: AI-007
+    name: Executor
+    status: completed
+    progress: 100
+    dependsOn:
+      - AI-006
+
+  - id: AI-008
+    name: Observer
+    status: in-progress
+    progress: 50
+    dependsOn:
+      - AI-001
+
+  - id: AI-009
+    name: Doctor / Health Monitor
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: AI-010
+    name: Governance
+    status: in-progress
+    progress: 60
+    dependsOn:
+      - AI-001
+      - SYS-004
+
+  - id: AI-011
+    name: Next Best Action
+    status: planned
+    progress: 0
+    dependsOn:
+      - AI-008
+      - AI-005
+
+  - id: AI-012
+    name: Proactive Agent
+    status: completed
+    progress: 100
+    dependsOn:
+      - AI-001
+      - AI-007
+
+  - id: AI-013
+    name: Agent Channels
+    status: completed
+    progress: 100
+    dependsOn:
+      - AI-001
+
+  - id: AI-014
+    name: Agent Search
+    status: completed
+    progress: 100
+    dependsOn:
+      - AI-001
+      - AI-002
+
+  - id: AI-015
+    name: Bird (Micro-Agent Framework)
+    status: completed
+    progress: 100
+    dependsOn:
+      - AI-001
+      - SYS-002
+
+  - id: AI-016
+    name: User Mood Tracking
+    status: completed
+    progress: 100
+    dependsOn:
+      - AI-001
+      - AI-002
+
+  - id: AI-017
+    name: Data Import Engine
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  # ═══════════════════════════════════════════════════
+  #  Communication Layer
+  # ═══════════════════════════════════════════════════
+
+  - id: COM-001
+    name: Webhooks
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: COM-002
+    name: WhatsApp Integration
+    status: completed
+    progress: 100
+    dependsOn:
+      - AI-013
+
+  - id: COM-003
+    name: Telegram Bot
+    status: completed
+    progress: 100
+    dependsOn:
+      - AI-013
+
+  - id: COM-004
+    name: Email / SMTP
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: COM-005
+    name: Calendar
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: COM-006
+    name: Voice / IVR
+    status: in-progress
+    progress: 30
+    dependsOn:
+      - AI-013
+      - COM-001
+
+  # ═══════════════════════════════════════════════════
+  #  Business Applications
+  # ═══════════════════════════════════════════════════
+
+  - id: BIZ-001
+    name: CRM — Sales
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+      - AI-001
+
+  - id: BIZ-002
+    name: CRM — Customer Portal
+    status: completed
+    progress: 100
+    dependsOn:
+      - BIZ-001
+
+  - id: BIZ-003
+    name: HR Management
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: BIZ-004
+    name: Marketing Automation
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+      - SYS-003
+
+  - id: BIZ-005
+    name: Finance / Accounting
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: BIZ-006
+    name: Legal Management
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: BIZ-007
+    name: Supply Chain
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: BIZ-008
+    name: Field Services
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+      - SYS-003
+
+  - id: BIZ-009
+    name: Customer Support / Ticketing
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+      - AI-001
+
+  - id: BIZ-010
+    name: Payments (Razorpay)
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: BIZ-011
+    name: Advisory / Consultation
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+      - AI-010
+
+  - id: BIZ-012
+    name: Relationships Management
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: BIZ-013
+    name: API Key Management
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+      - AI-010
+
+  - id: BIZ-014
+    name: Sub-account / Multi-tenant
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: BIZ-015
+    name: Vertical / Industry Modules
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: BIZ-016
+    name: Module Builder
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+      - SYS-003
+
+  # ═══════════════════════════════════════════════════
+  #  Infrastructure & Admin
+  # ═══════════════════════════════════════════════════
+
+  - id: ADM-001
+    name: Admin Dashboard
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: ADM-002
+    name: Team Management
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+      - ADM-001
+
+  - id: ADM-003
+    name: Brand & Sub-accounts
+    status: completed
+    progress: 100
+    dependsOn:
+      - ADM-001
+
+  - id: ADM-004
+    name: Kanban Pipeline View
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: ADM-005
+    name: Entity Relationship Graph
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: ADM-006
+    name: Global Search
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: ADM-007
+    name: Export (CSV / PDF)
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: ADM-008
+    name: Capability Catalog
+    status: completed
+    progress: 100
+    dependsOn:
+      - ADM-001
+
+  # ═══════════════════════════════════════════════════
+  #  Platform / DevOps
+  # ═══════════════════════════════════════════════════
+
+  - id: PLT-001
+    name: Logging & Monitoring
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: PLT-002
+    name: Authentication & Authorization
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: PLT-003
+    name: API Layer (REST)
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-001
+
+  - id: PLT-004
+    name: Onboarding
+    status: completed
+    progress: 100
+    dependsOn:
+      - SYS-004
+
+  - id: PLT-005
+    name: Webhook Log / Audit Trail
+    status: completed
+    progress: 100
+    dependsOn:
+      - COM-001
+
+  - id: PLT-006
+    name: Notification Triggers
+    status: completed
+    progress: 100
+    dependsOn:
+      - COM-004
+      - SYS-003
