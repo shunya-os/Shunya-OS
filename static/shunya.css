@@ -61,16 +61,21 @@
 [data-theme="playful"] body,
 [data-theme="playful"] [class*="bg-[#0f172a]"] { background: var(--body-bg) !important; color: var(--body-text); }
 [data-theme="playful"] nav { background: var(--nav-bg) !important; color: var(--nav-text); border-color: #fed7aa !important; }
-[data-theme="playful"] [class*="bg-[#1e293b]"],
 [data-theme="playful"] [class*="bg-slate-800"],
 [data-theme="playful"] [class*="bg-slate-900"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #fed7aa !important; }
-[data-theme="playful"] .coach-card,
-[data-theme="playful"] [class*="stat-card"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #fed7aa !important; }
+[data-theme="playful"] .coach-card { background: var(--card-bg) !important; color: var(--card-text); border-color: #fed7aa !important; }
 [data-theme="playful"] nav a, [data-theme="playful"] nav button, [data-theme="playful"] nav span { color: var(--nav-muted); }
 [data-theme="playful"] nav .font-bold { color: var(--nav-text); }
 [data-theme="playful"] nav a:hover, [data-theme="playful"] nav button:hover { color: var(--nav-hover); }
 [data-theme="playful"] .badge-new { background: #d1fae5 !important; color: #065f46 !important; }
 [data-theme="playful"] .badge-hot { background: #fef3c7 !important; color: #92400e !important; }
+/* Playful: light bg → dark readable text-slate */
+[data-theme="playful"] [class*="text-slate-"] { color: var(--body-muted) !important; }
+[data-theme="playful"] [class*="text-slate-700"],
+[data-theme="playful"] [class*="text-slate-800"],
+[data-theme="playful"] [class*="text-slate-900"] { color: var(--body-heading) !important; }
+[data-theme="playful"] [class*="bg-white"] [class*="text-slate-"] { color: var(--body-muted) !important; }
+[data-theme="playful"] [class*="bg-white"] [class*="text-slate-900"] { color: var(--body-heading) !important; }
 
 /* ── Elegant: off-white, monochrome, sharp ── */
 [data-theme="elegant"] {
@@ -94,16 +99,21 @@
 [data-theme="elegant"] body,
 [data-theme="elegant"] [class*="bg-[#0f172a]"] { background: var(--body-bg) !important; color: var(--body-text); }
 [data-theme="elegant"] nav { background: var(--nav-bg) !important; color: var(--nav-text); border-color: #e4e4e7 !important; }
-[data-theme="elegant"] [class*="bg-[#1e293b]"],
 [data-theme="elegant"] [class*="bg-slate-800"],
 [data-theme="elegant"] [class*="bg-slate-900"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #e4e4e7 !important; }
-[data-theme="elegant"] .coach-card,
-[data-theme="elegant"] [class*="stat-card"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #e4e4e7 !important; }
+[data-theme="elegant"] .coach-card { background: var(--card-bg) !important; color: var(--card-text); border-color: #e4e4e7 !important; }
 [data-theme="elegant"] nav a, [data-theme="elegant"] nav button, [data-theme="elegant"] nav span { color: var(--nav-muted); }
 [data-theme="elegant"] nav .font-bold { color: var(--nav-text); }
 [data-theme="elegant"] nav a:hover, [data-theme="elegant"] nav button:hover { color: var(--nav-hover); }
 [data-theme="elegant"] .badge-new { background: #f4f4f5 !important; color: #18181b !important; }
 [data-theme="elegant"] .badge-hot { background: #f4f4f5 !important; color: #18181b !important; }
+/* Elegant: light bg → dark readable text-slate */
+[data-theme="elegant"] [class*="text-slate-"] { color: var(--body-muted) !important; }
+[data-theme="elegant"] [class*="text-slate-700"],
+[data-theme="elegant"] [class*="text-slate-800"],
+[data-theme="elegant"] [class*="text-slate-900"] { color: var(--body-heading) !important; }
+[data-theme="elegant"] [class*="bg-white"] [class*="text-slate-"] { color: var(--body-muted) !important; }
+[data-theme="elegant"] [class*="bg-white"] [class*="text-slate-900"] { color: var(--body-heading) !important; }
 
 /* ── Brandverse: auto-generated, ALL surfaces dark ── */
 [data-theme="brandverse"] {
@@ -219,7 +229,7 @@ input, textarea, select { color: #1e293b; caret-color: #1e293b; }
 input::placeholder, textarea::placeholder { color: #94a3b8; }
 
 /* Module card compatibility — all module-specific cards use theme vars */
-[class*="-card"], [class*="-badge"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #334155 !important; }
+[class*="-card"], [class*="-badge"] { color: var(--card-text); border-color: #334155 !important; }
 [class*="-text-muted"], [class*="-muted"] { color: var(--body-muted) !important; }
 [class*="-text-secondary"], [class*="-secondary"] { color: var(--body-dim) !important; }
 [class*="-accent"] { color: var(--clr-primary) !important; }
