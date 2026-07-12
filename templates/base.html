@@ -177,12 +177,24 @@
         </div>
       </div>
 
-      <!-- Capability bar -->
+      <!-- Capability bar + Journey insights -->
       <div style="padding:8px 14px;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap;background:#f8fafc;">
         <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🔍 Web search</span>
         <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🎤 Voice (37 lang)</span>
         <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">📝 Create records</span>
         <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">📊 Ask data</span>
+        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#ecfdf5;color:#065f46;font-weight:500;">🔄 Journey</span>
+      </div>
+      
+      <!-- Journey mini-view (collapsible) -->
+      <div id="bird-journey" style="display:none;padding:8px 14px;border-bottom:1px solid #e2e8f0;background:#f0fdf4;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:0.7rem;font-weight:600;color:#065f46;">🔄 Continuous Journey</span>
+          <span id="journey-close-btn" onclick="document.getElementById('bird-journey').style.display='none'" style="font-size:0.7rem;color:#94a3b8;cursor:pointer;">✕</span>
+        </div>
+        <div id="bird-journey-stages" style="display:flex;gap:4px;font-size:0.65rem;color:#475569;">
+          Loading journey data...
+        </div>
       </div>
 
       <!-- Messages -->
@@ -228,6 +240,29 @@
     p.style.display = p.style.display === 'none' ? 'block' : 'none';
     if (p.style.display === 'block') {
       document.getElementById('bird-input').focus();
+      loadJourneyData();
+    }
+  }
+
+  // ── Load Journey Data into Bird ──
+  async function loadJourneyData() {
+    try {
+      const r = await fetch('/api/journey/summary');
+      const d = await r.json();
+      const el = document.getElementById('bird-journey-stages');
+      if (!el || !d.stages) return;
+      const colors = {lead:'bg-blue-400',quote:'bg-amber-400',booking:'bg-emerald-400',payment:'bg-violet-400',trip:'bg-rose-400',feedback:'bg-teal-400',retention:'bg-cyan-400'};
+      const icons = {lead:'📝',quote:'📄',booking:'✅',payment:'💰',trip:'✈️',feedback:'💬',retention:'🎁'};
+      el.innerHTML = d.stages.map(s => 
+        `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:50px;opacity:${s.count > 0 ? '1' : '0.4'}">
+          <span style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.6rem;background:${colors[s.stage] || '#94a3b8'};color:white">${icons[s.stage] || '•'}</span>
+          <span style="font-size:0.55rem;color:#475569">${s.stage}</span>
+          <span style="font-size:0.7rem;font-weight:600;color:#1e293b">${s.count}</span>
+        </div>`
+      ).join(' → ');
+      document.getElementById('bird-journey').style.display = 'block';
+    } catch(e) {
+      // Silently fail — journey data not critical
     }
   }
 

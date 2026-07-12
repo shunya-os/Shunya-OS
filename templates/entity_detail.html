@@ -11,6 +11,52 @@
   </div>
 </div>
 
+{% set journey_stages = [
+  ('lead','lead','Inquiry',false),
+  ('quote','quote','Quote',false),
+  ('booking','booking','Booking',false),
+  ('invoice','payment','Payment',false),
+  ('trip','trip','Trip',false),
+  ('feedback','feedback','Feedback',false),
+] %}
+{% if journey_stages %}
+{% set stage_colors = {'lead':'bg-blue-400','quote':'bg-amber-400','booking':'bg-emerald-400','invoice':'bg-violet-400','trip':'bg-rose-400','feedback':'bg-teal-400'} %}
+{% set stage_icons = {'lead':'📝','quote':'📄','booking':'✅','invoice':'💰','trip':'✈️','feedback':'💬'} %}
+{% set stage_next = {'lead':'quote','quote':'booking','booking':'invoice','invoice':'trip','trip':'feedback','feedback':'lead'} %}
+{% set stage_next_label = {'lead':'Create Quote','quote':'Confirm Booking','booking':'Send Invoice','invoice':'Start Trip','trip':'Collect Feedback','feedback':'Retention Offer'} %}
+<div class="mb-4 bg-[#1e293b] border border-[#334155] rounded-xl p-3">
+  <div class="flex items-center gap-1 overflow-x-auto pb-1 scroll-thin">
+    {% for stype, skey, slabel, _ in journey_stages %}
+    <div class="flex items-center gap-1 flex-shrink-0">
+      <div class="flex flex-col items-center gap-1 min-w-[70px] {% if definition.type == stype %}opacity-100{% else %}opacity-50{% endif %}">
+        <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm {{ stage_colors[skey] }} text-white">{{ stage_icons[skey] }}</span>
+        <span class="text-xs text-slate-400">{{ slabel }}</span>
+      </div>
+      {% if not loop.last %}
+      <span class="text-slate-600 mx-1">→</span>
+      {% else %}
+      <span class="text-emerald-500 mx-1 text-lg">⟳</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% if definition.type in stage_next %}
+  <div class="mt-2 pt-2 border-t border-[#334155] flex items-center justify-between">
+    <span class="text-xs text-slate-400">
+      {% if entity.status in ['converted','completed','paid','confirmed'] %}
+        ✅ This {{ definition.label }} is done
+      {% else %}
+        📍 Currently in <strong class="text-white">{{ definition.label }}</strong> stage
+      {% endif %}
+    </span>
+    <a href="/entities/{{ stage_next[definition.type] }}/new" class="text-xs text-blue-400 hover:text-blue-300 font-medium">
+      + {{ stage_next_label.get(definition.type, 'Next') }} →
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
   <div class="lg:col-span-2 space-y-4 sm:space-y-6 max-w-full overflow-hidden">
     <!-- Entity Data -->

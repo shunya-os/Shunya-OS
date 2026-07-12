@@ -2,21 +2,32 @@
 {% block content %}
 <style>
   body { background: #0f172a; }
-  .coach-card { background: #1e293b; border: 1px solid #334155; }
-  .coach-card:hover { border-color: #475569; }
-  .stat-card { transition: all .2s ease; }
-  .stat-card:hover { transform: translateY(-2px); border-color: rgba(56,189,248,0.3); }
+  .journey-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; transition: all .2s ease; }
+  .journey-card:hover { transform: translateY(-2px); border-color: rgba(56,189,248,0.3); }
+  .journey-arrow { color: #475569; font-size: 1.2rem; flex-shrink: 0; }
+  .stage-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .loop-closed { color: #10b981; }
   .action-pill { transition: all .2s ease; }
   .action-pill:hover { transform: translateY(-1px); filter: brightness(1.2); }
 </style>
 
-<!-- Welcome Hero -->
-<div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 md:p-7 mb-5 text-white">
+<!-- Bird AI Welcome -->
+<div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 md:p-7 mb-6 text-white">
   <div class="flex items-start gap-3">
     <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl flex-shrink-0">🧠</div>
     <div class="flex-1 min-w-0">
       <h1 class="text-lg md:text-xl font-bold text-white">{{ greeting.greeting }}</h1>
       <p class="text-blue-100 text-sm mt-0.5">{{ greeting.message }}</p>
+      {% if greeting.reasoning_trace %}
+      <details class="mt-2">
+        <summary class="text-xs text-blue-200/70 cursor-pointer hover:text-blue-100">🧠 Reasoning</summary>
+        <div class="mt-2 space-y-1">
+          {% for t in greeting.reasoning_trace[:5] %}
+          <p class="text-xs text-blue-100/80">→ {{ t }}</p>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
       {% if greeting.suggestions %}
       <div class="flex flex-wrap gap-1.5 mt-3">
         {% for s in greeting.suggestions[:3] %}
@@ -31,72 +42,103 @@
   </div>
 </div>
 
-<!-- Navigation Coach — solid bg, high contrast, shows customer names -->
-<div class="mb-5">
-  <div class="coach-card rounded-xl p-4">
-    <div class="flex items-center gap-2 mb-3">
-      <span class="text-sm">🧭</span>
-      <span class="text-xs font-bold text-white uppercase tracking-wider">Navigation Coach</span>
-    </div>
-    <div class="flex flex-wrap gap-2">
-      {% if next_actions %}
-      {% for a in next_actions[:3] %}
-      <a href="{{ a.target_url }}" class="action-pill inline-flex flex-col gap-0.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors min-w-0
-        {% if a.priority.value in ('high','critical') %}bg-rose-500/90 text-white hover:bg-rose-500
-        {% elif a.priority.value == 'medium' %}bg-amber-500/85 text-white hover:bg-amber-500
-        {% else %}bg-blue-500/85 text-white hover:bg-blue-500{% endif %}">
-        <span class="flex items-center gap-1">
-          {% if a.priority.value in ('high','critical') %}🔴{% elif a.priority.value == 'medium' %}🟡{% else %}🔵{% endif %}
-          <span class="font-semibold truncate max-w-[180px]">{{ a.title }}</span>
-        </span>
-        {% if a.description %}
-        <span class="text-white/80 text-[0.6rem] truncate max-w-[200px] pl-4">👉 {{ a.description }}</span>
-        {% endif %}
-      </a>
-      {% endfor %}
-      {% endif %}
-      <a href="/relationships" class="action-pill inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium bg-indigo-500/85 text-white hover:bg-indigo-500">🤝 Relationships</a>
-      {% for a in vertical_actions[:3] %}
-      <a href="{{ a.url }}" class="action-pill inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium bg-emerald-500/85 text-white hover:bg-emerald-500">{{ a.icon }} {{ a.label }}</a>
-      {% endfor %}
-      <a href="/modules" class="action-pill inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium bg-slate-500/85 text-white hover:bg-slate-500">📦 All Modules</a>
-    </div>
-    <p class="text-xs text-slate-400 mt-3">💡 <kbd class="px-1.5 py-0.5 bg-slate-700 rounded text-slate-200 font-mono text-[0.6rem]">Ctrl+B</kbd> AI Assistant · <kbd class="px-1.5 py-0.5 bg-slate-700 rounded text-slate-200 font-mono text-[0.6rem]">/</kbd> Search</p>
+<!-- ════════════════════════════════════════
+     INFINITE CUSTOMER JOURNEY PIPELINE
+     =═══════════════════════════════════════ -->
+{% if journey %}
+<div class="mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">🔄 Continuous Customer Journey</h2>
+    <span class="text-xs text-slate-500">{{ journey.total_active }} active</span>
   </div>
+  
+  <!-- Journey stages as horizontal pipeline -->
+  <div class="flex items-start gap-2 overflow-x-auto pb-2 scroll-thin">
+    {% for item in journey.stages %}
+    <div class="journey-card p-3 min-w-[130px] flex-shrink-0">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="stage-dot 
+          {% if item.stage.value == 'lead' %}bg-blue-400
+          {% elif item.stage.value == 'quote' %}bg-amber-400
+          {% elif item.stage.value == 'booking' %}bg-emerald-400
+          {% elif item.stage.value == 'payment' %}bg-violet-400
+          {% elif item.stage.value == 'trip' %}bg-rose-400
+          {% elif item.stage.value == 'feedback' %}bg-teal-400
+          {% elif item.stage.value == 'retention' %}bg-cyan-400{% endif %}"></span>
+        <span class="text-xs font-medium text-white">{{ item.stage.value|title }}</span>
+        <span class="text-lg font-bold text-white ml-auto">{{ item.count }}</span>
+      </div>
+      <div class="flex items-center gap-1">
+        <a href="/entities/{{ item.next_entity_type }}" class="text-xs text-blue-400 hover:text-blue-300 truncate">
+          {% if item.count > 0 %}→ {{ item.next_action }}{% else %}🔄 Start here{% endif %}
+        </a>
+      </div>
+    </div>
+    {% if not loop.last %}
+    <div class="journey-arrow mt-6">→</div>
+    {% else %}
+    <!-- Close the loop: last → first -->
+    <div class="journey-arrow mt-6 loop-closed">⟳</div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  
+  <!-- Journey focus -->
+  {% if journey.current_focus %}
+  <div class="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+    <p class="text-xs text-amber-300">
+      🎯 Focus: <strong>{{ journey.current_focus|title }}</strong> stage needs attention
+      {% if journey.current_focus == 'conversion' %}
+      — Leads aren't converting to bookings. Try following up on pending quotes.
+      {% elif journey.current_focus == 'feedback' %}
+      — Trips are completing but no feedback collected. Send a follow-up.
+      {% elif journey.current_focus == 'retention' %}
+      — No retention campaigns running. Past customers are ready to rebook.
+      {% endif %}
+    </p>
+  </div>
+  {% endif %}
 </div>
+{% endif %}
 
-<!-- Quick Stats — vertical-specific KPIs, not hardcoded -->
+<!-- ════════════════════════════════════════
+     VERTICAL METRICS
+     =═══════════════════════════════════════ -->
 {% if vertical_metrics %}
 <div class="mb-5">
-  <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📊 {% set vname = tenant.vertical_config.get('vertical','business') if tenant.vertical_config else 'business' %}{{ vname.title() }} Overview</h2>
+  <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+    📊 {% set vname = tenant.vertical_config.get('vertical','business') if tenant.vertical_config else 'business' %}{{ vname.title() }} Overview</h2>
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-    {% for m in vertical_metrics[:4] %}
+    {% for m in vertical_metrics %}
     <div class="stat-card bg-[#1e293b] border border-[#334155] rounded-xl p-3">
-      <div class="flex items-center justify-between">
-        <span class="text-lg">{{ m.icon }}</span>
-        <span class="text-lg font-bold text-white" id="metric-{{ m.key }}">—</span>
-      </div>
-      <p class="text-xs text-slate-400 mt-0.5 truncate">{{ m.label }}</p>
+      <p class="text-xs text-slate-400 truncate">{{ m.label }}</p>
+      <p class="text-lg font-bold text-white mt-0.5">{{ m.value }}</p>
     </div>
     {% endfor %}
   </div>
 </div>
-
-<script>
-fetch('/api/vertical/metrics').then(r=>r.json()).then(d=>{
-  {% for m in vertical_metrics[:4] %}
-  if (d.{{ m.key }} !== undefined) document.getElementById('metric-{{ m.key }}').textContent = d.{{ m.key }};
-  {% endfor %}
-}).catch(()=>{});
-</script>
 {% endif %}
 
-<!-- Entity Stats -->
+<!-- ════════════════════════════════════════
+     QUICK ACTIONS (vertical-specific)
+     =═══════════════════════════════════════ -->
+{% if vertical_actions %}
 <div class="mb-5">
-  <div class="flex items-center justify-between mb-2">
-    <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">At a Glance</h2>
-    <button onclick="toggleStats()" class="text-xs text-blue-400 hover:text-blue-300 transition-colors bg-transparent border-0 cursor-pointer">+ Show all</button>
+  <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">⚡ Quick Actions</h2>
+  <div class="flex flex-wrap gap-1.5">
+    <a href="/relationships" class="action-pill inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium bg-indigo-500/85 text-white hover:bg-indigo-500">🤝 Relationships</a>
+    {% for a in vertical_actions %}
+    <a href="{{ a.url }}" class="action-pill inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium bg-indigo-500/85 text-white hover:bg-indigo-500">{{ a.icon }} {{ a.label }}</a>
+    {% endfor %}
   </div>
+</div>
+{% endif %}
+
+<!-- ════════════════════════════════════════
+     AT A GLANCE — Entity type counts
+     =═══════════════════════════════════════ -->
+<div class="mb-5">
+  <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">🔍 At A Glance</h2>
   <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
     {% set important = ['lead','ticket','invoice','employee','opportunity','campaign'] %}
     {% for type_key in important %}
@@ -112,6 +154,12 @@ fetch('/api/vertical/metrics').then(r=>r.json()).then(d=>{
       {% endif %}
     {% endfor %}
   </div>
+  {% set extras = def_counts.items()|list %}
+  {% if extras|length > 6 %}
+  <button onclick="document.getElementById('extra-stats').style.display='grid';this.style.display='none'" 
+    class="mt-2 text-xs text-blue-400 hover:text-blue-300">
+    + Show all {{ extras|length }} entity types
+  </button>
   <div id="extra-stats" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2" style="display:none;">
     {% for type_key, info in def_counts.items() %}
       {% if type_key not in important %}
@@ -125,9 +173,12 @@ fetch('/api/vertical/metrics').then(r=>r.json()).then(d=>{
       {% endif %}
     {% endfor %}
   </div>
+  {% endif %}
 </div>
 
-<!-- Needs Attention — with customer/deal names -->
+<!-- ════════════════════════════════════════
+     NEEDS ATTENTION (from Bird AI / NextBestAction)
+     =═══════════════════════════════════════ -->
 {% if next_actions %}
 <div class="mb-5">
   <h2 class="text-xs font-bold text-rose-400 uppercase tracking-wider mb-2">🔴 Needs Attention</h2>
@@ -145,6 +196,7 @@ fetch('/api/vertical/metrics').then(r=>r.json()).then(d=>{
             {% endif %}
           </p>
           {% if a.reason %}<p class="text-xs text-rose-300/80 mt-0.5">💡 {{ a.reason }}</p>{% endif %}
+          {% if a.stage %}<p class="text-xs text-slate-500 mt-0.5">Stage: {{ a.stage }}</p>{% endif %}
         </div>
         <span class="text-slate-400 flex-shrink-0 text-xs">→</span>
       </div>
@@ -155,41 +207,24 @@ fetch('/api/vertical/metrics').then(r=>r.json()).then(d=>{
 </div>
 {% endif %}
 
-<!-- Recent Activity — compact, collapsible -->
+<!-- ════════════════════════════════════════
+     RECENT ACTIVITY
+     =═══════════════════════════════════════ -->
 {% if recent_activities %}
-<div class="mb-5">
-  <button onclick="toggleRecent()" class="flex items-center gap-2 w-full text-left bg-transparent border-0 cursor-pointer">
-    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">📋 Recent Activity</span>
-    <span class="text-xs text-slate-500" id="recent-toggle">▶</span>
-  </button>
-  <div id="recent-content" class="mt-2 space-y-1" style="display:none;">
+<div>
+  <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📋 Recent Activity</h2>
+  <div class="space-y-1">
     {% for a in recent_activities[:5] %}
-    <div class="flex items-start gap-2 text-sm">
-      <span class="mt-0.5 text-xs flex-shrink-0">
-        {% if a.action == 'created' %}📋{% elif a.action == 'status_changed' %}🔄{% elif a.action == 'updated' %}✏️{% else %}🔔{% endif %}
-      </span>
-      <div class="min-w-0">
-        <p class="text-slate-300 text-sm truncate">{{ a.detail or a.action }}</p>
-        <p class="text-xs text-slate-500">{{ a.created_at.strftime('%d %b, %I:%M %p') if a.created_at else '' }}</p>
-      </div>
+    <div class="flex items-center gap-2 text-xs">
+      <span class="text-slate-500">{{ a.timestamp }}</span>
+      <span class="text-slate-400">—</span>
+      <span class="text-slate-300">{{ a.description }}</span>
+      {% if a.entity_type %}
+      <a href="/entities/{{ a.entity_type }}/{{ a.entity_id }}" class="text-blue-400 hover:text-blue-300 truncate">{{ a.entity_code or '' }}</a>
+      {% endif %}
     </div>
     {% endfor %}
   </div>
 </div>
 {% endif %}
-
-<script>
-function toggleStats(){
-  var e=document.getElementById('extra-stats');
-  var b=event&&event.target||document.querySelector('button[onclick*="toggleStats"]');
-  if(e.style.display==='none'){e.style.display='grid';b.textContent='− Show less';}
-  else{e.style.display='none';b.textContent='+ Show all';}
-}
-function toggleRecent(){
-  var c=document.getElementById('recent-content');
-  var t=document.getElementById('recent-toggle');
-  if(c.style.display==='none'){c.style.display='block';t.textContent='▼';}
-  else{c.style.display='none';t.textContent='▶';}
-}
-</script>
 {% endblock %}

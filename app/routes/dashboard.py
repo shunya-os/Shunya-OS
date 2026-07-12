@@ -142,6 +142,7 @@ def index():
     from app.shunya.bird import Bird
     from app.shunya.next_best_action import NextBestActionEngine
     from app.shunya.verticals import get_vertical
+    from app.shunya.journey import build_journey, JOURNEY_ORDER, JourneyStage
 
     tenant = g.tenant
     user = g.user
@@ -176,6 +177,7 @@ def index():
         recent_activities=recent,
         greeting=greeting, next_actions=next_actions,
         vertical_metrics=vertical_metrics, vertical_actions=vertical_actions,
+        journey=build_journey(tenant.id, def_counts),
     )
 
 
@@ -252,4 +254,32 @@ def learning():
         "activity_trend": [],
         "entities_by_type": {},
         "type_labels": {},
+    })
+
+
+@dashboard_bp.route("/api/journey/summary")
+@login_required
+def journey_summary_api():
+    from app.models import EntityDefinition, Entity
+    from app.shunya.journey import build_journey
+    
+    def_counts = {}
+    for d in EntityDefinition.query.filter_by(tenant_id=g.tenant.id, is_active=True).all():
+        cnt = Entity.query.filter_by(tenant_id=g.tenant.id, definition_id=d.id, is_archived=False).count()
+        def_counts[d.type] = {"label": d.label, "icon": d.icon, "count": cnt}
+    
+    journey = build_journey(g.tenant.id, def_counts)
+    stages = []
+    for item in journey.stages:
+        stages.append({
+            "stage": item.stage.value,
+            "count": item.count,
+            "next_action": item.next_action,
+            "next_entity_type": item.next_entity_type,
+        })
+    
+    return jsonify({
+        "stages": stages,
+        "total_active": journey.total_active,
+        "current_focus": journey.current_focus,
     })
