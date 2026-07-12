@@ -76,6 +76,13 @@ def api_create_entity(entity_type):
     db.session.add(activity)
     db.session.commit()
 
+    # Trigger webhook
+    try:
+        from app.shunya.webhooks import dispatch_event
+        dispatch_event(g.tenant.id, "entity.created", definition.type, entity.id, entity.to_dict())
+    except Exception:
+        pass
+
     return jsonify({"success": True, "entity": entity.to_dict()}), 201
 
 
@@ -709,6 +716,13 @@ def _execute_intent(intent_data: dict, tenant_id: int, user_id: int, user_name: 
         )
         db.session.add(activity)
         db.session.commit()
+
+        # Trigger webhook
+        try:
+            from app.shunya.webhooks import dispatch_event
+            dispatch_event(g.tenant.id, "entity.created", definition.type, entity.id, entity.to_dict())
+        except Exception:
+            pass
 
         return {
             "success": True,

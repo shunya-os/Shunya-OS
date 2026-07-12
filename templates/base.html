@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/themes.css">
   <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
-  <link rel="stylesheet" href="/static/shunya.css">
+  <link rel="stylesheet" href="/static/shunya.css?v=2">
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-20">
   {% if current_user %}
@@ -65,10 +65,14 @@
           <div class="nav-drop">
             <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Admin ▾</span>
             <div class="nav-drop-menu">
+              <a href="/admin/brand" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🏢 Brand</a>
+              <a href="/admin/email" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📧 Email</a>
               <a href="/modules" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📦 Modules</a>
               <a href="/settings" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">⚙️ Settings</a>
               <a href="/ai-settings" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤖 AI</a>
               <a href="/governance" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">⚖️ Governance</a>
+              <a href="/admin/import" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📥 Import</a>
+              <a href="/admin/telegram" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤖 Telegram Bot</a>
             </div>
           </div>
           <!-- Theme Switcher -->
@@ -119,6 +123,8 @@
       <a href="/ingestion" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📥 Ingest</a>
       <a href="/analytics" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📊 Analytics</a>
       <a href="/learning" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🧠 Learn</a>
+      <a href="/admin/brand" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🏢 Brand</a>
+      <a href="/admin/email" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📧 Email</a>
       <a href="/modules" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📦 Modules</a>
       <a href="/settings" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">⚙️ Settings</a>
       <a href="/ai-settings" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🤖 AI</a>

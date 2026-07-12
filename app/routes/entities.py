@@ -153,6 +153,13 @@ def entity_new(entity_type):
         db.session.add(activity)
         db.session.commit()
 
+        # Trigger webhooks
+        try:
+            from app.shunya.webhooks import dispatch_event
+            dispatch_event(g.tenant.id, "entity.created", definition.type, entity.id, entity.to_dict())
+        except Exception:
+            pass
+
         if request.is_json:
             return jsonify({"success": True, "entity": entity.to_dict()}), 201
         flash(f"{definition.label} created ({code})", "success")

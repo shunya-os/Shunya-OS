@@ -26,6 +26,10 @@ media/
 static/uploads/brand/
 static/uploads/temp/
 
+# Packages (TypeScript foundation)
+packages/*/node_modules/
+packages/*/dist/
+
 # Logs
 *.log
 /var/log/shunya/

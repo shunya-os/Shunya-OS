@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; color: #e2e8f0; }
+  .log-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .wh-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 6px; }
+  .wh-input { width: 100%; padding: 10px 14px; background: rgba(51,65,85,0.5); border: 1px solid #334155; border-radius: 10px; color: #e2e8f0; font-size: 0.875rem; outline: none; transition: border-color .2s; }
+  .wh-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  .wh-btn { padding: 10px 20px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; border: none; cursor: pointer; transition: all .2s; }
+  .wh-btn-outline { background: transparent; border: 1px solid #334155; color: #94a3b8; }
+  .wh-btn-outline:hover { border-color: #3b82f6; color: #3b82f6; }
+</style>
+
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-bold text-white">📋 Webhook Logs</h1>
+  <a href="/admin/webhooks" class="wh-btn wh-btn-outline">← Back</a>
+</div>
+
+<div class="log-card p-5 mb-6">
+  <form class="flex gap-4 items-end" method="get">
+    <div class="flex-1">
+      <label class="wh-label">Filter by Webhook</label>
+      <select name="webhook_id" class="wh-input" onchange="this.form.submit()">
+        <option value="">All Webhooks</option>
+        {% for wh in webhooks %}
+        <option value="{{ wh.id }}" {% if selected_id == wh.id %}selected{% endif %}>{{ wh.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="wh-btn wh-btn-outline">Filter</button>
+  </form>
+</div>
+
+{% if not logs %}
+<div class="log-card p-8 text-center">
+  <div class="text-5xl mb-4">📭</div>
+  <h2 class="text-lg font-semibold text-white mb-2">No Logs Yet</h2>
+  <p class="text-sm text-slate-400">Webhook deliveries will appear here after events fire.</p>
+</div>
+{% else %}
+<div class="space-y-3">
+  {% for log in logs %}
+  <div class="log-card p-4">
+    <div class="flex items-start justify-between mb-2">
+      <div class="flex items-center gap-3">
+        {% if log.status_code and 200 <= log.status_code < 300 %}
+          <span class="text-emerald-400 text-lg">✓</span>
+        {% elif log.status_code and log.status_code > 0 %}
+          <span class="text-red-400 text-lg">✗</span>
+        {% else %}
+          <span class="text-slate-400 text-lg">⋯</span>
+        {% endif %}
+        <div>
+          <span class="text-sm font-medium text-white">{{ log.event }}</span>
+          <span class="text-xs text-slate-500 ml-2">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+        </div>
+      </div>
+      <div class="text-right">
+        {% if log.status_code %}
+        <span class="text-xs font-mono {% if 200 <= log.status_code < 300 %}text-emerald-400{% else %}text-red-400{% endif %}">{{ log.status_code }}</span>
+        {% endif %}
+        <span class="text-xs text-slate-500 ml-2">{{ log.duration_ms }}ms</span>
+      </div>
+    </div>
+    {% if log.error %}
+    <div class="text-xs text-red-400 font-mono bg-slate-900/50 rounded-lg p-3 mt-2">{{ log.error }}</div>
+    {% endif %}
+    {% if log.response_body %}
+    <details class="mt-2">
+      <summary class="text-xs text-slate-500 cursor-pointer hover:text-slate-300">Response</summary>
+      <pre class="text-xs text-slate-400 font-mono bg-slate-900/50 rounded-lg p-3 mt-1 overflow-x-auto">{{ log.response_body[:1000] }}</pre>
+    </details>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

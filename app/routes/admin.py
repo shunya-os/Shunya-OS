@@ -426,3 +426,443 @@ def import_execute():
     )
 
     return jsonify(result)
+
+
+# ── API Key Management ──
+
+
+@admin_bp.route("/keys", methods=["GET"])
+@login_required
+@admin_required
+def keys_page():
+    """Render the API key management template."""
+    return render_template("admin/keys.html")
+
+
+@admin_bp.route("/api/keys", methods=["GET"])
+@login_required
+@admin_required
+def list_keys():
+    """List all API keys for the current tenant."""
+    from app.models import ApiKey
+    keys = db.session.query(ApiKey).filter_by(tenant_id=g.tenant.id).order_by(
+        ApiKey.created_at.desc()
+    ).all()
+    return jsonify([k.to_dict() for k in keys])
+
+
+@admin_bp.route("/api/keys", methods=["POST"])
+@login_required
+@admin_required
+def create_key():
+    """Generate a new API key (returns the full raw key ONCE)."""
+    import secrets
+    from app.models import ApiKey
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    scopes = data.get("scopes", ["read:*"])
+
+    if not name:
+        return jsonify({"error": "Key name is required"}), 400
+    if not isinstance(scopes, list) or not scopes:
+        return jsonify({"error": "At least one scope is required"}), 400
+
+    # Generate a random API key — shk_ prefix for Shunya Key
+    raw_key = f"shk_{secrets.token_urlsafe(32)}"
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+    key_prefix = raw_key[:8]
+
+    api_key = ApiKey(
+        tenant_id=g.tenant.id,
+        name=name,
+        key_hash=key_hash,
+        key_prefix=key_prefix,
+        scopes=scopes,
+        is_active=True,
+        created_by=g.user.id,
+    )
+    db.session.add(api_key)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "key": raw_key,  # ONLY time the full key is returned
+        "message": f"API key '{name}' created. Copy it now — it won't be shown again.",
+    }), 201
+
+
+@admin_bp.route("/api/keys/<int:key_id>", methods=["DELETE"])
+@login_required
+@admin_required
+def revoke_key(key_id):
+    """Revoke (deactivate) an API key."""
+    from app.models import ApiKey
+    api_key = db.session.query(ApiKey).filter_by(
+        id=key_id, tenant_id=g.tenant.id
+    ).first()
+    if not api_key:
+        return jsonify({"error": "API key not found"}), 404
+
+    api_key.is_active = False
+    db.session.commit()
+    return jsonify({"success": True, "message": f"Key '{api_key.name}' revoked"})
+
+
+# ── Email / SMTP Configuration ──
+
+@admin_bp.route("/email", methods=["GET"])
+@login_required
+@admin_required
+def email_page():
+    """Render email config page."""
+    return render_template("admin/email.html", tenant=g.tenant)
+
+
+@admin_bp.route("/api/email", methods=["GET"])
+@login_required
+def get_email_config():
+    """Get current SMTP config and notification triggers."""
+    t = g.tenant
+    cfg = t.ai_config or {}
+    smtp = cfg.get("smtp", {})
+    notifications = cfg.get("notifications", {})
+    return jsonify({
+        "smtp": {
+            "host": smtp.get("host", ""),
+            "port": smtp.get("port", 587),
+            "user": smtp.get("user", ""),
+            "password": smtp.get("password", ""),
+            "from_email": smtp.get("from_email", ""),
+        },
+        "notifications": {
+            "entity_created_lead": notifications.get("entity_created_lead", []),
+            "booking_confirmed": notifications.get("booking_confirmed", []),
+            "invoice_paid": notifications.get("invoice_paid", []),
+            "ticket_assigned": notifications.get("ticket_assigned", []),
+        },
+    })
+
+
+@admin_bp.route("/api/email", methods=["POST"])
+@login_required
+@admin_required
+def save_email_config():
+    """Save SMTP config and notification triggers."""
+    data = request.get_json(silent=True) or {}
+    t = g.tenant
+    cfg = dict(t.ai_config or {})
+
+    # SMTP config
+    smtp = data.get("smtp", {})
+    cfg["smtp"] = {
+        "host": (smtp.get("host") or "").strip(),
+        "port": int(smtp.get("port", 587)),
+        "user": (smtp.get("user") or "").strip(),
+        "password": (smtp.get("password") or "").strip(),
+        "from_email": (smtp.get("from_email") or "").strip(),
+    }
+
+    # Notification triggers
+    notif = data.get("notifications", {})
+    cfg["notifications"] = {
+        "entity_created_lead": notif.get("entity_created_lead", []),
+        "booking_confirmed": notif.get("booking_confirmed", []),
+        "invoice_paid": notif.get("invoice_paid", []),
+        "ticket_assigned": notif.get("ticket_assigned", []),
+    }
+
+    t.ai_config = cfg
+    db.session.commit()
+    return jsonify({"success": True, "message": "Email configuration saved"})
+
+
+@admin_bp.route("/api/email/test", methods=["POST"])
+@login_required
+@admin_required
+def test_email():
+    """Send a test email using the saved SMTP config."""
+    data = request.get_json(silent=True) or {}
+    recipient = (data.get("to") or "").strip()
+    if not recipient:
+        return jsonify({"error": "Recipient email required"}), 400
+
+    t = g.tenant
+    cfg = t.ai_config or {}
+    smtp = cfg.get("smtp", {})
+    host = smtp.get("host", "").strip()
+    port = int(smtp.get("port", 587))
+    user = smtp.get("user", "").strip()
+    password = smtp.get("password", "").strip()
+    from_email = smtp.get("from_email", "").strip() or user
+
+    if not host or not user or not password or not from_email:
+        return jsonify({"error": "SMTP not fully configured. Fill in host, user, password, and from_email first."}), 400
+
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"🔔 Test Email from {t.company_name or 'Shunya OS'}"
+    msg["From"] = from_email
+    msg["To"] = recipient
+    text = f"Hi there!\n\nThis is a test email from {t.company_name or 'Shunya OS'}.\n\nYour SMTP configuration is working correctly.\n\n— Shunya OS"
+    html = f"""<html><body style="font-family:Inter,sans-serif;background:#0f172a;padding:40px;">
+<div style="max-width:480px;margin:0 auto;background:#1e293b;border-radius:16px;padding:32px;border:1px solid #334155;">
+<div style="text-align:center;margin-bottom:20px;"><span style="font-size:40px;">✅</span></div>
+<h2 style="color:#f1f5f9;margin:0 0 8px;">Test Email</h2>
+<p style="color:#94a3b8;margin:0 0 4px;">Your SMTP config works for <strong style="color:#e2e8f0;">{t.company_name or 'Shunya OS'}</strong></p>
+<p style="color:#64748b;font-size:0.85rem;margin-top:20px;">— Shunya OS</p>
+</div></body></html>"""
+    msg.attach(MIMEText(text, "plain"))
+    msg.attach(MIMEText(html, "html"))
+
+    try:
+        with smtplib.SMTP(host, port, timeout=15) as server:
+            server.starttls()
+            server.login(user, password)
+            server.sendmail(from_email, [recipient], msg.as_string())
+        return jsonify({"success": True, "message": f"Test email sent to {recipient}"})
+    except smtplib.SMTPAuthenticationError:
+        return jsonify({"error": "SMTP authentication failed. Check your username/password."}), 502
+    except smtplib.SMTPException as e:
+        return jsonify({"error": f"SMTP error: {str(e)}"}), 502
+    except Exception as e:
+        return jsonify({"error": f"Connection failed: {str(e)}"}), 502
+
+
+# ── Webhook Management ──
+
+@admin_bp.route("/webhooks", methods=["GET"])
+@login_required
+@admin_required
+def webhooks_page():
+    return render_template("admin/webhooks.html",
+        events=__import__("app.shunya.webhooks", fromlist=["AVAILABLE_EVENTS"]).AVAILABLE_EVENTS)
+
+
+@admin_bp.route("/api/webhooks", methods=["GET"])
+@login_required
+@admin_required
+def list_webhooks():
+    from app.models import Webhook
+    hooks = Webhook.query.filter_by(tenant_id=g.tenant.id).order_by(Webhook.created_at.desc()).all()
+    return jsonify([h.to_dict() for h in hooks])
+
+
+@admin_bp.route("/api/webhooks", methods=["POST"])
+@login_required
+@admin_required
+def create_webhook():
+    from app.models import Webhook
+    data = request.get_json(silent=True) or {}
+    url = data.get("url", "").strip()
+    if not url.startswith("https://"):
+        return jsonify({"error": "Webhook URL must use HTTPS"}), 400
+    hook = Webhook(
+        tenant_id=g.tenant.id,
+        name=data.get("name", "").strip() or "Untitled",
+        url=url,
+        event=data.get("event", "entity.created"),
+        entity_type=data.get("entity_type", "*"),
+        headers=data.get("headers", {}),
+        secret=data.get("secret", ""),
+    )
+    db.session.add(hook)
+    db.session.commit()
+    return jsonify({"success": True, "webhook": hook.to_dict()}), 201
+
+
+@admin_bp.route("/api/webhooks/<int:hook_id>", methods=["PUT"])
+@login_required
+@admin_required
+def update_webhook(hook_id):
+    from app.models import Webhook
+    hook = Webhook.query.filter_by(id=hook_id, tenant_id=g.tenant.id).first_or_404()
+    data = request.get_json(silent=True) or {}
+    if "url" in data:
+        url = data["url"].strip()
+        if not url.startswith("https://"):
+            return jsonify({"error": "Webhook URL must use HTTPS"}), 400
+        hook.url = url
+    hook.name = data.get("name", hook.name)
+    hook.event = data.get("event", hook.event)
+    hook.entity_type = data.get("entity_type", hook.entity_type)
+    hook.is_active = data.get("is_active", hook.is_active)
+    if "secret" in data:
+        hook.secret = data["secret"]
+    db.session.commit()
+    return jsonify({"success": True, "webhook": hook.to_dict()})
+
+
+@admin_bp.route("/api/webhooks/<int:hook_id>", methods=["DELETE"])
+@login_required
+@admin_required
+def delete_webhook(hook_id):
+    from app.models import Webhook
+    hook = Webhook.query.filter_by(id=hook_id, tenant_id=g.tenant.id).first_or_404()
+    db.session.delete(hook)
+    db.session.commit()
+    return jsonify({"success": True, "message": "Webhook deleted"})
+
+
+@admin_bp.route("/api/webhooks/<int:hook_id>/test", methods=["POST"])
+@login_required
+@admin_required
+def test_webhook(hook_id):
+    from app.models import Webhook
+    from app.shunya.webhooks import _send
+    hook = Webhook.query.filter_by(id=hook_id, tenant_id=g.tenant.id).first_or_404()
+    test_payload = {"event": "test", "message": "This is a test from Shunya OS", "webhook_id": hook.id}
+    _send(hook, test_payload)
+    return jsonify({"success": True, "last_status": hook.last_status})
+
+
+# ── WhatsApp Management ──
+
+@admin_bp.route("/whatsapp", methods=["GET"])
+@login_required
+@admin_required
+def whatsapp_page():
+    config = g.tenant.ai_config or {}
+    wa = config.get("whatsapp", {}) or {}
+    return render_template("admin/whatsapp.html", config=wa)
+
+
+@admin_bp.route("/api/whatsapp", methods=["GET"])
+@login_required
+@admin_required
+def get_whatsapp_config():
+    config = g.tenant.ai_config or {}
+    wa = config.get("whatsapp", {}) or {}
+    return jsonify({
+        "token": wa.get("token", ""),
+        "phone_id": wa.get("phone_id", ""),
+        "verify_token": wa.get("verify_token", ""),
+        "auto_reply": wa.get("auto_reply", ""),
+    })
+
+
+@admin_bp.route("/api/whatsapp", methods=["POST"])
+@login_required
+@admin_required
+def save_whatsapp_config():
+    data = request.get_json(silent=True) or {}
+    config = g.tenant.ai_config or {}
+    config["whatsapp"] = {
+        "token": data.get("whatsapp_token", ""),
+        "phone_id": data.get("whatsapp_phone_id", ""),
+        "verify_token": data.get("whatsapp_verify_token", ""),
+        "auto_reply": data.get("whatsapp_auto_reply", ""),
+    }
+    g.tenant.ai_config = config
+    db.session.commit()
+    return jsonify({"success": True, "message": "WhatsApp settings saved"})
+
+
+# ── Telegram Bot Config ──
+
+
+@admin_bp.route("/telegram", methods=["GET"])
+@login_required
+@admin_required
+def telegram_page():
+    """Telegram bot config page."""
+    return render_template("admin/telegram.html", tenant=g.tenant)
+
+
+@admin_bp.route("/api/telegram", methods=["GET"])
+@login_required
+def get_telegram_config():
+    """Get current Telegram bot config."""
+    cfg = g.tenant.ai_config or {}
+    return jsonify({
+        "bot_token": cfg.get("telegram_bot_token", ""),
+        "chat_ids": cfg.get("telegram_chat_ids", []),
+    })
+
+
+@admin_bp.route("/api/telegram", methods=["POST"])
+@login_required
+@admin_required
+def save_telegram_config():
+    """Save Telegram bot token and chat IDs."""
+    data = request.get_json(silent=True) or {}
+    token = (data.get("bot_token") or "").strip()
+    chat_ids = data.get("chat_ids", [])
+    if not isinstance(chat_ids, list):
+        chat_ids = [str(chat_ids)]
+
+    # Sanitize chat IDs — allow negative values (group/supergroup IDs)
+    cleaned = []
+    for cid in chat_ids:
+        cid = str(cid).strip()
+        if not cid:
+            continue
+        try:
+            int(cid)
+            cleaned.append(cid)
+        except ValueError:
+            pass
+
+    cfg = dict(g.tenant.ai_config or {})
+    cfg["telegram_bot_token"] = token
+    cfg["telegram_chat_ids"] = cleaned
+    g.tenant.ai_config = cfg
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": f"Telegram config saved ({len(cleaned)} chat ID(s))",
+    })
+
+
+@admin_bp.route("/api/telegram/test", methods=["POST"])
+@login_required
+@admin_required
+def test_telegram_bot():
+    """Send a test message through the configured Telegram bot."""
+    cfg = g.tenant.ai_config or {}
+    token = cfg.get("telegram_bot_token", "")
+    chat_ids = cfg.get("telegram_chat_ids", [])
+
+    if not token:
+        return jsonify({"error": "Bot token not configured"}), 400
+    if not chat_ids:
+        return jsonify({"error": "No chat IDs configured"}), 400
+
+    import requests as http
+
+    success_count = 0
+    errors = []
+
+    for cid in chat_ids:
+        try:
+            resp = http.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={
+                    "chat_id": int(cid) if cid.lstrip("-").isdigit() else cid,
+                    "text": "🤖 *Hermes Bot Test*\n\nYour Telegram bot is configured correctly!",
+                    "parse_mode": "Markdown",
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                success_count += 1
+            else:
+                data = resp.json()
+                errors.append(f"chat {cid}: {data.get('description', 'unknown error')}")
+        except Exception as e:
+            errors.append(f"chat {cid}: {str(e)}")
+
+    if success_count > 0:
+        msg = f"Test message sent to {success_count} chat ID(s)"
+        if errors:
+            msg += f" ({len(errors)} failed)"
+        return jsonify({"success": True, "message": msg, "errors": errors})
+    else:
+        return jsonify({
+            "error": "Failed to send test message",
+            "details": errors,
+        }), 400

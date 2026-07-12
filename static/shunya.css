@@ -192,6 +192,28 @@ nav a:hover, nav button:hover, [class*="nav-link"]:hover { color: var(--nav-hove
 /* Light-background containers must use dark text */
 [class*="bg-white"], [class*="bg-slate-50"] { color: #0f172a; }
 
+/* ── LIGHT CONTAINER TEXT PROTECTION ──
+ * The theme's text-slate overrides (lines 35-40) are designed for dark cards
+ * but they also blanket-override text in LIGHT containers (bg-white, bg-slate-50),
+ * making labels and headings invisible (light-on-light).
+ * These rules restore dark text inside light containers by inheriting from
+ * the container rule above (color: #0f172a). */
+[data-theme="modern"] [class*="bg-white"] [class*="text-slate-"],
+[data-theme="modern"] [class*="bg-slate-50"] [class*="text-slate-"],
+[data-theme="playful"]  [class*="bg-white"] [class*="text-slate-"],
+[data-theme="playful"]  [class*="bg-slate-50"] [class*="text-slate-"],
+[data-theme="elegant"]  [class*="bg-white"] [class*="text-slate-"],
+[data-theme="elegant"]  [class*="bg-slate-50"] [class*="text-slate-"] {
+  color: inherit !important;
+}
+/* Preserve nav styling inside light containers — nav elements need muted colors */
+[data-theme="modern"]  nav [class*="bg-white"] [class*="text-slate-"] { color: var(--nav-muted) !important; }
+[data-theme="modern"]  nav [class*="bg-white"] [class*="text-slate-900"] { color: var(--nav-text) !important; }
+[data-theme="playful"] nav [class*="bg-white"] [class*="text-slate-"] { color: var(--nav-muted) !important; }
+[data-theme="playful"] nav [class*="bg-white"] [class*="text-slate-900"] { color: var(--nav-text) !important; }
+[data-theme="elegant"] nav [class*="bg-white"] [class*="text-slate-"] { color: var(--nav-muted) !important; }
+[data-theme="elegant"] nav [class*="bg-white"] [class*="text-slate-900"] { color: var(--nav-text) !important; }
+
 /* Form inputs always need visible text — they have light bg regardless of theme */
 input, textarea, select { color: #1e293b; caret-color: #1e293b; }
 input::placeholder, textarea::placeholder { color: #94a3b8; }

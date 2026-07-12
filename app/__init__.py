@@ -1,5 +1,7 @@
 """Shunya OS — Application Factory."""
-import os, logging, uuid
+import os, logging, uuid, hashlib
+from datetime import datetime
+from functools import wraps
 from flask import Flask, g, request, jsonify, redirect, url_for, session
 from flask_cors import CORS
 from app.extensions import db
@@ -71,6 +73,7 @@ def _register_blueprints(app):
     from app.routes.relationships import relationships_bp
     from app.shunya.user_mood import mood_bp
     from app.routes.admin import admin_bp
+    from app.routes.webhooks import webhooks_bp
 
     try:
         from app.routes.hr import hr_bp
@@ -117,6 +120,7 @@ def _register_blueprints(app):
 
     app.register_blueprint(mood_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(webhooks_bp)
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +164,7 @@ def _register_context_processors(app):
                 {"label": "Settings", "icon": "⚙️", "url": "/settings"},
                 {"label": "AI", "icon": "🤖", "url": "/ai-settings"},
                 {"label": "Governance", "icon": "⚖️", "url": "/governance"},
+                {"label": "Webhooks", "icon": "🔗", "url": "/admin/webhooks"},
             ],
         }
 
@@ -216,3 +221,47 @@ def _request_id_middleware(app):
     @app.before_request
     def _set_request_id():
         g.request_id = request.headers.get("X-Request-Id", uuid.uuid4().hex[:12])
+
+
+# ---------------------------------------------------------------------------
+# API Key authentication — decorate /api/ routes that accept API keys
+# ---------------------------------------------------------------------------
+
+
+def api_key_required(f):
+    """Decorator: validate X-API-Key header, set g.api_key_scopes.
+
+    Reads the X-API-Key header, hashes it, looks up in the ApiKey table,
+    sets g.api_key_scopes / g.api_key_tenant_id, and updates last_used_at.
+    Returns 401/403 on failure.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        api_key = request.headers.get("X-API-Key", "")
+        if not api_key:
+            return jsonify({"error": "X-API-Key header required"}), 401
+
+        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+
+        from app.models import ApiKey
+        record = db.session.query(ApiKey).filter(
+            ApiKey.key_hash == key_hash,
+            ApiKey.is_active == True,  # noqa: E712
+        ).first()
+
+        if not record:
+            return jsonify({"error": "Invalid or inactive API key"}), 403
+
+        # Expose scopes and tenant context via g
+        g.api_key_scopes = record.scopes or []
+        g.api_key_id = record.id
+        g.api_key_tenant_id = record.tenant_id
+        g.api_key_authenticated = True
+
+        # Update last-used timestamp
+        record.last_used_at = datetime.utcnow()
+        db.session.commit()
+
+        return f(*args, **kwargs)
+
+    return decorated_function

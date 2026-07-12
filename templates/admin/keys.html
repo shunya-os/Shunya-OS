@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; }
+  .br-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .br-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 6px; }
+  .br-input { width: 100%; padding: 10px 14px; background: rgba(51,65,85,0.5); border: 1px solid #334155; border-radius: 10px; color: #e2e8f0; font-size: 0.875rem; outline: none; transition: border-color .2s; }
+  .br-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  .br-btn { padding: 10px 20px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; border: none; cursor: pointer; transition: all .2s; }
+  .br-btn-primary { background: #3b82f6; color: white; }
+  .br-btn-primary:hover { background: #2563eb; }
+  .br-btn-danger { background: #ef4444; color: white; }
+  .br-btn-danger:hover { background: #dc2626; }
+  .br-btn-success { background: #10b981; color: white; }
+  .br-btn-success:hover { background: #059669; }
+  .key-card { background: rgba(51,65,85,0.4); border: 1px solid #334155; border-radius: 12px; padding: 16px; transition: border-color .2s; }
+  .key-card:hover { border-color: #475569; }
+  .scope-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 500; background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+  .new-key-box { background: #065f46; border: 1px solid #059669; border-radius: 12px; padding: 16px; }
+</style>
+
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-bold text-white">🔑 API Keys</h1>
+  <button onclick="showCreateKey()" class="br-btn br-btn-primary">+ Generate Key</button>
+</div>
+
+<div class="br-card p-5 mb-6">
+  <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🔐 Your API Keys</h3>
+  <p class="text-xs text-slate-500 mb-4">Use these keys to authenticate programmatic access to the Shunya API. Keys are shown only once when created.</p>
+  <div id="keys-list" class="space-y-3"></div>
+  <div id="keys-empty" class="hidden text-center py-8">
+    <p class="text-3xl mb-2">🔑</p>
+    <p class="text-sm text-slate-500">No API keys yet. Generate your first key above.</p>
+  </div>
+</div>
+
+<!-- New Key Dialog (hidden by default) -->
+<div id="create-key-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60" onclick="if(event.target===this)hideCreateKey()">
+  <div class="br-card p-6 w-full max-w-md mx-4" onclick="event.stopPropagation()">
+    <h3 class="text-sm font-semibold text-white mb-4">🔑 Generate New API Key</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="br-label">Key Name</label>
+        <input id="new-key-name" class="br-input" placeholder="e.g. Zapier Integration, Mobile App" onkeydown="if(event.key==='Enter')createKey()">
+      </div>
+      <div>
+        <label class="br-label">Scopes (comma separated)</label>
+        <input id="new-key-scopes" class="br-input" value="read:*" placeholder="read:lead, write:lead">
+        <p class="text-xs text-slate-500 mt-1">Examples: <code class="text-blue-400">read:*</code>, <code class="text-blue-400">read:lead,write:lead</code></p>
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button onclick="hideCreateKey()" class="br-btn" style="background:#334155;color:#94a3b8;">Cancel</button>
+        <button onclick="createKey()" class="br-btn br-btn-primary">Generate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Key Reveal Modal -->
+<div id="key-reveal-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60" onclick="if(event.target===this)hideReveal()">
+  <div class="br-card p-6 w-full max-w-lg mx-4" onclick="event.stopPropagation()">
+    <h3 class="text-sm font-semibold text-white mb-2">🎉 API Key Generated!</h3>
+    <div class="new-key-box mb-4">
+      <p class="text-xs text-emerald-300 mb-2">⚠️ Copy this key now. It will <strong>never</strong> be shown again.</p>
+      <div class="flex gap-2">
+        <input id="revealed-key" class="br-input font-mono text-sm" readonly style="background:#064e3b;color:#6ee7b7;">
+        <button onclick="copyKey()" class="br-btn br-btn-success text-sm whitespace-nowrap">📋 Copy</button>
+      </div>
+    </div>
+    <button onclick="hideReveal();loadKeys();" class="br-btn br-btn-primary w-full">Done</button>
+  </div>
+</div>
+
+<script>
+// ── Load keys ──
+async function loadKeys(){
+  var r=await fetch('/admin/api/keys'); var d=await r.json();
+  var el=document.getElementById('keys-list');
+  var empty=document.getElementById('keys-empty');
+  el.innerHTML='';
+  if(!d.length){ empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  d.forEach(function(k){
+    var scopeHtml=k.scopes.map(function(s){ return '<span class="scope-badge">'+esc(s)+'</span>'; }).join(' ');
+    var statusBadge=k.is_active
+      ? '<span class="text-xs px-2 py-0.5 rounded-full bg-green-900/50 text-green-400 border border-green-700">Active</span>'
+      : '<span class="text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-400 border border-red-700">Revoked</span>';
+    el.innerHTML+='<div class="key-card flex items-center justify-between">'+
+      '<div class="flex-1 min-w-0">'+
+        '<div class="flex items-center gap-2 mb-1">'+
+          '<p class="text-sm font-medium text-white truncate">'+esc(k.name)+'</p>'+
+          statusBadge+
+        '</div>'+
+        '<p class="text-xs font-mono text-slate-400 mb-1">'+esc(k.key_prefix)+'</p>'+
+        '<div class="flex flex-wrap gap-1">'+scopeHtml+'</div>'+
+        '<p class="text-xs text-slate-500 mt-1">'+
+          (k.last_used_at ? 'Last used: '+new Date(k.last_used_at).toLocaleString() : 'Never used')+
+          ' · Created: '+new Date(k.created_at).toLocaleDateString()+
+        '</p>'+
+      '</div>'+
+      (k.is_active ? '<button onclick="revokeKey('+k.id+',\''+escAttr(k.name)+'\')" class="br-btn br-btn-danger text-sm ml-3 flex-shrink-0">Revoke</button>' : '')+
+    '</div>';
+  });
+}
+loadKeys();
+
+// ── Create key ──
+function showCreateKey(){ document.getElementById('create-key-modal').classList.remove('hidden'); document.getElementById('new-key-name').focus(); }
+function hideCreateKey(){ document.getElementById('create-key-modal').classList.add('hidden'); }
+function hideReveal(){ document.getElementById('key-reveal-modal').classList.add('hidden'); }
+
+async function createKey(){
+  var name=document.getElementById('new-key-name').value.trim();
+  var scopesRaw=document.getElementById('new-key-scopes').value.trim();
+  if(!name){ showToast('❌ Key name is required'); return; }
+  var scopes=scopesRaw.split(',').map(function(s){return s.trim();}).filter(function(s){return s;});
+  if(!scopes.length) scopes=['read:*'];
+
+  var r=await fetch('/admin/api/keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,scopes:scopes})});
+  var d=await r.json();
+  hideCreateKey();
+  if(d.success){
+    document.getElementById('revealed-key').value=d.key;
+    document.getElementById('key-reveal-modal').classList.remove('hidden');
+  } else {
+    showToast('❌ '+d.error);
+  }
+}
+
+function copyKey(){
+  var inp=document.getElementById('revealed-key');
+  inp.select(); inp.setSelectionRange(0,99999);
+  navigator.clipboard.writeText(inp.value).then(function(){ showToast('✅ Copied!'); });
+}
+
+// ── Revoke key ──
+async function revokeKey(id,name){
+  if(!confirm('Revoke API key "'+name+'"?')) return;
+  var r=await fetch('/admin/api/keys/'+id,{method:'DELETE'});
+  var d=await r.json();
+  if(d.success){ showToast('✅ '+d.message); loadKeys(); }
+  else showToast('❌ '+d.error);
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+function showToast(m){ var t=document.createElement('div'); t.className='fixed top-20 right-4 bg-slate-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg z-[9999] border border-slate-600'; t.textContent=m; document.body.appendChild(t); setTimeout(function(){t.remove();},4000); }
+</script>
+{% endblock %}

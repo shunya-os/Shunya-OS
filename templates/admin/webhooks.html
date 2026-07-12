@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; color: #e2e8f0; }
+  .wh-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .wh-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 6px; }
+  .wh-input { width: 100%; padding: 10px 14px; background: rgba(51,65,85,0.5); border: 1px solid #334155; border-radius: 10px; color: #e2e8f0; font-size: 0.875rem; outline: none; transition: border-color .2s; }
+  .wh-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  .wh-btn { padding: 10px 20px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; border: none; cursor: pointer; transition: all .2s; }
+  .wh-btn-primary { background: #3b82f6; color: white; }
+  .wh-btn-primary:hover { background: #2563eb; }
+  .wh-btn-danger { background: #ef4444; color: white; }
+  .wh-btn-danger:hover { background: #dc2626; }
+  .wh-btn-outline { background: transparent; border: 1px solid #334155; color: #94a3b8; }
+  .wh-btn-outline:hover { border-color: #3b82f6; color: #3b82f6; }
+  .event-badge { display: inline-flex; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 500; background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .status-dot.on { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.4); }
+  .status-dot.off { background: #64748b; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; display: none; justify-content: center; align-items: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 24px; width: 90%; max-width: 540px; max-height: 80vh; overflow-y: auto; }
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 0.85rem; z-index: 100; transition: all .3s; transform: translateY(100px); opacity: 0; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { background: #065f46; border: 1px solid #10b981; color: #a7f3d0; }
+  .toast.error { background: #7f1d1d; border: 1px solid #ef4444; color: #fecaca; }
+  .switch { position: relative; width: 40px; height: 22px; display: inline-block; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; inset: 0; background: #334155; border-radius: 22px; transition: .3s; }
+  .slider:before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #94a3b8; border-radius: 50%; transition: .3s; }
+  .switch input:checked + .slider { background: #10b981; }
+  .switch input:checked + .slider:before { transform: translateX(18px); background: white; }
+</style>
+
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-bold text-white">🔗 Webhooks</h1>
+  <div class="flex gap-2">
+    <a href="/admin/webhooks/log" class="wh-btn wh-btn-outline">📋 Logs</a>
+    <button onclick="openModal()" class="wh-btn wh-btn-primary">➕ New Webhook</button>
+  </div>
+</div>
+
+{% if not webhooks %}
+<div class="wh-card p-8 text-center">
+  <div class="text-5xl mb-4">🔗</div>
+  <h2 class="text-lg font-semibold text-white mb-2">No Webhooks Yet</h2>
+  <p class="text-sm text-slate-400 mb-6">Configure webhook endpoints to receive real-time events from Shunya OS.</p>
+  <button onclick="openModal()" class="wh-btn wh-btn-primary">Create Your First Webhook</button>
+</div>
+{% else %}
+<div class="grid gap-4">
+  {% for wh in webhooks %}
+  <div class="wh-card p-5" data-id="{{ wh.id }}">
+    <div class="flex items-start justify-between mb-3">
+      <div class="flex items-center gap-3">
+        <span class="status-dot {{ 'on' if wh.is_active else 'off' }}"></span>
+        <div>
+          <h3 class="font-semibold text-white text-sm">{{ wh.name }}</h3>
+          <p class="text-xs text-slate-400 font-mono truncate max-w-md">{{ wh.url }}</p>
+        </div>
+      </div>
+      <div class="flex gap-2 items-center">
+        <span class="event-badge">{{ wh.event }}</span>
+        {% if wh.last_status %}
+          {% if 200 <= wh.last_status < 300 %}
+            <span class="text-xs text-emerald-400">✓ {{ wh.last_status }}</span>
+          {% else %}
+            <span class="text-xs text-red-400">✗ {{ wh.last_status }}</span>
+          {% endif %}
+        {% endif %}
+        <button onclick="editWebhook({{ wh.id }})" class="wh-btn wh-btn-outline text-xs px-3 py-1.5">✏️</button>
+        <button onclick="testWebhook({{ wh.id }})" class="wh-btn wh-btn-outline text-xs px-3 py-1.5">🔔 Test</button>
+        <button onclick="deleteWebhook({{ wh.id }})" class="wh-btn wh-btn-danger text-xs px-3 py-1.5">🗑️</button>
+      </div>
+    </div>
+    <div class="flex gap-4 text-xs text-slate-500">
+      {% if wh.entity_type and wh.entity_type != '*' %}
+        <span>Entity: {{ wh.entity_type }}</span>
+      {% endif %}
+      {% if wh.failure_count > 0 %}
+        <span class="text-amber-400">⚠️ {{ wh.failure_count }} failure(s)</span>
+      {% endif %}
+      {% if wh.last_sent_at %}
+        <span>Last: {{ wh.last_sent_at.strftime('%Y-%m-%d %H:%M') }}</span>
+      {% endif %}
+      <span>Created: {{ wh.created_at.strftime('%Y-%m-%d') }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Modal -->
+<div id="wh-modal" class="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="flex justify-between items-center mb-6">
+      <h2 id="modal-title" class="text-lg font-bold text-white">New Webhook</h2>
+      <button onclick="closeModal()" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+    <input type="hidden" id="wh-id" value="">
+
+    <div class="space-y-4">
+      <div>
+        <label class="wh-label">Name</label>
+        <input id="wh-name" class="wh-input" placeholder="e.g. Slack Notifications">
+      </div>
+      <div>
+        <label class="wh-label">Endpoint URL <span class="text-red-400">*HTTPS only</span></label>
+        <input id="wh-url" class="wh-input font-mono text-xs" placeholder="https://hooks.example.com/events">
+      </div>
+      <div>
+        <label class="wh-label">Event</label>
+        <select id="wh-event" class="wh-input">
+          <option value="">-- Select event --</option>
+          {% for e in entity_events %}
+          <option value="{{ e }}">{{ e }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="wh-label">Entity Type (optional — filter by type)</label>
+        <input id="wh-entity-type" class="wh-input" placeholder="* (all types)" value="*">
+      </div>
+      <div>
+        <label class="wh-label">Secret (optional — HMAC signing)</label>
+        <input id="wh-secret" class="wh-input font-mono text-xs" placeholder="Leave blank for no signing">
+        <div class="flex justify-end mt-1">
+          <button onclick="generateSecret()" class="text-xs text-blue-400 hover:text-blue-300">🎲 Generate</button>
+        </div>
+      </div>
+      <div>
+        <label class="wh-label">Custom Headers (JSON, optional)</label>
+        <textarea id="wh-headers" class="wh-input font-mono text-xs" rows="2" placeholder='{"X-Custom": "value"}'></textarea>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="switch">
+          <input type="checkbox" id="wh-active" checked>
+          <span class="slider"></span>
+        </label>
+        <span class="text-sm text-slate-300">Active</span>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3 mt-6">
+      <button onclick="closeModal()" class="wh-btn wh-btn-outline">Cancel</button>
+      <button onclick="saveWebhook()" class="wh-btn wh-btn-primary">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script>
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type;
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function openModal(wh) {
+  document.getElementById('wh-id').value = wh?.id || '';
+  document.getElementById('wh-name').value = wh?.name || '';
+  document.getElementById('wh-url').value = wh?.url || '';
+  document.getElementById('wh-event').value = wh?.event || '';
+  document.getElementById('wh-entity-type').value = wh?.entity_type || '*';
+  document.getElementById('wh-secret').value = wh?.secret || '';
+  document.getElementById('wh-headers').value = wh?.headers ? JSON.stringify(wh.headers, null, 2) : '';
+  document.getElementById('wh-active').checked = wh ? (wh.is_active !== false) : true;
+  document.getElementById('modal-title').textContent = wh ? 'Edit Webhook' : 'New Webhook';
+  document.getElementById('wh-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('wh-modal').classList.remove('open');
+}
+
+function generateSecret() {
+  const arr = new Uint8Array(24);
+  crypto.getRandomValues(arr);
+  document.getElementById('wh-secret').value = btoa(String.fromCharCode(...arr)).replace(/=/g,'').slice(0,32);
+}
+
+async function saveWebhook() {
+  const id = document.getElementById('wh-id').value;
+  let headers = {};
+  try {
+    const h = document.getElementById('wh-headers').value.trim();
+    if (h) headers = JSON.parse(h);
+  } catch(e) { showToast('Headers must be valid JSON', 'error'); return; }
+
+  const data = {
+    name: document.getElementById('wh-name').value.trim(),
+    url: document.getElementById('wh-url').value.trim(),
+    event: document.getElementById('wh-event').value,
+    entity_type: document.getElementById('wh-entity-type').value.trim() || '*',
+    secret: document.getElementById('wh-secret').value.trim(),
+    headers: headers,
+    is_active: document.getElementById('wh-active').checked,
+  };
+
+  if (!data.name || !data.url) { showToast('Name and URL are required', 'error'); return; }
+  if (!data.url.startsWith('https://')) { showToast('Only HTTPS URLs allowed', 'error'); return; }
+  if (!data.event) { showToast('Select an event', 'error'); return; }
+
+  try {
+    const r = await fetch(id ? `/admin/api/webhooks/${id}` : '/admin/api/webhooks', {
+      method: id ? 'PUT' : 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data),
+    });
+    const j = await r.json();
+    if (j.success || r.ok) {
+      showToast(id ? 'Webhook updated' : 'Webhook created');
+      closeModal();
+      setTimeout(() => location.reload(), 500);
+    } else {
+      showToast(j.error || 'Error saving', 'error');
+    }
+  } catch(e) { showToast('Network error', 'error'); }
+}
+
+async function editWebhook(id) {
+  try {
+    const r = await fetch(`/admin/api/webhooks/${id}`);
+    const wh = await r.json();
+    if (wh && !wh.error) openModal(wh);
+    else showToast('Error loading webhook', 'error');
+  } catch(e) { showToast('Network error', 'error'); }
+}
+
+async function testWebhook(id) {
+  try {
+    const r = await fetch(`/admin/api/webhooks/${id}/test`, {method:'POST'});
+    const j = await r.json();
+    if (j.success) {
+      showToast(`Test sent — status: ${j.status || 'sent'}`);
+      setTimeout(() => location.reload(), 1000);
+    } else { showToast(j.error || 'Test failed', 'error'); }
+  } catch(e) { showToast('Network error', 'error'); }
+}
+
+async function deleteWebhook(id) {
+  if (!confirm('Delete this webhook and all its logs?')) return;
+  try {
+    const r = await fetch(`/admin/api/webhooks/${id}`, {method:'DELETE'});
+    const j = await r.json();
+    if (j.success) {
+      showToast('Webhook deleted');
+      document.querySelector(`[data-id="${id}"]`)?.remove();
+    } else { showToast(j.error || 'Delete failed', 'error'); }
+  } catch(e) { showToast('Network error', 'error'); }
+}
+</script>
+{% endblock %}

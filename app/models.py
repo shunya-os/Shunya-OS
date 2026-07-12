@@ -479,6 +479,39 @@ def next_entity_code(session, tenant_id: int, entity_type: str = "lead", ref_dat
     return f"{prefix_full}{count + 1:02d}"
 
 # ---------------------------------------------------------------------------
+# API Keys (Public API Key Management)
+# ---------------------------------------------------------------------------
+
+class ApiKey(db.Model):
+    """API key for programmatic access to Shunya APIs."""
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    name = Column(String(120), nullable=False)  # label like "Zapier", "Mobile App"
+    key_hash = Column(String(64), nullable=False)  # SHA256 of the key
+    key_prefix = Column(String(8), nullable=False)  # first 8 chars of key for display
+    scopes = Column(JSONB, default=list)  # ["read:lead", "write:lead", "read:*"]
+    is_active = Column(Boolean, default=True)
+    last_used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+
+    tenant = relationship("Tenant", backref="api_keys",
+                          foreign_keys=[tenant_id])
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "key_prefix": f"{self.key_prefix}...",
+            "scopes": self.scopes or [],
+            "is_active": self.is_active,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+# ---------------------------------------------------------------------------
 # Activity Log
 # ---------------------------------------------------------------------------
 
@@ -700,35 +733,60 @@ class ClientUser(db.Model):
 
 
 # ---------------------------------------------------------------------------
+# Webhook Engine
+# ---------------------------------------------------------------------------
+
+class WebhookLog(db.Model):
+    """Delivery log of a webhook call."""
+    __tablename__ = "webhook_logs"
+
+    id = Column(Integer, primary_key=True)
+    webhook_id = Column(Integer, ForeignKey("webhooks.id"), nullable=False)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    event = Column(String(60), nullable=False)
+    payload = Column(JSONB, default=dict)
+    status_code = Column(Integer, nullable=True)
+    response_body = Column(Text, default="")
+    duration_ms = Column(Integer, default=0)
+    error = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
 # User Mood / Health Check-in
 # ---------------------------------------------------------------------------
 
-class UserMoodCheckin(db.Model):
-    """A user's daily mood and energy check-in for health tracking."""
-    __tablename__ = "user_mood_checkins"
-    __table_args__ = (Index("ix_mood_user_date", "user_id", "created_at"),)
+# ---------------------------------------------------------------------------
+# Webhooks
+# ---------------------------------------------------------------------------
+
+class Webhook(db.Model):
+    """Outgoing webhook — sends HTTP POST when events fire."""
+    __tablename__ = "webhooks"
+    __table_args__ = (Index("ix_webhook_tenant_event", "tenant_id", "event"),)
 
     id = Column(Integer, primary_key=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
-
-    mood = Column(String(20), nullable=False)  # great, good, okay, rough, tough
-    energy = Column(Integer, nullable=False)  # 1-5
-    notes = Column(Text, default="")
-
+    name = Column(String(120), nullable=False)
+    url = Column(String(500), nullable=False)
+    event = Column(String(60), nullable=False)
+    entity_type = Column(String(60), default="*")
+    headers = Column(JSONB, default=dict)
+    secret = Column(String(64), default="")
+    is_active = Column(Boolean, default=True)
+    last_sent_at = Column(DateTime, nullable=True)
+    last_status = Column(Integer, nullable=True)
+    failure_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def to_dict(self):
         return {
-            "id": self.id,
-            "mood": self.mood,
-            "energy": self.energy,
-            "notes": self.notes,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "id": self.id, "name": self.name, "url": self.url,
+            "event": self.event, "entity_type": self.entity_type,
+            "headers": self.headers, "is_active": self.is_active,
+            "last_sent_at": self.last_sent_at.isoformat() if self.last_sent_at else None,
+            "last_status": self.last_status, "failure_count": self.failure_count,
         }
-
-
-# ---------------------------------------------------------------------------
 # RelationShip & Person Models — Compounding Relationship Intelligence
 # ---------------------------------------------------------------------------
 # Canonical: A customer relationship is continuous. A booking is temporary.
