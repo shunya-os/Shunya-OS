@@ -76,8 +76,7 @@
 [data-theme="playful"] [class*="text-slate-700"],
 [data-theme="playful"] [class*="text-slate-800"],
 [data-theme="playful"] [class*="text-slate-900"] { color: var(--body-heading) !important; }
-[data-theme="playful"] [class*="bg-white"] [class*="text-slate-"] { color: var(--body-muted) !important; }
-[data-theme="playful"] [class*="bg-white"] [class*="text-slate-900"] { color: var(--body-heading) !important; }
+/* Light-container text-slate children handled by platform-wide auto-contrast */
 
 /* ── Elegant: off-white, monochrome, sharp ── */
 [data-theme="elegant"] {
@@ -115,8 +114,7 @@
 [data-theme="elegant"] [class*="text-slate-700"],
 [data-theme="elegant"] [class*="text-slate-800"],
 [data-theme="elegant"] [class*="text-slate-900"] { color: var(--body-heading) !important; }
-[data-theme="elegant"] [class*="bg-white"] [class*="text-slate-"] { color: var(--body-muted) !important; }
-[data-theme="elegant"] [class*="bg-white"] [class*="text-slate-900"] { color: var(--body-heading) !important; }
+/* Light-container text-slate children handled by platform-wide auto-contrast */
 
 /* ── Brandverse: auto-generated, ALL surfaces dark ── */
 [data-theme="brandverse"] {
@@ -202,29 +200,25 @@ nav a:hover, nav button:hover, [class*="nav-link"]:hover { color: var(--nav-hove
 .nav-drop > .nav-drop-menu { display:none; position:absolute; top:100%; left:0; margin-top:4px; background:white; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.15); z-index:100; padding:4px 0; min-width:150px; }
 .nav-drop:hover > .nav-drop-menu { display:block; }
 
-/* Light-background containers must use dark text */
-[class*="bg-white"], [class*="bg-slate-50"] { color: #0f172a; }
-
-/* ── LIGHT CONTAINER TEXT PROTECTION ── */
-[data-theme="modern"] [class*="bg-white"] [class*="text-slate-"],
-[data-theme="modern"] [class*="bg-slate-50"] [class*="text-slate-"],
-[data-theme="playful"]  [class*="bg-white"] [class*="text-slate-"],
-[data-theme="playful"]  [class*="bg-slate-50"] [class*="text-slate-"],
-[data-theme="elegant"]  [class*="bg-white"] [class*="text-slate-"],
-[data-theme="elegant"]  [class*="bg-slate-50"] [class*="text-slate-"] {
-  color: inherit !important;
-}
-
 /* ════════════════════════════════════════
    PLATFORM-WIDE AUTO CONTRAST
-   Any element with a bg color automatically gets a visible text color.
-   These are theme-independent rules — they apply to ALL themes.
+   Every background-bearing element gets IMMEDIATE-contrast text.
+   These are theme-independent — they apply under ALL themes
+   including brandverse. Text-slate children inside light
+   containers inherit the container's dark text rather than
+   picking up themed text-slate rules meant for dark surfaces.
    ════════════════════════════════════════ */
 
 /* Light surfaces — always dark text */
 [class*="bg-white"], 
 [class*="bg-slate-50"],
 [class*="bg-slate-100"] { color: #0f172a; }
+
+/* Children inside light containers inherit their container's
+   dark text instead of themed text-slate colors for dark BGs */
+[class*="bg-white"] [class*="text-slate-"],
+[class*="bg-slate-50"] [class*="text-slate-"],
+[class*="bg-slate-100"] [class*="text-slate-"] { color: inherit !important; }
 
 /* Colored status badges — always white text for readability */
 [class*="bg-blue-500"],

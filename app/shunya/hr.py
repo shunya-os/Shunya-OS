@@ -314,3 +314,316 @@ def ensure_hr_types(tenant_id: int):
         )
         db.session.add(definition)
     db.session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Auto-seed sample data for new tenants
+# ---------------------------------------------------------------------------
+
+def _seed_sample_data(tenant_id: int):
+    """Create sample HR entities if none exist for this tenant.
+
+    Seeds departments, employees (with realistic Indian names), leave requests,
+    attendance records, and performance reviews so the dashboard has data.
+    """
+    dept_def = db.session.query(EntityDefinition).filter_by(
+        tenant_id=tenant_id, type="department"
+    ).first()
+    if not dept_def:
+        return
+
+    existing_count = db.session.query(db.func.count(Entity.id)).filter_by(
+        tenant_id=tenant_id, definition_id=dept_def.id
+    ).scalar() or 0
+
+    if existing_count > 0:
+        return  # Already seeded
+
+    now = __import__("datetime").datetime.utcnow()
+
+    # -----------------------------------------------------------------------
+    # 1. Departments
+    # -----------------------------------------------------------------------
+    departments_data = [
+        {"name": "Engineering",        "code": "ENG", "description": "Software development, infrastructure, and platform engineering.",              "budget": 50000000,  "location": "Bangalore"},
+        {"name": "Marketing",         "code": "MKT", "description": "Brand management, growth marketing, and communications.",                   "budget": 30000000,  "location": "Mumbai"},
+        {"name": "Sales",             "code": "SLS", "description": "Enterprise and SMB sales across India and APAC.",                            "budget": 40000000,  "location": "Delhi"},
+        {"name": "Human Resources",   "code": "HR",  "description": "Talent acquisition, people operations, and culture.",                        "budget": 15000000,  "location": "Bangalore"},
+        {"name": "Finance",           "code": "FIN", "description": "Accounting, budgeting, financial planning, and compliance.",                  "budget": 12000000,  "location": "Mumbai"},
+        {"name": "Product",           "code": "PRD", "description": "Product strategy, roadmap, and user research.",                              "budget": 25000000,  "location": "Bangalore"},
+        {"name": "Operations",        "code": "OPS", "description": "Logistics, administration, and facilities management.",                       "budget": 18000000,  "location": "Chennai"},
+        {"name": "Design",            "code": "DSN", "description": "UI/UX design, brand identity, and creative services.",                       "budget": 10000000,  "location": "Bangalore"},
+    ]
+
+    sample_depts = []
+    for i, d in enumerate(departments_data):
+        sample_depts.append(Entity(
+            tenant_id=tenant_id, definition_id=dept_def.id,
+            code=f"DEPT-{i:04d}",
+            status="active",
+            data={
+                "name": d["name"],
+                "code": d["code"],
+                "description": d["description"],
+                "budget": d["budget"],
+                "location": d["location"],
+            },
+        ))
+
+    # -----------------------------------------------------------------------
+    # 2. Employees (with manager hierarchy)
+    # -----------------------------------------------------------------------
+    emp_def = db.session.query(EntityDefinition).filter_by(
+        tenant_id=tenant_id, type="employee"
+    ).first()
+    if not emp_def:
+        # Roll back dept additions
+        return
+
+    # (name, employee_code, email, phone, dept, position, salary, emp_type, location)
+    # First 8 are directors/managers; the rest are ICs
+    employees_data = [
+        # Directors / Department Heads (no manager)
+        ("Arvind Mehta",       "EMP-001", "arvind.mehta@shunya.io",     "+91-98765-41001", "Engineering",        "Director of Engineering",      2800000, "full_time", "Bangalore"),
+        ("Priya Sharma",       "EMP-002", "priya.sharma@shunya.io",    "+91-98765-41002", "Marketing",          "Director of Marketing",        2600000, "full_time", "Mumbai"),
+        ("Vikram Singh",       "EMP-003", "vikram.singh@shunya.io",    "+91-98765-41003", "Sales",              "Director of Sales",            2700000, "full_time", "Delhi"),
+        ("Ananya Patel",       "EMP-004", "ananya.patel@shunya.io",    "+91-98765-41004", "Human Resources",    "Director of HR",               2200000, "full_time", "Bangalore"),
+        ("Rajesh Kumar",       "EMP-005", "rajesh.kumar@shunya.io",    "+91-98765-41005", "Finance",            "Director of Finance",          2500000, "full_time", "Mumbai"),
+        ("Sneha Reddy",        "EMP-006", "sneha.reddy@shunya.io",     "+91-98765-41006", "Product",            "Director of Product",          2600000, "full_time", "Bangalore"),
+        ("Karthik Nair",       "EMP-007", "karthik.nair@shunya.io",    "+91-98765-41007", "Operations",         "Director of Operations",       2300000, "full_time", "Chennai"),
+        ("Meera Joshi",        "EMP-008", "meera.joshi@shunya.io",     "+91-98765-41008", "Design",             "Director of Design",           2400000, "full_time", "Bangalore"),
+        # Managers reporting to directors
+        ("Deepa Krishnan",     "EMP-009", "deepa.k@shunya.io",          "+91-98765-41009", "Engineering",        "Senior Engineering Manager",   1800000, "full_time", "Bangalore"),
+        ("Rahul Verma",        "EMP-010", "rahul.verma@shunya.io",      "+91-98765-41010", "Engineering",        "Backend Engineer",             1200000, "full_time", "Bangalore"),
+        ("Lakshmi Iyer",       "EMP-011", "lakshmi.iyer@shunya.io",     "+91-98765-41011", "Marketing",          "Marketing Manager",            1500000, "full_time", "Mumbai"),
+        ("Sanjay Gupta",       "EMP-012", "sanjay.gupta@shunya.io",     "+91-98765-41012", "Sales",              "Sales Manager",                1600000, "full_time", "Delhi"),
+        ("Neha Joshi",         "EMP-013", "neha.joshi@shunya.io",       "+91-98765-41013", "Human Resources",    "HR Business Partner",          1100000, "full_time", "Bangalore"),
+        ("Amit Deshmukh",      "EMP-014", "amit.deshmukh@shunya.io",    "+91-98765-41014", "Finance",            "Finance Manager",              1400000, "full_time", "Mumbai"),
+        ("Divya Krishnamurthy","EMP-015", "divya.k@shunya.io",          "+91-98765-41015", "Product",            "Product Manager",              1600000, "full_time", "Bangalore"),
+        ("Ravi Shankar",       "EMP-016", "ravi.shankar@shunya.io",     "+91-98765-41016", "Operations",         "Operations Manager",           1300000, "full_time", "Chennai"),
+        ("Pooja Singhania",    "EMP-017", "pooja.singhania@shunya.io",  "+91-98765-41017", "Design",             "Senior UI/UX Designer",        1400000, "full_time", "Bangalore"),
+        # Individual contributors
+        ("Vishal Patil",       "EMP-018", "vishal.patil@shunya.io",     "+91-98765-41018", "Engineering",        "Frontend Engineer",            900000,  "full_time", "Bangalore"),
+        ("Anjali Menon",       "EMP-019", "anjali.menon@shunya.io",     "+91-98765-41019", "Marketing",          "Content Marketing Specialist",  800000,  "full_time", "Mumbai"),
+        ("Rohit Khanna",       "EMP-020", "rohit.khanna@shunya.io",     "+91-98765-41020", "Sales",              "Account Executive",             950000,  "full_time", "Delhi"),
+        ("Swati Agarwal",      "EMP-021", "swati.agarwal@shunya.io",    "+91-98765-41021", "Engineering",        "Data Engineer",                 750000,  "full_time", "Bangalore"),
+        ("Arun Nambiar",       "EMP-022", "arun.nambiar@shunya.io",     "+91-98765-41022", "Marketing",          "Social Media Manager",          850000,  "full_time", "Mumbai"),
+        ("Kavita Desai",       "EMP-023", "kavita.desai@shunya.io",     "+91-98765-41023", "Sales",              "Business Development",          780000,  "full_time", "Delhi"),
+        ("Mohan Prasad",       "EMP-024", "mohan.prasad@shunya.io",     "+91-98765-41024", "Engineering",        "DevOps Engineer",              1100000, "full_time", "Bangalore"),
+        ("Nandini Rao",        "EMP-025", "nandini.rao@shunya.io",      "+91-98765-41025", "Human Resources",    "Talent Acquisition Specialist", 700000,  "full_time", "Bangalore"),
+        ("Siddharth Bose",     "EMP-026", "sid.bose@shunya.io",         "+91-98765-41026", "Finance",            "Accountant",                    650000,  "full_time", "Mumbai"),
+        ("Isha Kapoor",        "EMP-027", "isha.kapoor@shunya.io",      "+91-98765-41027", "Product",            "Associate Product Manager",    1000000, "full_time", "Bangalore"),
+        ("Ganesh Iyer",        "EMP-028", "ganesh.iyer@shunya.io",      "+91-98765-41028", "Operations",         "Logistics Coordinator",         600000,  "full_time", "Chennai"),
+        ("Tara Shetty",        "EMP-029", "tara.shetty@shunya.io",      "+91-98765-41029", "Design",             "Visual Designer",                720000,  "full_time", "Bangalore"),
+        ("Rekha Das",          "EMP-030", "rekha.das@shunya.io",        "+91-98765-41030", "Engineering",        "QA Engineer",                    680000,  "full_time", "Bangalore"),
+    ]
+
+    sample_employees = []
+    for i, e in enumerate(employees_data):
+        mgr_id = None
+        if i >= 8:
+            # First 8 are directors (no manager); others report to someone
+            dept_mgr_map = {"Engineering": 1, "Marketing": 2, "Sales": 3, "Human Resources": 4,
+                            "Finance": 5, "Product": 6, "Operations": 7, "Design": 8}
+            mgr_id = dept_mgr_map.get(e[4])
+
+        sample_employees.append(Entity(
+            tenant_id=tenant_id, definition_id=emp_def.id,
+            code=e[1],
+            status="active",
+            data={
+                "employee_name": e[0],
+                "employee_code": e[1],
+                "email": e[2],
+                "phone": e[3],
+                "department": e[4],
+                "position": e[5],
+                "salary": e[6],
+                "employment_type": e[7],
+                "work_location": e[8],
+                "manager_id": mgr_id,
+                "date_of_joining": (now - __import__("datetime").timedelta(days=__import__("random").randint(30, 730))).strftime("%Y-%m-%d"),
+                "date_of_birth": (now.replace(year=now.year - __import__("random").randint(22, 55))).strftime("%Y-%m-%d"),
+                "skills": ", ".join(__import__("random").sample(
+                    ["Python", "JavaScript", "SQL", "Go", "React", "Docker", "Kubernetes", "AWS",
+                     "Figma", "Photoshop", "Illustrator", "Content Strategy", "SEO", "SEM",
+                     "CRM", "Negotiation", "Data Analysis", "Tableau", "Excel", "Recruiting",
+                     "Payroll", "Budgeting", "Product Strategy", "Agile", "JIRA"], 4)),
+                "bank_account": f"HDFC{__import__('random').randint(1000000000, 9999999999)}",
+                "emergency_contact": f"+91-9{__import__('random').randint(100000000, 999999999)}",
+                "notes": "Seeded during tenant onboarding.",
+            },
+        ))
+
+    # Flush to get department and employee IDs for relationships below
+    for e in sample_depts + sample_employees:
+        db.session.add(e)
+    db.session.flush()
+
+    # -----------------------------------------------------------------------
+    # 3. Leave Requests
+    # -----------------------------------------------------------------------
+    leave_def = db.session.query(EntityDefinition).filter_by(
+        tenant_id=tenant_id, type="leave_request"
+    ).first()
+    sample_leaves = []
+    if leave_def and sample_employees:
+        # Pick a few employees for sample leave requests
+        leave_employees = [
+            sample_employees[9],   # Rahul Verma
+            sample_employees[10],  # Lakshmi Iyer
+            sample_employees[12],  # Neha Joshi
+            sample_employees[17],  # Vishal Patil
+            sample_employees[18],  # Anjali Menon
+            sample_employees[20],  # Swati Agarwal
+        ]
+        leave_types_reasons = [
+            ("annual",     "Family vacation to Kerala during Onam."),
+            ("sick",       "Down with viral fever, doctor advised 2 days rest."),
+            ("personal",   "Need to attend my cousin's wedding in Pune."),
+            ("annual",     "Year-end break — visiting hometown in Tamil Nadu."),
+            ("sick",       "Medical appointment for a routine check-up."),
+            ("personal",   "Housewarming ceremony at our new flat."),
+            ("maternity",  "Maternity leave starting next month."),
+        ]
+
+        for i, (emp, ltype, reason) in enumerate(zip(
+            leave_employees,
+            [l for l, _ in leave_types_reasons[:6]],
+            [r for _, r in leave_types_reasons[:6]],
+        )):
+            start = now - __import__("datetime").timedelta(days=__import__("random").randint(5, 60))
+            days = __import__("random").randint(1, 5)
+            end = start + __import__("datetime").timedelta(days=days - 1)
+            status = __import__("random").choice(["pending", "approved", "rejected", "approved_by_manager"])
+
+            sample_leaves.append(Entity(
+                tenant_id=tenant_id, definition_id=leave_def.id,
+                code=f"LV-{i:04d}",
+                status=status,
+                data={
+                    "employee_id": emp.id,
+                    "employee_name": emp.data["employee_name"],
+                    "leave_type": ltype,
+                    "start_date": start.strftime("%Y-%m-%d"),
+                    "end_date": end.strftime("%Y-%m-%d"),
+                    "total_days": days,
+                    "reason": reason,
+                    "approved_by": 1 if status in ("approved", "approved_by_manager") else None,
+                    "approval_notes": "Approved." if status in ("approved", "approved_by_manager") else "",
+                },
+            ))
+
+    # -----------------------------------------------------------------------
+    # 4. Attendance Records (last 30 days for a few employees)
+    # -----------------------------------------------------------------------
+    att_def = db.session.query(EntityDefinition).filter_by(
+        tenant_id=tenant_id, type="attendance"
+    ).first()
+    sample_attendance = []
+    if att_def and sample_employees:
+        attendance_employees = sample_employees[:15]  # First 15 employees
+        for i in range(60):  # ~60 records across employees
+            emp = __import__("random").choice(attendance_employees)
+            day = now - __import__("datetime").timedelta(days=__import__("random").randint(0, 29))
+            status = __import__("random").choices(
+                ["present", "present", "present", "wfh", "late", "absent", "half_day"],
+                weights=[35, 35, 35, 15, 8, 4, 3], k=1
+            )[0]
+            check_in_h = __import__('random').randint(0, 59)
+            check_out_h = __import__('random').randint(0, 59)
+            check_in = f"09:{check_in_h:02d} AM" if status in ("present", "wfh") else (f"10:{__import__('random').randint(0, 45):02d} AM" if status == "late" else "")
+            check_out = f"06:{check_out_h:02d} PM" if status in ("present", "wfh") else (f"02:{__import__('random').randint(0, 30):02d} PM" if status == "half_day" else "")
+            total_hours = 9.0 if status in ("present", "wfh") else 4.5 if status == "half_day" else 0.0
+
+            sample_attendance.append(Entity(
+                tenant_id=tenant_id, definition_id=att_def.id,
+                code=f"ATT-{i:04d}",
+                status=status,
+                data={
+                    "employee_id": emp.id,
+                    "employee_name": emp.data["employee_name"],
+                    "date": day.strftime("%Y-%m-%d"),
+                    "check_in": check_in,
+                    "check_out": check_out,
+                    "total_hours": total_hours,
+                    "late_minutes": __import__("random").randint(10, 90) if status == "late" else 0,
+                    "overtime_hours": round(__import__("random").uniform(0, 3), 1) if status == "present" else 0,
+                    "notes": "",
+                },
+            ))
+
+    # -----------------------------------------------------------------------
+    # 5. Performance Reviews (for a subset of employees)
+    # -----------------------------------------------------------------------
+    perf_def = db.session.query(EntityDefinition).filter_by(
+        tenant_id=tenant_id, type="performance_review"
+    ).first()
+    sample_reviews = []
+    if perf_def and sample_employees:
+        review_employees = sample_employees[:12]
+        for i, emp in enumerate(review_employees):
+            rating = __import__("random").choice(["3", "4", "5"])
+            sample_reviews.append(Entity(
+                tenant_id=tenant_id, definition_id=perf_def.id,
+                code=f"REV-{i:04d}",
+                status=__import__("random").choice(["completed", "completed", "acknowledged", "submitted"]),
+                data={
+                    "employee_id": emp.id,
+                    "employee_name": emp.data["employee_name"],
+                    "review_period": f"Q{__import__('random').randint(1, 4)} FY{now.year if now.month > 3 else now.year - 1}",
+                    "reviewer_id": i + 1 if i < 8 else None,
+                    "reviewer_name": employees_data[min(i, 7)][0],
+                    "rating": rating,
+                    "technical_skills": __import__("random").randint(3, 5),
+                    "communication": __import__("random").randint(3, 5),
+                    "teamwork": __import__("random").randint(3, 5),
+                    "leadership": __import__("random").randint(2, 5),
+                    "achievements": "Delivered key milestones ahead of schedule." if int(rating) >= 4 else "Met project deadlines consistently.",
+                    "areas_for_improvement": "Could benefit from cross-team collaboration." if int(rating) < 4 else "",
+                    "goals_next_period": "Lead a major initiative and mentor junior team members.",
+                    "review_date": (now - __import__("datetime").timedelta(days=__import__("random").randint(5, 90))).strftime("%Y-%m-%d"),
+                },
+            ))
+
+    # -----------------------------------------------------------------------
+    # 6. Positions
+    # -----------------------------------------------------------------------
+    pos_def = db.session.query(EntityDefinition).filter_by(
+        tenant_id=tenant_id, type="position"
+    ).first()
+    sample_positions = []
+    if pos_def:
+        positions_data = [
+            ("Senior Backend Engineer",  "Engineering",        "Director of Engineering",      1500000, 2200000, 5, 3),
+            ("Frontend Engineer",        "Engineering",        "Senior Engineering Manager",    600000, 1200000, 8, 4),
+            ("Marketing Manager",        "Marketing",          "Director of Marketing",        1200000, 1800000, 3, 2),
+            ("Sales Manager",            "Sales",              "Director of Sales",            1300000, 1900000, 4, 2),
+            ("HR Business Partner",       "Human Resources",    "Director of HR",                800000, 1300000, 3, 1),
+            ("Product Manager",          "Product",            "Director of Product",          1400000, 2000000, 4, 2),
+            ("UI/UX Designer",           "Design",             "Director of Design",            700000, 1500000, 5, 3),
+            ("Accountant",               "Finance",            "Director of Finance",            500000,  900000, 3, 1),
+        ]
+        for i, p in enumerate(positions_data):
+            sample_positions.append(Entity(
+                tenant_id=tenant_id, definition_id=pos_def.id,
+                code=f"POS-{i:04d}",
+                status="active",
+                data={
+                    "title": p[0],
+                    "department": p[1],
+                    "reports_to": p[2],
+                    "salary_range_min": p[3],
+                    "salary_range_max": p[4],
+                    "head_count": p[5],
+                    "filled_positions": p[6],
+                },
+            ))
+
+    # -----------------------------------------------------------------------
+    # Commit everything
+    # -----------------------------------------------------------------------
+    all_entities = sample_depts + sample_employees + sample_leaves + sample_attendance + sample_reviews + sample_positions
+    for entity in all_entities:
+        db.session.add(entity)
+    db.session.commit()

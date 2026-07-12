@@ -112,7 +112,7 @@ def _seed_sample_data(tenant_id: int):
     for i, data in enumerate(supplier_data):
         suppliers.append(Entity(
             tenant_id=tenant_id, definition_id=supp_def.id,
-            code=f"SUP-{i:04d}", display_name=data[0],
+            code=f"SUP-{i:04d}",
             status="active",
             data={
                 "company_name": data[0],
@@ -138,7 +138,7 @@ def _seed_sample_data(tenant_id: int):
     for i, data in enumerate(warehouse_data):
         warehouses.append(Entity(
             tenant_id=tenant_id, definition_id=wh_def.id,
-            code=f"WH-{i:04d}", display_name=data[0],
+            code=f"WH-{i:04d}",
             status="active",
             data={
                 "name": data[0],
@@ -172,7 +172,7 @@ def _seed_sample_data(tenant_id: int):
             status = "out_of_stock"
         products.append(Entity(
             tenant_id=tenant_id, definition_id=prod_def.id,
-            code=f"PRD-{i:04d}", display_name=data[1],
+            code=f"PRD-{i:04d}",
             status=status,
             data={
                 "sku": data[0],
@@ -200,7 +200,7 @@ def _seed_sample_data(tenant_id: int):
         status = ["sent", "confirmed", "draft", "received", "partially_received"][i % 5]
         pos.append(Entity(
             tenant_id=tenant_id, definition_id=po_def.id,
-            code=data[0], display_name=data[0],
+            code=data[0],
             status=status,
             data={
                 "po_number": data[0],

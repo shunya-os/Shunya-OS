@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, jsonify, g
 from app import db
 from app.models import Entity, EntityDefinition, ActivityLog
 from app.routes.auth import login_required
-from app.shunya.hr import HRDashboard, ensure_hr_types
+from app.shunya.hr import HRDashboard, ensure_hr_types, _seed_sample_data
 
 hr_bp = Blueprint("hr", __name__, url_prefix="/hr")
 
@@ -13,6 +13,9 @@ hr_bp = Blueprint("hr", __name__, url_prefix="/hr")
 def hr_dashboard():
     """HR & People Management dashboard."""
     ensure_hr_types(g.tenant.id)
+
+    # Seed sample data if no entities exist yet
+    _seed_sample_data(g.tenant.id)
 
     overview = HRDashboard.get_overview(g.tenant.id)
 

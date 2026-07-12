@@ -516,7 +516,8 @@ def revoke_key(key_id):
 @admin_required
 def email_page():
     """Render email config page."""
-    return render_template("admin/email.html", tenant=g.tenant)
+    smtp_config = (g.tenant.ai_config or {}).get("smtp", {})
+    return render_template("admin/email.html", tenant=g.tenant, smtp_config=smtp_config)
 
 
 @admin_bp.route("/api/email", methods=["GET"])
@@ -1078,9 +1079,9 @@ def export_entities_csv(entity_type):
 @login_required
 @admin_required
 def export_entities_pdf(entity_type):
-    """Export all entities of a given type as JSON list (PDF placeholder)."""
+    """Export all entities of a given type as PDF using wkhtmltopdf."""
     from app.models import EntityDefinition, Entity
-    from app.shunya.export import export_json
+    from app.shunya.export import export_pdf
 
     definition = db.session.query(EntityDefinition).filter_by(
         tenant_id=g.tenant.id, type=entity_type
@@ -1092,14 +1093,15 @@ def export_entities_pdf(entity_type):
         tenant_id=g.tenant.id, definition_id=definition.id, is_archived=False
     ).order_by(Entity.created_at.desc()).all()
 
-    rows = export_json(entity_type, entities, definition.schema)
+    pdf_bytes = export_pdf(entities, definition.schema, entity_label=definition.label)
 
-    return jsonify({
-        "entity_type": entity_type,
-        "label": definition.label,
-        "total": len(rows),
-        "rows": rows,
-    })
+    filename = f"{entity_type}_{datetime.utcnow().strftime('%Y%m%d')}.pdf"
+    from flask import Response
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Calendar View ──
@@ -1253,4 +1255,22 @@ def global_search_api():
         "results": results,
         "total": total_count,
         "query": q,
+    })
+
+
+# ── Payment Gateway Config ──
+
+
+@admin_bp.route("/api/payment/config", methods=["GET"])
+@login_required
+def payment_config():
+    """Return whether Razorpay is configured (has API keys)."""
+    import os
+    key_id = os.environ.get("RAZORPAY_KEY_ID", "")
+    key_secret = os.environ.get("RAZORPAY_KEY_SECRET", "")
+    configured = bool(key_id and key_secret)
+    return jsonify({
+        "configured": configured,
+        "gateway": "razorpay",
+        "key_id_prefix": key_id[:8] + "..." if configured else "",
     })

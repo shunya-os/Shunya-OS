@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, render_template, session, g, send
 from app import db
 from app.models import Entity, EntityDefinition, ClientUser, Payment, Message, File, Invoice
 from app.routes.auth import login_required
+from app.shunya.payments import create_order, verify_payment
 from datetime import datetime
 import io, os, functools
 
@@ -221,6 +222,10 @@ def client_initiate_payment():
     if amount <= 0:
         return jsonify({"error": "Invalid amount"}), 400
 
+    # Convert to paise (Razorpay uses smallest currency unit)
+    amount_paise = int(amount * 100)
+
+    # Create local payment record
     payment = Payment(
         tenant_id=g.client_user.tenant_id,
         entity_id=g.client_user.entity_id,
@@ -231,13 +236,71 @@ def client_initiate_payment():
     db.session.add(payment)
     db.session.commit()
 
-    # TODO: Generate real payment link from gateway API
+    # Create Razorpay order (works in mock mode too)
+    receipt = f"pmt_{payment.id}_{g.client_user.entity_id}"
+    order = create_order(
+        amount_paise=amount_paise,
+        currency="INR",
+        receipt=receipt,
+        notes={"payment_id": str(payment.id), "entity_id": str(g.client_user.entity_id)},
+    )
+
+    # Store gateway reference (Razorpay order ID)
+    payment.gateway_ref = order["id"]
+    db.session.commit()
+
     return jsonify({
         "success": True,
         "payment_id": payment.id,
-        "payment_link": f"https://pay.shunya/{payment.id}",
+        "order_id": order["id"],
+        "amount_paise": amount_paise,
         "amount": amount,
+        "currency": "INR",
+        "mock": order.get("mock", False),
     })
+
+
+@client_bp.route("/api/payment/callback", methods=["POST"])
+def payment_callback():
+    """Razorpay webhook callback — payment.captured, payment.failed events."""
+    payload = request.get_json(silent=True) or {}
+    event = payload.get("event", "")
+
+    # Razorpay sends event wrapped in 'event' key
+    if not event:
+        return jsonify({"error": "Invalid webhook"}), 400
+
+    payment_payload = payload.get("payload", {}).get("payment", {}).get("entity", {})
+
+    if event == "payment.captured":
+        order_id = payment_payload.get("order_id", "")
+        payment_id = payment_payload.get("id", "")
+        status = payment_payload.get("status", "captured")
+
+        # Find our local payment by gateway_ref
+        local_payment = Payment.query.filter_by(gateway_ref=order_id, gateway="razorpay").first()
+        if local_payment:
+            local_payment.status = "completed"
+            local_payment.paid_at = datetime.utcnow()
+            local_payment.notes = f"razorpay_payment_id: {payment_id}"
+            db.session.commit()
+
+        return jsonify({"status": "ok"}), 200
+
+    elif event == "payment.failed":
+        order_id = payment_payload.get("order_id", "")
+        error_desc = payment_payload.get("error_description", "Payment failed")
+
+        local_payment = Payment.query.filter_by(gateway_ref=order_id, gateway="razorpay").first()
+        if local_payment:
+            local_payment.status = "failed"
+            local_payment.notes = error_desc
+            db.session.commit()
+
+        return jsonify({"status": "ok"}), 200
+
+    # Acknowledge other events silently
+    return jsonify({"status": "ignored"}), 200
 
 
 # ---------------------------------------------------------------------------
