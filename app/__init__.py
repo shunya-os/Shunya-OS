@@ -35,7 +35,8 @@ def create_app(config_name: str = "development"):
         _register_error_handlers(app)
         _register_health(app)
         _register_context_processors(app)
-        db.create_all()
+        if not app.config.get("TESTING"):
+            db.create_all()
 
     app.logger.info("Shunya OS initialised")
     return app

@@ -1,10 +1,37 @@
-__pycache__/
-*.pyc
-venv/
+# Environment files
 .env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
 *.egg-info/
 dist/
 build/
-media/uploads/
-node_modules/
-packages/*/node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+
+# Uploads
+media/
+static/uploads/brand/
+static/uploads/temp/
+
+# Logs
+*.log
+/var/log/shunya/
+
+# Test artifacts
+.pytest_cache/
+test-results.xml
+htmlcov/
+.coverage

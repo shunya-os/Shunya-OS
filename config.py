@@ -45,4 +45,16 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
 
-config_by_name = {"development": DevelopmentConfig, "production": ProductionConfig}
+class TestConfig(Config):
+    """Test configuration with file-based SQLite."""
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = "sqlite:///test_shunya.db"
+    SECRET_KEY = "test-secret-key"
+    WTF_CSRF_ENABLED = False
+    RATELIMIT_ENABLED = False
+
+config_by_name = {
+    "development": DevelopmentConfig,
+    "production": ProductionConfig,
+    "test": TestConfig,
+}
