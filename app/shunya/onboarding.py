@@ -1,177 +1,201 @@
-"""Shunya OS — Getting Started Wizard (first-run onboarding)."""
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, g
+"""Shunya OS — Getting Started Wizard (first-run onboarding).
+
+New multi-step flow:
+1. What describes you? (I own/manage a business / Starting a venture / Exploring)
+2. What type of business? (Vertical selection)
+3. Business name + Is this part of a group?
+4. Brands? (Single or Multiple)
+5. Customize (Logo, tagline, color, theme)
+6. 🎉 Done — Tenant created with vertical entity types
+"""
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, g, session as flask_session
 from app import db
-from app.models import Tenant, EntityDefinition, KnowledgeEntry, TeamMember
+from app.models import Tenant, EntityDefinition, BusinessGroup, Business, Brand, TeamMember
 from app.routes.auth import login_required
+from app.shunya.verticals import VERTICAL_TEMPLATES, get_vertical, get_vertical_list
 
 onboarding_bp = Blueprint("onboarding", __name__, url_prefix="/onboarding")
 
 
-# Business templates — pre-configured entity packs for common industries
-BUSINESS_TEMPLATES = {
-    "travel": {
-        "label": "Travel Agency",
-        "icon": "✈️",
-        "description": "Leads, bookings, itineraries, suppliers, invoices",
-        "entity_types": ["lead", "booking", "itinerary", "supplier", "invoice", "expense", "task"],
-        "seed_knowledge": [
-            {"q": "What is our cancellation policy?", "a": "Free cancellation up to 7 days before departure. 50% charge within 7 days. No refund after departure."},
-            {"q": "What destinations do we offer?", "a": "We offer domestic and international packages including Bali, Thailand, Dubai, Europe, and Maldives."},
-        ],
-    },
-    "healthcare": {
-        "label": "Healthcare / Clinic",
-        "icon": "🏥",
-        "description": "Patients, appointments, prescriptions, billing, inventory",
-        "entity_types": ["patient", "appointment", "prescription", "invoice", "expense", "task"],
-        "seed_knowledge": [
-            {"q": "What are our clinic hours?", "a": "Monday to Saturday: 9 AM to 7 PM. Sunday: 10 AM to 2 PM."},
-            {"q": "What insurance providers do we accept?", "a": "We accept all major insurance providers. Please check with your provider for coverage details."},
-        ],
-    },
-    "education": {
-        "label": "School / Institute",
-        "icon": "🎓",
-        "description": "Students, courses, attendance, fees, staff",
-        "entity_types": ["student", "course", "attendance", "invoice", "expense", "task"],
-        "seed_knowledge": [
-            {"q": "What is the admission process?", "a": "Submit application form, provide previous academic records, attend entrance test/interview, complete fee payment."},
-            {"q": "What is the academic calendar?", "a": "The academic year runs from June to March with two semesters. Summer break in April-May."},
-        ],
-    },
-    "retail": {
-        "label": "Retail / E-Commerce",
-        "icon": "🏪",
-        "description": "Products, orders, customers, inventory, sales",
-        "entity_types": ["product", "order", "customer", "invoice", "expense", "task"],
-        "seed_knowledge": [
-            {"q": "What is our return policy?", "a": "Free returns within 15 days of delivery. Items must be unused and in original packaging."},
-            {"q": "What payment methods do we accept?", "a": "We accept all major credit/debit cards, UPI, net banking, and cash on delivery."},
-        ],
-    },
-    "coworking": {
-        "label": "Co-Working Space",
-        "icon": "🏠",
-        "description": "Members, desks, bookings, plans, invoices",
-        "entity_types": ["member", "desk", "booking", "plan", "invoice", "expense", "task"],
-        "seed_knowledge": [
-            {"q": "What membership plans do we offer?", "a": "Hot desk: ₹5,000/month. Fixed desk: ₹8,000/month. Private cabin: ₹15,000/month. Virtual office: ₹2,000/month."},
-            {"q": "What are our operating hours?", "a": "We are open 24/7 for members. Staff available 9 AM to 8 PM."},
-        ],
-    },
-    "general": {
-        "label": "General Business",
-        "icon": "🏢",
-        "description": "Contacts, projects, tasks, invoices, expenses",
-        "entity_types": ["contact", "project", "task", "invoice", "expense", "account"],
-        "seed_knowledge": [
-            {"q": "How do I add a new team member?", "a": "Go to Settings → Team → Add Member. Enter their name, email, phone, and role."},
-            {"q": "How do I upload company data?", "a": "Go to the Ingest page. You can upload PDFs, DOCX, images, audio, video, spreadsheets, and more."},
-        ],
-    },
-}
-
-
-@onboarding_bp.route("")
+@onboarding_bp.route("", methods=["GET"])
 @login_required
 def onboarding_page():
-    """Show the onboarding wizard if not yet onboarded."""
-    tenant = g.tenant
-    if tenant.onboarding_completed:
-        return redirect(url_for("dashboard.dashboard"))
-    return render_template("onboarding.html", templates=BUSINESS_TEMPLATES)
+    """Show the multi-step onboarding wizard."""
+    verticals = get_vertical_list()
+    # If tenant already has vertical_config, they're already set up
+    if g.tenant and g.tenant.vertical_config and g.tenant.vertical_config.get("completed"):
+        return redirect(url_for("index"))
+    return render_template("onboarding.html", verticals=verticals)
+
+
+@onboarding_bp.route("/api/verticals", methods=["GET"])
+@login_required
+def list_verticals():
+    """Return available verticals as JSON."""
+    return jsonify(get_vertical_list())
+
+
+@onboarding_bp.route("/api/vertical/<vertical_id>", methods=["GET"])
+@login_required
+def vertical_detail(vertical_id):
+    """Return details of a specific vertical template."""
+    v = get_vertical(vertical_id)
+    if not v:
+        return jsonify({"error": "Vertical not found"}), 404
+    # Only send summary, not full schema for UI
+    return jsonify({
+        "id": vertical_id,
+        "label": v["label"],
+        "icon": v["icon"],
+        "description": v["description"],
+        "code_prefix": v.get("code_prefix", "BIZ"),
+        "theme_icon": v.get("theme_icon", "🧩"),
+        "entity_count": len(v.get("entity_types", [])),
+        "entity_types": [
+            {"type": e["type"], "label": e["label"], "icon": e["icon"]}
+            for e in v.get("entity_types", [])
+        ],
+    })
 
 
 @onboarding_bp.route("/start", methods=["POST"])
 @login_required
 def start_onboarding():
-    """Initialize the tenant with a business template."""
-    data = request.get_json(silent=True) or request.form
-    template_key = data.get("template", "general")
-    company_name = data.get("company_name", g.tenant.company_name or "My Company")
+    """Execute onboarding — create business hierarchy + instantiate vertical template."""
+    data = request.get_json(silent=True) or {}
+    vertical_id = data.get("vertical", "custom")
+    company_name = data.get("company_name", "").strip() or "My Business"
+    has_group = data.get("has_group", False)
+    group_name = data.get("group_name", "").strip()
+    brands_input = data.get("brands", [company_name])
+    tagline = data.get("tagline", "")
+    brand_color = data.get("brand_color", "")
+    logo_url = data.get("logo_url", "")
 
-    template = BUSINESS_TEMPLATES.get(template_key, BUSINESS_TEMPLATES["general"])
+    v = get_vertical(vertical_id)
+    if not v:
+        return jsonify({"error": f"Vertical '{vertical_id}' not found"}), 400
 
-    # Update tenant
-    tenant = g.tenant
-    tenant.company_name = company_name
-    tenant.business_type = template_key
-    tenant.theme_config = tenant.theme_config or {}
-    tenant.theme_config["icon"] = template["icon"]
+    user_id = g.user.id
+    tenant_id = g.tenant.id  # The user is already logged in with a tenant
 
-    # Create entity types from template
-    from app.shunya.finance import FINANCE_ENTITY_TYPES, _ensure_finance_types
-    from app.shunya.operations import OPS_ENTITY_TYPES, _ensure_ops_types
+    # 1. Create or update BusinessGroup
+    group = None
+    if has_group and group_name:
+        group = BusinessGroup(
+            name=group_name,
+            owner_id=user_id,
+            industry="conglomerate",
+        )
+        db.session.add(group)
+        db.session.flush()
 
-    for etype in template["entity_types"]:
-        existing = EntityDefinition.query.filter_by(tenant_id=tenant.id, type=etype).first()
-        if existing:
+    # 2. Create Business
+    biz = Business(
+        name=company_name,
+        owner_id=user_id,
+        group_id=group.id if group else None,
+        business_type=vertical_id,
+    )
+    db.session.add(biz)
+    db.session.flush()
+
+    # 3. Create Brand(s) and link Tenant
+    for bname in brands_input:
+        if not bname.strip():
             continue
+        brand = Brand(
+            name=bname.strip(),
+            business_id=biz.id,
+            is_default=(bname.strip() == brands_input[0]),
+            brand_color=brand_color or v.get("default_brand_color", "#2563eb"),
+            brand_tagline=tagline,
+        )
+        if logo_url:
+            brand.logo_url = logo_url
+        db.session.add(brand)
+        db.session.flush()
 
-        # Check if it's a finance or ops type
-        if etype in FINANCE_ENTITY_TYPES:
-            config = FINANCE_ENTITY_TYPES[etype]
-        elif etype in OPS_ENTITY_TYPES:
-            config = OPS_ENTITY_TYPES[etype]
-        else:
-            # Generic fallback
-            config = {
-                "label": etype.capitalize(),
-                "icon": "📋",
-                "schema": [{"name": "name", "label": "Name", "type": "text", "required": True}],
-                "statuses": ["active", "inactive"],
-                "layout": "table",
-                "searchable_fields": ["name"],
-            }
+        # Update the current tenant to link to this brand
+        if g.tenant:
+            g.tenant.company_name = bname.strip()
+            g.tenant.business_type = vertical_id
+            g.tenant.brand_id = brand.id
+            g.tenant.business_id = biz.id
+            g.tenant.owner_id = user_id
+            if brand_color:
+                g.tenant.brand_color = brand_color
+            if logo_url:
+                g.tenant.logo_url = logo_url
+            if tagline:
+                g.tenant.brand_tagline = tagline
 
+            # Store vertical config
+            vc = g.tenant.vertical_config or {}
+            vc["vertical"] = vertical_id
+            vc["completed"] = True
+            g.tenant.vertical_config = vc
+            g.tenant.theme_config = g.tenant.theme_config or {}
+            g.tenant.theme_config["icon"] = v.get("theme_icon", "🧩")
+
+    # 4. Instantiate entity types from vertical template
+    from app.shunya.verticals import get_entity_types_for_vertical
+    entity_defs = get_entity_types_for_vertical(vertical_id)
+
+    # Check if entity types already exist for this tenant
+    existing_types = set()
+    if entity_defs:
+        existing = db.session.query(EntityDefinition.type).filter(
+            EntityDefinition.tenant_id == g.tenant.id
+        ).all()
+        existing_types = {e[0] for e in existing}
+
+    created_types = []
+    for et in entity_defs:
+        if et["type"] in existing_types:
+            continue
+        statuses = et.get("statuses", ["new", "active", "completed"])
         definition = EntityDefinition(
-            tenant_id=tenant.id,
-            type=etype,
-            label=config["label"],
-            label_plural=f"{config['label']}s",
-            icon=config.get("icon", "📋"),
-            schema=config.get("schema", []),
-            statuses=config.get("statuses", ["active", "inactive"]),
-            layout=config.get("layout", "table"),
-            searchable_fields=config.get("searchable_fields", []),
-            primary_field=config.get("schema", [{}])[0].get("name", "name") if config.get("schema") else "name",
+            tenant_id=g.tenant.id,
+            type=et["type"],
+            label=et.get("label", et["type"].title()),
+            label_plural=et.get("label_plural", ""),
+            icon=et.get("icon", "📋"),
+            schema=et.get("schema", []),
+            statuses=statuses,
+            layout=et.get("layout", "table"),
+            primary_field=et.get("primary_field", "name"),
         )
         db.session.add(definition)
+        created_types.append(et["type"])
+        existing_types.add(et["type"])
 
-    # Seed knowledge base
-    for item in template.get("seed_knowledge", []):
-        existing = KnowledgeEntry.query.filter_by(
-            tenant_id=tenant.id, question=item["q"]
-        ).first()
-        if not existing:
-            entry = KnowledgeEntry(
-                tenant_id=tenant.id,
-                question=item["q"],
-                answer=item["a"],
-                source="onboarding",
-                confidence=0.9,
-                category="company_policy",
-            )
-            db.session.add(entry)
+    # 5. Mark onboarding as complete
+    g.tenant.onboarding_completed = True
 
-    # Mark onboarding as completed
-    tenant.onboarding_completed = True
     db.session.commit()
+
+    # 6. Compute entity code prefixes for the new types
+    from app.models import ensure_entity_prefixes
+    ensure_entity_prefixes(db.session, g.tenant.id)
 
     return jsonify({
         "success": True,
-        "redirect": url_for("dashboard.dashboard"),
-        "template": template_key,
-        "entity_types_created": len(template["entity_types"]),
-        "knowledge_seeded": len(template.get("seed_knowledge", [])),
+        "vertical": vertical_id,
+        "company_name": company_name,
+        "entity_types_created": created_types,
+        "redirect": url_for("index"),
     })
 
 
-@onboarding_bp.route("/skip")
+@onboarding_bp.route("/skip", methods=["GET"])
 @login_required
 def skip_onboarding():
-    """Skip onboarding and go straight to dashboard."""
-    tenant = g.tenant
-    tenant.onboarding_completed = True
-    db.session.commit()
-    return redirect(url_for("dashboard.dashboard"))
+    """Skip onboarding — use custom/general setup."""
+    if g.tenant:
+        vc = g.tenant.vertical_config or {}
+        vc["completed"] = True
+        g.tenant.vertical_config = vc
+        g.tenant.onboarding_completed = True
+        db.session.commit()
+    return redirect(url_for("index"))

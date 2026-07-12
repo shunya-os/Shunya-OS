@@ -1,8 +1,49 @@
 """Shunya OS — Dashboard."""
 from flask import Blueprint, render_template, g, jsonify, redirect, url_for
+from app import db
 from app.routes.auth import login_required
 
 dashboard_bp = Blueprint("dashboard", __name__)
+
+
+@dashboard_bp.route("/owner")
+@login_required
+def owner_dashboard():
+    """Owner view — all businesses across all brands."""
+    from app.models import Business, Brand, Tenant
+
+    user = g.user
+    businesses = db.session.query(Business).filter_by(owner_id=user.id).all()
+
+    biz_data = []
+    for biz in businesses:
+        brands = db.session.query(Brand).filter_by(business_id=biz.id).all()
+        brand_data = []
+        for brand in brands:
+            tenant = db.session.query(Tenant).filter_by(brand_id=brand.id).first()
+            brand_data.append({
+                "id": brand.id,
+                "name": brand.name,
+                "logo_url": brand.logo_url or "",
+                "brand_color": brand.brand_color or "#2563eb",
+                "vertical": biz.business_type,
+                "tenant_id": tenant.id if tenant else None,
+                "tenant_slug": tenant.slug if tenant else None,
+                "is_active": tenant.is_active if tenant else False,
+            })
+        biz_data.append({
+            "id": biz.id,
+            "name": biz.name,
+            "business_type": biz.business_type,
+            "brands": brand_data,
+        })
+
+    return render_template("owner_dashboard.html",
+        user=user,
+        businesses=biz_data,
+        total_businesses=len(businesses),
+        total_brands=sum(len(b["brands"]) for b in biz_data),
+    )
 
 
 @dashboard_bp.route("/")

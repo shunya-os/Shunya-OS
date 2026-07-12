@@ -65,11 +65,19 @@ class Tenant(db.Model):
     onboarding_completed = Column(Boolean, default=False)
     theme_config = Column(JSONB, default=dict)
     ai_config = Column(JSONB, default=dict)  # web_search_enabled, confidence_threshold, etc.
+    business_type = Column(String(60), default="other")  # travel, hospital, school, retail...
+    vertical_config = Column(JSONB, default=dict)  # vertical-specific defaults
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Business hierarchy
+    owner_id = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+    brand_id = Column(Integer, ForeignKey("brands.id"), nullable=True)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=True)
 
     # Relationships
     children = relationship("Tenant", backref="parent", remote_side=[id], lazy="select")
-    team_members = relationship("TeamMember", backref="tenant", lazy="select", cascade="all,delete-orphan")
+    team_members = relationship("TeamMember", backref="tenant", lazy="select", cascade="all,delete-orphan",
+                                foreign_keys="TeamMember.tenant_id")
     entity_definitions = relationship("EntityDefinition", backref="tenant", lazy="select", cascade="all,delete-orphan")
     entities = relationship("Entity", backref="tenant", lazy="select", cascade="all,delete-orphan")
 
@@ -79,6 +87,92 @@ class Tenant(db.Model):
             "business_type": self.business_type, "parent_id": self.parent_id,
             "is_active": self.is_active, "plan": self.plan, "logo_url": self.logo_url,
             "theme_config": self.theme_config or {},
+            "brand_tagline": self.brand_tagline or "",
+            "vertical_config": self.vertical_config or {},
+        }
+
+# ---------------------------------------------------------------------------
+# Business Hierarchy — Universal OS Structure
+# ---------------------------------------------------------------------------
+# A Person owns Businesses. A Business may belong to a BusinessGroup.
+# A Business has Brands. A Brand gets a Tenant (Shunya OS instance).
+#
+# Person → BusinessGroup (optional, e.g. Reliance)
+#        → Business (e.g. Jio)
+#              → Brand (e.g. JioFiber)
+#                    → Tenant (Shunya OS instance, data isolated)
+
+class BusinessGroup(db.Model):
+    """A collection of businesses under common ownership (e.g. Reliance Industries)."""
+    __tablename__ = "business_groups"
+    __table_args__ = (Index("ix_business_group_owner", "owner_id"),)
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    owner_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
+    description = Column(Text, default="")
+    industry = Column(String(60), default="")  # conglomerate, holding, etc.
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    businesses = relationship("Business", backref="group", lazy="select",
+                               foreign_keys="Business.group_id")
+
+    def to_dict(self):
+        return {"id": self.id, "name": self.name, "industry": self.industry}
+
+
+class Business(db.Model):
+    """A single business entity. Belongs to a Person or a BusinessGroup."""
+    __tablename__ = "businesses"
+    __table_args__ = (Index("ix_business_owner", "owner_id"),)
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    owner_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("business_groups.id"), nullable=True)
+    business_type = Column(String(60), nullable=False)  # travel, hospital, legal, retail...
+    description = Column(Text, default="")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    brands = relationship("Brand", backref="business", lazy="select",
+                           foreign_keys="Brand.business_id", cascade="all,delete-orphan")
+
+    @property
+    def tenant_count(self):
+        return len([b for b in self.brands if b.tenants])
+
+    def to_dict(self):
+        return {
+            "id": self.id, "name": self.name, "business_type": self.business_type,
+            "group_id": self.group_id, "is_active": self.is_active,
+            "brand_count": len(self.brands),
+        }
+
+
+class Brand(db.Model):
+    """A brand under a Business. Gets its own Tenant (Shunya OS instance)."""
+    __tablename__ = "brands"
+    __table_args__ = (Index("ix_brand_business", "business_id"),)
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False)
+    is_default = Column(Boolean, default=False)  # first brand = default
+    description = Column(Text, default="")
+    logo_url = Column(String(500), default="")
+    brand_color = Column(String(7), default="#2563eb")
+    brand_tagline = Column(String(500), default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    tenants = relationship("Tenant", backref="brand_rel", lazy="select",
+                            foreign_keys="Tenant.brand_id")
+
+    def to_dict(self):
+        return {
+            "id": self.id, "name": self.name, "business_id": self.business_id,
+            "is_default": self.is_default, "logo_url": self.logo_url,
+            "tenant_count": len(self.tenants),
         }
 
 # ---------------------------------------------------------------------------
