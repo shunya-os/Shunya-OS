@@ -7,6 +7,7 @@ from flask import Blueprint, render_template, request, jsonify, g
 from app import db
 from app.routes.auth import login_required, admin_required
 from app.shunya.governance import GovernanceEngine, ActionType, GOVERNANCE_RULES
+from app.shunya.governance.policies import run_all_policies
 from app.models import GovernanceLevel  # DB enum
 
 governance_bp = Blueprint("governance", __name__, url_prefix="/governance")
@@ -54,7 +55,12 @@ def governance_page():
         governance_level="govern",
     ).order_by(ActivityLog.created_at.desc()).limit(20).all()
 
-    return render_template("governance.html", actions=actions, pending=pending)
+    # Formal governance policy checks
+    policy_report = run_all_policies()
+
+    return render_template("governance.html",
+        actions=actions, pending=pending,
+        policy_report=policy_report)
 
 
 @governance_bp.route("/rules", methods=["GET"])

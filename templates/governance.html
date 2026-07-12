@@ -4,11 +4,89 @@
   <div class="flex items-center justify-between mb-6">
     <div>
       <h1 class="text-2xl font-bold text-slate-900">⚖️ Governance</h1>
-      <p class="text-sm text-slate-400 mt-1">Control what the AI can do automatically vs. what needs human approval</p>
+      <p class="text-sm text-slate-400 mt-1">Formal policy checks + AI action governance</p>
     </div>
-    <span class="text-xs px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 font-medium border border-blue-200">
-      Role: {{ g.user.role }}
-    </span>
+    <div class="flex items-center gap-3">
+      {% if policy_report %}
+      <span class="text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 font-medium border border-emerald-200">
+        ✅ {{ policy_report.passed_count() }}/{{ policy_report.results|length }} passed
+      </span>
+      {% if policy_report.failed_count() > 0 %}
+      <span class="text-xs px-3 py-1.5 rounded-full bg-red-50 text-red-600 font-medium border border-red-200">
+        ❌ {{ policy_report.failed_count() }} failed
+      </span>
+      {% endif %}
+      {% if policy_report.warn_count() > 0 %}
+      <span class="text-xs px-3 py-1.5 rounded-full bg-amber-50 text-amber-600 font-medium border border-amber-200">
+        ⚠️ {{ policy_report.warn_count() }} warnings
+      </span>
+      {% endif %}
+      {% endif %}
+      <span class="text-xs px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 font-medium border border-blue-200">
+        Role: {{ g.user.role }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Formal Governance Policy Checks -->
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">📋 Formal Policy Checks</h3>
+      {% if policy_report %}
+      <span class="text-xs text-slate-400">{{ policy_report.timestamp[:10] if policy_report.timestamp else '' }}</span>
+      {% endif %}
+    </div>
+    <div class="divide-y divide-slate-100">
+      {% if policy_report and policy_report.results %}
+        {% for result in policy_report.results %}
+        <div class="px-6 py-4">
+          <div class="flex items-start justify-between">
+            <div class="flex items-start gap-3 flex-1 min-w-0">
+              <!-- Status Icon -->
+              <span class="mt-0.5 text-lg shrink-0">
+                {% if result.status.value == 'pass' %}✅
+                {% elif result.status.value == 'fail' %}❌
+                {% elif result.status.value == 'warn' %}⚠️
+                {% elif result.status.value == 'error' %}🚫
+                {% else %}⏭️{% endif %}
+              </span>
+              <div class="min-w-0">
+                <div class="text-sm font-medium text-slate-900">
+                  {{ result.policy_name }}
+                  <span class="text-xs text-slate-400 ml-2 font-mono">{{ result.policy_id }}</span>
+                </div>
+                <div class="text-xs text-slate-500 mt-1">{{ result.detail }}</div>
+                {% if result.suggestions %}
+                <ul class="mt-2 space-y-1">
+                  {% for suggestion in result.suggestions %}
+                  <li class="text-xs text-blue-600 flex items-start gap-1.5">
+                    <span class="mt-0.5 shrink-0">💡</span>
+                    <span>{{ suggestion }}</span>
+                  </li>
+                  {% endfor %}
+                </ul>
+                {% endif %}
+              </div>
+            </div>
+            <!-- Status Badge -->
+            <span class="ml-3 shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+              {% if result.status.value == 'pass' %}bg-emerald-50 text-emerald-600 border border-emerald-200
+              {% elif result.status.value == 'fail' %}bg-red-50 text-red-600 border border-red-200
+              {% elif result.status.value == 'warn' %}bg-amber-50 text-amber-600 border border-amber-200
+              {% elif result.status.value == 'error' %}bg-rose-50 text-rose-600 border border-rose-200
+              {% else %}bg-slate-50 text-slate-500 border border-slate-200{% endif %}">
+              {{ result.status.value }}
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="text-center py-10">
+        <span class="text-3xl block mb-2">🔍</span>
+        <p class="text-sm text-slate-400">No policy checks available.</p>
+      </div>
+      {% endif %}
+    </div>
   </div>
 
   <!-- Governance Tiers Explained -->

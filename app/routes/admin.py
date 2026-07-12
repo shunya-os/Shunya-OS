@@ -970,77 +970,64 @@ def entity_graph_page(entity_id):
 @admin_bp.route("/api/entity-graph/<int:entity_id>")
 @login_required
 def entity_graph_api(entity_id):
-    """Return JSON of linked entities for the graph."""
-    from app.models import Entity, EntityDefinition
+    """Return JSON of linked entities for the graph — with typed relationships.
+
+    Uses the new KnowledgeGraph and EntityLinker typed relationship annotations
+    for a richer display.
+    """
     from app.shunya.entity_linker import EntityLinker
+    from app.shunya.knowledge_graph import KnowledgeGraph, GraphDiagnostics
+    from app.models import Entity
 
-    entity = Entity.query.filter_by(
-        id=entity_id, tenant_id=g.tenant.id
-    ).first_or_404()
+    entity = db.session.get(Entity, entity_id)
+    if not entity or entity.tenant_id != g.tenant.id:
+        return jsonify({"error": "Entity not found"}), 404
 
-    # Central entity info
-    center = {
-        "id": entity.id,
-        "code": entity.code,
-        "type": entity.definition.type if entity.definition else "unknown",
-        "label": entity.definition.label if entity.definition else "Entity",
-        "icon": entity.definition.icon if entity.definition else "📌",
-        "status": entity.status,
-        "display_name": entity.display_name,
-        "url": f"/entities/{entity.definition.type if entity.definition else 'entity'}/{entity.id}",
-    }
+    # Use the typed structured linker — gets parents, children, activity refs
+    # all with relationship_type and relationship_label annotations
+    result = EntityLinker.get_links_structured_for_graph(entity_id)
 
-    # Get linked entities via EntityLinker
-    raw_links = EntityLinker.get_linked_entities(entity.id)
+    if "error" in result:
+        return jsonify(result), 404
 
-    parents = [l for l in raw_links if l["direction"] == "parent"]
-    children = [l for l in raw_links if l["direction"] == "child"]
+    # Build a KnowledgeGraph for diagnostics and dependency analysis
+    try:
+        kg = KnowledgeGraph.build_from_entity_linker(entity, result.get("parents", []) + result.get("children", []))
+        diagnostics = kg.diagnostics()
 
-    # Also find ActivityLog cross-references for additional context
-    from app.models import ActivityLog
-    activity_refs = (
-        db.session.query(ActivityLog.entity_id, ActivityLog.detail)
-        .filter(
-            ActivityLog.tenant_id == g.tenant.id,
-            ActivityLog.entity_id != entity.id,
-            ActivityLog.detail.ilike(f"%{entity.code}%"),
-        )
-        .order_by(ActivityLog.created_at.desc())
-        .limit(10)
-        .all()
-    )
+        # Add dependency info for the central entity
+        deps = kg.dependencies_of(entity.id)
+        dependents = kg.dependents_of(entity.id)
 
-    related_ids = set()
-    for ref_entity_id, ref_detail in activity_refs:
-        related_ids.add(int(ref_entity_id))
+        result["diagnostics"] = {
+            "version": diagnostics.version,
+            "valid": diagnostics.valid,
+            "capability_count": diagnostics.capability_count,
+            "node_count": diagnostics.node_count,
+            "edge_count": diagnostics.edge_count,
+            "issues": diagnostics.issues,
+            "type_counts": diagnostics.type_counts,
+        }
+        result["dependencies"] = [
+            {"id": d.id, "type": d.type, "label": d.label}
+            for d in deps
+        ]
+        result["dependents"] = [
+            {"id": d.id, "type": d.type, "label": d.label}
+            for d in dependents
+        ]
 
-    # Fetch referenced entities not already in parents/children
-    existing_ids = {l["id"] for l in raw_links}
-    extra_entities = []
-    for rid in related_ids:
-        if rid not in existing_ids:
-            ref_entity = db.session.get(Entity, rid)
-            if ref_entity and ref_entity.tenant_id == g.tenant.id and not ref_entity.is_archived:
-                extra_entities.append({
-                    "id": ref_entity.id,
-                    "code": ref_entity.code,
-                    "type": ref_entity.definition.type if ref_entity.definition else "unknown",
-                    "label": ref_entity.definition.label if ref_entity.definition else "Entity",
-                    "icon": ref_entity.definition.icon if ref_entity.definition else "📌",
-                    "status": ref_entity.status,
-                    "display_name": ref_entity.display_name,
-                    "url": f"/entities/{ref_entity.definition.type if ref_entity.definition else 'entity'}/{ref_entity.id}",
-                    "direction": "activity",
-                })
+        # Full graph JSON for visualization
+        result["graph"] = kg.to_graph_json()
+    except Exception as e:
+        result["diagnostics"] = {
+            "version": "1.0.0",
+            "valid": False,
+            "capability_count": 0,
+            "issues": [f"Graph build failed: {str(e)}"],
+        }
 
-    return jsonify({
-        "entity": center,
-        "entity_label": f"{center['label']} {center['display_name']}",
-        "entity_code": entity.code,
-        "parents": parents,
-        "children": children,
-        "related": extra_entities,
-    })
+    return jsonify(result)
 
 
 # ── Entity Export (CSV / PDF) ──
@@ -1258,6 +1245,75 @@ def global_search_api():
     })
 
 
+# ── Capability Catalog ──
+
+
+@admin_bp.route("/capabilities", methods=["GET"])
+@login_required
+@admin_required
+def capabilities_page():
+    """Render the capability catalog dashboard."""
+    return render_template("admin/capabilities.html")
+
+
+@admin_bp.route("/api/capabilities", methods=["GET"])
+@login_required
+def get_capabilities():
+    """Return the capability catalog as JSON — loaded from YAML, served via registry."""
+    import os, yaml
+    from app.shunya.capabilities import CapabilityRegistry, CapabilityLoader
+
+    catalog_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "repository", "capabilities", "catalog.yaml",
+    )
+    if not os.path.exists(catalog_path):
+        return jsonify({
+            "version": 0,
+            "capabilities": [],
+            "summary": {},
+            "error": "catalog.yaml not found",
+        })
+
+    registry = CapabilityLoader.load_file_into_registry(catalog_path)
+    capabilities = sorted(registry.list(), key=lambda c: c.id)
+
+    return jsonify({
+        "version": 1,
+        "capabilities": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "status": c.status.value,
+                "progress": c.progress,
+                "depends_on": c.depends_on,
+            }
+            for c in capabilities
+        ],
+        "summary": registry.status_summary(),
+        "count": registry.count(),
+    })
+
+
+# ── Reasoning Trace (debug endpoint) ──
+
+
+@admin_bp.route("/api/reasoning/trace", methods=["GET"])
+@login_required
+def get_reasoning_trace():
+    """Return the last RuleReasoner trace for debugging.
+
+    Useful for inspecting what rules fired, what facts were considered,
+    and what decision the reasoning engine reached.
+    """
+    from app.shunya.reasoning import get_last_reasoning_trace
+    trace = get_last_reasoning_trace()
+    return jsonify({
+        "trace": trace,
+        "has_trace": len(trace) > 0,
+    })
+
+
 # ── Payment Gateway Config ──
 
 
@@ -1273,4 +1329,61 @@ def payment_config():
         "configured": configured,
         "gateway": "razorpay",
         "key_id_prefix": key_id[:8] + "..." if configured else "",
+    })
+
+
+# ── Ontology Engine API ──
+
+
+@admin_bp.route("/api/ontology", methods=["GET"])
+@login_required
+def ontology_list():
+    """Return the ontology registry — all verticals with their entity types."""
+    from app.shunya.verticals import get_ontology_registry
+
+    registry = get_ontology_registry()
+    return jsonify({
+        "verticals": registry.to_dict(),
+        "count": registry.count(),
+    })
+
+
+@admin_bp.route("/api/ontology/validate", methods=["GET"])
+@login_required
+@admin_required
+def ontology_validate():
+    """Run ontology validation — checks schema completeness and cross-references."""
+    from app.shunya.verticals import get_ontology_registry
+    from app.shunya.ontology import OntologyValidator
+
+    registry = get_ontology_registry()
+    validator = OntologyValidator(registry=registry)
+    issues = validator.validate_all(registry)
+
+    total_issues = sum(len(v) for v in issues.values())
+    return jsonify({
+        "valid": total_issues == 0,
+        "total_issues": total_issues,
+        "issues": {k: v for k, v in issues.items() if v},
+    })
+
+
+@admin_bp.route("/api/ontology/diagnostics", methods=["GET"])
+@login_required
+def ontology_diagnostics():
+    """Return ontology health report — counts, warnings, status distribution."""
+    from app.shunya.verticals import get_ontology_registry
+    from app.shunya.ontology import OntologyDiagnostics
+
+    registry = get_ontology_registry()
+    diag = OntologyDiagnostics()
+    report = diag.analyze(registry)
+
+    return jsonify({
+        "verticals": report.verticals,
+        "entity_types": report.entity_types,
+        "total_schema_fields": report.total_schema_fields,
+        "status_counts": report.status_counts,
+        "entity_types_by_vertical": report.entity_types_by_vertical,
+        "warnings": report.warnings,
     })
