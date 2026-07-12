@@ -172,6 +172,30 @@ with app.app_context():
     for d in health_defs:
         db.session.add(d)
 
+    # =========================================================================
+    # Seed Default Entity Definitions for Customer Support
+    # =========================================================================
+
+    from app.shunya.support import SUPPORT_ENTITY_TYPES
+
+    for etype, config in SUPPORT_ENTITY_TYPES.items():
+        existing = EntityDefinition.query.filter_by(tenant_id=demo.id, type=etype).first()
+        if existing:
+            continue
+        definition = EntityDefinition(
+            tenant_id=demo.id,
+            type=etype,
+            label=config["label"],
+            label_plural=f"{config['label']}s",
+            icon=config["icon"],
+            schema=config["schema"],
+            statuses=config["statuses"],
+            layout=config["layout"],
+            searchable_fields=config["searchable_fields"],
+            primary_field=config["schema"][0]["name"] if config["schema"] else "name",
+        )
+        db.session.add(definition)
+
     db.session.commit()
     print("✅ Seed complete!")
     print(f"   Admin tenant: {shunya.slug} (admin@shunya.io / admin123)")

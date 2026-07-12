@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="{{ current_tenant.ai_config.get('theme', 'modern') if current_tenant else 'modern' }}" 
+<html lang="en" data-theme="{{ current_tenant.theme_config.get('default_theme', current_tenant.ai_config.get('theme', 'modern')) if current_tenant else 'modern' }}" 
       {% if brand_colors %}style="--brand-h:{{ brand_colors.h }};--brand-s:{{ brand_colors.s }}%;--brand-l:{{ brand_colors.l }}%"{% endif %}>
 <head>
   <meta charset="utf-8">
@@ -11,14 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/themes.css">
   <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
-  <style>
-    .card-hover{transition:all .2s ease}.card-hover:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.1)}
-    .bird-scroll::-webkit-scrollbar{width:4px}
-    .bird-scroll::-webkit-scrollbar-track{background:transparent}
-    .bird-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px}
-    @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
-    .voice-active{animation:pulse-dot 1s ease-in-out infinite}
-  </style>
+  <link rel="stylesheet" href="/static/shunya.css">
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-20">
   {% if current_user %}
@@ -26,26 +19,64 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         <div class="flex items-center gap-3">
-          <span class="text-xl">{{ current_tenant.theme_config.get('icon','🧠') if current_tenant else '🧠' }}</span>
-          <span class="font-bold text-base text-slate-900">{{ current_tenant.company_name if current_tenant else 'Shunya OS' }}</span>
+          {% if current_tenant and current_tenant.logo_url %}
+          <img id="nav-logo" src="{{ current_tenant.logo_url }}" class="h-7 w-auto max-w-[120px] object-contain rounded" alt="{{ current_tenant.company_name }}" onerror="this.style.display='none';document.getElementById('nav-icon').style.display='inline'">
+          {% else %}
+          <span id="nav-icon" class="text-xl flex-shrink-0">{{ current_tenant.theme_config.get('icon','🧠') if current_tenant else '🧠' }}</span>
+          {% endif %}
+          <div class="flex flex-col leading-tight">
+            <span id="nav-company-name" class="font-bold text-base truncate">{{ current_tenant.company_name if current_tenant else 'Shunya OS' }}</span>
+            {% if current_tenant and current_tenant.brand_tagline %}
+            <span id="nav-tagline" class="text-[0.6rem] truncate opacity-60" style="color:var(--nav-muted)">{{ current_tenant.brand_tagline }}</span>
+            {% endif %}
+          </div>
         </div>
-        <div class="flex items-center gap-4">
-          <a href="/" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Dashboard</a>
-          <a href="/finance" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Finance</a>
-          <a href="/ops" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Ops</a>
-          <a href="/ingestion" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Ingest</a>
-          <a href="/analytics" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Analytics</a>
-          <a href="/learning" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Learn</a>
-          <a href="/modules" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Modules</a>
-          <a href="/settings" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Settings</a>
-          <a href="/ai-settings" class="text-sm text-slate-500 hover:text-slate-700 font-medium">AI</a>
-          <a href="/governance" class="text-sm text-slate-500 hover:text-slate-700 font-medium">Governance</a>
+        <div class="flex items-center gap-4 overflow-x-auto scroll-thin max-w-[calc(100vw-400px)]">
+          <button id="burger-btn" onclick="toggleNav()" class="sm:hidden p-1 text-slate-500 hover:text-slate-700" aria-label="Menu">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <a href="/" class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap">Dashboard</a>
+          <!-- Modules dropdown -->
+          <div class="nav-drop">
+            <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Modules ▾</span>
+            <div class="nav-drop-menu">
+              <a href="/relationships" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤝 Relationships</a>
+              <a href="/hr/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">👥 HR</a>
+              <a href="/sales/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">💎 Sales</a>
+              <a href="/marketing/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🚀 Marketing</a>
+              <a href="/finance" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">💰 Finance</a>
+              <a href="/ops" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📋 Ops</a>
+              <a href="/support/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🎫 Support</a>
+              <a href="/legal" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📜 Legal</a>
+              <a href="/field-services" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🔧 Field</a>
+              <a href="/supply-chain" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📦 Supply</a>
+            </div>
+          </div>
+          <!-- Data dropdown -->
+          <div class="nav-drop">
+            <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Data ▾</span>
+            <div class="nav-drop-menu">
+              <a href="/ingestion" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📥 Ingest</a>
+              <a href="/analytics" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📊 Analytics</a>
+              <a href="/learning" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🧠 Learn</a>
+            </div>
+          </div>
+          <!-- Admin dropdown -->
+          <div class="nav-drop">
+            <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Admin ▾</span>
+            <div class="nav-drop-menu">
+              <a href="/modules" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📦 Modules</a>
+              <a href="/settings" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">⚙️ Settings</a>
+              <a href="/ai-settings" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤖 AI</a>
+              <a href="/governance" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">⚖️ Governance</a>
+            </div>
+          </div>
           <!-- Theme Switcher -->
           <div class="relative" style="display:inline-block;">
             <button onclick="toggleThemeMenu()" id="theme-toggle-btn" class="text-sm text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1" title="Switch theme">
               <span id="theme-icon">💼</span>
             </button>
-            <div id="theme-menu" style="display:none;position:absolute;top:100%;right:0;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.15);padding:8px;z-index:100;min-width:180px;">
+            <div id="theme-menu" style="display:none;position:absolute;top:100%;right:0;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.15);padding:8px;z-index:100;min-width:200px;">
               <div class="theme-option" data-theme="modern" onclick="switchTheme('modern')" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.85rem;">
                 <span>💼</span> <span>Modern</span> <span style="margin-left:auto;font-size:0.65rem;color:#94a3b8;">Professional</span>
               </div>
@@ -55,6 +86,15 @@
               <div class="theme-option" data-theme="elegant" onclick="switchTheme('elegant')" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.85rem;">
                 <span>✨</span> <span>Elegant</span> <span style="margin-left:auto;font-size:0.65rem;color:#94a3b8;">Minimal</span>
               </div>
+              <div class="theme-option" data-theme="brandverse" onclick="switchTheme('brandverse')" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+                <span>🌌</span> <span>Brandverse</span> <span style="margin-left:auto;font-size:0.65rem;color:#94a3b8;">Auto</span>
+              </div>
+              <div style="border-top:1px solid #e2e8f0;margin:4px 0;padding:4px 0;">
+                <button onclick="setAsDefaultTheme()" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.8rem;border:none;background:none;width:100%;text-align:left;color:#64748b;" id="default-theme-btn" title="Set current theme as default for all users">
+                  <span>⭐</span> <span>Set as Default</span>
+                </button>
+                <div id="default-theme-label" style="padding:2px 12px;font-size:0.6rem;color:#94a3b8;"></div>
+              </div>
             </div>
           </div>
           <a href="/auth/logout" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
@@ -62,6 +102,29 @@
       </div>
     </div>
   </nav>
+  <div id="nav-menu" class="sm:hidden border-t border-slate-100 bg-white" style="max-height:0px;opacity:0;overflow:hidden;transition:max-height .3s ease,opacity .2s ease;">
+    <div class="px-4 py-2 space-y-0.5">
+      <a href="/" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg font-medium">🏠 Dashboard</a>
+      <a href="/relationships" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🤝 Relationships</a>
+      <a href="/hr/dashboard" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">👥 HR</a>
+      <a href="/sales/dashboard" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">💎 Sales</a>
+      <a href="/marketing/dashboard" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🚀 Marketing</a>
+      <a href="/finance" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">💰 Finance</a>
+      <a href="/ops" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📋 Ops</a>
+      <a href="/support/dashboard" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🎫 Support</a>
+      <a href="/legal" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📜 Legal</a>
+      <a href="/field-services" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🔧 Field</a>
+      <a href="/supply-chain" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📦 Supply</a>
+      <hr class="my-2 border-slate-100">
+      <a href="/ingestion" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📥 Ingest</a>
+      <a href="/analytics" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📊 Analytics</a>
+      <a href="/learning" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🧠 Learn</a>
+      <a href="/modules" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📦 Modules</a>
+      <a href="/settings" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">⚙️ Settings</a>
+      <a href="/ai-settings" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🤖 AI</a>
+      <a href="/governance" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">⚖️ Governance</a>
+    </div>
+  </div>
   {% endif %}
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -132,7 +195,7 @@
           <button onclick="startVoice()" id="voice-btn" title="🎤 Voice input — supports 37 languages. Say anything in English, Hindi, or your language." style="padding:10px;background:#f1f5f9;border:none;border-radius:12px;font-size:1.2rem;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">🎤</button>
           <div id="voice-tooltip" style="display:none;position:absolute;bottom:48px;left:0;background:#1e293b;color:white;font-size:0.65rem;padding:6px 10px;border-radius:8px;white-space:nowrap;max-width:240px;">🎤 Voice input — 37 languages</div>
         </div>
-        <input id="bird-input" type="text" placeholder="Ask, create, or search..." style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:0.85rem;outline:none;transition:border-color .2s;"
+        <input id="bird-input" type="text" placeholder="Ask, create, or search..." style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:0.85rem;color:#1e293b;background:#f8fafc;outline:none;transition:border-color .2s;"
           onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#e2e8f0'"
           onkeydown="if(event.key==='Enter')birdChat()">
         <button onclick="birdChat()" style="padding:10px 16px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;border-radius:12px;font-size:0.85rem;cursor:pointer;font-weight:500;transition:opacity .2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Send</button>
@@ -141,6 +204,16 @@
   </div>
 
   <script>
+  // ── Toggle Nav (mobile) ──
+  function toggleNav() {
+    const m = document.getElementById('nav-menu');
+    if (!m) return;
+    const open = m.style.maxHeight !== '0px' && m.style.maxHeight !== '';
+    m.style.maxHeight = open ? '0px' : '800px';
+    m.style.opacity = open ? '0' : '1';
+    m.style.overflow = open ? 'hidden' : 'visible';
+  }
+
   // ── Toggle Bird ──
   function toggleBird() {
     const p = document.getElementById('bird-panel');
@@ -421,11 +494,11 @@
   });
 
   // ── Theme Switcher ──
-  const THEME_ICONS = { modern: '💼', playful: '🎨', elegant: '✨' };
+  const THEME_ICONS = { modern: '💼', playful: '🎨', elegant: '✨', brandverse: '🌌' };
 
   function toggleThemeMenu() {
     const m = document.getElementById('theme-menu');
-    m.style.display = m.style.display === 'none' ? 'block' : 'none';
+    if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';
   }
 
   // Close theme menu on click outside
@@ -436,6 +509,28 @@
       menu.style.display = 'none';
     }
   });
+
+  // Apply brandverse palette CSS variables
+  function applyBrandversePalette(p) {
+    if (!p) return;
+    const root = document.documentElement;
+    root.style.setProperty('--bv-bg', p.bg || '#11141c');
+    root.style.setProperty('--bv-bg-card', p.bg_card || '#202531');
+    root.style.setProperty('--bv-nav-bg', p.nav_bg || '#1b202b');
+    root.style.setProperty('--bv-primary', p.primary || '#2563eb');
+    root.style.setProperty('--bv-secondary', p.secondary || '#7c3aed');
+    root.style.setProperty('--bv-text', p.text || '#f1f5f9');
+    root.style.setProperty('--bv-text-muted', p.text_muted || '#94a3b8');
+    root.style.setProperty('--bv-text-dim', p.text_dim || '#64748b');
+    root.style.setProperty('--bv-success', p.success || '#2d9e6f');
+    root.style.setProperty('--bv-warning', p.warning || '#d09c24');
+    root.style.setProperty('--bv-error', p.error || '#ce3b4e');
+    root.style.setProperty('--bv-nav-border', p.nav_border || '#25314a');
+    root.style.setProperty('--bv-gradient', p.gradient || 'linear-gradient(135deg,#2563eb,#7c3aed)');
+    // Sync nav vars
+    root.style.setProperty('--nav-text', p.text || '#f1f5f9');
+    root.style.setProperty('--nav-muted', p.text_muted || '#94a3b8');
+  }
 
   async function switchTheme(theme) {
     // Save to server
@@ -449,16 +544,91 @@
 
     // Apply immediately
     document.documentElement.setAttribute('data-theme', theme);
-    document.getElementById('theme-icon').textContent = THEME_ICONS[theme] || '💼';
-    document.getElementById('theme-menu').style.display = 'none';
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.textContent = THEME_ICONS[theme] || '💼';
+
+    // For brandverse, fetch auto-generated palette
+    if (theme === 'brandverse') {
+      try {
+        const r = await fetch('/admin/api/theme/brandverse');
+        const d = await r.json();
+        if (d.primary) applyBrandversePalette(d);
+      } catch(e) {}
+    }
+
+    const menu = document.getElementById('theme-menu');
+    if (menu) menu.style.display = 'none';
+
+    // Save user preference
+    try { localStorage.setItem('shunya_theme', theme); } catch(e) {}
+    updateDefaultLabel(theme);
   }
 
-  // Init theme icon on load
-  document.addEventListener('DOMContentLoaded', function() {
-    const current = document.documentElement.getAttribute('data-theme') || 'modern';
-    const icon = document.getElementById('theme-icon');
-    if (icon) icon.textContent = THEME_ICONS[current] || '💼';
-  });
+  // ── Default Theme ──
+  async function setAsDefaultTheme() {
+    const t = document.documentElement.getAttribute('data-theme') || 'modern';
+    try {
+      const r = await fetch('/admin/api/theme/default', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({theme: t})
+      });
+      const d = await r.json();
+      if (d.success) {
+        const btn = document.getElementById('default-theme-btn');
+        if (btn) btn.innerHTML = '<span>✅</span> Default Set';
+        updateDefaultLabel(t);
+        showThemeToast('⭐ Default theme: ' + (THEME_ICONS[t]||'') + ' ' + t);
+      } else showThemeToast('❌ ' + d.error);
+    } catch(e) { showThemeToast('❌ Failed to set default'); }
+  }
+
+  function updateDefaultLabel(t) {
+    const lbl = document.getElementById('default-theme-label');
+    if (!lbl) return;
+    const info = document.getElementById('default-theme-info');
+    const def = info ? info.getAttribute('data-default') : 'modern';
+    lbl.textContent = (t === def) ? '⭐ Default · ' + t : 'Current: ' + t;
+    const btn = document.getElementById('default-theme-btn');
+    if (btn && t === def) btn.innerHTML = '<span>⭐</span> Default Set';
+  }
+
+  function showThemeToast(m) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;top:20px;right:20px;background:#1e293b;color:#f1f5f9;font-size:0.85rem;padding:10px 18px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:99999;border:1px solid #334155;';
+    t.textContent = m;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+  }
+
+  // ── Init theme on page load ──
+  (function initTheme() {
+    // Check localStorage for user preference
+    let saved = null;
+    try { saved = localStorage.getItem('shunya_theme'); } catch(e) {}
+    if (saved && ['modern','playful','elegant','brandverse'].includes(saved)) {
+      document.documentElement.setAttribute('data-theme', saved);
+      const icon = document.getElementById('theme-icon');
+      if (icon) icon.textContent = THEME_ICONS[saved] || '💼';
+      // Load brandverse palette on DOMContentLoaded
+      if (saved === 'brandverse') {
+        document.addEventListener('DOMContentLoaded', () => {
+          fetch('/admin/api/theme/brandverse').then(r => r.json()).then(d => {
+            if (d.primary) applyBrandversePalette(d);
+          }).catch(() => {});
+        });
+      }
+    }
+    // Fetch default theme info
+    fetch('/admin/api/theme/default').then(r => r.json()).then(d => {
+      const info = document.createElement('div');
+      info.id = 'default-theme-info';
+      info.setAttribute('data-default', d.default_theme);
+      document.body.appendChild(info);
+      const current = document.documentElement.getAttribute('data-theme') || d.default_theme;
+      updateDefaultLabel(current);
+    }).catch(() => {});
+  })();
 
   // ── Keyboard shortcuts ──
   document.addEventListener('keydown', function(e) {

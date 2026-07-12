@@ -24,6 +24,11 @@ THEMES = {
         "icon": "✨",
         "description": "Minimal, monochrome, typography-first",
     },
+    "brandverse": {
+        "label": "Brandverse",
+        "icon": "🌌",
+        "description": "Auto-generated from your brand colors",
+    },
 }
 
 
@@ -162,3 +167,227 @@ def _colors_for_business(company_name: str = "", business_type: str = "") -> dic
     name = (company_name or business_type or "shunya").lower()
     h = sum(ord(c) for c in name) % 360
     return {"h": h, "s": 55, "l": 42}
+
+
+# ---------------------------------------------------------------------------
+# Brandverse — Intelligent Palette Generator
+# ---------------------------------------------------------------------------
+
+def hex_to_hsl(hex_color: str) -> tuple:
+    """Convert hex (#RRGGBB) to HSL (0-360, 0-100, 0-100)."""
+    hex_color = hex_color.lstrip("#")
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    return _rgb_to_hsl(r, g, b)
+
+
+def hsl_to_hex(h: float, s: float, l: float) -> str:
+    """Convert HSL to hex string (#RRGGBB)."""
+    h, s, l = h % 360, max(0, min(100, s)), max(0, min(100, l))
+    c = (1 - abs(2 * l / 100 - 1)) * (s / 100)
+    x = c * (1 - abs((h / 60) % 2 - 1))
+    m = l / 100 - c / 2
+
+    if 0 <= h < 60:
+        r, g, b = c, x, 0
+    elif 60 <= h < 120:
+        r, g, b = x, c, 0
+    elif 120 <= h < 180:
+        r, g, b = 0, c, x
+    elif 180 <= h < 240:
+        r, g, b = 0, x, c
+    elif 240 <= h < 300:
+        r, g, b = x, 0, c
+    else:
+        r, g, b = c, 0, x
+
+    r, g, b = int((r + m) * 255), int((g + m) * 255), int((b + m) * 255)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def is_light_color(hex_color: str) -> bool:
+    """Determine if a color is perceived as light (uses relative luminance)."""
+    h, s, l = hex_to_hsl(hex_color)
+    return l > 55
+
+
+def adjust_lightness(hex_color: str, delta: float) -> str:
+    """Lighten (delta>0) or darken (delta<0) a hex color by delta percentage points."""
+    h, s, l = hex_to_hsl(hex_color)
+    return hsl_to_hex(h, s, max(0, min(100, l + delta)))
+
+
+def adjust_saturation(hex_color: str, delta: float) -> str:
+    """Increase (delta>0) or decrease (delta<0) saturation."""
+    h, s, l = hex_to_hsl(hex_color)
+    return hsl_to_hex(h, max(0, min(100, s + delta)), l)
+
+
+def shift_hue(hex_color: str, degrees: float) -> str:
+    """Shift hue by degrees."""
+    h, s, l = hex_to_hsl(hex_color)
+    return hsl_to_hex(h + degrees, s, l)
+
+
+def blend_colors(c1: str, c2: str, ratio: float = 0.5) -> str:
+    """Blend two hex colors. ratio=0 -> c1, ratio=1 -> c2."""
+    h1, s1, l1 = hex_to_hsl(c1)
+    h2, s2, l2 = hex_to_hsl(c2)
+    # Shortest path around the hue wheel
+    dh = h2 - h1
+    if dh > 180:
+        dh -= 360
+    elif dh < -180:
+        dh += 360
+    h = (h1 + dh * ratio) % 360
+    s = s1 + (s2 - s1) * ratio
+    l = l1 + (l2 - l1) * ratio
+    return hsl_to_hex(h, s, l)
+
+
+def generate_brandverse_palette(primary: str = "#2563eb", secondary: str = "#7c3aed") -> dict:
+    """Generate a complete, intelligent color palette from two brand colors.
+
+    The primary and secondary colors are the mains. Every other color is
+    auto-derived to create a harmonious, comfortable, and exciting UI.
+    """
+    p_h, p_s, p_l = hex_to_hsl(primary)
+    s_h, s_s, s_l = hex_to_hsl(secondary)
+
+    # Determine brand personality
+    is_warm = 0 <= p_h <= 60 or 300 <= p_h <= 360
+    is_cool = 180 <= p_h <= 270
+    is_vibrant = p_s > 55
+    is_muted = p_s < 35
+    is_dark_brand = p_l < 40
+
+    # ── Background System ──
+    # Dark theme by default, but tinted with brand hue for depth
+    bg_hue = p_h
+    bg_sat = max(10, p_s * 0.3)  # Muted saturation for background
+    bg_lum = 9  # Very dark
+    bg = hsl_to_hex(bg_hue, bg_sat, bg_lum)
+
+    # Card background — slightly lighter, hints of brand
+    bg_card_lum = 16
+    bg_card_sat = max(8, p_s * 0.25)
+    bg_card = hsl_to_hex(bg_hue, bg_card_sat, bg_card_lum)
+
+    # Hover state — between bg and bg_card
+    bg_hover = hsl_to_hex(bg_hue, max(6, p_s * 0.2), 12)
+
+    # Nav bar
+    nav_bg = hsl_to_hex(bg_hue, bg_card_sat + 2, bg_card_lum - 2)
+    nav_border = hsl_to_hex(p_h, max(15, p_s * 0.4), 22)
+
+    # ── Text System ──
+    text_primary = "#f1f5f9"
+    text_muted = "#94a3b8"
+    text_dim = "#64748b"
+
+    # ── Border System ──
+    border = hsl_to_hex(p_h, max(10, p_s * 0.35), 25)
+    border_light = hsl_to_hex(p_h, max(6, p_s * 0.2), 18)
+
+    # ── Semantic Colors (harmonized to brand) ──
+    if is_warm:
+        # Warm brands get warmer greens, softer reds
+        success = hsl_to_hex(140, min(60, p_s * 1.1), 42)
+        warning = hsl_to_hex(38, min(80, p_s * 1.2), 52)
+        error = hsl_to_hex(358, min(65, p_s * 1.0), 55)
+        info = hsl_to_hex(205, min(70, p_s * 1.0), 50)
+    elif is_cool:
+        # Cool brands get cooler, more professional sematics
+        success = hsl_to_hex(155, min(55, p_s * 1.0), 40)
+        warning = hsl_to_hex(42, min(70, p_s * 1.1), 48)
+        error = hsl_to_hex(352, min(60, p_s * 0.9), 52)
+        info = p_h > 200 and hsl_to_hex(p_h, p_s, 48) or hsl_to_hex(210, 60, 50)
+    else:
+        # Neutral/purple brands — balanced
+        success = hsl_to_hex(148, 55, 40)
+        warning = hsl_to_hex(40, 65, 48)
+        error = hsl_to_hex(355, 60, 52)
+        info = hsl_to_hex(210, 60, 50)
+
+    # ── Accent (complementary to primary, for highlights) ──
+    accent_hue = (p_h + 180) % 360  # Direct complement
+    # Soften if too harsh
+    accent_sat = max(40, min(65, p_s))
+    accent = hsl_to_hex(accent_hue, accent_sat, 50)
+    accent_light = hsl_to_hex(accent_hue, accent_sat * 0.6, 42)
+
+    # ── Buttons ──
+    btn_primary_bg = primary
+    btn_primary_text = "#ffffff" if not is_light_color(primary) else "#0f172a"
+    btn_primary_hover = adjust_lightness(primary, -8) if not is_light_color(primary) else adjust_lightness(primary, -12)
+
+    btn_secondary_bg = adjust_lightness(bg_card, 5)
+    btn_secondary_border = border
+    btn_secondary_text = text_primary
+
+    # ── Focus / Ring ──
+    focus_ring = f"{primary}40"  # 25% opacity primary
+
+    # ── Gradient ──
+    gradient = f"linear-gradient(135deg, {primary}, {secondary})"
+
+    # ── Status badges ──
+    badge_success = hsl_to_hex(140, min(50, p_s * 0.8), 20)
+    badge_warning = hsl_to_hex(38, min(60, p_s * 0.8), 25)
+    badge_error = hsl_to_hex(358, min(50, p_s * 0.8), 25)
+
+    return {
+        # Mains
+        "primary": primary,
+        "secondary": secondary,
+        "accent": accent,
+        "accent_light": accent_light,
+
+        # Backgrounds
+        "bg": bg,
+        "bg_card": bg_card,
+        "bg_hover": bg_hover,
+        "nav_bg": nav_bg,
+        "nav_border": nav_border,
+        "card_bg": bg_card,
+
+        # Text
+        "text": text_primary,
+        "text_muted": text_muted,
+        "text_dim": text_dim,
+
+        # Borders
+        "border": border,
+        "border_light": border_light,
+
+        # Semantics
+        "success": success,
+        "warning": warning,
+        "error": error,
+        "info": info,
+
+        # Buttons
+        "btn_primary_bg": btn_primary_bg,
+        "btn_primary_text": btn_primary_text,
+        "btn_primary_hover": btn_primary_hover,
+        "btn_secondary_bg": btn_secondary_bg,
+        "btn_secondary_border": btn_secondary_border,
+        "btn_secondary_text": btn_secondary_text,
+
+        # Status badge backgrounds
+        "badge_success_bg": badge_success,
+        "badge_warning_bg": badge_warning,
+        "badge_error_bg": badge_error,
+
+        # Effects
+        "focus_ring": focus_ring,
+        "gradient": gradient,
+
+        # Metadata
+        "_personality": {
+            "is_warm": is_warm,
+            "is_cool": is_cool,
+            "is_vibrant": is_vibrant,
+            "is_muted": is_muted,
+            "is_dark_brand": is_dark_brand,
+        },
+    }

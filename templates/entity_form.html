@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-2xl font-bold text-slate-900">{{ definition.icon }} {% if entity %}Edit {{ definition.label }}{% else %}New {{ definition.label }}{% endif %}</h1>
-  <a href="/entities/{{ definition.type }}" class="text-sm text-slate-500 hover:text-slate-700 font-medium">← Back</a>
+<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+  <h1 class="text-xl sm:text-2xl font-bold text-slate-900 truncate max-w-full">{{ definition.icon }} {% if entity %}Edit {{ definition.label }}{% else %}New {{ definition.label }}{% endif %}</h1>
+  <a href="/entities/{{ definition.type }}" class="text-sm text-slate-500 hover:text-slate-700 font-medium flex-shrink-0">← Back</a>
 </div>
 
-<div class="max-w-2xl mx-auto">
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+<div class="max-w-2xl mx-auto max-w-full overflow-hidden">
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
     <form method="post" class="space-y-4">
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-semibold text-slate-700 mb-1.5">Code</label>
           <input value="{{ entity.code if entity else code }}" readonly class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-500 cursor-not-allowed">
@@ -52,11 +52,11 @@
       </div>
       {% endfor %}
 
-      <div class="flex items-center gap-3 pt-2">
-        <button type="submit" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+        <button type="submit" class="inline-flex items-center justify-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">
           {% if entity %}Update {{ definition.label }}{% else %}Create {{ definition.label }}{% endif %}
         </button>
-        <a href="/entities/{{ definition.type }}" class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">Cancel</a>
+        <a href="/entities/{{ definition.type }}" class="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-slate-200 transition-colors text-center">Cancel</a>
       </div>
     </form>
   </div>

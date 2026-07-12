@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; }
+  .hr-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .hr-card-header { background: #1e293b; }
+  .hr-text { color: #e2e8f0; }
+  .hr-text-muted { color: #94a3b8; }
+  .hr-text-secondary { color: #64748b; }
+  .hr-accent { color: #38bdf8; }
+  .hr-badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
+  .quick-action-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 12px; border-radius: 14px; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+  .quick-action-btn:hover { transform: translateY(-2px); }
+  .status-pending { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+  .status-approved { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+  .status-rejected { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+  .status-active { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+  .status-onboarding { background: rgba(129, 140, 248, 0.15); color: #818cf8; }
+  .status-exited { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+</style>
+
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-bold text-white">👥 HR & People</h1>
+    <p class="text-sm hr-text-secondary mt-1 truncate">Employee management, leave tracking, and team insights</p>
+  </div>
+</div>
+
+<!-- Top metrics -->
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="hr-card p-4">
+    <p class="text-xs hr-text-secondary uppercase tracking-wider font-medium">Total Employees</p>
+    <p class="text-2xl font-bold text-white mt-1">{{ overview.employee_count }}</p>
+    <p class="text-xs hr-accent">Active team members</p>
+  </div>
+  <div class="hr-card p-4">
+    <p class="text-xs hr-text-secondary uppercase tracking-wider font-medium">Departments</p>
+    <p class="text-2xl font-bold text-white mt-1">{{ overview.department_breakdown|length }}</p>
+    <p class="text-xs text-emerald-400">{{ departments|length }} active</p>
+  </div>
+  <div class="hr-card p-4">
+    <p class="text-xs hr-text-secondary uppercase tracking-wider font-medium">Pending Leaves</p>
+    <p class="text-2xl font-bold text-amber-400 mt-1">{{ overview.leave_summary.pending }}</p>
+    <p class="text-xs hr-text-secondary">{{ overview.leave_summary.approved }} approved · {{ overview.leave_summary.rejected }} rejected</p>
+  </div>
+  <div class="hr-card p-4">
+    <p class="text-xs hr-text-secondary uppercase tracking-wider font-medium">Attendance Rate</p>
+    <p class="text-2xl font-bold text-emerald-400 mt-1">{{ overview.attendance_rate }}%</p>
+    <p class="text-xs hr-text-secondary">Last 30 days</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+  <!-- Quick Actions -->
+  <div class="hr-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider hr-text-secondary mb-4">⚡ Quick Actions</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <a href="/entities/employee/new" class="quick-action-btn" style="background:rgba(56,189,248,0.1);">
+        <span class="text-3xl block mb-1">👤</span>
+        <span class="text-xs font-medium" style="color:#38bdf8;">Add Employee</span>
+      </a>
+      <a href="/api/hr/leaves/pending" class="quick-action-btn" style="background:rgba(251,191,36,0.1);"
+         onclick="event.preventDefault();window.location='/entities/leave_request?status=pending';">
+        <span class="text-3xl block mb-1">🏖️</span>
+        <span class="text-xs font-medium" style="color:#fbbf24;">Approve Leave</span>
+      </a>
+      <a href="/hr/api/org-chart" class="quick-action-btn" style="background:rgba(52,211,153,0.1);"
+         onclick="event.preventDefault();showOrgChart();">
+        <span class="text-3xl block mb-1">🏛️</span>
+        <span class="text-xs font-medium" style="color:#34d399;">Org Chart</span>
+      </a>
+      <a href="/entities/department/new" class="quick-action-btn" style="background:rgba(129,140,248,0.1);">
+        <span class="text-3xl block mb-1">🏢</span>
+        <span class="text-xs font-medium" style="color:#818cf8;">New Dept</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Pending Leaves -->
+  <div class="hr-card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider hr-text-secondary">🏖️ Pending Leaves</h3>
+      <a href="/entities/leave_request" class="text-xs hr-accent hover:underline whitespace-nowrap">View all →</a>
+    </div>
+    {% if pending_leaves %}
+    <div class="space-y-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+      {% for l in pending_leaves %}
+      <a href="/entities/leave_request/{{ l.id }}" class="flex items-center justify-between p-3 rounded-xl transition-colors" style="background:rgba(51,65,85,0.5);text-decoration:none;">
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-white truncate">{{ l.data.get('employee_name', '-') }}</p>
+          <p class="text-xs hr-text-secondary truncate">{{ l.data.get('leave_type', 'Leave') | replace('_', ' ') | title }} · {{ l.data.get('total_days', '?') }} day(s)</p>
+        </div>
+        <span class="hr-badge status-pending flex-shrink-0">{{ l.data.get('start_date', '-')[:10] if l.data.get('start_date') else '-' }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm hr-text-secondary text-center py-8">🎉 No pending leaves!</p>
+    {% endif %}
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="hr-card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider hr-text-secondary">📋 Recent Activity</h3>
+    </div>
+    {% if overview.recent_activity %}
+    <div class="space-y-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+      {% for act in overview.recent_activity[:8] %}
+      <div class="flex items-start gap-3 p-2 rounded-lg" style="background:rgba(51,65,85,0.3);">
+        <span class="text-lg mt-0.5 flex-shrink-0">
+          {% if 'created' in act.action %}🆕{% elif 'status' in act.action %}🔄{% elif 'message' in act.action %}💬{% else %}📌{% endif %}
+        </span>
+        <div class="min-w-0">
+          <p class="text-sm text-white truncate">{{ act.detail[:60] }}</p>
+          <p class="text-xs hr-text-secondary">{{ act.created_at[:10] if act.created_at else '' }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm hr-text-secondary text-center py-8">No recent activity.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Department Breakdown & Employee Roster -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <!-- Department Breakdown -->
+  <div class="hr-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider hr-text-secondary mb-4">🏛️ Department Breakdown</h3>
+    {% if overview.department_breakdown %}
+    <div class="space-y-3">
+      {% set total = overview.employee_count %}
+      {% for dept in overview.department_breakdown %}
+      <div>
+        <div class="flex items-center justify-between text-sm mb-1">
+          <span class="text-white font-medium truncate">{{ dept.department }}</span>
+          <span class="hr-text-secondary flex-shrink-0">{{ dept.count }} employee{% if dept.count != 1 %}s{% endif %}</span>
+        </div>
+        <div class="w-full rounded-full h-2" style="background:#334155;">
+          <div class="h-2 rounded-full" style="width:{{ (dept.count / total * 100)|round if total else 0 }}%;background:linear-gradient(90deg,#38bdf8,#818cf8);"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm hr-text-secondary text-center py-8">No employees yet. Add your first one!</p>
+    {% endif %}
+  </div>
+
+  <!-- Recent Employees -->
+  <div class="hr-card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider hr-text-secondary">👤 Recent Employees</h3>
+      <a href="/entities/employee" class="text-xs hr-accent hover:underline whitespace-nowrap">View all →</a>
+    </div>
+    {% if recent_employees %}
+    <div class="space-y-2">
+      {% for emp in recent_employees %}
+      <a href="/entities/employee/{{ emp.id }}" class="flex items-center justify-between p-3 rounded-xl transition-colors" style="background:rgba(51,65,85,0.5);text-decoration:none;">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0" 
+               style="background:linear-gradient(135deg,#38bdf8,#818cf8);color:white;">
+            {{ (emp.data.get('employee_name', '?')[:1]) }}
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-white truncate">{{ emp.data.get('employee_name', '-') }}</p>
+            <p class="text-xs hr-text-secondary truncate">{{ emp.data.get('position', 'No position') }} · {{ emp.data.get('department', 'General') }}</p>
+          </div>
+        </div>
+        <span class="hr-badge {{ 'status-active' if emp.status == 'active' else 'status-onboarding' if emp.status == 'onboarding' else 'status-exited' }} flex-shrink-0">
+          {{ emp.status | replace('_', ' ') }}
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm hr-text-secondary text-center py-8">No employees yet. Add your first one! 👤</p>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function showOrgChart() {
+  fetch('/hr/api/org-chart')
+    .then(r => r.json())
+    .then(data => {
+      let html = `<div class="hr-card p-5 mb-4"><h3 class="text-xs font-semibold uppercase tracking-wider hr-text-secondary mb-4">🏛️ Organisation Chart</h3>`;
+      if (data.departments && data.departments.length) {
+        data.departments.forEach(dept => {
+          const empCount = data.employees.filter(e => e.department === dept.name).length;
+          html += `<div style="margin-bottom:12px;padding:12px;background:rgba(51,65,85,0.5);border-radius:12px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+              <span style="font-weight:600;color:#e2e8f0;">🏢 ${dept.name}</span>
+              <span class="hr-badge" style="background:rgba(56,189,248,0.15);color:#38bdf8;">${dept.code}</span>
+              <span class="hr-text-secondary" style="font-size:0.75rem;margin-left:auto;">${empCount} emp</span>
+            </div>`;
+          const deptEmps = data.employees.filter(e => e.department === dept.name);
+          if (deptEmps.length) {
+            html += `<div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+            deptEmps.forEach(emp => {
+              html += `<span style="font-size:0.75rem;padding:3px 8px;border-radius:6px;background:rgba(30,41,59,0.8);color:#94a3b8;">
+                👤 ${emp.name} ${emp.position ? `· ${emp.position}` : ''}
+              </span>`;
+            });
+            html += `</div>`;
+          } else {
+            html += `<span style="font-size:0.75rem;color:#64748b;">No employees in this department</span>`;
+          }
+          html += `</div>`;
+        });
+      } else {
+        html += `<p class="text-sm hr-text-secondary text-center py-4">No departments or employees found.</p>`;
+      }
+      html += `</div>`;
+      // Insert before the script tag
+      const scriptTag = document.currentScript;
+      scriptTag.insertAdjacentHTML('beforebegin', html);
+    })
+    .catch(err => {
+      alert('Could not load org chart: ' + err);
+    });
+}
+</script>
+{% endblock %}

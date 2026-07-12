@@ -1,49 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-2xl font-bold text-slate-900">📋 Operations</h1>
-    <p class="text-sm text-slate-500 mt-1">Projects, tasks, and workflow management</p>
+<style>
+  body { background: #0f172a; }
+  .op-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .op-muted { color: #94a3b8; }
+  .op-secondary { color: #64748b; }
+</style>
+
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-bold text-white">📋 Operations</h1>
+    <p class="text-sm op-secondary mt-1 truncate">Projects, tasks, and workflow management</p>
   </div>
 </div>
 
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-    <p class="text-xs text-slate-400 uppercase tracking-wider">Total Projects</p>
-    <p class="text-2xl font-bold text-slate-900 mt-1">{{ projects|length }}</p>
-    <p class="text-xs text-slate-400">{{ project_statuses.get('active', 0) }} active</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="op-card p-4">
+    <p class="text-xs op-secondary uppercase tracking-wider font-medium">Total Projects</p>
+    <p class="text-2xl font-bold text-white mt-1">{{ projects|length }}</p>
+    <p class="text-xs op-muted">{{ project_statuses.get('active', 0) }} active</p>
   </div>
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-    <p class="text-xs text-slate-400 uppercase tracking-wider">Total Tasks</p>
-    <p class="text-2xl font-bold text-slate-900 mt-1">{{ tasks|length }}</p>
-    <p class="text-xs text-blue-500">{{ task_statuses.get('pending', 0) + task_statuses.get('ready', 0) }} to do</p>
+  <div class="op-card p-4">
+    <p class="text-xs op-secondary uppercase tracking-wider font-medium">Total Tasks</p>
+    <p class="text-2xl font-bold text-white mt-1">{{ tasks|length }}</p>
+    <p class="text-xs text-blue-400">{{ task_statuses.get('pending', 0) + task_statuses.get('ready', 0) }} to do</p>
   </div>
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-    <p class="text-xs text-slate-400 uppercase tracking-wider">In Progress</p>
-    <p class="text-2xl font-bold text-amber-600 mt-1">{{ task_statuses.get('active', 0) }}</p>
-    <p class="text-xs text-amber-500">Active tasks</p>
+  <div class="op-card p-4">
+    <p class="text-xs op-secondary uppercase tracking-wider font-medium">In Progress</p>
+    <p class="text-2xl font-bold text-amber-400 mt-1">{{ task_statuses.get('active', 0) }}</p>
+    <p class="text-xs text-amber-400">Active tasks</p>
   </div>
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-    <p class="text-xs text-slate-400 uppercase tracking-wider">Blocked</p>
-    <p class="text-2xl font-bold text-red-600 mt-1">{{ task_statuses.get('blocked', 0) }}</p>
-    <p class="text-xs text-red-500">Need attention</p>
+  <div class="op-card p-4">
+    <p class="text-xs op-secondary uppercase tracking-wider font-medium">Blocked</p>
+    <p class="text-2xl font-bold text-red-400 mt-1">{{ task_statuses.get('blocked', 0) }}</p>
+    <p class="text-xs text-red-400">Need attention</p>
   </div>
 </div>
 
 {% if blocked_tasks %}
-<div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+<div class="p-4 mb-6 rounded-xl" style="background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);">
   <div class="flex items-center gap-2 mb-2">
     <span class="text-lg">🚫</span>
-    <h3 class="font-semibold text-red-800 text-sm">{{ blocked_tasks|length }} Blocked Task(s)</h3>
+    <h3 class="font-semibold text-red-400 text-sm">{{ blocked_tasks|length }} Blocked Task(s)</h3>
   </div>
   <div class="space-y-2">
     {% for t in blocked_tasks %}
     <div class="flex items-start gap-2 text-sm">
-      <span class="text-red-500 mt-1">•</span>
+      <span class="text-red-400 mt-1">•</span>
       <div>
-        <span class="font-medium text-red-700">{{ t.data.get('title', t.display_name) }}</span>
+        <span class="font-medium text-red-300">{{ t.data.get('title', t.display_name) }}</span>
         {% if t.data.get('blocker_reason') %}
-        <span class="text-red-600">— {{ t.data.get('blocker_reason')[:100] }}</span>
+        <span class="text-red-400">— {{ t.data.get('blocker_reason')[:100] }}</span>
         {% endif %}
       </div>
     </div>
@@ -53,38 +60,38 @@
 {% endif %}
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">⚡ Quick Actions</h3>
+  <div class="op-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider op-secondary mb-4">⚡ Quick Actions</h3>
     <div class="grid grid-cols-2 gap-3">
-      <a href="/entities/project/new" class="p-4 bg-blue-50 rounded-xl text-center hover:bg-blue-100 transition-colors">
+      <a href="/entities/project/new" class="flex flex-col items-center justify-center p-4 rounded-xl text-center transition-colors" style="background:rgba(56,189,248,0.1);text-decoration:none;">
         <span class="text-2xl block mb-1">📋</span>
-        <span class="text-xs font-medium text-blue-700">New Project</span>
+        <span class="text-xs font-medium" style="color:#38bdf8;">New Project</span>
       </a>
-      <a href="/entities/task/new" class="p-4 bg-green-50 rounded-xl text-center hover:bg-green-100 transition-colors">
+      <a href="/entities/task/new" class="flex flex-col items-center justify-center p-4 rounded-xl text-center transition-colors" style="background:rgba(52,211,153,0.1);text-decoration:none;">
         <span class="text-2xl block mb-1">✅</span>
-        <span class="text-xs font-medium text-green-700">New Task</span>
+        <span class="text-xs font-medium" style="color:#34d399;">New Task</span>
       </a>
-      <a href="/entities/project" class="p-4 bg-purple-50 rounded-xl text-center hover:bg-purple-100 transition-colors">
+      <a href="/entities/project" class="flex flex-col items-center justify-center p-4 rounded-xl text-center transition-colors" style="background:rgba(168,85,247,0.1);text-decoration:none;">
         <span class="text-2xl block mb-1">🔍</span>
-        <span class="text-xs font-medium text-purple-700">All Projects</span>
+        <span class="text-xs font-medium" style="color:#a78bfa;">All Projects</span>
       </a>
-      <a href="/entities/task" class="p-4 bg-amber-50 rounded-xl text-center hover:bg-amber-100 transition-colors">
+      <a href="/entities/task" class="flex flex-col items-center justify-center p-4 rounded-xl text-center transition-colors" style="background:rgba(251,191,36,0.1);text-decoration:none;">
         <span class="text-2xl block mb-1">📊</span>
-        <span class="text-xs font-medium text-amber-700">All Tasks</span>
+        <span class="text-xs font-medium" style="color:#fbbf24;">All Tasks</span>
       </a>
     </div>
   </div>
 
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">📊 Task Status</h3>
+  <div class="op-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider op-secondary mb-4">📊 Task Status</h3>
     <div class="space-y-2">
       {% for status, count in task_statuses.items() %}
       {% set colors = {'pending':'bg-slate-100 text-slate-600','ready':'bg-blue-50 text-blue-600','active':'bg-amber-50 text-amber-600','blocked':'bg-red-50 text-red-600','completed':'bg-green-50 text-green-600','cancelled':'bg-slate-50 text-slate-400'} %}
       <div class="flex items-center justify-between text-sm">
         <span class="capitalize {{ colors.get(status, 'bg-slate-50 text-slate-500') }} px-2 py-0.5 rounded-full">{{ status }}</span>
-        <span class="font-medium text-slate-700">{{ count }}</span>
+        <span class="font-medium text-white">{{ count }}</span>
       </div>
-      <div class="w-full bg-slate-100 rounded-full h-1.5">
+      <div class="w-full rounded-full h-1.5" style="background:#334155;">
         <div class="h-1.5 rounded-full {% if status == 'blocked' %}bg-red-500{% elif status == 'active' %}bg-amber-500{% elif status == 'completed' %}bg-green-500{% else %}bg-blue-500{% endif %}" style="width:{{ (count / tasks|length * 100)|round if tasks else 0 }}%"></div>
       </div>
       {% endfor %}
@@ -94,20 +101,20 @@
 
 <!-- Recent Projects -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+  <div class="op-card p-5">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">📋 Projects</h3>
-      <a href="/entities/project" class="text-xs text-blue-600 hover:underline">View all →</a>
+      <h3 class="text-xs font-semibold uppercase tracking-wider op-secondary">📋 Projects</h3>
+      <a href="/entities/project" class="text-xs text-blue-400 hover:underline whitespace-nowrap">View all →</a>
     </div>
     {% if projects %}
-    <div class="space-y-2">
+    <div class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
       {% for p in projects[:8] %}
-      <a href="/entities/project/{{ p.id }}" class="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors">
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-slate-700 truncate">{{ p.data.get('name', p.display_name) }}</p>
-          <p class="text-xs text-slate-400">{{ p.data.get('priority', 'medium') }} priority · {{ p.data.get('department', 'General') }}</p>
+      <a href="/entities/project/{{ p.id }}" class="flex items-center justify-between p-3 rounded-xl transition-colors" style="background:rgba(51,65,85,0.4);text-decoration:none;">
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-white truncate">{{ p.data.get('name', p.display_name) }}</p>
+          <p class="text-xs op-muted truncate">{{ p.data.get('priority', 'medium') }} priority · {{ p.data.get('department', 'General') }}</p>
         </div>
-        <span class="text-xs px-2 py-0.5 rounded-full font-medium
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0
           {% if p.status == 'active' %}bg-green-50 text-green-600
           {% elif p.status == 'on_hold' %}bg-amber-50 text-amber-600
           {% elif p.status == 'completed' %}bg-slate-100 text-slate-500
@@ -117,21 +124,21 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="text-sm text-slate-400 text-center py-8">No projects yet. Create your first one! 📋</p>
+    <p class="text-sm op-muted text-center py-8">No projects yet. Create your first one! 📋</p>
     {% endif %}
   </div>
 
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+  <div class="op-card p-5">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">✅ Recent Tasks</h3>
-      <a href="/entities/task" class="text-xs text-blue-600 hover:underline">View all →</a>
+      <h3 class="text-xs font-semibold uppercase tracking-wider op-secondary">✅ Recent Tasks</h3>
+      <a href="/entities/task" class="text-xs text-blue-400 hover:underline whitespace-nowrap">View all →</a>
     </div>
     {% if tasks %}
-    <div class="space-y-2">
+    <div class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
       {% for t in tasks[:8] %}
-      <div class="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors">
-        <div class="flex items-center gap-2 min-w-0">
-          <span>
+      <div class="flex items-center justify-between p-3 rounded-xl transition-colors" style="background:rgba(51,65,85,0.4);">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span class="flex-shrink-0">
             {% if t.status == 'completed' %}✅
             {% elif t.status == 'blocked' %}🚫
             {% elif t.status == 'active' %}🔄
@@ -139,11 +146,11 @@
             {% else %}⏳{% endif %}
           </span>
           <div class="min-w-0">
-            <p class="text-sm font-medium text-slate-700 truncate">{{ t.data.get('title', t.display_name) }}</p>
-            <p class="text-xs text-slate-400">{{ t.data.get('assigned_to', 'Unassigned') }}</p>
+            <p class="text-sm font-medium text-white truncate">{{ t.data.get('title', t.display_name) }}</p>
+            <p class="text-xs op-muted truncate">{{ t.data.get('assigned_to', 'Unassigned') }}</p>
           </div>
         </div>
-        <span class="text-xs px-2 py-0.5 rounded-full font-medium
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0
           {% if t.status == 'completed' %}bg-green-50 text-green-600
           {% elif t.status == 'blocked' %}bg-red-50 text-red-600
           {% elif t.status == 'active' %}bg-amber-50 text-amber-600
@@ -153,8 +160,14 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="text-sm text-slate-400 text-center py-8">No tasks yet. Create your first one! ✅</p>
+    <p class="text-sm op-muted text-center py-8">No tasks yet. Create your first one! ✅</p>
     {% endif %}
   </div>
 </div>
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+</style>
 {% endblock %}

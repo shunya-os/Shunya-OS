@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; }
+  .c-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .c-text { color: #e2e8f0; }
+  .c-muted { color: #94a3b8; }
+  .c-secondary { color: #64748b; }
+  .c-accent { color: #38bdf8; }
+  .c-badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
+  .health-new { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+  .health-learning { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+  .health-established { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+  .health-strong { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+  .health-at_risk { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+  .health-lapsed { background: rgba(148, 163, 184, 0.15); color: #64748b; }
+  .stage-enquiry { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+  .stage-discovery { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+  .stage-planning { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+  .stage-proposal { background: rgba(129, 140, 248, 0.15); color: #818cf8; }
+  .stage-negotiation { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+  .stage-booking { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+  .stage-experience { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+  .stage-outcome { background: rgba(129, 140, 248, 0.15); color: #818cf8; }
+  .stage-closed { background: rgba(148, 163, 184, 0.15); color: #64748b; }
+  .stage-lost { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+</style>
+
+<div class="mb-4">
+  <a href="/customers" class="text-sm c-accent hover:underline">← Back to Customers</a>
+</div>
+
+<!-- Relationship Header -->
+<div class="c-card p-6 mb-6">
+  <div class="flex items-start justify-between">
+    <div class="flex items-center gap-4">
+      <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white"
+           style="background:linear-gradient(135deg,#38bdf8,#818cf8);">
+        {{ customer.name[:1] }}
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-white">{{ customer.name }}</h1>
+        <div class="flex flex-wrap items-center gap-3 mt-1">
+          {% if customer.email %}<span class="text-sm c-muted">{{ customer.email }}</span>{% endif %}
+          {% if customer.phone %}<span class="text-sm c-muted">{{ customer.phone }}</span>{% endif %}
+          <span class="c-badge health-{{ customer.relationship_health }}">{{ brief.header.relationship_health_label }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="text-right">
+      <p class="text-xs c-secondary">Relationship</p>
+      {% if brief.header.relationship_tenure_years %}
+      <p class="text-sm font-semibold text-white">{{ brief.header.relationship_tenure_years }} year{% if brief.header.relationship_tenure_years != 1 %}s{% endif %}</p>
+      {% endif %}
+      <p class="text-xs c-muted">{{ brief.header.total_experiences }} experiences · {{ brief.header.total_referrals }} referrals</p>
+      {% if brief.header.last_meaningful_interaction %}
+      <p class="text-xs c-muted mt-1">Last: {{ brief.header.last_meaningful_interaction[:10] }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+  <!-- AI Relationship Brief -->
+  <div class="lg:col-span-2 c-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider c-muted mb-3">🤖 AI Relationship Brief</h3>
+    <p class="text-xs c-secondary mb-4">Before you speak to this customer</p>
+
+    {% if brief.before_you_speak %}
+    <ul class="space-y-2 mb-4">
+      {% for bullet in brief.before_you_speak %}
+      <li class="flex items-start gap-2 text-sm c-text">
+        <span class="text-cyan-400 mt-1">•</span>
+        <span>{{ bullet }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm c-muted mb-4">New relationship — learning customer preferences.</p>
+    {% endif %}
+
+    {% if brief.one_thing_to_remember %}
+    <div class="p-3 rounded-xl" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);">
+      <p class="text-xs font-semibold uppercase tracking-wider" style="color:#fbbf24;">⚠️ One Thing to Remember</p>
+      <p class="text-sm mt-1" style="color:#fef3c7;">{{ brief.one_thing_to_remember }}</p>
+    </div>
+    {% endif %}
+
+    {% if brief.suggested_next_action %}
+    <div class="mt-4 p-3 rounded-xl" style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.2);">
+      <p class="text-xs font-semibold uppercase tracking-wider c-accent">🎯 Recommended Next Action</p>
+      <p class="text-sm font-medium text-white mt-1">{{ brief.suggested_next_action.action }}</p>
+      <p class="text-xs c-muted mt-1">{{ brief.suggested_next_action.reason }}</p>
+      {% if brief.suggested_next_action.expected_impact %}
+      <p class="text-xs c-muted mt-1">Expected: {{ brief.suggested_next_action.expected_impact }}</p>
+      {% endif %}
+      {% if brief.suggested_next_action.suggested_opening %}
+      <div class="mt-2 p-2 rounded-lg" style="background:rgba(30,41,59,0.8);">
+        <p class="text-xs c-secondary mb-1">Suggested opening:</p>
+        <p class="text-sm italic" style="color:#e2e8f0;">"{{ brief.suggested_next_action.suggested_opening }}"</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Traveller Graph -->
+  <div class="c-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider c-muted mb-3">👨‍👩‍👧‍👦 Traveller Graph</h3>
+    {% if brief.traveller_graph %}
+    <div class="space-y-2">
+      {% for role, info in brief.traveller_graph.items() %}
+      <div class="flex items-center gap-2 p-2 rounded-lg" style="background:rgba(51,65,85,0.5);">
+        <span class="text-lg">
+          {% if role == 'self' %}👤{% elif role == 'spouse' %}👩{% elif role == 'child' or role == 'children' %}👶{% elif role == 'parent' or role == 'parents' %}👴{% elif role == 'company' %}🏢{% else %}👤{% endif %}
+        </span>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-white capitalize">{{ role }}</p>
+          {% if info is mapping %}
+          <p class="text-xs c-muted truncate">{{ info.get('name', role) }}</p>
+          {% else %}
+          <p class="text-xs c-muted truncate">{{ info }}</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm c-muted text-center py-6">No traveller data yet.</p>
+    {% endif %}
+
+    <div class="mt-4 text-center">
+      <p class="text-xs c-secondary">Preferred: {{ brief.header.preferred_channel | capitalize }} · {{ brief.header.communication_style | capitalize }}</p>
+    </div>
+  </div>
+</div>
+
+<!-- Active Opportunities -->
+{% if brief.active_opportunities %}
+<div class="c-card p-5 mb-6">
+  <h3 class="text-xs font-semibold uppercase tracking-wider c-muted mb-4">💎 Active Opportunities</h3>
+  <div class="space-y-3">
+    {% for opp in brief.active_opportunities %}
+    <div class="flex items-center justify-between p-3 rounded-xl" style="background:rgba(51,65,85,0.5);">
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-white">{{ opp.title }}</p>
+        {% if opp.destination %}<p class="text-xs c-muted">{{ opp.destination }}</p>{% endif %}
+      </div>
+      <div class="text-right flex items-center gap-3">
+        {% if opp.estimated_budget %}
+        <span class="text-xs font-medium text-white">₹{{ "{:,.0f}".format(opp.estimated_budget) }}</span>
+        {% endif %}
+        <span class="c-badge stage-{{ opp.stage }}">{{ opp.stage | replace('_', ' ') | title }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Lifetime Journey -->
+<div class="c-card p-5 mb-6">
+  <h3 class="text-xs font-semibold uppercase tracking-wider c-muted mb-4">📅 Lifetime Journey</h3>
+  {% if brief.lifetime_journey %}
+  <div class="relative">
+    {% for event in brief.lifetime_journey %}
+    <div class="flex items-start gap-4 pb-4 relative">
+      <div class="flex flex-col items-center">
+        <div class="w-3 h-3 rounded-full {% if event.is_active %}" style="background:#38bdf8;box-shadow:0 0 8px rgba(56,189,248,0.5);{% else %}" style="background:#475569;{% endif %}"></div>
+        {% if not loop.last %}<div class="w-0.5 h-full" style="background:#334155;margin-top:4px;"></div>{% endif %}
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center justify-between">
+          <p class="text-sm font-medium text-white">{{ event.icon }} {{ event.title }}</p>
+          {% if event.year %}<span class="text-xs c-muted">{{ event.year }}</span>{% endif %}
+        </div>
+        {% if event.destination %}<p class="text-xs c-muted">{{ event.destination }}</p>{% endif %}
+        {% if event.outcome_notes %}
+        <p class="text-xs c-muted mt-1">{{ event.outcome_notes[:80] }}{% if event.outcome_notes|length > 80 %}…{% endif %}</p>
+        {% endif %}
+        {% if event.outcome_rating %}
+        <p class="text-xs mt-1">Rating: {% for i in range(event.outcome_rating) %}⭐{% endfor %}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm c-muted text-center py-6">No journey history yet. First opportunity will appear here.</p>
+  {% endif %}
+</div>
+
+<!-- Preferences (Collapsible) -->
+{% if brief.preferences_detail %}
+<div class="c-card p-5 mb-6">
+  <h3 class="text-xs font-semibold uppercase tracking-wider c-muted mb-4">📋 Preferences with Evidence</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {% for pref in brief.preferences_detail %}
+    <div class="p-3 rounded-xl" style="background:rgba(51,65,85,0.5);">
+      <div class="flex items-center justify-between mb-1">
+        <p class="text-sm font-medium text-white capitalize">{{ pref.preference_type | replace('_', ' ') }}</p>
+        <span class="c-badge" style="background:rgba(56,189,248,0.1);color:#38bdf8;">{{ pref.confidence }}</span>
+      </div>
+      <p class="text-sm c-accent">{{ pref.value | replace('_', ' ') }}</p>
+      <p class="text-xs c-muted mt-1">Source: {{ pref.source }}</p>
+      {% if pref.evidence %}
+      <div class="mt-2 space-y-1">
+        {% for ev in pref.evidence[:3] %}
+        <p class="text-xs c-muted">• {{ ev.get('trip', '') }}: {{ ev.get('action', '') }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if pref.last_confirmed %}
+      <p class="text-xs c-muted mt-1">Confirmed: {{ pref.last_confirmed[:10] }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="text-center">
+  <a href="/customers" class="text-sm c-accent hover:underline">← Back to all customers</a>
+</div>
+{% endblock %}

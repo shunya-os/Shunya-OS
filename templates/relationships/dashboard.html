@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; }
+  .d-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .d-text { color: #e2e8f0; }
+  .d-muted { color: #94a3b8; }
+  .d-secondary { color: #64748b; }
+  .d-accent { color: #38bdf8; }
+  .d-badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
+  .h-new { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .h-learning { background: rgba(251,191,36,0.15); color: #fbbf24; }
+  .h-established { background: rgba(56,189,248,0.15); color: #38bdf8; }
+  .h-strong { background: rgba(52,211,153,0.15); color: #34d399; }
+  .h-at_risk { background: rgba(248,113,113,0.15); color: #f87171; }
+  .h-lapsed { background: rgba(148,163,184,0.15); color: #64748b; }
+  .s-enquiry { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .s-discovery { background: rgba(251,191,36,0.15); color: #fbbf24; }
+  .s-planning { background: rgba(56,189,248,0.15); color: #38bdf8; }
+  .s-proposal { background: rgba(129,140,248,0.15); color: #818cf8; }
+  .s-negotiation { background: rgba(248,113,113,0.15); color: #f87171; }
+  .s-booking { background: rgba(52,211,153,0.15); color: #34d399; }
+  .s-experience { background: rgba(52,211,153,0.15); color: #34d399; }
+  .s-outcome { background: rgba(129,140,248,0.15); color: #818cf8; }
+  .s-closed { background: rgba(148,163,184,0.15); color: #64748b; }
+  .s-lost { background: rgba(248,113,113,0.15); color: #f87171; }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+</style>
+
+<div class="mb-4">
+  <a href="/relationships" class="text-sm d-accent hover:underline">← Back to Relationships</a>
+</div>
+
+<!-- Relationship Header -->
+<div class="d-card p-6 mb-6">
+  <div class="flex flex-col sm:flex-row items-start justify-between gap-4">
+    <div class="flex items-center gap-4 min-w-0">
+      <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
+           style="background:linear-gradient(135deg,#38bdf8,#818cf8);">
+        {{ relationship.display_name[:1] }}
+      </div>
+      <div class="min-w-0">
+        <h1 class="text-xl font-bold text-white truncate">{{ relationship.display_name or person.name }}</h1>
+        <div class="flex flex-wrap items-center gap-3 mt-1">
+          {% if person.email %}<span class="text-sm d-muted truncate">{{ person.email }}</span>{% endif %}
+          {% if person.phone %}<span class="text-sm d-muted">{{ person.phone }}</span>{% endif %}
+          <span class="d-badge h-{{ relationship.health }}">{{ advice.header.health_label }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="text-right flex-shrink-0">
+      <p class="text-xs d-secondary">Relationship</p>
+      {% if advice.header.tenure_years %}
+      <p class="text-sm font-semibold text-white">{{ advice.header.tenure_years }} year{% if advice.header.tenure_years != 1 %}s{% endif %}</p>
+      {% endif %}
+      <p class="text-xs d-muted">{{ advice.header.total_experiences }} experiences · {{ advice.header.total_referrals }} referrals</p>
+      {% if advice.header.last_meaningful_interaction %}
+      <p class="text-xs d-muted mt-1">Last: {{ advice.header.last_meaningful_interaction[:10] }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+  <!-- Advisory Brief -->
+  <div class="lg:col-span-2 d-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider d-muted mb-3">🤖 Advisory Brief</h3>
+    <p class="text-xs d-secondary mb-4">Before you speak to this relationship</p>
+
+    {% if advice.before_you_speak %}
+    <ul class="space-y-2 mb-4">
+      {% for bullet in advice.before_you_speak %}
+      <li class="flex items-start gap-2 text-sm d-text">
+        <span class="text-cyan-400 mt-1 flex-shrink-0">•</span>
+        <span>{{ bullet }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm d-muted mb-4">New relationship — learning preferences.</p>
+    {% endif %}
+
+    {% if advice.one_thing_to_remember %}
+    <div class="p-3 rounded-xl mb-4" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2);">
+      <p class="text-xs font-semibold uppercase tracking-wider" style="color:#fbbf24;">⚠️ One Thing to Remember</p>
+      <p class="text-sm mt-1" style="color:#fef3c7;">{{ advice.one_thing_to_remember }}</p>
+    </div>
+    {% endif %}
+
+    {% if advice.suggested_next_action %}
+    <div class="p-3 rounded-xl" style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.2);">
+      <p class="text-xs font-semibold uppercase tracking-wider d-accent">🎯 Recommended Next Action</p>
+      <p class="text-sm font-medium text-white mt-1">{{ advice.suggested_next_action.action }}</p>
+      <p class="text-xs d-muted mt-1">{{ advice.suggested_next_action.reason }}</p>
+      {% if advice.suggested_next_action.expected_impact %}
+      <p class="text-xs d-muted mt-1">Expected: {{ advice.suggested_next_action.expected_impact }}</p>
+      {% endif %}
+      {% if advice.suggested_next_action.suggested_opening %}
+      <div class="mt-2 p-2 rounded-lg" style="background:rgba(30,41,59,0.8);">
+        <p class="text-xs d-secondary mb-1">Suggested opening:</p>
+        <p class="text-sm italic" style="color:#e2e8f0;">"{{ advice.suggested_next_action.suggested_opening }}"</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Traveller Graph -->
+  <div class="d-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider d-muted mb-3">👨‍👩‍👧‍👦 Traveller Graph</h3>
+    {% if advice.traveller_graph %}
+    <div class="space-y-2">
+      {% for role, info in advice.traveller_graph.items() %}
+      <div class="flex items-center gap-2 p-2 rounded-lg" style="background:rgba(51,65,85,0.5);">
+        <span class="text-lg flex-shrink-0">
+          {% if role == 'self' %}👤{% elif role == 'spouse' %}👩{% elif 'child' in role %}👶{% elif 'parent' in role %}👴{% elif role == 'company' %}🏢{% else %}👤{% endif %}
+        </span>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-white capitalize truncate">{{ role }}</p>
+          {% if info is mapping %}
+          <p class="text-xs d-muted truncate">{{ info.get('name', role) }}</p>
+          {% else %}
+          <p class="text-xs d-muted truncate">{{ info }}</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm d-muted text-center py-6">No traveller data yet.</p>
+    {% endif %}
+    <div class="mt-4 text-center">
+      <p class="text-xs d-secondary truncate">Channel: {{ advice.header.preferred_channel | capitalize }} · Style: {{ advice.header.communication_style | capitalize }}</p>
+    </div>
+  </div>
+</div>
+
+<!-- Active Opportunities -->
+{% if advice.active_opportunities %}
+<div class="d-card p-5 mb-6">
+  <h3 class="text-xs font-semibold uppercase tracking-wider d-muted mb-4">💎 Active Opportunities</h3>
+  <div class="space-y-3">
+    {% for opp in advice.active_opportunities %}
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-xl gap-2" style="background:rgba(51,65,85,0.5);">
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-medium text-white">{{ opp.title }}</p>
+        {% if opp.destination %}<p class="text-xs d-muted">{{ opp.destination }}</p>{% endif %}
+      </div>
+      <div class="flex items-center gap-3 flex-shrink-0">
+        {% if opp.estimated_budget %}
+        <span class="text-xs font-medium text-white">₹{{ "{:,.0f}".format(opp.estimated_budget) }}</span>
+        {% endif %}
+        <span class="d-badge s-{{ opp.stage }} whitespace-nowrap">{{ opp.stage | replace('_', ' ') | title }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Lifetime Journey -->
+<div class="d-card p-5 mb-6">
+  <h3 class="text-xs font-semibold uppercase tracking-wider d-muted mb-4">📅 Lifetime Journey</h3>
+  {% if advice.lifetime_journey %}
+  <div class="relative max-w-full overflow-hidden">
+    {% for event in advice.lifetime_journey %}
+    <div class="flex items-start gap-4 pb-4 relative">
+      <div class="flex flex-col items-center flex-shrink-0">
+        <div class="w-3 h-3 rounded-full {% if event.is_active %}" style="background:#38bdf8;box-shadow:0 0 8px rgba(56,189,248,0.5);{% else %}" style="background:#475569;{% endif %}"></div>
+        {% if not loop.last %}<div class="w-0.5 h-full" style="background:#334155;margin-top:4px;"></div>{% endif %}
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-sm font-medium text-white truncate">{{ event.icon }} {{ event.title }}</p>
+          {% if event.year %}<span class="text-xs d-muted flex-shrink-0">{{ event.year }}</span>{% endif %}
+        </div>
+        {% if event.destination %}<p class="text-xs d-muted truncate">{{ event.destination }}</p>{% endif %}
+        {% if event.experience_rating %}
+        <p class="text-xs mt-0.5">Rating: {% for i in range(event.experience_rating) %}⭐{% endfor %} {{ event.experience_rating }}/5</p>
+        {% endif %}
+        {% if event.experience_issues %}
+        <p class="text-xs" style="color:#f87171;">⚠️ {{ event.experience_issues }} issue(s) reported</p>
+        {% endif %}
+        {% if event.experience_feedback %}
+        <p class="text-xs d-muted mt-0.5">{{ event.experience_feedback }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm d-muted text-center py-6">No journey history yet.</p>
+  {% endif %}
+</div>
+
+<!-- Preferences -->
+{% if advice.preferences_detail %}
+<div class="d-card p-5 mb-6">
+  <h3 class="text-xs font-semibold uppercase tracking-wider d-muted mb-4">📋 Preferences with Evidence</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {% for pref in advice.preferences_detail %}
+    <div class="p-3 rounded-xl" style="background:rgba(51,65,85,0.5);">
+      <div class="flex items-center justify-between mb-1 gap-2">
+        <p class="text-sm font-medium text-white capitalize truncate">{{ pref.preference_type | replace('_', ' ') }}</p>
+        <span class="d-badge flex-shrink-0" style="background:rgba(56,189,248,0.1);color:#38bdf8;">{{ pref.confidence }}</span>
+      </div>
+      <p class="text-sm d-accent truncate">{{ pref.value | replace('_', ' ') }}</p>
+      <p class="text-xs d-muted mt-1">Source: {{ pref.source }}</p>
+      {% if pref.evidence %}
+      <div class="mt-2 space-y-1">
+        {% for ev in pref.evidence[:3] %}
+        <p class="text-xs d-muted">• {{ ev.get('opportunity', '') }}: {{ ev.get('action', '') }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if pref.last_confirmed %}
+      <p class="text-xs d-muted mt-1">Confirmed: {{ pref.last_confirmed[:10] }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="text-center">
+  <a href="/relationships" class="text-sm d-accent hover:underline">← Back to all relationships</a>
+</div>
+{% endblock %}

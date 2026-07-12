@@ -1,26 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-2xl font-bold text-slate-900">{{ definition.icon }} {{ entity.display_name }}</h1>
-    <p class="text-sm text-slate-500">{{ definition.label }} · {{ entity.code }}</p>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
+  <div class="min-w-0">
+    <h1 class="text-xl sm:text-2xl font-bold text-slate-900 truncate">{{ definition.icon }} {{ entity.display_name }}</h1>
+    <p class="text-sm text-slate-500 truncate">{{ definition.label }} · {{ entity.code }}</p>
   </div>
-  <div class="flex items-center gap-3">
+  <div class="flex items-center gap-3 flex-shrink-0">
     <a href="/entities/{{ definition.type }}/{{ entity.id }}/edit" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">✏️ Edit</a>
-    <a href="/entities/{{ definition.type }}" class="text-sm text-slate-500 hover:text-slate-700 font-medium">← Back</a>
+    <a href="/entities/{{ definition.type }}" class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap">← Back</a>
   </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  <div class="lg:col-span-2 space-y-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+  <div class="lg:col-span-2 space-y-4 sm:space-y-6 max-w-full overflow-hidden">
     <!-- Entity Data -->
-    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
       <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Details</h3>
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {% for field in definition.schema %}
-        <div>
+        <div class="max-w-full overflow-hidden">
           <span class="text-xs text-slate-400 uppercase tracking-wider">{{ field.label }}</span>
-          <p class="text-sm font-medium text-slate-800 mt-0.5">
+          <p class="text-sm font-medium text-slate-800 mt-0.5 truncate">
             {% if field.type == 'boolean' %}
               {% if entity.data.get(field.name) %}✅ Yes{% else %}❌ No{% endif %}
             {% elif field.type == 'number' %}
@@ -41,16 +41,16 @@
     </div>
 
     <!-- Activity -->
-    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 sm:p-6">
       <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Activity</h3>
       <div class="space-y-3">
         {% for a in activities %}
         <div class="flex items-start gap-3 text-sm">
-          <span class="text-lg mt-0.5">
+          <span class="text-lg mt-0.5 flex-shrink-0">
             {% if a.action == 'created' %}📋{% elif a.action == 'status_changed' %}🔄{% elif a.action == 'updated' %}✏️{% else %}🔔{% endif %}
           </span>
-          <div>
-            <p class="text-slate-700">{{ a.detail or a.action }}</p>
+          <div class="min-w-0">
+            <p class="text-slate-700 truncate">{{ a.detail or a.action }}</p>
             <p class="text-xs text-slate-400">{{ a.created_at.strftime('%d %b %Y, %I:%M %p') if a.created_at else '' }}</p>
           </div>
         </div>
@@ -62,11 +62,11 @@
   </div>
 
   <!-- Sidebar -->
-  <div class="space-y-4">
+  <div class="space-y-4 max-w-full overflow-hidden">
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
       <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Status</span>
       <div class="mt-2">
-        <select onchange="updateStatus(this.value)" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+        <select onchange="updateStatus(this.value)" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
           {% for s in definition.statuses %}
           <option value="{{ s }}" {% if entity.status == s %}selected{% endif %}>{{ s }}</option>
           {% endfor %}
@@ -83,10 +83,10 @@
       <div class="mt-2 space-y-2">
         {% for a in next_actions[:3] %}
         <a href="{{ a.target_url }}" class="flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 transition-colors text-sm">
-          <span>{{ '🔴' if a.priority.value == 'high' or a.priority.value == 'critical' else '🟡' }}</span>
-          <div>
-            <p class="font-medium text-slate-700">{{ a.title }}</p>
-            <p class="text-xs text-slate-500">{{ a.description[:80] }}</p>
+          <span class="flex-shrink-0">{{ '🔴' if a.priority.value == 'high' or a.priority.value == 'critical' else '🟡' }}</span>
+          <div class="min-w-0">
+            <p class="font-medium text-slate-700 truncate">{{ a.title }}</p>
+            <p class="text-xs text-slate-500 truncate">{{ a.description[:80] }}</p>
           </div>
         </a>
         {% endfor %}
@@ -96,7 +96,7 @@
 
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
       <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Created</span>
-      <p class="text-sm text-slate-700 mt-1">{{ entity.created_at.strftime('%d %b %Y, %I:%M %p') if entity.created_at else '-' }}</p>
+      <p class="text-sm text-slate-700 mt-1 truncate">{{ entity.created_at.strftime('%d %b %Y, %I:%M %p') if entity.created_at else '-' }}</p>
     </div>
   </div>
 </div>

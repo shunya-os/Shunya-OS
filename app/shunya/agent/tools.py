@@ -128,7 +128,7 @@ def _create_entity(entity_type: str = "", **kwargs) -> dict:
     if not definition:
         raise DataError(f"No entity type '{entity_type}'. Create one in Modules or Settings.")
 
-    code = next_entity_code(db.session, tenant_id, g.tenant.theme_config.get("code_prefix", "PC"))
+    code = next_entity_code(db.session, tenant_id, entity_type)
     
     # Only keep fields that exist in the schema
     schema_names = {f["name"] for f in definition.schema}

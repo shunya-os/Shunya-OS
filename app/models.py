@@ -58,6 +58,10 @@ class Tenant(db.Model):
     max_storage_mb = Column(Integer, default=500)
     max_ai_calls_daily = Column(Integer, default=100)
     logo_url = Column(String(500), default="")
+    brand_tagline = Column(String(500), default="")
+    brand_description = Column(Text, default="")
+    brand_color = Column(String(7), default="#2563eb")  # Primary brand color (hex)
+    brand_color_secondary = Column(String(7), default="#7c3aed")  # Secondary brand color
     onboarding_completed = Column(Boolean, default=False)
     theme_config = Column(JSONB, default=dict)
     ai_config = Column(JSONB, default=dict)  # web_search_enabled, confidence_threshold, etc.
@@ -181,6 +185,7 @@ class EntityDefinition(db.Model):
     primary_field = Column(String(60), default="name")  # field used in summaries
     searchable_fields = Column(JSONB, default=list)  # fields included in search
     default_sort = Column(String(60), default="created_at")
+    code_prefix = Column(String(10), default="")  # auto-computed unique prefix for entity codes
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -247,14 +252,132 @@ class Entity(db.Model):
 # Entity Code Generator
 # ---------------------------------------------------------------------------
 
-def next_entity_code(session, tenant_id: int, prefix: str = "PC") -> str:
-    """Generate space-free entity code: PC{DD}{MM}{YY}{##}"""
-    today = date.today()
+# Special prefixes for built-in entity types (PC for Lead by user specification)
+_BUILTIN_PREFIX_OVERRIDE = {
+    "lead": "PC",
+}
+
+def _compute_entity_prefix(entity_type: str, existing_types: list[str]) -> str:
+    """Compute a unique 2+ letter prefix for an entity type.
+    
+    Priority:
+    1. Built-in override (e.g. lead → PC)
+    2. First 2 letters of entity_type
+    3. If conflict with any existing type, add 3rd letter
+    4. Continue until unique or full name exhausted
+    
+    Example: lead → PC, opportunity → OPP, operations → OPE
+    """
+    if entity_type in _BUILTIN_PREFIX_OVERRIDE:
+        return _BUILTIN_PREFIX_OVERRIDE[entity_type]
+    
+    normalized = entity_type.replace("_", "").replace("-", "")
+    if not normalized:
+        return entity_type[:4].upper()
+    
+    # Compute ALL prefixes atomically to avoid conflicts
+    all_prefixes = compute_all_prefixes(existing_types + [entity_type])
+    return all_prefixes.get(entity_type, normalized[:4].upper())
+
+
+def compute_all_prefixes(entity_types: list[str]) -> dict[str, str]:
+    """Compute unique prefixes for ALL entity types atomically.
+    
+    This ensures no two entity types get the same prefix.
+    Built-in overrides (lead→PC) are applied first.
+    Remaining types get first 2+ unique chars, shorter names first.
+    """
+    result = {}
+    taken = set()
+    
+    # First pass: built-in overrides
+    for et in entity_types:
+        if et in _BUILTIN_PREFIX_OVERRIDE:
+            p = _BUILTIN_PREFIX_OVERRIDE[et]
+            result[et] = p
+            taken.add(p)
+    
+    # Remaining: sort by length (shorter names first → less likely to conflict)
+    remaining = sorted(
+        [et for et in entity_types if et not in result],
+        key=lambda x: (len(x), x)
+    )
+    
+    for et in remaining:
+        normalized = et.replace("_", "").replace("-", "")
+        if not normalized:
+            normalized = et[:4]
+        
+        prefix = None
+        for length in range(2, min(len(normalized), 8) + 1):
+            candidate = normalized[:length].upper()
+            if candidate not in taken:
+                prefix = candidate
+                taken.add(candidate)
+                break
+        
+        if prefix is None:
+            prefix = normalized[:4].upper()
+            # Make unique by appending number if still taken
+            n = 1
+            while prefix in taken:
+                prefix = f"{normalized[:3].upper()}{n}"
+                n += 1
+            taken.add(prefix)
+        
+        result[et] = prefix
+    
+    return result
+
+
+def ensure_entity_prefixes(session, tenant_id: int) -> None:
+    """Compute and persist code_prefix for all entity definitions without one."""
+    from app.models import EntityDefinition
+    defs = session.query(EntityDefinition).filter(
+        EntityDefinition.tenant_id == tenant_id,
+    ).all()
+    types = [d.type for d in defs]
+    
+    for d in defs:
+        if not d.code_prefix:
+            d.code_prefix = _compute_entity_prefix(d.type, types)
+    
+    session.commit()
+
+
+def get_code_prefix(session, entity_type: str, tenant_id: int) -> str:
+    """Get the unique code prefix for an entity type, computing it if missing."""
+    from app.models import EntityDefinition
+    d = session.query(EntityDefinition).filter(
+        EntityDefinition.tenant_id == tenant_id,
+        EntityDefinition.type == entity_type,
+    ).first()
+    
+    if d:
+        if not d.code_prefix:
+            types = [row[0] for row in session.query(EntityDefinition.type).filter(
+                EntityDefinition.tenant_id == tenant_id).all()]
+            d.code_prefix = _compute_entity_prefix(entity_type, types)
+            session.commit()
+        return d.code_prefix
+    
+    return _compute_entity_prefix(entity_type, [entity_type])
+
+
+def next_entity_code(session, tenant_id: int, entity_type: str = "lead", ref_date: date = None) -> str:
+    """Generate entity code: {PREFIX}{DD}{MM}{YY}{##}
+    
+    Prefix derived from entity type (Lead → PC, others → first 2+ unique letters).
+    Sequence is per type per day.
+    """
+    prefix = get_code_prefix(session, entity_type, tenant_id)
+    today = ref_date or date.today()
     date_part = f"{today.day:02d}{today.month:02d}{today.year % 100:02d}"
     prefix_full = f"{prefix}{date_part}"
 
     count = session.query(db.func.count(Entity.id)).filter(
         Entity.tenant_id == tenant_id,
+        Entity.definition.has(type=entity_type),
         Entity.created_at >= datetime(today.year, today.month, today.day),
         Entity.created_at < datetime(today.year, today.month, today.day + 1),
     ).scalar() or 0
@@ -480,3 +603,559 @@ class ClientUser(db.Model):
     is_active = Column(Boolean, default=True)
     last_login = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# User Mood / Health Check-in
+# ---------------------------------------------------------------------------
+
+class UserMoodCheckin(db.Model):
+    """A user's daily mood and energy check-in for health tracking."""
+    __tablename__ = "user_mood_checkins"
+    __table_args__ = (Index("ix_mood_user_date", "user_id", "created_at"),)
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
+
+    mood = Column(String(20), nullable=False)  # great, good, okay, rough, tough
+    energy = Column(Integer, nullable=False)  # 1-5
+    notes = Column(Text, default="")
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "mood": self.mood,
+            "energy": self.energy,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# RelationShip & Person Models — Compounding Relationship Intelligence
+# ---------------------------------------------------------------------------
+# Canonical: A customer relationship is continuous. A booking is temporary.
+# An opportunity has a lifecycle. RELATIONSHIP is the deepest domain object.
+# ---------------------------------------------------------------------------
+
+class Person(db.Model):
+    """An individual human — identity independent of any organization.
+
+    A person exists whether or not they have a relationship with any Shunya tenant.
+    The same person may have relationships with multiple tenants (multi-tenant Shunya).
+    """
+    __tablename__ = "persons"
+    __table_args__ = (Index("ix_persons_email", "email"),)
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(30), nullable=True)
+    alternate_phone = Column(String(30), nullable=True)
+    photo_url = Column(String(500), default="")
+    birthdate = Column(String(20), nullable=True)  # YYYY-MM-DD
+    passport = Column(String(60), nullable=True)
+    govt_id = Column(String(60), nullable=True)
+    nationality = Column(String(60), default="IN")
+    preferred_language = Column(String(10), default="en")
+    is_test = Column(Boolean, default=False)
+    tags = Column(JSONB, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "name": self.name, "email": self.email,
+            "phone": self.phone, "photo_url": self.photo_url,
+            "nationality": self.nationality, "tags": self.tags,
+        }
+
+
+class Relationship(db.Model):
+    """The institutional bond between a Person and a Tenant (organization).
+
+    THIS is the unit of compounding relationship intelligence.
+    A person can have one relationship per tenant. The relationship outlives
+    any single booking, opportunity, or employee. It carries lifetime memory.
+    """
+    __tablename__ = "relationships"
+    __table_args__ = (
+        Index("ix_rel_person_tenant", "person_id", "tenant_id", unique=True),
+        Index("ix_rel_phone", "tenant_id", "phone"),
+        Index("ix_rel_email", "tenant_id", "email"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    person_id = Column(Integer, ForeignKey("persons.id"), nullable=False)
+
+    # Identity (may differ from Person — e.g. preferred name for this org)
+    display_name = Column(String(255), nullable=True)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(30), nullable=True)
+
+    # Relationship metadata
+    tenure_years = Column(Integer, default=0)
+    health = Column(String(20), default="new")
+    # new → learning → established → strong → at_risk → lapsed
+    advisor_id = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+    total_experiences = Column(Integer, default=0)
+    total_referrals = Column(Integer, default=0)
+    last_meaningful_interaction = Column(DateTime, nullable=True)
+
+    # Communication
+    preferred_channel = Column(String(20), default="whatsapp")
+    communication_style = Column(String(60), default="")  # concise, detailed, formal, casual
+
+    # Traveller graph — who travels under this relationship
+    traveller_graph = Column(JSONB, default=dict)
+    # {"self": {"person_id": 1, "name": "...", "birthdate": "..."},
+    #  "spouse": {"person_id": 2, ...},
+    #  "children": [{"name": "...", "birthdate": "..."}],
+    #  "parents": [{"name": "..."}]}
+
+    # Household / Family
+    household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
+
+    # Status
+    status = Column(String(20), default="active")  # active, inactive, lapsed, churned
+    tags = Column(JSONB, default=list)
+
+    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # FK relationships
+    person = relationship("Person", backref="relationships", lazy="joined",
+                          foreign_keys=[person_id])
+    opportunities = relationship("Opportunity", backref="relationship", lazy="select",
+                                 cascade="all,delete-orphan",
+                                 foreign_keys="Opportunity.relationship_id")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "display_name": self.display_name or (self.person.name if self.person else ""),
+            "email": self.email,
+            "phone": self.phone,
+            "tenure_years": self.tenure_years,
+            "health": self.health,
+            "total_experiences": self.total_experiences,
+            "total_referrals": self.total_referrals,
+            "preferred_channel": self.preferred_channel,
+            "status": self.status,
+            "tags": self.tags,
+            "person": self.person.to_dict() if self.person else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Household(db.Model):
+    """A family or household — multiple persons who travel/share together.
+
+    Enables: family preferences, group booking patterns, referral networks,
+    multi-person relationships that compound as a unit.
+    """
+    __tablename__ = "households"
+    __table_args__ = (Index("ix_household_tenant", "tenant_id"),)
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    name = Column(String(255), nullable=True)  # e.g. "Nishesh Family"
+    head_relationship_id = Column(Integer, ForeignKey("relationships.id"), nullable=True)
+    members = Column(JSONB, default=list)
+    # [{"relationship_id": 1, "role": "head", "since": "2020"},
+    #  {"person_id": 2, "role": "spouse", "since": "2020"},
+    #  {"person_id": 3, "role": "child", "since": "2022"}]
+    shared_preferences = Column(JSONB, default=list)
+    notes = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class RelationshipPreference(db.Model):
+    """A stored preference for a relationship, with evidence and confidence.
+
+    "Last time you preferred..." not "You always prefer..."
+    Preferences belong to the relationship, not the person — they reflect
+    how this person relates to this organization.
+    """
+    __tablename__ = "relationship_preferences"
+    __table_args__ = (Index("ix_rel_pref_type", "relationship_id", "preference_type"),)
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    relationship_id = Column(Integer, ForeignKey("relationships.id"), nullable=False)
+
+    preference_type = Column(String(60), nullable=False)
+    # hotel_location, travel_pace, budget_range, airline, room_category,
+    # transfer_preference, decision_style, communication_style
+
+    value = Column(Text, nullable=False)
+    confidence = Column(String(20), default="medium")  # low, medium, high
+    source = Column(String(30), default="observed")  # stated, observed, inferred, imported
+
+    evidence = Column(JSONB, default=list)
+    # [{"opportunity": "Thailand 2022", "action": "selected city centre hotel"},
+    #  {"opportunity": "Dubai 2023", "action": "selected Downtown hotel"}]
+
+    contradictions = Column(JSONB, default=list)
+    # [{"opportunity": "Europe 2024", "note": "selected outskirts — budget constraint"}]
+
+    last_confirmed = Column(DateTime, nullable=True)
+    confirmed_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+    notes = Column(Text, default="")
+    is_active = Column(Boolean, default=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "preference_type": self.preference_type,
+            "value": self.value,
+            "confidence": self.confidence,
+            "source": self.source,
+            "evidence": self.evidence,
+            "contradictions": self.contradictions,
+            "last_confirmed": self.last_confirmed.isoformat() if self.last_confirmed else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Opportunity Domain — Current Intent Container
+# ---------------------------------------------------------------------------
+
+class Opportunity(db.Model):
+    """A customer's current travel intent. Has a defined lifecycle.
+
+    One relationship can have simultaneous opportunities: personal holiday,
+    parents' pilgrimage, corporate offsite. The Opportunity carries current
+    intent; the Relationship carries lifetime memory.
+
+    Lifecycle: ENQUIRY → DISCOVERY → PLANNING → PROPOSAL → NEGOTIATION
+              → BOOKING → EXPERIENCE → OUTCOME → CLOSED
+              ↘ LOST at any stage
+    """
+    __tablename__ = "opportunities"
+    __table_args__ = (
+        Index("ix_opp_relationship", "relationship_id", "status"),
+        Index("ix_opp_tenant_stage", "tenant_id", "status"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    relationship_id = Column(Integer, ForeignKey("relationships.id"), nullable=False)
+
+    code = Column(String(30), nullable=True, index=True)
+
+    # Core intent
+    title = Column(String(255), nullable=False)
+    destination = Column(String(255), nullable=True)
+    intent_description = Column(Text, default="")  # What the customer actually wants
+    experience_mood = Column(String(60), default="")  # exploring, relaxing, adventure, luxury, cultural
+    notes = Column(Text, default="")
+
+    # Lifecycle
+    stage = Column(String(30), default="enquiry", index=True)
+    # enquiry, discovery, planning, proposal, negotiation, booking,
+    # experience, outcome, closed, lost
+    status = Column(String(20), default="open")  # open, won, lost, abandoned
+
+    # Timeline
+    target_dates = Column(JSONB, default=dict)
+    duration_days = Column(Integer, nullable=True)
+
+    # Budget
+    estimated_budget = Column(Numeric(12, 2), nullable=True)
+    actual_cost = Column(Numeric(12, 2), nullable=True)
+    currency = Column(String(10), default="INR")
+
+    # People — with typed roles
+    participants = Column(JSONB, default=list)
+    # [{"person_id": 1, "role": "traveller", "name": "Nishesh"},
+    #  {"person_id": 2, "role": "traveller", "name": "Spouse"},
+    #  {"person_id": null, "role": "decision_maker", "name": "Nishesh"},
+    #  {"person_id": null, "role": "payer", "name": "Nishesh"},
+    #  {"person_id": 3, "role": "beneficiary", "name": "Parents"}]
+    traveller_count = Column(Integer, default=1)
+    decision_maker = Column(String(255), nullable=True)
+    payer = Column(String(255), nullable=True)
+    referrer = Column(String(255), nullable=True)
+
+    # Progress
+    assigned_to = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+    priority = Column(String(20), default="medium")  # low, medium, high, urgent
+    probability = Column(Integer, default=50)  # 0-100
+    risk = Column(String(20), default="low")  # low, medium, high
+
+    # Decisions, quotes, bookings (JSONB for flexibility)
+    decisions = Column(JSONB, default=list)
+    quotes = Column(JSONB, default=list)
+    bookings = Column(JSONB, default=list)
+
+    # Key dates
+    enquiry_date = Column(DateTime, nullable=True)
+    booking_date = Column(DateTime, nullable=True)
+    experience_start = Column(DateTime, nullable=True)
+    experience_end = Column(DateTime, nullable=True)
+    closed_at = Column(DateTime, nullable=True)
+
+    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    activities = relationship("OpportunityActivity", backref="opportunity", lazy="dynamic",
+                              cascade="all,delete-orphan")
+    experiences = relationship("Experience", backref="opportunity", lazy="select",
+                               cascade="all,delete-orphan",
+                               foreign_keys="Experience.opportunity_id")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "code": self.code,
+            "title": self.title,
+            "destination": self.destination,
+            "stage": self.stage,
+            "status": self.status,
+            "experience_mood": self.experience_mood,
+            "estimated_budget": float(self.estimated_budget) if self.estimated_budget else None,
+            "actual_cost": float(self.actual_cost) if self.actual_cost else None,
+            "traveller_count": self.traveller_count,
+            "priority": self.priority,
+            "probability": self.probability,
+            "risk": self.risk,
+            "assigned_to": self.assigned_to,
+            "enquiry_date": self.enquiry_date.isoformat() if self.enquiry_date else None,
+            "booking_date": self.booking_date.isoformat() if self.booking_date else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class OpportunityActivity(db.Model):
+    """Timeline entries for an opportunity."""
+    __tablename__ = "opportunity_activities"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    opportunity_id = Column(Integer, ForeignKey("opportunities.id"), nullable=False)
+
+    activity_type = Column(String(30), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, default="")
+    metadata_json = Column(JSONB, default=dict)
+
+    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Experience Domain — WHAT THE CUSTOMER LIVED (not what we sold)
+# ---------------------------------------------------------------------------
+# Canonical: BOOKING = what we sold. EXPERIENCE = what the customer lived.
+# These are not the same thing. The learning loop needs both.
+
+class Experience(db.Model):
+    """What the customer actually lived through during a trip.
+
+    BOOKING records what was sold. EXPERIENCE records what happened.
+    The gap between them is where learning lives.
+    """
+    __tablename__ = "experiences"
+    __table_args__ = (Index("ix_exp_opportunity", "opportunity_id"),)
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    relationship_id = Column(Integer, ForeignKey("relationships.id"), nullable=False)
+    opportunity_id = Column(Integer, ForeignKey("opportunities.id"), nullable=True)
+
+    title = Column(String(255), nullable=False)
+    experience_type = Column(String(30), default="trip")  # trip, day_trip, event, service
+
+    # Expectations (from the Booking)
+    expectations = Column(JSONB, default=dict)
+    # {"hotels": "Marriott Downtown", "flights": "EK507 09:00", "transfers": "Private"}
+
+    # What actually happened
+    delivered_reality = Column(JSONB, default=dict)
+    # {"hotels": "Marriott Downtown (upgraded)", "flights": "EK507 (delayed 1hr)",
+    #  "transfers": "Driver arrived 35min late"}
+
+    # Events during experience
+    events = Column(JSONB, default=list)
+    # [{"date": "...", "type": "checkin", "status": "smooth"},
+    #  {"date": "...", "type": "transfer", "status": "issue", "detail": "35min delay"}]
+
+    # Exceptions and recovery
+    exceptions = Column(JSONB, default=list)
+    # [{"component": "transfer", "issue": "delay", "severity": "medium", "recovery": "compensated"}]
+    recovery_actions = Column(JSONB, default=list)
+
+    # Feedback
+    feedback = Column(Text, default="")
+    satisfaction_signals = Column(JSONB, default=list)
+    # [{"source": "survey", "metric": "overall", "score": 4},
+    #  {"source": "message", "text": "transfer was late", "sentiment": "negative"}]
+
+    overall_rating = Column(Integer, nullable=True)  # 1-5
+    would_recommend = Column(Boolean, nullable=True)
+
+    # Timing
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+
+    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    outcomes = relationship("Outcome", backref="experience", lazy="select",
+                            cascade="all,delete-orphan",
+                            foreign_keys="Outcome.experience_id")
+
+
+# ---------------------------------------------------------------------------
+# Observation Domain — Structured Expected vs Actual
+# ---------------------------------------------------------------------------
+
+class Observation(db.Model):
+    """A structured observation: what was expected vs what actually happened.
+
+    ActivityLog is an audit trail. Observation is intelligence input.
+    Every execution should create an observation opportunity.
+    """
+    __tablename__ = "observations"
+    __table_args__ = (Index("ix_obs_subject", "subject_type", "subject_id"),)
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+
+    subject_type = Column(String(30), nullable=False)  # opportunity, experience, task, execution
+    subject_id = Column(Integer, nullable=False)
+
+    event = Column(String(60), nullable=False)
+    source = Column(String(30), nullable=False)  # system, human, ai, integration
+    observer = Column(String(60), nullable=True)  # who/what observed it
+
+    expected_state = Column(Text, default="")
+    actual_state = Column(Text, default="")
+    delta = Column(String(255), default="")  # the difference
+
+    severity = Column(String(20), default="info")  # info, minor, medium, major, critical
+    confidence = Column(String(20), default="high")  # low, medium, high
+
+    metadata_json = Column(JSONB, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Outcome Domain — Compared Intent
+# ---------------------------------------------------------------------------
+
+class Outcome(db.Model):
+    """The result of an experience or execution.
+
+    Every meaningful process should answer:
+    WHAT WERE WE TRYING TO ACHIEVE? WHAT ACTUALLY HAPPENED? WHAT WAS DIFFERENT? WHY?
+    """
+    __tablename__ = "outcomes"
+    __table_args__ = (Index("ix_outcome_subject", "subject_type", "subject_id"),)
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+
+    subject_type = Column(String(30), nullable=False)  # opportunity, experience, execution
+    subject_id = Column(Integer, nullable=False)
+    experience_id = Column(Integer, ForeignKey("experiences.id"), nullable=True)
+
+    goal = Column(Text, default="")
+    expected_outcome = Column(Text, default="")
+    actual_outcome = Column(Text, default="")
+
+    result = Column(String(20), default="unknown")  # success, partial, failure, unknown
+    reason = Column(Text, default="")
+
+    customer_impact = Column(Text, default="")
+    business_impact = Column(Text, default="")
+    financial_impact = Column(Text, default="")
+
+    lessons = Column(JSONB, default=list)
+    # [{"lesson": "Confirm transfers in advance", "category": "ops", "priority": "high"}]
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Learning Domain — Pattern → Proposal → Governance → Knowledge
+# ---------------------------------------------------------------------------
+
+class LearningCandidate(db.Model):
+    """A detected pattern that MAY become organizational knowledge.
+
+    OBSERVATION ≠ LEARNING. AI-detected pattern ≠ company truth.
+    Learning proposes. Governance evaluates. Humans approve.
+    """
+    __tablename__ = "learning_candidates"
+    __table_args__ = (Index("ix_learn_tenant_status", "tenant_id", "status"),)
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+
+    pattern = Column(Text, nullable=False)
+    evidence = Column(JSONB, default=list)
+    confidence = Column(Float, default=0.0)
+    category = Column(String(60), default="pattern")  # pattern, anomaly, improvement, risk
+
+    proposed_knowledge = Column(Text, default="")
+    proposed_rule = Column(Text, default="")
+    proposed_policy_change = Column(Text, default="")
+    proposed_workflow_change = Column(Text, default="")
+
+    status = Column(String(20), default="candidate")  # candidate, proposed, under_review, approved, rejected
+    reviewed_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    review_notes = Column(Text, default="")
+
+    source_observations = Column(JSONB, default=list)  # observation IDs
+    related_outcomes = Column(JSONB, default=list)  # outcome IDs
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# User Mood / Check-in Tracker
+# ---------------------------------------------------------------------------
+
+class UserMoodCheckin(db.Model):
+    """A daily mood/energy check-in from a team member.
+
+    Stored as individual rows for trend analysis.
+    """
+    __tablename__ = "user_mood_checkins"
+    __table_args__ = (
+        Index("ix_mood_user_date", "tenant_id", "user_id", "created_at"),
+        {"extend_existing": True},
+    )
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
+
+    mood = Column(String(20), nullable=False)  # great, good, okay, rough, tough
+    energy = Column(Integer, nullable=False)  # 1-5
+    notes = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "mood": self.mood,
+            "energy": self.energy,
+            "notes": self.notes,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

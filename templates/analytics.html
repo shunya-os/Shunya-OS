@@ -1,45 +1,55 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-2xl font-bold text-slate-900">📊 Analytics</h1>
-  <span class="text-xs text-slate-400">{{ data.period }}</span>
+<style>
+  body { background: #0f172a; }
+  .an-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .an-muted { color: #94a3b8; }
+  .an-secondary { color: #64748b; }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+</style>
+
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+  <h1 class="text-2xl font-bold text-white">📊 Analytics</h1>
+  <span class="text-xs an-muted">{{ data.period }}</span>
 </div>
 
 <!-- Top-level metrics -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-    <p class="text-xs text-slate-400 uppercase tracking-wider">Total Entities</p>
-    <p class="text-2xl font-bold text-slate-900 mt-1">{{ data.total_entities }}</p>
-    <p class="text-xs text-green-600">{{ data.new_this_period }} new this period</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="an-card p-4">
+    <p class="text-xs an-secondary uppercase tracking-wider font-medium">Total Entities</p>
+    <p class="text-2xl font-bold text-white mt-1">{{ data.total_entities }}</p>
+    <p class="text-xs text-green-400">{{ data.new_this_period }} new this period</p>
   </div>
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-    <p class="text-xs text-slate-400 uppercase tracking-wider">Active</p>
-    <p class="text-2xl font-bold text-slate-900 mt-1">{{ data.active_entities }}</p>
-    <p class="text-xs text-blue-600">{{ "%.0f"|format(data.active_entities / data.total_entities * 100 if data.total_entities else 0) }}% of total</p>
+  <div class="an-card p-4">
+    <p class="text-xs an-secondary uppercase tracking-wider font-medium">Active</p>
+    <p class="text-2xl font-bold text-white mt-1">{{ data.active_entities }}</p>
+    <p class="text-xs text-blue-400">{{ "%.0f"|format(data.active_entities / data.total_entities * 100 if data.total_entities else 0) }}% of total</p>
   </div>
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-    <p class="text-xs text-slate-400 uppercase tracking-wider">Revenue</p>
-    <p class="text-2xl font-bold text-green-600 mt-1">₹{{ "{:,.0f}".format(data.period_revenue) }}</p>
-    <p class="text-xs text-slate-400">{{ data.period }}</p>
+  <div class="an-card p-4">
+    <p class="text-xs an-secondary uppercase tracking-wider font-medium">Revenue</p>
+    <p class="text-2xl font-bold text-green-400 mt-1">₹{{ "{:,.0f}".format(data.period_revenue) }}</p>
+    <p class="text-xs an-muted">{{ data.period }}</p>
   </div>
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
-    <p class="text-xs text-slate-400 uppercase tracking-wider">Team</p>
-    <p class="text-2xl font-bold text-slate-900 mt-1">{{ data.team_count }}</p>
-    <p class="text-xs text-slate-400">active members</p>
+  <div class="an-card p-4">
+    <p class="text-xs an-secondary uppercase tracking-wider font-medium">Team</p>
+    <p class="text-2xl font-bold text-white mt-1">{{ data.team_count }}</p>
+    <p class="text-xs an-muted">active members</p>
   </div>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
   <!-- Pipeline -->
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Pipeline</h3>
+  <div class="an-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider an-muted mb-4">Pipeline</h3>
     {% for label, info in data.pipeline.items() %}
     <div class="mb-4">
       <div class="flex items-center justify-between mb-2">
-        <span class="text-sm font-medium text-slate-700">{{ info.icon }} {{ label }}</span>
-        <span class="text-xs text-slate-400">{{ info.total }} total</span>
+        <span class="text-sm font-medium text-white">{{ info.icon }} {{ label }}</span>
+        <span class="text-xs an-muted">{{ info.total }} total</span>
       </div>
-      <div class="flex gap-1 h-6 rounded-lg overflow-hidden">
+      <div class="flex gap-1 h-6 rounded-lg overflow-hidden max-w-full">
         {% for status, count in info.statuses.items() %}
         {% set colors = {'new':'bg-blue-400','pending':'bg-amber-400','active':'bg-green-400','done':'bg-slate-400','cancelled':'bg-red-400'} %}
         <div style="flex:{{ count }};background:{{ colors.get(status,'bg-slate-300') }};min-width:4px;" title="{{ status }}: {{ count }}"></div>
@@ -47,47 +57,47 @@
       </div>
       <div class="flex flex-wrap gap-2 mt-1">
         {% for status, count in info.statuses.items() %}
-        <span class="text-xs text-slate-500">{{ status }}: {{ count }}</span>
+        <span class="text-xs an-muted">{{ status }}: {{ count }}</span>
         {% endfor %}
       </div>
     </div>
     {% else %}
-    <p class="text-sm text-slate-400 text-center py-4">No pipeline data yet.</p>
+    <p class="text-sm an-muted text-center py-4">No pipeline data yet.</p>
     {% endfor %}
   </div>
 
   <!-- Activity Trend -->
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Activity (7 days)</h3>
+  <div class="an-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider an-muted mb-4">Activity (7 days)</h3>
     {% if data.activity_trend %}
-    <div class="flex items-end gap-2 h-32">
+    <div class="flex items-end gap-2 h-32 max-w-full overflow-x-auto pb-1">
       {% for day in data.activity_trend %}
-      <div class="flex-1 flex flex-col items-center gap-1">
+      <div class="flex-1 flex flex-col items-center gap-1 min-w-[40px]">
         <div class="w-full bg-blue-500 rounded-t" style="height:{{ (day.count / 10 * 100)|round|int if day.count > 0 else 2 }}px;min-height:2px;"></div>
-        <span class="text-xs text-slate-400">{{ day.date }}</span>
-        <span class="text-xs font-medium text-slate-600">{{ day.count }}</span>
+        <span class="text-xs an-muted">{{ day.date }}</span>
+        <span class="text-xs font-medium text-white">{{ day.count }}</span>
       </div>
       {% endfor %}
     </div>
     {% else %}
-    <p class="text-sm text-slate-400 text-center py-4">No activity data yet.</p>
+    <p class="text-sm an-muted text-center py-4">No activity data yet.</p>
     {% endif %}
   </div>
 </div>
 
 <!-- Founder Insights -->
 {% if insights %}
-<div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-  <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🧠 Insights</h3>
+<div class="an-card p-5">
+  <h3 class="text-xs font-semibold uppercase tracking-wider an-muted mb-4">🧠 Insights</h3>
   <div class="space-y-3">
     {% for i in insights %}
-    <div class="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-      <span class="text-lg">{{ i.icon }}</span>
-      <div class="flex-1">
-        <p class="text-sm font-medium text-slate-700">{{ i.title }}</p>
-        <p class="text-xs text-slate-500">{{ i.description }}</p>
+    <div class="flex items-start gap-3 p-3 rounded-lg transition-colors" style="background:rgba(51,65,85,0.4);">
+      <span class="text-lg flex-shrink-0">{{ i.icon }}</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-white">{{ i.title }}</p>
+        <p class="text-xs an-muted">{{ i.description }}</p>
       </div>
-      {% if i.priority == 'high' %}<span class="text-xs font-medium text-red-500">Urgent</span>{% endif %}
+      {% if i.priority == 'high' %}<span class="text-xs font-medium text-red-400 flex-shrink-0">Urgent</span>{% endif %}
     </div>
     {% endfor %}
   </div>

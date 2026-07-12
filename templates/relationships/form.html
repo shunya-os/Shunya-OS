@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; }
+  .c-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; }
+  .fi { width:100%; padding:10px 14px; border-radius:10px; background:#1e293b; border:1px solid #334155; color:#e2e8f0; font-size:0.875rem; outline:none; }
+  .fi:focus { border-color:#38bdf8; }
+  .fl { display:block; font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin-bottom:6px; }
+</style>
+
+<div class="max-w-lg mx-auto">
+  <div class="mb-4"><a href="/relationships" class="text-sm" style="color:#38bdf8;">← Back</a></div>
+  <div class="c-card p-6">
+    <h1 class="text-lg font-bold text-white mb-1">New Relationship</h1>
+    <p class="text-sm" style="color:#94a3b8;">Create a new person + relationship record.</p>
+    <form method="POST">
+      <div class="space-y-4">
+        <div>
+          <label class="fl">Full Name *</label>
+          <input type="text" name="name" required class="fi" placeholder="e.g. Rajat Nishesh">
+        </div>
+        <div>
+          <label class="fl">Email</label>
+          <input type="email" name="email" class="fi" placeholder="email@example.com">
+        </div>
+        <div>
+          <label class="fl">Phone</label>
+          <input type="text" name="phone" class="fi" placeholder="+91-9876543210">
+        </div>
+        <div>
+          <label class="fl">Preferred Channel</label>
+          <select name="preferred_channel" class="fi">
+            <option value="whatsapp">WhatsApp</option>
+            <option value="telegram">Telegram</option>
+            <option value="email">Email</option>
+            <option value="phone">Phone</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl text-sm font-medium text-white" style="background:#0ea5e9;">Create Relationship</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

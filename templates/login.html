@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="min-h-screen flex items-center justify-center py-12">
-  <div class="w-full max-w-md">
-    <div class="text-center mb-8">
+<div class="min-h-screen flex items-center justify-center py-8 sm:py-12 px-3 sm:px-4">
+  <div class="w-full max-w-md mx-auto">
+    <div class="text-center mb-6 sm:mb-8">
       <span class="text-4xl">🧠</span>
-      <h1 class="text-2xl font-bold text-slate-900 mt-2">Shunya OS</h1>
+      <h1 class="text-xl sm:text-2xl font-bold text-slate-900 mt-2">Shunya OS</h1>
       <p class="text-slate-500 text-sm mt-1">Sign in to your account</p>
     </div>
-    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5 sm:p-6 space-y-4">
       <form id="login-form" onsubmit="loginPassword(event)" class="space-y-4">
         <div>
           <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>

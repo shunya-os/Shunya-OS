@@ -115,7 +115,7 @@ def entity_new(entity_type):
             if field.get("required") and not data.get(field.get("name")):
                 return jsonify({"error": f"{field.get('label')} is required"}), 400
 
-        code = next_entity_code(db.session, g.tenant.id)
+        code = next_entity_code(db.session, g.tenant.id, entity_type)
 
         # Build data dict from form fields (only defined schema fields)
         entity_data = {}
@@ -158,7 +158,7 @@ def entity_new(entity_type):
         flash(f"{definition.label} created ({code})", "success")
         return redirect(url_for("entities.entity_detail", entity_type=entity_type, entity_id=entity.id))
 
-    code = next_entity_code(db.session, g.tenant.id)
+    code = next_entity_code(db.session, g.tenant.id, entity_type)
     return render_template("entity_form.html", definition=definition, entity=None, code=code)
 
 
@@ -274,5 +274,5 @@ def entity_archive(entity_type, entity_id):
 @entities_bp.route("/<entity_type>/next-code")
 @login_required
 def get_next_code(entity_type):
-    code = next_entity_code(db.session, g.tenant.id)
+    code = next_entity_code(db.session, g.tenant.id, entity_type)
     return jsonify({"code": code})

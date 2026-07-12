@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; }
+  .br-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .br-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 6px; }
+  .br-input { width: 100%; padding: 10px 14px; background: rgba(51,65,85,0.5); border: 1px solid #334155; border-radius: 10px; color: #e2e8f0; font-size: 0.875rem; outline: none; transition: border-color .2s; }
+  .br-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  .br-btn { padding: 10px 20px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; border: none; cursor: pointer; transition: all .2s; }
+  .br-btn-primary { background: #3b82f6; color: white; }
+  .br-btn-primary:hover { background: #2563eb; }
+  .br-btn-success { background: #10b981; color: white; }
+  .br-btn-success:hover { background: #059669; }
+  .preview-card { border-radius: 12px; padding: 20px; transition: all .3s; }
+</style>
+
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-xl font-bold text-white">🏢 Brand & Sub-accounts</h1>
+  <div class="flex gap-2">
+    <button onclick="saveBrand()" class="br-btn br-btn-primary">💾 Save</button>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- Brand Profile -->
+  <div class="br-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🏷️ Brand Profile</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="br-label">Company Name</label>
+        <input id="co-name" class="br-input" value="{{ tenant.company_name }}" placeholder="Panchi Club">
+      </div>
+      <div>
+        <label class="br-label">Tagline</label>
+        <input id="co-tagline" class="br-input" value="{{ tenant.brand_tagline or '' }}" placeholder="Your brand tagline">
+      </div>
+      <div>
+        <label class="br-label">Description</label>
+        <textarea id="co-desc" class="br-input" rows="3" placeholder="Tell the world about your brand">{{ tenant.brand_description or '' }}</textarea>
+      </div>
+      <div>
+        <label class="br-label">Primary Brand Color</label>
+        <div class="flex gap-3 items-center">
+          <input id="co-color" type="color" class="w-12 h-12 rounded-lg border-0 cursor-pointer" value="{{ tenant.brand_color or '#2563eb' }}">
+          <span id="co-color-hex" class="text-sm text-slate-400 font-mono">{{ tenant.brand_color or '#2563eb' }}</span>
+        </div>
+      </div>
+      <div>
+        <label class="br-label">Secondary Brand Color</label>
+        <div class="flex gap-3 items-center">
+          <input id="co-color2" type="color" class="w-12 h-12 rounded-lg border-0 cursor-pointer" value="{{ tenant.brand_color_secondary or '#7c3aed' }}">
+          <span id="co-color2-hex" class="text-sm text-slate-400 font-mono">{{ tenant.brand_color_secondary or '#7c3aed' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logo Upload + Brandverse -->
+  <div class="br-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🎨 Logo & Brandverse Theme</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="br-label">Upload Logo</label>
+        <div class="border-2 border-dashed border-slate-600 rounded-xl p-6 text-center hover:border-blue-500/50 transition-colors cursor-pointer" id="drop-zone">
+          {% if tenant.logo_url %}
+          <img id="logo-preview" src="{{ tenant.logo_url }}" class="max-h-24 mx-auto mb-2 rounded-lg" alt="Logo">
+          {% else %}
+          <div id="logo-placeholder" class="text-4xl mb-2">📸</div>
+          {% endif %}
+          <p class="text-xs text-slate-400" id="logo-status">Click or drag to upload</p>
+        </div>
+        <input type="file" id="logo-input" accept="image/*" class="hidden">
+        <div id="logo-colors" class="mt-3 hidden">
+          <p class="text-xs text-emerald-400 mb-2">✅ Extracted colors — try <strong>Brandverse</strong> theme!</p>
+          <div class="flex gap-2 items-center">
+            <div id="color-swatch1" class="w-8 h-8 rounded-full border border-slate-600"></div>
+            <div id="color-swatch2" class="w-8 h-8 rounded-full border border-slate-600"></div>
+            <div id="color-swatch3" class="w-8 h-8 rounded-full border border-slate-600"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">🌌</span>
+          <div>
+            <p class="text-sm font-semibold text-white">Brandverse Mode</p>
+            <p class="text-xs text-slate-400">Auto-generated theme from your brand colors</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Default Theme Setting -->
+  <div class="br-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">⭐ Default Theme</h3>
+    <div class="space-y-3">
+      <p class="text-xs text-slate-400">New users and devices will see this theme by default.</p>
+      <div class="flex gap-2">
+        <select id="default-theme-select" class="br-input flex-1">
+          <option value="modern">💼 Modern</option>
+          <option value="playful">🎨 Playful</option>
+          <option value="elegant">✨ Elegant</option>
+          <option value="brandverse">🌌 Brandverse</option>
+        </select>
+        <button onclick="saveDefaultTheme()" class="br-btn br-btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Team Members -->
+  <div class="br-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">👥 Team Members</h3>
+    <div id="team-list" class="space-y-2 mb-4 max-h-64 overflow-y-auto custom-scrollbar"></div>
+    <button onclick="showInvite()" class="br-btn br-btn-primary text-sm">+ Invite Member</button>
+  </div>
+
+  <!-- Sub-accounts -->
+  <div class="br-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🏢 Sub-accounts</h3>
+    <div id="sub-list" class="space-y-2 mb-4 max-h-64 overflow-y-auto custom-scrollbar"></div>
+    <button onclick="showCreateSub()" class="br-btn br-btn-primary text-sm">+ Create Sub-account</button>
+  </div>
+</div>
+
+<!-- Brand Preview -->
+<div class="br-card p-5 mt-6">
+  <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">👁️ Brand Preview</h3>
+  <div id="brand-preview" class="preview-card" style="background:{{ tenant.brand_color or '#2563eb' }}; color:white;">
+    <div class="flex items-center gap-4">
+      <div class="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl">{{ tenant.theme_config.get('icon','🧠') if tenant else '🧠' }}</div>
+      <div>
+        <p class="text-lg font-bold" id="preview-name">{{ tenant.company_name }}</p>
+        <p class="text-sm opacity-80" id="preview-tagline">{{ tenant.brand_tagline or '' }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Live preview ──
+document.getElementById('co-name')?.addEventListener('input', function(){ document.getElementById('preview-name').textContent = this.value; });
+document.getElementById('co-tagline')?.addEventListener('input', function(){ document.getElementById('preview-tagline').textContent = this.value; });
+document.getElementById('co-color')?.addEventListener('input', function(){
+  document.getElementById('co-color-hex').textContent = this.value;
+  document.getElementById('brand-preview').style.background = this.value;
+});
+document.getElementById('co-color2')?.addEventListener('input', function(){
+  document.getElementById('co-color2-hex').textContent = this.value;
+});
+
+// ── Save Brand ──
+async function saveBrand(){
+  var r=await fetch('/admin/api/brand',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    company_name: document.getElementById('co-name').value,
+    tagline: document.getElementById('co-tagline').value,
+    description: document.getElementById('co-desc').value,
+    brand_color: document.getElementById('co-color').value,
+    brand_color_secondary: document.getElementById('co-color2').value,
+  })});
+  var d=await r.json();
+  if(d.success){
+    showToast('✅ '+d.message);
+    // Update navbar company name in real-time
+    var navName=document.getElementById('nav-company-name');
+    if(navName) navName.textContent=document.getElementById('co-name').value;
+    // Update navbar tagline in real-time
+    var tagline=document.getElementById('co-tagline').value.trim();
+    var navTag=document.getElementById('nav-tagline');
+    if(tagline){
+      if(navTag) navTag.textContent=tagline;
+      else {
+        var parent=document.getElementById('nav-company-name')?.parentNode;
+        if(parent){
+          var el=document.createElement('span');
+          el.id='nav-tagline';
+          el.className='text-[0.6rem] sm:text-[0.65rem] truncate opacity-60';
+          el.style.color='var(--clr-nav-muted)';
+          el.textContent=tagline;
+          parent.appendChild(el);
+        }
+      }
+    } else if(navTag) navTag.remove();
+  } else showToast('❌ Error');
+}
+
+// ── Logo Upload ──
+document.getElementById('drop-zone')?.addEventListener('click', function(){ document.getElementById('logo-input').click(); });
+document.getElementById('logo-input')?.addEventListener('change', function(){ uploadLogo(this.files[0]); });
+function uploadLogo(file){
+  if(!file) return;
+  var fd=new FormData(); fd.append('logo', file);
+  document.getElementById('logo-status').textContent='⏳ Uploading...';
+  fetch('/admin/api/logo',{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
+    if(d.success){
+      document.getElementById('logo-status').textContent='✅ Logo uploaded';
+      document.getElementById('logo-preview')?.remove();
+      document.getElementById('logo-placeholder')?.remove();
+      var img=document.createElement('img');
+      img.id='logo-preview'; img.className='max-h-24 mx-auto mb-2 rounded-lg';
+      img.src=d.logo_url+'?t='+Date.now();
+      document.getElementById('drop-zone').prepend(img);
+      // Show colors
+      document.getElementById('logo-colors').classList.remove('hidden');
+      document.getElementById('color-swatch1').style.background=d.colors.primary;
+      document.getElementById('color-swatch2').style.background=d.colors.secondary;
+      document.getElementById('color-swatch3').style.background=d.colors.bg;
+      document.getElementById('co-color').value=d.colors.primary;
+      document.getElementById('co-color2').value=d.colors.secondary;
+      document.getElementById('brand-preview').style.background=d.colors.primary;
+      // Update navbar logo in real-time
+      var navLogo=document.getElementById('nav-logo');
+      var navIcon=document.getElementById('nav-icon');
+      if(!navLogo){
+        // Replace icon with logo image
+        navLogo=document.createElement('img');
+        navLogo.id='nav-logo';
+        navLogo.className='h-7 sm:h-8 w-auto max-w-[140px] object-contain rounded';
+        navLogo.alt=document.getElementById('co-name')?.value||'Logo';
+        navLogo.onerror=function(){this.style.display='none';var ni=document.getElementById('nav-icon');if(ni)ni.style.display='inline';};
+        if(navIcon && navIcon.parentNode) navIcon.parentNode.replaceChild(navLogo, navIcon);
+      }
+      if(navLogo) navLogo.src=d.logo_url+'?t='+Date.now();
+      // Also update company name
+      var navName=document.getElementById('nav-company-name');
+      if(navName) navName.textContent=document.getElementById('co-name')?.value||'';
+      // Also update tagline
+      var tagline=document.getElementById('co-tagline')?.value?.trim();
+      var navTag=document.getElementById('nav-tagline');
+      if(tagline){
+        if(navTag) navTag.textContent=tagline;
+        else {
+          var parent=document.getElementById('nav-company-name')?.parentNode;
+          if(parent){
+            var el=document.createElement('span');
+            el.id='nav-tagline';
+            el.className='text-[0.6rem] sm:text-[0.65rem] truncate opacity-60';
+            el.style.color='var(--clr-nav-muted)';
+            el.textContent=tagline;
+            parent.appendChild(el);
+          }
+        }
+      } else if(navTag) navTag.remove();
+      showToast('🎨 Try Brandverse theme in Theme menu!');
+    } else showToast('❌ '+d.error);
+  }).catch(function(){ document.getElementById('logo-status').textContent='❌ Upload failed'; });
+}
+
+// ── Team ──
+async function loadTeam(){
+  var r=await fetch('/admin/api/team'); var d=await r.json();
+  var el=document.getElementById('team-list'); el.innerHTML='';
+  d.forEach(function(m){
+    el.innerHTML+='<div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">'+
+      '<div><p class="text-sm font-medium text-white">'+esc(m.name)+'</p><p class="text-xs text-slate-400">'+esc(m.email)+' · '+esc(m.role)+'</p></div>'+
+      '<span class="text-xs px-2 py-0.5 rounded-full '+(m.is_active?'bg-green-50 text-green-600':'bg-slate-100 text-slate-400')+'">'+(m.is_active?'Active':'Inactive')+'</span></div>';
+  });
+}
+loadTeam();
+
+function showInvite(){ var e=prompt('Enter email,name,role (comma separated)'); if(e){ var p=e.split(','); inviteMember(p[0].trim(),p[1]?.trim()||'',p[2]?.trim()||'agent'); } }
+async function inviteMember(email,name,role){
+  var r=await fetch('/admin/api/team/invite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,name:name,role:role})});
+  var d=await r.json();
+  if(d.success){ showToast('✅ '+d.message+' (pass: '+d.temp_password+')'); loadTeam(); }
+  else showToast('❌ '+d.error);
+}
+
+// ── Sub-accounts ──
+async function loadSubs(){
+  var r=await fetch('/admin/api/subaccounts'); var d=await r.json();
+  var el=document.getElementById('sub-list'); el.innerHTML='';
+  if(!d.length){ el.innerHTML='<p class="text-sm text-slate-500 text-center py-4">No sub-accounts yet</p>'; return; }
+  d.forEach(function(s){
+    el.innerHTML+='<div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">'+
+      '<div><p class="text-sm font-medium text-white">'+esc(s.company_name)+'</p><p class="text-xs text-slate-400">'+esc(s.slug)+' · '+s.team_count+' members</p></div>'+
+      '<span class="text-xs px-2 py-0.5 rounded-full '+(s.is_active?'bg-green-50 text-green-600':'bg-slate-100 text-slate-400')+'">'+(s.is_active?'Active':'Inactive')+'</span></div>';
+  });
+}
+loadSubs();
+
+function showCreateSub(){
+  var n=prompt('Sub-account company name:'); if(n) createSub(n);
+}
+async function createSub(name){
+  var r=await fetch('/admin/api/subaccounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({company_name:name})});
+  var d=await r.json();
+  if(d.success){ showToast('✅ Created! Login: '+d.admin_login+' Pass: '+d.temp_password); loadSubs(); }
+  else showToast('❌ '+d.error);
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(m){ var t=document.createElement('div'); t.className='fixed top-20 right-4 bg-slate-800 text-white text-sm px-4 py-3 rounded-xl shadow-lg z-[9999] border border-slate-600'; t.textContent=m; document.body.appendChild(t); setTimeout(function(){t.remove();},4000); }
+
+// ── Default Theme ──
+async function saveDefaultTheme(){
+  var sel=document.getElementById('default-theme-select');
+  if(!sel) return;
+  var t=sel.value;
+  try{
+    var r=await fetch('/admin/api/theme/default',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme:t})});
+    var d=await r.json();
+    if(d.success) showToast('⭐ Default theme set to '+t);
+    else showToast('❌ '+d.error);
+  }catch(e){showToast('❌ Failed');}
+}
+// Load current default theme
+fetch('/admin/api/theme/default').then(function(r){return r.json();}).then(function(d){
+  var sel=document.getElementById('default-theme-select');
+  if(sel) sel.value=d.default_theme;
+}).catch(function(){});
+</script>
+{% endblock %}

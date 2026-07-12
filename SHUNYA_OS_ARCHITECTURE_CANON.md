@@ -933,5 +933,273 @@ Domain-neutral events that the Shunya core publishes and consumes:
 
 ---
 
+## 31. CUSTOMER RELATIONSHIP ARCHITECTURE
+
+### The Fundamental Distinction
+
+**A customer is not a transaction. A booking is one episode in a lifetime relationship.**
+
+This distinction is architectural — it changes the data model, memory architecture,
+reasoning context, and entire CRM philosophy.
+
+### Canonical Principles
+
+| Principle | Statement |
+|-----------|-----------|
+| **Customer Permanence** | The Customer is permanent. A booking is temporary. An opportunity has a lifecycle. A customer relationship is continuous. |
+| **Relationship > Transaction** | The system does not manage bookings. It compounds relationships. |
+| **Institutional Memory** | The customer should feel "Panchi Club remembers me," not "Nishesh remembers me." Organizational memory survives employee boundaries. |
+| **Memory with Evidence** | Preferences are stored with evidence, confidence, and source — not as unchecked JSONB data. The system distinguishes observation from inference. |
+| **Operationally Opportunity-Centric** | Work happens against an Opportunity (current intent), not directly against the Customer. |
+| **Relationally Customer-Centric** | Memory lives on the Customer. One customer can have many opportunities over time. The relationship does not close when the booking closes. |
+
+### The Customer Model
+
+```
+CUSTOMER (first-class model, not an Entity)
+│
+├── Relationship metadata (tenure, health, advisor)
+├── Traveller Graph (self, spouse, child, parent, company)
+├── Preferences (with evidence, confidence, sources)
+├── Decision Patterns
+├── Communication History
+├── Trust History
+│
+├── Opportunity 001 (Japan Holiday)
+│   ├── Enquiry
+│   ├── Decisions
+│   ├── Quote
+│   ├── Booking (commercial commitment)
+│   ├── Experience (delivered journey)
+│   └── Outcome (what happened, feedback, lessons)
+│
+├── Opportunity 002 (Dubai Trip)
+│   └── ...
+│
+└── Opportunity 003 (Parents' Europe)
+    └── ...
+```
+
+### Why Customer Is Not an Entity Type
+
+The generic Entity engine (Entity + EntityDefinition) is designed for operational
+modules: HR employees, marketing campaigns, support tickets. These have standard
+lifecycles, status flows, and JSONB data.
+
+The Customer is fundamentally different:
+
+1. **Customer carries lifetime relationship memory** — preferences with evidence,
+   communication history across years, trust trajectory. This is not temporary data.
+
+2. **Customer has a traveller graph** — the person paying, enquiring, deciding,
+   and travelling may all be different people. One person may hold multiple roles
+   (customer, contact, traveller, decision maker, payer, beneficiary, referrer).
+
+3. **Customer preferences require provenance** — the system must distinguish:
+   - "Observed: Nishesh selected central hotels in 3 of 4 completed trips"
+   - "Inferred: Nishesh prefers central locations"
+   - "Stated: Nishesh said 'I like walkable areas'"
+
+4. **Customer memory compounds over years** — the value of the relationship
+   increases every time the customer engages. After 10 years, the system
+   understands decision behaviour, not just preferences.
+
+### The Opportunity Lifecycle
+
+An Opportunity is NOT an Entity. It has a dedicated model with a defined lifecycle:
+
+```
+ENQUIRY → DISCOVERY → PLANNING → PROPOSAL → NEGOTIATION
+→ BOOKING → EXPERIENCE → OUTCOME → CLOSED
+         ↘ LOST at any stage
+```
+
+| Stage | Meaning |
+|-------|---------|
+| **Enquiry** | Customer expressed interest. Intent detected but unqualified. |
+| **Discovery** | Understanding customer's actual need. Destination, dates, budget, travellers, pace. |
+| **Planning** | Itinerary being built. Supplier coordination, availability checks. |
+| **Proposal** | Quote/Itinerary shared with customer. Awaiting decision. |
+| **Negotiation** | Active back-and-forth on price, dates, inclusions. |
+| **Booking** | Commercial commitment made. Payments, confirmations, tickets. |
+| **Experience** | Customer is travelling. Real-time support window. |
+| **Outcome** | Trip completed. Feedback, lessons, relationship update. |
+| **Closed** | Finalised. Knowledge extracted. Memory updated. |
+
+### Why Opportunity Is Not an Entity
+
+1. **Opportunity has a lifecycle that spans the reasoning loop** — decisions,
+   plans, workflows, executions, and outcomes all orbit the Opportunity.
+
+2. **One customer can have simultaneous Opportunities** — personal holiday,
+   parents' pilgrimage, corporate offsite, destination wedding. If these were
+   Entity types, context would be polluted across them.
+
+3. **Opportunity is the unit of compounding intelligence** — the system learns
+   from the gap between PLAN and OUTCOME on each opportunity. This is how
+   decision behaviour is understood.
+
+### The Relationship Brief
+
+This is the frontend consequence of lifetime customer architecture.
+
+When an employee opens a customer, the screen should not show a traditional CRM
+header (Phone, Email, Lead Source, Last Booking, Total Revenue). It should show:
+
+```
+Nishesh Singhal
+
+Relationship with Panchi Club: 6 years · 8 experiences · 3 referrals
+Relationship Advisor: Mitesh Yadav
+Relationship Health: Strong
+Last meaningful interaction: 18 days ago
+
+--- AI Relationship Brief ---
+
+BEFORE YOU SPEAK:
+• Prefers concise WhatsApp conversations
+• Usually travels with family
+• Avoids rushed itineraries
+• Has previously rejected hotels far from city centre
+• Responds better to 2 strong choices than 6 options
+• Last trip had a transfer delay issue
+
+ONE THING TO REMEMBER:
+Do not recommend an early-morning departure without explaining airport timing.
+
+--- Suggested Next Action ---
+Customer asked about Japan 3 days ago.
+Recommended: Have a discovery conversation before sending an itinerary.
+Why: Previous trips show destination selection changes after discussing pace.
+```
+
+The Relationship Brief is AI-native relationship intelligence — it restores
+relationship context to the employee's mind so they feel "I know this customer"
+even if they have never spoken to them before.
+
+### Preference Architecture
+
+Preferences must carry:
+
+```json
+{
+  "preference": "hotel_location",
+  "value": "central_walkable",
+  "confidence": "high",
+  "evidence": [
+    {"trip": "Thailand 2022", "action": "selected city centre hotel"},
+    {"trip": "Dubai 2023", "action": "selected Downtown hotel"},
+    {"trip": "Bali 2025", "action": "selected central Ubud location"}
+  ],
+  "source": "observed",
+  "last_confirmed": "2026-03-15",
+  "contradictions": [
+    {"trip": "Parents' Europe 2024", "note": "selected outskirts — reason: budget"}
+  ]
+}
+```
+
+Principles:
+- **Memory is stated, not assumed.** "Last time you preferred..." not "You always prefer..."
+- **Preferences have confidence.** Low-confidence preferences should offer to confirm.
+- **Preferences have evidence.** The system can explain WHY it believes something.
+- **Preferences can contradict.** Humans change. Memory should support supersession.
+
+### Traveller Roles
+
+A customer may represent multiple people:
+
+| Role | Meaning |
+|------|---------|
+| **Customer** | The relationship holder. May or may not travel. |
+| **Contact** | Reachable person (may be different from customer). |
+| **Decision Maker** | Person who makes the final call. |
+| **Payer** | Person paying for the trip. |
+| **Traveller** | Person actually travelling. |
+| **Beneficiary** | Person the trip is for (gift, wedding, etc.). |
+| **Referrer** | Person who referred the customer. |
+
+One person may hold multiple roles. This is critical for weddings, MICE,
+corporate travel, and family trips where the person enquiring, deciding,
+paying, and travelling are different individuals.
+
+### The Lifetime Journey
+
+Not a transaction table. A visual relationship timeline:
+
+```
+2022  First enquiry ─→ Thailand honeymoon ✅ Travelled
+2023  Dubai family holiday ✅ Travelled ⚠ Transfer issue observed
+2024  Referred Sharma Family ✅ Converted
+2025  Bali enquiry ❌ Did not travel (dates changed)
+2026  Japan family holiday ● Active opportunity
+```
+
+The employee understands the story of the relationship, not just the last booking.
+
+### The Compounding Moat
+
+| After | Shunya Knows |
+|-------|-------------|
+| Booking 1 | Little |
+| Booking 3 | Preferences |
+| Booking 7 | Decision behaviour |
+| 10 years | The relationship |
+
+**Another company can offer the same hotel. Another OTA can offer the same flight.
+But they cannot offer 10 years of governed relationship intelligence about how
+this family makes travel decisions.**
+
+### Customer-Facing Principle
+
+When a customer returns after months, the system should not say:
+"Hello! Where would you like to travel?"
+
+Instead:
+"Welcome back, Nishesh sir. Last time we planned Dubai around a comfortable
+family pace. Are you imagining something similar this time, or do you want
+this trip to feel completely different?"
+
+That one sentence tells the customer: **They remember me.**
+
+But always confirm rather than assume permanence:
+"Last time you preferred..." not "You always prefer..."
+Because humans change.
+
+### Frontend Representation
+
+The Customer screen should communicate:
+
+1. **Relationship Header** — Who, tenure, health, advisor, last interaction
+2. **AI Relationship Brief** — What the advisor needs before speaking
+3. **Lifetime Journey** — Visual relationship timeline
+4. **Traveller Graph** — All people in the customer's travel ecosystem
+5. **Preferences with Evidence** — What we know, why, how confident
+6. **Active Opportunities** — Current intents in play
+
+The system is not showing data. It is restoring relationship context to the
+employee's mind. This is how founder trust becomes institutional trust.
+
+
+## 32. COROLLARY: DOMAIN MODEL GOVERNANCE
+
+Generic Entity engine handles operational modules (HR, Marketing, Support,
+Supply Chain, Legal, Field Services).
+
+First-class models (Customer, Opportunity) handle relationship-centric and
+lifecycle-centric domains.
+
+Both coexist in the same tenant namespace. The distinction is architectural:
+
+| Dimension | Entity Engine | First-Class Model |
+|-----------|---------------|-------------------|
+| Schema | Configurable at runtime | Fixed schema |
+| Lifecycle | Status flow | Defined lifecycle stages |
+| Memory | JSONB data | Structured preferences with evidence |
+| Relationships | Generic | Typed (traveller_graph, decision_maker, etc.) |
+| Intelligence | Module-specific | Cross-opportunity compounding |
+| Time horizon | Transactional | Lifetime |
+
+
 *This document is LOCKED as the architectural companion to SHUNYA_OS_ECOSYSTEM_PLAN.md.
 No changes without explicit user direction.*

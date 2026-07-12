@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; }
+  .mk-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .mk-text { color: #e2e8f0; }
+  .mk-muted { color: #94a3b8; }
+  .mk-secondary { color: #64748b; }
+  .mk-badge { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
+</style>
+
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-bold text-white">🚀 Marketing & Growth</h1>
+    <p class="text-sm mk-secondary mt-1 truncate">Campaigns, lead generation, content, social, and webinars</p>
+  </div>
+  <div class="flex gap-2 flex-shrink-0">
+    <a href="/entities/campaign/new" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors whitespace-nowrap">+ New Campaign</a>
+  </div>
+</div>
+
+<!-- Top-level KPI cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="mk-card p-4">
+    <p class="text-xs mk-secondary uppercase tracking-wider font-medium">Campaigns</p>
+    <p class="text-2xl font-bold text-white mt-1">{{ overview.total_campaigns }}</p>
+    <p class="text-xs text-green-400">{{ overview.active_campaigns }} active</p>
+  </div>
+  <div class="mk-card p-4">
+    <p class="text-xs mk-secondary uppercase tracking-wider font-medium">Budget Utilisation</p>
+    <p class="text-2xl font-bold text-amber-400 mt-1">{{ overview.budget_utilization }}%</p>
+    <p class="text-xs mk-muted truncate">₹{{ "{:,.0f}".format(overview.total_spent) }} / ₹{{ "{:,.0f}".format(overview.total_budget) }}</p>
+  </div>
+  <div class="mk-card p-4">
+    <p class="text-xs mk-secondary uppercase tracking-wider font-medium">Leads Generated</p>
+    <p class="text-2xl font-bold text-blue-400 mt-1">{{ overview.total_leads }}</p>
+    <p class="text-xs text-blue-400">{{ overview.qualified_leads }} qualified ({{ overview.lead_qualification_rate }}%)</p>
+  </div>
+  <div class="mk-card p-4">
+    <p class="text-xs mk-secondary uppercase tracking-wider font-medium">Email Open Rate</p>
+    <p class="text-2xl font-bold text-purple-400 mt-1">{{ overview.email_open_rate }}%</p>
+    <p class="text-xs mk-muted">{{ overview.total_email_sent }} sent · {{ overview.total_email_opens }} opens</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+  <!-- Quick Actions -->
+  <div class="mk-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider mk-secondary mb-4">⚡ Quick Actions</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <a href="/entities/campaign/new" class="flex flex-col items-center justify-center p-4 rounded-xl text-center transition-colors" style="background:rgba(56,189,248,0.1);text-decoration:none;">
+        <span class="text-2xl block mb-1">🚀</span>
+        <span class="text-xs font-medium" style="color:#38bdf8;">New Campaign</span>
+      </a>
+      <a href="/entities/email_campaign/new" class="flex flex-col items-center justify-center p-4 rounded-xl text-center transition-colors" style="background:rgba(168,85,247,0.1);text-decoration:none;">
+        <span class="text-2xl block mb-1">📧</span>
+        <span class="text-xs font-medium" style="color:#a78bfa;">Email Campaign</span>
+      </a>
+      <a href="/entities/lead_generator/new" class="flex flex-col items-center justify-center p-4 rounded-xl text-center transition-colors" style="background:rgba(52,211,153,0.1);text-decoration:none;">
+        <span class="text-2xl block mb-1">🎯</span>
+        <span class="text-xs font-medium" style="color:#34d399;">Lead Source</span>
+      </a>
+      <a href="/entities/social_post/new" class="flex flex-col items-center justify-center p-4 rounded-xl text-center transition-colors" style="background:rgba(251,191,36,0.1);text-decoration:none;">
+        <span class="text-2xl block mb-1">📱</span>
+        <span class="text-xs font-medium" style="color:#fbbf24;">Social Post</span>
+      </a>
+      <a href="/entities/content_asset/new" class="flex flex-col items-center justify-center p-4 rounded-xl text-center transition-colors" style="background:rgba(244,114,182,0.1);text-decoration:none;">
+        <span class="text-2xl block mb-1">📝</span>
+        <span class="text-xs font-medium" style="color:#f472b6;">Content Asset</span>
+      </a>
+      <a href="/entities/webinar/new" class="flex flex-col items-center justify-center p-4 rounded-xl text-center transition-colors" style="background:rgba(6,182,212,0.1);text-decoration:none;">
+        <span class="text-2xl block mb-1">🎥</span>
+        <span class="text-xs font-medium" style="color:#22d3ee;">Webinar</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Lead Source Breakdown -->
+  <div class="mk-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider mk-secondary mb-4">🎯 Leads by Source</h3>
+    {% if lead_metrics.source_breakdown %}
+    <div class="space-y-3">
+      {% for source in lead_metrics.source_breakdown[:5] %}
+      <div>
+        <div class="flex items-center justify-between text-sm mb-1">
+          <span class="text-white capitalize truncate">{{ source.source.replace('_', ' ') }}</span>
+          <span class="font-medium mk-muted flex-shrink-0">{{ source.leads }} leads</span>
+        </div>
+        <div class="w-full rounded-full h-2" style="background:#334155;">
+          <div class="bg-blue-500 h-2 rounded-full" style="width:{{ (source.leads / lead_metrics.total_leads * 100) | round if lead_metrics.total_leads else 0 }}%"></div>
+        </div>
+        <div class="flex justify-between text-xs mk-muted mt-0.5">
+          <span>{{ source.qualified }} qualified ({{ source.qualification_rate }}%)</span>
+          <span>₹{{ "{:,.0f}".format(source.avg_cpl) }}/lead</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm mk-muted text-center py-8">No lead sources configured yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Campaign Status -->
+  <div class="mk-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider mk-secondary mb-4">📊 Campaign Status</h3>
+    {% if campaign_statuses %}
+    <div class="space-y-2">
+      {% set total_campaigns = campaign_statuses.values() | sum %}
+      {% for status, count in campaign_statuses.items() %}
+      {% set colors = {
+        'planning': 'bg-slate-100 text-slate-600',
+        'active': 'bg-green-50 text-green-600',
+        'paused': 'bg-amber-50 text-amber-600',
+        'completed': 'bg-blue-50 text-blue-600',
+        'archived': 'bg-slate-50 text-slate-400',
+      } %}
+      <div class="flex items-center justify-between text-sm">
+        <span class="capitalize {{ colors.get(status, 'bg-slate-50 text-slate-500') }} px-2 py-0.5 rounded-full">{{ status }}</span>
+        <span class="font-medium text-white flex-shrink-0">{{ count }}</span>
+      </div>
+      <div class="w-full rounded-full h-1.5" style="background:#334155;">
+        <div class="h-1.5 rounded-full {% if status == 'active' %}bg-green-500{% elif status == 'paused' %}bg-amber-500{% elif status == 'completed' %}bg-blue-500{% else %}bg-slate-400{% endif %}" style="width:{{ (count / total_campaigns * 100) | round if total_campaigns else 0 }}%"></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm mk-muted text-center py-8">No campaigns yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Content & Email Stats row -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <div class="mk-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider mk-secondary mb-4">📝 Content Assets</h3>
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="text-center p-3 rounded-xl" style="background:rgba(244,114,182,0.1);">
+        <p class="text-2xl font-bold text-rose-400">{{ overview.total_content_assets }}</p>
+        <p class="text-xs mk-muted">Total Assets</p>
+      </div>
+      <div class="text-center p-3 rounded-xl" style="background:rgba(52,211,153,0.1);">
+        <p class="text-2xl font-bold text-green-400">{{ overview.published_content }}</p>
+        <p class="text-xs mk-muted">Published</p>
+      </div>
+    </div>
+    <a href="/entities/content_asset" class="text-sm text-blue-400 hover:underline">View all content →</a>
+  </div>
+
+  <div class="mk-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider mk-secondary mb-4">📧 Email Campaigns</h3>
+    <div class="grid grid-cols-3 gap-4 mb-4">
+      <div class="text-center p-3 rounded-xl" style="background:rgba(168,85,247,0.1);">
+        <p class="text-2xl font-bold text-purple-400">{{ overview.total_email_campaigns }}</p>
+        <p class="text-xs mk-muted">Campaigns</p>
+      </div>
+      <div class="text-center p-3 rounded-xl" style="background:rgba(56,189,248,0.1);">
+        <p class="text-2xl font-bold text-blue-400">{{ overview.total_email_sent }}</p>
+        <p class="text-xs mk-muted">Sent</p>
+      </div>
+      <div class="text-center p-3 rounded-xl" style="background:rgba(52,211,153,0.1);">
+        <p class="text-2xl font-bold text-green-400">{{ overview.email_open_rate }}%</p>
+        <p class="text-xs mk-muted">Open Rate</p>
+      </div>
+    </div>
+    <a href="/entities/email_campaign" class="text-sm text-blue-400 hover:underline">View all email campaigns →</a>
+  </div>
+</div>
+
+<!-- Recent Campaigns -->
+<div class="mk-card p-5 mb-6">
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
+    <h3 class="text-xs font-semibold uppercase tracking-wider mk-secondary">🚀 Recent Campaigns</h3>
+    <a href="/entities/campaign" class="text-xs text-blue-400 hover:underline whitespace-nowrap">View all →</a>
+  </div>
+  {% if recent_campaigns %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left mk-muted border-b border-[#334155]">
+          <th class="pb-3 font-medium text-xs">Campaign</th>
+          <th class="pb-3 font-medium text-xs">Goal</th>
+          <th class="pb-3 font-medium text-xs">Budget</th>
+          <th class="pb-3 font-medium text-xs">Spent</th>
+          <th class="pb-3 font-medium text-xs">Status</th>
+          <th class="pb-3 font-medium text-xs">Start</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in recent_campaigns %}
+        <tr class="border-b border-[#334155] hover:bg-[rgba(51,65,85,0.3)]">
+          <td class="py-3 font-medium text-white truncate max-w-[120px]">{{ c.data.get('name', c.display_name) }}</td>
+          <td class="py-3 mk-muted capitalize">{{ c.data.get('goal', 'other') | replace('_', ' ') }}</td>
+          <td class="py-3 font-medium text-white">₹{{ "{:,.0f}".format(c.data.get('budget', 0) | float) }}</td>
+          <td class="py-3 mk-muted">₹{{ "{:,.0f}".format(c.data.get('spent', 0) | float) }}</td>
+          <td class="py-3">
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium
+              {% if c.status == 'active' %}bg-green-50 text-green-600
+              {% elif c.status == 'planning' %}bg-slate-100 text-slate-500
+              {% elif c.status == 'paused' %}bg-amber-50 text-amber-600
+              {% elif c.status == 'completed' %}bg-blue-50 text-blue-600
+              {% elif c.status == 'archived' %}bg-slate-50 text-slate-400
+              {% else %}bg-slate-50 text-slate-500{% endif %}">
+              {{ c.status }}
+            </span>
+          </td>
+          <td class="py-3 mk-muted text-xs whitespace-nowrap">{{ c.data.get('start_date', c.created_at.strftime('%d %b %Y') if c.created_at else '') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm mk-muted text-center py-8">No campaigns yet. Launch your first campaign! 🚀</p>
+  {% endif %}
+</div>
+
+<!-- Recent Social Posts & Webinars -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="mk-card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider mk-secondary">📱 Recent Social Posts</h3>
+      <a href="/entities/social_post" class="text-xs text-blue-400 hover:underline whitespace-nowrap">View all →</a>
+    </div>
+    {% if recent_posts %}
+    <div class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+      {% for p in recent_posts[:6] %}
+      <div class="flex items-center justify-between p-3 rounded-xl transition-colors" style="background:rgba(51,65,85,0.4);">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span class="flex-shrink-0">{% if p.status == 'published' %}✅{% elif p.status == 'scheduled' %}📅{% elif p.status == 'draft' %}📝{% elif p.status == 'failed' %}❌{% else %}📌{% endif %}</span>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-white truncate">{{ p.data.get('content', 'Untitled')[:60] }}{% if (p.data.get('content', '') | length) > 60 %}...{% endif %}</p>
+            <p class="text-xs mk-muted truncate">{{ p.data.get('platform', 'general') }} · {{ p.data.get('engagement_likes', 0) }} likes</p>
+          </div>
+        </div>
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0
+          {% if p.status == 'published' %}bg-green-50 text-green-600
+          {% elif p.status == 'scheduled' %}bg-blue-50 text-blue-600
+          {% elif p.status == 'draft' %}bg-slate-100 text-slate-500
+          {% else %}bg-slate-50 text-slate-500{% endif %}">{{ p.status }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm mk-muted text-center py-8">No social posts yet. Create your first post! 📱</p>
+    {% endif %}
+  </div>
+
+  <div class="mk-card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-xs font-semibold uppercase tracking-wider mk-secondary">🎥 Webinars & Events</h3>
+      <a href="/entities/webinar" class="text-xs text-blue-400 hover:underline whitespace-nowrap">View all →</a>
+    </div>
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="text-center p-3 rounded-xl" style="background:rgba(6,182,212,0.1);">
+        <p class="text-2xl font-bold text-cyan-400">{{ overview.total_webinars }}</p>
+        <p class="text-xs mk-muted">Total Webinars</p>
+      </div>
+      <div class="text-center p-3 rounded-xl" style="background:rgba(52,211,153,0.1);">
+        <p class="text-2xl font-bold text-green-400">{{ overview.webinar_attendance_rate }}%</p>
+        <p class="text-xs mk-muted">Attendance Rate</p>
+      </div>
+    </div>
+    <a href="/entities/webinar" class="text-sm text-blue-400 hover:underline">Manage webinars →</a>
+  </div>
+</div>
+{% endblock %}

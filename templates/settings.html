@@ -1,46 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-2xl font-bold text-slate-900">⚙️ Settings</h1>
+<style>
+  body { background: #0f172a; }
+  .st-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+  .st-muted { color: #94a3b8; }
+  .st-secondary { color: #64748b; }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 2px; }
+</style>
+
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+  <h1 class="text-2xl font-bold text-white">⚙️ Settings</h1>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
   <!-- Integrations -->
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🔌 Integrations</h3>
+  <div class="st-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">🔌 Integrations</h3>
     <div class="space-y-4">
-      <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-        <div class="flex items-center gap-2">
-          <span>📞</span>
-          <div><p class="text-sm font-medium text-slate-700">WhatsApp Business</p>
-          <p class="text-xs text-slate-400">Connected</p></div>
+      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="flex-shrink-0">📞</span>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-white">WhatsApp Business</p>
+            <p class="text-xs st-muted">Connected</p>
+          </div>
         </div>
-        <span class="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600">Active</span>
+        <span class="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 flex-shrink-0">Active</span>
       </div>
-      <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-        <div class="flex items-center gap-2">
-          <span>🎤</span>
-          <div><p class="text-sm font-medium text-slate-700">Voice (37 languages)</p>
-          <p class="text-xs text-slate-400">STT + TTS via OpenAI</p></div>
+      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="flex-shrink-0">🎤</span>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-white">Voice (37 languages)</p>
+            <p class="text-xs st-muted">STT + TTS via OpenAI</p>
+          </div>
         </div>
-        <span class="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600">Active</span>
+        <span class="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 flex-shrink-0">Active</span>
       </div>
     </div>
   </div>
 
   <!-- Entity Types -->
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">📋 Entity Types</h3>
-    <div class="space-y-2 mb-4">
+  <div class="st-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">📋 Entity Types</h3>
+    <div class="space-y-2 mb-4 max-h-64 overflow-y-auto custom-scrollbar">
       {% for d in definitions %}
-      <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-        <div class="flex items-center gap-2">
-          <span>{{ d.icon }}</span>
-          <span class="text-sm font-medium text-slate-700">{{ d.label }}</span>
-          <span class="text-xs text-slate-400">({{ d.type }})</span>
+      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span class="flex-shrink-0">{{ d.icon }}</span>
+          <span class="text-sm font-medium text-white truncate">{{ d.label }}</span>
+          <span class="text-xs st-muted truncate">({{ d.type }})</span>
         </div>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-slate-400">{{ d.layout }}</span>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <span class="text-xs st-muted">{{ d.layout }}</span>
           <span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-green-50 text-green-600' if d.is_active else 'bg-slate-100 text-slate-400' }}">{{ 'active' if d.is_active else 'off' }}</span>
         </div>
       </div>
@@ -53,21 +67,25 @@
   </div>
 
   <!-- Team -->
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">👥 Team</h3>
-    <div class="space-y-2">
+  <div class="st-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">👥 Team</h3>
+    <div class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
       {% for m in team %}
-      <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-        <div><span class="text-sm font-medium text-slate-700">{{ m.name }}</span><span class="text-xs text-slate-400 ml-2">{{ m.email }}</span></div>
-        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{{ m.role }}</span>
+      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
+        <div class="min-w-0 flex-1">
+          <span class="text-sm font-medium text-white">{{ m.name }}</span>
+          <span class="text-xs st-muted ml-2 truncate">{{ m.email }}</span>
+        </div>
+        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 flex-shrink-0">{{ m.role }}</span>
       </div>
       {% endfor %}
     </div>
+    <a href="/admin/brand" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition mt-3">Manage Team & Brand</a>
   </div>
 
   <!-- Sessions -->
-  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">🔐 Sessions</h3>
+  <div class="st-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">🔐 Sessions</h3>
     <a href="/auth/sessions" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">Manage Sessions</a>
   </div>
 </div>

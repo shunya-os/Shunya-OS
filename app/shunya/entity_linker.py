@@ -91,7 +91,7 @@ class EntityLinker:
 
         # Create child entity
         from app.models import next_entity_code
-        code = next_entity_code(db.session, parent.tenant_id)
+        code = next_entity_code(db.session, parent.tenant_id, child_def.type)
 
         child = Entity(
             tenant_id=parent.tenant_id,

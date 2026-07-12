@@ -63,6 +63,26 @@ def _register_blueprints(app):
     from app.shunya.governance_routes import governance_bp
     from app.shunya.agent_routes import agent_bp
     from app.shunya.theme_routes import theme_bp
+    from app.routes.supply_chain import supply_chain_bp
+    from app.routes.field_services import field_services_bp
+    from app.routes.legal import legal_bp
+    from app.routes.sales_crm import sales_bp
+    from app.routes.relationships import relationships_bp
+    from app.shunya.user_mood import mood_bp
+    from app.routes.admin import admin_bp
+
+    try:
+        from app.routes.hr import hr_bp
+    except ImportError:
+        hr_bp = None
+    try:
+        from app.routes.marketing import marketing_bp
+    except ImportError:
+        marketing_bp = None
+    try:
+        from app.routes.support import support_bp
+    except ImportError:
+        support_bp = None
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(login_redirect_bp)
@@ -82,6 +102,20 @@ def _register_blueprints(app):
     app.register_blueprint(governance_bp)
     app.register_blueprint(agent_bp)
     app.register_blueprint(theme_bp)
+    app.register_blueprint(supply_chain_bp)
+    app.register_blueprint(field_services_bp)
+    app.register_blueprint(legal_bp)
+    app.register_blueprint(sales_bp)
+    app.register_blueprint(relationships_bp)
+    if hr_bp:
+        app.register_blueprint(hr_bp)
+    if marketing_bp:
+        app.register_blueprint(marketing_bp)
+    if support_bp:
+        app.register_blueprint(support_bp)
+
+    app.register_blueprint(mood_bp)
+    app.register_blueprint(admin_bp)
 
 
 # ---------------------------------------------------------------------------
@@ -106,6 +140,26 @@ def _register_context_processors(app):
             "brand_colors": brand_colors,
             "year": __import__("datetime").datetime.utcnow().year,
             "app_name": "Shunya OS",
+            "nav_modules": [
+                {"label": "Dashboard", "icon": "🏠", "url": "/"},
+                {"label": "Finance", "icon": "💰", "url": "/finance"},
+                {"label": "Ops", "icon": "📋", "url": "/ops"},
+                {"label": "Supply Chain", "icon": "📦", "url": "/supply-chain"},
+                {"label": "Field Services", "icon": "🔧", "url": "/field-services"},
+                {"label": "HR", "icon": "👥", "url": "/hr/dashboard"},
+                {"label": "Relationships", "icon": "🤝", "url": "/relationships"},
+                {"label": "Sales", "icon": "💎", "url": "/sales/dashboard"},
+                {"label": "Marketing", "icon": "🚀", "url": "/marketing/dashboard"},
+                {"label": "Support", "icon": "🎫", "url": "/support/dashboard"},
+                {"label": "Legal", "icon": "📜", "url": "/legal"},
+                {"label": "Ingest", "icon": "📥", "url": "/ingestion"},
+                {"label": "Analytics", "icon": "📊", "url": "/analytics"},
+                {"label": "Learn", "icon": "🧠", "url": "/learning"},
+                {"label": "Modules", "icon": "🧩", "url": "/modules"},
+                {"label": "Settings", "icon": "⚙️", "url": "/settings"},
+                {"label": "AI", "icon": "🤖", "url": "/ai-settings"},
+                {"label": "Governance", "icon": "⚖️", "url": "/governance"},
+            ],
         }
 
 
