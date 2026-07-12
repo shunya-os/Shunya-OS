@@ -56,14 +56,42 @@
       {% endfor %}
       {% endif %}
       <a href="/relationships" class="action-pill inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium bg-indigo-500/85 text-white hover:bg-indigo-500">🤝 Relationships</a>
-      <a href="/entities/lead" class="action-pill inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium bg-emerald-500/85 text-white hover:bg-emerald-500">🎯 Leads</a>
+      {% for a in vertical_actions[:3] %}
+      <a href="{{ a.url }}" class="action-pill inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium bg-emerald-500/85 text-white hover:bg-emerald-500">{{ a.icon }} {{ a.label }}</a>
+      {% endfor %}
       <a href="/modules" class="action-pill inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium bg-slate-500/85 text-white hover:bg-slate-500">📦 All Modules</a>
     </div>
     <p class="text-xs text-slate-400 mt-3">💡 <kbd class="px-1.5 py-0.5 bg-slate-700 rounded text-slate-200 font-mono text-[0.6rem]">Ctrl+B</kbd> AI Assistant · <kbd class="px-1.5 py-0.5 bg-slate-700 rounded text-slate-200 font-mono text-[0.6rem]">/</kbd> Search</p>
   </div>
 </div>
 
-<!-- Quick Stats — top 6 only, rest collapsible -->
+<!-- Quick Stats — vertical-specific KPIs, not hardcoded -->
+{% if vertical_metrics %}
+<div class="mb-5">
+  <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📊 {{ tenant.vertical_config.get('vertical','business').title() }} Overview</h2>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    {% for m in vertical_metrics[:4] %}
+    <div class="stat-card bg-[#1e293b] border border-[#334155] rounded-xl p-3">
+      <div class="flex items-center justify-between">
+        <span class="text-lg">{{ m.icon }}</span>
+        <span class="text-lg font-bold text-white" id="metric-{{ m.key }}">—</span>
+      </div>
+      <p class="text-xs text-slate-400 mt-0.5 truncate">{{ m.label }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+fetch('/api/vertical/metrics').then(r=>r.json()).then(d=>{
+  {% for m in vertical_metrics[:4] %}
+  if (d.{{ m.key }} !== undefined) document.getElementById('metric-{{ m.key }}').textContent = d.{{ m.key }};
+  {% endfor %}
+}).catch(()=>{});
+</script>
+{% endif %}
+
+<!-- Entity Stats -->
 <div class="mb-5">
   <div class="flex items-center justify-between mb-2">
     <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">At a Glance</h2>

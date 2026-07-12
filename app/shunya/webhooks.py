@@ -36,8 +36,9 @@ def dispatch_event(tenant_id: int, event: str, entity_type: str, entity_id: int,
 
 
 def _send(hook, body: dict):
-    """Send a single webhook request."""
+    """Send a single webhook request and log delivery."""
     from app.extensions import db as _db
+    from app.models import WebhookLog
     from datetime import datetime
 
     body_json = json.dumps(body, default=str)
@@ -49,8 +50,11 @@ def _send(hook, body: dict):
         sig = hmac.new(hook.secret.encode(), body_json.encode(), hashlib.sha256).hexdigest()
         headers["X-Shunya-Signature"] = sig
 
+    status_code = None
+    error = None
     try:
         resp = requests.post(hook.url, data=body_json, headers=headers, timeout=15)
+        status_code = resp.status_code
         hook.last_status = resp.status_code
         hook.last_sent_at = datetime.utcnow()
         if resp.status_code >= 400:
@@ -60,10 +64,19 @@ def _send(hook, body: dict):
             hook.failure_count = 0
             logger.info(f"Webhook {hook.id} → {hook.url}: HTTP {resp.status_code}")
     except Exception as e:
+        status_code = None
+        error = str(e)
         hook.last_status = None
         hook.failure_count = (hook.failure_count or 0) + 1
         logger.error(f"Webhook {hook.id} → {hook.url}: {e}")
 
+    # Log delivery
+    log = WebhookLog(
+        webhook_id=hook.id, tenant_id=hook.tenant_id,
+        event=body.get("event", ""), payload=body.get("data", {}),
+        status_code=status_code, error=error,
+    )
+    _db.session.add(log)
     _db.session.commit()
 
 
