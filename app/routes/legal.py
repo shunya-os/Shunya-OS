@@ -87,17 +87,17 @@ def _seed_sample_data(tenant_id: int):
         ("Office Lease - Downtown", "active", "lease", "Prime Properties Inc.", 1200000, "3-year lease for HQ office space."),
         ("NDA - Strategic Partner", "active", "nda", "TechVentures Ltd.", 0, "Mutual non-disclosure for product collaboration."),
         ("Client SLA - Enterprise", "active", "service", "MegaCorp Industries", 4500000, "Annual service level agreement with 99.9% uptime SLA."),
-        ("Vendor Supply Agreement", "expiring_soon", "vendor", "Global Supplies Co.", 2800000, "Bulk hardware supply agreement — renew in 45 days."),
+        ("Vendor Supply Agreement", "expiring_soon", "vendor", "Global Supplies Co.", 2800000, "Bulk hardware supply agreement - renew in 45 days."),
         ("Employment - CTO", "pending_signature", "employment", "Dr. Ananya Sharma", 0, "Offer letter pending signature."),
         ("Partnership - JV", "draft", "partnership", "InnovateX Pvt. Ltd.", 0, "Joint venture for AI product line."),
-        ("Software License Renewal", "expired", "service", "SaaSCorp Solutions", 850000, "Annual software license — expired last month, negotiating renewal."),
+        ("Software License Renewal", "expired", "service", "SaaSCorp Solutions", 850000, "Annual software license - expired last month, negotiating renewal."),
     ]
 
     sample_contracts = []
     for i, data in enumerate(contract_data):
         sample_contracts.append(Entity(
             tenant_id=tenant_id, definition_id=cont_def.id,
-            code=f"CTR-{i:04d}", display_name=data[0],
+            code=f"CTR-{i:04d}",
             status=data[1],
             data={
                 "title": data[0],
@@ -119,7 +119,7 @@ def _seed_sample_data(tenant_id: int):
         sample_templates = [
             Entity(
                 tenant_id=tenant_id, definition_id=tmpl_def.id,
-                code=f"TPL-{i:04d}", display_name=data[0],
+                code=f"TPL-{i:04d}",
                 status="active",
                 data={
                     "name": data[0],
@@ -144,7 +144,7 @@ def _seed_sample_data(tenant_id: int):
         sample_compliance = [
             Entity(
                 tenant_id=tenant_id, definition_id=comp_def.id,
-                code=f"CPL-{i:04d}", display_name=data[0],
+                code=f"CPL-{i:04d}",
                 status=data[1],
                 data={
                     "regulation": data[0],

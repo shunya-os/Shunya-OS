@@ -89,3 +89,93 @@ def export_json(entity_type: str, entities: list, schema: list) -> list:
         rows.append(row)
 
     return rows
+
+
+def export_pdf(entities, schema, entity_label="Entity"):
+    """Generate a PDF from entity data using wkhtmltopdf."""
+    # Build HTML table
+    field_names = [f["name"] for f in schema]
+    field_labels = [f.get("label", f["name"]) for f in schema]
+
+    rows_html = ""
+    for e in entities:
+        data = (
+            e.get("data", {})
+            if isinstance(e, dict)
+            else (e.data if hasattr(e, "data") else {})
+        )
+        if data is None:
+            data = {}
+        code = e.get("code", "") if isinstance(e, dict) else getattr(e, "code", "")
+        status = (
+            e.get("status", "")
+            if isinstance(e, dict)
+            else getattr(e, "status", "")
+        )
+        rows_html += "<tr>"
+        rows_html += f'<td style="padding:8px;border:1px solid #ddd;font-family:monospace;font-size:12px;">{code}</td>'
+        rows_html += f'<td style="padding:8px;border:1px solid #ddd;font-size:12px;">{status}</td>'
+        for fn in field_names:
+            val = data.get(fn, "")
+            rows_html += f'<td style="padding:8px;border:1px solid #ddd;font-size:12px;">{val}</td>'
+        rows_html += "</tr>"
+
+    headers_html = "".join(
+        f'<th style="padding:8px;border:1px solid #ddd;background:#1e293b;color:white;font-size:12px;text-align:left;">{l}</th>'
+        for l in ["Code", "Status"] + field_labels
+    )
+
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      body {{ font-family: Inter, sans-serif; padding: 32px; }}
+      h1 {{ color: #0f172a; font-size: 20px; margin-bottom: 4px; }}
+      .meta {{ color: #64748b; font-size: 12px; margin-bottom: 24px; }}
+      table {{ width: 100%; border-collapse: collapse; }}
+    </style></head><body>
+    <h1>{entity_label} Report</h1>
+    <p class="meta">{len(entities)} records · Generated {__import__("datetime").datetime.utcnow().strftime("%d %b %Y")}</p>
+    <table><thead><tr>{headers_html}</tr></thead><tbody>{rows_html}</tbody></table>
+    </body></html>"""
+
+    options = {
+        "page-size": "A4",
+        "margin-top": "15mm",
+        "margin-right": "15mm",
+        "margin-bottom": "15mm",
+        "margin-left": "15mm",
+        "encoding": "UTF-8",
+        "enable-local-file-access": "",
+    }
+
+    try:
+        import pdfkit
+
+        pdf = pdfkit.from_string(html, False, options=options)
+        return pdf
+    except Exception:
+        # Fallback: return simple PDF with fpdf2
+        from fpdf import FPDF
+
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.cell(0, 10, f"{entity_label} Report", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 8, f"{len(entities)} records", ln=True)
+        pdf.ln(10)
+        for e in entities:
+            data = (
+                e.get("data", {})
+                if isinstance(e, dict)
+                else (e.data if hasattr(e, "data") else {})
+            )
+            if data is None:
+                data = {}
+            code = e.get("code", "") if isinstance(e, dict) else getattr(e, "code", "")
+            pdf.cell(
+                0,
+                6,
+                f'{code}: {" | ".join(str(data.get(fn, "")) for fn in field_names[:4])}',
+                ln=True,
+            )
+        result = pdf.output(dest="S")
+        return bytes(result)

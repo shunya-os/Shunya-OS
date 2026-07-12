@@ -87,7 +87,7 @@
           <span class="font-medium text-white">{{ count }}</span>
         </div>
         <div class="w-full rounded-full h-2" style="background:#334155;">
-          <div class="{{ colors.get(pri, 'bg-blue-500') }} h-2 rounded-full" style="width:{{ (count / overview.get('total_tickets', 1) * 100)|round }}%"></div>
+          <div class="{{ colors.get(pri, 'bg-blue-500') }} h-2 rounded-full" style="width:{{ (count / (overview.get('total_tickets', 1) or 1) * 100)|round }}%"></div>
         </div>
       </div>
       {% endfor %}
@@ -229,8 +229,8 @@
       <div class="flex items-center gap-3 text-sm">
         <span class="w-10 text-xs su-muted font-medium flex-shrink-0">{{ m.month }}</span>
         <div class="flex-1 flex gap-1">
-          <div class="h-5 bg-blue-500 rounded-md" style="width:{{ (m.created / trend|map(attribute='created')|max * 100)|round if trend else 0 }}%"></div>
-          <div class="h-5 bg-green-400 rounded-md" style="width:{{ (m.resolved / trend|map(attribute='created')|max * 100)|round if trend else 0 }}%"></div>
+          <div class="h-5 bg-blue-500 rounded-md" style="width:{{ (m.created / (trend|map(attribute='created')|max or 1) * 100)|round if trend else 0 }}%"></div>
+          <div class="h-5 bg-green-400 rounded-md" style="width:{{ (m.resolved / (trend|map(attribute='created')|max or 1) * 100)|round if trend else 0 }}%"></div>
         </div>
         <div class="flex gap-2 text-xs flex-shrink-0">
           <span class="text-blue-400">{{ m.created }}</span>

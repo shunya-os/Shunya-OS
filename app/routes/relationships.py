@@ -234,7 +234,7 @@ def seed_relationships():
             evidence=[{"opportunity": "Thailand 2022", "action": "selected city centre hotel"},
                        {"opportunity": "Dubai 2023", "action": "selected Downtown hotel"},
                        {"opportunity": "Bali 2025", "action": "selected central Ubud"}],
-            note="Consistently chooses central locations"),
+            notes="Consistently chooses central locations"),
         RelationshipPreference(tenant_id=g.tenant.id, relationship_id=rel_raj.id,
             preference_type="travel_pace", value="comfortable", confidence="high",
             source="observed",

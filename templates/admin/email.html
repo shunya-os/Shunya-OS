@@ -34,23 +34,23 @@
     <div class="space-y-4">
       <div>
         <label class="br-label">SMTP Host</label>
-        <input id="smtp-host" class="br-input" placeholder="smtp.gmail.com" value="{{ config.smtp.host if config else '' }}">
+        <input id="smtp-host" class="br-input" placeholder="smtp.gmail.com" value="{{ smtp_config.host if smtp_config else '' }}">
       </div>
       <div>
         <label class="br-label">Port</label>
-        <input id="smtp-port" type="number" class="br-input" placeholder="587" value="{{ config.smtp.port if config else 587 }}">
+        <input id="smtp-port" type="number" class="br-input" placeholder="587" value="{{ smtp_config.port if smtp_config else 587 }}">
       </div>
       <div>
         <label class="br-label">Username</label>
-        <input id="smtp-user" class="br-input" placeholder="user@gmail.com" value="{{ config.smtp.user if config else '' }}">
+        <input id="smtp-user" class="br-input" placeholder="user@gmail.com" value="{{ smtp_config.user if smtp_config else '' }}">
       </div>
       <div>
         <label class="br-label">Password</label>
-        <input id="smtp-password" type="password" class="br-input" placeholder="••••••••" value="{{ config.smtp.password if config else '' }}">
+        <input id="smtp-password" type="password" class="br-input" placeholder="••••••••" value="{{ smtp_config.password if smtp_config else '' }}">
       </div>
       <div>
         <label class="br-label">From Email</label>
-        <input id="smtp-from" class="br-input" placeholder="noreply@yourcompany.com" value="{{ config.smtp.from_email if config else '' }}">
+        <input id="smtp-from" class="br-input" placeholder="noreply@yourcompany.com" value="{{ smtp_config.from_email if smtp_config else '' }}">
       </div>
     </div>
   </div>

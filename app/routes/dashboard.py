@@ -182,7 +182,54 @@ def index():
 @dashboard_bp.route("/analytics")
 @login_required
 def analytics():
-    return render_template("analytics.html", tenant=g.tenant)
+    from app.models import Entity, EntityDefinition
+    tenant = g.tenant
+    definitions = EntityDefinition.query.filter_by(tenant_id=tenant.id).all()
+    total = Entity.query.filter_by(tenant_id=tenant.id, is_archived=False).count()
+    active = Entity.query.filter_by(tenant_id=tenant.id, is_archived=False).filter(Entity.status.notin_(["cancelled", "archived", "lost", "closed"])).count()
+    import datetime
+    period = datetime.datetime.utcnow().strftime("%B %Y")
+    
+    # Pipeline data grouped by definition type
+    pipeline = {}
+    for d in definitions:
+        entities = Entity.query.filter_by(tenant_id=tenant.id, definition_id=d.id, is_archived=False).all()
+        statuses = {}
+        for e in entities:
+            s = e.status or "new"
+            statuses[s] = statuses.get(s, 0) + 1
+        pipeline[d.type] = {"icon": d.icon or "📋", "total": len(entities), "statuses": statuses}
+    
+    # Activity trend (last 7 days)
+    activity_trend = []
+    from app.models import ActivityLog
+    for i in range(6, -1, -1):
+        day = datetime.datetime.utcnow() - datetime.timedelta(days=i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + datetime.timedelta(days=1)
+        count = ActivityLog.query.filter(
+            ActivityLog.tenant_id == tenant.id,
+            ActivityLog.created_at >= day_start,
+            ActivityLog.created_at < day_end,
+        ).count()
+        activity_trend.append({"date": day.strftime("%a"), "count": count})
+    
+    from app.models import TeamMember
+    team_count = TeamMember.query.filter_by(tenant_id=tenant.id, is_active=True).count()
+    
+    data = {
+        "period": period,
+        "total_entities": total,
+        "active_entities": active,
+        "new_this_period": 0,
+        "period_revenue": 0,
+        "team_count": team_count,
+        "pipeline": pipeline,
+        "activity_trend": activity_trend,
+        "entities_by_type": {d.label: Entity.query.filter_by(tenant_id=tenant.id, definition_id=d.id, is_archived=False).count() for d in definitions},
+        "type_labels": {d.type: d.label for d in definitions},
+    }
+    return render_template("analytics.html", tenant=tenant, data=data)
 
 
 @dashboard_bp.route("/api/analytics")
@@ -194,4 +241,15 @@ def analytics_api():
 @dashboard_bp.route("/learning")
 @login_required
 def learning():
-    return render_template("analytics.html", tenant=g.tenant)
+    return render_template("analytics.html", tenant=g.tenant, data={
+        "period": "",
+        "total_entities": 0,
+        "active_entities": 0,
+        "new_this_period": 0,
+        "period_revenue": 0,
+        "team_count": 0,
+        "pipeline": {},
+        "activity_trend": [],
+        "entities_by_type": {},
+        "type_labels": {},
+    })
