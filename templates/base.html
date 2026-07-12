@@ -278,39 +278,27 @@
     const thinkingId = addThinking(msgs);
 
     try {
-      // Use the personal agent endpoint
-      const r = await fetch('/api/agent/chat', {
+      // Use the new Tool Registry Agent
+      const r = await fetch('/api/agent/process', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({query: q, channel: 'web'})
+        body: JSON.stringify({text: q})
       });
       const d = await r.json();
       removeThinking(msgs, thinkingId);
 
-      const intent = d.intent || {};
-      const badge = d.verification_badge || '';
-      const responseText = d.response || buildFallbackResponse(q, d);
-
-      // Get the intent type
-      const intentType = intent.type || 'question';
-
-      // Check for confirmation card from create intent
-      if (intentType === 'create' && d.confidence >= 0.7) {
-        // For tool-based create, the response already has the result
-        let html = responseText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-        // Add verification badge
-        if (badge) {
-          html = '<div style="margin-bottom:4px;">' + getBadgeHtml(badge) + '</div>' + html;
-        }
-        addMsg(msgs, html, 'ai');
-      } else {
-        // Show response with badge
-        let html = responseText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-        if (badge) {
-          html = getBadgeHtml(badge) + ' ' + html;
-        }
-        addMsg(msgs, html, 'ai');
+      let html = (d.message || 'Done!').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+      
+      // Add action link if present
+      if (d.target_url) {
+        html += '<div style="margin-top:8px;"><a href="' + d.target_url + '" style="display:inline-block;padding:6px 14px;background:#2563eb;color:white;border-radius:8px;font-size:0.8rem;text-decoration:none;">View →</a></div>';
       }
+      
+      // Show error styling if failed
+      if (!d.success) {
+        html = '<div style="padding:8px 12px;background:#fef2f2;border-radius:12px;color:#991b1b;font-size:0.85rem;">' + html + '</div>';
+      }
+      addMsg(msgs, html, 'ai');
     } catch(e) {
       removeThinking(msgs, thinkingId);
       addMsg(msgs, buildFallbackResponse(q, {}), 'ai');
