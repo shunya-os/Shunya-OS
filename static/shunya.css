@@ -17,6 +17,7 @@
   --nav-text: #1e293b;
   --nav-muted: #64748b;
   --nav-hover: #0f172a;
+  --nav-border: #e2e8f0;
   --clr-primary: #3b82f6;
   --clr-secondary: #8b5cf6;
   --clr-success: #10b981;
@@ -24,7 +25,7 @@
   --clr-error: #ef4444;
 }
 [data-theme="modern"] body { background: var(--body-bg) !important; color: var(--body-text); }
-[data-theme="modern"] nav { background: var(--nav-bg) !important; color: var(--nav-text); border-color: #e2e8f0 !important; }
+/* Nav CSS variables applied via global nav {} rule — themes only set --nav-* vars */
 [data-theme="modern"] [class*="bg-[#1e293b]"],
 [data-theme="modern"] [class*="bg-slate-800"],
 [data-theme="modern"] [class*="bg-slate-900"] { background: var(--card-bg) !important; color: var(--card-text); }
@@ -52,6 +53,7 @@
   --nav-text: #292524;
   --nav-muted: #78716c;
   --nav-hover: #1c1917;
+  --nav-border: #fed7aa;
   --clr-primary: #d97706;
   --clr-secondary: #7c3aed;
   --clr-success: #059669;
@@ -60,7 +62,7 @@
 }
 [data-theme="playful"] body,
 [data-theme="playful"] [class*="bg-[#0f172a]"] { background: var(--body-bg) !important; color: var(--body-text); }
-[data-theme="playful"] nav { background: var(--nav-bg) !important; color: var(--nav-text); border-color: #fed7aa !important; }
+/* Nav applied via global rule */
 [data-theme="playful"] [class*="bg-slate-800"],
 [data-theme="playful"] [class*="bg-slate-900"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #fed7aa !important; }
 [data-theme="playful"] .coach-card { background: var(--card-bg) !important; color: var(--card-text); border-color: #fed7aa !important; }
@@ -90,6 +92,7 @@
   --nav-text: #18181b;
   --nav-muted: #52525b;
   --nav-hover: #18181b;
+  --nav-border: #e4e4e7;
   --clr-primary: #18181b;
   --clr-secondary: #52525b;
   --clr-success: #18181b;
@@ -202,12 +205,7 @@ nav a:hover, nav button:hover, [class*="nav-link"]:hover { color: var(--nav-hove
 /* Light-background containers must use dark text */
 [class*="bg-white"], [class*="bg-slate-50"] { color: #0f172a; }
 
-/* ── LIGHT CONTAINER TEXT PROTECTION ──
- * The theme's text-slate overrides (lines 35-40) are designed for dark cards
- * but they also blanket-override text in LIGHT containers (bg-white, bg-slate-50),
- * making labels and headings invisible (light-on-light).
- * These rules restore dark text inside light containers by inheriting from
- * the container rule above (color: #0f172a). */
+/* ── LIGHT CONTAINER TEXT PROTECTION ── */
 [data-theme="modern"] [class*="bg-white"] [class*="text-slate-"],
 [data-theme="modern"] [class*="bg-slate-50"] [class*="text-slate-"],
 [data-theme="playful"]  [class*="bg-white"] [class*="text-slate-"],
@@ -216,13 +214,64 @@ nav a:hover, nav button:hover, [class*="nav-link"]:hover { color: var(--nav-hove
 [data-theme="elegant"]  [class*="bg-slate-50"] [class*="text-slate-"] {
   color: inherit !important;
 }
-/* Preserve nav styling inside light containers — nav elements need muted colors */
-[data-theme="modern"]  nav [class*="bg-white"] [class*="text-slate-"] { color: var(--nav-muted) !important; }
-[data-theme="modern"]  nav [class*="bg-white"] [class*="text-slate-900"] { color: var(--nav-text) !important; }
-[data-theme="playful"] nav [class*="bg-white"] [class*="text-slate-"] { color: var(--nav-muted) !important; }
-[data-theme="playful"] nav [class*="bg-white"] [class*="text-slate-900"] { color: var(--nav-text) !important; }
-[data-theme="elegant"] nav [class*="bg-white"] [class*="text-slate-"] { color: var(--nav-muted) !important; }
-[data-theme="elegant"] nav [class*="bg-white"] [class*="text-slate-900"] { color: var(--nav-text) !important; }
+
+/* ════════════════════════════════════════
+   PLATFORM-WIDE AUTO CONTRAST
+   Any element with a bg color automatically gets a visible text color.
+   These are theme-independent rules — they apply to ALL themes.
+   ════════════════════════════════════════ */
+
+/* Light surfaces — always dark text */
+[class*="bg-white"], 
+[class*="bg-slate-50"],
+[class*="bg-slate-100"] { color: #0f172a; }
+
+/* Colored status badges — always white text for readability */
+[class*="bg-blue-500"],
+[class*="bg-blue-600"],
+[class*="bg-red-500"],
+[class*="bg-red-600"],
+[class*="bg-green-500"],
+[class*="bg-green-600"],
+[class*="bg-emerald-500"],
+[class*="bg-emerald-600"],
+[class*="bg-amber-500"],
+[class*="bg-amber-600"],
+[class*="bg-rose-500"],
+[class*="bg-rose-600"],
+[class*="bg-indigo-500"],
+[class*="bg-indigo-600"],
+[class*="bg-purple-500"],
+[class*="bg-purple-600"],
+[class*="bg-teal-500"],
+[class*="bg-teal-600"],
+[class*="bg-cyan-500"],
+[class*="bg-cyan-600"],
+[class*="bg-orange-500"],
+[class*="bg-orange-600"] { color: #ffffff !important; }
+
+/* Dark slate surfaces — always light text */
+[class*="bg-slate-700"],
+[class*="bg-slate-800"],
+[class*="bg-slate-900"] { color: #f8fafc; }
+
+/* Semi-transparent white overlays — inherit from parent (used in client portal) */
+[class*="bg-white/"] { color: inherit; }
+
+/* ════════════════════════════════════════
+   LIVE THEME VARIABLES FOR NAV
+   The nav uses inline style with CSS variables so theme switches update immediately
+   without requiring a page reload. These fallbacks ensure the nav is visible
+   even if CSS variables aren't supported.
+   ════════════════════════════════════════ */
+nav { 
+  background: var(--nav-bg, #ffffff) !important; 
+  color: var(--nav-text, #1e293b) !important; 
+  border-color: var(--nav-border, #e2e8f0) !important; 
+}
+nav a, nav button, nav span { color: var(--nav-muted, #64748b) !important; }
+nav .font-bold { color: var(--nav-text, #1e293b) !important; }
+nav a:hover, nav button:hover { color: var(--nav-hover, #0f172a) !important; }
 
 /* Form inputs always need visible text — they have light bg regardless of theme */
 input, textarea, select { color: #1e293b; caret-color: #1e293b; }
