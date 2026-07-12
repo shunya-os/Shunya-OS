@@ -18,11 +18,11 @@
     <div class="flex-1 min-w-0">
       <h1 class="text-lg md:text-xl font-bold text-white">{{ greeting.greeting }}</h1>
       <p class="text-blue-100 text-sm mt-0.5">{{ greeting.message }}</p>
-      {% if greeting.reasoning_trace %}
+      {% if greeting.reasoning_trace and greeting.reasoning_trace.get('trace') %}
       <details class="mt-2">
         <summary class="text-xs text-blue-200/70 cursor-pointer hover:text-blue-100">🧠 Reasoning</summary>
         <div class="mt-2 space-y-1">
-          {% for t in greeting.reasoning_trace[:5] %}
+          {% for t in greeting.reasoning_trace.get('trace', [])[:5] %}
           <p class="text-xs text-blue-100/80">→ {{ t }}</p>
           {% endfor %}
         </div>
