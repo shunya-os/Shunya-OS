@@ -319,3 +319,110 @@ def create_subaccount():
         "admin_login": f"admin@{slug}.panchi.club",
         "temp_password": pw,
     })
+
+# ── Bulk Data Import ──
+
+@admin_bp.route("/import", methods=["GET"])
+@login_required
+@admin_required
+def import_page():
+    """Data import page — user picks entity type and uploads data."""
+    from app.models import EntityDefinition
+    definitions = EntityDefinition.query.filter_by(
+        tenant_id=g.tenant.id, is_active=True
+    ).order_by(EntityDefinition.type).all()
+    tenant_vertical = g.tenant.vertical_config.get("vertical", "custom") if g.tenant.vertical_config else "custom"
+    return render_template("admin/import.html",
+        definitions=definitions,
+        tenant_vertical=tenant_vertical,
+    )
+
+
+@admin_bp.route("/api/import/inspect", methods=["POST"])
+@login_required
+@admin_required
+def import_inspect():
+    """Inspect uploaded data and match columns to entity schema."""
+    from app.shunya.data_import import inspect_data, parse_csv, parse_json
+    from app.models import EntityDefinition
+
+    entity_type = request.form.get("entity_type", "")
+    definition = EntityDefinition.query.filter_by(
+        tenant_id=g.tenant.id, type=entity_type
+    ).first()
+    if not definition:
+        return jsonify({"error": f"Entity type '{entity_type}' not found"}), 400
+
+    file = request.files.get("file")
+    json_text = request.form.get("json_data", "")
+
+    data_rows = []
+
+    if file and file.filename:
+        raw = file.read().decode("utf-8", errors="replace")
+        if file.filename.endswith(".csv"):
+            data_rows = parse_csv(raw)
+        else:
+            try:
+                data_rows = parse_json(raw)
+            except Exception:
+                return jsonify({"error": "Could not parse file. Upload CSV or JSON."}), 400
+    elif json_text.strip():
+        try:
+            data_rows = parse_json(json_text)
+        except Exception as e:
+            return jsonify({"error": f"Invalid JSON: {str(e)}"}), 400
+    else:
+        return jsonify({"error": "No data provided. Upload a file or paste JSON."}), 400
+
+    if not data_rows:
+        return jsonify({"error": "No rows found in data"}), 400
+
+    preview = inspect_data(data_rows, entity_type, definition.schema, definition.label)
+
+    return jsonify({
+        "entity_type": preview.entity_type,
+        "entity_label": preview.entity_label,
+        "total_rows": preview.total_rows,
+        "matched_columns": [
+            {"column": m.column, "field_name": m.field_name,
+             "field_label": m.field_label, "confidence": m.confidence}
+            for m in preview.matched_columns
+        ],
+        "unmatched_columns": preview.unmatched_columns,
+        "sample_rows": preview.sample_rows,
+        "missing_required": preview.missing_required,
+    })
+
+
+@admin_bp.route("/api/import/execute", methods=["POST"])
+@login_required
+@admin_required
+def import_execute():
+    """Execute import with user-confirmed field mapping."""
+    from app.shunya.data_import import import_data
+    from app.models import EntityDefinition
+
+    data = request.get_json(silent=True) or {}
+    entity_type = data.get("entity_type", "")
+    field_mapping = data.get("field_mapping", {})
+    rows = data.get("rows", [])
+
+    definition = EntityDefinition.query.filter_by(
+        tenant_id=g.tenant.id, type=entity_type
+    ).first()
+    if not definition:
+        return jsonify({"error": f"Entity type '{entity_type}' not found"}), 400
+
+    result = import_data(
+        data_rows=rows,
+        entity_type=entity_type,
+        schema=definition.schema,
+        tenant_id=g.tenant.id,
+        definition_id=definition.id,
+        field_mapping=field_mapping,
+        user_id=g.user.id,
+        db_session=db.session,
+    )
+
+    return jsonify(result)

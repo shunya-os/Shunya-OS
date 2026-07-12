@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  body { background: #0f172a; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; }
+  .input-dark { background: #0f172a; border: 1px solid #334155; color: white; border-radius: 10px; padding: 10px 14px; font-size: 0.9rem; width: 100%; }
+  .input-dark:focus { outline: none; border-color: #3b82f6; }
+  select.input-dark { appearance: auto; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; font-size: 0.8rem; }
+  .tag.high { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+  .tag.medium { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+  .tag.low { background: rgba(234,179,8,0.15); color: #eab308; border: 1px solid rgba(234,179,8,0.3); }
+  .tag.miss { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+</style>
+
+<div class="max-w-3xl mx-auto px-4 py-6">
+  <div class="flex items-center gap-3 mb-6">
+    <span class="text-2xl">📥</span>
+    <div>
+      <h1 class="text-lg font-bold text-white">Bulk Import Data</h1>
+      <p class="text-sm text-slate-400">Upload CSV/JSON → auto-match columns → create entities</p>
+    </div>
+  </div>
+
+  <!-- Step 1: Pick entity type + upload -->
+  <div class="card p-6 mb-4">
+    <h3 class="text-sm font-semibold text-white mb-4">Step 1: Pick your entity type</h3>
+    <select id="entity-type" class="input-dark mb-4" onchange="checkImportReady()">
+      <option value="">— Select entity type —</option>
+      {% for d in definitions %}
+      <option value="{{ d.type }}" data-label="{{ d.label }}" data-icon="{{ d.icon }}">
+        {{ d.icon }} {{ d.label }} ({{ d.type }})
+      </option>
+      {% endfor %}
+    </select>
+
+    <h3 class="text-sm font-semibold text-white mb-2">Step 2: Upload CSV file</h3>
+    <div class="border-2 border-dashed border-slate-600 rounded-xl p-8 text-center hover:border-blue-500/50 transition-colors cursor-pointer" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <input type="file" id="file-input" accept=".csv,.json" class="hidden" onchange="onFileSelect(event)">
+      <div class="text-3xl mb-2" id="drop-icon">📄</div>
+      <div class="text-sm text-slate-400" id="drop-text">Click to upload CSV or JSON, or paste data below</div>
+      <div class="text-xs text-slate-500 mt-1" id="drop-file"></div>
+    </div>
+
+    <div class="relative my-3 text-center">
+      <span class="text-xs text-slate-500 bg-slate-800 px-3 py-1 rounded-full">or paste JSON</span>
+    </div>
+
+    <textarea id="json-input" class="input-dark" rows="4" placeholder='[{"name": "John Doe", "email": "john@example.com"}, ...]' oninput="checkImportReady()"></textarea>
+
+    <button id="inspect-btn" class="w-full mt-4 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-colors disabled:opacity-30" disabled onclick="inspectData()">
+      🔍 Inspect & Match Columns
+    </button>
+  </div>
+
+  <!-- Step 3: Preview -->
+  <div id="preview-section" class="hidden">
+    <div class="card p-6 mb-4">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-sm font-semibold text-white">
+            <span id="preview-icon">📋</span> <span id="preview-type"></span>
+          </h3>
+          <p class="text-xs text-slate-400"><span id="preview-rows"></span> rows found</p>
+        </div>
+      </div>
+
+      <!-- Column matches -->
+      <div class="mb-4">
+        <h4 class="text-xs text-slate-400 uppercase tracking-wider mb-2">Column Mapping</h4>
+        <div id="mapping-list" class="space-y-2"></div>
+      </div>
+
+      {% raw %}
+      <!-- Unmatched columns -->
+      <div id="unmatched-section" class="hidden mb-4">
+        <h4 class="text-xs text-slate-400 uppercase tracking-wider mb-2">Unmatched Columns <span class="text-slate-600">(will be ignored)</span></h4>
+        <div id="unmatched-list" class="flex flex-wrap gap-2"></div>
+      </div>
+      {% endraw %}
+
+      <!-- Missing required -->
+      <div id="missing-section" class="hidden mb-4 p-3 rounded-xl bg-red-900/20 border border-red-800/30">
+        <h4 class="text-xs text-red-400 uppercase tracking-wider mb-1">⚠️ Missing Required Fields</h4>
+        <div id="missing-list" class="text-sm text-red-300"></div>
+      </div>
+
+      <!-- Sample rows -->
+      <div class="mb-4">
+        <h4 class="text-xs text-slate-400 uppercase tracking-wider mb-2">Preview (first 3 rows)</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm" id="preview-table">
+            <thead><tr id="preview-headers" class="text-slate-400 border-b border-slate-700"></tr></thead>
+            <tbody id="preview-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <button id="import-btn" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-colors" onclick="executeImport()">
+        📥 Import All Rows
+      </button>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div id="result-section" class="hidden card p-6 text-center">
+    <div class="text-4xl mb-3">✅</div>
+    <h3 class="text-lg font-bold text-white" id="result-text">Import complete</h3>
+    <p class="text-sm text-slate-400 mt-1" id="result-detail"></p>
+    <a href="/" class="inline-block mt-4 px-6 py-2 bg-slate-700 text-white rounded-xl text-sm hover:bg-slate-600 transition-colors">Go to Dashboard</a>
+  </div>
+</div>
+
+<script>
+let importState = { entity_type: '', rows: [], mapping: {} };
+
+function onFileSelect(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  document.getElementById('drop-text').textContent = 'Selected: ' + f.name;
+  document.getElementById('drop-file').textContent = (f.size / 1024).toFixed(1) + ' KB';
+  document.getElementById('drop-icon').textContent = f.name.endsWith('.csv') ? '📊' : '📋';
+  checkImportReady();
+}
+
+function checkImportReady() {
+  const hasType = document.getElementById('entity-type').value;
+  const hasFile = document.getElementById('file-input').files.length > 0;
+  const hasJson = document.getElementById('json-input').value.trim().length > 5;
+  document.getElementById('inspect-btn').disabled = !hasType || (!hasFile && !hasJson);
+}
+
+async function inspectData() {
+  const btn = document.getElementById('inspect-btn');
+  btn.textContent = '⏳ Inspecting...'; btn.disabled = true;
+  const fd = new FormData();
+  fd.append('entity_type', document.getElementById('entity-type').value);
+  const file = document.getElementById('file-input').files[0];
+  if (file) fd.append('file', file);
+  const json = document.getElementById('json-input').value.trim();
+  if (json) fd.append('json_data', json);
+
+  try {
+    const r = await fetch('/admin/api/import/inspect', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (d.error) { alert(d.error); btn.textContent = '🔍 Inspect & Match Columns'; btn.disabled = false; return; }
+    showPreview(d);
+  } catch(e) {
+    alert('Error: ' + e.message);
+    btn.textContent = '🔍 Inspect & Match Columns'; btn.disabled = false;
+  }
+}
+
+function showPreview(d) {
+  document.getElementById('preview-section').classList.remove('hidden');
+  document.getElementById('result-section').classList.add('hidden');
+  document.getElementById('preview-type').textContent = d.entity_label + ' — ' + d.total_rows + ' rows';
+  document.getElementById('preview-rows').textContent = d.total_rows;
+
+  importState.entity_type = d.entity_type;
+  importState.rows = d.sample_rows;
+
+  // Column mapping
+  const mappingHtml = d.matched_columns.map(m => {
+    const cls = m.confidence >= 0.9 ? 'high' : m.confidence >= 0.6 ? 'medium' : 'low';
+    return `<div class="flex items-center justify-between py-2 border-b border-slate-800">
+      <div><span class="text-slate-300">${m.column}</span> <span class="text-slate-500 text-xs">→</span> <span class="text-white">${m.field_label}</span></div>
+      <span class="tag ${cls}">${(m.confidence*100).toFixed(0)}%</span>
+    </div>`;
+  }).join('');
+  document.getElementById('mapping-list').innerHTML = mappingHtml;
+
+  // Build mapping dict
+  d.matched_columns.forEach(m => { importState.mapping[m.column] = m.field_name; });
+
+  // Unmatched
+  const unmatched = document.getElementById('unmatched-section');
+  if (d.unmatched_columns && d.unmatched_columns.length) {
+    unmatched.classList.remove('hidden');
+    document.getElementById('unmatched-list').innerHTML = d.unmatched_columns.map(c =>
+      `<span class="tag miss">${c}</span>`
+    ).join('');
+  } else { unmatched.classList.add('hidden'); }
+
+  // Missing required
+  const missingSec = document.getElementById('missing-section');
+  if (d.missing_required && d.missing_required.length) {
+    missingSec.classList.remove('hidden');
+    document.getElementById('missing-list').innerHTML = d.missing_required.join(', ');
+  } else { missingSec.classList.add('hidden'); }
+
+  // Preview table
+  const allColumns = [...new Set(d.sample_rows.flatMap(r => Object.keys(r)))];
+  document.getElementById('preview-headers').innerHTML = allColumns.map(c => `<th class="px-3 py-2 text-left text-xs font-medium">${c}</th>`).join('');
+  document.getElementById('preview-body').innerHTML = d.sample_rows.map(r =>
+    '<tr class="border-b border-slate-800">' + allColumns.map(c => `<td class="px-3 py-2 text-slate-300 text-xs">${r[c] ?? ''}</td>`).join('') + '</tr>'
+  ).join('');
+
+  document.getElementById('inspect-btn').textContent = '🔍 Inspect & Match Columns';
+  document.getElementById('inspect-btn').disabled = false;
+}
+
+async function executeImport() {
+  const btn = document.getElementById('import-btn');
+  btn.textContent = '⏳ Importing...'; btn.disabled = true;
+
+  const fd = new FormData();
+  fd.append('entity_type', importState.entity_type);
+  fd.append('rows', JSON.stringify(importState.rows));
+  fd.append('field_mapping', JSON.stringify(importState.mapping));
+
+  try {
+    const r = await fetch('/admin/api/import/execute', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        entity_type: importState.entity_type,
+        field_mapping: importState.mapping,
+        rows: importState.rows,
+      })
+    });
+    const d = await r.json();
+    document.getElementById('preview-section').classList.add('hidden');
+    document.getElementById('result-section').classList.remove('hidden');
+    document.getElementById('result-text').textContent = `✅ ${d.imported} ${d.entity_type}(s) imported`;
+    document.getElementById('result-detail').textContent = d.errors?.length ? d.errors.join('; ') : 'All rows imported successfully.';
+  } catch(e) {
+    alert('Import failed: ' + e.message);
+    btn.textContent = '📥 Import All Rows'; btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}
