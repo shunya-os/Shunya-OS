@@ -195,7 +195,7 @@
 nav a:hover, nav button:hover, [class*="nav-link"]:hover { color: var(--nav-hover) !important; }
 
 /* Dropdown nav: hover reveals submenu */
-.nav-drop { position:relative; display:inline-block; }
+.nav-drop { position:relative; display:inline-block; overflow:visible; }
 .nav-drop > .nav-drop-menu { display:none; position:absolute; top:100%; left:0; margin-top:4px; background:white; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.15); z-index:100; padding:4px 0; min-width:150px; }
 .nav-drop:hover > .nav-drop-menu { display:block; }
 
