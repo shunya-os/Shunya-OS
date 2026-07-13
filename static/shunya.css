@@ -501,6 +501,18 @@ nav a:hover, nav button:hover, [class*="nav-link"]:hover { color: var(--nav-hove
 .nav-drop:hover > .nav-drop-menu { display:block; }
 
 /* ════════════════════════════════════════
+   LAYOUT RESET — prevent ALL horizontal overflow
+   Every element stays within the viewport width.
+   ════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { overflow-x: hidden; }
+
+img, video, canvas, svg, iframe, pre, code, table { max-width: 100%; height: auto; }
+
+body { overflow-wrap: break-word; word-wrap: break-word; }
+
+/* ════════════════════════════════════════
    PLATFORM-WIDE AUTO CONTRAST
    Every background-bearing element gets IMMEDIATE-contrast text.
    These are theme-independent — they apply under ALL themes
