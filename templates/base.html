@@ -11,10 +11,11 @@
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js')}</script>
   <title>{% if current_tenant %}{{ current_tenant.company_name }}{% else %}Shunya{% endif %} | Shunya OS</title>
   <meta name="description" content="Shunya OS — AI-Native Universal Operating System. Manage relationships, leads, bookings, finance, HR, and operations from one dashboard.">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https:;">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
   <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
   <link rel="stylesheet" href="/static/shunya.css?v=13">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
@@ -32,9 +33,13 @@
       #bird-panel.bird-open #bird-messages { flex:1; max-height:none !important; }
       .bottom-nav-btn:active { transform:scale(0.92); opacity:0.7; transition:all .15s; }
     }
+    /* Focus-visible for keyboard accessibility */
+    :focus-visible { outline:2px solid #3b82f6; outline-offset:2px; border-radius:4px; }
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:2px solid #3b82f6; outline-offset:2px; border-radius:4px; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-28 sm:pb-6" style="padding-bottom:calc(7rem + env(safe-area-inset-bottom,0px));" x-data>
+  <a href="#main-content" class="skip-link sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[99999] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:text-sm focus:font-medium">Skip to main content</a>
   <div id="page-loader"></div>
   {% if current_user %}
   <nav class="sticky top-0 z-50 border-b shadow-sm" style="background:var(--nav-bg);color:var(--nav-text);border-color:var(--nav-border,#e2e8f0)">
@@ -172,7 +177,7 @@
   </div>
   {% endif %}
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" id="main-shell" hx-boost="true" hx-select="#main-content" hx-target="#main-content" hx-swap="innerHTML" hx-indicator="#page-loader">
+  <main role="main" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" id="main-shell" hx-boost="true" hx-select="#main-content" hx-target="#main-content" hx-swap="innerHTML" hx-indicator="#page-loader">
     <div id="main-content">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -1055,5 +1060,6 @@
   </nav>
   {% endif %}
 
+<script src="https://cdn.tailwindcss.com"></script>
 </body>
 </html>
