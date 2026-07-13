@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 
-
 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
   <h1 class="text-2xl font-bold text-white">⚙️ Settings</h1>
 </div>
@@ -11,16 +10,40 @@
   <div class="st-card p-5">
     <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">🔌 Integrations</h3>
     <div class="space-y-4">
-      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
+
+      <!-- WhatsApp — clickable card with real status -->
+      <a href="/admin/whatsapp"
+         class="flex items-center justify-between p-3 rounded-lg transition hover:bg-slate-700/50 cursor-pointer"
+         style="background:rgba(51,65,85,0.5);"
+         id="wa-card">
         <div class="flex items-center gap-2 min-w-0">
           <span class="flex-shrink-0">📞</span>
           <div class="min-w-0">
             <p class="text-sm font-medium text-white">WhatsApp Business</p>
-            <p class="text-xs st-muted">Connected</p>
+            <p class="text-xs st-muted" id="wa-subtitle">
+              {% if wa_configured %}
+                <span class="text-green-400">● Connected</span>
+              {% else %}
+                <span class="text-slate-400">○ Not Configured</span>
+              {% endif %}
+            </p>
+            <div id="wa-stats" class="text-xs st-muted mt-0.5 hidden">
+              <span id="wa-leads-week"></span>
+              <span id="wa-last-msg" class="ml-3"></span>
+            </div>
           </div>
         </div>
-        <span class="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 flex-shrink-0">Active</span>
-      </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <span id="wa-badge"
+                class="text-xs px-2 py-1 rounded-full flex-shrink-0 {% if wa_configured %}bg-green-50 text-green-600{% else %}bg-slate-100 text-slate-400{% endif %}">
+            {% if wa_configured %}Connected{% else %}Not Configured{% endif %}
+          </span>
+          <span class="text-xs px-2 py-1 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition">
+            Configure
+          </span>
+        </div>
+      </a>
+
       <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
         <div class="flex items-center gap-2 min-w-0">
           <span class="flex-shrink-0">🎤</span>
@@ -31,6 +54,75 @@
         </div>
         <span class="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 flex-shrink-0">Active</span>
       </div>
+    </div>
+  </div>
+
+  <!-- 📱 My Numbers -->
+  <div class="st-card p-5">
+    <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">📱 My Numbers</h3>
+    <div class="space-y-4" id="phone-numbers-section">
+      <!-- WhatsApp number -->
+      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="flex-shrink-0">💬</span>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-white">WhatsApp</p>
+            <p class="text-xs st-muted" id="wa-phone-display">
+              {% if user.whatsapp_phone %}
+                {{ user.whatsapp_phone }}
+                {% if user.whatsapp_verified %}
+                  <span class="text-green-400">✓ verified</span>
+                {% else %}
+                  <span class="text-amber-400">unverified</span>
+                {% endif %}
+              {% else %}
+                <span class="text-slate-400">Not set</span>
+              {% endif %}
+            </p>
+          </div>
+        </div>
+        <button onclick="showPhoneForm('whatsapp')"
+                class="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition flex-shrink-0">
+          Change WhatsApp
+        </button>
+      </div>
+
+      <!-- Secondary number -->
+      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="flex-shrink-0">📞</span>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-white">Secondary</p>
+            <p class="text-xs st-muted" id="sec-phone-display">
+              {% if user.secondary_phone %}
+                {{ user.secondary_phone }}
+              {% else %}
+                <span class="text-slate-400">Not set</span>
+              {% endif %}
+            </p>
+          </div>
+        </div>
+        <button onclick="showPhoneForm('secondary')"
+                class="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition flex-shrink-0">
+          Change Secondary
+        </button>
+      </div>
+    </div>
+
+    <!-- Inline phone edit form (hidden by default) -->
+    <div id="phone-form-container" class="mt-3 hidden">
+      <form id="phone-form" onsubmit="savePhone(event)" class="space-y-3 p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
+        <input type="hidden" id="phone-field-name">
+        <div>
+          <label id="phone-form-label" class="text-xs text-slate-400 uppercase tracking-wider">Phone Number</label>
+          <input id="phone-input" type="tel" class="input-dark mt-1 w-full" placeholder="+91 XXXXX XXXXX" required>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">Save</button>
+          <button type="button" onclick="hidePhoneForm()" class="px-4 py-2 bg-slate-600 text-white text-sm rounded-lg hover:bg-slate-700 transition">Cancel</button>
+        </div>
+        <p id="phone-form-feedback" class="text-xs hidden"></p>
+      </form>
     </div>
   </div>
 
@@ -81,4 +173,153 @@
     <a href="/auth/sessions" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">Manage Sessions</a>
   </div>
 </div>
+
+<script>
+// ── Load real WhatsApp status from API ──
+async function loadWhatsAppStatus() {
+  try {
+    const r = await fetch('/admin/api/whatsapp');
+    if (!r.ok) return;
+    const d = await r.json();
+    const configured = !!(d.token && d.phone_id);
+
+    const subtitle = document.getElementById('wa-subtitle');
+    const badge = document.getElementById('wa-badge');
+    const stats = document.getElementById('wa-stats');
+
+    if (configured) {
+      subtitle.innerHTML = '<span class="text-green-400">● Connected</span>';
+      badge.className = 'text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 flex-shrink-0';
+      badge.textContent = 'Connected';
+      stats.classList.remove('hidden');
+      // Try to fetch message stats from a lightweight endpoint
+      fetchStats(d.phone_id);
+    } else {
+      subtitle.innerHTML = '<span class="text-slate-400">○ Not Configured</span>';
+      badge.className = 'text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-400 flex-shrink-0';
+      badge.textContent = 'Not Configured';
+      stats.classList.add('hidden');
+    }
+  } catch (e) {
+    console.warn('Failed to load WhatsApp status:', e);
+  }
+}
+
+async function fetchStats() {
+  // Attempt to load stats — these will be blank if no endpoint exists yet
+  const leadsEl = document.getElementById('wa-leads-week');
+  const lastMsgEl = document.getElementById('wa-last-msg');
+  try {
+    const r = await fetch('/whatsapp/api/stats');
+    if (r.ok) {
+      const s = await r.json();
+      if (s.leads_this_week !== undefined) {
+        leadsEl.textContent = '📊 Leads this week: ' + s.leads_this_week;
+      }
+      if (s.last_message_ago !== undefined) {
+        lastMsgEl.textContent = '💬 Last message: ' + s.last_message_ago;
+      }
+    }
+  } catch (e) {
+    // Stats endpoint may not exist — silently ignore
+  }
+}
+
+// ── Phone number management ──
+let editingPhoneType = null;
+
+function showPhoneForm(type) {
+  editingPhoneType = type;
+  const container = document.getElementById('phone-form-container');
+  const label = document.getElementById('phone-form-label');
+  const input = document.getElementById('phone-input');
+  const fieldName = document.getElementById('phone-field-name');
+
+  container.classList.remove('hidden');
+  fieldName.value = type;
+
+  if (type === 'whatsapp') {
+    label.textContent = 'WhatsApp Number';
+    input.placeholder = '+91 XXXXX XXXXX';
+  } else {
+    label.textContent = 'Secondary Phone Number';
+    input.placeholder = '+91 XXXXX XXXXX';
+  }
+
+  // Pre-fill from current user data
+  fetch('/settings/api/phone')
+    .then(r => r.json())
+    .then(data => {
+      if (type === 'whatsapp') {
+        input.value = data.whatsapp_phone || data.phone || '';
+      } else {
+        input.value = data.secondary_phone || '';
+      }
+    })
+    .catch(() => { input.value = ''; });
+
+  input.focus();
+}
+
+function hidePhoneForm() {
+  document.getElementById('phone-form-container').classList.add('hidden');
+  document.getElementById('phone-form-feedback').classList.add('hidden');
+  editingPhoneType = null;
+}
+
+async function savePhone(event) {
+  event.preventDefault();
+  const type = document.getElementById('phone-field-name').value;
+  const value = document.getElementById('phone-input').value.trim();
+  const feedback = document.getElementById('phone-form-feedback');
+
+  if (!value) {
+    feedback.textContent = 'Please enter a phone number';
+    feedback.className = 'text-xs text-red-400';
+    feedback.classList.remove('hidden');
+    return;
+  }
+
+  const payload = {};
+  if (type === 'whatsapp') {
+    payload.whatsapp_phone = value;
+  } else {
+    payload.secondary_phone = value;
+  }
+
+  try {
+    const r = await fetch('/settings/api/phone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+    if (d.success) {
+      feedback.textContent = '✅ Saved successfully';
+      feedback.className = 'text-xs text-green-400';
+      feedback.classList.remove('hidden');
+      // Update display
+      if (type === 'whatsapp') {
+        document.getElementById('wa-phone-display').innerHTML = value + ' <span class="text-amber-400">unverified</span>';
+      } else {
+        document.getElementById('sec-phone-display').textContent = value;
+      }
+      setTimeout(hidePhoneForm, 1200);
+    } else {
+      feedback.textContent = 'Error: ' + (d.error || 'save failed');
+      feedback.className = 'text-xs text-red-400';
+      feedback.classList.remove('hidden');
+    }
+  } catch (e) {
+    feedback.textContent = 'Network error — could not save';
+    feedback.className = 'text-xs text-red-400';
+    feedback.classList.remove('hidden');
+  }
+}
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', function() {
+  loadWhatsAppStatus();
+});
+</script>
 {% endblock %}

@@ -924,6 +924,46 @@ input::placeholder, textarea::placeholder { color: #94a3b8; }
 .bottom-nav-btn.active { color: #2563eb !important; }
 
 /* ── Mobile overflow guards — no horizontal scroll on any screen ── */
+/* ── RESPONSIVE TAILWIND FALLBACKS — sm/md/lg breakpoint spacing classes ── */
+/* sm (640px+) */
+@media (min-width: 640px) {
+  .sm\\:flex { display: flex !important; }
+  .sm\\:hidden { display: none !important; }
+  .sm\\:grid { display: grid !important; }
+  .sm\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .sm\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .sm\\:flex-row { flex-direction: row !important; }
+  .sm\\:flex-nowrap { flex-wrap: nowrap !important; }
+  .sm\\:flex-wrap { flex-wrap: wrap !important; }
+  .sm\\:items-center { align-items: center !important; }
+  .sm\\:px-6 { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
+  .sm\\:pb-6 { padding-bottom: 1.5rem !important; }
+  .sm\\:min-w-\\[130px\\] { min-width: 130px !important; }
+  .sm\\:w-auto { width: auto !important; }
+  .sm\\:min-w-\\[200px\\] { min-width: 200px !important; }
+  .sm\\:gap-4 { gap: 1rem !important; }
+}
+
+/* md (768px+) */
+@media (min-width: 768px) {
+  .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .md\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .md\\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  .md\\:p-7 { padding: 1.75rem !important; }
+  .md\\:text-xl { font-size: 1.25rem !important; line-height: 1.75rem !important; }
+  .md\\:col-span-2 { grid-column: span 2 / span 2 !important; }
+}
+
+/* lg (1024px+) */
+@media (min-width: 1024px) {
+  .lg\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .lg\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .lg\\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  .lg\\:px-8 { padding-left: 2rem !important; padding-right: 2rem !important; }
+  .lg\\:w-56 { width: 14rem !important; }
+  .lg\\:flex { display: flex !important; }
+}
+
 @media (max-width: 639px) {
   body { overflow-x: hidden; }
   .journey-card { min-width: 110px !important; }
@@ -933,6 +973,17 @@ input::placeholder, textarea::placeholder { color: #94a3b8; }
   table { display: block; max-width: 100%; overflow-x: auto; }
   img, svg { max-width: 100% !important; height: auto; }
 }
+
+/* ── Mobile bottom nav guard — prevent content from hiding behind bottom nav ── */
+@media (max-width: 767px) {
+  main { padding-bottom: 80px !important; }
+  #main-content { min-height: 60vh; }
+}
+
+/* ── Analytics page theme-aware card classes ── */
+.an-card { background: var(--card-bg, #1e293b) !important; border: 1px solid var(--border, #334155) !important; border-radius: 12px; color: var(--card-text, #f8fafc); }
+.an-muted { color: var(--body-muted, #94a3b8) !important; }
+.an-secondary { color: var(--body-dim, #64748b) !important; }
 
 /* ── Device-specific app layouts ── */
 

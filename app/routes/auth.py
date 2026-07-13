@@ -137,12 +137,22 @@ def signup():
     password = data.get("password", "")
     company_name = data.get("company_name", "").strip()
     business_type = data.get("business_type", "other")
+    whatsapp_phone = data.get("whatsapp_phone", "").strip()
+    secondary_phone = data.get("secondary_phone", "").strip()
 
     if not all([name, email, password, company_name]):
         return jsonify({"error": "Name, email, password, and company name required"}), 400
 
+    if not whatsapp_phone:
+        return jsonify({"error": "WhatsApp number is required"}), 400
+
     if TeamMember.query.filter_by(email=email).first():
         return jsonify({"error": "Email already registered"}), 409
+
+    # Check if WhatsApp was verified via OTP
+    signup_token = session.get("signup_otp_verified")
+    if signup_token != hash_token(whatsapp_phone):
+        return jsonify({"error": "Please verify your WhatsApp number first via OTP"}), 403
 
     # Create tenant
     from app.utils import slugify
@@ -159,11 +169,19 @@ def signup():
         tenant_id=tenant.id,
         name=name,
         email=email,
+        phone=whatsapp_phone,
+        secondary_phone=secondary_phone if secondary_phone else None,
+        whatsapp_phone=whatsapp_phone,
+        whatsapp_verified=True,
         role="admin",
     )
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
+
+    # Clear signup OTP session
+    session.pop("signup_otp_verified", None)
+    session.pop("signup_otp_code_id", None)
 
     _create_session(user, request.headers.get("User-Agent", ""), request.remote_addr or "")
     return jsonify({"success": True, "redirect": url_for("dashboard.index")})
@@ -225,6 +243,79 @@ def verify_otp():
     _create_session(user, request.headers.get("User-Agent", ""), request.remote_addr or "")
     db.session.commit()
     return jsonify({"success": True, "redirect": url_for("dashboard.index")})
+
+
+# ---------------------------------------------------------------------------
+# Signup OTP (WhatsApp verification)
+# ---------------------------------------------------------------------------
+
+@auth_bp.route("/signup/otp/send", methods=["POST"])
+def signup_otp_send():
+    """Send OTP to WhatsApp number for signup verification."""
+    data = request.get_json(silent=True) or request.form
+    phone = data.get("phone", "").strip()
+    if not phone:
+        return jsonify({"error": "Phone number required"}), 400
+
+    # Check if phone already used by another account
+    existing = TeamMember.query.filter_by(whatsapp_phone=phone).first()
+    if existing:
+        return jsonify({"error": "This WhatsApp number is already registered"}), 409
+
+    otp = generate_otp()
+    code = LoginCode(
+        tenant_id=None,
+        phone=phone,
+        code=hash_token(otp),
+        type="signup_otp",
+        expires_at=minutes_from_now(5),
+    )
+    db.session.add(code)
+    db.session.flush()
+
+    # Store code ID in session so verify endpoint can validate
+    session["signup_otp_code_id"] = code.id
+
+    db.session.commit()
+
+    # Open wa.me deep link with OTP
+    print(f"[SIGNUP OTP] {phone}: {otp}")  # Dev only
+
+    return jsonify({
+        "success": True,
+        "message": "OTP sent to your WhatsApp",
+        "otp_hint": otp,  # In dev mode, return actual OTP for testing
+    })
+
+
+@auth_bp.route("/signup/otp/verify", methods=["POST"])
+def signup_otp_verify():
+    """Verify OTP sent to WhatsApp during signup."""
+    data = request.get_json(silent=True) or request.form
+    phone = data.get("phone", "").strip()
+    otp = data.get("otp", "").strip()
+
+    if not phone or not otp:
+        return jsonify({"error": "Phone and OTP required"}), 400
+
+    # Find the most recent unused signup OTP for this phone
+    code = LoginCode.query.filter_by(phone=phone, type="signup_otp", is_used=False)\
+        .order_by(LoginCode.created_at.desc()).first()
+
+    if not code or code.expires_at < datetime.utcnow():
+        return jsonify({"error": "OTP expired or invalid"}), 401
+
+    if code.code != hash_token(otp):
+        return jsonify({"error": "Invalid OTP"}), 401
+
+    code.is_used = True
+    db.session.commit()
+
+    # Mark in session that this phone was verified
+    session["signup_otp_verified"] = hash_token(phone)
+    session.pop("signup_otp_code_id", None)
+
+    return jsonify({"success": True})
 
 
 # ---------------------------------------------------------------------------

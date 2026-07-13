@@ -192,6 +192,9 @@ class TeamMember(db.Model):
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
     phone = Column(String(30), nullable=True)
+    secondary_phone = Column(String(30), nullable=True)
+    whatsapp_phone = Column(String(30), nullable=True)
+    whatsapp_verified = Column(Boolean, default=False)
     password_hash = Column(String(128), nullable=True)
     role = Column(String(30), default=UserRole.AGENT.value)
     is_active = Column(Boolean, default=True)
@@ -215,6 +218,9 @@ class TeamMember(db.Model):
 
     def to_dict(self):
         return {"id": self.id, "name": self.name, "email": self.email, "phone": self.phone,
+                "secondary_phone": self.secondary_phone,
+                "whatsapp_phone": self.whatsapp_phone,
+                "whatsapp_verified": self.whatsapp_verified,
                 "role": self.role, "is_active": self.is_active, "avatar_url": self.avatar_url}
 
 class OAuthAccount(db.Model):
