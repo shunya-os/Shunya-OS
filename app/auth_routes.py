@@ -70,6 +70,21 @@ def permission_required(resource: str, action: str = "read"):
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login_page():
+    # Handle JSON POST (used by Shunya OS frontend)
+    if request.method == "POST" and request.is_json:
+        data = request.get_json(silent=True) or {}
+        email = data.get("email", "").strip().lower()
+        password = data.get("password", "")
+        user = TeamMember.query.filter_by(email=email, is_active=True).first()
+        if user and user.check_password(password):
+            session["user_id"] = user.id
+            user.last_login = datetime.utcnow()
+            user.generate_token()
+            db.session.commit()
+            return jsonify({"success": True, "redirect": url_for("main.index")})
+        return jsonify({"success": False, "error": "Invalid email or password"}), 401
+
+    # Handle form POST (legacy)
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
@@ -103,6 +118,13 @@ def login_page():
     if session.get("user_id"):
         return redirect(url_for("main.index"))
     return render_template("login.html")
+
+
+# Shunya OS frontend posts to /auth/login/password — alias to same handler
+@auth_bp.route("/login/password", methods=["POST"])
+def login_password_json():
+    """JSON login endpoint (used by Shunya OS frontend)."""
+    return login_page()
 
 
 @auth_bp.route("/logout")

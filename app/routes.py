@@ -90,9 +90,32 @@ def index():
         elif status in ("converted", "booked", "completed", "graduated", "won"): lead_counts["won"] += 1
     quick_actions = [{"icon": m.icon, "label": m.label, "route": m.route} for m in ontology.modules if m.enabled][:4]
     
-    return render_template("dashboard_adaptive.html", summary=s, recent=recent,
-                           companion_greeting=companion_greeting,
+    return render_template("dashboard.html", summary=s, recent=recent,
+                           greeting={
+                               "greeting": companion_greeting,
+                               "message": ai_insight,
+                               "suggestions": companion_suggestions_data,
+                               "reasoning_trace": None,
+                           },
                            ai_insight=ai_insight, ai_tip=ai_tip,
+                           journey={
+                               "stages": [
+                                   {"stage": type("obj", (), {"value": "lead"}), "count": len(recent), "next_entity_type": "lead", "next_action": "Create Quote"},
+                                   {"stage": type("obj", (), {"value": "quote"}), "count": 0, "next_entity_type": "lead", "next_action": "Create Booking"},
+                                   {"stage": type("obj", (), {"value": "booking"}), "count": 0, "next_entity_type": "booking", "next_action": "Start Trip"},
+                                   {"stage": type("obj", (), {"value": "payment"}), "count": 0, "next_entity_type": "payment", "next_action": "Record Payment"},
+                                   {"stage": type("obj", (), {"value": "trip"}), "count": 0, "next_entity_type": "trip", "next_action": "Collect Feedback"},
+                                   {"stage": type("obj", (), {"value": "feedback"}), "count": 0, "next_entity_type": "feedback", "next_action": "Retention"},
+                                   {"stage": type("obj", (), {"value": "retention"}), "count": 0, "next_entity_type": "feedback", "next_action": "Campaign"},
+                               ],
+                               "current_focus": "conversion" if lead_counts.get("new", 0) > 0 else None,
+                               "total_active": lead_counts.get("new", 0),
+                           },
+                           vertical_metrics=[],
+                           def_counts={"lead": {"icon": "📋", "label": "Leads", "count": len(recent)}},
+                           next_actions=[],
+                           recent_activities=activities,
+                           tenant=None,
                            companion_suggestions=companion_suggestions_data,
                            activities=activities, ontology=ontology,
                            lead_counts=lead_counts, quick_actions=quick_actions,

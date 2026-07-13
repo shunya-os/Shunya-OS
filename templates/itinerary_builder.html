@@ -132,6 +132,7 @@
 
 <script>
 let currentDayCount = {{ plan_days|length or 0 }};
+let leadPhone = '{{ selected_lead.phone|replace('+','')|replace(' ','')|replace('-','') if selected_lead and selected_lead.phone else '' }}';
 
 function addDay() {
   currentDayCount++;
@@ -213,7 +214,11 @@ function shareItinerary(channel) {
   let shareUrl = '';
   if (channel === 'whatsapp') {
     const msg = `🗺️ *${leadName}'s Itinerary — ${dest}*\n\nView full itinerary: ${url}`;
-    shareUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    if (leadPhone) {
+      shareUrl = `https://wa.me/${leadPhone}?text=${encodeURIComponent(msg)}`;
+    } else {
+      shareUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    }
     window.open(shareUrl, '_blank');
   } else if (channel === 'link') {
     navigator.clipboard.writeText(url).then(() => {

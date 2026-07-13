@@ -56,9 +56,33 @@
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
       <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Quick Actions</h3>
       <div class="flex flex-col gap-2">
-        <a href="{{ url_for('main.invoices') }}?lead_id={{ lead.id }}" class="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">Create Invoice</a>
-        <a href="{{ url_for('main.payments') }}?lead_id={{ lead.id }}" class="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">Add Payment</a>
-        <a href="{{ url_for('client.client_register') }}?lead_code={{ lead.code }}" class="inline-flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-amber-100 transition-colors border border-amber-200">🔐 Client Portal</a>
+        {% set wa_phone = lead.phone|replace('+','')|replace(' ','')|replace('-','') if lead.phone else '' %}
+        {% set wa_name = lead.customer_name|urlencode if lead.customer_name else 'Valued+Customer' %}
+        {% set wa_dest = lead.destination|urlencode if lead.destination else 'your+trip' %}
+        {% set wa_budget = lead.budget|string if lead.budget else '' %}
+        <a href="https://wa.me/{{ wa_phone }}?text=Hi+{{ wa_name }}!+Your+{{ wa_dest }}+proposal+is+ready.+Let+me+know+if+you+have+any+questions." target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 bg-[#25D366] text-white text-sm font-semibold px-4 py-2.5 rounded-lg hover:bg-[#20BD5B] hover:shadow-lg hover:shadow-[#25D366]/20 transition-all" style="background:linear-gradient(135deg,#25D366,#128C7E);">
+          <span>📤</span> Send Proposal via WhatsApp
+          <span class="opacity-60 text-[10px]">↗</span>
+        </a>
+        <a href="https://wa.me/{{ wa_phone }}?text=Hi+{{ wa_name }}!+Here%27s+your+itinerary+for+{{ wa_dest }}.+Please+have+a+look+and+let+me+know+your+thoughts." target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 bg-[#25D366] text-white text-sm font-semibold px-4 py-2.5 rounded-lg hover:bg-[#20BD5B] hover:shadow-lg hover:shadow-[#25D366]/20 transition-all" style="background:linear-gradient(135deg,#25D366,#128C7E);">
+          <span>📅</span> Share Itinerary
+          <span class="opacity-60 text-[10px]">↗</span>
+        </a>
+        <a href="https://wa.me/{{ wa_phone }}?text=Hi+{{ wa_name }},+gentle+reminder+that+your+payment+for+{{ wa_dest }}+is+due.+Please+let+me+know+if+you+need+any+help+with+the+payment." target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 bg-[#25D366] text-white text-sm font-semibold px-4 py-2.5 rounded-lg hover:bg-[#20BD5B] hover:shadow-lg hover:shadow-[#25D366]/20 transition-all" style="background:linear-gradient(135deg,#25D366,#128C7E);">
+          <span>💰</span> Payment Reminder
+          <span class="opacity-60 text-[10px]">↗</span>
+        </a>
+        <a href="tel:{{ lead.phone }}" class="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">
+          <span>📞</span> Call Customer
+        </a>
+        <span class="text-[10px] text-slate-400 text-center mt-0.5">Opens WhatsApp on your phone</span>
+        {% if lead.phone %}
+        <div class="border-t border-slate-100 pt-3 mt-1 space-y-2">
+          <a href="{{ url_for('main.invoices') }}?lead_id={{ lead.id }}" class="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">Create Invoice</a>
+          <a href="{{ url_for('main.payments') }}?lead_id={{ lead.id }}" class="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors">Add Payment</a>
+          <a href="{{ url_for('client.client_register') }}?lead_code={{ lead.code }}" class="inline-flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-amber-100 transition-colors border border-amber-200">🔐 Client Portal</a>
+        </div>
+        {% endif %}
       </div>
     </div>
     <div class="text-xs text-slate-400 space-y-1">

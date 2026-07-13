@@ -26,6 +26,7 @@
           <th class="px-5 py-3 text-left">Pax</th>
           <th class="px-5 py-3 text-left">Dates</th>
           <th class="px-5 py-3 text-left">Status</th>
+          <th class="px-5 py-3 text-center">💬</th>
           <th class="px-5 py-3 text-right">Action</th>
         </tr>
       </thead>
@@ -39,10 +40,21 @@
           <td class="px-5 py-3.5 text-slate-600">{{ l.pax or '-' }}</td>
           <td class="px-5 py-3.5 text-slate-600 text-xs">{{ l.dates or '-' }}</td>
           <td class="px-5 py-3.5">{% with r=l %}{% include "_status_badge.html" %}{% endwith %}</td>
+          <td class="px-5 py-3.5 text-center">
+            {% if l.phone %}
+            {% set wa_phone = l.phone|replace('+','')|replace(' ','')|replace('-','') %}
+            {% set wa_name = (l.customer_name or 'Valued+Customer')|urlencode %}
+            <a href="https://wa.me/{{ wa_phone }}?text=Hi+{{ wa_name }}!+I%27m+reaching+out+from+our+team+regarding+your+{{ l.destination or 'travel' }}+inquiry." target="_blank" rel="noopener" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all" title="Send WhatsApp to {{ l.customer_name or 'customer' }}">
+              💬
+            </a>
+            {% else %}
+            <span class="text-slate-300 text-xs">—</span>
+            {% endif %}
+          </td>
           <td class="px-5 py-3.5 text-right"><a href="{{ url_for('main.lead_detail',lead_id=l.id) }}" class="text-sm text-blue-600 hover:text-blue-700 font-medium">Open →</a></td>
         </tr>
         {% else %}
-        <tr><td colspan="8" class="px-5 py-8 text-center text-slate-400">No leads found.</td></tr>
+        <tr><td colspan="9" class="px-5 py-8 text-center text-slate-400">No leads found.</td></tr>
         {% endfor %}
       </tbody>
     </table>

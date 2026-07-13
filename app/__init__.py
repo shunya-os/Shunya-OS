@@ -12,6 +12,7 @@ from datetime import datetime
 from flask import Flask, g, request, jsonify, session, redirect, url_for, current_app
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
+from jinja2 import FileSystemLoader, ChoiceLoader
 
 # ---------------------------------------------------------------------------
 # Extensions (initialized without app, bound in create_app)
@@ -211,9 +212,15 @@ def create_app(config_override: dict | None = None):
 
     app = Flask(
         __name__,
-        template_folder=os.path.join(os.path.dirname(__file__), "..", "templates"),
-        static_folder=os.path.join(os.path.dirname(__file__), "..", "static"),
+        template_folder="/root/shunya_os/templates",
+        static_folder="/root/shunya_os/static",
     )
+
+    # ---- Shunya OS primary template path with fallback to old templates ----
+    app.jinja_loader = ChoiceLoader([
+        FileSystemLoader("/root/shunya_os/templates"),
+        FileSystemLoader(os.path.join(os.path.dirname(__file__), "..", "templates")),
+    ])
 
     # ---- Config -----------------------------------------------------------
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-in-production")
@@ -251,6 +258,46 @@ def create_app(config_override: dict | None = None):
     # Keep API at /shunya/* for backward compat (routes.py defines @api.route('/shunya/...'))
     app.register_blueprint(api)
 
+    # ---- 404 catch-all: redirect admin routes to settings ----
+    @app.route("/admin/")
+    @app.route("/admin/<path:subpath>")
+    def admin_catchall(subpath=""):
+        return redirect(url_for("main.settings"))
+    
+    @app.route("/ai-settings")
+    def ai_settings_redirect():
+        return redirect(url_for("main.settings"))
+
+    @app.route("/relationships")
+    def relationships_redirect():
+        return redirect(url_for("main.index"))
+
+    @app.route("/financial")
+    @app.route("/finance")
+    def finance_redirect():
+        return redirect(url_for("main.index"))
+
+    @app.errorhandler(404)
+    def custom_404(e):
+        from flask import render_template_string
+        html = '''<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>404 | Shunya OS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-[#0f172a] text-white font-sans min-h-screen flex items-center justify-center p-4">
+  <div class="text-center">
+    <span class="text-6xl block mb-4">🧭</span>
+    <h1 class="text-2xl font-bold mb-2">Page not found</h1>
+    <p class="text-slate-400 text-sm mb-6">The page you are looking for does not exist or has been moved.</p>
+    <a href="/" class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors">Back to Dashboard</a>
+  </div>
+</body>
+</html>'''
+        return html, 404
+
     # ---- Auth Middleware ----------------------------------------------------
     @app.before_request
     def _check_auth():
@@ -260,7 +307,7 @@ def create_app(config_override: dict | None = None):
         path = request.path
         if path.startswith("/static/") or path.startswith("/health"):
             return None
-        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/"):
+        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/"):
             return None
         user_id = session.get("user_id")
         if not user_id:

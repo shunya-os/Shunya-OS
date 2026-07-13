@@ -54,8 +54,14 @@
   <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="toggleSidebar()"></div>
 
   <!-- Sidebar -->
-  <aside id="sidebar" class="sidebar fixed left-0 top-0 h-full w-64 bg-surface-900/95 border-r border-white/5 z-50 flex flex-col transition-all">
-    <div class="p-5 border-b border-white/5">
+  <aside id="sidebar" class="sidebar w-64 bg-surface-900/95 border-r border-white/5 z-50 flex flex-col transition-all" style="position:fixed;top:0;left:-100%;height:100%;">
+  <!-- Close button at top -->
+  <div class="p-3 flex justify-end lg:hidden">
+    <button onclick="toggleSidebar()" class="p-1.5 rounded-lg hover:bg-white/10 text-surface-400" aria-label="Close sidebar">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="p-5 border-b border-white/5">
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-bold text-sm shadow-lg">
           {{ brand[:2] if brand else 'SO' }}
@@ -240,9 +246,20 @@
 
     // Sidebar toggle (mobile)
     function toggleSidebar() {
-      document.getElementById('sidebar').classList.toggle('open')
-      document.getElementById('mobile-overlay').classList.toggle('hidden')
+      var s = document.getElementById('sidebar');
+      var o = document.getElementById('mobile-overlay');
+      var isOpen = s.style.left === '0px';
+      s.style.left = isOpen ? '-100%' : '0px';
+      if (o) o.classList.toggle('hidden');
     }
+
+    // Auto-open sidebar on desktop, closed on mobile
+    (function() {
+      var s = document.getElementById('sidebar');
+      if (s) {
+        s.style.left = window.innerWidth >= 1024 ? '0px' : '-100%';
+      }
+    })();
 
     // Auto-dismiss flashes
     setTimeout(() => {
