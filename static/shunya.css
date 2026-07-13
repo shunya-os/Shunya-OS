@@ -306,6 +306,15 @@ input::placeholder, textarea::placeholder { color: #94a3b8; }
 [class*="-accent-rose"] { color: var(--clr-error) !important; }
 [class*="-accent-purple"] { color: var(--clr-secondary) !important; }
 
+/* text-white INSIDE overridden card/dark-bg elements — use card text instead
+   of #ffffff. In light themes (Playful/Elegant), --card-bg is white, so
+   text-white on white bg = invisible. This rule makes text-white inside cards
+   and overridden dark-bg elements inherit the theme's card text color.
+   text-white on permanently-colored backgrounds (hero gradient, badges)
+   stays white because those elements don't match -card or bg-[#1e293b]. */
+[class*="-card"] [class*="text-white"],
+[class*="bg-[#1e293b]"] [class*="text-white"] { color: var(--card-text) !important; }
+
 
 /* Utility classes */
 .text-on-dark{color:#f8fafc !important}
