@@ -215,10 +215,13 @@ nav a:hover, nav button:hover, [class*="nav-link"]:hover { color: var(--nav-hove
 [class*="bg-slate-100"] { color: #0f172a; }
 
 /* Children inside light containers inherit their container's
-   dark text instead of themed text-slate colors for dark BGs */
-[class*="bg-white"] [class*="text-slate-"],
-[class*="bg-slate-50"] [class*="text-slate-"],
-[class*="bg-slate-100"] [class*="text-slate-"] { color: inherit !important; }
+   dark text instead of themed text-slate colors for dark BGs.
+   Uses [data-theme] prefix for specificity (0,3,0) to beat the
+   themed text-slate rules at (0,1,1) when both have !important.
+   SINGLE rule (not per-theme) covering all 4 themes. */
+[data-theme] [class*="bg-white"] [class*="text-slate-"],
+[data-theme] [class*="bg-slate-50"] [class*="text-slate-"],
+[data-theme] [class*="bg-slate-100"] [class*="text-slate-"] { color: inherit !important; }
 
 /* Colored status badges — always white text for readability */
 [class*="bg-blue-500"],
