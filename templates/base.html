@@ -18,7 +18,7 @@
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
   <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
   <link rel="stylesheet" href="/static/shunya.css?v=13">
-  <link rel="stylesheet" href="/static/tailwind.min.css">
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
   // ── Device Detection ──
   (function() {
@@ -34,6 +34,15 @@
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
   <script>htmx.config.selfRequestsOnly=true;htmx.config.refreshOnHistoryMiss=false;htmx.config.historyCacheSize=10</script>
+  <script>
+  // Fix viewport zoom after HTMX swaps
+  document.addEventListener('htmx:afterSwap', function() {
+    var vp = document.querySelector('meta[name="viewport"]');
+    if (vp) {
+      vp.content = 'width=device-width,initial-scale=1,viewport-fit=cover';
+    }
+  });
+  </script>
   <style>
     /* HTMX page loader */
     #page-loader { position:fixed; top:0; left:0; right:0; height:3px; z-index:99999; background:linear-gradient(90deg,#2563eb,#7c3aed); transform:scaleX(0); transform-origin:left; transition:transform .3s; }
@@ -1122,6 +1131,6 @@
   </nav>
   {% endif %}
 
-<script src="https://cdn.tailwindcss.com"></script>
+
 </body>
 </html>
