@@ -100,6 +100,7 @@ SALES_ENTITY_TYPES = {
     },
     "opportunity": {
         "label": "Opportunity",
+        "label_plural": "Opportunities",
         "icon": "💎",
         "schema": [
             {"name": "name", "label": "Opportunity Name", "type": "text", "required": True, "searchable": True},
