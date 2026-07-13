@@ -64,7 +64,8 @@
 [data-theme="playful"] [class*="bg-[#0f172a]"] { background: var(--body-bg) !important; color: var(--body-text); }
 /* Nav applied via global rule */
 [data-theme="playful"] [class*="bg-slate-800"],
-[data-theme="playful"] [class*="bg-slate-900"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #fed7aa !important; }
+[data-theme="playful"] [class*="bg-slate-900"],
+[data-theme="playful"] [class*="bg-[#1e293b]"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #fed7aa !important; }
 [data-theme="playful"] .coach-card { background: var(--card-bg) !important; color: var(--card-text); border-color: #fed7aa !important; }
 [data-theme="playful"] nav a, [data-theme="playful"] nav button, [data-theme="playful"] nav span { color: var(--nav-muted); }
 [data-theme="playful"] nav .font-bold { color: var(--nav-text); }
@@ -102,7 +103,8 @@
 [data-theme="elegant"] [class*="bg-[#0f172a]"] { background: var(--body-bg) !important; color: var(--body-text); }
 [data-theme="elegant"] nav { background: var(--nav-bg) !important; color: var(--nav-text); border-color: #e4e4e7 !important; }
 [data-theme="elegant"] [class*="bg-slate-800"],
-[data-theme="elegant"] [class*="bg-slate-900"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #e4e4e7 !important; }
+[data-theme="elegant"] [class*="bg-slate-900"],
+[data-theme="elegant"] [class*="bg-[#1e293b]"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #e4e4e7 !important; }
 [data-theme="elegant"] .coach-card { background: var(--card-bg) !important; color: var(--card-text); border-color: #e4e4e7 !important; }
 [data-theme="elegant"] nav a, [data-theme="elegant"] nav button, [data-theme="elegant"] nav span { color: var(--nav-muted); }
 [data-theme="elegant"] nav .font-bold { color: var(--nav-text); }
@@ -274,8 +276,12 @@ nav a:hover, nav button:hover { color: var(--nav-hover, #0f172a) !important; }
 input, textarea, select { color: #1e293b; caret-color: #1e293b; }
 input::placeholder, textarea::placeholder { color: #94a3b8; }
 
-/* Module card compatibility — all module-specific cards use theme vars */
-[class*="-card"], [class*="-badge"] { color: var(--card-text); border-color: #334155 !important; }
+/* Module card compatibility — ALL module-specific cards use theme vars.
+   This overrides 30+ hardcoded `<style>` block backgrounds across the platform.
+   NOTE: .badge-new/.badge-hot/etc. have per-theme overrides in the theme
+   sections above that beat this rule via higher specificity. */
+[class*="-card"] { background: var(--card-bg) !important; color: var(--card-text); border-color: #334155 !important; }
+[class*="-badge"] { color: var(--card-text); border-color: #334155 !important; }
 [class*="-text-muted"], [class*="-muted"] { color: var(--body-muted) !important; }
 [class*="-text-secondary"], [class*="-secondary"] { color: var(--body-dim) !important; }
 [class*="-accent"] { color: var(--clr-primary) !important; }
