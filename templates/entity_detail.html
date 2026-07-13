@@ -25,7 +25,7 @@
 {% set stage_next = {'lead':'quote','quote':'booking','booking':'invoice','invoice':'trip','trip':'feedback','feedback':'lead'} %}
 {% set stage_next_label = {'lead':'Create Quote','quote':'Confirm Booking','booking':'Send Invoice','invoice':'Start Trip','trip':'Collect Feedback','feedback':'Retention Offer'} %}
 <div class="mb-4 bg-[#1e293b] border border-[#334155] rounded-xl p-3">
-  <div class="flex items-center gap-1 overflow-x-auto pb-1 scroll-thin">
+  <div class="flex items-center gap-1 overflow-x-auto flex-nowrap pb-1 scroll-thin">
     {% for stype, skey, slabel, _ in journey_stages %}
     <div class="flex items-center gap-1 flex-shrink-0">
       <div class="flex flex-col items-center gap-1 min-w-[70px] {% if definition.type == stype %}opacity-100{% else %}opacity-50{% endif %}">

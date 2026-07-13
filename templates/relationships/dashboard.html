@@ -34,7 +34,7 @@
   </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+<div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-6 mb-6">
   <!-- Advisory Brief -->
   <div class="lg:col-span-2 d-card p-5">
     <h3 class="text-xs font-semibold uppercase tracking-wider d-muted mb-3">🤖 Advisory Brief</h3>
@@ -170,7 +170,7 @@
 {% if advice.preferences_detail %}
 <div class="d-card p-5 mb-6">
   <h3 class="text-xs font-semibold uppercase tracking-wider d-muted mb-4">📋 Preferences with Evidence</h3>
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
     {% for pref in advice.preferences_detail %}
     <div class="p-3 rounded-xl" style="background:rgba(51,65,85,0.5);">
       <div class="flex items-center justify-between mb-1 gap-2">

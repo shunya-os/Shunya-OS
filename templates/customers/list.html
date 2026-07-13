@@ -9,7 +9,7 @@
 </div>
 
 {% if customers %}
-<div class="grid gap-4">
+<div class="grid gap-4 overflow-x-auto">
   {% for c in customers %}
   <a href="/customers/{{ c.id }}" class="cust-card p-4 flex items-center justify-between hover:border-cyan-600/50 transition-all" style="text-decoration:none;">
     <div class="flex items-center gap-4 min-w-0">
