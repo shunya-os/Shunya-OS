@@ -27,7 +27,7 @@
         <span class="px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-300">{{ entity.status }}</span>
       </div>
       {% if definition %}
-      <div class="grid grid-cols-2 gap-4 text-sm">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         {% for field in definition.schema[:6] %}
         <div>
           <span class="text-white/40 text-xs">{{ field.label }}</span>
