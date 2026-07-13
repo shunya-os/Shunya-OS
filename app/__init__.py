@@ -229,6 +229,17 @@ def _request_id_middleware(app):
     def _set_request_id():
         g.request_id = request.headers.get("X-Request-Id", uuid.uuid4().hex[:12])
 
+    @app.after_request
+    def _htmx_headers(resp):
+        if request.headers.get("HX-Request"):
+            # HTMX partial requests should not set cookies (they're for the full page)
+            resp.headers["Vary"] = "HX-Request"
+            # Redirects from HTMX should use HX-Redirect
+            if resp.status_code in (302, 303, 307):
+                resp.headers["HX-Redirect"] = resp.headers.get("Location", "/")
+                resp.status_code = 200
+        return resp
+
 
 # ---------------------------------------------------------------------------
 # API Key authentication — decorate /api/ routes that accept API keys
