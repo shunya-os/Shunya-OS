@@ -271,6 +271,12 @@ nav {
 nav a, nav button, nav span { color: var(--nav-muted, #64748b) !important; }
 nav .font-bold { color: var(--nav-text, #1e293b) !important; }
 nav a:hover, nav button:hover { color: var(--nav-hover, #0f172a) !important; }
+/* Override themed text-slate rules for nav elements — themed rules have
+   [data-theme] prefix (0,1,1) which beats bare nav a (0,0,2). This
+   ensures nav text uses --nav-muted instead of --body-muted.
+   NOTE: Do NOT add separate rules for 700/800/900 — they catch hover
+   variants (hover:text-slate-700) and override --nav-text everywhere. */
+nav [class*="text-slate-"] { color: var(--nav-muted) !important; }
 
 /* Form inputs always need visible text — they have light bg regardless of theme */
 input, textarea, select { color: #1e293b; caret-color: #1e293b; }
