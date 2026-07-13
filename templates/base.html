@@ -3,7 +3,11 @@
       {% if brand_colors %}style="--brand-h:{{ brand_colors.h }};--brand-s:{{ brand_colors.s }}%;--brand-l:{{ brand_colors.l }}%"{% endif %}>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="/static/manifest.json">
   <title>{% if current_tenant %}{{ current_tenant.company_name }}{% else %}Shunya{% endif %} | Shunya OS</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,8 +15,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
   <link rel="stylesheet" href="/static/shunya.css?v=13">
+  <style>
+    @media (max-width: 639px) {
+      #bird-panel.bird-open { position:fixed; top:0; left:0; right:0; bottom:0; width:100%; max-width:100%; max-height:100%; border-radius:0; z-index:99999; background:white; display:flex; flex-direction:column; }
+      #bird-panel.bird-open #bird-messages { flex:1; max-height:none !important; }
+      .bottom-nav-btn:active { transform:scale(0.92); opacity:0.7; transition:all .15s; }
+    }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-20">
+<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-28 sm:pb-6" style="padding-bottom:calc(7rem + env(safe-area-inset-bottom,0px));">
   {% if current_user %}
   <nav class="sticky top-0 z-50 border-b shadow-sm" style="background:var(--nav-bg);color:var(--nav-text);border-color:var(--nav-border,#e2e8f0)">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -170,12 +181,13 @@
   <div id="bird-widget" style="position:fixed;bottom:24px;right:24px;z-index:9999;font-family:Inter,system-ui,sans-serif">
     <!-- Main bubble button -->
     <div id="bird-bubble" onclick="toggleBird()"
+      class="sm:flex hidden"
       style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.15);transition:all .3s ease;border:none;"
       onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"
       title="Ask Shunya AI (Ctrl+B)">🧠</div>
 
     <!-- Chat panel -->
-    <div id="bird-panel" style="display:none;position:absolute;bottom:70px;right:0;width:min(380px,calc(100vw - 32px));max-height:560px;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.2);overflow:hidden;border:1px solid rgba(0,0,0,0.06);">
+    <div id="bird-panel" style="display:none;position:absolute;bottom:calc(70px + env(safe-area-inset-bottom,0px));right:0;width:min(380px,calc(100vw - 32px));max-height:560px;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.2);overflow:hidden;border:1px solid rgba(0,0,0,0.06);">
 
       <!-- Header -->
       <div style="padding:14px 18px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;">
@@ -309,10 +321,15 @@
   // ── Toggle Bird ──
   function toggleBird() {
     const p = document.getElementById('bird-panel');
-    p.style.display = p.style.display === 'none' ? 'block' : 'none';
-    if (p.style.display === 'block') {
+    const isOpen = p.style.display === 'block';
+    p.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
       document.getElementById('bird-input').focus();
       loadJourneyData();
+      // Add full-screen class on mobile
+      if (window.innerWidth < 640) p.classList.add('bird-open');
+    } else {
+      p.classList.remove('bird-open');
     }
   }
 
@@ -662,6 +679,39 @@
     root.style.setProperty('--nav-muted', p.text_muted || '#94a3b8');
   }
 
+  // ── Bottom Nav Tab Highlight ──
+  function setActiveTab(path) {
+    document.querySelectorAll('.bottom-nav-btn').forEach(b => {
+      const href = b.getAttribute('data-href');
+      b.classList.toggle('text-blue-600', path.startsWith(href));
+      b.classList.toggle('text-slate-400', !path.startsWith(href));
+    });
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    setActiveTab(window.location.pathname);
+  });
+
+  // ── Close Bird panel on outside clicks ──
+  document.addEventListener('click', function(e) {
+    const widget = document.getElementById('bird-widget');
+    const navBtn = document.getElementById('bird-nav-btn');
+    if (widget && navBtn && !widget.contains(e.target) && !navBtn.contains(e.target)) {
+      const panel = document.getElementById('bird-panel');
+      if (panel && panel.style.display !== 'none') {
+        panel.style.display = 'none';
+      }
+    }
+  });
+
+  // ── Keyboard shortcut Ctrl+B ──
+  document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'b') {
+      e.preventDefault();
+      toggleBird();
+    }
+  });
+</script>
+
   async function switchTheme(theme) {
     // Save to server
     try {
@@ -963,5 +1013,34 @@
   });
   </script>
   {% endif %}
+
+  <!-- Bottom Navigation (mobile only) -->
+  {% if current_user %}
+  <div class="bottom-nav fixed bottom-0 left-0 right-0 z-50 sm:hidden border-t shadow-lg" style="background:var(--nav-bg,#ffffff);color:var(--nav-text,#1e293b);border-color:var(--nav-border,#e2e8f0);padding-bottom:env(safe-area-inset-bottom,0px);">
+    <div class="flex items-center justify-around h-16">
+      <a href="/" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-xs font-medium" data-href="/" style="color:var(--nav-muted,#64748b)">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>Home</span>
+      </a>
+      <a href="/entities/lead" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-xs font-medium" data-href="/entities" style="color:var(--nav-muted,#64748b)">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        <span>Records</span>
+      </a>
+      <button id="bird-nav-btn" onclick="toggleBird()" class="flex flex-col items-center gap-0.5 text-xs font-medium -mt-4" style="color:var(--nav-muted,#64748b)">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-lg" style="background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;box-shadow:0 4px 16px rgba(37,99,235,0.3);">🧠</div>
+        <span class="mt-0.5">AI</span>
+      </button>
+      <a href="/finance" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-xs font-medium" data-href="/finance" style="color:var(--nav-muted,#64748b)">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>Money</span>
+      </a>
+      <a href="/admin/brand" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-xs font-medium" data-href="/admin" style="color:var(--nav-muted,#64748b)">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>Settings</span>
+      </a>
+    </div>
+  </div>
+  {% endif %}
+
 </body>
 </html>
