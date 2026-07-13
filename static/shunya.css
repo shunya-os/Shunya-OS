@@ -916,6 +916,12 @@ input::placeholder, textarea::placeholder { color: #94a3b8; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Active nav indicator ── */
+.nav-link.active { color: #2563eb !important; position: relative; }
+.nav-link.active::after { content: ''; position: absolute; bottom: -4px; left: 0; right: 0; height: 2px; background: #2563eb; border-radius: 1px; }
+.bottom-nav-btn.active { color: #2563eb !important; }
 
 /* ── Mobile overflow guards — no horizontal scroll on any screen ── */
 @media (max-width: 639px) {

@@ -61,9 +61,28 @@
     /* Focus-visible for keyboard accessibility */
     :focus-visible { outline:2px solid #3b82f6; outline-offset:2px; border-radius:4px; }
     a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:2px solid #3b82f6; outline-offset:2px; border-radius:4px; }
-    /* Card micro-interactions */
-    [class*="-card"]:not(.skel) { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-    [class*="-card"]:not(.skel):hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    /* Hero greeting fade-in */
+    .hero-greeting { animation: fadeInUp 0.6s ease-out both; }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    /* Hero subtext staggered fade-in */
+    .hero-subtext { animation: fadeInUp 0.6s ease-out 0.15s both; }
+
+    /* Card micro-interactions — lift + border highlight */
+    [class*="-card"]:not(.skel) { transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+    [class*="-card"]:not(.skel):hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: rgba(59,130,246,0.3); }
+    /* Journey-specific hover: slightly stronger border glow */
+    .journey-card:not(.skel):hover { border-color: rgba(99,102,241,0.35); }
+    /* Active nav indicator — desktop */
+    .nav-link.active { border-bottom: 2px solid #2563eb; color: #1e293b !important; }
+    .nav-link.active ~ .nav-drop-menu { display: block !important; }
+    /* Logout loading overlay */
+    #logout-overlay { position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; }
+    #logout-overlay .spinner { width:36px; height:36px; border:3px solid #e2e8f0; border-top-color:#2563eb; border-radius:50%; animation:spin 0.8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #logout-overlay span { color:white; font-size:0.9rem; font-weight:500; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-28 sm:pb-6" style="padding-bottom:calc(7rem + env(safe-area-inset-bottom,0px));" x-data>
@@ -91,7 +110,7 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
           <div class="desktop-only hidden sm:flex items-center gap-4">
-            <a href="/" class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap">Dashboard</a>
+            <a href="/" class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap nav-link" data-route="/">Dashboard</a>
           <!-- Modules dropdown -->
           <div class="nav-drop">
             <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Modules ▾</span>
@@ -167,7 +186,7 @@
               </div>
             </div>
           </div>
-          <a href="/auth/logout" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
+          <a href="/auth/logout" onclick="event.preventDefault();if(confirm('Are you sure you want to logout?')){document.body.insertAdjacentHTML('beforeend','<div id=\"logout-overlay\"><div class=\"spinner\"></div><span>Logging out...</span></div>');window.location.href=this.href}" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
           <button onclick="toggleShortcuts()" class="text-sm text-slate-400 hover:text-slate-600 font-medium ml-2" title="Keyboard shortcuts">⌨️</button>
           </div>
         </div>
@@ -206,7 +225,7 @@
             <span>Theme</span>
           </button>
         </div>
-        <a href="/auth/logout" class="text-sm text-red-500 hover:text-red-700 font-medium ml-auto">Logout →</a>
+        <a href="/auth/logout" onclick="event.preventDefault();if(confirm('Are you sure you want to logout?')){document.body.insertAdjacentHTML('beforeend','<div id=\"logout-overlay\"><div class=\"spinner\"></div><span>Logging out...</span></div>');window.location.href=this.href}" class="text-sm text-red-500 hover:text-red-700 font-medium ml-auto">Logout →</a>
       </div>
     </div>
   </div>
@@ -756,6 +775,13 @@
       b.classList.toggle('text-blue-600', path.startsWith(href));
       b.classList.toggle('text-slate-400', !path.startsWith(href));
     });
+    // Desktop nav active indicator
+    document.querySelectorAll('.nav-link').forEach(b => {
+      const route = b.getAttribute('data-route');
+      if (route) {
+        b.classList.toggle('active', path === route || (route !== '/' && path.startsWith(route)));
+      }
+    });
   }
   document.addEventListener('DOMContentLoaded', () => {
     setActiveTab(window.location.pathname);
@@ -840,6 +866,17 @@
     lbl.textContent = (t === def) ? '⭐ Default · ' + t : 'Current: ' + t;
     const btn = document.getElementById('default-theme-btn');
     if (btn && t === def) btn.innerHTML = '<span>⭐</span> Default Set';
+  }
+
+  // ── Toast Notification System ──
+  function showToast(message, type) {
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:99999;padding:10px 20px;border-radius:12px;font-size:0.85rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,0.2);transition:all .3s ease;max-width:90vw;';
+    t.style.background = type === 'error' ? '#dc2626' : '#059669';
+    t.style.color = '#fff';
+    t.textContent = message;
+    document.body.appendChild(t);
+    setTimeout(function() { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(20px)'; setTimeout(function() { t.remove(); }, 300); }, 3000);
   }
 
   function showThemeToast(m) {
@@ -1100,6 +1137,11 @@
       document.body.appendChild(o);
     } else { o.remove(); }
   }
+  // ── Scroll-to-top button ──
+  window.addEventListener('scroll', function() {
+    var btn = document.getElementById('scroll-top-btn');
+    if (btn) btn.style.display = window.scrollY > 500 ? 'block' : 'none';
+  });
   </script>
   {% endif %}
 
@@ -1131,6 +1173,9 @@
   </nav>
   {% endif %}
 
+
+<!-- Scroll to top button -->
+<button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;bottom:80px;right:20px;width:40px;height:40px;border-radius:50%;background:#2563eb;color:white;border:none;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,0.3);z-index:9998;transition:all .3s;" aria-label="Scroll to top">↑</button>
 
 </body>
 </html>

@@ -118,6 +118,13 @@
   </div>
 </div>
 {% if vertical_metrics %}
+{% set ns = namespace(has_data=false) %}
+{% for m in vertical_metrics %}
+  {% if m.value and m.value not in ('0', '₹0', '—', '0.00', '₹0.00', '0') %}
+    {% set ns.has_data = true %}
+  {% endif %}
+{% endfor %}
+{% if ns.has_data %}
 <div class="mb-5">
   <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
     📊 {% set vname = tenant.vertical_config.get('vertical','business') if tenant.vertical_config else 'business' %}{{ vname.title() }} Overview</h2>
@@ -134,6 +141,7 @@
     {% endfor %}
   </div>
 </div>
+{% endif %}
 {% endif %}
 
 <!-- ════════════════════════════════════════
@@ -175,8 +183,8 @@
         {% set info = def_counts[type_key] %}
         <a href="/entities/{{ type_key }}" class="stat-card bg-[#1e293b] border border-[#334155] rounded-xl p-3 hover:shadow-md transition-shadow">
           <div class="flex items-center justify-between">
-            <span class="text-lg">{{ info.icon }}</span>
-            <span class="text-lg font-bold text-white">{{ info.count }}</span>
+            <span class="text-lg{% if info.count == 0 %} opacity-40{% endif %}">{{ info.icon }}</span>
+            <span class="text-lg font-bold{% if info.count == 0 %} text-slate-500{% else %} text-white{% endif %}">{{ info.count }}</span>
           </div>
           <p class="text-xs text-slate-400 mt-0.5 truncate">{{ info.label }}</p>
         </a>
@@ -194,8 +202,8 @@
       {% if type_key not in important %}
       <a href="/entities/{{ type_key }}" class="stat-card bg-[#1e293b] border border-[#334155] rounded-xl p-3 hover:shadow-md transition-shadow">
         <div class="flex items-center justify-between">
-          <span class="text-lg">{{ info.icon }}</span>
-          <span class="text-lg font-bold text-white">{{ info.count }}</span>
+          <span class="text-lg{% if info.count == 0 %} opacity-40{% endif %}">{{ info.icon }}</span>
+          <span class="text-lg font-bold{% if info.count == 0 %} text-slate-500{% else %} text-white{% endif %}">{{ info.count }}</span>
         </div>
         <p class="text-xs text-slate-400 mt-0.5 truncate">{{ info.label }}</p>
       </a>
@@ -240,6 +248,16 @@
      RECENT ACTIVITY
      =═══════════════════════════════════════ -->
 {% if recent_activities %}
+{% set all_empty = recent_activities[:5]|selectattr("description")|list|length == 0 %}
+{% if all_empty %}
+<div>
+  <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📋 Recent Activity</h2>
+  <div class="bg-[#1e293b]/50 border border-dashed border-[#334155] rounded-xl p-6 text-center">
+    <p class="text-sm text-slate-500">No recent activity yet</p>
+    <p class="text-xs text-slate-600 mt-1">Activities will appear here as you use the platform</p>
+  </div>
+</div>
+{% else %}
 <div>
   <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📋 Recent Activity</h2>
   <div class="space-y-1">
@@ -255,6 +273,7 @@
     {% endfor %}
   </div>
 </div>
+{% endif %}
 {% else %}
 <div>
   <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📋 Recent Activity</h2>
