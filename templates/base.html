@@ -28,6 +28,9 @@
     /* Skeleton placeholders */
     .skel { background:linear-gradient(90deg,transparent 30%,rgba(255,255,255,0.15) 50%,transparent 70%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px; }
     @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    /* HTMX page transitions */
+    .htmx-swapping { opacity: 0; transition: opacity 0.2s ease; }
+    #main-content { transition: opacity 0.15s ease; }
     @media (max-width: 639px) {
       #bird-panel.bird-open { position:fixed; top:0; left:0; right:0; bottom:0; width:100%; max-width:100%; max-height:100%; border-radius:0; z-index:99999; background:white; display:flex; flex-direction:column; }
       #bird-panel.bird-open #bird-messages { flex:1; max-height:none !important; }
@@ -36,6 +39,9 @@
     /* Focus-visible for keyboard accessibility */
     :focus-visible { outline:2px solid #3b82f6; outline-offset:2px; border-radius:4px; }
     a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:2px solid #3b82f6; outline-offset:2px; border-radius:4px; }
+    /* Card micro-interactions */
+    [class*="-card"]:not(.skel) { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    [class*="-card"]:not(.skel):hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-28 sm:pb-6" style="padding-bottom:calc(7rem + env(safe-area-inset-bottom,0px));" x-data>

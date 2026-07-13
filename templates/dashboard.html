@@ -129,7 +129,7 @@
     {% for m in vertical_metrics %}
     <div class="stat-card bg-[#1e293b] border border-[#334155] rounded-xl p-3">
       <p class="text-xs text-slate-400 truncate">{{ m.label }}</p>
-      <p class="text-lg font-bold text-white mt-0.5">{{ m.value }}</p>
+      <p class="text-lg font-bold text-white mt-0.5">{{ m.value if m.value and m.value != '0' and m.value != '₹0' else '—' }}</p>
     </div>
     {% endfor %}
   </div>
@@ -253,6 +253,14 @@
       {% endif %}
     </div>
     {% endfor %}
+  </div>
+</div>
+{% else %}
+<div>
+  <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📋 Recent Activity</h2>
+  <div class="bg-[#1e293b]/50 border border-dashed border-[#334155] rounded-xl p-6 text-center">
+    <p class="text-sm text-slate-500">No recent activity yet</p>
+    <p class="text-xs text-slate-600 mt-1">Activities will appear here as you use the platform</p>
   </div>
 </div>
 {% endif %}
