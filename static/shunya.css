@@ -285,7 +285,25 @@ input::placeholder, textarea::placeholder { color: #94a3b8; }
 [class*="-text-muted"], [class*="-muted"] { color: var(--body-muted) !important; }
 [class*="-text-secondary"], [class*="-secondary"] { color: var(--body-dim) !important; }
 [class*="-accent"] { color: var(--clr-primary) !important; }
-[class*="-text-"]:not(button *):not(a *):not(h1 *):not(h2 *):not(h3 *):not(.nav *) { color: var(--body-text); }
+
+/* Module-specific text classes (d-text, hr-text, sc-text, c-text, etc.)
+   that hardcode theme-specific colors in <style> blocks.
+   The [class*="-text-"] rule below catches hr-text-muted but NOT d-text
+   (no trailing dash). This rule catches d-text, hr-text, etc. */
+[class*="-text"]:not([class*="text-"]):not(button *):not(a *):not(h1 *):not(h2 *):not(h3 *):not(.nav *) { color: var(--body-text); }
+
+/* Form inputs with hardcoded backgrounds in <style> blocks */
+[class*="-input"] { background: var(--card-bg) !important; color: var(--card-text) !important; border-color: var(--nav-border, #334155) !important; }
+[class*="-input"]::placeholder { color: var(--body-muted) !important; }
+[class*="-textarea"] { background: var(--card-bg) !important; color: var(--card-text) !important; border-color: var(--nav-border, #334155) !important; }
+[class*="-label"] { color: var(--body-muted) !important; }
+
+/* Module-specific accent color classes — maps semantic names to theme vars */
+[class*="-accent-green"] { color: var(--clr-success) !important; }
+[class*="-accent-amber"] { color: var(--clr-warning) !important; }
+[class*="-accent-rose"] { color: var(--clr-error) !important; }
+[class*="-accent-purple"] { color: var(--clr-secondary) !important; }
+
 
 /* Utility classes */
 .text-on-dark{color:#f8fafc !important}
