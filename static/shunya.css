@@ -879,3 +879,25 @@ input::placeholder, textarea::placeholder { color: #94a3b8; }
   table { display: block; max-width: 100%; overflow-x: auto; }
   img, svg { max-width: 100% !important; height: auto; }
 }
+
+/* ── Device-specific app layouts ── */
+
+/* Mobile: app-like flow */
+[data-device="mobile"] .desktop-only { display: none !important; }
+[data-device="mobile"] .stat-card { min-height: 80px; }
+[data-device="mobile"] .journey-stage-text { font-size: 0.65rem; }
+[data-device="mobile"] .hero-greeting { font-size: 1.1rem; }
+[data-device="mobile"] .hero-subtext { font-size: 0.75rem; }
+[data-device="mobile"] .page-title { font-size: 1.1rem; }
+[data-device="mobile"] .section-header { font-size: 0.65rem; }
+[data-device="mobile"] .quick-action-pill { font-size: 0.7rem; padding: 0.3rem 0.6rem; }
+[data-device="mobile"] .at-glance-count { font-size: 1rem; }
+
+/* Desktop: free flowing layout */
+[data-device="desktop"] .mobile-only { display: none !important; }
+[data-device="desktop"] .hero-greeting { font-size: 1.5rem; }
+[data-device="desktop"] .hero-subtext { font-size: 0.9rem; }
+
+/* Tablet: hybrid */
+[data-device="tablet"] .desktop-only { display: none !important; }
+[data-device="tablet"] .hero-greeting { font-size: 1.3rem; }
