@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes confetti-fall {
+    0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4); }
+    70% { box-shadow: 0 0 0 20px rgba(5, 150, 105, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
+  }
+  .card-input { transition: border-color 0.2s, box-shadow 0.2s; }
+  .card-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); outline: none; }
+  .btn-pay { transition: all 0.3s; }
+  .btn-pay:active { transform: scale(0.97); }
+  .btn-pay.loading { pointer-events: none; opacity: 0.8; }
+  .confetti-piece {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    top: -10px;
+    z-index: 9999;
+    animation: confetti-fall 3s ease-in forwards;
+    border-radius: 2px;
+  }
+  .success-check {
+    animation: pulse-ring 2s ease-in-out infinite;
+  }
+</style>
+
+<div class="max-w-lg mx-auto">
+  <!-- Back link -->
+  <a href="{% if lead %}{{ url_for('main.lead_detail', lead_id=lead.id) }}{% else %}{{ url_for('main.payments') }}{% endif %}"
+     class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 mb-6 transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    Back
+  </a>
+
+  <!-- Checkout Card -->
+  <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-6 text-center">
+      <div class="text-3xl mb-1">🏝️</div>
+      <h1 class="text-lg font-bold text-white">Panchi Club</h1>
+      <p class="text-xs text-slate-400 mt-0.5">Secure Payment Portal</p>
+    </div>
+
+    <!-- Order Summary -->
+    <div class="px-6 pt-6 pb-4 border-b border-slate-100">
+      <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Order Summary</h2>
+
+      {% if lead %}
+      <div class="flex items-center gap-3 mb-4 p-3 bg-slate-50 rounded-xl">
+        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+          {{ lead.customer_name[:1] if lead.customer_name else '?' }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-slate-800 truncate">{{ lead.customer_name or 'Guest' }}</p>
+          <p class="text-xs text-slate-500 truncate">{{ lead.destination or '' }} · {{ lead.code }}</p>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="space-y-2.5 text-sm">
+        <div class="flex justify-between">
+          <span class="text-slate-600">{{ payment.description }}</span>
+        </div>
+        <div class="flex justify-between text-slate-600">
+          <span>Currency</span>
+          <span class="font-medium">{{ payment.currency }}</span>
+        </div>
+        <div class="flex justify-between text-slate-600">
+          <span>Payment Provider</span>
+          <span class="font-medium capitalize">{{ gateway_provider or 'Simulated' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Amount Display -->
+    <div class="px-6 py-5 border-b border-slate-100 text-center">
+      <p class="text-xs text-slate-400 uppercase tracking-wider mb-1">Total Amount</p>
+      <p class="text-4xl font-bold text-slate-900">
+        {% if payment.currency == 'INR' %}₹{% else %}{{ payment.currency }} {% endif %}{{ "{:,.2f}".format(payment.amount) }}
+      </p>
+    </div>
+
+    <!-- Payment Form (visual only — simulated) -->
+    <div id="payment-form-section" class="px-6 py-5">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Card Details</h3>
+
+      <div class="space-y-4">
+        <!-- Card Number -->
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1.5">Card Number</label>
+          <div class="relative">
+            <input type="text" id="card-number" maxlength="19" placeholder="4242 4242 4242 4242"
+                   class="card-input w-full px-4 py-3 border border-slate-300 rounded-xl text-sm font-mono bg-slate-50 text-slate-800 placeholder-slate-400"
+                   value="4242 4242 4242 4242" readonly />
+            <div class="absolute right-3 top-1/2 -translate-y-1/2 flex gap-1">
+              <span class="text-lg">💳</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 mt-1.5">Test mode — no real payment will be processed</p>
+        </div>
+
+        <!-- Expiry + CVV -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5">Expiry Date</label>
+            <input type="text" placeholder="MM/YY" value="12/28" readonly
+                   class="card-input w-full px-4 py-3 border border-slate-300 rounded-xl text-sm font-mono bg-slate-50 text-slate-800 placeholder-slate-400" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5">CVV</label>
+            <input type="text" placeholder="123" value="123" readonly
+                   class="card-input w-full px-4 py-3 border border-slate-300 rounded-xl text-sm font-mono bg-slate-50 text-slate-800 placeholder-slate-400" />
+          </div>
+        </div>
+
+        <!-- Cardholder Name -->
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1.5">Cardholder Name</label>
+          <input type="text" id="card-name" placeholder="Name on card" value="Test User" readonly
+                 class="card-input w-full px-4 py-3 border border-slate-300 rounded-xl text-sm bg-slate-50 text-slate-800 placeholder-slate-400" />
+        </div>
+
+        <!-- Security Badge -->
+        <div class="flex items-center gap-2 text-xs text-slate-400 pt-1">
+          <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+          <span>Secured with 256-bit encryption · No real data stored</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pay Button / Success State -->
+    <div id="payment-action-section" class="px-6 pb-6">
+      <!-- Pay Button (hidden on success) -->
+      <div id="pay-button-container">
+        <form id="pay-form" method="post" action="{{ url_for('main.payment_complete') }}">
+          <input type="hidden" name="payment_id" value="{{ payment.payment_id }}" />
+          <button type="submit" id="pay-btn"
+                  class="btn-pay w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold text-sm px-6 py-3.5 rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+            <span id="pay-btn-text">Pay {% if payment.currency == 'INR' %}₹{% else %}{{ payment.currency }} {% endif %}{{ "{:,.2f}".format(payment.amount) }}</span>
+            <span id="pay-btn-spinner" class="hidden">
+              <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+            </span>
+          </button>
+        </form>
+
+        <!-- Trust indicators -->
+        <div class="flex items-center justify-center gap-4 mt-4 text-xs text-slate-400">
+          <span>🔒 Secure</span>
+          <span>⚡ Instant</span>
+          <span>🧾 Receipt</span>
+        </div>
+      </div>
+
+      <!-- Success State (hidden initially) -->
+      <div id="success-state" class="hidden text-center py-4">
+        <div class="success-check w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <h2 class="text-lg font-bold text-slate-900 mb-1">Payment Successful! 🎉</h2>
+        <p class="text-sm text-slate-500 mb-4">Your transaction has been completed.</p>
+        <p class="text-2xl font-bold text-slate-900 mb-1">
+          {% if payment.currency == 'INR' %}₹{% else %}{{ payment.currency }} {% endif %}{{ "{:,.2f}".format(payment.amount) }}
+        </p>
+        <p class="text-xs text-slate-400 mb-6 font-mono" id="success-txn-id"></p>
+        <a href="{{ url_for('main.payment_receipt', payment_id=payment.payment_id) }}"
+           class="inline-flex items-center gap-2 bg-slate-800 text-white text-sm font-medium px-6 py-3 rounded-xl hover:bg-slate-700 transition-colors">
+          <span>🧾</span> View Receipt
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Support Footer -->
+  <p class="text-center text-xs text-slate-400 mt-6">
+    Questions? Contact <span class="font-medium text-slate-500">support@panchi.club</span>
+  </p>
+</div>
+
+<script>
+  (function() {
+    const form = document.getElementById('pay-form');
+    const btn = document.getElementById('pay-btn');
+    const btnText = document.getElementById('pay-btn-text');
+    const spinner = document.getElementById('pay-btn-spinner');
+    const successState = document.getElementById('success-state');
+    const payContainer = document.getElementById('pay-button-container');
+    const successTxn = document.getElementById('success-txn-id');
+
+    if (form) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Show loading state
+        btn.classList.add('loading');
+        btnText.textContent = 'Processing…';
+        spinner.classList.remove('hidden');
+
+        // Simulate processing delay (1.5s)
+        setTimeout(function() {
+          // Submit the form
+          const formData = new FormData(form);
+          fetch('{{ url_for("main.payment_complete") }}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          }).then(function(resp) {
+            // Even if the server redirects, we handle client-side success
+            successState.classList.remove('hidden');
+            payContainer.classList.add('hidden');
+            // Launch confetti
+            launchConfetti();
+          }).catch(function() {
+            // Fallback: normal form submission
+            form.submit();
+          });
+        }, 1500);
+      });
+    }
+
+    function launchConfetti() {
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+      for (let i = 0; i < 60; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + 'vw';
+        piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.width = (Math.random() * 8 + 4) + 'px';
+        piece.style.height = (Math.random() * 8 + 4) + 'px';
+        piece.style.animationDuration = (Math.random() * 2 + 2) + 's';
+        piece.style.animationDelay = (Math.random() * 0.5) + 's';
+        piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        document.body.appendChild(piece);
+        setTimeout(function() { piece.remove(); }, 5000);
+      }
+    }
+
+    // If the flash says "Payment of" and "completed" - show success
+    const flashMessages = document.querySelectorAll('.flash-message');
+    flashMessages.forEach(function(el) {
+      if (el.textContent.includes('Payment') && el.textContent.includes('completed')) {
+        successState.classList.remove('hidden');
+        payContainer.classList.add('hidden');
+        launchConfetti();
+      }
+    });
+  })();
+</script>
+{% endblock %}

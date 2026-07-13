@@ -1,0 +1,498 @@
+{% extends "base_universal.html" %}
+{% block title %}Calendar | Panchi Club{% endblock %}
+{% block page_icon %}📅{% endblock %}
+{% block page_title %}Calendar{% endblock %}
+
+{% block content %}
+<style>
+  /* ---- Calendar-specific styles ---- */
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .cal-day {
+    aspect-ratio: 1 / 1;
+    min-height: 100px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .cal-day:hover {
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.12);
+    transform: translateY(-1px);
+  }
+  .cal-day.other-month {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .cal-day.today {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 1px rgba(99,102,241,0.3);
+  }
+  .cal-day.selected {
+    border-color: #2563eb;
+    background: rgba(37,99,235,0.08);
+  }
+  .cal-day-number {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    margin-bottom: 3px;
+    flex-shrink: 0;
+  }
+  .cal-day.today .cal-day-number {
+    color: #a5b4fc;
+  }
+  .cal-day-events {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+  }
+  .cal-event-badge {
+    font-size: 9px;
+    line-height: 1.2;
+    padding: 2px 5px;
+    border-radius: 4px;
+    color: #fff;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+  .cal-event-badge:hover {
+    transform: translateX(2px);
+    filter: brightness(1.2);
+  }
+  .cal-event-badge.lead { background: #2563eb; }
+  .cal-event-badge.task { background: #7c3aed; }
+  .cal-event-badge.itinerary { background: #059669; }
+  .cal-event-more {
+    font-size: 9px;
+    color: #64748b;
+    font-weight: 500;
+    padding: 1px 4px;
+    cursor: pointer;
+  }
+  .cal-event-more:hover { color: #94a3b8; }
+
+  /* Week view */
+  .cal-week-row {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 8px;
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+    margin-bottom: 4px;
+    transition: all 0.2s ease;
+  }
+  .cal-week-row:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.1);
+  }
+  .cal-week-time {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-align: right;
+    padding-top: 2px;
+  }
+  .cal-week-events {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .cal-week-event {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: #fff;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .cal-week-event:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+  /* Side panel */
+  .cal-side-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 380px;
+    height: 100vh;
+    background: #1e293b;
+    border-left: 1px solid rgba(255,255,255,0.08);
+    z-index: 60;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    overflow-y: auto;
+    padding: 24px;
+  }
+  .cal-side-panel.open { transform: translateX(0); }
+  .cal-side-panel-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 59;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .cal-side-panel-overlay.show { opacity: 1; pointer-events: auto; }
+
+  /* View toggle */
+  .view-toggle {
+    display: inline-flex;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .view-toggle button {
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    transition: all 0.2s ease;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  .view-toggle button.active {
+    background: #2563eb;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+  }
+  .view-toggle button:not(.active):hover { color: #94a3b8; background: rgba(255,255,255,0.05); }
+
+  /* Legend */
+  .cal-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .cal-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+  .cal-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .cal-day { min-height: 80px; }
+    .cal-side-panel { width: 100%; }
+  }
+  @media (max-width: 640px) {
+    .cal-day { min-height: 60px; padding: 4px; }
+    .cal-day-number { font-size: 10px; }
+    .cal-event-badge { font-size: 7px; padding: 1px 3px; }
+    .cal-grid { gap: 1px; }
+  }
+</style>
+
+<!-- Side panel overlay -->
+<div id="cal-overlay" class="cal-side-panel-overlay" onclick="closeSidePanel()"></div>
+
+<!-- Side panel -->
+<div id="cal-side-panel" class="cal-side-panel">
+  <div class="flex items-center justify-between mb-6">
+    <h3 id="panel-date" class="text-sm font-semibold text-white">Select a day</h3>
+    <button onclick="closeSidePanel()" class="text-surface-400 hover:text-white transition-colors text-lg">✕</button>
+  </div>
+  <div id="panel-events" class="space-y-3">
+    <p class="text-xs text-surface-500">Click on a day in the calendar to see its events.</p>
+  </div>
+</div>
+
+<!-- Calendar controls -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+  <div class="flex items-center gap-3">
+    <button onclick="today()" class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm font-medium text-surface-300 hover:text-white hover:bg-white/10 transition-all">Today</button>
+    <div class="flex items-center gap-1">
+      <button onclick="navigate(-1)" class="p-2 rounded-lg hover:bg-white/5 text-surface-400 hover:text-white transition-all" title="Previous">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <button onclick="navigate(1)" class="p-2 rounded-lg hover:bg-white/5 text-surface-400 hover:text-white transition-all" title="Next">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+    <h2 id="cal-title" class="text-lg font-semibold text-white min-w-[180px]">January 2027</h2>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="cal-legend">
+      <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#2563eb"></span>Leads</span>
+      <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#7c3aed"></span>Tasks</span>
+      <span class="cal-legend-item"><span class="cal-legend-dot" style="background:#059669"></span>Itineraries</span>
+    </div>
+    <div class="view-toggle">
+      <button id="view-month" class="active" onclick="setView('month')">Month</button>
+      <button id="view-week" onclick="setView('week')">Week</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar grid containers -->
+<div id="cal-month-view" class="mb-4">
+  <!-- Day headers -->
+  <div class="cal-grid mb-1">
+    <div class="text-center text-[10px] font-semibold uppercase tracking-wider text-surface-500 py-2">Mon</div>
+    <div class="text-center text-[10px] font-semibold uppercase tracking-wider text-surface-500 py-2">Tue</div>
+    <div class="text-center text-[10px] font-semibold uppercase tracking-wider text-surface-500 py-2">Wed</div>
+    <div class="text-center text-[10px] font-semibold uppercase tracking-wider text-surface-500 py-2">Thu</div>
+    <div class="text-center text-[10px] font-semibold uppercase tracking-wider text-surface-500 py-2">Fri</div>
+    <div class="text-center text-[10px] font-semibold uppercase tracking-wider text-surface-500 py-2">Sat</div>
+    <div class="text-center text-[10px] font-semibold uppercase tracking-wider text-surface-500 py-2">Sun</div>
+  </div>
+  <div id="cal-grid" class="cal-grid"></div>
+</div>
+
+<div id="cal-week-view" class="hidden space-y-2">
+  <p class="text-xs text-surface-500 mb-4">Week view — events grouped by day</p>
+  <div id="cal-week-container"></div>
+</div>
+
+<script>
+// ===== Calendar State =====
+let currentDate = new Date();
+let currentView = 'month';
+let eventsMap = {};  // { 'YYYY-MM-DD': [event, ...] }
+let allEvents = [];
+
+// ===== API =====
+async function fetchEvents(start, end) {
+  const url = `/api/calendar/events?start=${start}&end=${end}`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (e) {
+    console.error('Failed to fetch events:', e);
+    return [];
+  }
+}
+
+// ===== Date Helpers =====
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+function dateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
+function monthName(y, m) {
+  const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return names[m] + ' ' + y;
+}
+
+// ===== Render =====
+async function render() {
+  const y = currentDate.getFullYear();
+  const m = currentDate.getMonth();
+
+  // Determine date range for fetch
+  let start, end;
+  if (currentView === 'month') {
+    start = new Date(y, m, 1);
+    // First day of month - get Monday of that week
+    const firstDay = start.getDay();
+    const mondayOffset = firstDay === 0 ? -6 : 1 - firstDay;
+    start.setDate(start.getDate() + mondayOffset);
+    // Last day of month + pad to end of its week
+    end = new Date(y, m, daysInMonth(y, m));
+    const lastDay = end.getDay();
+    const sundayOffset = lastDay === 0 ? 0 : 7 - lastDay;
+    end.setDate(end.getDate() + sundayOffset);
+  } else {
+    // Week view: current week (Mon-Sun)
+    const dayOfWeek = currentDate.getDay();
+    const monday = new Date(y, m, currentDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    start = monday;
+    end = new Date(monday);
+    end.setDate(end.getDate() + 6);
+  }
+
+  allEvents = await fetchEvents(dateStr(start), dateStr(end));
+  eventsMap = {};
+  allEvents.forEach(ev => {
+    if (!eventsMap[ev.date]) eventsMap[ev.date] = [];
+    eventsMap[ev.date].push(ev);
+  });
+
+  document.getElementById('cal-title').textContent = monthName(y, m);
+
+  if (currentView === 'month') {
+    renderMonth(y, m, start, end);
+  } else {
+    renderWeek(start, end);
+  }
+}
+
+function renderMonth(y, m, start, end) {
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+
+  const today = new Date();
+  const todayStr = dateStr(today);
+
+  let cursor = new Date(start);
+  while (cursor <= end) {
+    const dStr = dateStr(cursor);
+    const isCurrentMonth = cursor.getMonth() === m;
+    const isToday = dStr === todayStr;
+    const events = eventsMap[dStr] || [];
+    const displayEvents = events.slice(0, 3);
+    const moreCount = events.length - 3;
+
+    const dayDiv = document.createElement('div');
+    dayDiv.className = 'cal-day' + (isCurrentMonth ? '' : ' other-month') + (isToday ? ' today' : '');
+    dayDiv.dataset.date = dStr;
+    dayDiv.onclick = () => openSidePanel(dStr);
+
+    dayDiv.innerHTML = `
+      <div class="cal-day-number">${cursor.getDate()}</div>
+      <div class="cal-day-events">
+        ${displayEvents.map(ev => `
+          <div class="cal-event-badge ${ev.type}" onclick="event.stopPropagation(); window.location.href='${ev.url}'" title="${ev.title}">${ev.title}</div>
+        `).join('')}
+        ${moreCount > 0 ? `<div class="cal-event-more" onclick="event.stopPropagation(); openSidePanel('${dStr}')">+${moreCount} more</div>` : ''}
+      </div>
+    `;
+    grid.appendChild(dayDiv);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+}
+
+function renderWeek(start, end) {
+  const container = document.getElementById('cal-week-container');
+  container.innerHTML = '';
+
+  const today = new Date();
+  const todayStr = dateStr(today);
+  const dayNames = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+  let cursor = new Date(start);
+  let idx = 0;
+  while (cursor <= end) {
+    const dStr = dateStr(cursor);
+    const isToday = dStr === todayStr;
+    const events = eventsMap[dStr] || [];
+
+    const row = document.createElement('div');
+    row.className = 'cal-week-row' + (isToday ? ' border-brand-500/30' : '');
+    row.onclick = () => openSidePanel(dStr);
+
+    const dayLabel = dayNames[idx] + ' ' + cursor.getDate();
+    row.innerHTML = `
+      <div class="cal-week-time">${dayLabel}</div>
+      <div class="cal-week-events">
+        ${events.length === 0 ? '<span class="text-xs text-surface-500">No events</span>' : ''}
+        ${events.map(ev => `
+          <span class="cal-week-event" style="background:${ev.color}" onclick="event.stopPropagation(); window.location.href='${ev.url}'">${ev.title}</span>
+        `).join('')}
+      </div>
+    `;
+    container.appendChild(row);
+
+    cursor.setDate(cursor.getDate() + 1);
+    idx++;
+  }
+}
+
+// ===== Navigation =====
+function navigate(dir) {
+  if (currentView === 'month') {
+    currentDate.setMonth(currentDate.getMonth() + dir);
+  } else {
+    currentDate.setDate(currentDate.getDate() + (dir * 7));
+  }
+  render();
+}
+
+function today() {
+  currentDate = new Date();
+  render();
+}
+
+// ===== View Toggle =====
+function setView(view) {
+  currentView = view;
+  document.getElementById('view-month').className = view === 'month' ? 'active' : '';
+  document.getElementById('view-week').className = view === 'week' ? 'active' : '';
+  document.getElementById('cal-month-view').classList.toggle('hidden', view !== 'month');
+  document.getElementById('cal-week-view').classList.toggle('hidden', view !== 'week');
+  render();
+}
+
+// ===== Side Panel =====
+function openSidePanel(dateStr) {
+  const events = eventsMap[dateStr] || [];
+  const panel = document.getElementById('cal-side-panel');
+  const overlay = document.getElementById('cal-overlay');
+  const dateEl = document.getElementById('panel-date');
+  const eventsEl = document.getElementById('panel-events');
+
+  // Format date nicely
+  const d = new Date(dateStr + 'T12:00:00');
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  dateEl.textContent = d.toLocaleDateString('en-US', options);
+
+  if (events.length === 0) {
+    eventsEl.innerHTML = '<div class="text-center py-8"><span class="text-3xl">📭</span><p class="text-sm text-surface-500 mt-2">No events on this day</p></div>';
+  } else {
+    eventsEl.innerHTML = events.map(ev => {
+      const statusLabels = { 'new': 'New', 'in_progress': 'In Progress', 'converted': 'Converted', 'cancelled': 'Cancelled', 'on_hold': 'On Hold', 'pending': 'Pending', 'completed': 'Completed' };
+      const statusLabel = statusLabels[ev.status] || ev.status;
+      const typeIcons = { 'lead': '📋', 'task': '✅', 'itinerary': '🗺️' };
+      return `
+        <a href="${ev.url}" class="block p-4 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 transition-all group">
+          <div class="flex items-center gap-3">
+            <span class="text-lg">${typeIcons[ev.type] || '📌'}</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-white truncate group-hover:text-brand-400 transition-colors">${ev.title}</div>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="text-[10px] font-medium px-2 py-0.5 rounded-full" style="background:${ev.color}22;color:${ev.color}">${ev.type}</span>
+                <span class="text-[10px] text-surface-500">${statusLabel}</span>
+              </div>
+            </div>
+            <svg class="w-4 h-4 text-surface-500 group-hover:text-white transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </div>
+        </a>
+      `;
+    }).join('');
+  }
+
+  panel.classList.add('open');
+  overlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidePanel() {
+  document.getElementById('cal-side-panel').classList.remove('open');
+  document.getElementById('cal-overlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// ===== Init =====
+render();
+</script>
+
+{% endblock %}

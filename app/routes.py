@@ -211,7 +211,7 @@ def lead_new():
             _log_activity(obj.id, "created", f"Lead created via {obj.source}")
         return redirect(url_for("main.leads_list"))
     code = _cached_or_new_code(db.session)
-    return render_template("lead_form.html", code=code)
+    return render_template("lead_form.html", code=code, lead=None)
 
 
 @main.route("/leads/<int:lead_id>")

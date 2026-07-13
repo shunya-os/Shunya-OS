@@ -70,8 +70,11 @@
             <td class="px-5 py-3.5 text-slate-500 font-mono text-xs">{{ p.ref_number or '-' }}</td>
             <td class="px-5 py-3.5 text-right">
               <form method="post" action="{{ url_for('main.payment_delete',payment_id=p.id) }}" onsubmit="return confirm('Delete?')" class="inline">
-                <button type="submit" class="text-red-600 hover:text-red-700 text-xs font-medium">Delete</button>
+                <button type="submit" class="text-red-600 hover:text-red-700 text-xs font-medium mr-2">Delete</button>
               </form>
+              {% if p.lead %}
+              <a href="{{ url_for('main.payment_link', lead_id=p.lead_id) }}" class="text-green-600 hover:text-green-700 text-xs font-medium">Pay Now</a>
+              {% endif %}
             </td>
           </tr>
           {% else %}

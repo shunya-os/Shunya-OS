@@ -58,6 +58,7 @@
       <div class="flex flex-col gap-2">
         <a href="{{ url_for('main.invoices') }}?lead_id={{ lead.id }}" class="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">Create Invoice</a>
         <a href="{{ url_for('main.payments') }}?lead_id={{ lead.id }}" class="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">Add Payment</a>
+        <a href="{{ url_for('client.client_register') }}?lead_code={{ lead.code }}" class="inline-flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-amber-100 transition-colors border border-amber-200">🔐 Client Portal</a>
       </div>
     </div>
     <div class="text-xs text-slate-400 space-y-1">
@@ -129,6 +130,54 @@
     </table>
   </div>
 </div>
+
+{% if coach_insights %}
+<!-- Documents Section -->
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-6">
+  <div class="px-5 py-4 border-b border-slate-100">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Documents</h3>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <th class="px-5 py-3 text-left">File</th><th class="px-5 py-3 text-left">Type</th><th class="px-5 py-3 text-left">Classification</th>
+        <th class="px-5 py-3 text-left">Uploaded</th><th class="px-5 py-3 text-right">Action</th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for doc in lead.documents %}
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-5 py-3.5">
+            <a href="{{ url_for('main.documents_detail', doc_id=doc.id) }}" class="text-blue-600 hover:text-blue-700 font-medium text-sm">{{ doc.filename }}</a>
+          </td>
+          <td class="px-5 py-3.5">
+            <span class="text-xs font-medium px-2 py-0.5 rounded-full
+              {% if doc.file_type == 'pdf' %}bg-red-50 text-red-600
+              {% elif doc.file_type == 'docx' %}bg-blue-50 text-blue-600
+              {% elif doc.file_type == 'image' %}bg-purple-50 text-purple-600
+              {% else %}bg-slate-100 text-slate-600{% endif %}">{{ doc.file_type }}</span>
+          </td>
+          <td class="px-5 py-3.5">
+            <span class="text-xs font-medium px-2 py-0.5 rounded-full
+              {% if doc.classification == 'invoice' %}bg-amber-50 text-amber-600
+              {% elif doc.classification == 'itinerary' %}bg-emerald-50 text-emerald-600
+              {% elif doc.classification == 'passport_copy' %}bg-cyan-50 text-cyan-600
+              {% elif doc.classification == 'id_proof' %}bg-orange-50 text-orange-600
+              {% elif doc.classification == 'booking_confirmation' %}bg-blue-50 text-blue-600
+              {% else %}bg-slate-100 text-slate-600{% endif %}">{{ doc.classification.replace('_', ' ') }}</span>
+          </td>
+          <td class="px-5 py-3.5 text-xs text-slate-500">{{ doc.created_at.strftime('%d-%m-%Y %H:%M') if doc.created_at else '' }}</td>
+          <td class="px-5 py-3.5 text-right">
+            <a href="{{ url_for('main.documents_detail', doc_id=doc.id) }}" class="text-blue-600 hover:text-blue-700 text-xs font-medium">View</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="px-5 py-8 text-center text-slate-400">No documents uploaded for this lead.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
 
 {% if coach_insights %}
 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl shadow-sm overflow-hidden mb-6">
