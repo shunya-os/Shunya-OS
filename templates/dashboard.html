@@ -9,22 +9,22 @@
     <div class="flex-1 min-w-0">
       <h1 class="hero-greeting text-lg md:text-xl font-bold text-white">{{ greeting.greeting }}</h1>
       <p class="hero-subtext text-blue-100 text-sm mt-0.5">{{ greeting.message }}</p>
-      {% if greeting.reasoning_trace and greeting.reasoning_trace.get('trace') %}
-      <div class="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-xs text-white cursor-pointer" onclick="toggleBird();insertExample('analyze my dashboard and give me insights')">
-        <span>🧠</span>
-        <span>Reasoning</span>
-      </div>
-      {% endif %}
-      {% if greeting.suggestions %}
-      <div class="flex flex-wrap gap-1.5 mt-3">
-        {% for s in greeting.suggestions[:3] %}
-        <span onclick="toggleBird();insertExample('{{ s.text }}')" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-xs text-white cursor-pointer">
+      <div class="flex flex-wrap gap-1.5 mt-3 overflow-hidden">
+        {% if greeting.reasoning_trace and greeting.reasoning_trace.get('trace') %}
+        <span onclick="toggleBird();insertExample('analyze my dashboard and give me insights')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-[11px] text-white cursor-pointer whitespace-nowrap">
+          <span>🧠</span>
+          <span>Reasoning</span>
+        </span>
+        {% endif %}
+        {% if greeting.suggestions %}
+        {% for s in greeting.suggestions[:2] %}
+        <span onclick="toggleBird();insertExample('{{ s.text }}')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-[11px] text-white cursor-pointer whitespace-nowrap">
           <span>{{ s.icon }}</span>
           <span>{{ s.text }}</span>
         </span>
         {% endfor %}
+        {% endif %}
       </div>
-      {% endif %}
     </div>
   </div>
 </div>
@@ -55,10 +55,10 @@
     <span class="text-xs text-slate-500">{{ journey.total_active }} active</span>
   </div>
   
-  <!-- Journey stages as horizontal pipeline -->
-  <div class="flex items-start gap-2 overflow-x-auto flex-nowrap pb-2 scroll-thin sm:flex-wrap">
+  <!-- Journey stages as vertical on mobile, horizontal on desktop -->
+  <div class="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-2 pb-2">
     {% for item in journey.stages %}
-    <div class="journey-card p-3 min-w-[110px] sm:min-w-[130px] flex-shrink-0">
+    <div class="journey-card p-3 w-full sm:min-w-[130px] sm:flex-shrink-0">
       <div class="flex items-center gap-2 mb-2">
         <span class="stage-dot 
           {% if item.stage.value == 'lead' %}bg-blue-400
@@ -78,10 +78,10 @@
       </div>
     </div>
     {% if not loop.last %}
-    <div class="journey-arrow mt-6">→</div>
+    <div class="journey-arrow sm:mt-6 text-center sm:text-left">→</div>
     {% else %}
     <!-- Close the loop: last → first -->
-    <div class="journey-arrow mt-6 loop-closed">⟳</div>
+    <div class="journey-arrow sm:mt-6 loop-closed text-center sm:text-left">⟳</div>
     {% endif %}
     {% endfor %}
   </div>
@@ -89,7 +89,7 @@
   <!-- Journey focus -->
   {% if journey.current_focus %}
   <div class="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-    <p class="text-xs text-amber-300">
+    <p class="text-xs text-amber-300 break-words">
       🎯 Focus: <strong>{{ journey.current_focus|title }}</strong> stage needs attention
       {% if journey.current_focus == 'conversion' %}
       — Leads aren't converting to bookings. Try following up on pending quotes.
@@ -254,7 +254,7 @@
   <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📋 Recent Activity</h2>
   <div class="bg-[#1e293b]/50 border border-dashed border-[#334155] rounded-xl p-6 text-center">
     <p class="text-sm text-slate-500">No recent activity yet</p>
-    <p class="text-xs text-slate-600 mt-1">Activities will appear here as you use the platform</p>
+    <p class="text-xs text-slate-600 mt-1">Create your first entry to get started!</p>
   </div>
 </div>
 {% else %}
@@ -279,7 +279,7 @@
   <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📋 Recent Activity</h2>
   <div class="bg-[#1e293b]/50 border border-dashed border-[#334155] rounded-xl p-6 text-center">
     <p class="text-sm text-slate-500">No recent activity yet</p>
-    <p class="text-xs text-slate-600 mt-1">Activities will appear here as you use the platform</p>
+    <p class="text-xs text-slate-600 mt-1">Create your first entry to get started!</p>
   </div>
 </div>
 {% endif %}

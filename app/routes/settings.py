@@ -15,8 +15,57 @@ def settings_page():
         .order_by(Supplier.created_at.desc()).limit(200).all()
     definitions = EntityDefinition.query.filter_by(tenant_id=g.tenant.id).all()
     team = TeamMember.query.filter_by(tenant_id=g.tenant.id).all()
+
+    # WhatsApp config status
+    wa_config = (g.tenant.ai_config or {}).get("whatsapp", {}) or {}
+    wa_configured = bool(wa_config.get("token") and wa_config.get("phone_id"))
+
+    # Current user's phone info
+    user = g.user
+
     return render_template("settings.html", suppliers=suppliers,
-                           definitions=definitions, team=team)
+                           definitions=definitions, team=team,
+                           wa_configured=wa_configured,
+                           user=user)
+
+
+# ── Phone Number Management API ──
+
+@settings_bp.route("/api/phone", methods=["GET"])
+@login_required
+def get_phone_settings():
+    """Return current user's phone numbers."""
+    user = g.user
+    return jsonify({
+        "phone": user.phone or "",
+        "secondary_phone": user.secondary_phone or "",
+        "whatsapp_phone": user.whatsapp_phone or "",
+        "whatsapp_verified": user.whatsapp_verified or False,
+    })
+
+
+@settings_bp.route("/api/phone", methods=["POST"])
+@login_required
+def update_phone_settings():
+    """Update current user's phone numbers."""
+    data = request.get_json(silent=True) or {}
+    user = g.user
+
+    phone = data.get("phone", "").strip()
+    secondary_phone = data.get("secondary_phone", "").strip()
+
+    if phone:
+        user.phone = phone
+    if secondary_phone:
+        user.secondary_phone = secondary_phone
+
+    # If whatsapp_phone is provided separately, update it too
+    whatsapp_phone = data.get("whatsapp_phone", "").strip()
+    if whatsapp_phone:
+        user.whatsapp_phone = whatsapp_phone
+
+    db.session.commit()
+    return jsonify({"success": True, "message": "Phone numbers updated"})
 
 
 # =====================================================================

@@ -3,7 +3,7 @@
       {% if brand_colors %}style="--brand-h:{{ brand_colors.h }};--brand-s:{{ brand_colors.s }}%;--brand-l:{{ brand_colors.l }}%"{% endif %}>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0f172a">
@@ -37,10 +37,10 @@
   <script>
   // Fix viewport zoom after HTMX swaps
   document.addEventListener('htmx:afterSwap', function() {
-    var vp = document.querySelector('meta[name="viewport"]');
-    if (vp) {
-      vp.content = 'width=device-width,initial-scale=1,viewport-fit=cover';
-    }
+  var vp = document.querySelector('meta[name="viewport"]');
+  if (vp) {
+    vp.content = 'width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover';
+  }
   });
   </script>
   <style>
@@ -85,7 +85,7 @@
     #logout-overlay span { color:white; font-size:0.9rem; font-weight:500; }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-28 sm:pb-6" style="padding-bottom:calc(7rem + env(safe-area-inset-bottom,0px));" x-data>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-28 sm:pb-20" style="padding-bottom:calc(6rem + env(safe-area-inset-bottom,0px));" x-data>
   <a href="#main-content" class="skip-link sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[99999] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:text-sm focus:font-medium">Skip to main content</a>
   <div id="page-loader"></div>
   {% if current_user %}
@@ -94,9 +94,13 @@
       <div class="flex items-center justify-between h-16">
         <div class="flex items-center gap-3">
           {% if current_tenant and current_tenant.logo_url %}
-          <img id="nav-logo" src="{{ current_tenant.logo_url }}" class="h-7 w-auto max-w-[120px] object-contain rounded" alt="{{ current_tenant.company_name }}" onerror="this.style.display='none';document.getElementById('nav-icon').style.display='inline'">
+          <a href="/" class="flex items-center gap-3" title="Go to Dashboard">
+            <img id="nav-logo" src="{{ current_tenant.logo_url }}" class="h-7 w-auto max-w-[120px] object-contain rounded" alt="{{ current_tenant.company_name }}" onerror="this.style.display='none';document.getElementById('nav-icon').style.display='inline'">
+          </a>
           {% else %}
-          <span id="nav-icon" class="text-xl flex-shrink-0">{{ current_tenant.theme_config.get('icon','🧠') if current_tenant else '🧠' }}</span>
+          <a href="/" class="flex items-center gap-3" title="Go to Dashboard">
+            <span id="nav-icon" class="text-xl flex-shrink-0">{{ current_tenant.theme_config.get('icon','🧠') if current_tenant else '🧠' }}</span>
+          </a>
           {% endif %}
           <div class="flex flex-col leading-tight">
             <span id="nav-company-name" class="font-bold text-base truncate">{{ current_tenant.company_name if current_tenant else 'Shunya OS' }}</span>
@@ -106,58 +110,33 @@
           </div>
         </div>
         <div class="flex items-center gap-4">
-                  <button id="burger-btn" onclick="toggleNav()" class="sm:hidden p-1 text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-          </button>
-          <div class="desktop-only hidden sm:flex items-center gap-4">
+          <!-- Top nav links - always visible, no burger menu -->
+          <div class="flex items-center gap-2 sm:gap-4">
             <a href="/" class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap nav-link" data-route="/">Dashboard</a>
-          <!-- Modules dropdown -->
-          <div class="nav-drop">
-            <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Modules ▾</span>
-            <div class="nav-drop-menu">
-              <a href="/relationships" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤝 Relationships</a>
-              <a href="/hr/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">👥 HR</a>
-              <a href="/sales/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">💎 Sales</a>
-              <a href="/marketing/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🚀 Marketing</a>
-              <a href="/finance" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">💰 Finance</a>
-              <a href="/ops" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📋 Ops</a>
-              <a href="/support/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🎫 Support</a>
-              <a href="/legal" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📜 Legal</a>
-              <a href="/field-services" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🔧 Field</a>
-              <a href="/supply-chain" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📦 Supply</a>
+            <div class="nav-drop hidden sm:inline-block">
+              <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Modules ▾</span>
+              <div class="nav-drop-menu">
+                <a href="/relationships" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤝 Relationships</a>
+                <a href="/hr/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">👥 HR</a>
+                <a href="/sales/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">💎 Sales</a>
+                <a href="/finance" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">💰 Finance</a>
+                <a href="/support/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🎫 Support</a>
+              </div>
             </div>
-          </div>
-          <!-- Data dropdown -->
-          <div class="nav-drop">
-            <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Data ▾</span>
-            <div class="nav-drop-menu">
-              <a href="/ingestion" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📥 Ingest</a>
-              <a href="/analytics" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📊 Analytics</a>
-              <a href="/learning" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🧠 Learn</a>
-              <a href="/user-intel" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🧠 Intelligence</a>
+            <div class="nav-drop hidden sm:inline-block">
+              <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">More ▾</span>
+              <div class="nav-drop-menu">
+                <a href="/settings" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">⚙️ Settings</a>
+                <a href="/ai-settings" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤖 AI</a>
+                <a href="/admin/brand" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🏢 Brand</a>
+                <a href="/reports" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📊 Reports</a>
+              </div>
             </div>
-          </div>
-          <!-- Admin dropdown -->
-          <div class="nav-drop">
-            <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Admin ▾</span>
-            <div class="nav-drop-menu">
-              <a href="/admin/brand" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🏢 Brand</a>
-              <a href="/admin/calendar" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📅 Calendar</a>
-              <a href="/admin/email" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📧 Email</a>
-              <a href="/modules" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📦 Modules</a>
-              <a href="/settings" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">⚙️ Settings</a>
-              <a href="/ai-settings" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤖 AI</a>
-              <a href="/governance" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">⚖️ Governance</a>
-              <a href="/admin/import" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📥 Import</a>
-              <a href="/admin/telegram" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤖 Telegram Bot</a>
-              <a href="/admin/search" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🔍 Search</a>
-            </div>
-          </div>
           </div>
           <!-- Global Search Bar -->
           <div class="hidden sm:flex items-center">
             <input id="global-search" type="search" placeholder="Search leads, invoices..." 
-              class="w-40 lg:w-56 text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 transition-colors"
+              class="w-32 sm:w-40 lg:w-56 text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 transition-colors"
               onkeydown="if(event.key==='Enter' && this.value.trim()){window.location.href='/entities/search?q='+encodeURIComponent(this.value.trim())}">
           </div>
           <!-- Theme Switcher -->
@@ -186,49 +165,13 @@
               </div>
             </div>
           </div>
-          <a href="/auth/logout" onclick="event.preventDefault();if(confirm('Are you sure you want to logout?')){document.body.insertAdjacentHTML('beforeend','<div id=\"logout-overlay\"><div class=\"spinner\"></div><span>Logging out...</span></div>');window.location.href=this.href}" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
+          <a href="/auth/logout" onclick="if(!confirm('Logout?'))return!1" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
           <button onclick="toggleShortcuts()" class="text-sm text-slate-400 hover:text-slate-600 font-medium ml-2" title="Keyboard shortcuts">⌨️</button>
           </div>
         </div>
       </div>
     </div>
   </nav>
-  <div id="nav-menu" class="sm:hidden border-t border-slate-100 bg-white" style="max-height:0px;opacity:0;overflow:hidden;transition:max-height .3s ease,opacity .2s ease;">
-    <div class="px-4 py-2 space-y-0.5">
-      <a href="/" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg font-medium">🏠 Dashboard</a>
-      <a href="/relationships" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🤝 Relationships</a>
-      <a href="/hr/dashboard" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">👥 HR</a>
-      <a href="/sales/dashboard" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">💎 Sales</a>
-      <a href="/marketing/dashboard" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🚀 Marketing</a>
-      <a href="/finance" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">💰 Finance</a>
-      <a href="/ops" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📋 Ops</a>
-      <a href="/support/dashboard" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🎫 Support</a>
-      <a href="/legal" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📜 Legal</a>
-      <a href="/field-services" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🔧 Field</a>
-      <a href="/supply-chain" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📦 Supply</a>
-      <hr class="my-2 border-slate-100">
-      <a href="/ingestion" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📥 Ingest</a>
-      <a href="/analytics" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📊 Analytics</a>
-      <a href="/learning" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🧠 Learn</a>
-      <a href="/user-intel" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🧠 Intelligence</a>
-      <a href="/admin/brand" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🏢 Brand</a>
-      <a href="/admin/email" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📧 Email</a>
-      <a href="/modules" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">📦 Modules</a>
-      <a href="/settings" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">⚙️ Settings</a>
-      <a href="/ai-settings" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🤖 AI</a>
-      <a href="/governance" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">⚖️ Governance</a>
-      <hr class="my-2 border-slate-100">
-      <div class="flex items-center gap-3 px-3 py-2">
-        <div class="relative">
-          <button onclick="toggleThemeMenu()" class="text-sm text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1.5" title="Switch theme">
-            <span id="theme-icon-mobile">💼</span>
-            <span>Theme</span>
-          </button>
-        </div>
-        <a href="/auth/logout" onclick="event.preventDefault();if(confirm('Are you sure you want to logout?')){document.body.insertAdjacentHTML('beforeend','<div id=\"logout-overlay\"><div class=\"spinner\"></div><span>Logging out...</span></div>');window.location.href=this.href}" class="text-sm text-red-500 hover:text-red-700 font-medium ml-auto">Logout →</a>
-      </div>
-    </div>
-  </div>
   {% endif %}
 
   <main role="main" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" id="main-shell" hx-boost="true" hx-select="#main-content" hx-target="#main-content" hx-swap="innerHTML" hx-indicator="#page-loader">
@@ -267,7 +210,7 @@
 
   <!-- Bird Floating Assistant — persistent on every screen -->
   {% if current_user %}
-  <div id="bird-widget" style="position:fixed;bottom:24px;right:24px;z-index:9999;font-family:Inter,system-ui,sans-serif">
+  <div id="bird-widget" style="position:fixed;bottom:80px;right:16px;z-index:9999;font-family:Inter,system-ui,sans-serif">
     <!-- Main bubble button -->
     <div id="bird-bubble" onclick="toggleBird()"
       class="sm:flex hidden"
@@ -397,16 +340,6 @@
   </div>
 
   <script>
-  // ── Toggle Nav (mobile) ──
-  function toggleNav() {
-    const m = document.getElementById('nav-menu');
-    if (!m) return;
-    const open = m.style.maxHeight !== '0px' && m.style.maxHeight !== '';
-    m.style.maxHeight = open ? '0px' : '800px';
-    m.style.opacity = open ? '0' : '1';
-    m.style.overflow = open ? 'hidden' : 'visible';
-  }
-
   // ── Toggle Bird ──
   function toggleBird() {
     const p = document.getElementById('bird-panel');
@@ -1131,6 +1064,7 @@
         + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">Search</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">/</span></div>'
         + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">Close panel</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">Esc</span></div>'
         + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">New Lead</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">Ctrl+N</span></div>'
+        + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">Shunya AI</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">Ctrl+K</span></div>'
         + '</div>'
         + '<p style="margin-top:16px;font-size:0.75rem;color:#94a3b8;text-align:center;">Click outside or press Esc to close</p>'
         + '</div></div>';
@@ -1142,39 +1076,267 @@
     var btn = document.getElementById('scroll-top-btn');
     if (btn) btn.style.display = window.scrollY > 500 ? 'block' : 'none';
   });
+
+  // ── Shunya AI Command Bar ──
+  function toggleShunyaBar() {
+    var bar = document.getElementById('shunya-ai-bar');
+    var body = document.body;
+    if (bar.style.display === 'none' || bar.style.display === '') {
+      bar.style.display = 'block';
+      body.style.paddingBottom = 'calc(10rem + env(safe-area-inset-bottom,0px))';
+      document.getElementById('shunya-input').focus();
+    } else {
+      bar.style.display = 'none';
+      body.style.paddingBottom = 'calc(7rem + env(safe-area-inset-bottom,0px))';
+    }
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(String(s)));
+    return d.innerHTML;
+  }
+
+  async function shunyaCommand() {
+    var input = document.getElementById('shunya-input');
+    var q = input.value.trim();
+    if (!q) return;
+    var panel = document.getElementById('shunya-results');
+    panel.style.display = 'block';
+    panel.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;">🧠 Processing through Shunya Pipeline...</div>';
+    var ql = q.toLowerCase();
+    if (/^(new|create|add)\s+(a\s+)?lead/i.test(ql)) {
+      await shunyaCreateLead(q, panel);
+    } else if (/show pipeline|pipeline summary|lead status|dashboard summary|leads summary|summary/i.test(ql)) {
+      await shunyaShowSummary(panel);
+    } else if (/proposal|itinerary/i.test(ql)) {
+      var m = ql.match(/proposal.*(?:lead|#|id)?\s*(\d+)/i) || ql.match(/(?:lead|#|id)\s*(\d+).*proposal/i);
+      if (m) await shunyaProposal(parseInt(m[1]), panel);
+      else panel.innerHTML = '<div style="padding:12px;color:#dc2626;">❌ Please specify a lead ID. Example: "proposal for lead 1"</div>';
+    } else if (/knowledge|what do you know|destinations|past itineraries|kb/i.test(ql)) {
+      await shunyaKnowledge(panel);
+    } else {
+      await shunyaProcessGeneral(q, panel);
+    }
+    input.value = '';
+  }
+
+  async function shunyaCreateLead(query, panel) {
+    var nameM = query.match(/(?:lead|for|named|called)\s+([A-Za-z\s]+?)(?:\s+(?:for|to|in|budget|trip|travel|from|approx))/i)
+           || query.match(/(?:create|new|add)\s+(?:a\s+)?lead\s+(?:for\s+)?([A-Za-z\s]+?)(?:\s+(?:for|to|in|budget|trip|travel)|$)/i);
+    var destM = query.match(/(?:for|to|in|destination)\s+([A-Za-z\s]+?)(?:\s+(?:\d|budget|pax|adult|peop|guest|from|approx))/i)
+           || query.match(/(?:trip|travel|tour)\s+(?:to\s+)?([A-Za-z\s]+?)(?:\s+(?:\d|budget|pax|adult|peop|guest|from|approx)|$)/i);
+    var paxM = query.match(/(\d+)\s*(?:pax|adult|peop|guest|person)/i);
+    var dateM = query.match(/(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|next\s+\w+|this\s+\w+)/i);
+    var budgetM = query.match(/(\d+(?:\.\d+)?)\s*(?:l|lac|lakh|k|cr|crore|thousand|million)/i);
+    try {
+      var r = await fetch('/shunya/process', {method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({customer_name: nameM ? nameM[1].trim() : '', destination: destM ? destM[1].trim() : '', pax: paxM ? paxM[1] : '', dates: dateM ? dateM[1] : '', notes: query, source: 'frontend-ai-bar', format: 'all', create_lead: true})});
+      var d = await r.json();
+      var html = '<div style="padding:4px 0;">';
+      if (d.success) {
+        html += '<div style="font-size:0.9rem;font-weight:600;color:#059669;margin-bottom:8px;">✅ Lead created successfully</div>';
+        if (d.lead_id) html += '<div style="margin-bottom:8px;font-size:0.75rem;color:#64748b;">Lead ID: <strong>' + d.lead_id + '</strong></div>';
+        if (d.profile) {
+          html += '<div style="padding:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">';
+          html += '<div style="font-weight:500;margin-bottom:4px;">🧑 ' + esc(d.profile.customer_name || nameM && nameM[1].trim() || 'New Lead') + '</div>';
+          if (d.profile.destination) html += '<div style="font-size:0.75rem;color:#475569;">📍 ' + esc(d.profile.destination) + '</div>';
+          if (d.profile.budget_range) html += '<div style="font-size:0.75rem;color:#475569;">💰 ' + esc(d.profile.budget_range) + '</div>';
+          if (d.profile.pax) html += '<div style="font-size:0.75rem;color:#475569;">👥 ' + esc(d.profile.pax) + '</div>';
+          html += '</div>';
+        }
+        if (d.proposal_text) {
+          html += '<div style="margin-top:8px;padding:8px;background:white;border:1px solid #e2e8f0;border-radius:8px;font-size:0.75rem;color:#1e293b;line-height:1.5;max-height:200px;overflow-y:auto;">' + d.proposal_text.replace(/\n/g,'<br>') + '</div>';
+        }
+        if (d.lead_id) {
+          html += '<div style="margin-top:10px;"><a href="/entities/lead/' + d.lead_id + '" style="display:inline-block;padding:8px 16px;background:#2563eb;color:white;border-radius:8px;font-size:0.8rem;text-decoration:none;">View Lead →</a></div>';
+        }
+      } else {
+        html += '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ ' + (d.error || 'Failed') + '</div>';
+      }
+      html += '</div>';
+      panel.innerHTML = html;
+    } catch(e) { panel.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ Error: ' + e.message + '</div>'; }
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  async function shunyaShowSummary(panel) {
+    try {
+      var r = await fetch('/shunya/summary');
+      var data = await r.json();
+      var html = '<div style="padding:4px 0;"><div style="font-size:0.9rem;font-weight:600;color:#1e293b;margin-bottom:8px;">📊 Lead Pipeline Summary</div>';
+      if (data && data.length > 0) {
+        for (var i = 0; i < data.length; i++) {
+          var l = data[i];
+          html += '<div style="padding:8px 10px;background:white;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">';
+          html += '<div><div style="font-weight:500;">' + esc(l.customer || l.customer_name || 'Unknown') + '</div>';
+          html += '<div style="font-size:0.7rem;color:#64748b;">' + esc(l.destination || '') + (l.status ? ' · ' + l.status : '') + '</div></div>';
+          html += '<div style="text-align:right;font-size:0.7rem;color:#475569;">💰 ₹' + ((l.total_paid || 0)).toLocaleString() + '<br>📄 ' + (l.invoices || 0) + ' invoices</div></div>';
+        }
+      } else {
+        html += '<div style="padding:12px;text-align:center;color:#94a3b8;">No leads found in pipeline.</div>';
+      }
+      html += '</div>';
+      panel.innerHTML = html;
+    } catch(e) { panel.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ Error: ' + e.message + '</div>'; }
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  async function shunyaProposal(leadId, panel) {
+    try {
+      var r = await fetch('/shunya/proposal/' + leadId + '?format=text');
+      var d = await r.json();
+      var html = '<div style="padding:4px 0;">';
+      if (d.proposal) {
+        html += '<div style="font-size:0.9rem;font-weight:600;color:#1e293b;margin-bottom:8px;">📄 Proposal for ' + esc(d.lead_code || 'Lead #' + leadId) + '</div>';
+        html += '<div style="padding:10px;background:white;border:1px solid #e2e8f0;border-radius:8px;font-size:0.75rem;color:#1e293b;line-height:1.6;max-height:400px;overflow-y:auto;">' + d.proposal.replace(/\n/g,'<br>') + '</div>';
+      } else if (d.error) {
+        html += '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ ' + d.error + '</div>';
+      } else {
+        html += '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ No proposal for lead #' + leadId + '</div>';
+      }
+      html += '</div>';
+      panel.innerHTML = html;
+    } catch(e) { panel.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ Error: ' + e.message + '</div>'; }
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  async function shunyaKnowledge(panel) {
+    try {
+      var r = await fetch('/shunya/knowledge');
+      var d = await r.json();
+      var html = '<div style="padding:4px 0;"><div style="font-size:0.9rem;font-weight:600;color:#1e293b;margin-bottom:8px;">🧠 Shunya Knowledge Base</div>';
+      html += '<div style="padding:8px 10px;background:white;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;"><div style="font-size:0.75rem;color:#64748b;">Knowledge Base Size</div><div style="font-size:0.9rem;font-weight:600;color:#1e293b;">' + ((d.knowledge_base_length || 0)).toLocaleString() + ' characters</div></div>';
+      if (d.past_itineraries && d.past_itineraries.length > 0) {
+        html += '<div style="font-size:0.8rem;font-weight:500;color:#1e293b;margin:8px 0 4px;">Past Itineraries:</div>';
+        for (var i = 0; i < d.past_itineraries.length; i++) {
+          var it = d.past_itineraries[i];
+          html += '<div style="padding:6px 10px;background:white;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:4px;font-size:0.75rem;">';
+          html += '<span style="font-weight:500;">' + esc(it.destination || 'Unknown') + '</span> — ' + esc(it.customer || '') + (it.dates ? ' (' + it.dates + ')' : '') + '</div>';
+        }
+      } else {
+        html += '<div style="padding:8px;color:#94a3b8;font-size:0.8rem;">No past itineraries found.</div>';
+      }
+      html += '</div>';
+      panel.innerHTML = html;
+    } catch(e) { panel.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ Error: ' + e.message + '</div>'; }
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  async function shunyaProcessGeneral(query, panel) {
+    try {
+      var r = await fetch('/shunya/process', {method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({notes: query, source: 'frontend-ai-bar', format: 'all', create_lead: false})});
+      var d = await r.json();
+      var html = '<div style="padding:4px 0;">';
+      if (d.success) {
+        if (d.profile) {
+          html += '<div style="padding:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:8px;">';
+          html += '<div style="font-weight:500;color:#065f46;margin-bottom:4px;">📋 Analysis</div>';
+          if (d.profile.customer_name) html += '<div style="font-size:0.75rem;color:#475569;">Customer: ' + esc(d.profile.customer_name) + '</div>';
+          if (d.profile.destination) html += '<div style="font-size:0.75rem;color:#475569;">Destination: ' + esc(d.profile.destination) + '</div>';
+          if (d.profile.pax) html += '<div style="font-size:0.75rem;color:#475569;">Pax: ' + esc(d.profile.pax) + '</div>';
+          if (d.profile.budget_range) html += '<div style="font-size:0.75rem;color:#475569;">Budget: ' + esc(d.profile.budget_range) + '</div>';
+          html += '</div>';
+        }
+        if (d.strategy) {
+          html += '<div style="padding:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:8px;">';
+          html += '<div style="font-weight:500;color:#1d4ed8;margin-bottom:4px;">💡 Strategy</div>';
+          html += '<div style="font-size:0.75rem;color:#475569;white-space:pre-wrap;">' + (typeof d.strategy === 'string' ? esc(d.strategy) : esc(JSON.stringify(d.strategy,null,2))).replace(/\n/g,'<br>') + '</div>';
+          html += '</div>';
+        }
+        if (d.proposal_text) {
+          html += '<div style="padding:8px;background:white;border:1px solid #e2e8f0;border-radius:8px;">';
+          html += '<div style="font-weight:500;color:#1e293b;margin-bottom:4px;">📄 Proposal</div>';
+          html += '<div style="font-size:0.75rem;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + d.proposal_text.replace(/\n/g,'<br>') + '</div></div>';
+        }
+      } else {
+        html += '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ ' + (d.error || 'Failed') + '</div>';
+      }
+      html += '</div>';
+      panel.innerHTML = html;
+    } catch(e) { panel.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ Error: ' + e.message + '</div>'; }
+    panel.scrollTop = panel.scrollHeight;
+  }
+
+  // ── Ctrl+K → Shunya AI bar ──
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      var bar = document.getElementById('shunya-ai-bar');
+      if (!bar) return;
+      if (bar.style.display === 'none' || bar.style.display === '') {
+        toggleShunyaBar();
+      } else {
+        document.getElementById('shunya-input').focus();
+      }
+    }
+    if (e.key === 'Escape') {
+      var pres = document.getElementById('shunya-results');
+      if (pres && pres.style.display !== 'none') pres.style.display = 'none';
+    }
+  });
+
+  // Auto-show AI bar on desktop
+  if (window.innerWidth >= 640) {
+    var bar = document.getElementById('shunya-ai-bar');
+    if (bar) {
+      bar.style.display = 'block';
+    }
+  }
+
   </script>
   {% endif %}
 
   <!-- Bottom Navigation (mobile only) -->
   {% if current_user %}
   <nav class="bottom-nav mobile-only fixed bottom-0 left-0 right-0 z-50 sm:hidden border-t shadow-lg" aria-label="Main navigation" style="background:var(--nav-bg,#ffffff);color:var(--nav-text,#1e293b);border-color:var(--nav-border,#e2e8f0);padding-bottom:env(safe-area-inset-bottom,0px);">
-    <div class="flex items-center justify-around h-16">
-      <a href="/" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-xs font-medium" data-href="/" style="color:var(--nav-muted,#64748b)">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-        <span>Home</span>
+    <div class="flex items-center justify-evenly h-16 px-1">
+      <a href="/" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-[10px] font-medium min-w-0" data-href="/" style="color:var(--nav-muted,#64748b)">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+        <span class="leading-tight">Home</span>
       </a>
-      <a href="/entities/lead" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-xs font-medium" data-href="/entities" style="color:var(--nav-muted,#64748b)">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-        <span>Records</span>
+      <a href="/entities/lead" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-[10px] font-medium min-w-0" data-href="/entities" style="color:var(--nav-muted,#64748b)">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+        <span class="leading-tight">Records</span>
       </a>
-      <button id="bird-nav-btn" onclick="toggleBird()" class="flex flex-col items-center gap-0.5 text-xs font-medium -mt-4" style="color:var(--nav-muted,#64748b)">
-        <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-lg" style="background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;box-shadow:0 4px 16px rgba(37,99,235,0.3);">🧠</div>
-        <span class="mt-0.5">AI</span>
+      <button id="bird-nav-btn" onclick="toggleBird()" class="flex flex-col items-center gap-0 text-[10px] font-medium" style="color:var(--nav-muted,#64748b)">
+        <div class="w-11 h-11 -mt-2 rounded-full flex items-center justify-center text-lg shadow-lg" style="background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;box-shadow:0 4px 16px rgba(37,99,235,0.3);">🧠</div>
+        <span class="leading-tight">AI</span>
       </button>
-      <a href="/finance" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-xs font-medium" data-href="/finance" style="color:var(--nav-muted,#64748b)">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        <span>Money</span>
+      <a href="/finance" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-[10px] font-medium min-w-0" data-href="/finance" style="color:var(--nav-muted,#64748b)">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span class="leading-tight">Money</span>
       </a>
-      <a href="/admin/brand" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-xs font-medium" data-href="/admin" style="color:var(--nav-muted,#64748b)">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-        <span>Settings</span>
+      <a href="/admin/brand" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-[10px] font-medium min-w-0" data-href="/admin" style="color:var(--nav-muted,#64748b)">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v7.394c0 1.038.626 1.97 1.565 2.342a9 9 0 002.57.639M12 3v7.394a2.375 2.375 0 01-1.565 2.342 9 9 0 01-2.57.639M21 15v3a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-3"/></svg>
+        <span class="leading-tight">Settings</span>
       </a>
     </div>
   </nav>
   {% endif %}
 
+  <!-- ── Shunya AI Command Bar (fixed bottom) ── -->
+  {% if current_user %}
+  <div id="shunya-ai-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9996;background:white;border-top:1px solid #e2e8f0;padding:8px 16px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 20px rgba(0,0,0,0.08);font-family:Inter,system-ui,sans-serif;">
+    <!-- Inline results panel -->
+    <div id="shunya-results" style="display:none;margin-bottom:8px;max-height:300px;overflow-y:auto;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;padding:12px;font-size:0.85rem;color:#1e293b;scroll-behavior:smooth;"></div>
+    <!-- Input row -->
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="shunya-toggle-btn" onclick="toggleShunyaBar()" style="font-size:1.2rem;flex-shrink:0;cursor:pointer;line-height:1;" title="Toggle AI bar">🧠</span>
+      <input id="shunya-input" type="text"
+        placeholder="Ask Shunya AI...  (e.g. 'new lead for Sharma family Bali trip 2 adults budget 2.5L', 'show pipeline', 'proposal for lead 1', 'knowledge', or any inquiry)"
+        style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:0.85rem;color:#1e293b;background:#f8fafc;outline:none;transition:border-color .2s;"
+        onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#e2e8f0'"
+        onkeydown="if(event.key==='Enter')shunyaCommand()">
+      <button onclick="shunyaCommand()" style="padding:10px 20px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;border-radius:12px;font-size:0.8rem;cursor:pointer;font-weight:500;transition:opacity .2s;white-space:nowrap;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">AI</button>
+      <button onclick="toggleShunyaBar()" style="padding:10px;background:#f1f5f9;border:none;border-radius:12px;font-size:0.9rem;cursor:pointer;color:#94a3b8;line-height:1;" title="Close">✕</button>
+    </div>
+  </div>
+  {% endif %}
 
-<!-- Scroll to top button -->
+  <!-- Scroll to top button -->
 <button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;bottom:80px;right:20px;width:40px;height:40px;border-radius:50%;background:#2563eb;color:white;border:none;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,0.3);z-index:9998;transition:all .3s;" aria-label="Scroll to top">↑</button>
 
 </body>
