@@ -56,9 +56,9 @@
   </div>
   
   <!-- Journey stages as horizontal pipeline -->
-  <div class="flex items-start gap-2 overflow-x-auto flex-nowrap pb-2 scroll-thin">
+  <div class="flex items-start gap-2 overflow-x-auto flex-nowrap pb-2 scroll-thin sm:flex-wrap">
     {% for item in journey.stages %}
-    <div class="journey-card p-3 min-w-[130px] flex-shrink-0">
+    <div class="journey-card p-3 min-w-[110px] sm:min-w-[130px] flex-shrink-0">
       <div class="flex items-center gap-2 mb-2">
         <span class="stage-dot 
           {% if item.stage.value == 'lead' %}bg-blue-400

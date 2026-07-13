@@ -510,7 +510,7 @@ html { overflow-x: hidden; }
 
 img, video, canvas, svg, iframe, pre, code, table { max-width: 100%; height: auto; }
 
-body { overflow-wrap: break-word; word-wrap: break-word; }
+body { overflow-wrap: break-word; word-wrap: break-word; overflow-x: hidden; }
 
 /* ════════════════════════════════════════
    PLATFORM-WIDE AUTO CONTRAST
@@ -868,3 +868,14 @@ input::placeholder, textarea::placeholder { color: #94a3b8; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* ── Mobile overflow guards — no horizontal scroll on any screen ── */
+@media (max-width: 639px) {
+  body { overflow-x: hidden; }
+  .journey-card { min-width: 110px !important; }
+  .theme-option { font-size: 0.8rem !important; }
+  #theme-menu { right: auto !important; left: 0 !important; min-width: 160px !important; }
+  [class*="-card"] { max-width: 100% !important; overflow-wrap: break-word !important; word-break: break-word !important; }
+  table { display: block; max-width: 100%; overflow-x: auto; }
+  img, svg { max-width: 100% !important; height: auto; }
+}
