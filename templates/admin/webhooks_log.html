@@ -1,15 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-<style>
-  body { background: #0f172a; color: #e2e8f0; }
-  .log-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
-  .wh-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 6px; }
-  .wh-input { width: 100%; padding: 10px 14px; background: rgba(51,65,85,0.5); border: 1px solid #334155; border-radius: 10px; color: #e2e8f0; font-size: 0.875rem; outline: none; transition: border-color .2s; }
-  .wh-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
-  .wh-btn { padding: 10px 20px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; border: none; cursor: pointer; transition: all .2s; }
-  .wh-btn-outline { background: transparent; border: 1px solid #334155; color: #94a3b8; }
-  .wh-btn-outline:hover { border-color: #3b82f6; color: #3b82f6; }
-</style>
 
 <div class="flex items-center justify-between mb-6">
   <h1 class="text-xl font-bold text-white">📋 Webhook Logs</h1>
