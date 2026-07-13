@@ -289,8 +289,10 @@ input::placeholder, textarea::placeholder { color: #94a3b8; }
 /* Module-specific text classes (d-text, hr-text, sc-text, c-text, etc.)
    that hardcode theme-specific colors in <style> blocks.
    The [class*="-text-"] rule below catches hr-text-muted but NOT d-text
-   (no trailing dash). This rule catches d-text, hr-text, etc. */
-[class*="-text"]:not([class*="text-"]):not(button *):not(a *):not(h1 *):not(h2 *):not(h3 *):not(.nav *) { color: var(--body-text); }
+   (no trailing dash). This rule catches d-text, hr-text, etc.
+   !important needed because <style> blocks in templates come AFTER
+   this CSS link and would otherwise win by document order. */
+[class*="-text"]:not([class*="text-"]):not(button *):not(a *):not(h1 *):not(h2 *):not(h3 *):not(.nav *) { color: var(--body-text) !important; }
 
 /* Form inputs with hardcoded backgrounds in <style> blocks */
 [class*="-input"] { background: var(--card-bg) !important; color: var(--card-text) !important; border-color: var(--nav-border, #334155) !important; }
