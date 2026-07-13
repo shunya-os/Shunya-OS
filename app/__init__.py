@@ -146,6 +146,23 @@ def _register_context_processors(app):
         if tenant:
             from app.shunya.theme import get_brand_colors
             brand_colors = get_brand_colors(tenant)
+
+        # Build breadcrumbs from request path
+        path = request.path
+        crumbs = []
+        if path == "/":
+            crumbs.append({"label": "Dashboard", "url": "/"})
+        elif path.startswith("/hr/"):
+            crumbs.extend([{"label": "Dashboard", "url": "/"}, {"label": "HR", "url": "/hr/dashboard"}])
+        elif path.startswith("/sales/"):
+            crumbs.extend([{"label": "Dashboard", "url": "/"}, {"label": "Sales", "url": "/sales/dashboard"}])
+        elif path.startswith("/admin/"):
+            crumbs.extend([{"label": "Dashboard", "url": "/"}, {"label": "Admin", "url": "/admin/brand"}])
+        elif path.startswith("/finance"):
+            crumbs.extend([{"label": "Dashboard", "url": "/"}, {"label": "Finance", "url": "/finance"}])
+        else:
+            crumbs.append({"label": "Dashboard", "url": "/"})
+
         return {
             "current_user": user,
             "current_tenant": tenant,
@@ -173,6 +190,7 @@ def _register_context_processors(app):
                 {"label": "Governance", "icon": "⚖️", "url": "/governance"},
                 {"label": "Webhooks", "icon": "🔗", "url": "/admin/webhooks"},
             ],
+            "breadcrumbs": crumbs,
         }
 
 

@@ -113,33 +113,40 @@
             </div>
           </div>
           </div>
+          <!-- Global Search Bar -->
+          <div class="hidden sm:flex items-center">
+            <input id="global-search" type="search" placeholder="Search leads, invoices..." 
+              class="w-40 lg:w-56 text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 transition-colors"
+              onkeydown="if(event.key==='Enter' && this.value.trim()){window.location.href='/entities/search?q='+encodeURIComponent(this.value.trim())}">
+          </div>
           <!-- Theme Switcher -->
           <div class="relative" style="display:inline-block;">
             <button onclick="toggleThemeMenu()" id="theme-toggle-btn" class="text-sm text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1" title="Switch theme">
               <span id="theme-icon">💼</span>
             </button>
-            <div id="theme-menu" style="display:none;position:absolute;top:100%;right:0;background:white;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.15);padding:8px;z-index:100;min-width:200px;">
-              <div class="theme-option" data-theme="modern" onclick="switchTheme('modern')" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.85rem;">
-                <span>💼</span> <span>Modern</span> <span style="margin-left:auto;font-size:0.65rem;color:#94a3b8;">Professional</span>
+            <div id="theme-menu" style="display:none;" class="absolute top-full right-0 bg-white border border-slate-200 rounded-xl shadow-lg z-[100] min-w-[200px] p-2">
+              <div class="theme-option px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-sm" data-theme="modern" onclick="switchTheme('modern')">
+                <span>💼</span> <span>Modern</span> <span class="ml-auto text-xs text-slate-400">Professional</span>
               </div>
-              <div class="theme-option" data-theme="playful" onclick="switchTheme('playful')" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.85rem;">
-                <span>🎨</span> <span>Playful</span> <span style="margin-left:auto;font-size:0.65rem;color:#94a3b8;">Vibrant</span>
+              <div class="theme-option px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-sm" data-theme="playful" onclick="switchTheme('playful')">
+                <span>🎨</span> <span>Playful</span> <span class="ml-auto text-xs text-slate-400">Vibrant</span>
               </div>
-              <div class="theme-option" data-theme="elegant" onclick="switchTheme('elegant')" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.85rem;">
-                <span>✨</span> <span>Elegant</span> <span style="margin-left:auto;font-size:0.65rem;color:#94a3b8;">Minimal</span>
+              <div class="theme-option px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-sm" data-theme="elegant" onclick="switchTheme('elegant')">
+                <span>✨</span> <span>Elegant</span> <span class="ml-auto text-xs text-slate-400">Minimal</span>
               </div>
-              <div class="theme-option" data-theme="brandverse" onclick="switchTheme('brandverse')" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.85rem;">
-                <span>🌌</span> <span>Brandverse</span> <span style="margin-left:auto;font-size:0.65rem;color:#94a3b8;">Auto</span>
+              <div class="theme-option px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-sm" data-theme="brandverse" onclick="switchTheme('brandverse')">
+                <span>🌌</span> <span>Brandverse</span> <span class="ml-auto text-xs text-slate-400">Auto</span>
               </div>
-              <div style="border-top:1px solid #e2e8f0;margin:4px 0;padding:4px 0;">
-                <button onclick="setAsDefaultTheme()" style="padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.8rem;border:none;background:none;width:100%;text-align:left;color:#64748b;" id="default-theme-btn" title="Set current theme as default for all users">
+              <div class="border-t border-slate-200 my-1 py-1">
+                <button onclick="setAsDefaultTheme()" class="px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-xs border-0 bg-transparent w-full text-left text-slate-500" id="default-theme-btn" title="Set current theme as default for all users">
                   <span>⭐</span> <span>Set as Default</span>
                 </button>
-                <div id="default-theme-label" style="padding:2px 12px;font-size:0.6rem;color:#94a3b8;"></div>
+                <div id="default-theme-label" class="px-3 py-0.5 text-[0.6rem] text-slate-400"></div>
               </div>
             </div>
           </div>
           <a href="/auth/logout" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
+          <button onclick="toggleShortcuts()" class="text-sm text-slate-400 hover:text-slate-600 font-medium ml-2" title="Keyboard shortcuts">⌨️</button>
           </div>
         </div>
       </div>
@@ -184,6 +191,22 @@
   {% endif %}
 
   <main role="main" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" id="main-shell" hx-boost="true" hx-select="#main-content" hx-target="#main-content" hx-swap="innerHTML" hx-indicator="#page-loader">
+    {% if breadcrumbs %}
+    <nav aria-label="Breadcrumb" class="mb-3 text-xs text-slate-500">
+      <ol class="flex items-center gap-1.5 flex-wrap">
+        {% for crumb in breadcrumbs %}
+        <li class="flex items-center gap-1.5">
+          {% if not loop.last %}
+          <a href="{{ crumb.url }}" class="text-blue-600 hover:text-blue-700 hover:underline">{{ crumb.label }}</a>
+          <span class="text-slate-300">/</span>
+          {% else %}
+          <span class="text-slate-700 font-medium">{{ crumb.label }}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </nav>
+    {% endif %}
     <div id="main-content">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -1035,6 +1058,26 @@
       if (s) s.focus();
     }
   });
+  // ── Keyboard Shortcuts Help ──
+  function toggleShortcuts() {
+    var o = document.getElementById('shortcuts-overlay');
+    if (!o) {
+      o = document.createElement('div');
+      o.id = 'shortcuts-overlay';
+      o.innerHTML = '<div onclick="this.parentElement.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;">'
+        + '<div onclick="event.stopPropagation()" style="background:white;border-radius:16px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">'
+        + '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:16px;color:#1e293b;">Keyboard Shortcuts</h3>'
+        + '<div class="space-y-3">'
+        + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">Open Bird AI</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">Ctrl+B</span></div>'
+        + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">Search</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">/</span></div>'
+        + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">Close panel</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">Esc</span></div>'
+        + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">New Lead</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">Ctrl+N</span></div>'
+        + '</div>'
+        + '<p style="margin-top:16px;font-size:0.75rem;color:#94a3b8;text-align:center;">Click outside or press Esc to close</p>'
+        + '</div></div>';
+      document.body.appendChild(o);
+    } else { o.remove(); }
+  }
   </script>
   {% endif %}
 
