@@ -7,7 +7,8 @@
 
 <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden max-w-full">
   <div class="table-wrap">
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto">
+<table class="w-full text-sm">
       <thead>
         <tr class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
           {% for field in definition.schema[:5] %}

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
-  <link rel="stylesheet" href="/static/shunya.css?v=12">
+  <link rel="stylesheet" href="/static/shunya.css?v=13">
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-20">
   {% if current_user %}
@@ -175,7 +175,7 @@
       title="Ask Shunya AI (Ctrl+B)">🧠</div>
 
     <!-- Chat panel -->
-    <div id="bird-panel" style="display:none;position:absolute;bottom:70px;right:0;width:380px;max-height:560px;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.2);overflow:hidden;border:1px solid rgba(0,0,0,0.06);">
+    <div id="bird-panel" style="display:none;position:absolute;bottom:70px;right:0;width:min(380px,calc(100vw - 32px));max-height:560px;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.2);overflow:hidden;border:1px solid rgba(0,0,0,0.06);">
 
       <!-- Header -->
       <div style="padding:14px 18px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;">
