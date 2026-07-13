@@ -10,6 +10,7 @@
   <link rel="manifest" href="/static/manifest.json">
   <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js')}</script>
   <title>{% if current_tenant %}{{ current_tenant.company_name }}{% else %}Shunya{% endif %} | Shunya OS</title>
+  <meta name="description" content="Shunya OS — AI-Native Universal Operating System. Manage relationships, leads, bookings, finance, HR, and operations from one dashboard.">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1028,7 +1029,7 @@
 
   <!-- Bottom Navigation (mobile only) -->
   {% if current_user %}
-  <div class="bottom-nav fixed bottom-0 left-0 right-0 z-50 sm:hidden border-t shadow-lg" style="background:var(--nav-bg,#ffffff);color:var(--nav-text,#1e293b);border-color:var(--nav-border,#e2e8f0);padding-bottom:env(safe-area-inset-bottom,0px);">
+  <nav class="bottom-nav fixed bottom-0 left-0 right-0 z-50 sm:hidden border-t shadow-lg" aria-label="Main navigation" style="background:var(--nav-bg,#ffffff);color:var(--nav-text,#1e293b);border-color:var(--nav-border,#e2e8f0);padding-bottom:env(safe-area-inset-bottom,0px);">
     <div class="flex items-center justify-around h-16">
       <a href="/" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-xs font-medium" data-href="/" style="color:var(--nav-muted,#64748b)">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
@@ -1051,7 +1052,7 @@
         <span>Settings</span>
       </a>
     </div>
-  </div>
+  </nav>
   {% endif %}
 
 </body>
