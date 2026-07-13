@@ -351,15 +351,17 @@ input::placeholder, textarea::placeholder { color: #94a3b8; }
 /* ── Body background override (from every template's <style>) ── */
 body { background: var(--body-bg) !important; }
 
-/* ── Buttons: primary/success/danger/outline ── */
-[class*="-btn-primary"] { background: var(--clr-primary) !important; color: #ffffff !important; }
-[class*="-btn-primary"]:hover { background: var(--clr-primary) !important; filter: brightness(1.15); }
-[class*="-btn-success"] { background: var(--clr-success) !important; color: #ffffff !important; }
-[class*="-btn-success"]:hover { background: var(--clr-success) !important; filter: brightness(1.15); }
-[class*="-btn-danger"] { background: var(--clr-error) !important; color: #ffffff !important; }
-[class*="-btn-danger"]:hover { background: var(--clr-error) !important; filter: brightness(1.15); }
+/* ── Buttons: primary (blue)/success (green)/danger (red)/outline ── */
+/* Using fixed colors — buttons are semantic UI elements that should
+   look the same regardless of theme, unlike bg/text colors. */
+[class*="-btn-primary"] { background: #3b82f6 !important; color: #ffffff !important; }
+[class*="-btn-primary"]:hover { background: #2563eb !important; }
+[class*="-btn-success"] { background: #10b981 !important; color: #ffffff !important; }
+[class*="-btn-success"]:hover { background: #059669 !important; }
+[class*="-btn-danger"] { background: #ef4444 !important; color: #ffffff !important; }
+[class*="-btn-danger"]:hover { background: #dc2626 !important; }
 [class*="-btn-outline"] { background: transparent !important; border: 1px solid var(--nav-border, #334155) !important; color: var(--body-muted) !important; }
-[class*="-btn-outline"]:hover { border-color: var(--clr-primary) !important; color: var(--clr-primary) !important; }
+[class*="-btn-outline"]:hover { border-color: #3b82f6 !important; color: #3b82f6 !important; }
 
 /* ── Status badges (semantic colors on muted backgrounds) ── */
 [class*="status-"], [class*="health-"], [class*="stage-"],
@@ -369,7 +371,7 @@ body { background: var(--body-bg) !important; }
 [class*="status-new"], [class*="status-open"], [class*="status-sent"], [class*="status-contact"],
 [class*="health-learning"], [class*="s-discovery"], [class*="h-learning"],
 [class*="tag.medium"], [class*="cap-in-progress"], [class*="tg-status.info"],
-[class*="kanban-card-status.info"] { background: rgba(59,130,246,0.15) !important; color: var(--clr-primary) !important; }
+[class*="kanban-card-status.info"] { background: rgba(59,130,246,0.15) !important; color: #60a5fa !important; }
 [class*="status-qualified"], [class*="status-onboarding"],
 [class*="status-proposal"], [class*="s-proposal"], [class*="h-established"],
 [class*="cap-planned"], [class*="stage-planning"], [class*="status-in_progress"] { background: rgba(129,140,248,0.15) !important; color: #818cf8 !important; }
@@ -458,13 +460,13 @@ body { background: var(--body-bg) !important; }
 .mood-btn.selected { border-color: var(--clr-primary) !important; background: rgba(59,130,246,0.2) !important; transform: scale(1.15); }
 .energy-slider { width: 100%; accent-color: var(--clr-primary) !important; }
 .msg-bubble { padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.8125rem; max-width: 85%; }
-.msg-bubble.user { background: var(--clr-primary) !important; color: #ffffff !important; margin-left: auto; border-bottom-right-radius: 4px; }
+.msg-bubble.user { background: #3b82f6 !important; color: #ffffff !important; margin-left: auto; border-bottom-right-radius: 4px; }
 .msg-bubble.bird { background: var(--card-bg) !important; color: var(--card-text) !important; margin-right: auto; border-bottom-left-radius: 4px; }
 .stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1.2; }
 .stat-label { font-size: 0.75rem; color: var(--body-muted) !important; text-transform: uppercase; letter-spacing: 0.05em; }
 .bird-input { background: var(--card-bg) !important; border: 1px solid var(--nav-border, #334155) !important; border-radius: 12px; color: var(--card-text) !important; padding: 0.625rem 0.875rem; font-size: 0.875rem; width: 100%; outline: none; }
 .bird-input:focus { border-color: var(--clr-primary) !important; }
-.btn-primary { background: var(--clr-primary) !important; color: #ffffff !important; border: none; border-radius: 10px; padding: 0.5rem 1rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all .15s ease; }
+.btn-primary { background: #3b82f6 !important; color: #ffffff !important; border: none; border-radius: 10px; padding: 0.5rem 1rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all .15s ease; }
 .btn-primary:hover { filter: brightness(1.15); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-secondary { background: var(--card-bg) !important; color: var(--body-text) !important; border: 1px solid var(--nav-border, #334155) !important; border-radius: 10px; padding: 0.5rem 1rem; font-size: 0.8125rem; cursor: pointer; transition: all .15s ease; }
@@ -510,7 +512,7 @@ body { background: var(--body-bg) !important; }
 .vert-card { cursor: pointer; border: 2px solid transparent; transition: all .2s; }
 .vert-card.selected { border-color: var(--clr-primary) !important; background: rgba(59,130,246,0.1) !important; }
 .brand-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(255,255,255,0.1) !important; border-radius: 20px; font-size: 0.85rem; }
-.event-badge { display: inline-flex; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 500; background: rgba(59,130,246,0.15) !important; color: var(--clr-primary) !important; border: 1px solid rgba(59,130,246,0.2) !important; }
+.event-badge { display: inline-flex; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 500; background: rgba(59,130,246,0.15) !important; color: #60a5fa !important; border: 1px solid rgba(59,130,246,0.2) !important; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 .status-dot.on { background: var(--clr-success) !important; box-shadow: 0 0 6px rgba(16,185,129,0.4); }
 .status-dot.off { background: var(--body-dim) !important; }
