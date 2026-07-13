@@ -2,44 +2,6 @@
 {% block page_icon %}🧠{% endblock %}
 {% block page_title %}User Intelligence{% endblock %}
 {% block head %}
-<style>
-  body { background: #0f172a; }
-  .intel-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 1.25rem; transition: all .2s ease; }
-  .intel-card:hover { border-color: rgba(56,189,248,0.3); }
-  .stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1.2; }
-  .stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
-  .mood-bar { width: 32px; border-radius: 8px 8px 0 0; transition: height .5s ease; min-height: 4px; }
-  .mood-bar-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-  .mood-emoji { font-size: 1.5rem; }
-  .focus-h-bar { height: 8px; border-radius: 4px; transition: width .5s ease; }
-  .activity-seg { height: 24px; transition: width .5s ease; }
-  .activity-seg:first-child { border-radius: 12px 0 0 12px; }
-  .activity-seg:last-child { border-radius: 0 12px 12px 0; }
-  .chips-wrap { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
-  .chip { padding: 0.375rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; cursor: pointer; background: #334155; color: #cbd5e1; transition: all .15s ease; border: 1px solid transparent; }
-  .chip:hover { background: #475569; color: #f1f5f9; border-color: #60a5fa; }
-  .mood-btn { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #334155; background: transparent; font-size: 1.5rem; cursor: pointer; transition: all .15s ease; display: flex; align-items: center; justify-content: center; }
-  .mood-btn:hover { border-color: #60a5fa; background: rgba(96,165,250,0.1); transform: scale(1.1); }
-  .mood-btn.selected { border-color: #60a5fa; background: rgba(96,165,250,0.2); transform: scale(1.15); }
-  .energy-slider { width: 100%; accent-color: #60a5fa; }
-  .msg-bubble { padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.8125rem; max-width: 85%; }
-  .msg-bubble.user { background: #3b82f6; color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
-  .msg-bubble.bird { background: #334155; color: #e2e8f0; margin-right: auto; border-bottom-left-radius: 4px; }
-  .bird-input { background: #1e293b; border: 1px solid #334155; border-radius: 12px; color: #e2e8f0; padding: 0.625rem 0.875rem; font-size: 0.875rem; width: 100%; outline: none; }
-  .bird-input:focus { border-color: #60a5fa; }
-  .btn-primary { background: #3b82f6; color: #fff; border: none; border-radius: 10px; padding: 0.5rem 1rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all .15s ease; }
-  .btn-primary:hover { background: #2563eb; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-secondary { background: #334155; color: #cbd5e1; border: 1px solid #475569; border-radius: 10px; padding: 0.5rem 1rem; font-size: 0.8125rem; cursor: pointer; transition: all .15s ease; }
-  .btn-secondary:hover { background: #475569; color: #f1f5f9; }
-  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; padding: 0.75rem 1.25rem; border-radius: 12px; font-size: 0.875rem; font-weight: 500; z-index: 9999; opacity: 0; transition: opacity .3s ease; pointer-events: none; }
-  .toast.show { opacity: 1; }
-  .toast.success { background: #065f46; border: 1px solid #10b981; color: #d1fae5; }
-  .toast.error { background: #7f1d1d; border: 1px solid #ef4444; color: #fce7f3; }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-  .loading-pulse { animation: pulse 1.5s ease-in-out infinite; }
-  @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
-</style>
 {% endblock %}
 
 {% block content %}

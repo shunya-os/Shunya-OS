@@ -4,24 +4,6 @@
 <title>Get Started | Shunya OS</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: 'Inter', sans-serif; }
-  .step-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; transition: all .3s; }
-  .step-dot.active { background: #3b82f6; color: white; box-shadow: 0 0 0 4px rgba(59,130,246,0.3); }
-  .step-dot.done { background: #10b981; color: white; }
-  .step-dot.pending { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.4); }
-  .step-line { height: 2px; flex: 1; background: rgba(255,255,255,0.1); margin: 0 8px; align-self: center; }
-  .step-line.done { background: #10b981; }
-  .step-panel { display: none; }
-  .step-panel.active { display: block; animation: fadeIn .3s ease; }
-  .vert-card { cursor: pointer; border: 2px solid transparent; transition: all .2s; }
-  .vert-card:hover, .vert-card.selected { border-color: #3b82f6; background: rgba(59,130,246,0.1); }
-  .brand-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(255,255,255,0.1); border-radius: 20px; font-size: 0.85rem; }
-  .brand-tag .remove { cursor: pointer; opacity: 0.5; }
-  .brand-tag .remove:hover { opacity: 1; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-</style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white font-sans min-h-screen">
   <div class="max-w-2xl mx-auto px-4 py-10">

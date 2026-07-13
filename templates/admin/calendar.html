@@ -1,30 +1,5 @@
 {% extends "base.html" %}
 {% block content %}
-<style>
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-  .cal-header { text-align: center; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; padding: 8px 4px; }
-  .cal-cell { min-height: 100px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 6px; cursor: pointer; transition: all .15s; position: relative; }
-  .cal-cell:hover { border-color: #3b82f6; background: #1e2d4a; }
-  .cal-cell.other-month { opacity: 0.3; }
-  .cal-cell.today { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
-  .cal-cell.has-events { border-color: #6366f1; }
-  .cal-day-num { font-size: 0.8rem; font-weight: 600; color: #e2e8f0; margin-bottom: 4px; }
-  .cal-event-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 1px; }
-  .cal-event-row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 4px; font-size: 0.65rem; color: #cbd5e1; cursor: pointer; transition: background .15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cal-event-row:hover { background: rgba(59,130,246,0.15); }
-  .cal-nav-btn { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 8px 16px; color: #e2e8f0; font-size: 0.85rem; cursor: pointer; transition: all .15s; }
-  .cal-nav-btn:hover { background: #334155; border-color: #3b82f6; }
-  .cal-legend { display: flex; gap: 12px; flex-wrap: wrap; }
-  .cal-legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #94a3b8; }
-  /* Day detail panel */
-  #day-detail { display: none; }
-  #day-detail.active { display: block; }
-  .detail-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px; }
-  .detail-event { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px; background: rgba(51,65,85,0.5); border-radius: 8px; border: 1px solid transparent; transition: all .15s; cursor: pointer; }
-  .detail-event:hover { border-color: #334155; background: rgba(51,65,85,0.8); }
-  .detail-event .status-badge { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
-</style>
-
 <div class="max-w-7xl mx-auto px-4 py-6">
   <!-- Header -->
   <div class="flex items-center justify-between mb-6">
