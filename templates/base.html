@@ -30,11 +30,12 @@
             {% endif %}
           </div>
         </div>
-        <div class="flex items-center gap-4 max-w-[calc(100vw-400px)]">
+        <div class="flex items-center gap-4">
                   <button id="burger-btn" onclick="toggleNav()" class="sm:hidden p-1 text-slate-500 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
-          <a href="/" class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap">Dashboard</a>
+          <div class="hidden sm:flex items-center gap-4">
+            <a href="/" class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap">Dashboard</a>
           <!-- Modules dropdown -->
           <div class="nav-drop">
             <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Modules ▾</span>
@@ -77,6 +78,7 @@
               <a href="/admin/search" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🔍 Search</a>
             </div>
           </div>
+          </div>
           <!-- Theme Switcher -->
           <div class="relative" style="display:inline-block;">
             <button onclick="toggleThemeMenu()" id="theme-toggle-btn" class="text-sm text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1" title="Switch theme">
@@ -104,6 +106,7 @@
             </div>
           </div>
           <a href="/auth/logout" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
+          </div>
         </div>
       </div>
     </div>
@@ -132,6 +135,16 @@
       <a href="/settings" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">⚙️ Settings</a>
       <a href="/ai-settings" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">🤖 AI</a>
       <a href="/governance" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg">⚖️ Governance</a>
+      <hr class="my-2 border-slate-100">
+      <div class="flex items-center gap-3 px-3 py-2">
+        <div class="relative">
+          <button onclick="toggleThemeMenu()" class="text-sm text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1.5" title="Switch theme">
+            <span id="theme-icon-mobile">💼</span>
+            <span>Theme</span>
+          </button>
+        </div>
+        <a href="/auth/logout" class="text-sm text-red-500 hover:text-red-700 font-medium ml-auto">Logout →</a>
+      </div>
     </div>
   </div>
   {% endif %}

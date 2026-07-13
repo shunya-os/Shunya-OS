@@ -62,7 +62,7 @@
   <div class="an-card p-5">
     <h3 class="text-xs font-semibold uppercase tracking-wider an-muted mb-4">Activity (7 days)</h3>
     {% if data.activity_trend %}
-    <div class="flex items-end gap-2 h-32 max-w-full overflow-x-auto pb-1">
+    <div class="flex items-end gap-2 h-32 max-w-full overflow-x-auto flex-nowrap pb-1">
       {% for day in data.activity_trend %}
       <div class="flex-1 flex flex-col items-center gap-1 min-w-[40px]">
         <div class="w-full bg-blue-500 rounded-t" style="height:{{ (day.count / 10 * 100)|round|int if day.count > 0 else 2 }}px;min-height:2px;"></div>

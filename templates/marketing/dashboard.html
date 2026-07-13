@@ -142,7 +142,7 @@
 
   <div class="mk-card p-5">
     <h3 class="text-xs font-semibold uppercase tracking-wider mk-secondary mb-4">📧 Email Campaigns</h3>
-    <div class="grid grid-cols-3 gap-4 mb-4">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
       <div class="text-center p-3 rounded-xl" style="background:rgba(168,85,247,0.1);">
         <p class="text-2xl font-bold text-purple-400">{{ overview.total_email_campaigns }}</p>
         <p class="text-xs mk-muted">Campaigns</p>
@@ -182,7 +182,7 @@
       <tbody>
         {% for c in recent_campaigns %}
         <tr class="border-b border-[#334155] hover:bg-[rgba(51,65,85,0.3)]">
-          <td class="py-3 font-medium text-white truncate max-w-[120px]">{{ c.data.get('name', c.display_name) }}</td>
+          <td class="py-3 font-medium text-white truncate max-w-0 sm:max-w-[120px]">{{ c.data.get('name', c.display_name) }}</td>
           <td class="py-3 mk-muted capitalize">{{ c.data.get('goal', 'other') | replace('_', ' ') }}</td>
           <td class="py-3 font-medium text-white">₹{{ "{:,.0f}".format(c.data.get('budget', 0) | float) }}</td>
           <td class="py-3 mk-muted">₹{{ "{:,.0f}".format(c.data.get('spent', 0) | float) }}</td>

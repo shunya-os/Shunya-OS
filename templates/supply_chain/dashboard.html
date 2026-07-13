@@ -114,7 +114,7 @@
         {% for p in products[:10] %}
         <tr class="border-b border-[#334155] hover:bg-[rgba(51,65,85,0.3)]">
           <td class="py-3 font-mono text-xs sc-muted">{{ p.data.get('sku', '-') }}</td>
-          <td class="py-3 font-medium text-white truncate max-w-[150px]">{{ p.data.get('name', p.display_name)[:40] }}</td>
+          <td class="py-3 font-medium text-white truncate max-w-0 sm:max-w-[150px]">{{ p.data.get('name', p.display_name)[:40] }}</td>
           <td class="py-3">
             <span class="{% if p.data.get('current_stock', 0)|float <= p.data.get('min_stock', 0)|float %}text-amber-400 font-medium{% else %}text-white{% endif %}">
               {{ p.data.get('current_stock', '0')|int }}

@@ -96,7 +96,7 @@
       <tbody>
         {% for wo in work_orders[:10] %}
         <tr class="border-b border-[#334155] hover:bg-[rgba(51,65,85,0.3)]">
-          <td class="py-3 font-medium text-white truncate max-w-[150px]">{{ wo.data.get('title', wo.display_name)[:40] }}</td>
+          <td class="py-3 font-medium text-white truncate max-w-0 sm:max-w-[150px]">{{ wo.data.get('title', wo.display_name)[:40] }}</td>
           <td class="py-3 fs-muted">{{ wo.data.get('customer_name', '-') }}</td>
           <td class="py-3 fs-muted">{{ wo.data.get('technician', '-') }}</td>
           <td class="py-3">

@@ -113,7 +113,7 @@
       <tbody>
         {% for c in contracts[:10] %}
         <tr class="border-b border-[#334155] hover:bg-[rgba(51,65,85,0.3)]">
-          <td class="py-3 font-medium text-white truncate max-w-[150px]">{{ c.data.get('title', c.display_name)[:40] }}</td>
+          <td class="py-3 font-medium text-white truncate max-w-0 sm:max-w-[150px]">{{ c.data.get('title', c.display_name)[:40] }}</td>
           <td class="py-3 le-muted">{{ c.data.get('party_b', '-') }}</td>
           <td class="py-3"><span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize whitespace-nowrap">{{ c.data.get('contract_type', '-') }}</span></td>
           <td class="py-3 font-medium text-white">₹{{ "{:,.0f}".format(c.data.get('value', 0)|float) }}</td>

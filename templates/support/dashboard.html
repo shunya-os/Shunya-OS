@@ -136,7 +136,7 @@
         {% for t in open_tix[:20] %}
         <tr class="border-b border-[#334155] hover:bg-[rgba(51,65,85,0.3)] cursor-pointer" onclick="window.location='/entities/ticket/{{ t.id }}'">
           <td class="py-3 font-mono text-xs su-muted">{{ t.data.get('code', t.code) or t.id }}</td>
-          <td class="py-3 font-medium text-white truncate max-w-[200px]">{{ t.data.get('subject', '-') }}</td>
+          <td class="py-3 font-medium text-white truncate max-w-0 sm:max-w-[200px]">{{ t.data.get('subject', '-') }}</td>
           <td class="py-3 su-muted">{{ t.data.get('customer_name', '-') }}</td>
           <td class="py-3">
             <span class="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap
@@ -200,7 +200,7 @@
       <div class="space-y-1">
         {% for b in sla_data.get('breach_details', [])[:5] %}
         <div class="flex items-center justify-between text-xs">
-          <span class="su-muted truncate max-w-[180px]">{{ b.subject[:40] }}</span>
+          <span class="su-muted truncate max-w-0 sm:max-w-[180px]">{{ b.subject[:40] }}</span>
           <span class="text-red-400 flex-shrink-0">{{ b.actual_hours }}h / {{ b.sla_hours }}h</span>
         </div>
         {% endfor %}
