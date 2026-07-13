@@ -129,7 +129,11 @@
     {% for m in vertical_metrics %}
     <div class="stat-card bg-[#1e293b] border border-[#334155] rounded-xl p-3">
       <p class="text-xs text-slate-400 truncate">{{ m.label }}</p>
-      <p class="text-lg font-bold text-white mt-0.5">{{ m.value if m.value and m.value != '0' and m.value != '₹0' else '—' }}</p>
+      {% if m.value and m.value != '0' and m.value != '₹0' and m.value != '—' and m.value != '0.00' %}
+      <p class="text-lg font-bold text-white mt-0.5">{{ m.value }}</p>
+      {% else %}
+      <p class="text-xs text-slate-600 mt-1 italic">No data yet</p>
+      {% endif %}
     </div>
     {% endfor %}
   </div>
