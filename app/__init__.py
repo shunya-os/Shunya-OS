@@ -347,6 +347,9 @@ def create_app(config_override: dict | None = None):
         from app.evidence.models import (
             SourceReference, EvidenceLink, AssertionRecord, SourceAssessment,
         )
+        from app.document.models import (
+            DocumentRecord, DocumentSection, ExtractedField, DocumentComparison, ComparisonItem,
+        )
         ont = registry.get("travel")
         nav_modules = [m for m in ont.modules if m.enabled] if ont else []
 
