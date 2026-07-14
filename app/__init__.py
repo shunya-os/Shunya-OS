@@ -337,6 +337,9 @@ def create_app(config_override: dict | None = None):
             PrivacyPolicy, SensitivityPolicy, RetentionPolicy, MemoryEligibilityPolicy,
             SensitivityAssessment, PrivacyDecision, Restriction, ForgetRequest, PrivacyReviewItem,
         )
+        from app.human_context.models import (
+            HumanContextItem, ContextProposal, ContextConcept,
+        )
         ont = registry.get("travel")
         nav_modules = [m for m in ont.modules if m.enabled] if ont else []
 
