@@ -333,6 +333,10 @@ def create_app(config_override: dict | None = None):
             ExternalConversation, ExternalMessage, ExternalParticipant,
             ExternalAttachmentReference, SyncCursor,
         )
+        from app.privacy.models import (
+            PrivacyPolicy, SensitivityPolicy, RetentionPolicy, MemoryEligibilityPolicy,
+            SensitivityAssessment, PrivacyDecision, Restriction, ForgetRequest, PrivacyReviewItem,
+        )
         ont = registry.get("travel")
         nav_modules = [m for m in ont.modules if m.enabled] if ont else []
 
