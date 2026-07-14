@@ -4,6 +4,7 @@ Injectable client interface with fakes for tests.
 """
 from datetime import datetime
 from typing import Optional
+from googleapiclient.discovery import build
 
 
 class GmailClientInterface:
@@ -39,6 +40,65 @@ class GmailClientInterface:
     def get_profile(self) -> dict:
         """Get Gmail profile (email address, historyId)."""
         raise NotImplementedError
+
+
+class RealGmailClient(GmailClientInterface):
+    """Real Gmail API client using google-api-python-client.
+    Injected via credential_reference resolution. No live calls in automated tests."""
+
+    def __init__(self, credentials=None, token: str = ""):
+        self._service = None
+        if credentials:
+            self._service = build("gmail", "v1", credentials=credentials)
+        elif token:
+            from google.oauth2.credentials import Credentials
+            creds = Credentials(token=token)
+            self._service = build("gmail", "v1", credentials=creds)
+
+    def list_messages(self, query: str = "", max_results: int = 50,
+                      page_token: str = "") -> dict:
+        if not self._service:
+            return {"messages": [], "resultSizeEstimate": 0}
+        kwargs = {"userId": "me", "maxResults": max_results, "q": query}
+        if page_token:
+            kwargs["pageToken"] = page_token
+        result = self._service.users().messages().list(**kwargs).execute()
+        return result
+
+    def get_message(self, message_id: str) -> dict:
+        if not self._service:
+            return {}
+        return self._service.users().messages().get(userId="me", id=message_id, format="full").execute()
+
+    def get_thread(self, thread_id: str) -> dict:
+        if not self._service:
+            return {"id": thread_id, "messages": []}
+        return self._service.users().threads().get(userId="me", id=thread_id).execute()
+
+    def list_history(self, start_history_id: str,
+                     history_types: list = None) -> dict:
+        if not self._service:
+            return {"history": [], "historyId": start_history_id}
+        kwargs = {"userId": "me", "startHistoryId": start_history_id}
+        if history_types:
+            kwargs["historyTypes"] = history_types
+        return self._service.users().history().list(**kwargs).execute()
+
+    def watch(self, topic_name: str, label_ids: list = None) -> dict:
+        if not self._service:
+            return {"historyId": "0", "expiration": "0"}
+        body = {"topicName": topic_name, "labelIds": label_ids or []}
+        return self._service.users().watch(userId="me", body=body).execute()
+
+    def stop_watch(self) -> dict:
+        if not self._service:
+            return {}
+        return self._service.users().stop(userId="me").execute()
+
+    def get_profile(self) -> dict:
+        if not self._service:
+            return {"emailAddress": "", "historyId": "0"}
+        return self._service.users().getProfile(userId="me").execute()
 
 
 class FakeGmailClient(GmailClientInterface):

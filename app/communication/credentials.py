@@ -6,20 +6,23 @@ Adapters request credentials through this resolver.
 """
 import os
 
+IN_TESTING = os.getenv("TESTING", "").lower() in ("true", "1", "yes")
+
 
 class CredentialResolver:
     """Resolves credential references to actual secrets.
-    Credential references are keys/names, never secrets themselves."""
+    Credential references are keys/names, never secrets themselves.
+
+    Production-safe mechanisms:
+      env:REFERENCE_NAME   -> os.environ[REFERENCE_NAME]
+      file:PATH            -> read file contents
+
+    TESTING-only mechanism:
+      literal:value        -> direct value (rejected outside TESTING)
+    """
 
     @staticmethod
     def resolve(ref: str) -> str:
-        """
-        Resolve a credential reference to a secret value.
-        Supported formats:
-          env:VAR_NAME     → os.environ[VAR_NAME]
-          file:/path       → read file contents
-          literal:value    → direct value (for tests only)
-        """
         if not ref:
             return ""
 
@@ -36,13 +39,14 @@ class CredentialResolver:
                 return ""
 
         if ref.startswith("literal:"):
+            if not IN_TESTING:
+                return ""  # rejected outside TESTING
             return ref[8:]
 
         return ""
 
     @staticmethod
     def is_secret_field(field_name: str) -> bool:
-        """Check if a field name suggests secret content."""
         secret_keywords = ["token", "secret", "password", "key", "credential",
                           "refresh", "access_token", "auth", "session"]
         return any(kw in field_name.lower() for kw in secret_keywords)

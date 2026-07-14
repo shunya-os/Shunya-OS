@@ -200,8 +200,14 @@ class TestCredentialResolver:
         assert val == "test-secret-value"
 
     def test_resolve_literal(self, real_app):
-        from app.communication.credentials import CredentialResolver
-        val = CredentialResolver.resolve("literal:test-token")
+        """literal: is permitted only in TESTING mode."""
+        import os
+        os.environ["TESTING"] = "true"
+        # Force reimport to pick up TESTING=true
+        import importlib
+        import app.communication.credentials as cred_mod
+        importlib.reload(cred_mod)
+        val = cred_mod.CredentialResolver.resolve("literal:test-token")
         assert val == "test-token"
 
     def test_no_secret_in_metadata(self, real_app):
