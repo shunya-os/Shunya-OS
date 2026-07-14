@@ -13,6 +13,7 @@ from app.models import (
 )
 from app.shunya.identity import normalize_email, normalize_phone
 from app.intake.session import IntakeSessionState
+from app.relationship.service import RelationshipService
 
 
 class GovernedCommitter:
@@ -201,3 +202,10 @@ class GovernedCommitter:
             return
         cp = CustomerProfile(person_id=person_id, tenant_id=intake_session.tenant_id)
         self._session.add(cp)
+        self._session.flush()
+        # Ensure CUSTOMER relationship idempotently
+        try:
+            rel_svc = RelationshipService(session=self._session)
+            rel_svc.ensure_customer_relationship(person_id, tenant_id=intake_session.tenant_id)
+        except Exception:
+            pass  # Non-blocking — relationship is a best-effort enhancement
