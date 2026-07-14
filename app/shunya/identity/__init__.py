@@ -167,12 +167,14 @@ class IdentityResolver:
     def resolve(self, email: str = "", phone: str = "",
                 channel: str = "", channel_id: str = "",
                 tenant_id: Optional[int] = None,
-                name: str = "") -> ResolutionResult:
+                name: str = "",
+                reference_type: str = "", reference_value: str = "") -> ResolutionResult:
         """
         Multi-strategy identity resolution.
 
         Tries the strongest identifier first. If matched, returns immediately.
         If multiple strategies yield different persons, returns AMBIGUOUS.
+        Supports legacy reference types: employee_ref, customer_ref.
         """
         candidates = []
         reasons = []
@@ -201,8 +203,40 @@ class IdentityResolver:
             if result.status == ResolutionResult.AMBIGUOUS:
                 return result
 
+        # Try legacy reference (employee_ref, customer_ref, supplier_ref)
+        if reference_type and reference_value:
+            result = self.resolve_by_reference(reference_type, reference_value, tenant_id)
+            if result.status == ResolutionResult.MATCHED:
+                return result
+
         return ResolutionResult(ResolutionResult.NO_MATCH,
                                 reason=f"No strong identifier matched email={email} phone={phone}")
+
+    def resolve_by_reference(self, reference_type: str, reference_value: str,
+                              tenant_id: Optional[int] = None) -> ResolutionResult:
+        """Resolve a Person by legacy reference (employee_ref, customer_ref, etc.)."""
+        identities = self._session.query(PersonIdentity).filter(
+            PersonIdentity.identity_type == reference_type,
+            PersonIdentity.normalized_value == reference_value,
+        ).all()
+
+        if not identities:
+            return ResolutionResult(ResolutionResult.NO_MATCH,
+                                    reason=f"No identity match for {reference_type}:{reference_value}")
+
+        persons = [inv.person for inv in identities if inv.person]
+        if tenant_id:
+            persons = [p for p in persons if p.tenant_id == tenant_id]
+
+        if len(persons) == 1:
+            return ResolutionResult(ResolutionResult.MATCHED, person=persons[0],
+                                    reason="Single reference identity match")
+
+        if len(persons) > 1:
+            return ResolutionResult(ResolutionResult.AMBIGUOUS, candidates=persons,
+                                    reason=f"Multiple persons for {reference_type}:{reference_value}")
+
+        return ResolutionResult(ResolutionResult.NO_MATCH, reason="No match after filtering")
 
     def register_identity(self, person: Person, identity_type: str,
                           identity_value: str, verification_state: str = "unverified") -> PersonIdentity:
