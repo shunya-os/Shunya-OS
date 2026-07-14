@@ -51,6 +51,8 @@ class MemoryService:
         if not cand: return {"success": False, "error": "Not found"}
         if tenant_id is not None and cand.tenant_id != tenant_id:
             return {"success": False, "error": "Not found"}
+        if cand.status == CandidateStatus.COMMITTED:
+            return {"success": False, "error": "Already committed"}
         # Re-check Phase 4
         privacy = self._privacy.evaluate_memory_eligibility(
             "memory_candidate", cand.id, tenant_id=tenant_id, person_id=cand.person_id)
