@@ -829,6 +829,109 @@ class ClientUserProfile(db.Model):
 
 
 # ---------------------------------------------------------------------------
+# Data Intake & Transformation (Phase 1A)
+# ---------------------------------------------------------------------------
+
+
+class IntakeSession(db.Model):
+    """Lifecycle model for a data intake operation."""
+    __tablename__ = "intake_sessions"
+    __table_args__ = (
+        Index("ix_intake_tenant", "tenant_id", "status"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
+    source_type = db.Column(db.String(30), nullable=False, index=True)  # csv, xlsx, manual
+    source_name = db.Column(db.String(255), default="")
+    source_checksum = db.Column(db.String(64), default="")
+    row_count = db.Column(db.Integer, default=0)
+    column_names = db.Column(db.Text, default="")  # JSON array
+    status = db.Column(db.String(30), default="received", index=True)
+    summary = db.Column(db.Text, default="")  # JSON blob for import proposal
+    created_by = db.Column(db.String(120), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Lifecycle states
+    # RECEIVED → PROFILED → MAPPING_REQUIRED → READY_FOR_REVIEW → APPROVED → IMPORTING → COMPLETED
+    #                                                                                      → FAILED
+    # Any state → CANCELLED
+
+    def __repr__(self):
+        return f"<IntakeSession #{self.id} [{self.status}] {self.source_type}:{self.source_name}>"
+
+    def to_dict(self) -> dict:
+        import json
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "source_type": self.source_type,
+            "source_name": self.source_name,
+            "source_checksum": self.source_checksum,
+            "row_count": self.row_count,
+            "column_names": json.loads(self.column_names) if self.column_names else [],
+            "status": self.status,
+            "summary": json.loads(self.summary) if self.summary else {},
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class IntakeCandidate(db.Model):
+    """A single row candidate from an intake session, before governed commit."""
+    __tablename__ = "intake_candidates"
+    __table_args__ = (
+        Index("ix_ic_session", "session_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("intake_sessions.id"), nullable=False, index=True)
+    row_index = db.Column(db.Integer, default=0)
+    raw_data = db.Column(db.Text, default="")  # JSON of original row
+    normalized_data = db.Column(db.Text, default="")  # JSON of normalized fields
+    classification = db.Column(db.String(30), default="unknown")  # customer, employee, unknown
+    identity_status = db.Column(db.String(30), default="unknown")  # MATCHED, NO_MATCH, AMBIGUOUS, INSUFFICIENT_IDENTITY
+    matched_person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=True)
+    identity_conflict = db.Column(db.Text, default="")  # JSON describing conflict
+    validation_status = db.Column(db.String(30), default="info")
+    validation_messages = db.Column(db.Text, default="")  # JSON array
+    duplicate_type = db.Column(db.String(30), default="")  # SOURCE_DUPLICATE, IDENTITY_DUPLICATE, etc.
+    duplicate_group = db.Column(db.String(64), default="")
+    import_status = db.Column(db.String(30), default="pending")  # pending, approved, blocked, imported, skipped
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship
+    session = db.relationship("IntakeSession", backref="candidates", lazy="select")
+    matched_person = db.relationship("Person", backref="intake_candidates", lazy="select")
+
+    def __repr__(self):
+        return f"<IntakeCandidate #{self.id} session={self.session_id} row={self.row_index}>"
+
+
+class IntakeFieldMapping(db.Model):
+    """Mapping from a source column to a canonical target field."""
+    __tablename__ = "intake_field_mappings"
+    __table_args__ = (
+        Index("ix_ifm_session", "session_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("intake_sessions.id"), nullable=False)
+    source_column = db.Column(db.String(255), nullable=False)
+    target_field = db.Column(db.String(255), default="")  # canonical field path
+    target_domain = db.Column(db.String(60), default="")  # person, identity, customer
+    mapping_status = db.Column(db.String(30), default="unmapped")  # mapped, unmapped, ignored
+    mapping_method = db.Column(db.String(30), default="auto")  # auto, manual, alias
+    confidence = db.Column(db.Float, default=0.0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<IntakeFieldMapping #{self.id} {self.source_column} → {self.target_field}>"
+
+
+# ---------------------------------------------------------------------------
 # Inquiry Code Generator
 # ---------------------------------------------------------------------------
 
