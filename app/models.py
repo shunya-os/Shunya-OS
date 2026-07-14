@@ -74,6 +74,9 @@ class Lead(db.Model):
     notes = db.Column(db.Text)
     status = db.Column(db.String(30), default=LeadStatus.NEW.value, index=True)
     assigned_to = db.Column(db.String(120))
+    # Person compatibility (Phase 1)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=True)
+    person = db.relationship("Person", backref="leads", lazy="select")
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -668,6 +671,161 @@ class Celebration(db.Model):
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+# ---------------------------------------------------------------------------
+# Person — Unified Human Identity (Phase 1)
+# ---------------------------------------------------------------------------
+
+
+class Person(db.Model):
+    """Canonical human identity. One Person = one human."""
+    __tablename__ = "persons"
+    __table_args__ = (
+        Index("ix_person_tenant", "tenant_id", "status"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
+    canonical_name = db.Column(db.String(255), nullable=False, index=True)
+    preferred_name = db.Column(db.String(255), default="", index=True)
+    status = db.Column(db.String(30), default="active", index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationship
+    identities = db.relationship("PersonIdentity", backref="person", lazy="select", cascade="all, delete-orphan")
+    employee_profile = db.relationship("EmployeeProfile", uselist=False, backref="person", lazy="select")
+    customer_profile = db.relationship("CustomerProfile", uselist=False, backref="person", lazy="select")
+    supplier_contact_profile = db.relationship("SupplierContactProfile", uselist=False, backref="person", lazy="select")
+    client_user_profile = db.relationship("ClientUserProfile", uselist=False, backref="person", lazy="select")
+
+    def __repr__(self):
+        return f"<Person #{self.id} {self.canonical_name}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "canonical_name": self.canonical_name,
+            "preferred_name": self.preferred_name,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class PersonIdentity(db.Model):
+    """Normalized identity values for a Person (email, phone, channel IDs)."""
+    __tablename__ = "person_identities"
+    __table_args__ = (
+        Index("ix_pi_type_value", "identity_type", "normalized_value"),
+        Index("ix_pi_person", "person_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False)
+    identity_type = db.Column(db.String(60), nullable=False, index=True)
+    identity_value = db.Column(db.String(255), nullable=False)
+    normalized_value = db.Column(db.String(255), nullable=False, index=True)
+    verification_state = db.Column(db.String(30), default="unverified")
+
+    def __repr__(self):
+        return f"<PersonIdentity #{self.id} {self.identity_type}:{self.normalized_value}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "identity_type": self.identity_type,
+            "identity_value": self.identity_value,
+            "normalized_value": self.normalized_value,
+            "verification_state": self.verification_state,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Role / Business Projections (Phase 1)
+# ---------------------------------------------------------------------------
+
+
+class EmployeeProfile(db.Model):
+    """Employee role projection over Person."""
+    __tablename__ = "employee_profiles"
+    __table_args__ = (
+        Index("ix_emp_profile_tenant", "tenant_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    employee_code = db.Column(db.String(60), unique=True, nullable=True)
+    department = db.Column(db.String(120), default="")
+    manager_person_id = db.Column(db.Integer, nullable=True)
+    role = db.Column(db.String(60), default="")
+    status = db.Column(db.String(30), default="active")
+    joined_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<EmployeeProfile #{self.id} person={self.person_id}>"
+
+
+class CustomerProfile(db.Model):
+    """Customer role projection over Person."""
+    __tablename__ = "customer_profiles"
+    __table_args__ = (
+        Index("ix_cust_profile_tenant", "tenant_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    lifetime_value = db.Column(db.Numeric(14, 2), default=0)
+    segment = db.Column(db.String(60), default="")
+    preferred_channel = db.Column(db.String(30), default="")
+    preferred_channel_provenance = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<CustomerProfile #{self.id} person={self.person_id}>"
+
+
+class SupplierContactProfile(db.Model):
+    """Supplier contact role projection over Person."""
+    __tablename__ = "supplier_contact_profiles"
+    __table_args__ = (
+        Index("ix_sc_profile_tenant", "tenant_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    supplier_id = db.Column(db.Integer, nullable=True)
+    role_in_organization = db.Column(db.String(120), default="")
+    is_primary = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<SupplierContactProfile #{self.id} person={self.person_id}>"
+
+
+class ClientUserProfile(db.Model):
+    """Client portal user role projection over Person."""
+    __tablename__ = "client_user_profiles"
+    __table_args__ = (
+        Index("ix_cu_profile_tenant", "tenant_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    portal_access_granted = db.Column(db.Boolean, default=False)
+    last_login = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ClientUserProfile #{self.id} person={self.person_id}>"
 
 
 # ---------------------------------------------------------------------------

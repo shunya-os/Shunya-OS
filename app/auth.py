@@ -36,6 +36,9 @@ class TeamMember(db.Model):
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime)
 
+    person_id = Column(Integer, db.ForeignKey("persons.id"), nullable=True)
+    person = db.relationship("Person", backref="team_members", lazy="select")
+
     def set_password(self, password: str):
         salt = secrets.token_hex(16)
         self.password_hash = f"{salt}${hashlib.sha256((salt + password).encode()).hexdigest()}"
