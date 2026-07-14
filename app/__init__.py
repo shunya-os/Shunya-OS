@@ -328,6 +328,11 @@ def create_app(config_override: dict | None = None):
         # Load ontology for navigation
         from app.ontology import registry
         from app.tenant import Tenant
+        from app.communication.models import (
+            CommunicationSource, CommunicationCapturePolicy, CommunicationCaptureScope,
+            ExternalConversation, ExternalMessage, ExternalParticipant,
+            ExternalAttachmentReference, SyncCursor,
+        )
         ont = registry.get("travel")
         nav_modules = [m for m in ont.modules if m.enabled] if ont else []
 
