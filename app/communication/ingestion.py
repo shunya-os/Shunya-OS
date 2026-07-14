@@ -13,6 +13,7 @@ from app.communication.models import (
 )
 from app.communication.policy import CaptureEnforcer, CaptureVerdict
 from app.communication.normalizer import MessageNormalizer
+from app.privacy import PrivacyService
 from app.communication.adapter import NormalizedMessage, CommunicationAdapter
 from app.shunya.identity import IdentityResolver
 from app.relationship.service import RelationshipService
@@ -39,6 +40,7 @@ class CommunicationIngestionService:
         self._normalizer = MessageNormalizer(session)
         self._identity_resolver = IdentityResolver(session)
         self._rel_svc = RelationshipService(session)
+        self._privacy_svc = PrivacyService(session)
 
     def ingest(self, source_id: int, provider_chat_id: str,
                normalized_messages: list[NormalizedMessage],
@@ -94,6 +96,13 @@ class CommunicationIngestionService:
 
             if participant and nm.sender_normalized:
                 self._resolve_participant_identity(participant, nm, tenant_id)
+
+            # --- STEP 5b: PHASE 4 PRIVACY / MEMORY ELIGIBILITY EVALUATION ---
+            # Called after normalization, does not affect ingestion success
+            person_id = participant.person_id if participant else None
+            self._privacy_svc.evaluate_communication_message(
+                msg.id, tenant_id=tenant_id, person_id=person_id,
+            )
 
             # --- STEP 6: SAFE RELATIONSHIP ASSOCIATION ---
             rel_info = self._associate_relationship(participant, source_id, tenant_id)
