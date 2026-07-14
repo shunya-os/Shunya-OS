@@ -125,3 +125,46 @@ class EvidenceRuntimeService:
                 "contradicting_count": pos["contradicting_count"],
                 "wording": wording_map.get(cat, "I don't have enough evidence to say")}
         return safe
+
+    # ------------------------------------------------------------------
+    # Analysis boundary (75-80)
+    # ------------------------------------------------------------------
+    def create_analysis_position(self, target_type, target_id, basis_key, derivation_mechanism,
+                                   reason_code, tenant_id=None):
+        """Create a deterministic ANALYSIS position with governed basis."""
+        base = self.resolve_position(target_type, target_id, tenant_id)
+        return {
+            "position_category": PositionCategory.ANALYSIS,
+            "resolution_state": base["resolution_state"],
+            "explanation": f"Derived analysis based on {basis_key}",
+            "supporting_count": base["supporting_count"],
+            "contradicting_count": base["contradicting_count"],
+            "analysis_basis": basis_key,
+            "derivation_mechanism": derivation_mechanism,
+            "reason_code": reason_code,
+            "basis_current": True,
+            "evaluated_at": datetime.utcnow().isoformat(),
+        }
+
+    # ------------------------------------------------------------------
+    # Recommendation boundary (81-85)
+    # ------------------------------------------------------------------
+    def create_recommendation(self, target_type, target_id, recommendation_text,
+                                context, mechanism, reason_code, tenant_id=None):
+        """Create a deterministic RECOMMENDATION with governed basis.
+        RECOMMENDATION ≠ PLAN. RECOMMENDATION ≠ ACTION. No auto execution."""
+        base = self.resolve_position(target_type, target_id, tenant_id)
+        return {
+            "position_category": PositionCategory.RECOMMENDATION,
+            "resolution_state": base["resolution_state"],
+            "explanation": recommendation_text,
+            "supporting_count": base["supporting_count"],
+            "contradicting_count": base["contradicting_count"],
+            "recommendation_context": context,
+            "mechanism": mechanism,
+            "reason_code": reason_code,
+            "is_plan": False,
+            "is_action": False,
+            "auto_execution": False,
+            "evaluated_at": datetime.utcnow().isoformat(),
+        }

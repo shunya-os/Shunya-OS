@@ -304,3 +304,75 @@ class TestCompatibility:
     def test_health(self, real_app): pass
     def test_login(self, real_app): pass
     def test_dashboard(self, real_app): pass
+
+
+# =========================================================================
+# Analysis/Recommendation Boundaries (75-85) — Special Audit
+# =========================================================================
+class TestAnalysisRecommendation:
+    def test_analysis_basis_preserved(self, real_app):
+        from app.evidence import EvidenceService; from app.runtime import EvidenceRuntimeService; from app import db
+        with real_app.app_context():
+            t = T.tenant(real_app); ev = EvidenceService(session=db.session); svc = EvidenceRuntimeService(ev)
+            sr = ev.register_source("manual_assertion", "test", 1, tenant_id=t.id, producer_type="tenant_user")
+            ev.create_evidence_link(sr.id, "memory_record", 1, relation_type="supports", tenant_id=t.id)
+            a = svc.create_analysis_position("memory_record", 1, "price_trend", "moving_avg_90d", "price_increase", tenant_id=t.id)
+            assert a["position_category"] == "analysis"
+            assert a["analysis_basis"] == "price_trend"
+            assert a["derivation_mechanism"] == "moving_avg_90d"
+            assert a["reason_code"] == "price_increase"
+    def test_analysis_not_fact(self, real_app):
+        from app.evidence import EvidenceService; from app.runtime import EvidenceRuntimeService; from app.runtime import PositionCategory; from app import db
+        with real_app.app_context():
+            t = T.tenant(real_app); ev = EvidenceService(session=db.session); svc = EvidenceRuntimeService(ev)
+            a = svc.create_analysis_position("memory_record", 1, "price_trend", "ma_90d", "price_increase", tenant_id=t.id)
+            assert a["position_category"] == PositionCategory.ANALYSIS; assert PositionCategory.ANALYSIS != PositionCategory.INTERNAL_DATA
+    def test_analysis_reason_code(self, real_app):
+        from app.evidence import EvidenceService; from app.runtime import EvidenceRuntimeService; from app import db
+        with real_app.app_context():
+            t = T.tenant(real_app); ev = EvidenceService(session=db.session); svc = EvidenceRuntimeService(ev)
+            a = svc.create_analysis_position("memory_record", 1, "demand", "seasonal_model", "peak_season", tenant_id=t.id)
+            assert a["reason_code"] == "peak_season"
+    def test_stale_basis_affects(self, real_app):
+        from app.evidence import EvidenceService; from app.runtime import EvidenceRuntimeService; from app import db
+        with real_app.app_context():
+            t = T.tenant(real_app); ev = EvidenceService(session=db.session); svc = EvidenceRuntimeService(ev)
+            sr = ev.register_source("manual_assertion", "test", 1, tenant_id=t.id, producer_type="tenant_user")
+            ev.create_evidence_link(sr.id, "memory_record", 1, relation_type="supports", tenant_id=t.id)
+            a = svc.create_analysis_position("memory_record", 1, "price_trend", "ma_90d", "increase", tenant_id=t.id)
+            assert a["basis_current"] is True
+            ev.revoke_source(sr.id, tenant_id=t.id)
+            a2 = svc.create_analysis_position("memory_record", 1, "price_trend", "ma_90d", "increase", tenant_id=t.id)
+            assert a2["supporting_count"] == 0
+    def test_recommendation_basis(self, real_app):
+        from app.evidence import EvidenceService; from app.runtime import EvidenceRuntimeService; from app import db
+        with real_app.app_context():
+            t = T.tenant(real_app); ev = EvidenceService(session=db.session); svc = EvidenceRuntimeService(ev)
+            sr = ev.register_source("manual_assertion", "test", 1, tenant_id=t.id, producer_type="tenant_user")
+            ev.create_evidence_link(sr.id, "memory_record", 1, relation_type="supports", tenant_id=t.id)
+            r = svc.create_recommendation("memory_record", 1, "Consider upgrading", "customer_anniversary", "rule_based", "upsell", tenant_id=t.id)
+            assert r["position_category"] == "recommendation"; assert r["recommendation_context"] == "customer_anniversary"; assert r["reason_code"] == "upsell"
+    def test_recommendation_not_plan(self, real_app):
+        from app.evidence import EvidenceService; from app.runtime import EvidenceRuntimeService; from app import db
+        with real_app.app_context():
+            t = T.tenant(real_app); ev = EvidenceService(session=db.session); svc = EvidenceRuntimeService(ev)
+            r = svc.create_recommendation("memory_record", 1, "Upgrade", "anniversary", "rule", "upsell", tenant_id=t.id)
+            assert r["is_plan"] is False
+    def test_recommendation_not_action(self, real_app):
+        from app.evidence import EvidenceService; from app.runtime import EvidenceRuntimeService; from app import db
+        with real_app.app_context():
+            t = T.tenant(real_app); ev = EvidenceService(session=db.session); svc = EvidenceRuntimeService(ev)
+            r = svc.create_recommendation("memory_record", 1, "Upgrade", "anniversary", "rule", "upsell", tenant_id=t.id)
+            assert r["is_action"] is False
+    def test_no_auto_execution(self, real_app):
+        from app.evidence import EvidenceService; from app.runtime import EvidenceRuntimeService; from app import db
+        with real_app.app_context():
+            t = T.tenant(real_app); ev = EvidenceService(session=db.session); svc = EvidenceRuntimeService(ev)
+            r = svc.create_recommendation("memory_record", 1, "Send offer", "anniversary", "rule", "upsell", tenant_id=t.id)
+            assert r["auto_execution"] is False
+    def test_recommendation_reason_code(self, real_app):
+        from app.evidence import EvidenceService; from app.runtime import EvidenceRuntimeService; from app import db
+        with real_app.app_context():
+            t = T.tenant(real_app); ev = EvidenceService(session=db.session); svc = EvidenceRuntimeService(ev)
+            r = svc.create_recommendation("memory_record", 1, "Renew policy", "insurance_renewal", "deadline_rule", "expiry_approaching", tenant_id=t.id)
+            assert r["reason_code"] == "expiry_approaching"
