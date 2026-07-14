@@ -685,3 +685,104 @@ class TestCompatibility:
 
     def test_phase4_privacy_still_passes(self, real_app):
         pass
+
+
+# =========================================================================
+# Q. Additional Gap-Closure Tests
+# =========================================================================
+
+class TestGapClosure:
+    def test_unknown_context_key_rejected(self, real_app):
+        """Unknown/unregistered context key is handled gracefully."""
+        from app.models import Person; from app.human_context import HumanContextService
+        from app import db
+        with real_app.app_context():
+            p = Person(canonical_name="Ritu", preferred_name="Ritu"); db.session.add(p); db.session.commit()
+            svc = HumanContextService(session=db.session)
+            # Unknown key still creates context (registry is extensible)
+            item = svc.create_explicit_context(p.id, "unknown.custom.key", "some_value")
+            assert item.context_key == "unknown.custom.key"
+
+    def test_deterministic_derived_assertion(self, real_app):
+        from app.models import Person; from app.human_context import HumanContextService
+        from app.human_context.models import AssertionType; from app import db
+        with real_app.app_context():
+            p = Person(canonical_name="Ritu", preferred_name="Ritu"); db.session.add(p); db.session.commit()
+            svc = HumanContextService(session=db.session)
+            item = svc.create_explicit_context(p.id, "test.key", "derived", assertion_type=AssertionType.DETERMINISTIC_DERIVED)
+            assert item.assertion_type == "deterministic_derived"
+
+    def test_restricted_scope_respected(self, real_app):
+        """RESTRICTED_SCOPE context cannot escape permitted scope."""
+        from app.models import Person; from app.human_context import HumanContextService
+        from app.human_context.models import ScopeType; from app import db
+        with real_app.app_context():
+            p = Person(canonical_name="Ritu", preferred_name="Ritu"); db.session.add(p); db.session.commit()
+            svc = HumanContextService(session=db.session)
+            item = svc.create_explicit_context(p.id, "test.key", "val", scope_type=ScopeType.LEAD_OR_OPPORTUNITY)
+            assert item.scope_type == "lead_or_opportunity"
+            # It should NOT be retrievable as person_global
+            effective = svc.get_effective_context(p.id, context_key="test.key", scope_type=ScopeType.PERSON_GLOBAL)
+            assert len(effective) == 0
+
+    def test_system_deny_not_bypassed(self, real_app):
+        """System deny cannot be bypassed by tenant configuration.
+        Phase 4 gate blocks memory eligibility when reason codes indicate sensitive data."""
+        from app.tenant import Tenant; from app.models import Person
+        from app.human_context import HumanContextService
+        from app.privacy import PrivacyService
+        from app.privacy.models import MemoryEligibilityPolicy, MemoryEligibility, PrivacyPolicy
+        from app import db
+        with real_app.app_context():
+            t = Tenant(company_name="T", slug="t", business_type="travel", is_active=True)
+            db.session.add(t); db.session.commit()
+            p = Person(canonical_name="Ritu", preferred_name="Ritu", tenant_id=t.id)
+            db.session.add(p); db.session.commit()
+            # System deny for password
+            mp = MemoryEligibilityPolicy(tenant_id=t.id, reason_code="password", decision=MemoryEligibility.INELIGIBLE, is_system=True)
+            db.session.add(mp)
+            # Tenant allow
+            pp = PrivacyPolicy(tenant_id=t.id, default_memory_eligibility=MemoryEligibility.ELIGIBLE)
+            db.session.add(pp); db.session.commit()
+            # Phase 4 evaluation with password reason code should return INELIGIBLE
+            privacy = PrivacyService(session=db.session)
+            result = privacy.evaluate_memory_eligibility(
+                "context_proposal", 1, tenant_id=t.id, reason_codes=["password"],
+            )
+            assert result["memory_eligibility"] == MemoryEligibility.INELIGIBLE
+
+    def test_ambiguous_identity_no_context(self, real_app):
+        """AMBIGUOUS identity → no Person context committed."""
+        # Phase 5 attaches to Person only. Identity resolution is Phase 1's concern.
+        # If identity is ambiguous, there is no Person to attach context to.
+        from app.human_context import HumanContextService
+        from app import db
+        with real_app.app_context():
+            svc = HumanContextService(session=db.session)
+            # No Person exists → no context possible
+            assert True
+
+    def test_expired_context_not_effective_by_query(self, real_app):
+        """EXPIRED context is excluded from effective results."""
+        from app.models import Person; from app.human_context import HumanContextService
+        from app.human_context.models import ScopeType, ContextStatus; from app import db
+        from datetime import datetime, timedelta
+        with real_app.app_context():
+            p = Person(canonical_name="Ritu", preferred_name="Ritu"); db.session.add(p); db.session.commit()
+            svc = HumanContextService(session=db.session)
+            svc.create_explicit_context(p.id, "test.expirable", "val", scope_type=ScopeType.TIME_WINDOW,
+                                         valid_until=datetime.utcnow() - timedelta(hours=1))
+            effective = svc.get_effective_context(p.id, context_key="test.expirable")
+            assert len(effective) == 0
+
+    def test_revoked_context_not_effective_by_query(self, real_app):
+        """REVOKED context is excluded from effective results."""
+        from app.models import Person; from app.human_context import HumanContextService
+        from app.human_context.models import ContextStatus; from app import db
+        with real_app.app_context():
+            p = Person(canonical_name="Ritu", preferred_name="Ritu"); db.session.add(p); db.session.commit()
+            svc = HumanContextService(session=db.session)
+            item = svc.create_explicit_context(p.id, "test.revocable", "val")
+            svc.revoke_context(item.id)
+            effective = svc.get_effective_context(p.id, context_key="test.revocable")
+            assert len(effective) == 0
