@@ -811,7 +811,6 @@ class SupplierContactProfile(db.Model):
 
 
 class ClientUserProfile(db.Model):
-    """Client portal user role projection over Person."""
     __tablename__ = "client_user_profiles"
     __table_args__ = (
         Index("ix_cu_profile_tenant", "tenant_id"),
@@ -826,6 +825,121 @@ class ClientUserProfile(db.Model):
 
     def __repr__(self):
         return f"<ClientUserProfile #{self.id} person={self.person_id}>"
+
+
+# ---------------------------------------------------------------------------
+# Relationship Intelligence (Phase 2)
+# ---------------------------------------------------------------------------
+
+
+class Relationship(db.Model):
+    """Canonical relationship between a Person and a business context."""
+    __tablename__ = "relationships"
+    __table_args__ = (
+        Index("ix_rel_tenant_person", "tenant_id", "person_id", "relationship_type"),
+        Index("ix_rel_person", "person_id"),
+        Index("ix_rel_status", "status"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, index=True)
+    relationship_type = db.Column(db.String(60), nullable=False, index=True)
+    status = db.Column(db.String(30), default="active", index=True)
+    started_at = db.Column(db.DateTime, nullable=True)
+    ended_at = db.Column(db.DateTime, nullable=True)
+    source = db.Column(db.String(255), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    person = db.relationship("Person", backref="relationships", lazy="select")
+
+    def __repr__(self):
+        return f"<Relationship #{self.id} {self.relationship_type} person={self.person_id}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "tenant_id": self.tenant_id,
+            "person_id": self.person_id, "relationship_type": self.relationship_type,
+            "status": self.status,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
+            "source": self.source,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class RelationshipEvent(db.Model):
+    """Durable lifecycle event for a relationship."""
+    __tablename__ = "relationship_events"
+    __table_args__ = (
+        Index("ix_re_rel", "relationship_id"),
+        Index("ix_re_event_time", "event_time"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    relationship_id = db.Column(db.Integer, db.ForeignKey("relationships.id"), nullable=False, index=True)
+    event_type = db.Column(db.String(60), nullable=False, index=True)
+    event_time = db.Column(db.DateTime, default=datetime.utcnow)
+    source = db.Column(db.String(255), default="")
+    metadata_json = db.Column(db.Text, default="{}")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    relationship = db.relationship("Relationship", backref="events", lazy="select")
+
+    def __repr__(self):
+        return f"<RelationshipEvent #{self.id} {self.event_type} rel={self.relationship_id}>"
+
+    def to_dict(self) -> dict:
+        import json
+        return {
+            "id": self.id, "relationship_id": self.relationship_id,
+            "event_type": self.event_type,
+            "event_time": self.event_time.isoformat() if self.event_time else None,
+            "source": self.source,
+            "metadata": json.loads(self.metadata_json or "{}"),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class RelationshipCommitment(db.Model):
+    """Explicit commitment or obligation associated with a relationship."""
+    __tablename__ = "relationship_commitments"
+    __table_args__ = (
+        Index("ix_rc_rel", "relationship_id"),
+        Index("ix_rc_status", "status"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    relationship_id = db.Column(db.Integer, db.ForeignKey("relationships.id"), nullable=False, index=True)
+    direction = db.Column(db.String(30), default="company_to_person")
+    summary = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(30), default="open", index=True)
+    due_at = db.Column(db.DateTime, nullable=True)
+    source = db.Column(db.String(255), default="")
+    created_by = db.Column(db.String(120), default="")
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    resolution_note = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    relationship = db.relationship("Relationship", backref="commitments", lazy="select")
+
+    def __repr__(self):
+        return f"<RelationshipCommitment #{self.id} [{self.status}] {self.summary[:50]}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "tenant_id": self.tenant_id,
+            "relationship_id": self.relationship_id, "direction": self.direction,
+            "summary": self.summary, "status": self.status,
+            "due_at": self.due_at.isoformat() if self.due_at else None,
+            "source": self.source, "created_by": self.created_by,
+            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
+            "resolution_note": self.resolution_note,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 # ---------------------------------------------------------------------------
