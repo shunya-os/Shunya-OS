@@ -853,6 +853,13 @@ class IntakeSession(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Proposal versioning (Phase 1A hardening)
+    proposal_version = db.Column(db.Integer, default=0)
+    proposal_generated_at = db.Column(db.DateTime, nullable=True)
+    approved_by = db.Column(db.String(120), default="")
+    approved_at = db.Column(db.DateTime, nullable=True)
+    approved_proposal_version = db.Column(db.Integer, default=0)
+
     # Lifecycle states
     # RECEIVED → PROFILED → MAPPING_REQUIRED → READY_FOR_REVIEW → APPROVED → IMPORTING → COMPLETED
     #                                                                                      → FAILED

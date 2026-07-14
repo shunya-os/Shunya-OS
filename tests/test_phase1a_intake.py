@@ -447,7 +447,8 @@ class TestGovernedCommit:
             db.session.add(c); db.session.commit()
             committer = GovernedCommitter(session=db.session)
             result = committer.commit(sess.id)
-            assert result["skipped"] == 1
+            assert result["unresolved_remaining"] == 1
+            assert result["session_status"] == IntakeSessionState.PARTIALLY_COMPLETED
 
     def test_idempotent_retry(self, real_app):
         """Re-running an import does not duplicate Persons."""

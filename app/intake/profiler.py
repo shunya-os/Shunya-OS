@@ -65,7 +65,8 @@ class ColumnProfile:
 
 
 class SchemaProfiler:
-    """Profile tabular data to understand its structure."""
+    """Profile tabular data to understand its structure.
+    Supports CSV and XLSX through the same pipeline."""
 
     @staticmethod
     def detect_separator(content: str) -> str:
@@ -85,10 +86,34 @@ class SchemaProfiler:
         rows = list(reader)
         return columns, rows
 
-    def profile(self, content: str, separator: str = "") -> dict:
-        if not separator:
-            separator = self.detect_separator(content)
-        columns, rows = self.parse_csv(content, separator)
+    @staticmethod
+    def parse_xlsx(filepath: str) -> tuple[list[str], list[dict]]:
+        """Parse XLSX workbook. Uses first worksheet by default."""
+        import openpyxl
+        wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
+        ws = wb.active
+        if ws is None:
+            return [], []
+        rows_iter = ws.iter_rows(values_only=True)
+        header_row = next(rows_iter, None)
+        if not header_row:
+            return [], []
+        columns = [str(h) if h is not None else f"col_{i}" for i, h in enumerate(header_row)]
+        rows = []
+        for row in rows_iter:
+            rows.append({columns[i]: (str(v) if v is not None else "") for i, v in enumerate(row)})
+        wb.close()
+        return columns, rows
+
+    def profile(self, content: str = "", separator: str = "",
+                xlsx_path: str = "") -> dict:
+        """Profile tabular data. Pass content for CSV, xlsx_path for XLSX."""
+        if xlsx_path:
+            columns, rows = self.parse_xlsx(xlsx_path)
+        else:
+            if not separator:
+                separator = self.detect_separator(content)
+            columns, rows = self.parse_csv(content, separator)
         profiles = {}
         for col in columns:
             values = [row.get(col, "") for row in rows]

@@ -17,8 +17,13 @@ class IntakeSessionState:
     APPROVED = "approved"
     IMPORTING = "importing"
     COMPLETED = "completed"
+    PARTIALLY_COMPLETED = "partially_completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+    # Approval scopes
+    APPROVE_SAFE_ONLY = "approve_safe_only"
+    APPROVE_ALL = "approve_all"
 
     VALID_TRANSITIONS = {
         RECEIVED: [PROFILED, CANCELLED, FAILED],
@@ -26,8 +31,9 @@ class IntakeSessionState:
         MAPPING_REQUIRED: [READY_FOR_REVIEW, CANCELLED, FAILED],
         READY_FOR_REVIEW: [APPROVED, CANCELLED, FAILED],
         APPROVED: [IMPORTING, CANCELLED, FAILED],
-        IMPORTING: [COMPLETED, FAILED],
+        IMPORTING: [COMPLETED, PARTIALLY_COMPLETED, FAILED],
         COMPLETED: [],
+        PARTIALLY_COMPLETED: [READY_FOR_REVIEW, CANCELLED],
         FAILED: [],
         CANCELLED: [],
     }

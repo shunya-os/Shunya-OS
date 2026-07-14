@@ -3,6 +3,7 @@ ImportProposal — reviewable summary of an intake session before governed commi
 """
 import json
 from collections import Counter
+from datetime import datetime
 from typing import Optional
 from app import db
 from app.models import IntakeSession, IntakeCandidate
@@ -28,9 +29,24 @@ class ImportProposalBuilder:
         no_match = [c for c in candidates if c.identity_status == "NO_MATCH"]
         conflicts = [c for c in candidates if c.identity_status == "CONFLICT"]
 
+        safe_count = len(matched) + len(no_match)
+        # Use a set of candidate IDs to avoid double-counting
+        review_ids = set()
+        for c in ambiguous: review_ids.add(c.id)
+        for c in insufficient: review_ids.add(c.id)
+        for c in conflicts: review_ids.add(c.id)
+        for c in blocked: review_ids.add(c.id)
+        review_count = len(review_ids)
+
+        # Increment proposal version
+        session.proposal_version = (session.proposal_version or 0) + 1
+        session.proposal_generated_at = datetime.utcnow()
+
         proposal = {
             "session_id": session.id,
             "session_status": session.status,
+            "proposal_version": session.proposal_version,
+            "proposal_generated_at": session.proposal_generated_at.isoformat(),
             "total_rows": total,
             "summary": {
                 "valid": import_statuses.get("pending", 0),
@@ -42,13 +58,16 @@ class ImportProposalBuilder:
                 "insufficient_identity": len(insufficient),
                 "conflicts": len(conflicts),
                 "duplicates": sum(duplicate_types.values()),
+                "safe_import_count": safe_count,
+                "review_required_count": review_count,
+                "can_commit_safe_candidates": safe_count > 0,
+                "has_unresolved_candidates": review_count > 0,
             },
             "identity_breakdown": dict(identity_statuses),
             "validation_breakdown": dict(validation_statuses),
             "duplicate_breakdown": dict(duplicate_types),
             "classification_breakdown": dict(classifications),
-            "can_import": len(blocked) == 0 and len(ambiguous) == 0
-                          and len(insufficient) == 0 and len(conflicts) == 0,
+            "can_import": review_count == 0,
         }
 
         # Store proposal in session
