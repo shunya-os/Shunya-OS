@@ -340,6 +340,10 @@ def create_app(config_override: dict | None = None):
         from app.human_context.models import (
             HumanContextItem, ContextProposal, ContextConcept,
         )
+        from app.memory.models import (
+            MemoryRecord, MemoryCandidate, MemoryConcept as MemConcept,
+            MemoryProvenance,
+        )
         ont = registry.get("travel")
         nav_modules = [m for m in ont.modules if m.enabled] if ont else []
 
