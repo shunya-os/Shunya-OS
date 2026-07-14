@@ -344,6 +344,9 @@ def create_app(config_override: dict | None = None):
             MemoryRecord, MemoryCandidate, MemoryConcept as MemConcept,
             MemoryProvenance,
         )
+        from app.evidence.models import (
+            SourceReference, EvidenceLink, AssertionRecord, SourceAssessment,
+        )
         ont = registry.get("travel")
         nav_modules = [m for m in ont.modules if m.enabled] if ont else []
 
@@ -387,14 +390,19 @@ def create_app(config_override: dict | None = None):
         }
 
     # ---- Auto-create tables (safe for first run) --------------------------
-    with app.app_context():
-        from sqlalchemy.exc import OperationalError, ProgrammingError
+        with app.app_context():
+            from sqlalchemy.exc import OperationalError, ProgrammingError
+            from app.tenant import Tenant
 
-        try:
-            db.create_all()
-            app.logger.info("Database tables verified")
-        except (OperationalError, ProgrammingError) as e:
-            app.logger.warning("Tables may already exist or DB not ready: %s", e)
+            # Skip create_all for :memory: test databases — test fixtures handle it
+            if "sqlite:///:memory:" in str(app.config.get("SQLALCHEMY_DATABASE_URI", "")):
+                pass
+            else:
+                try:
+                    db.create_all()
+                    app.logger.info("Database tables verified")
+                except (OperationalError, ProgrammingError) as e:
+                    app.logger.warning(f"Tables may already exist or DB not ready: {e}")
 
     app.logger.info(
         "Panchi Club Travel OS initialised",
