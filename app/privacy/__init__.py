@@ -269,11 +269,14 @@ class PrivacyService:
         self._session.add(fr)
         self._session.commit()
         return fr
-
     def approve_forget_request(self, request_id: int,
-                               approved_by: str = "") -> dict:
+                               approved_by: str = "",
+                               tenant_id: Optional[int] = None) -> dict:
+        """Approve a forget request. Verifies tenant ownership."""
         fr = self._session.get(ForgetRequest, request_id)
         if not fr:
+            return {"success": False, "error": "Request not found"}
+        if tenant_id is not None and fr.tenant_id != tenant_id:
             return {"success": False, "error": "Request not found"}
         if fr.status not in (ForgetRequestStatus.REQUESTED, ForgetRequestStatus.VALIDATING):
             return {"success": False, "error": f"Cannot approve from {fr.status}"}
@@ -294,14 +297,17 @@ class PrivacyService:
             )
 
         return {"success": True, "status": ForgetRequestStatus.APPROVED}
-
-    def mark_execution_pending(self, request_id: int) -> dict:
-        fr = self._session.get(ForgetRequest, request_id)
-        if not fr:
-            return {"success": False, "error": "Request not found"}
-        fr.status = ForgetRequestStatus.EXECUTION_PENDING
-        self._session.commit()
-        return {"success": True, "status": ForgetRequestStatus.EXECUTION_PENDING}
+    def mark_execution_pending(self, request_id: int,
+                                    tenant_id: Optional[int] = None) -> dict:
+            """Mark forget request as execution pending. Verifies tenant ownership."""
+            fr = self._session.get(ForgetRequest, request_id)
+            if not fr:
+                return {"success": False, "error": "Request not found"}
+            if tenant_id is not None and fr.tenant_id != tenant_id:
+                return {"success": False, "error": "Request not found"}
+            fr.status = ForgetRequestStatus.EXECUTION_PENDING
+            self._session.commit()
+            return {"success": True, "status": ForgetRequestStatus.EXECUTION_PENDING}
 
     # ------------------------------------------------------------------
     # Review Queue
@@ -330,11 +336,14 @@ class PrivacyService:
             "reason_code": i.reason_code, "decision_type": i.decision_type,
             "created_at": i.created_at.isoformat() if i.created_at else None,
         } for i in items]
-
     def approve_review(self, item_id: int, reviewed_by: str = "",
-                       note: str = "") -> dict:
+                       note: str = "",
+                       tenant_id: Optional[int] = None) -> dict:
+        """Approve a review item. Verifies tenant ownership."""
         item = self._session.get(PrivacyReviewItem, item_id)
         if not item:
+            return {"success": False, "error": "Review item not found"}
+        if tenant_id is not None and item.tenant_id != tenant_id:
             return {"success": False, "error": "Review item not found"}
         # Check if system non-overridable
         if item.reason_code in SYSTEM_NON_OVERRIDABLE_REASONS:
@@ -351,11 +360,14 @@ class PrivacyService:
         return {"success": True, "status": "approved"}
 
     def deny_review(self, item_id: int, reviewed_by: str = "",
-                    note: str = "") -> dict:
+                    note: str = "",
+                    tenant_id: Optional[int] = None) -> dict:
+        """Deny a review item. Verifies tenant ownership."""
         item = self._session.get(PrivacyReviewItem, item_id)
         if not item:
             return {"success": False, "error": "Review item not found"}
-        item.status = "denied"
+        if tenant_id is not None and item.tenant_id != tenant_id:
+            return {"success": False, "error": "Review item not found"}
         item.reviewed_by = reviewed_by
         item.reviewed_at = datetime.utcnow()
         item.review_note = note
