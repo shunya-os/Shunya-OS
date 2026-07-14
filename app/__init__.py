@@ -350,6 +350,7 @@ def create_app(config_override: dict | None = None):
         from app.document.models import (
             DocumentRecord, DocumentSection, ExtractedField, DocumentComparison, ComparisonItem,
         )
+        from app.llm.models import ModelRun
         ont = registry.get("travel")
         nav_modules = [m for m in ont.modules if m.enabled] if ont else []
 
