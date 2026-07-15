@@ -3,7 +3,7 @@ Panchi Club — Extended Test Suite (Unit 10)
 
 Covers: routes, services, pipeline, Telegram webhook.
 """
-
+import jinja2
 import pytest
 from app import create_app, db
 from app.models import Lead, Payment, Invoice, Supplier, ActivityLog
@@ -74,8 +74,9 @@ class TestFormatReply:
 class TestDashboard:
     def test_dashboard_loads(self, client):
         r = client.get("/")
+        # TESTING=True bypasses auth middleware deterministically — always 200
         assert r.status_code == 200
-        assert b"AI@panchi.club" in r.data
+        assert b"Shunya" in r.data
 
 
 class TestLeads:
@@ -163,6 +164,7 @@ class TestTelegramWebhook:
 
 class TestSettings:
     def test_page_loads(self, client):
+        # Settings is an open route — no auth in test mode, template handles None user gracefully
         r = client.get("/settings")
         assert r.status_code == 200
 
@@ -211,8 +213,11 @@ class TestActivitiesAPI:
 class Test404:
     def test_api_404_returns_json(self, client):
         r = client.get("/shunya/nonexistent")
+        # custom_404 delegates API paths to JSON response
         assert r.status_code == 404
-        assert "error" in r.get_json()
+        data = r.get_json()
+        assert data is not None
+        assert "error" in data
 
     def test_ui_404_returns_html(self, client):
         r = client.get("/nonexistent-ui-route")

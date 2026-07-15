@@ -279,6 +279,14 @@ def create_app(config_override: dict | None = None):
 
     @app.errorhandler(404)
     def custom_404(e):
+        # API paths return JSON; browser paths get styled HTML
+        if request.path.startswith("/api/") or request.path.startswith("/shunya/"):
+            from flask import jsonify
+            return jsonify({
+                "error": "Not found",
+                "detail": str(e),
+                "request_id": getattr(g, "request_id", ""),
+            }), 404
         from flask import render_template_string
         html = '''<!doctype html>
 <html lang="en">
