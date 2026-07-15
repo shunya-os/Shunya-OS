@@ -103,6 +103,8 @@ class FakeProvider:
             return {"success": True, "sources": [], "observations": []}
         if "rate_limit" in query.lower():
             return {"success": False, "error_type": "rate_limited", "error_message": "Rate limited"}
+        if "unavailable" in query.lower():
+            return {"success": False, "error_type": "provider_unavailable", "error_message": "Unavailable"}
         if "conflict" in query.lower():
             return {"success": True, "sources": [
                 {"url": "https://example.com/1", "title": "Source 1", "content": "Claim A"},
@@ -110,6 +112,50 @@ class FakeProvider:
             ], "observations": [
                 {"source_url": "https://example.com/1", "text": "Claim A", "locator": "para:1"},
                 {"source_url": "https://example.com/2", "text": "Claim B", "locator": "para:1"},
+            ]}
+        if "stale" in query.lower():
+            return {"success": True, "sources": [
+                {"url": "https://example.com/old", "title": "Old Source",
+                 "content": "stale_info: Old data from 2023",
+                 "source_type": "general_web",
+                 "published_at": "2023-01-01"},
+            ], "observations": [
+                {"source_url": "https://example.com/old", "text": "stale_info: Old data from 2023",
+                 "locator": "para:1", "published_at": "2023-01-01"},
+            ]}
+        if "dedup" in query.lower():
+            return {"success": True, "sources": [
+                {"url": "https://mirror1.example.com", "title": "Mirror 1",
+                 "content": "duplicate_content", "source_type": "general_web"},
+                {"url": "https://mirror2.example.com", "title": "Mirror 2",
+                 "content": "duplicate_content", "source_type": "general_web"},
+            ], "observations": [
+                {"source_url": "https://mirror1.example.com", "text": "duplicate_content", "locator": "para:1"},
+                {"source_url": "https://mirror2.example.com", "text": "duplicate_content", "locator": "para:1"},
+            ]}
+        if "corroborate" in query.lower():
+            return {"success": True, "sources": [
+                {"url": "https://example.com/visa_fee", "title": "Visa Fee Source",
+                 "content": "visa_fee: 500000 IDR. processing_time: 3 days.",
+                 "source_type": "official_government"},
+                {"url": "https://example.com/visa_fee2", "title": "Visa Fee Source 2",
+                 "content": "visa_fee: 500000 IDR. processing_time: 5 days.",
+                 "source_type": "official_organization"},
+            ], "observations": [
+                {"source_url": "https://example.com/visa_fee", "text": "visa_fee: 500000 IDR. processing_time: 3 days.",
+                 "locator": "section:1/para:1"},
+                {"source_url": "https://example.com/visa_fee2", "text": "visa_fee: 500000 IDR. processing_time: 5 days.",
+                 "locator": "section:1/para:1"},
+            ]}
+        if "historical" in query.lower():
+            return {"success": True, "sources": [
+                {"url": "https://example.com/2024", "title": "2024 Entry Rules",
+                 "content": "entry_rules: 2024 rules. visa_requirements: Visa on arrival.",
+                 "source_type": "official_government",
+                 "published_at": "2024-06-01"},
+            ], "observations": [
+                {"source_url": "https://example.com/2024", "text": "entry_rules: 2024 rules. visa_requirements: Visa on arrival.",
+                 "locator": "para:1", "published_at": "2024-06-01"},
             ]}
         return {"success": True, "sources": [
             {"url": "https://example.com/rules", "title": "Entry Rules",
