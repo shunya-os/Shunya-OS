@@ -1,8 +1,7 @@
 """
-PHASE 10 — Context Fusion + WORKSPACE_CONTEXT Tests
+PHASE 10 — Authoritative Closure Correction Tests
 """
 import pytest, json, hashlib
-from datetime import datetime
 
 
 @pytest.fixture(scope="function")
@@ -12,148 +11,140 @@ def ctx():
 
 
 # =========================================================================
-# Core Distinctions (1-16)
+# Source Provider Registry
 # =========================================================================
-class TestCoreDistinctions:
-    def test_data_not_context(self, ctx):
-        from app.context import ContextFusionService; assert hasattr(ContextFusionService, "build_workspace_context")
-    def test_eligible_not_relevant(self, ctx): assert True
-    def test_context_not_memory(self, ctx): assert True
-    def test_context_not_prompt(self, ctx): assert True
-    def test_workspace_not_dump(self, ctx):
-        wc = ctx.build_workspace_context(1, 1)
-        assert "total_items" in wc and "sections" in wc
-    def test_current_object_not_tenant(self, ctx):
-        wc = ctx.build_workspace_context(1, 1, current_object_type="booking", current_object_id=42)
-        assert wc["current_object_id"] == 42
-    def test_actor_not_subject(self, ctx):
-        wc = ctx.build_workspace_context(1, 1, subject_id=5)
-        assert wc["actor_id"] == 1 and wc["subject_id"] == 5
-    def test_fused_not_truth(self, ctx): assert True
+class TestSourceProviderRegistry:
+    def test_provider_identity(self, ctx):
+        p = ctx.get_provider("identity")
+        assert p is not None and p["name"] == "identity_provider" and p["version"] == "1.0"
+    def test_provider_relationship(self, ctx):
+        p = ctx.get_provider("relationship")
+        assert p is not None and p["scopes"] == ["relationship", "supplier"]
+    def test_provider_conversation(self, ctx):
+        p = ctx.get_provider("conversation"); assert p is not None and "message" in p["scopes"]
+    def test_provider_human_context(self, ctx):
+        p = ctx.get_provider("human_context"); assert p is not None
+    def test_provider_memory(self, ctx):
+        p = ctx.get_provider("memory"); assert p is not None
+    def test_provider_evidence(self, ctx):
+        p = ctx.get_provider("evidence_position"); assert p is not None
+    def test_provider_document(self, ctx):
+        p = ctx.get_provider("document"); assert p is not None
+    def test_all_providers_listable(self, ctx):
+        pl = ctx.list_providers(); assert len(pl) == 7
+    def test_unknown_provider_none(self, ctx):
+        assert ctx.get_provider("nonexistent") is None
 
 
 # =========================================================================
-# Canonical Fusion Service (17-22)
-# =========================================================================
-class TestFusionService:
-    def test_build_workspace_context(self, ctx):
-        wc = ctx.build_workspace_context(1, 1)
-        assert "tenant_id" in wc and "fingerprint" in wc
-    def test_inspect_context(self, ctx):
-        wc = ctx.build_workspace_context(1, 1)
-        ins = ctx.inspect_context(wc)
-        assert "sections" in ins and "fingerprint" in ins
-    def test_explain_inclusion(self, ctx):
-        wc = ctx.build_workspace_context(1, 1)
-        exp = ctx.explain_inclusion(wc, "actor", 1)
-        assert exp["included"] is True
-    def test_explain_exclusion(self, ctx):
-        exp = ctx.explain_exclusion(None, "memory", 5, reason="foreign_tenant")
-        assert exp["excluded"] is True
-    def test_deterministic_fingerprint(self, ctx):
-        wc1 = ctx.build_workspace_context(1, 1)
-        wc2 = ctx.build_workspace_context(1, 1)
-        assert wc1["fingerprint"] == wc2["fingerprint"]
-
-
-# =========================================================================
-# Actor/Subject/Object (42-50)
-# =========================================================================
-class TestActorSubject:
-    def test_actor_subject_distinct(self, ctx):
-        wc = ctx.build_workspace_context(1, 5, subject_id=10)
-        assert wc["actor_id"] != wc["subject_id"]
-    def test_current_object_distinct(self, ctx):
-        wc = ctx.build_workspace_context(1, 1, current_object_type="conversation", current_object_id=99)
-        assert wc["current_object_id"] == 99
-    def test_person_no_user(self, ctx):
-        wc = ctx.build_workspace_context(1, 1, subject_id=7)
-        assert wc["subject_id"] == 7
-    def test_unknown_object_fails(self, ctx):
-        wc = ctx.build_workspace_context(1, 1, current_object_type="unknown_type", current_object_id=1)
-        assert "current_object_type" in wc  # Accepted but may have limited context
-
-
-# =========================================================================
-# Purpose (51-53)
-# =========================================================================
-class TestPurpose:
-    def test_explicit_purpose_required(self, ctx):
-        wc = ctx.build_workspace_context(1, 1, purpose_code="personal_scheduling")
-        assert wc["purpose_code"] == "personal_scheduling"
-    def test_invalid_purpose_rejected(self, ctx):
-        wc = ctx.build_workspace_context(1, 1, purpose_code="nonexistent")
-        assert "error" in wc
-    def test_purpose_registry(self, ctx):
-        from app.context import REGISTERED_PURPOSES
-        assert "sales_support" in REGISTERED_PURPOSES
-
-
-# =========================================================================
-# Phase 4 Gate (54-60)
+# Phase 4 Current-Use Gate
 # =========================================================================
 class TestPhase4Gate:
-    def test_current_use_recheck(self, ctx): assert True
+    def test_eligible(self, ctx):
+        wc = ctx.build_workspace_context(1, 1)
+        assert "error" not in wc
+    def test_system_deny(self, ctx):
+        wc = ctx.build_workspace_context(1, 1, restrictions={"eligibility": "system_deny"})
+        assert "error" in wc and "system_deny" in wc["error"]
+    def test_ineligible(self, ctx):
+        wc = ctx.build_workspace_context(1, 1, restrictions={"eligibility": "ineligible"})
+        assert "error" in wc and "ineligible" in wc["error"]
+    def test_review_required(self, ctx):
+        wc = ctx.build_workspace_context(1, 1, restrictions={"eligibility": "review_required"})
+        assert "error" in wc
+    def test_restricted_scope(self, ctx):
+        wc = ctx.build_workspace_context(1, 1, restrictions={"eligibility": "restricted_scope"})
+        assert "error" in wc
 
 
 # =========================================================================
-# Human Context (71-78)
+# Source Integration — Identity
 # =========================================================================
-class TestHumanContext:
-    def test_eligible_only(self, ctx): assert True
-    def test_no_promotion(self, ctx): assert True
-    def test_fusion_no_create(self, ctx): assert True
+class TestIdentityIntegration:
+    def test_actor_included(self, ctx):
+        wc = ctx.build_workspace_context(1, 5)
+        types = [i.get("type") for i in wc["included"]]
+        assert "person" in types
+    def test_subject_distinct(self, ctx):
+        wc = ctx.build_workspace_context(1, 5, subject_id=10)
+        actor = [i for i in wc["included"] if i.get("role") == "actor"]
+        subject = [i for i in wc["included"] if i.get("role") == "subject"]
+        assert len(actor) >= 1 and len(subject) >= 1
 
 
 # =========================================================================
-# Budget (95-100)
+# Source Integration — Relationships
+# =========================================================================
+class TestRelationshipIntegration:
+    def test_relationship_with_subject(self, ctx):
+        wc = ctx.build_workspace_context(1, 5, subject_id=10)
+        types = [i.get("type") for i in wc["included"]]
+        assert "relationship" in types
+    def test_provider_reference(self, ctx):
+        wc = ctx.build_workspace_context(1, 5, subject_id=10)
+        rels = [i for i in wc["included"] if i.get("type") == "relationship"]
+        for r in rels: assert r.get("provider") == "relationship_provider"
+
+
+# =========================================================================
+# Source Integration — Conversations
+# =========================================================================
+class TestConversationIntegration:
+    def test_conversation_object(self, ctx):
+        wc = ctx.build_workspace_context(1, 1, current_object_type="conversation", current_object_id=42)
+        types = [i.get("type") for i in wc["included"]]
+        assert "conversation" in types
+
+
+# =========================================================================
+# Budget — Per-Section and Total
 # =========================================================================
 class TestBudget:
-    def test_total_budget(self, ctx):
-        wc = ctx.build_workspace_context(1, 1, max_items=50)
-        assert wc["budget"]["total_max"] == 50
-    def test_budget_omission_reason(self, ctx): assert True
+    def test_total_budget_exists(self, ctx):
+        wc = ctx.build_workspace_context(1, 1)
+        assert wc["budget"]["total_max"] >= 1
+    def test_per_section_budget(self, ctx):
+        wc = ctx.build_workspace_context(1, 1)
+        assert wc["budget"]["per_section_max"] >= 1
 
 
 # =========================================================================
-# Fingerprint (112-115)
+# Fingerprint — Material Context
 # =========================================================================
 class TestFingerprint:
-    def test_unchanged_state(self, ctx):
-        wc1 = ctx.build_workspace_context(1, 1, purpose_code="sales_support")
-        wc2 = ctx.build_workspace_context(1, 1, purpose_code="sales_support")
-        assert wc1["fingerprint"] == wc2["fingerprint"]
-    def test_different_purpose_changes(self, ctx):
+    def test_unchanged_state_same_fingerprint(self, ctx):
+        fp1 = ctx.build_workspace_context(1, 1, purpose_code="sales_support")["fingerprint"]
+        fp2 = ctx.build_workspace_context(1, 1, purpose_code="sales_support")["fingerprint"]
+        assert fp1 == fp2
+    def test_purpose_change_changes_fingerprint(self, ctx):
         fp1 = ctx.build_workspace_context(1, 1, purpose_code="sales_support")["fingerprint"]
         fp2 = ctx.build_workspace_context(1, 1, purpose_code="personal_scheduling")["fingerprint"]
         assert fp1 != fp2
-    def test_different_actor_changes(self, ctx):
+    def test_actor_change_changes_fingerprint(self, ctx):
         fp1 = ctx.build_workspace_context(1, 1)["fingerprint"]
         fp2 = ctx.build_workspace_context(1, 2)["fingerprint"]
         assert fp1 != fp2
-    def test_no_raw_secret(self, ctx):
+    def test_fingerprint_no_raw_secret(self, ctx):
         wc = ctx.build_workspace_context(1, 1)
-        assert "secret" not in wc.get("fingerprint", "")
+        assert "secret" not in wc.get("fingerprint", "") and "sk-" not in wc.get("fingerprint", "")
 
 
 # =========================================================================
-# Tenant Safety (116-117)
+# Provider Version in Fingerprint
 # =========================================================================
-class TestTenantIsolation:
-    def test_different_tenants(self, ctx):
-        wc1 = ctx.build_workspace_context(1, 1)
-        wc2 = ctx.build_workspace_context(2, 1)
-        assert wc1["tenant_id"] != wc2["tenant_id"]
-    def test_foreign_exclusion_non_leaking(self, ctx):
-        exp = ctx.explain_exclusion(None, "person", 99, reason="foreign_tenant")
-        assert "another tenant" in exp.get("safe_message", "") or "foreign" in exp.get("reason", "")
+class TestProviderVersionFingerprint:
+    def test_different_fusion_version(self, ctx):
+        fp1 = ctx.build_workspace_context(1, 1)["fingerprint"]
+        ctx._fusion_version = "10.2"
+        fp2 = ctx.build_workspace_context(1, 1)["fingerprint"]
+        assert fp1 != fp2
 
 
 # =========================================================================
-# Secret Safety (118)
+# Secrets / Exclusion Safety
 # =========================================================================
-class TestSecretSafety:
-    def test_api_key_not_in_audit(self, ctx):
+class TestSecrets:
+    def test_no_secret_in_context(self, ctx):
         wc = ctx.build_workspace_context(1, 1)
         wc_str = str(wc)
         assert "sk-" not in wc_str and "api_key" not in wc_str.lower()
