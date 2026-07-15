@@ -11,6 +11,9 @@ def app():
         "DISABLE_RATE_LIMIT": "true",
     })
     with app.app_context():
+        # Import Tenant model to register it with db.metadata before create_all
+        # (Person.tenant_id FK references tenants.id)
+        from app.tenant import Tenant
         db.create_all()
         yield app
         db.drop_all()
@@ -22,13 +25,11 @@ def client(app):
 
 
 def test_title_contains_identity(client):
-    """Home page should render successfully."""
-    r = client.get('/', follow_redirects=False)
-    assert r.status_code in (200, 302, 308)
-    if r.status_code == 302:
-        r = client.get('/', follow_redirects=True)
-    body = r.data.decode('utf-8', 'ignore')
-    assert len(body) > 0
+    """Home page renders with Shunya OS product identity in the title."""
+    r = client.get("/")
+    assert r.status_code == 200
+    # base.html template renders <title>Shunya | Shunya OS</title>
+    assert b"Shunya OS" in r.data
 
 
 def test_telegram_webhook_creates_space_free_code(client):

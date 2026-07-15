@@ -15,6 +15,9 @@ def app():
         "DISABLE_RATE_LIMIT": "true",
     })
     with app.app_context():
+        # Import Tenant model to register it with db.metadata before create_all
+        # (Person.tenant_id FK references tenants.id)
+        from app.tenant import Tenant
         db.create_all()
         yield app
         db.drop_all()
