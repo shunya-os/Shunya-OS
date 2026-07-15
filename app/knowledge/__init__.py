@@ -36,32 +36,33 @@ STABLE_INTERNAL_TOPICS = {
 class KnowledgeSufficiencyEvaluator:
     """Deterministic evaluator for whether internal knowledge is sufficient."""
 
-    def evaluate(self, workspace_context: dict, request: dict) -> dict:
+    def evaluate(self, workspace_context: dict, request: dict,
+                 basis_states: Optional[dict] = None) -> dict:
         purpose = request.get("purpose_code", "general")
         topics = set(request.get("knowledge_topics", []))
         wc_included = {i.get("type") for i in workspace_context.get("included", [])}
+        phase4 = request.get("_phase4", {})
+        bs = basis_states or {}
 
         missing = []
+        if phase4.get("ineligible_basis"):
+            missing.append("ineligible_basis_blocked")
+        if phase4.get("system_deny"):
+            return {"sufficient": False, "partial": False,
+                    "missing_dimensions": ["system_deny"],
+                    "total_requested": len(topics), "covered": 0,
+                    "reason_code": "basis_blocked_by_phase_4"}
+
         if topics:
             for t in topics:
                 if t in STABLE_INTERNAL_TOPICS:
-                    # Stable company questions need relevant evidence sections
-                    if t == "approved_margin" and "runtime_position" not in wc_included:
+                    has_basis = self._has_basis_for_topic(t, wc_included, bs)
+                    if has_basis is False and not phase4.get("ineligible_basis"):
                         missing.append(t)
-                    elif t == "booking_state" and "conversation" not in wc_included and "document_record" not in wc_included:
-                        missing.append(t)
-                    elif t == "customer_preference" and "memory_record" not in wc_included and "human_context_item" not in wc_included:
-                        missing.append(t)
-                    elif t == "payment_state" and "evidence_link" not in wc_included:
-                        missing.append(t)
-                    elif t == "supplier_response" and "conversation" not in wc_included:
-                        missing.append(t)
-                    elif t == "document_state" and "document_record" not in wc_included:
-                        missing.append(t)
-                    elif t == "commitment" and "relationship" not in wc_included:
-                        missing.append(t)
-                    elif t == "decision" and "evidence_link" not in wc_included:
-                        missing.append(t)
+                    elif has_basis == "contradicted":
+                        missing.append(f"{t}_contradicted")
+                    elif has_basis == "ambiguous":
+                        missing.append(f"{t}_ambiguous")
 
         is_sufficient = len(missing) == 0
         partial = len(missing) < len(topics) if topics else False
@@ -70,9 +71,41 @@ class KnowledgeSufficiencyEvaluator:
             "partial": partial and not is_sufficient,
             "missing_dimensions": missing,
             "total_requested": len(topics),
-            "covered": len(topics) - len(missing),
+            "covered": len(topics) - len([m for m in missing if not m.endswith("_contradicted") and not m.endswith("_ambiguous")]),
             "reason_code": "all_dimensions_covered" if is_sufficient else "missing_dimensions",
         }
+
+    def _has_basis_for_topic(self, topic, wc_included, basis_states):
+        """Check if topic has basis, returning True/False or 'contradicted'/'ambiguous'."""
+        base = self._base_topic(topic)
+        state = basis_states.get(base, "active")
+        if state == "revoked" or state == "invalidated" or state == "superseded":
+            return False
+        if state == "contradicted":
+            return "contradicted"
+        if state == "ambiguous":
+            return "ambiguous"
+        if base == "approved_margin" and "runtime_position" not in wc_included:
+            return False
+        if base == "supplier_response" and "conversation" not in wc_included:
+            return False
+        if base == "booking_state" and "conversation" not in wc_included and "document_record" not in wc_included:
+            return False
+        if base == "customer_preference" and "memory_record" not in wc_included and "human_context_item" not in wc_included:
+            return False
+        if base == "payment_state" and "evidence_link" not in wc_included:
+            return False
+        if base == "document_state" and "document_record" not in wc_included:
+            return False
+        if base == "commitment" and "relationship" not in wc_included:
+            return False
+        if base == "decision" and "evidence_link" not in wc_included:
+            return False
+        return True
+
+    @staticmethod
+    def _base_topic(topic):
+        return topic.replace("_contradicted", "").replace("_ambiguous", "")
 
 
 class FreshnessRequirementEvaluator:
@@ -140,21 +173,44 @@ class KnowledgeResolutionService:
 
         # Phase 4 gate
         p4_check = self._p4_svc.check_eligibility(purpose_code) if self._p4_svc else {"eligible": True}
+        phase4 = {"eligible": p4_check.get("eligible", True)}
         if not p4_check.get("eligible", True):
             return self._result(ResCat.BLOCKED_OR_REVIEW_REQUIRED, wc, topics, [], as_of,
                                 "purpose_blocked", "blocked_by_phase_4")
 
-        # Build request
+        # Build request with Phase 4 state
         request = {
             "purpose_code": purpose_code, "query_text": query_text,
             "knowledge_topics": topics, "as_of": as_of,
             "tenant_id": tenant_id, "actor_id": actor_id,
             "current_object_type": current_object_type, "current_object_id": current_object_id,
             "subject_id": subject_id,
+            "_phase4": phase4,
         }
 
+        # Determine basis states from WC content
+        basis_states = {}
+        for item in wc.get("included", []):
+            i_type = item.get("type", "")
+            i_state = item.get("state", "active")
+            if i_type == "runtime_position":
+                for t in topics:
+                    b = KnowledgeSufficiencyEvaluator._base_topic(t)
+                    if b not in basis_states:
+                        basis_states[b] = i_state
+            if i_type == "memory_record":
+                for t in topics:
+                    b = KnowledgeSufficiencyEvaluator._base_topic(t)
+                    if b == "customer_preference":
+                        basis_states.setdefault(b, i_state)
+            if i_type == "evidence_link":
+                for t in topics:
+                    b = KnowledgeSufficiencyEvaluator._base_topic(t)
+                    if b in ("payment_state", "decision"):
+                        basis_states.setdefault(b, i_state)
+
         # Evaluate sufficiency
-        suff = self._sufficiency.evaluate(wc, request)
+        suff = self._sufficiency.evaluate(wc, request, basis_states=basis_states)
 
         # Evaluate freshness
         fresh = self._freshness.evaluate(request)
