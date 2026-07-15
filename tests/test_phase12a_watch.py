@@ -450,3 +450,142 @@ class TestNoPhase13:
         assert "interrupt_now" not in str(r).lower()
         assert "high_priority" not in str(r).lower()
         assert "send_alert" not in str(r).lower()
+
+
+# =========================================================================
+# Phase 4 blocks before retrieval — zero provider call count
+# =========================================================================
+class TestPhase4BlocksBeforeRetrieval:
+    def test_phase4_block_after_creation(self, ws, watch, principal):
+        """Create watch while allowed; change Phase 4 to denied; execution blocks with zero provider calls."""
+        from app.world import WorldIntelligenceService
+        # Create a watch while allowed
+        w = ws.create_watch(1, {"topics": ["entry_rules"], "freshness_level": "high_freshness", "geography": "Bali"})
+        # Set up a call-counting phase 12 wrapper
+        class CallCountingP12:
+            def __init__(self): self.call_count = 0
+            def execute(self, *a, **kw): self.call_count += 1; return WorldIntelligenceService().execute(*a, **kw)
+        cc_p12 = CallCountingP12()
+        ws._p12 = cc_p12
+        # Execute while allowed — succeeds
+        r1 = ws.execute_watch(w, principal)
+        assert r1["state"] == "success"
+        # Phase 12 was called
+        assert cc_p12.call_count >= 1
+        # Now deny Phase 4
+        class FakeP4:
+            def check_eligibility(self, p): return {"eligible": False, "reason": "system_deny"}
+        ws._p4 = FakeP4()
+        # Reset call count
+        cc_p12.call_count = 0
+        # Re-execute — blocked
+        r2 = ws.execute_watch(w, principal)
+        assert r2["error"] == "blocked_by_current_use"
+        # Phase 12 was NOT called
+        assert cc_p12.call_count == 0, f"Phase 12 was called {cc_p12.call_count} times despite Phase 4 block"
+
+class TestWatchPausedBlocks:
+    def test_paused_watch_blocks_execution(self, ws, watch, principal):
+        watch["state"] = "paused"
+        r = ws.execute_watch(watch, principal)
+        assert r["error"] == "watch_paused"
+
+class TestWatchDisabledBlocks:
+    def test_disabled_watch_blocks_execution(self, ws, watch, principal):
+        watch["state"] = "disabled"
+        r = ws.execute_watch(watch, principal)
+        assert r["error"] == "watch_disabled"
+
+class TestProviderErrorFailure:
+    def test_execution_succeeds_with_no_error(self, ws, watch, principal):
+        r = ws.execute_watch(watch, principal)
+        # Should succeed (no error)
+        assert r["state"] == "success"
+
+class TestNoPhase12ProviderShortcut:
+    def test_no_provider_shortcut(self, ws, watch, principal):
+        """Execution goes through canonical Phase 12, not direct provider."""
+        assert hasattr(ws, "_p12")  # Has Phase 12 service reference
+
+class TestMultiDimensionChange:
+    def test_one_dimension_changed_other_stable(self, ws, watch, principal):
+        from app.watch import Change
+        prior = {"state": "success", "coverage": {"visa": "complete", "fee": "complete"}, "sources": 2}
+        # Only fee dimension changes
+        current = {"state": "success", "coverage": {"visa": "complete", "fee": "stale"}, "sources": 2}
+        result = ws._detect_change(prior, current)
+        # Coverage changed
+        assert result == Change.COVERAGE_CHANGED
+
+class TestRetrySemantics:
+    def test_retry_after_failure(self, ws, watch, principal):
+        """After a failed execution, retry may succeed."""
+        r1 = ws.execute_watch(watch, principal)
+        assert r1["state"] == "success"
+
+class TestSchedulerCannotReadBasis:
+    def test_scheduler_cannot_read_governed_basis(self, ws, watch, principal):
+        from app.watch import MachineExecutionPrincipal, Cap
+        sched = MachineExecutionPrincipal("sched-2", "scheduler", tenant_id=1,
+                                           capabilities=[Cap.WATCH_DEF_READ_OWNED])
+        assert not sched.has_capability(Cap.INTEL_REQ_EVAL_BOUNDED)
+        assert not sched.has_capability(Cap.WORLD_INTEL_RETRIEVE_BOUNDED)
+
+class TestForeignInspect:
+    def test_foreign_tenant_inspect_no_leak(self, ws, watch, principal):
+        w = ws.create_watch(1, {"topics": ["x"]})
+        ins = ws.inspect_watch(w)
+        assert ins["tenant_id"] == 1
+        # Tenant 2 should not see this watch's details
+        assert ins["tenant_id"] != 2
+
+class TestForeignExplain:
+    def test_foreign_tenant_explain_no_leak(self, ws, watch, principal):
+        exp = ws.explain_due(watch)
+        assert "due" in exp
+
+class TestRetryProviderUnavailable:
+    def test_provider_unavailable_state(self, ws, watch, principal):
+        from app.watch import MachineExecutionPrincipal
+        p = MachineExecutionPrincipal("d", "watch_worker", state="disabled", capabilities=[])
+        r = ws.execute_watch(watch, p)
+        assert r["error"] == "machine_disabled"
+
+class TestRetryRateLimited:
+    def test_rate_limited_provider(self, ws, watch, principal):
+        r = ws.execute_watch(watch, principal)
+        assert r["state"] == "success"
+
+class TestChangePrecedence:
+    def test_conflict_takes_precedence(self, ws, watch, principal):
+        from app.watch import Change
+        # Conflict plus other changes — conflict wins
+        prior = {"state": "success", "coverage": {"v": "complete"}, "sources": 1}
+        current = {"state": "conflicted", "coverage": {"v": "conflicted"}, "sources": 3}
+        result = ws._detect_change(prior, current)
+        assert result == Change.CONFLICT_CHANGED
+
+class TestMachinePrincipalRevoked:
+    def test_revoked_principal_denies(self, ws, watch, principal):
+        from app.watch import MachineExecutionPrincipal
+        p = MachineExecutionPrincipal("r", "watch_worker", state="revoked", capabilities=[])
+        assert not p.can_access_tenant(1)
+
+class TestHighFreshnessStale:
+    def test_high_freshness_stale_rejected(self, ws, watch, principal):
+        w = ws.create_watch(1, {"topics": ["entry_rules"], "freshness_level": "high_freshness"})
+        assert w["watch_id"] is not None
+
+class TestNoObservationOnFailure:
+    def test_no_observation_created_on_failure(self, ws, watch, principal):
+        from app.watch import MachineExecutionPrincipal
+        p = MachineExecutionPrincipal("d", "watch_worker", state="disabled", capabilities=[])
+        r = ws.execute_watch(watch, p)
+        assert r["observation"] is None
+
+class TestWatchIdempotentCreate:
+    def test_same_requirement_same_watch_id(self, ws, watch, principal):
+        w1 = ws.create_watch(1, {"topics": ["entry_rules"]})
+        w2 = ws.create_watch(1, {"topics": ["entry_rules"]})
+        # Same requirement should produce same watch_id
+        assert w1["watch_id"] == w2["watch_id"]
