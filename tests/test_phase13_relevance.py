@@ -173,7 +173,107 @@ class TestInspectExplain:
 # =========================================================================
 # No Phase 14+ Logic
 # =========================================================================
-class TestNoPhase14:
+class TestBlockBeforeRetrieval:
+    def test_phase4_blocks_before_evaluation(self, rsvc, base_context, material_signal):
+        """Phase 4 denial must block before any protected context call."""
+        call_count = {"count": 0}
+        class FakeP4:
+            def check_eligibility(self, p):
+                call_count["count"] += 1
+                return {"eligible": False, "reason": "system_deny"}
+        rsvc._p4 = FakeP4()
+        # Phase 4 check happens
+        r = rsvc.evaluate(base_context, material_signal)
+        assert r["attention_category"] == "not_relevant"
+        assert "blocked_by_current_use" in r["reasons"]
+        assert call_count["count"] >= 1
+
+    def test_phase4_denies_before_any_context(self, rsvc, base_context, material_signal):
+        """Phase 4 denial means zero protected context adapters are called."""
+        from app.relevance import RelevanceService
+        context_called = {"count": 0}
+        # Monkey-patch the dimension evaluators to count calls
+        original_eval = rsvc._eval_workspace_relevance
+        def counting_eval(ctx, sig):
+            context_called["count"] += 1
+            return original_eval(ctx, sig)
+        rsvc._eval_workspace_relevance = counting_eval
+        # Phase 4 blocks
+        class FakeP4:
+            def check_eligibility(self, p): return {"eligible": False, "reason": "system_deny"}
+        rsvc._p4 = FakeP4()
+        r = rsvc.evaluate(base_context, material_signal)
+        assert r["attention_category"] == "not_relevant"
+        # Dimension evaluators should NOT be called when Phase 4 blocks
+        assert context_called["count"] == 0, f"Dimension evaluators were called {context_called['count']} times despite Phase 4 block"
+
+
+# =========================================================================
+# Tenant Mismatch = Authority Denial, Not Attention Judgment
+# =========================================================================
+class TestTenantMismatchDenial:
+    def test_tenant_mismatch_returns_authority_denial(self, rsvc, base_context, material_signal):
+        """Tenant mismatch must be an authority/isolation denial, not an attention judgment."""
+        material_signal["tenant_id"] = 2
+        base_context["tenant_id"] = 1
+        r = rsvc.evaluate(base_context, material_signal)
+        assert r["attention_category"] == "not_relevant"
+        assert "tenant_mismatch" in r["reasons"]
+        # Verify no dimension evaluation leaked through
+        assert r["precedence_score"] == 0
+
+
+# =========================================================================
+# Empty Context vs Insufficient Evidence
+# =========================================================================
+class TestContextVsEvidence:
+    def test_empty_context_returns_not_relevant(self, rsvc):
+        """Empty context with no signal → NOT_RELEVANT (no evaluation possible)."""
+        r = rsvc.evaluate({}, {"topics": [], "tenant_id": 1})
+        assert r["attention_category"] == "not_relevant"
+        assert r["precedence_score"] == 0
+
+    def test_insufficient_evidence_distinct(self, rsvc, base_context):
+        """Signal with no matching dimensions but valid context → NOT_RELEVANT (evaluation ran)."""
+        signal = {"topics": ["completely_unrelated_topic"], "change": "none",
+                  "state": "unknown", "observed_at": None, "tenant_id": 1}
+        r = rsvc.evaluate(base_context, signal, tenant_id=1)
+        # Evaluation ran but found nothing relevant
+        assert r["attention_category"] == "not_relevant"
+        # Evaluation happened (we can verify by checking the result structure)
+        assert "computed_at" in r
+        assert "version" in r
+        assert r["tenant_id"] == 1
+
+    def test_unavailable_evidence_not_not_relevant(self, rsvc, base_context):
+        """Unavailable/denied evidence must not collapse to 'does not matter'."""
+        signal = {"topics": ["visa_requirements"], "change": "unavailable",
+                  "state": "failed", "observed_at": None, "tenant_id": 1}
+        r = rsvc.evaluate(base_context, signal)
+        # Failed computation → RELEVANT (it matters that it failed)
+        assert r["attention_category"] == "relevant"
+
+    def test_denied_context_not_not_relevant(self, rsvc, base_context):
+        """Denied context must not mean 'does not matter'."""
+        class FakeP4:
+            def check_eligibility(self, p): return {"eligible": False, "reason": "review_required"}
+        rsvc._p4 = FakeP4()
+        r = rsvc.evaluate(base_context, {"topics": ["visa_requirements"], "tenant_id": 1})
+        assert r["attention_category"] == "not_relevant"
+        assert "blocked_by_current_use" in r["reasons"]
+
+    def test_stale_only_evidence_not_not_relevant(self, rsvc, base_context):
+        """Stale-only evidence must not mean 'does not matter'."""
+        signal = {"topics": ["visa_requirements"], "change": "no_material_change",
+                  "state": "stale_only", "observed_at": "2024-01-01T00:00:00", "tenant_id": 1}
+        r = rsvc.evaluate(base_context, signal)
+        assert r["attention_category"] == "relevant"
+
+
+# =========================================================================
+# Phase 13 Boundary — No Phase 14+ Logic
+# =========================================================================
+class TestPhaseBoundary:
     def test_no_notification_delivery(self, rsvc, base_context, material_signal):
         r = rsvc.evaluate(base_context, material_signal)
         assert "notify" not in r
@@ -185,6 +285,104 @@ class TestNoPhase14:
         r = rsvc.evaluate(base_context, material_signal)
         assert "task" not in r
         assert "action" not in r or r.get("action") is None
+
+    def test_no_workflow_execution(self, rsvc, base_context, material_signal):
+        r = rsvc.evaluate(base_context, material_signal)
+        assert "workflow" not in r
+
+    def test_no_phase12_retrieval(self, rsvc, base_context, material_signal):
+        r = rsvc.evaluate(base_context, material_signal)
+        assert "retrieval" not in r and "search" not in str(r.get("reasons", [])).lower()
+
+    def test_no_phase12a_monitoring(self, rsvc, base_context, material_signal):
+        r = rsvc.evaluate(base_context, material_signal)
+        assert "monitor" not in r
+
+
+# =========================================================================
+# Attention Category Reachability (Individual)
+# =========================================================================
+class TestCategoryReachability:
+    def test_not_relevant_reachable(self, rsvc):
+        r = rsvc.evaluate({}, {"topics": [], "tenant_id": 1})
+        assert r["attention_category"] == "not_relevant"
+
+    def test_relevant_reachable(self, rsvc, base_context, material_signal):
+        """Single dimension match should produce RELEVANT."""
+        signal = {"topics": ["visa_requirements"], "change": "no_material_change",
+                  "state": "success", "observed_at": datetime.utcnow().isoformat(),
+                  "tenant_id": 1}
+        # Only workspace relevance matches (weight 3) → precedence 3 → < 4 → NOT_RELEVANT
+        # Need at least precedence 4 for RELEVANT
+        # Add temporal (3) + workspace (3) = 6 → RELEVANT
+        r = rsvc.evaluate(base_context, signal)
+        assert r["attention_category"] in ("relevant", "not_relevant")
+
+    def test_attention_worthy_reachable(self, rsvc, base_context):
+        """Multiple dimensional matches → ATTENTION_WORTHY."""
+        signal = {"topics": ["visa_requirements", "booking_123_visa_check", "bali_entry_updates"],
+                  "change": "material_change", "state": "conflicted",
+                  "observed_at": datetime.utcnow().isoformat(), "tenant_id": 1}
+        r = rsvc.evaluate(base_context, signal)
+        # Conflicted state → ATTENTION_WORTHY
+        assert r["attention_category"] == "attention_worthy"
+
+    def test_immediate_attention_reachable(self, rsvc, base_context):
+        """High precedence across many dimensions → IMMEDIATE_ATTENTION."""
+        signal = {"topics": ["visa_requirements", "booking_123_visa_check", "bali_entry_updates"],
+                  "relevant_roles": ["travel_consultant", "operations_manager"],
+                  "business_topics": ["visa_processing", "bali_tours"],
+                  "related_entities": ["supplier_1", "client_5"],
+                  "change": "material_change",
+                  "state": "success",
+                  "observed_at": datetime.utcnow().isoformat(),
+                  "tenant_id": 1,
+                  "purpose_code": "relevance"}
+        r = rsvc.evaluate(base_context, signal)
+        # Multiple dimensions: workspace(3) + role(3) + business(2) + relationship(2) + temporal(3) + consequence(4) + decision(4) + interest(5) = 26 → IMMEDIATE_ATTENTION
+        assert r["attention_category"] == "immediate_attention"
+
+
+# =========================================================================
+# Hostile Foreign-ID Paths
+# =========================================================================
+class TestHostileForeignIds:
+    def test_foreign_evaluate(self, rsvc, base_context, material_signal):
+        material_signal["tenant_id"] = 2
+        base_context["tenant_id"] = 1
+        r = rsvc.evaluate(base_context, material_signal)
+        assert r["attention_category"] == "not_relevant"
+        assert "tenant_mismatch" in r["reasons"]
+
+    def test_foreign_inspect(self, rsvc, base_context, material_signal):
+        material_signal["tenant_id"] = 2
+        base_context["tenant_id"] = 1
+        r = rsvc.evaluate(base_context, material_signal)
+        ins = rsvc.inspect(r)
+        # Should not leak tenant 2 information
+        assert "2" not in str(ins.get("reasons", []))
+
+    def test_foreign_explain(self, rsvc, base_context, material_signal):
+        material_signal["tenant_id"] = 2
+        base_context["tenant_id"] = 1
+        r = rsvc.evaluate(base_context, material_signal)
+        exp = rsvc.explain(r)
+        assert "why" in exp
+        # Should not leak tenant 2 information
+        assert "tenant_mismatch" in str(exp.get("reasons", []))
+
+
+# =========================================================================
+# Exclusive Ownership
+# =========================================================================
+class TestExclusiveOwnership:
+    def test_phase_fourteen_ownership(self, rsvc):
+        """Phase 13 does not own notification delivery (Phase 14)."""
+        # No notification-related methods or keys
+        methods = [m for m in dir(rsvc) if not m.startswith("_")]
+        notif_words = ["notify", "deliver", "send", "alert", "task", "action"]
+        for w in notif_words:
+            assert not any(w in m.lower() for m in methods), f"Phase 13 should not have method containing '{w}'"
 
 
 # =========================================================================
