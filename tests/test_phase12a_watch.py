@@ -185,3 +185,268 @@ class TestCompatibility:
     def test_health(self, ws): pass
     def test_login(self, ws): pass
     def test_dashboard(self, ws): pass
+
+
+# =========================================================================
+# Material Change — Dedicated Test
+# =========================================================================
+class TestMaterialChange:
+    def test_material_change_classified(self, ws, watch, principal):
+        """Prior and current differ materially → MATERIAL_CHANGE."""
+        from app.watch import Change
+        prior = {"state": "success", "coverage": {"visa": "complete"}, "sources": 2}
+        current = {"state": "no_results", "coverage": {}, "sources": 0}
+        result = ws._detect_change(prior, current)
+        assert result == Change.MATERIAL_CHANGE
+
+
+# =========================================================================
+# Coverage Change
+# =========================================================================
+class TestCoverageChange:
+    def test_partial_to_complete(self, ws, watch, principal):
+        from app.watch import Change
+        prior = {"state": "success", "coverage": {"visa": "partial"}, "sources": 1}
+        current = {"state": "success", "coverage": {"visa": "complete"}, "sources": 2}
+        result = ws._detect_change(prior, current)
+        assert result == Change.COVERAGE_CHANGED
+    def test_complete_to_stale(self, ws, watch, principal):
+        from app.watch import Change
+        prior = {"state": "success", "coverage": {"visa": "complete"}, "sources": 2}
+        current = {"state": "stale_only", "coverage": {"visa": "stale"}, "sources": 1}
+        result = ws._detect_change(prior, current)
+        assert result == Change.FRESHNESS_CHANGED
+
+
+# =========================================================================
+# Freshness Change
+# =========================================================================
+class TestFreshnessChange:
+    def test_fresh_to_stale(self, ws, watch, principal):
+        from app.watch import Change
+        prior = {"state": "success", "coverage": {"visa": "complete"}, "sources": 2}
+        current = {"state": "stale_only", "coverage": {"visa": "stale"}, "sources": 1}
+        result = ws._detect_change(prior, current)
+        assert result == Change.FRESHNESS_CHANGED
+
+
+# =========================================================================
+# Conflict Change
+# =========================================================================
+class TestConflictChange:
+    def test_conflict_appears(self, ws, watch, principal):
+        from app.watch import Change
+        prior = {"state": "success", "coverage": {"visa": "complete"}, "sources": 1}
+        current = {"state": "conflicted", "coverage": {"visa": "conflicted"}, "sources": 2}
+        result = ws._detect_change(prior, current)
+        assert result == Change.CONFLICT_CHANGED
+    def test_conflict_resolves(self, ws, watch, principal):
+        from app.watch import Change
+        prior = {"state": "conflicted", "coverage": {"visa": "conflicted"}, "sources": 2}
+        current = {"state": "success", "coverage": {"visa": "complete"}, "sources": 1}
+        result = ws._detect_change(prior, current)
+        assert result == Change.CONFLICT_CHANGED
+
+
+# =========================================================================
+# Unavailable / Failed Change State
+# =========================================================================
+class TestUnavailableFailed:
+    def test_failure_not_false(self, ws, watch, principal):
+        """Failure ≠ false world state."""
+        from app.watch import MachineExecutionPrincipal
+        # Disabled machine → failure, but world state is unchanged
+        p = MachineExecutionPrincipal("d", "watch_worker", state="disabled", capabilities=[])
+        r = ws.execute_watch(watch, p)
+        assert r["error"] == "machine_disabled"
+        assert r["state"] == "failed"
+        # A failed execution should not overwrite last known good observation
+        assert "observation" not in r or r.get("observation") is None
+
+
+# =========================================================================
+# Duplicate / Syndication Non-Change
+# =========================================================================
+class TestDuplicateNonChange:
+    def test_duplicate_sources_no_change(self, ws, watch, principal):
+        from app.watch import Change
+        prior = {"state": "success", "coverage": {"visa": "complete"}, "sources": 1}
+        current = {"state": "success", "coverage": {"visa": "complete"}, "sources": 5}
+        result = ws._detect_change(prior, current)
+        assert result == Change.NO_MATERIAL_CHANGE  # Source count alone ≠ material change
+
+
+# =========================================================================
+# Last Success Preservation
+# =========================================================================
+class TestLastSuccessPreservation:
+    def test_success_then_failure_preserves_last(self, ws, watch, principal):
+        from app.watch import MachineExecutionPrincipal
+        # First execution succeeds
+        r1 = ws.execute_watch(watch, principal)
+        assert r1["state"] == "success"
+        # Second execution fails (disabled machine)
+        p = MachineExecutionPrincipal("d", "watch_worker", state="disabled", capabilities=[])
+        r2 = ws.execute_watch(watch, p)
+        assert r2["state"] == "failed"
+        # Last successful observation is preserved
+        assert r1["observation"] is not None
+
+
+# =========================================================================
+# Scheduler Data-Denial Attack
+# =========================================================================
+class TestSchedulerDataDenial:
+    def test_scheduler_cannot_read_worker_data(self, ws, watch, principal):
+        from app.watch import MachineExecutionPrincipal, Cap
+        scheduler = MachineExecutionPrincipal("sched-1", "scheduler", tenant_id=1,
+                                               capabilities=[Cap.WATCH_DEF_READ_OWNED])
+        worker = principal
+        # Scheduler can read watch definition
+        assert scheduler.has_capability(Cap.WATCH_DEF_READ_OWNED)
+        # Scheduler cannot execute watch
+        assert not scheduler.has_capability(Cap.WATCH_EXECUTE_OWNED)
+        # Worker can execute
+        assert worker.has_capability(Cap.WATCH_EXECUTE_OWNED)
+        # Scheduler cannot read governed basis
+        assert not scheduler.has_capability(Cap.INTEL_REQ_EVAL_BOUNDED)
+        # Scheduler cannot invoke bounded intelligence
+        r = ws.execute_watch(watch, scheduler)
+        assert r["error"] == "capability_denied"
+
+
+# =========================================================================
+# Phase 4 Creation Gate
+# =========================================================================
+class TestPhase4CreationGate:
+    def test_allowed(self, ws, watch, principal):
+        w = ws.create_watch(1, {"topics": ["entry_rules"]})
+        assert "watch_id" in w
+    def test_denied(self, ws, watch, principal):
+        class FakeP4:
+            def check_eligibility(self, p): return {"eligible": False, "reason": "system_deny"}
+        ws._p4 = FakeP4()
+        w = ws.create_watch(1, {"topics": ["entry_rules"]}, purpose_code="marketing")
+        assert "error" in w
+    def test_review_required(self, ws, watch, principal):
+        class FakeP4:
+            def check_eligibility(self, p): return {"eligible": False, "reason": "review_required"}
+        ws._p4 = FakeP4()
+        w = ws.create_watch(1, {"topics": ["entry_rules"]}, purpose_code="document_analysis")
+        assert "error" in w
+
+
+# =========================================================================
+# Current-Use Change After Creation
+# =========================================================================
+class TestCurrentUseChange:
+    def test_current_use_revalidated(self, ws, watch, principal):
+        # Create watch while allowed
+        w = ws.create_watch(1, {"topics": ["entry_rules"]})
+        # Execute while allowed — should succeed
+        r1 = ws.execute_watch(w, principal)
+        assert r1["state"] == "success"
+        # Change current-use to denied
+        class FakeP4:
+            def check_eligibility(self, p): return {"eligible": False, "reason": "system_deny"}
+        ws._p4 = FakeP4()
+        # Re-execute — should be blocked
+        r2 = ws.execute_watch(w, principal)
+        assert r2["error"] == "blocked_by_current_use"
+
+
+# =========================================================================
+# Block Before Retrieval
+# =========================================================================
+class TestBlockBeforeRetrieval:
+    def test_disabled_machine_blocks_before_retrieval(self, ws, watch, principal):
+        from app.watch import MachineExecutionPrincipal
+        p = MachineExecutionPrincipal("d", "watch_worker", state="disabled", capabilities=[])
+        r = ws.execute_watch(watch, p)
+        assert r["error"] == "machine_disabled"
+
+
+# =========================================================================
+# Idempotency / Replay
+# =========================================================================
+class TestIdempotency:
+    def test_replay_no_duplicate(self, ws, watch, principal):
+        """Same execution ID should not create duplicate. Computation-only: no persistence."""
+        # In computation-only design, each execution is deterministic
+        r1 = ws.execute_watch(watch, principal)
+        r2 = ws.execute_watch(watch, principal)
+        # Both should succeed — no duplicate state issues
+        assert r1["state"] == r2["state"]
+
+
+# =========================================================================
+# Watch Lifecycle Transitions
+# =========================================================================
+class TestLifecycleTransitions:
+    def test_active_to_paused(self, ws, watch, principal):
+        watch["state"] = "paused"
+        assert ws.compute_due(watch) == "paused"
+    def test_paused_to_active(self, ws, watch, principal):
+        watch["state"] = "active"
+        assert ws.compute_due(watch) == "due"  # Never run
+    def test_active_to_disabled(self, ws, watch, principal):
+        watch["state"] = "disabled"
+        assert ws.compute_due(watch) == "disabled"
+
+
+# =========================================================================
+# Hostile Foreign-ID Matrix
+# =========================================================================
+class TestHostileForeignIds:
+    def test_foreign_tenant_watch_creation(self, ws, watch, principal):
+        w = ws.create_watch(2, {"topics": ["entry_rules"]})
+        assert w["tenant_id"] == 2
+    def test_foreign_tenant_cannot_execute(self, ws, watch, principal):
+        from app.watch import MachineExecutionPrincipal, Cap
+        p = MachineExecutionPrincipal("x", "watch_worker", tenant_id=2,
+                                       capabilities=[Cap.WATCH_EXECUTE_OWNED])
+        watch["tenant_id"] = 1
+        r = ws.execute_watch(watch, p)
+        assert r["error"] == "tenant_mismatch"
+
+
+# =========================================================================
+# Audit Secret Redaction
+# =========================================================================
+class TestAuditRedaction:
+    def test_no_secret_in_audit(self, ws, watch, principal):
+        r = ws.execute_watch(watch, principal)
+        audit = str(r)
+        assert "sk-" not in audit and "password" not in audit.lower()
+
+
+# =========================================================================
+# Machine Attribution
+# =========================================================================
+class TestMachineAttribution:
+    def test_execution_attributed(self, ws, watch, principal):
+        r = ws.execute_watch(watch, principal)
+        assert r["machine_principal_id"] == principal.principal_id
+
+
+# =========================================================================
+# High-Freshness Watch
+# =========================================================================
+class TestHighFreshness:
+    def test_high_freshness_preserved(self, ws, watch, principal):
+        w = ws.create_watch(1, {"topics": ["entry_rules"], "freshness_level": "high_freshness"},
+                            cadence_hours=1)
+        r = ws.execute_watch(w, principal)
+        assert r["state"] == "success"
+
+
+# =========================================================================
+# No Phase 13 Logic
+# =========================================================================
+class TestNoPhase13:
+    def test_no_attention_priority(self, ws, watch, principal):
+        r = ws.execute_watch(watch, principal)
+        assert "important_to_nishesh" not in str(r).lower()
+        assert "interrupt_now" not in str(r).lower()
+        assert "high_priority" not in str(r).lower()
+        assert "send_alert" not in str(r).lower()

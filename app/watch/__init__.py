@@ -187,12 +187,21 @@ class WatchService:
     def _detect_change(self, prior: Optional[dict], current: dict) -> str:
         if prior is None:
             return Change.FIRST_OBSERVATION
+        # Check conflict first
+        prior_conflict = prior.get("state") == "conflicted"
+        curr_conflict = current.get("state") == "conflicted"
+        if prior_conflict != curr_conflict:
+            return Change.CONFLICT_CHANGED
+        # Check state (material change) — but not for stale/freshness transitions
         if prior.get("state") != current.get("state"):
+            # Stale transition is a FRESHNESS_CHANGED, not MATERIAL_CHANGE
+            if prior.get("state") == "stale_only" or current.get("state") == "stale_only":
+                return Change.FRESHNESS_CHANGED
             return Change.MATERIAL_CHANGE
+        # Check coverage change
         if prior.get("coverage") != current.get("coverage"):
             return Change.COVERAGE_CHANGED
-        if prior.get("sources", 0) != current.get("sources", 0):
-            return Change.NO_MATERIAL_CHANGE  # Source count alone is not material
+        # Source count alone is not material
         return Change.NO_MATERIAL_CHANGE
 
     # ------------------------------------------------------------------
