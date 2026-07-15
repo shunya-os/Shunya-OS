@@ -76,7 +76,17 @@ Every successful cycle strengthens future decisions. Security isn't about preven
 
 No single component can independently compromise correctness, security, or execution. Every critical action passes through independent layers of validation, governance, and observation.
 
-### 2.6 Continuous Improvement
+### 2.6 Continuous Surface Principle
+
+SHUNYA presents itself as a **continuous object-centric operating surface.**
+Navigation primarily changes the human's current object and context rather than replacing the application with disconnected pages.
+SHUNYA remains continuously available across object transitions.
+URL state may change for deep linking, browser history and authority-safe access without requiring a full document reload.
+Web and app-like experiences preserve the same contextual interaction philosophy.
+This principle is binding on all frontend, Application Shell and experience architecture.
+Phase 17 is the minimum phase where this principle becomes genuinely user-visible in the authenticated product.
+
+### 2.7 Continuous Improvement
 
 Every completed workflow should make both better.
 
@@ -361,6 +371,57 @@ To move from travel to healthcare:
 >
 > **Panchi Club is the first AI-native company built on Shunya.**
 > It applies compounding intelligence to travel so every customer can make better travel decisions with confidence, while the team focuses only on relationships and delivering a fabulous experience.
+
+---
+
+## 14C. Phase Reference — Phase 14C: SHUNYA Inference Control Plane
+
+Phase 14C is a pre-Phase-16 architecture amendment. It owns the minimum sufficient execution path before any model/provider call.
+
+### Constitutional Requirements
+
+1. **Inference-necessity classification/gate** — determines whether a task requires generative inference
+2. **Production deterministic no-model task routing** — routes to existing deterministic phases (8, 10, 11, 12, 12A, 13) without provider call
+3. **Provider-free response contract**
+4. **Model/inference router**
+5. **Model capability registry**
+6. **Task-to-capability matching**
+7. **Local/self-hosted inference adapter contract**
+8. **OpenAI-compatible endpoint adapter contract**
+9. **Free external inference adapter contract**
+10. **Paid-provider activation policy**
+11. **Paid escalation policy**
+12. **Fallback policy**
+13. **Provider availability and circuit-breaker policy**
+14. **Rate-limit handling**
+15. **Per-tenant inference budget**
+16. **Per-task cost budget**
+17. **Latency policy**
+18. **Privacy/data-routing policy**
+19. **Sensitive-context local-only policy**
+20. **Structured-output capability detection**
+21. **Tool-use capability detection**
+22. **Context-window capability detection**
+23. **Model quality/capability scoring**
+24. **Inference observability**
+25. **Cost attribution**
+26. **Tenant attribution**
+27. **Machine-principal attribution**
+28. **Prompt/context minimization before provider call**
+29. **Provider-independent normalized response contract**
+30. **Model/provider replacement without business-domain changes**
+
+### Key Constraints
+
+- `FakeProviderAdapter` is test infrastructure, never a production no-model path
+- Existing deterministic computation in Phases 8, 10, 11, 12, 12A, 13 remains owned by those phases
+- Phase 14C owns the runtime decision and routing boundary — not the deterministic engines
+- Hermes development inference is not SHUNYA end-user inference
+- SHUNYA production provider activation requires SHUNYA-owned credentials, budgets, and policy
+- A model being free today is not an architectural capability classification
+- Paid inference is controlled escalation, not the default path
+- Current Contabo VPS is not approved for co-hosted end-user model inference (8GB RAM, no GPU, no swap)
+- No specific model is constitutionally mandated
 
 ---
 
