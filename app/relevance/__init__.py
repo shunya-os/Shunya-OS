@@ -70,6 +70,7 @@ class RelevanceService:
                     precedence=0,
                     principal_id=principal_id,
                     tenant_id=tenant_id,
+                    evaluation_state="blocked",
                 )
 
         # Tenant isolation
@@ -83,6 +84,7 @@ class RelevanceService:
                 precedence=0,
                 principal_id=principal_id,
                 tenant_id=tenant_id,
+                evaluation_state="denied",
             )
 
         # Evaluate each dimension
@@ -112,8 +114,9 @@ class RelevanceService:
                 reasons.append(f"{name}: evaluation_failed")
                 precedence += 0
 
-        # Determine final category
+        # Classification
         category = self._classify(precedence, results, context, signal)
+        eval_state = self._determine_eval_state(context, signal, category, reasons)
 
         return self._result(
             category,
@@ -122,6 +125,7 @@ class RelevanceService:
             precedence=precedence,
             principal_id=principal_id,
             tenant_id=tenant_id,
+            evaluation_state=eval_state,
         )
 
     # ------------------------------------------------------------------
@@ -237,6 +241,12 @@ class RelevanceService:
     # ------------------------------------------------------------------
     def _classify(self, precedence: int, results: list, context: dict, signal: dict) -> str:
         """Classify into attention category based on precedence and signal state."""
+        # Empty/no usable context — distinguishable from insufficient evidence
+        ctx_topics = context.get("topics", []) if isinstance(context, dict) else []
+        sig_topics = signal.get("topics", []) if isinstance(signal, dict) else []
+        if not ctx_topics and not sig_topics:
+            return Attn.NOT_RELEVANT  # With evaluation_state = no_context
+
         # Insufficient evidence
         if not results:
             return Attn.NOT_RELEVANT
@@ -266,17 +276,43 @@ class RelevanceService:
     # ------------------------------------------------------------------
     def _result(self, category: str, reasons: list, evidence: list,
                 precedence: int = 0, principal_id: str = None,
-                tenant_id: int = None) -> dict:
+                tenant_id: int = None, evaluation_state: str = "complete") -> dict:
         return {
             "attention_category": category,
             "reasons": reasons,
             "evidence": evidence,
             "precedence_score": precedence,
+            "evaluation_state": evaluation_state,
             "computed_at": datetime.utcnow().isoformat(),
             "version": self._version,
             "principal_id": principal_id,
             "tenant_id": tenant_id,
         }
+
+    def _determine_eval_state(self, context: dict, signal: dict, category: str, reasons: list) -> str:
+        """Determine the evaluation state for distinguishable reporting."""
+        # Check for Phase 4 block
+        if any("blocked_by_current_use" in r for r in reasons):
+            return "blocked"
+        # Check for tenant mismatch
+        if any("tenant_mismatch" in r for r in reasons):
+            return "denied"
+        # Check for empty/no context
+        ctx_topics = context.get("topics", []) if isinstance(context, dict) else []
+        sig_topics = signal.get("topics", []) if isinstance(signal, dict) else []
+        if not ctx_topics and not sig_topics:
+            return "no_context"
+        # Check for insufficient evidence
+        if not reasons:
+            return "insufficient_evidence"
+        # Check for stale/failed
+        sig_state = signal.get("state", "") if isinstance(signal, dict) else ""
+        if sig_state in ("stale_only",):
+            return "stale"
+        if sig_state in ("no_results", "failed"):
+            return "failed"
+        # Normal completion
+        return "complete"
 
     # ------------------------------------------------------------------
     # Inspect / Explain

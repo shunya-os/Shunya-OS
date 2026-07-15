@@ -231,7 +231,23 @@ class TestContextVsEvidence:
         """Empty context with no signal → NOT_RELEVANT (no evaluation possible)."""
         r = rsvc.evaluate({}, {"topics": [], "tenant_id": 1})
         assert r["attention_category"] == "not_relevant"
+        assert r["evaluation_state"] == "no_context"
         assert r["precedence_score"] == 0
+
+    def test_empty_context_distinct_from_insufficient(self, rsvc, base_context):
+        """Empty context and insufficient evidence must have different evaluation_state."""
+        # Empty context
+        r1 = rsvc.evaluate({}, {"topics": [], "tenant_id": 1})
+        # Insufficient evidence (context exists but no match)
+        signal = {"topics": ["unrelated"], "change": "none",
+                  "state": "unknown", "observed_at": None, "tenant_id": 1}
+        r2 = rsvc.evaluate(base_context, signal, tenant_id=1)
+        # Both are NOT_RELEVANT but have different evaluation_state
+        assert r1["attention_category"] == "not_relevant"
+        assert r2["attention_category"] == "not_relevant"
+        assert r1["evaluation_state"] != r2["evaluation_state"]
+        assert r1["evaluation_state"] == "no_context"
+        assert r2["evaluation_state"] in ("insufficient_evidence", "complete")
 
     def test_insufficient_evidence_distinct(self, rsvc, base_context):
         """Signal with no matching dimensions but valid context → NOT_RELEVANT (evaluation ran)."""
@@ -252,14 +268,17 @@ class TestContextVsEvidence:
         r = rsvc.evaluate(base_context, signal)
         # Failed computation → RELEVANT (it matters that it failed)
         assert r["attention_category"] == "relevant"
+        assert r["evaluation_state"] == "failed"
 
     def test_denied_context_not_not_relevant(self, rsvc, base_context):
-        """Denied context must not mean 'does not matter'."""
+        """Denied context must not mean 'does not matter' — but Phase 4 denials are not attention judgments."""
         class FakeP4:
             def check_eligibility(self, p): return {"eligible": False, "reason": "review_required"}
         rsvc._p4 = FakeP4()
         r = rsvc.evaluate(base_context, {"topics": ["visa_requirements"], "tenant_id": 1})
+        # Phase 4 denied → NOT_RELEVANT (evaluation was blocked, not a judgment)
         assert r["attention_category"] == "not_relevant"
+        assert r["evaluation_state"] == "blocked"
         assert "blocked_by_current_use" in r["reasons"]
 
     def test_stale_only_evidence_not_not_relevant(self, rsvc, base_context):
@@ -268,6 +287,7 @@ class TestContextVsEvidence:
                   "state": "stale_only", "observed_at": "2024-01-01T00:00:00", "tenant_id": 1}
         r = rsvc.evaluate(base_context, signal)
         assert r["attention_category"] == "relevant"
+        assert r["evaluation_state"] == "stale"
 
 
 # =========================================================================
@@ -383,6 +403,42 @@ class TestExclusiveOwnership:
         notif_words = ["notify", "deliver", "send", "alert", "task", "action"]
         for w in notif_words:
             assert not any(w in m.lower() for m in methods), f"Phase 13 should not have method containing '{w}'"
+
+
+# =========================================================================
+# Machine Principal Attribution
+# =========================================================================
+class TestMachinePrincipalAttribution:
+    def test_principal_id_in_result(self, rsvc, base_context, material_signal):
+        """Machine principal identity is attributed in the attention result."""
+        r = rsvc.evaluate(base_context, material_signal, principal_id="watch-worker-001")
+        assert r["principal_id"] == "watch-worker-001"
+
+    def test_principal_id_none_when_omitted(self, rsvc, base_context, material_signal):
+        """When no principal is provided, attribution field is None."""
+        r = rsvc.evaluate(base_context, material_signal)
+        assert r["principal_id"] is None
+
+
+# =========================================================================
+# No Urgency Theatre
+# =========================================================================
+class TestNoUrgencyTheatre:
+    def test_low_precedence_no_immediate_attention(self, rsvc, base_context):
+        """Low-materiality evidence cannot reach IMMEDIATE_ATTENTION through presentation alone."""
+        signal = {"topics": ["visa_requirements"], "change": "no_material_change",
+                  "state": "success", "observed_at": datetime.utcnow().isoformat(),
+                  "tenant_id": 1}
+        r = rsvc.evaluate(base_context, signal)
+        # Low precedence (no consequence, no decision, no interest match)
+        assert r["precedence_score"] < 16
+        assert r["attention_category"] != "immediate_attention"
+
+    def test_no_urgency_without_high_precedence(self, rsvc):
+        """Absent high-precedence evidence cannot manufacture urgency."""
+        r = rsvc.evaluate({}, {"topics": [], "tenant_id": 1})
+        assert r["attention_category"] == "not_relevant"
+        assert r["precedence_score"] == 0
 
 
 # =========================================================================
