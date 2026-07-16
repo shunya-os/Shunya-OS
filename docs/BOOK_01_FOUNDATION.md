@@ -338,4 +338,196 @@ These are defined in subsequent books.
 
 ---
 
+# Architectural Philosophy
+
+Architecture exists to preserve simplicity as the platform grows.
+
+Every decision must be evaluated not only for today's requirements but for its effect on the next decade of development.
+
+The architecture should allow new capabilities to emerge through composition instead of repeated implementation.
+
+Reusable abstractions are preferred over feature-specific solutions.
+
+The platform should continuously become simpler to extend even as it becomes more capable.
+
+---
+
+# Universality
+
+SHUNYA is not designed around industries.
+
+Industries are merely different combinations of universal business patterns.
+
+Travel.
+
+Healthcare.
+
+Education.
+
+Manufacturing.
+
+Retail.
+
+Professional Services.
+
+Construction.
+
+Real Estate.
+
+Every one of them manages:
+
+- people
+- organizations
+- relationships
+- work
+- communication
+- documents
+- money
+- assets
+- schedules
+- decisions
+- knowledge
+
+Therefore the operating system should solve these universal concepts instead of industry terminology.
+
+Industry specialization belongs in configuration.
+
+Never in architecture.
+
+---
+
+# Intelligence Philosophy
+
+Artificial Intelligence is not a feature.
+
+Artificial Intelligence is infrastructure.
+
+Every capability inside SHUNYA should be capable of benefiting from intelligence.
+
+Understanding.
+
+Prediction.
+
+Explanation.
+
+Recommendation.
+
+Planning.
+
+Automation.
+
+Learning.
+
+Reflection.
+
+Memory.
+
+Search.
+
+Reasoning.
+
+The user should never think:
+
+"I am now using AI."
+
+Instead they should think:
+
+"SHUNYA understands what I am trying to accomplish."
+
+---
+
+# Memory Philosophy
+
+Memory is the foundation of intelligence.
+
+Without memory there is no continuity.
+
+Without continuity there is no relationship.
+
+Without relationship there is no trust.
+
+Every interaction should contribute to contextual understanding while respecting user ownership and control.
+
+Memory should reduce repetition.
+
+Never reduce transparency.
+
+---
+
+# Time Philosophy
+
+Everything changes over time.
+
+Objects evolve.
+
+Relationships evolve.
+
+Knowledge evolves.
+
+Organizations evolve.
+
+Therefore every important object inside SHUNYA exists as part of a timeline instead of a static record.
+
+History is a first-class citizen.
+
+Not an afterthought.
+
+---
+
+# Knowledge Philosophy
+
+Information becomes valuable only after it is connected.
+
+SHUNYA should continuously transform:
+
+Data
+
+↓
+
+Information
+
+↓
+
+Knowledge
+
+↓
+
+Understanding
+
+↓
+
+Decision Support
+
+Knowledge should never become isolated inside individual modules.
+
+Every object contributes to the organization's collective intelligence.
+
+---
+
+# Platform Responsibility
+
+The platform is responsible for reducing complexity.
+
+The user is never responsible for understanding the internal architecture.
+
+Whenever complexity must exist, it belongs inside SHUNYA.
+
+Never inside the user's mind.
+
+---
+
+# Engineering Rule
+
+Every new feature must answer three questions before implementation.
+
+1. Does this solve a universal problem?
+
+2. Does this preserve architectural consistency?
+
+3. Will this remain useful five years from now?
+
+If the answer to any question is "No", redesign before implementation.
+
+---
+
 End of Commit 001.
