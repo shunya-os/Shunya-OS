@@ -16,13 +16,17 @@ from app.models import Tenant, TeamMember, EntityDefinition, Entity, Business, B
 
 @pytest.fixture(scope="function")
 def app():
-    """Create a fresh app for each test using a unique temp SQLite file."""
-    import tempfile as _tf
-    fd, path = _tf.mkstemp(suffix=".db")
-    os.close(fd)
+    """Create a fresh app for each test using an isolated temp SQLite file."""
+    import tempfile as _tf, config as _cfg
+    db_fd, db_path = _tf.mkstemp(suffix=".db")
+    os.close(db_fd)
 
+    # Override config BEFORE create_app so engine binds to temp path (Flask-SQLAlchemy 3.x quirk)
+    original_uri = _cfg.TestConfig.SQLALCHEMY_DATABASE_URI
+    _cfg.TestConfig.SQLALCHEMY_DATABASE_URI = f"sqlite:///{db_path}"
+
+    from app import create_app, db as _db
     app = create_app("test")
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{path}"
 
     with app.app_context():
         _db.create_all()
@@ -30,8 +34,16 @@ def app():
     with app.app_context():
         _db.session.close()
         _db.engine.dispose()
+    # Remove cached engine so the next test's app doesn't reuse it
     try:
-        os.unlink(path)
+        if app in _db.engines:
+            del _db.engines[app]
+    except RuntimeError:
+        pass  # No app context available, engine already disposed
+
+    _cfg.TestConfig.SQLALCHEMY_DATABASE_URI = original_uri
+    try:
+        os.unlink(db_path)
     except OSError:
         pass
 
@@ -67,12 +79,24 @@ def admin_user(db, tenant):
 
 
 @pytest.fixture(scope="function")
-def logged_in_client(client, tenant, admin_user):
-    with client.session_transaction() as sess:
-        sess["user_id"] = admin_user.id
-        sess["tenant_id"] = tenant.id
-        sess["role"] = "admin"
-        sess["name"] = admin_user.name
+def logged_in_client(client, tenant, admin_user, db):
+    """Create a properly authenticated client with real UserSession."""
+    from app.models import UserSession
+    from app.utils import generate_token, hash_token
+    from datetime import datetime, timedelta
+
+    token = generate_token(48)
+    token_hash = hash_token(token)
+    sess = UserSession(
+        user_id=admin_user.id,
+        token=token_hash,
+        expires_at=datetime.utcnow() + timedelta(hours=24),
+    )
+    db.session.add(sess)
+    db.session.commit()
+
+    with client.session_transaction() as s:
+        s["session_token"] = token
     return client
 
 

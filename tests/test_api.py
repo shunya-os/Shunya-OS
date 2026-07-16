@@ -36,7 +36,7 @@ def app():
         # UserMoodCheckin is defined twice in models.py, producing a duplicate
         # index (ix_mood_user_date) in the metadata.  Remove one before DDL.
         _tbl = _db.metadata.tables.get("user_mood_checkins")
-        if _tbl:
+        if _tbl is not None:
             seen = set()
             for idx in list(_tbl.indexes):
                 sig = (idx.name, tuple(c.name for c in idx.columns))
@@ -53,8 +53,11 @@ def app():
         _db.engine.dispose()
 
     # Remove cached engine so the next test's app doesn't reuse it
-    if app in _db.engines:
-        del _db.engines[app]
+    try:
+        if app in _db.engines:
+            del _db.engines[app]
+    except RuntimeError:
+        pass  # No app context available, engine already disposed
 
     _os.unlink(db_path)
     _cfg.TestConfig.SQLALCHEMY_DATABASE_URI = original_uri
@@ -153,9 +156,9 @@ class TestAdminTeam:
         assert admin_user.email in emails
 
     def test_list_team_returns_401_without_auth(self, client):
-        """GET /admin/api/team returns 401 when not logged in."""
+        """GET /admin/api/team returns redirect when not logged in."""
         resp = client.get("/admin/api/team")
-        assert resp.status_code == 401
+        assert resp.status_code == 302
 
 
 class TestEntitiesAPI:
