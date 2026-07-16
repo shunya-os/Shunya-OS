@@ -205,6 +205,11 @@ class TestSignupPost:
 
     def test_signup_creates_tenant_and_team_member(self, client, db):
         """POST /auth/signup creates a Tenant and TeamMember, returns success."""
+        from app.utils import hash_token
+        whatsapp = "+15551234567"
+        with client.session_transaction() as sess:
+            sess["signup_otp_verified"] = hash_token(whatsapp)  # Bypass OTP check
+
         resp = client.post(
             self.SIGNUP_URL,
             json={
@@ -212,6 +217,7 @@ class TestSignupPost:
                 "email": "jane@newco.com",
                 "password": "securepass",
                 "company_name": "NewCo",
+                "whatsapp_phone": whatsapp,
             },
         )
         assert resp.status_code == 200
@@ -234,6 +240,10 @@ class TestSignupPost:
 
     def test_signup_duplicate_email_returns_error(self, client, db, tenant, admin_user):
         """POST /auth/signup with an already-registered email returns 409."""
+        from app.utils import hash_token
+        with client.session_transaction() as sess:
+            sess["signup_otp_verified"] = hash_token(admin_user.whatsapp_phone or admin_user.phone or "+15551234567")
+
         resp = client.post(
             self.SIGNUP_URL,
             json={
@@ -241,6 +251,7 @@ class TestSignupPost:
                 "email": admin_user.email,  # already exists from conftest
                 "password": "whatever",
                 "company_name": "DupCo",
+                "whatsapp_phone": "+15551234567",
             },
         )
         assert resp.status_code == 409
@@ -260,6 +271,11 @@ class TestSignupPost:
 
     def test_signup_password_hash_is_set(self, client, db):
         """POST /auth/signup stores a properly salted password hash."""
+        from app.utils import hash_token
+        whatsapp = "+15551234567"
+        with client.session_transaction() as sess:
+            sess["signup_otp_verified"] = hash_token(whatsapp)
+
         client.post(
             self.SIGNUP_URL,
             json={
@@ -267,6 +283,7 @@ class TestSignupPost:
                 "email": "hash@test.com",
                 "password": "mypassword",
                 "company_name": "HashCo",
+                "whatsapp_phone": whatsapp,
             },
         )
         from app.models import TeamMember

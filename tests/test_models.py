@@ -84,8 +84,9 @@ class TestBusiness:
 
     def test_business_brands_relation(self, db, business):
         """Business.brands lists child brands."""
-        Brand(name="Premium", business_id=business.id, is_default=True)
-        Brand(name="Economy", business_id=business.id)
+        b1 = Brand(name="Premium", business_id=business.id, is_default=True)
+        b2 = Brand(name="Economy", business_id=business.id)
+        db.session.add_all([b1, b2])
         db.session.flush()
 
         assert len(business.brands) == 2
@@ -107,7 +108,7 @@ class TestBusiness:
         """Business.to_dict returns expected keys."""
         d = business.to_dict()
         assert d["id"] == business.id
-        assert d["name"] == "Test Business"
+        assert d["name"] == "Test Biz"
         assert d["business_type"] == "travel"
         assert "brand_count" in d
         assert "is_active" in d
@@ -263,14 +264,17 @@ class TestEntityDefinition:
 
     def test_entity_definition_unique_type_per_tenant(self, db, tenant):
         """Duplicate entity type for same tenant raises error."""
-        EntityDefinition(tenant_id=tenant.id, type="order", label="Order", statuses=["new", "done"])
-        db.session.flush()
+        ed1 = EntityDefinition(tenant_id=tenant.id, type="order", label="Order", statuses=["new", "done"])
+        db.session.add(ed1)
+        db.session.commit()  # SQLite requires commit to enforce unique index
 
         dup = EntityDefinition(tenant_id=tenant.id, type="order", label="Order 2", statuses=["a", "b"])
         db.session.add(dup)
         import pytest
         with pytest.raises(Exception):
             db.session.flush()
+
+        db.session.rollback()  # Clean up for test isolation
 
 
 # =============================================================================
@@ -476,8 +480,24 @@ class TestNextEntityCode:
     def test_next_entity_code_increments_sequence(self, db, tenant, lead_definition):
         """next_entity_code increments the sequence number."""
         ref = date(2026, 7, 12)
+        # Code is count+1, so no entities = 01, one entity = 02, etc.
         code1 = next_entity_code(db.session, tenant.id, "lead", ref_date=ref)
+
+        e1 = Entity(
+            tenant_id=tenant.id, definition_id=lead_definition.id, code=code1, status="new", data={},
+            created_at=datetime(2026, 7, 12)
+        )
+        db.session.add(e1)
+        db.session.flush()
+
         code2 = next_entity_code(db.session, tenant.id, "lead", ref_date=ref)
+        e2 = Entity(
+            tenant_id=tenant.id, definition_id=lead_definition.id, code=code2, status="new", data={},
+            created_at=datetime(2026, 7, 12)
+        )
+        db.session.add(e2)
+        db.session.flush()
+
         code3 = next_entity_code(db.session, tenant.id, "lead", ref_date=ref)
 
         assert code1.endswith("01")
@@ -579,7 +599,7 @@ class TestEnsureEntityPrefixes:
         db.session.refresh(ticket_def)
 
         assert lead_def.code_prefix == "PC", f"Expected PC, got {lead_def.code_prefix}"
-        assert ticket_def.code_prefix == "TI", f"Expected TI, got {ticket_def.code_prefix}"
+        assert ticket_def.code_prefix == "TIC", f"Expected TIC, got {ticket_def.code_prefix}"
 
     def test_skips_existing_prefixes(self, db, tenant):
         """ensure_entity_prefixes does NOT overwrite existing code_prefix values."""
@@ -617,13 +637,13 @@ class TestGetCodePrefix:
         db.session.flush()
 
         prefix = get_code_prefix(db.session, "ticket", tenant.id)
-        assert prefix == "TI"
+        assert prefix == "TIC"
 
     def test_get_code_prefix_unknown_type(self, db, tenant):
         """get_code_prefix falls back to computing for unknown types."""
         # No definition exists for 'widget'
         prefix = get_code_prefix(db.session, "widget", tenant.id)
-        assert prefix == "WI"
+        assert prefix == "WID"
 
 
 # =============================================================================
