@@ -208,3 +208,93 @@ def inject_auth_globals():
         "is_manager": user and user.role == UserRole.MANAGER.value,
         "UserRole": UserRole,
     }
+
+
+# ---------------------------------------------------------------------------
+# Gmail OAuth Routes
+# ---------------------------------------------------------------------------
+
+@auth_bp.route("/gmail/connect", methods=["GET"])
+@login_required
+def gmail_connect_page():
+    """Render Gmail OAuth connection page."""
+    from flask import render_template
+    return render_template("gmail_connect.html")
+
+
+@auth_bp.route("/gmail/oauth/initiate", methods=["POST"])
+@login_required
+def gmail_oauth_initiate():
+    """Initiate Gmail OAuth flow for the current tenant."""
+    from app.communication.oauth import GmailOAuthService, OAuthConfig
+
+    tenant_id = None
+    # Try to get tenant from user context (if multi-tenant)
+    try:
+        from app.tenant import Tenant
+        if hasattr(g, "tenant") and g.tenant:
+            tenant_id = g.tenant.id
+    except Exception:
+        pass
+
+    try:
+        service = GmailOAuthService(session=db.session)
+        result = service.initiate_flow(tenant_id=tenant_id)
+        # Store state in session for callback verification
+        session["gmail_oauth_state"] = result["state"]
+        return jsonify({"success": True, "authorization_url": result["authorization_url"]})
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
+@auth_bp.route("/gmail/oauth/callback", methods=["GET"])
+def gmail_oauth_callback():
+    """Handle Gmail OAuth callback."""
+    from app.communication.oauth import GmailOAuthService, OAuthConfig
+
+    error = request.args.get("error")
+    if error:
+        return redirect(url_for("auth.gmail_connect_page", error=error))
+
+    code = request.args.get("code")
+    state = request.args.get("state")
+    session_state = session.get("gmail_oauth_state")
+
+    if not code:
+        return redirect(url_for("auth.gmail_connect_page", error="no_code"))
+
+    # Verify state matches (CSRF protection)
+    if not state or state != session_state:
+        flash("OAuth state mismatch - possible security issue", "error")
+        return redirect(url_for("auth.gmail_connect_page"))
+
+    tenant_id = None
+    try:
+        from app.tenant import Tenant
+        if hasattr(g, "tenant") and g.tenant:
+            tenant_id = g.tenant.id
+    except Exception:
+        pass
+
+    try:
+        service = GmailOAuthService(session=db.session)
+        source = service.connect_account(tenant_id, code, state)
+        flash(f"Gmail account {source.account_identifier} connected successfully!", "success")
+        return redirect(url_for("main.index"))
+    except ValueError as e:
+        flash(f"Gmail connection failed: {e}", "error")
+        return redirect(url_for("auth.gmail_connect_page"))
+
+
+@auth_bp.route("/gmail/disconnect/<int:source_id>", methods=["POST"])
+@login_required
+def gmail_disconnect(source_id):
+    """Disconnect a Gmail account."""
+    from app.communication.oauth import GmailOAuthService
+
+    service = GmailOAuthService(session=db.session)
+    if service.disconnect_account(source_id):
+        flash("Gmail account disconnected", "success")
+    else:
+        flash("Could not disconnect account", "error")
+    return redirect(url_for("main.settings"))

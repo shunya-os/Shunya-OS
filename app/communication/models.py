@@ -251,3 +251,29 @@ class SyncCursor(db.Model):
 
     def __repr__(self):
         return f"<SyncCursor #{self.id} {self.sync_type} source={self.source_id} [{self.cursor_state}]>"
+
+
+# ---------------------------------------------------------------------------
+# OAuthState — OAuth flow state tracking for CSRF protection
+# ---------------------------------------------------------------------------
+
+
+class OAuthState(db.Model):
+    """Tracks pending OAuth states for CSRF protection during flow."""
+
+    __tablename__ = "oauth_states"
+    __table_args__ = (
+        Index("ix_oauth_state_provider", "provider"),
+        Index("ix_oauth_state_tenant", "tenant_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    provider = db.Column(db.String(60), nullable=False)  # "gmail", "whatsapp", etc.
+    state = db.Column(db.String(128), nullable=False, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    tenant = db.relationship("Tenant", backref="oauth_states", lazy="select")
+
+    def __repr__(self):
+        return f"<OAuthState #{self.id} {self.provider}:{self.state[:16]}...>"
