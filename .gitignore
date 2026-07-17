@@ -11,3 +11,24 @@ node_modules/
 .DS_Store
 Thumbs.db
 data/
+
+# ------------------------------------------------------------------
+# SHUNYA Development Workflow
+# ------------------------------------------------------------------
+
+logs/
+reviews/
+reports/
+audit/
+
+*.log
+
+# Git worktrees
+shunya_os_gmail/
+shunya_os_documents/
+shunya_os_crm/
+shunya_os_dashboard/
+shunya_os_workflow/
+
+# Development artifacts
+tasks/
