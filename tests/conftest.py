@@ -1,48 +1,17 @@
 """
-Pytest configuration for Panchi Club tests.
+Pytest configuration for Shunya OS tests — canonical infrastructure.
 
-Provides shared fixtures:
-    app, client, db, tenant, admin_user, lead_definition, logged_in_client
+Provides fixtures backed by the production create_app() factory and the
+global db instance. Replaces the old _test_db approach that had dead-code
+inline model definitions.
+
+Exposes:
+    app, client, db, tenant, test_tenant, admin_user, logged_in_client
+    real_app  (alias for app — backward compat for phase test files)
 """
 
 import pytest
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from app.auth import TeamMember
-from app.tenant import Tenant
-
-# Create a local SQLAlchemy instance with ONLY the models we need
-# (avoids index conflicts from full app model registry)
-_test_db = SQLAlchemy()
-
-
-class Lead(_test_db.Model):
-    __tablename__ = "leads"
-    id = _test_db.Column(_test_db.Integer, primary_key=True)
-    code = _test_db.Column(_test_db.String(20), unique=True, nullable=False, index=True)
-    source = _test_db.Column(_test_db.String(30), default="manual")
-    customer_name = _test_db.Column(_test_db.String(255), index=True)
-    phone = _test_db.Column(_test_db.String(30), index=True)
-    email = _test_db.Column(_test_db.String(255))
-    destination = _test_db.Column(_test_db.String(255))
-    pax = _test_db.Column(_test_db.String(100))
-    dates = _test_db.Column(_test_db.String(255))
-    budget = _test_db.Column(_test_db.Numeric(12, 2), default=0)
-    notes = _test_db.Column(_test_db.Text)
-    status = _test_db.Column(_test_db.String(30), default="new", index=True)
-    assigned_to = _test_db.Column(_test_db.String(120))
-    created_at = _test_db.Column(_test_db.DateTime)
-    updated_at = _test_db.Column(_test_db.DateTime)
-
-
-class ActivityLog(_test_db.Model):
-    __tablename__ = "activity_logs"
-    id = _test_db.Column(_test_db.Integer, primary_key=True)
-    lead_id = _test_db.Column(_test_db.Integer, _test_db.ForeignKey("leads.id"), nullable=False)
-    action = _test_db.Column(_test_db.String(60), nullable=False)
-    detail = _test_db.Column(_test_db.Text, default="")
-    user = _test_db.Column(_test_db.String(120), default="")
-    created_at = _test_db.Column(_test_db.DateTime)
+from app import create_app, db
 
 
 # ---------------------------------------------------------------------------
@@ -51,23 +20,45 @@ class ActivityLog(_test_db.Model):
 
 @pytest.fixture(scope="function")
 def app():
-    """Create a minimal Flask app with in-memory SQLite for each test.
+    """Create a full Flask app via the production factory.
 
-    Uses a local SQLAlchemy instance to avoid index conflicts from
-    the full app model registry (which includes ClientUser etc.).
+    Uses the production db instance so ALL models are registered
+    (Person, PersonIdentity, Relationship, IntakeSession, etc.).
+    Replaces the old _test_db approach that only had Lead and ActivityLog.
+
+    Imports all model modules before create_all() so every table
+    that tests may reference is created in the in-memory SQLite.
     """
-    application = Flask(__name__)
-    application.config.update({
+    application = create_app(config_override={
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "SECRET_KEY": "test-secret",
-        "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+        "DISABLE_RATE_LIMIT": "true",
+        "WTF_CSRF_ENABLED": False,
     })
-    _test_db.init_app(application)
     with application.app_context():
-        _test_db.create_all()
+        # Register all models before create_all — some are only imported
+        # lazily inside create_app's context processor / middleware.
+        from app import models  # noqa: F401
+        from app.tenant import Tenant  # noqa: F401
+        from app.communication import models as _comm_models  # noqa: F401
+        from app.privacy import models as _privacy_models  # noqa: F401
+        from app.human_context import models as _hc_models  # noqa: F401
+        from app.memory import models as _mem_models  # noqa: F401
+        from app.evidence import models as _ev_models  # noqa: F401
+        from app.document import models as _doc_models  # noqa: F401
+        from app.llm import models as _llm_models  # noqa: F401
+        from app.auth import TeamMember  # noqa: F401
+        db.create_all()
         yield application
-        _test_db.drop_all()
+        db.drop_all()
+
+
+# Alias for backward compatibility with phase test files that use `real_app`
+@pytest.fixture(scope="function")
+def real_app(app):
+    """Alias for the app fixture — backward compat with existing tests."""
+    return app
 
 
 @pytest.fixture(scope="function")
@@ -77,14 +68,9 @@ def client(app):
 
 
 @pytest.fixture(scope="function")
-def db(app):
-    """Provide the SQLAlchemy database instance within the app context."""
-    return _test_db
-
-
-@pytest.fixture(scope="function")
 def tenant(app, db):
     """Create a sample tenant for multi-tenant tests."""
+    from app.tenant import Tenant
     t = Tenant(
         company_name="Test Travel Co",
         slug="test-travel",
@@ -98,20 +84,14 @@ def tenant(app, db):
 
 @pytest.fixture(scope="function")
 def test_tenant(tenant):
-    """Return the tenant's ID for use as tenant_id parameter.
-    
-    Use this fixture in tests that pass tenant_id to services.
-    For tests using `real_app` (full app factory), define an
-    inline fixture instead — the conftest's `app` uses a
-    separate SQLAlchemy instance (`_test_db`) incompatible
-    with `create_app()`.
-    """
+    """Return the tenant's ID for use as tenant_id parameter."""
     return tenant.id
 
 
 @pytest.fixture(scope="function")
 def admin_user(app, db):
     """Create an admin TeamMember for auth-required tests."""
+    from app.auth import TeamMember
     user = TeamMember(
         name="Admin User",
         email="admin@test.com",
@@ -123,24 +103,6 @@ def admin_user(app, db):
     db.session.add(user)
     db.session.commit()
     return user
-
-
-@pytest.fixture(scope="function")
-def lead_definition(app, db):
-    """Return a dict describing the expected Lead field schema."""
-    return {
-        "fields": [
-            "customer_name",
-            "phone",
-            "email",
-            "destination",
-            "pax",
-            "dates",
-            "budget",
-            "notes",
-        ],
-        "required": ["customer_name", "destination"],
-    }
 
 
 @pytest.fixture(scope="function")

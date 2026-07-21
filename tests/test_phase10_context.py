@@ -173,21 +173,6 @@ class TestCompatibility:
 # =========================================================================
 # Real consumption — Human Context Provider
 # =========================================================================
-@pytest.fixture(scope="function")
-def real_app():
-    from app import create_app, db
-    application = create_app(config_override={
-        "TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "SECRET_KEY": "test-secret", "DISABLE_RATE_LIMIT": "true", "WTF_CSRF_ENABLED": False,
-    })
-    with application.app_context():
-        from app.tenant import Tenant
-        from app.models import Person
-        from app.human_context.models import HumanContextItem
-        from app.memory.models import MemoryRecord
-        from app.evidence.models import SourceReference, EvidenceLink
-        from app.document.models import DocumentRecord
-        db.create_all(); yield application; db.drop_all()
 
 
 class T:

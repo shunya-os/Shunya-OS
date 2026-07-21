@@ -4,25 +4,6 @@ PHASE 3 — FINAL CLOSURE TESTS: Gmail real client, credential hardening, attach
 import pytest, json, os
 
 
-@pytest.fixture(scope="function")
-def real_app():
-    from app import create_app, db
-    application = create_app(config_override={
-        "TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "SECRET_KEY": "test-secret", "DISABLE_RATE_LIMIT": "true", "WTF_CSRF_ENABLED": False,
-    })
-    with application.app_context():
-        from app.tenant import Tenant
-        from app.communication.models import (
-            CommunicationSource, CommunicationCapturePolicy, CommunicationCaptureScope,
-            ExternalConversation, ExternalMessage, ExternalParticipant,
-            ExternalAttachmentReference, SyncCursor,
-        )
-        db.create_all()
-        yield application
-        db.drop_all()
-
-
 # =========================================================================
 # 1. GMAIL REAL CLIENT EXISTENCE
 # =========================================================================

@@ -4,20 +4,6 @@ PHASE 1 — Identity Boundary Verification Tests
 import pytest
 
 
-@pytest.fixture(scope="function")
-def real_app():
-    from app import create_app, db
-    application = create_app(config_override={
-        "TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "SECRET_KEY": "test-secret", "DISABLE_RATE_LIMIT": "true", "WTF_CSRF_ENABLED": False,
-    })
-    with application.app_context():
-        from app.tenant import Tenant
-        db.create_all()
-        yield application
-        db.drop_all()
-
-
 # =========================================================================
 # 1. CUSTOMER BACKFILL — No canonical Customer model exists
 # =========================================================================

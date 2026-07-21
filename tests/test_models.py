@@ -1,27 +1,4 @@
 import pytest
-from app import create_app, db
-
-
-@pytest.fixture()
-def app():
-    app = create_app(config_override={
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "SECRET_KEY": "test-secret",
-        "DISABLE_RATE_LIMIT": "true",
-    })
-    with app.app_context():
-        # Import Tenant model to register it with db.metadata before create_all
-        # (Person.tenant_id FK references tenants.id)
-        from app.tenant import Tenant
-        db.create_all()
-        yield app
-        db.drop_all()
-
-
-@pytest.fixture()
-def client(app):
-    return app.test_client()
 
 
 def test_title_contains_identity(client):

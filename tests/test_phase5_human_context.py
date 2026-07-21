@@ -1,29 +1,8 @@
 """
 PHASE 5 — Human Context Tests
 """
-import pytest, json
+import pytest
 from datetime import datetime, timedelta
-
-
-@pytest.fixture(scope="function")
-def real_app():
-    from app import create_app, db
-    application = create_app(config_override={
-        "TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "SECRET_KEY": "test-secret", "DISABLE_RATE_LIMIT": "true", "WTF_CSRF_ENABLED": False,
-    })
-    with application.app_context():
-        from app.tenant import Tenant
-        from app.models import Person, PersonIdentity, Lead
-        from app.models import Person, PersonIdentity, Lead, Relationship
-        from app.communication.models import CommunicationSource, ExternalConversation, ExternalMessage
-        from app.privacy.models import (PrivacyPolicy, MemoryEligibilityPolicy, Restriction, ForgetRequest,
-            MemoryEligibility, ForgetRequestStatus)
-        from app.human_context.models import (HumanContextItem, ContextProposal, ContextConcept,
-            ContextCategory, ScopeType, AssertionType, ContextStatus, ProposalStatus)
-        db.create_all()
-        yield application
-        db.drop_all()
 
 
 # =========================================================================

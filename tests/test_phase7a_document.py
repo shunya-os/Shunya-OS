@@ -1,27 +1,8 @@
 """
 PHASE 7A — Document & Presentation Intelligence Tests
 """
-import pytest, json, hashlib
+import pytest, hashlib
 from datetime import datetime
-
-
-@pytest.fixture(scope="function")
-def real_app():
-    from app import create_app, db
-    application = create_app(config_override={
-        "TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "SECRET_KEY": "test-secret", "DISABLE_RATE_LIMIT": "true", "WTF_CSRF_ENABLED": False,
-    })
-    with application.app_context():
-        from app.tenant import Tenant
-        from app.models import Person
-        from app.evidence.models import (
-            SourceReference, EvidenceLink, AssertionRecord, SourceAssessment, SourceKind,
-        )
-        from app.document.models import (
-            DocumentRecord, DocumentSection, ExtractedField, DocumentComparison, ComparisonItem,
-        )
-        db.create_all(); yield application; db.drop_all()
 
 
 class T:
