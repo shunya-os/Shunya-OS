@@ -1565,3 +1565,108 @@ from app.auth_routes import login_required
 def executive_workspace():
     """SHUNYA Executive Workspace — continuously contextual workspace."""
     return render_template("executive_workspace.html")
+
+
+# ---------------------------------------------------------------------------
+# Workspace Runtime API
+# ---------------------------------------------------------------------------
+
+from app.workspace_runtime import WorkspaceAPI, get_workspace_runtime, reset_workspace_runtime
+
+
+@main.route("/api/workspace/object/<obj_type>/<obj_id>")
+@login_required
+def workspace_focus_object(obj_type, obj_id):
+    """Focus the workspace on an object. Returns full object data + intelligence."""
+    api = WorkspaceAPI()
+    return jsonify(api.focus_object(obj_type, obj_id))
+
+
+@main.route("/api/workspace/executive")
+@login_required
+def workspace_executive_data():
+    """Get all executive intelligence data for the workspace."""
+    api = WorkspaceAPI()
+    return jsonify(api.get_executive_data())
+
+
+@main.route("/api/workspace/conversation/<obj_type>/<obj_id>")
+@login_required
+def workspace_get_conversation(obj_type, obj_id):
+    """Get conversation history for an object."""
+    api = WorkspaceAPI()
+    return jsonify(api.get_conversation(obj_type, obj_id))
+
+
+@main.route("/api/workspace/conversation/<obj_type>/<obj_id>/send", methods=["POST"])
+@login_required
+def workspace_send_message(obj_type, obj_id):
+    """Send a message in an object's conversation."""
+    data = request.get_json() or {}
+    text = data.get("text", "")
+    api = WorkspaceAPI()
+    return jsonify(api.send_message(obj_type, obj_id, text))
+
+
+@main.route("/api/workspace/updates")
+@login_required
+def workspace_updates():
+    """Get runtime updates since last check."""
+    api = WorkspaceAPI()
+    return jsonify(api.get_updates())
+
+
+@main.route("/api/workspace/graph/<obj_type>/<obj_id>")
+@login_required
+def workspace_object_graph(obj_type, obj_id):
+    """Get the object graph centered on an object."""
+    api = WorkspaceAPI()
+    return jsonify(api.get_object_graph(obj_type, obj_id))
+
+
+@main.route("/api/workspace/recent")
+@login_required
+def workspace_recent():
+    """Get recent objects across all types."""
+    api = WorkspaceAPI()
+    return jsonify(api.get_recent_objects())
+
+
+@main.route("/api/workspace/types")
+@login_required
+def workspace_types():
+    """Get available object types."""
+    api = WorkspaceAPI()
+    return jsonify(api.get_available_types())
+
+
+@main.route("/api/workspace/state")
+@login_required
+def workspace_state():
+    """Get current workspace runtime state."""
+    api = WorkspaceAPI()
+    return jsonify(api.get_state())
+
+
+@main.route("/api/workspace/mode/<mode>")
+@login_required
+def workspace_set_mode(mode):
+    """Set the current executive mode."""
+    api = WorkspaceAPI()
+    return jsonify(api.set_mode(mode))
+
+
+@main.route("/api/workspace/attention/<layer>")
+@login_required
+def workspace_set_attention(layer):
+    """Set the attention layer (executive, team, personal)."""
+    api = WorkspaceAPI()
+    return jsonify(api.set_attention_layer(layer))
+
+
+@main.route("/api/workspace/stats")
+@login_required
+def workspace_stats():
+    """Get workspace runtime statistics."""
+    api = WorkspaceAPI()
+    return jsonify(api.stats())
