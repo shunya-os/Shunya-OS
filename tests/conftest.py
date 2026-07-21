@@ -97,6 +97,19 @@ def tenant(app, db):
 
 
 @pytest.fixture(scope="function")
+def test_tenant(tenant):
+    """Return the tenant's ID for use as tenant_id parameter.
+    
+    Use this fixture in tests that pass tenant_id to services.
+    For tests using `real_app` (full app factory), define an
+    inline fixture instead — the conftest's `app` uses a
+    separate SQLAlchemy instance (`_test_db`) incompatible
+    with `create_app()`.
+    """
+    return tenant.id
+
+
+@pytest.fixture(scope="function")
 def admin_user(app, db):
     """Create an admin TeamMember for auth-required tests."""
     user = TeamMember(

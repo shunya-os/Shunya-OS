@@ -19,6 +19,24 @@ def real_app():
         db.drop_all()
 
 
+@pytest.fixture(scope="function")
+def test_tenant(real_app):
+    """Create a test Tenant and return its ID.
+    
+    Uses the test's `real_app` fixture (full app factory with
+    complete model registry). Unique slug prevents collisions
+    when multiple tenants are created in the same session.
+    """
+    from app.tenant import Tenant; from app import db
+    import uuid
+    with real_app.app_context():
+        slug = f"test-{uuid.uuid4().hex[:12]}"
+        t = Tenant(company_name="Test Tenant", slug=slug,
+                   business_type="travel", is_active=True)
+        db.session.add(t); db.session.commit()
+        return t.id
+
+
 @pytest.fixture()
 def sample_csv():
     return "name,email,phone,department\nRitu Sharma,ritu@example.com,+919876543210,Sales\nArjun Singh,arjun@example.com,+919999999999,Marketing\nName Only,,,,\n"
@@ -30,12 +48,12 @@ def sample_csv():
 
 class TestIntakeSession:
 
-    def test_create_session(self, real_app):
+    def test_create_session(self, real_app, test_tenant):
         from app.intake.session import IntakeOrchestrator
         from app import db
         with real_app.app_context():
             orch = IntakeOrchestrator(session=db.session)
-            sess = orch.create_session("csv", "test.csv", tenant_id=1)
+            sess = orch.create_session("csv", "test.csv", tenant_id=test_tenant)
             assert sess.id is not None
             assert sess.source_type == "csv"
             assert sess.status == "received"
@@ -249,13 +267,13 @@ class TestIdentityMatcher:
             result = matcher.resolve_row({}, [])
             assert result["status"] == "INSUFFICIENT_IDENTITY"
 
-    def test_no_match_valid_email(self, real_app):
+    def test_no_match_valid_email(self, real_app, test_tenant):
         from app.intake.matcher import IdentityMatcher
         from app import db
         with real_app.app_context():
             matcher = IdentityMatcher(session=db.session)
             mappings = [{"source_column": "email", "target_field": "identity.email"}]
-            result = matcher.resolve_row({"email": "new@example.com"}, mappings, tenant_id=1)
+            result = matcher.resolve_row({"email": "new@example.com"}, mappings, tenant_id=test_tenant)
             assert result["status"] == "NO_MATCH"
 
     def test_matched_by_email(self, real_app):
@@ -478,7 +496,7 @@ class TestGovernedCommit:
 
 class TestPanchiLegacy:
 
-    def test_lead_name_only_insufficient(self, real_app):
+    def test_lead_name_only_insufficient(self, real_app, test_tenant):
         """Lead with customer_name only is INSUFFICIENT_IDENTITY — no Person created."""
         from app.models import Lead, next_inquiry_code
         from app.intake.matcher import IdentityMatcher
@@ -489,10 +507,10 @@ class TestPanchiLegacy:
             db.session.add(lead); db.session.commit()
             matcher = IdentityMatcher(session=db.session)
             mappings = [{"source_column": "customer_name", "target_field": "person.canonical_name"}]
-            result = matcher.resolve_row({"customer_name": "Ritu Sharma"}, mappings, tenant_id=1)
+            result = matcher.resolve_row({"customer_name": "Ritu Sharma"}, mappings, tenant_id=test_tenant)
             assert result["status"] == "INSUFFICIENT_IDENTITY"
 
-    def test_lead_name_phone_no_match(self, real_app):
+    def test_lead_name_phone_no_match(self, real_app, test_tenant):
         """Lead with name + phone where phone has no Person match is NO_MATCH."""
         from app.intake.matcher import IdentityMatcher
         from app import db
@@ -502,7 +520,7 @@ class TestPanchiLegacy:
                 {"source_column": "customer_name", "target_field": "person.canonical_name"},
                 {"source_column": "phone", "target_field": "identity.phone"},
             ]
-            result = matcher.resolve_row({"customer_name": "Arjun", "phone": "+919999999999"}, mappings, tenant_id=1)
+            result = matcher.resolve_row({"customer_name": "Arjun", "phone": "+919****3210"}, mappings, tenant_id=test_tenant)
             assert result["status"] == "NO_MATCH"
 
     def test_lead_email_phone_conflict(self, real_app):

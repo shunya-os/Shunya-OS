@@ -17,7 +17,7 @@ from enum import Enum
 from typing import Optional
 
 from app import db
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Float, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Float, ForeignKey
 
 
 class TenantTheme(db.Model):

@@ -19,29 +19,47 @@ def real_app():
         db.drop_all()
 
 
+@pytest.fixture(scope="function")
+def test_tenant(real_app):
+    """Create a test Tenant and return its ID.
+    
+    Uses the test's `real_app` fixture (full app factory with
+    complete model registry). Unique slug prevents collisions
+    when multiple tenants are created in the same session.
+    """
+    from app.tenant import Tenant; from app import db
+    import uuid
+    with real_app.app_context():
+        slug = f"test-{uuid.uuid4().hex[:12]}"
+        t = Tenant(company_name="Test Tenant", slug=slug,
+                   business_type="travel", is_active=True)
+        db.session.add(t); db.session.commit()
+        return t.id
+
+
 class TestRelationshipCreation:
 
-    def test_relationship_creation(self, real_app):
+    def test_relationship_creation(self, real_app, test_tenant):
         from app.models import Person, Relationship
         from app import db
         with real_app.app_context():
             p = Person(canonical_name="Ritu", preferred_name="Ritu")
             db.session.add(p); db.session.commit()
-            r = Relationship(person_id=p.id, relationship_type="CUSTOMER", tenant_id=1)
+            r = Relationship(person_id=p.id, relationship_type="CUSTOMER", tenant_id=test_tenant)
             db.session.add(r); db.session.commit()
             assert r.id is not None
             assert r.relationship_type == "CUSTOMER"
             assert r.status == "active"
 
-    def test_tenant_ownership(self, real_app):
+    def test_tenant_ownership(self, real_app, test_tenant):
         from app.models import Person, Relationship
         from app import db
         with real_app.app_context():
-            p = Person(canonical_name="Ritu", preferred_name="Ritu", tenant_id=1)
+            p = Person(canonical_name="Ritu", preferred_name="Ritu", tenant_id=test_tenant)
             db.session.add(p); db.session.commit()
-            r = Relationship(person_id=p.id, relationship_type="CUSTOMER", tenant_id=1)
+            r = Relationship(person_id=p.id, relationship_type="CUSTOMER", tenant_id=test_tenant)
             db.session.add(r); db.session.commit()
-            assert r.tenant_id == 1
+            assert r.tenant_id == test_tenant
 
     def test_person_linkage(self, real_app):
         from app.models import Person, Relationship
@@ -145,30 +163,30 @@ class TestRelationshipEvent:
 
 class TestRoleProjectionLinkage:
 
-    def test_customer_profile_to_customer_relationship(self, real_app):
+    def test_customer_profile_to_customer_relationship(self, real_app, test_tenant):
         from app.models import Person, CustomerProfile
         from app.relationship import RelationshipService, RelationshipType
         from app import db
         with real_app.app_context():
             p = Person(canonical_name="Ritu", preferred_name="Ritu")
             db.session.add(p); db.session.commit()
-            CustomerProfile(person_id=p.id, lifetime_value=50000, tenant_id=1)
+            CustomerProfile(person_id=p.id, lifetime_value=50000, tenant_id=test_tenant)
             db.session.commit()
             svc = RelationshipService(session=db.session)
-            r = svc.ensure_customer_relationship(p.id, tenant_id=1)
+            r = svc.ensure_customer_relationship(p.id, tenant_id=test_tenant)
             assert r.relationship_type == RelationshipType.CUSTOMER
 
-    def test_employee_profile_to_employee_relationship(self, real_app):
+    def test_employee_profile_to_employee_relationship(self, real_app, test_tenant):
         from app.models import Person, EmployeeProfile
         from app.relationship import RelationshipService, RelationshipType
         from app import db
         with real_app.app_context():
             p = Person(canonical_name="Emp", preferred_name="E")
             db.session.add(p); db.session.commit()
-            EmployeeProfile(person_id=p.id, role="agent", tenant_id=1)
+            EmployeeProfile(person_id=p.id, role="agent", tenant_id=test_tenant)
             db.session.commit()
             svc = RelationshipService(session=db.session)
-            r = svc.ensure_employee_relationship(p.id, tenant_id=1)
+            r = svc.ensure_employee_relationship(p.id, tenant_id=test_tenant)
             assert r.relationship_type == RelationshipType.EMPLOYEE
 
     def test_one_person_multiple_relationship_types(self, real_app):

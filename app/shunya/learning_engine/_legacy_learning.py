@@ -40,7 +40,7 @@ class LearningLayer:
         inp = LearningInput(
             signals=[signal],
             observation_ids=[str(observation_id)],
-            tenant_id=1,
+            tenant_id=None,
         )
         output = self._engine.learn(inp)
         return output
@@ -56,7 +56,7 @@ class LearningLayer:
         }
         inp = LearningInput(
             signals=[signal],
-            tenant_id=1,
+            tenant_id=None,
         )
         output = self._engine.learn(inp)
         return output.recommendations
