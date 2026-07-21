@@ -392,7 +392,7 @@ def itinerary_builder():
             plan_name = f"{selected_lead.customer_name or 'Trip'} — {selected_lead.destination or 'Adventure'}"
             # Generate Shunya itinerary if one doesn't exist
             from app.shunya.knowledge import KnowledgeLayer
-            from app.shunya.reasoning import ReasoningLayer
+            from app.shunya._legacy_reasoning import ReasoningLayer
             from app.shunya.planner import PlannerLayer
 
             k = KnowledgeLayer()
@@ -1551,3 +1551,17 @@ def _generate_invoice_pdf(invoice_id, path):
       {paid_html}
     </body></html>"""
     pdfkit.from_string(html, path)
+
+
+# ---------------------------------------------------------------------------
+# Executive Workspace
+# ---------------------------------------------------------------------------
+
+from app.auth_routes import login_required
+
+
+@main.route("/executive")
+@login_required
+def executive_workspace():
+    """SHUNYA Executive Workspace — continuously contextual workspace."""
+    return render_template("executive_workspace.html")
