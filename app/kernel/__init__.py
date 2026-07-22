@@ -48,6 +48,10 @@ from app.kernel.timeline import (
 from app.kernel.context import (
     Context, ContextData, ContextType, ContextResolution,
 )
+from app.kernel.identity_governance import (
+    IdentityGovernance, IdentityAuditEntry, AuditAction,
+    IdentityMergePlan, IdentitySplitPlan, IdentitySplitPartition,
+)
 
 __all__ = [
     # Object
@@ -74,4 +78,7 @@ __all__ = [
     "Timeline", "TimelineEvent",
     # Context
     "Context", "ContextData", "ContextType", "ContextResolution",
+    # Identity Governance
+    "IdentityGovernance", "IdentityAuditEntry", "AuditAction",
+    "IdentityMergePlan", "IdentitySplitPlan", "IdentitySplitPartition",
 ]
