@@ -25,6 +25,10 @@ from app.graph.edge import (
     EdgeDirection, EdgeStatus,
     get_edge_store, reset_edge_store,
 )
+from app.graph.families import (
+    Families, NodeFamily, EdgeFamily,
+    ALL_NODE_FAMILIES, ALL_EDGE_FAMILIES, ALL_EDGE_TYPES,
+)
 
 __all__ = [
     # Node
@@ -35,4 +39,7 @@ __all__ = [
     "Edge", "EdgeStore", "InMemoryEdgeStore",
     "EdgeDirection", "EdgeStatus",
     "get_edge_store", "reset_edge_store",
+    # Families
+    "Families", "NodeFamily", "EdgeFamily",
+    "ALL_NODE_FAMILIES", "ALL_EDGE_FAMILIES", "ALL_EDGE_TYPES",
 ]
