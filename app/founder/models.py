@@ -123,3 +123,40 @@ class FounderMessage(db.Model):
             "content": self.content,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class BusinessRelationship(db.Model):
+    """A lifetime business relationship — customer, supplier, partner, employee, vendor."""
+    __tablename__ = "founder_relationships"
+
+    id = db.Column(db.Integer, primary_key=True)
+    rel_id = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    space_id = db.Column(db.String(64), db.ForeignKey("founder_spaces.space_id"),
+                         nullable=False, index=True)
+    rel_type = db.Column(db.String(30), nullable=False, index=True)
+    name = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255), default="")
+    phone = db.Column(db.String(60), default="")
+    company = db.Column(db.String(255), default="")
+    notes = db.Column(db.Text, default="")
+    tags = db.Column(db.String(500), default="")
+    status = db.Column(db.String(30), default="active")
+    created_by = db.Column(db.String(64), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "rel_id": self.rel_id,
+            "space_id": self.space_id,
+            "rel_type": self.rel_type,
+            "name": self.name,
+            "email": self.email,
+            "phone": self.phone,
+            "company": self.company,
+            "notes": self.notes[:200] + "..." if len(self.notes) > 200 else self.notes,
+            "tags": [t.strip() for t in self.tags.split(",") if t.strip()] if self.tags else [],
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

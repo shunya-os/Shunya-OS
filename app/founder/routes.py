@@ -16,7 +16,7 @@ from sqlalchemy import or_
 
 from app import db
 from app.founder import founder_bp
-from app.founder.models import FounderSpace, FounderObject, FounderConversation, FounderMessage
+from app.founder.models import FounderSpace, FounderObject, FounderConversation, FounderMessage, BusinessRelationship
 from app.kernel.space import Space, SpaceType, SpaceRole, get_space_store, get_space_store
 from app.kernel.object import UniversalObject, ObjectRegistry, get_registry
 from app.kernel.identity import (
@@ -566,9 +566,23 @@ def api_search():
         FounderObject.name.ilike(f"%{q}%"),
     ).order_by(FounderObject.updated_at.desc()).limit(20).all()
 
+    # Also search relationships
+    rel_results = BusinessRelationship.query.filter(
+        BusinessRelationship.space_id.in_(space_ids),
+        BusinessRelationship.status == "active",
+        BusinessRelationship.name.ilike(f"%{q}%"),
+    ).order_by(BusinessRelationship.updated_at.desc()).limit(10).all()
+
+    combined = [r.to_dict() for r in results]
+    for r in rel_results:
+        d = r.to_dict()
+        d["_type"] = "relationship"
+        d["object_id"] = d["rel_id"]
+        combined.append(d)
+
     return jsonify({
         "success": True,
-        "data": [r.to_dict() for r in results],
+        "data": combined[:20],
     })
 
 
@@ -682,6 +696,21 @@ def api_morning_zero():
             "focus": None,
         })
 
+    # Add relationship observations (not attention, just observation)
+    space_ids = [s.space_id for s in spaces]
+    if space_ids:
+        rel_count = BusinessRelationship.query.filter(
+            BusinessRelationship.space_id.in_(space_ids),
+            BusinessRelationship.status == "active",
+        ).count()
+        if rel_count > 0:
+            items.append({
+                "title": f"{rel_count} relationship{'s' if rel_count != 1 else ''} in your network",
+                "meta": "Customers, suppliers, partners, and team members",
+                "priority": "info",
+                "focus": None,
+            })
+
     return jsonify({
         "success": True,
         "data": {
@@ -772,3 +801,168 @@ def api_focus_object(object_id: str):
             "ai_understanding": ai_understanding,
         },
     })
+
+
+# ---------------------------------------------------------------------------
+# API — Relationships (customers, suppliers, partners, employees, vendors)
+# ---------------------------------------------------------------------------
+
+
+@founder_bp.route("/api/v1/founder/relationships/types", methods=["GET"])
+def api_rel_types():
+    """List available relationship types."""
+    return jsonify({
+        "success": True,
+        "data": [
+            {"type": "customer", "label": "Customer", "icon": "person"},
+            {"type": "supplier", "label": "Supplier", "icon": "box"},
+            {"type": "partner", "label": "Partner", "icon": "handshake"},
+            {"type": "employee", "label": "Employee", "icon": "badge"},
+            {"type": "vendor", "label": "Vendor", "icon": "building"},
+        ],
+    })
+
+
+@founder_bp.route("/api/v1/founder/relationships", methods=["GET"])
+def api_list_relationships():
+    """List all relationships for the current identity's spaces."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    identity_id = session.get("identity_id")
+    rel_type = request.args.get("type", "")
+    q = request.args.get("q", "")
+
+    spaces = FounderSpace.query.filter_by(identity_id=identity_id, status="active").all()
+    space_ids = [s.space_id for s in spaces]
+    if not space_ids:
+        return jsonify({"success": True, "data": []})
+
+    query = BusinessRelationship.query.filter(
+        BusinessRelationship.space_id.in_(space_ids),
+        BusinessRelationship.status == "active",
+    )
+
+    if rel_type:
+        query = query.filter(BusinessRelationship.rel_type == rel_type)
+    if q:
+        query = query.filter(BusinessRelationship.name.ilike(f"%{q}%"))
+
+    results = query.order_by(BusinessRelationship.updated_at.desc()).all()
+    return jsonify({
+        "success": True,
+        "data": [r.to_dict() for r in results],
+    })
+
+
+@founder_bp.route("/api/v1/founder/relationships", methods=["POST"])
+def api_create_relationship():
+    """Create a new business relationship."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    data = request.get_json(silent=True) or {}
+    name = data.get("name", "").strip()
+    rel_type = data.get("rel_type", "customer").strip()
+
+    if not name:
+        return jsonify({"success": False, "error": "Name is required."}), 400
+
+    # Put in first space, or create a default space
+    identity_id = session.get("identity_id")
+    space = FounderSpace.query.filter_by(identity_id=identity_id, status="active").first()
+    if not space:
+        space = FounderSpace(
+            space_id=_generate_id("spc"),
+            name="My Business",
+            space_type="organization",
+            identity_id=identity_id,
+        )
+        db.session.add(space)
+        db.session.commit()
+
+    import uuid
+    rel_id = f"rel_{uuid.uuid4().hex[:24]}"
+
+    tags = data.get("tags", "")
+    if isinstance(tags, list):
+        tags = ", ".join(tags)
+
+    rel = BusinessRelationship(
+        rel_id=rel_id,
+        space_id=space.space_id,
+        rel_type=rel_type,
+        name=name,
+        email=data.get("email", "").strip(),
+        phone=data.get("phone", "").strip(),
+        company=data.get("company", "").strip(),
+        notes=data.get("notes", "").strip(),
+        tags=tags,
+        created_by=identity_id,
+    )
+    db.session.add(rel)
+    db.session.commit()
+
+    return jsonify({"success": True, "data": rel.to_dict()}), 201
+
+
+@founder_bp.route("/api/v1/founder/relationships/<rel_id>", methods=["GET"])
+def api_get_relationship(rel_id: str):
+    """Get a single relationship with full detail."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    rel = BusinessRelationship.query.filter_by(rel_id=rel_id, status="active").first()
+    if not rel:
+        return jsonify({"success": False, "error": "Relationship not found"}), 404
+
+    # Find related objects (objects with matching name/email in the same space)
+    related_objects = FounderObject.query.filter(
+        FounderObject.space_id == rel.space_id,
+        FounderObject.status == "active",
+    ).limit(5).all()
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "relationship": rel.to_dict(),
+            "related_objects": [o.to_dict() for o in related_objects],
+        },
+    })
+
+
+@founder_bp.route("/api/v1/founder/relationships/<rel_id>", methods=["PUT"])
+def api_update_relationship(rel_id: str):
+    """Update a relationship."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    rel = BusinessRelationship.query.filter_by(rel_id=rel_id, status="active").first()
+    if not rel:
+        return jsonify({"success": False, "error": "Relationship not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    for field in ("name", "rel_type", "email", "phone", "company", "notes", "status"):
+        if field in data:
+            val = data[field]
+            if field == "tags" and isinstance(val, list):
+                val = ", ".join(val)
+            setattr(rel, field, str(val).strip() if isinstance(val, str) else val)
+    db.session.commit()
+
+    return jsonify({"success": True, "data": rel.to_dict()})
+
+
+@founder_bp.route("/api/v1/founder/relationships/<rel_id>", methods=["DELETE"])
+def api_delete_relationship(rel_id: str):
+    """Soft-delete a relationship."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    rel = BusinessRelationship.query.filter_by(rel_id=rel_id).first()
+    if not rel:
+        return jsonify({"success": False, "error": "Relationship not found"}), 404
+
+    rel.status = "archived"
+    db.session.commit()
+    return jsonify({"success": True})

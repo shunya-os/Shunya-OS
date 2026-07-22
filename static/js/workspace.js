@@ -39,6 +39,52 @@ function setIdentity(name, id) {
   document.getElementById('identity-name').textContent = name;
 }
 
+/* ─── Relationships ─── */
+
+async function loadRelationships() {
+  setStatus('thinking');
+  try {
+    const resp = await fetch('/api/v1/founder/relationships');
+    const data = await resp.json();
+    if (data.success) {
+      switchView('ambient', { relationships: data.data });
+    }
+  } catch(e) { console.error('Failed to load relationships', e); }
+  setStatus('calm');
+}
+
+async function createRelationship() {
+  const name = prompt('Name:');
+  if (!name) return;
+  const relType = prompt('Type (customer, supplier, partner, employee, vendor):', 'customer');
+  if (!relType) return;
+  try {
+    const resp = await fetch('/api/v1/founder/relationships', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, rel_type: relType }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      loadRelationships();
+    }
+  } catch(e) { console.error('Failed to create relationship', e); }
+}
+
+async function focusRelationship(relId) {
+  setStatus('thinking');
+  try {
+    const resp = await fetch(`/api/v1/founder/relationships/${relId}`);
+    const data = await resp.json();
+    if (data.success) {
+      state.focus = relId;
+      state.focusType = 'relationship';
+      switchView('focused', { relationship: data.data });
+    }
+  } catch(e) { console.error('Failed to focus relationship', e); }
+  setStatus('calm');
+}
+
 /* ─── Morning Zero ─── */
 
 async function loadMorningZero() {
@@ -161,7 +207,26 @@ function showAmbient(data) {
           </div>
         `).join('')}
       </div>
+      <div class="ambient-header" style="margin-top:32px">
+        <h2>Relationships</h2>
+      </div>
+      <div class="ambient-grid" id="rel-grid"></div>
     `;
+    // Load relationships for this space
+    fetch(`/api/v1/founder/relationships?q=${encodeURIComponent(space.name)}`)
+      .then(r => r.json()).then(d => {
+        if (d.success && d.data.length > 0) {
+          document.getElementById('rel-grid').innerHTML = d.data.map(r => `
+            <div class="ambient-card" onclick="focusRelationship('${r.rel_id}')">
+              <div class="card-type">${r.rel_type}</div>
+              <div class="card-name">${r.name}</div>
+              <div class="card-meta">${r.company || r.email || ''}</div>
+            </div>
+          `).join('');
+        } else {
+          document.getElementById('rel-grid').innerHTML = '<div style="padding:16px;font-size:13px;color:rgba(26,26,26,0.25)">No relationships yet. <span style="cursor:pointer;color:rgba(26,26,26,0.5);text-decoration:underline" onclick="createRelationship()">Add one</span></div>';
+        }
+      });
   } else if (data.spaces) {
     // Space list
     el.innerHTML = `
@@ -172,6 +237,43 @@ function showAmbient(data) {
             <div class="card-type">${s.space_type}</div>
             <div class="card-name">${s.name}</div>
             <div class="card-meta">${s.object_count} objects</div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="ambient-header" style="margin-top:32px">
+        <h2>Relationships</h2>
+        <span class="space-name" onclick="loadRelationships()" style="cursor:pointer">View All &rarr;</span>
+      </div>
+      <div class="ambient-grid" id="rel-grid"></div>
+    `;
+    // Load recent relationships
+    fetch('/api/v1/founder/relationships')
+      .then(r => r.json()).then(d => {
+        if (d.success && d.data.length > 0) {
+          document.getElementById('rel-grid').innerHTML = d.data.slice(0,6).map(r => `
+            <div class="ambient-card" onclick="focusRelationship('${r.rel_id}')">
+              <div class="card-type">${r.rel_type}</div>
+              <div class="card-name">${r.name}</div>
+              <div class="card-meta">${r.company || r.email || ''}</div>
+            </div>
+          `).join('');
+        } else {
+          document.getElementById('rel-grid').innerHTML = '<div style="padding:16px;font-size:13px;color:rgba(26,26,26,0.25)">No relationships yet. <span style="cursor:pointer;color:rgba(26,26,26,0.5);text-decoration:underline" onclick="createRelationship()">Add one</span></div>';
+        }
+      });
+  } else if (data.relationships) {
+    // Relationship list
+    el.innerHTML = `
+      <div class="ambient-header">
+        <h2>Relationships</h2>
+        <span class="space-name" onclick="createRelationship()" style="cursor:pointer">+ Add</span>
+      </div>
+      <div class="ambient-grid">
+        ${data.relationships.map(r => `
+          <div class="ambient-card" onclick="focusRelationship('${r.rel_id}')">
+            <div class="card-type">${r.rel_type}</div>
+            <div class="card-name">${r.name}</div>
+            <div class="card-meta">${r.company || r.email || r.phone || ''}</div>
           </div>
         `).join('')}
       </div>
@@ -199,6 +301,47 @@ async function focusObject(objectId) {
 }
 
 function showFocused(data) {
+  const el = document.getElementById('view-focused');
+
+  // Handle relationship focus
+  if (data.relationship) {
+    const rel = data.relationship.relationship;
+    const related = data.relationship.related_objects || [];
+    el.innerHTML = `
+      <div class="focus-back" onclick="backFromFocus()">&larr; Back</div>
+      <div class="focus-header">
+        <div class="focus-type">${rel.rel_type}</div>
+        <div class="focus-name">${escapeHtml(rel.name)}</div>
+      </div>
+      <div class="focus-section">
+        <div class="focus-section-title">Contact</div>
+        <div style="font-size:13px;color:rgba(26,26,26,0.5);line-height:1.8">
+          ${rel.email ? `<div>Email: ${rel.email}</div>` : ''}
+          ${rel.phone ? `<div>Phone: ${rel.phone}</div>` : ''}
+          ${rel.company ? `<div>Company: ${rel.company}</div>` : ''}
+          ${rel.tags?.length ? `<div>Tags: ${rel.tags.join(', ')}</div>` : ''}
+        </div>
+      </div>
+      ${rel.notes ? `<div class="focus-content">${escapeHtml(rel.notes)}</div>` : ''}
+      <div class="focus-section">
+        <div class="focus-section-title">AI Understanding</div>
+        <div class="focus-ai">${rel.rel_type} relationship with ${rel.name}. ${rel.company ? 'Works at ' + rel.company + '. ' : ''}${rel.email ? 'Contact: ' + rel.email + '. ' : ''}Connected to ${related.length} object${related.length !== 1 ? 's' : ''} in the workspace.</div>
+      </div>
+      ${related.length > 0 ? `
+      <div class="focus-section">
+        <div class="focus-section-title">Related Objects</div>
+        <div>${related.map(o => 
+          `<span class="focus-rel-item" onclick="focusObject('${o.object_id}')">${escapeHtml(o.name)} <span style="color:rgba(26,26,26,0.25)">${o.object_type}</span></span>`
+        ).join('')}</div>
+      </div>` : ''}
+      <div class="focus-section" style="margin-top:24px">
+        <button onclick="focusRelationship('${rel.rel_id}');setTimeout(()=>document.getElementById('edit-rel-form')?.classList.toggle('hidden'),100)" style="padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);font-size:13px;cursor:pointer">Edit</button>
+      </div>
+    `;
+    el.classList.add('active');
+    return;
+  }
+
   const obj = data.data.object;
   const conv = data.data.conversation;
   const messages = data.data.messages || [];
@@ -379,9 +522,9 @@ document.getElementById('search-input')?.addEventListener('input', function() {
       const container = document.getElementById('search-results-container');
       if (data.success && data.data.length > 0) {
         container.innerHTML = data.data.map(r => `
-          <div class="search-result-item" onclick="selectSearchResult('${r.object_id}')">
+          <div class="search-result-item" onclick="${r._type === 'relationship' ? `focusRelationship('${r.rel_id}')` : `selectSearchResult('${r.object_id}')`}">
             <div class="sr-name">${escapeHtml(r.name)}</div>
-            <div class="sr-meta">${r.object_type} &middot; ${r.space_id?.slice(0,8) || ''}</div>
+            <div class="sr-meta">${r._type === 'relationship' ? r.rel_type : r.object_type} &middot; ${r.company || r.space_id?.slice(0,8) || ''}</div>
           </div>
         `).join('');
       } else {

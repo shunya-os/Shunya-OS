@@ -247,7 +247,7 @@ def create_app(config_override: dict | None = None):
     from app.production.identity.workspace_model import Workspace  # noqa: F401
     from app.production.identity_repository import SHUNYAIdentityModel  # noqa: F401
     from app.founder.models import (  # noqa: F401
-        FounderSpace, FounderObject, FounderConversation, FounderMessage,
+        FounderSpace, FounderObject, FounderConversation, FounderMessage, BusinessRelationship,
     )
 
     # ---- Auto-create tables (safe for first run) --------------------------
