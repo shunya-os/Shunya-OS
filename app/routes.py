@@ -56,6 +56,16 @@ def _log_activity(lead_id: int, action: str, detail: str = ""):
 
 @main.route("/")
 def index():
+    # Serve the public SHUNYA homepage for unauthenticated visitors
+    from flask import session as flask_session
+    user_id = flask_session.get("user_id")
+    if not user_id:
+        # Initialize pre-auth conversation in session
+        if "shunya_conversation" not in flask_session:
+            flask_session["shunya_conversation"] = []
+            flask_session["shunya_thought_count"] = 0
+        return render_template("home.html")
+
     s = get_summary("today")
     recent = Lead.query.order_by(Lead.created_at.desc()).limit(8).all()
     # Companion greeting

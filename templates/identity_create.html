@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create Identity — SHUNYA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
+    }
+  </script>
+</head>
+<body class="bg-[#faf9f7] text-[#1a1a1a] font-sans antialiased min-h-screen flex flex-col">
+
+<main class="flex-1 flex items-center justify-center px-6 py-16">
+  <div class="w-full max-w-md">
+
+    <a href="/" class="text-sm text-[#1a1a1a]/30 hover:text-[#1a1a1a]/50 transition-colors mb-8 inline-block">&larr; Back</a>
+
+    <h1 class="text-2xl font-light tracking-tight mb-2">Create your SHUNYA Identity</h1>
+    <p class="text-sm text-[#1a1a1a]/50 mb-10 leading-relaxed">
+      This is not an account. It's who you are here. You can join organizations later.
+    </p>
+
+    <form id="identity-form" class="space-y-5">
+      <div>
+        <label class="block text-sm font-medium text-[#1a1a1a]/60 mb-1.5">What should we call you?</label>
+        <input type="text" id="name" name="name" required autofocus
+          class="w-full px-4 py-3 bg-white border border-[#1a1a1a]/10 rounded-xl text-base text-[#1a1a1a] placeholder-[#1a1a1a]/20 focus:outline-none focus:border-[#1a1a1a]/30 focus:ring-0 transition-colors"
+          placeholder="Your name">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-[#1a1a1a]/60 mb-1.5">Email</label>
+        <input type="email" id="email" name="email" required
+          class="w-full px-4 py-3 bg-white border border-[#1a1a1a]/10 rounded-xl text-base text-[#1a1a1a] placeholder-[#1a1a1a]/20 focus:outline-none focus:border-[#1a1a1a]/30 focus:ring-0 transition-colors"
+          placeholder="you@example.com">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-[#1a1a1a]/60 mb-1.5">Choose a password</label>
+        <input type="password" id="password" name="password" required minlength="6"
+          class="w-full px-4 py-3 bg-white border border-[#1a1a1a]/10 rounded-xl text-base text-[#1a1a1a] placeholder-[#1a1a1a]/20 focus:outline-none focus:border-[#1a1a1a]/30 focus:ring-0 transition-colors"
+          placeholder="At least 6 characters">
+      </div>
+
+      <div id="error-msg" class="text-sm text-red-500 hidden"></div>
+
+      <button type="submit"
+        class="w-full py-3 bg-[#1a1a1a] text-white text-sm font-medium rounded-xl hover:bg-[#1a1a1a]/90 transition-colors">
+        Create Identity
+      </button>
+    </form>
+
+    <p class="text-xs text-[#1a1a1a]/25 text-center mt-6">
+      Already have an identity? <a href="/login" class="text-[#1a1a1a]/40 hover:text-[#1a1a1a]/60 transition-colors">Sign In</a>
+    </p>
+  </div>
+</main>
+
+<script>
+  document.getElementById('identity-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    const err = document.getElementById('error-msg');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+    err.classList.add('hidden');
+
+    try {
+      const resp = await fetch('/api/v1/identity/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('name').value.trim(),
+          email: document.getElementById('email').value.trim().toLowerCase(),
+          password: document.getElementById('password').value,
+        }),
+      });
+      const data = await resp.json();
+      if (data.success) {
+        window.location.href = '/identity/created';
+      } else {
+        err.textContent = data.error || 'Something went wrong.';
+        err.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Create Identity';
+      }
+    } catch (e) {
+      err.textContent = 'Could not connect. Please try again.';
+      err.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Create Identity';
+    }
+  });
+</script>
+
+</body>
+</html>

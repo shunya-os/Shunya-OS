@@ -7,7 +7,7 @@ Manages lead lifecycle, proposal generation, and multi-format output.
 
 from typing import Optional
 from .knowledge import KnowledgeLayer
-from .reasoning import ReasoningLayer, CustomerProfile
+from ._legacy_reasoning import ReasoningLayer, CustomerProfile
 from .planner import PlannerLayer, ItineraryPlan
 from sqlalchemy import func
 

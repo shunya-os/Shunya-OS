@@ -9,7 +9,7 @@ Every request gets the same treatment: Knowledge → Reasoning → Planner → G
 from datetime import datetime
 from typing import Optional
 from .knowledge import KnowledgeLayer
-from .reasoning import ReasoningLayer
+from ._legacy_reasoning import ReasoningLayer
 from .planner import PlannerLayer
 from .governance import GovernanceLayer
 from .executor import ExecutorLayer, OutboundMessage, ChannelType, MessageType

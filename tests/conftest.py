@@ -49,6 +49,8 @@ def app():
         from app.document import models as _doc_models  # noqa: F401
         from app.llm import models as _llm_models  # noqa: F401
         from app.auth import TeamMember  # noqa: F401
+        from app.production.identity.workspace_model import Workspace  # noqa: F401
+        from app.production.identity_repository import SHUNYAIdentityModel  # noqa: F401
         db.create_all()
         yield application
         db.drop_all()

@@ -238,6 +238,27 @@ def create_app(config_override: dict | None = None):
     # ---- Extensions -------------------------------------------------------
     db.init_app(app)
 
+    # ---- Register models with metadata ------------------------------------
+    # Ensure all models are registered with db.Model.metadata before
+    # db.create_all() is called, so their tables are created.
+    # Import KnowledgeFact from the legacy knowledge_store module.
+    from app.shunya.knowledge_store import KnowledgeFact  # noqa: F401
+    from app.privacy.models import MemoryEligibilityPolicy  # noqa: F401
+    from app.production.identity.workspace_model import Workspace  # noqa: F401
+    from app.production.identity_repository import SHUNYAIdentityModel  # noqa: F401
+    from app.founder.models import (  # noqa: F401
+        FounderSpace, FounderObject, FounderConversation, FounderMessage,
+    )
+
+    # ---- Auto-create tables (safe for first run) --------------------------
+    with app.app_context():
+        from sqlalchemy.exc import OperationalError, ProgrammingError
+        try:
+            db.create_all()
+            app.logger.info("Database tables created/verified")
+        except (OperationalError, ProgrammingError) as e:
+            app.logger.warning(f"Tables may already exist or DB not ready: {e}")
+
     # ---- Middleware stack --------------------------------------------------
     _setup_logging(app)
     _request_id_middleware(app)
@@ -251,12 +272,26 @@ def create_app(config_override: dict | None = None):
     from app.auth_routes import auth_bp, login_required, inject_auth_globals
     from app.routes import main, api
     from app.client_portal import client_bp
+    from app.production import production_bp
+    from app.shunya_public import shunya_bp
+    from app.production.auth import (  # noqa: F401 — registers auth routes on auth_bp
+        password_reset_routes, email_verification_routes,
+        mfa_routes, session_routes,
+    )
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main)
     app.register_blueprint(client_bp)
     # Keep API at /shunya/* for backward compat (routes.py defines @api.route('/shunya/...'))
     app.register_blueprint(api)
+    # Production API v1 — Milestone X
+    app.register_blueprint(production_bp)
+    # SHUNYA Public — Milestone E1
+    app.register_blueprint(shunya_bp)
+
+    # Founder Experience — Sprint 1
+    from app.founder import founder_bp
+    app.register_blueprint(founder_bp)
 
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
@@ -315,7 +350,7 @@ def create_app(config_override: dict | None = None):
         path = request.path
         if path.startswith("/static/") or path.startswith("/health"):
             return None
-        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/"):
+        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/") or path.startswith("/identity/") or path.startswith("/space/") or path.startswith("/founder/") or path == "/":
             return None
         user_id = session.get("user_id")
         if not user_id:
@@ -366,8 +401,13 @@ def create_app(config_override: dict | None = None):
         from app.notifications import NotificationManager
         nm = NotificationManager()
         user_id = user.id if user else None
-        unread_count = nm.get_unread_count(user_id=user_id)
-        recent_notifications = nm.get_recent_unread(user_id=user_id, limit=10)
+        unread_count = 0
+        recent_notifications = []
+        try:
+            unread_count = nm.get_unread_count(user_id=user_id)
+            recent_notifications = nm.get_recent_unread(user_id=user_id, limit=10)
+        except Exception:
+            pass
         # Celebration context
         celebration_count = 0
         try:

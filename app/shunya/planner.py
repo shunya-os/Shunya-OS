@@ -7,7 +7,7 @@ Multi-format ready: supports text, HTML, and template-based output.
 
 from datetime import datetime, timedelta
 from typing import Optional
-from .reasoning import CustomerProfile
+from ._legacy_reasoning import CustomerProfile
 
 
 class ItineraryDay:

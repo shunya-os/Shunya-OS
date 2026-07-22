@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Identity Created — SHUNYA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
+    }
+  </script>
+</head>
+<body class="bg-[#faf9f7] text-[#1a1a1a] font-sans antialiased min-h-screen flex flex-col">
+
+<main class="flex-1 flex items-center justify-center px-6 py-16">
+  <div class="w-full max-w-md text-center">
+
+    <div class="text-4xl mb-6 opacity-60">&#10024;</div>
+
+    <h1 class="text-2xl font-light tracking-tight mb-3">Your identity is created.</h1>
+    <p class="text-sm text-[#1a1a1a]/50 leading-relaxed mb-8">
+      Welcome. You can now choose how you'd like to use SHUNYA.
+    </p>
+
+    <div class="space-y-3">
+      <a href="/space/personal"
+        class="block w-full py-3 px-5 bg-white border border-[#1a1a1a]/10 rounded-xl text-left hover:border-[#1a1a1a]/20 transition-colors group">
+        <span class="block text-sm font-medium text-[#1a1a1a] group-hover:text-[#1a1a1a]/80">Personal Space</span>
+        <span class="block text-xs text-[#1a1a1a]/35 mt-0.5">A private thinking environment, just for you.</span>
+      </a>
+      <a href="/space/organization"
+        class="block w-full py-3 px-5 bg-white border border-[#1a1a1a]/10 rounded-xl text-left hover:border-[#1a1a1a]/20 transition-colors group">
+        <span class="block text-sm font-medium text-[#1a1a1a] group-hover:text-[#1a1a1a]/80">Organization</span>
+        <span class="block text-xs text-[#1a1a1a]/35 mt-0.5">Create or join an organization to work together.</span>
+      </a>
+    </div>
+
+  </div>
+</main>
+
+</body>
+</html>

@@ -51,7 +51,7 @@ def _get_itinerary_days(lead):
 
     # Try to extract structured itinerary from Shunya data via notes
     from app.shunya.knowledge import KnowledgeLayer
-    from app.shunya.reasoning import ReasoningLayer
+    from app.shunya._legacy_reasoning import ReasoningLayer
     from app.shunya.planner import PlannerLayer
 
     try:
