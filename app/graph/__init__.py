@@ -33,6 +33,9 @@ from app.graph.temporal import (
     TemporalStore, TemporalEdgeType,
     get_temporal_store, reset_temporal_store,
 )
+from app.graph.consistency import (
+    GraphValidator, ValidationResult, ValidationError,
+)
 
 __all__ = [
     # Node
@@ -49,4 +52,6 @@ __all__ = [
     # Temporal
     "TemporalStore", "TemporalEdgeType",
     "get_temporal_store", "reset_temporal_store",
+    # Consistency
+    "GraphValidator", "ValidationResult", "ValidationError",
 ]
