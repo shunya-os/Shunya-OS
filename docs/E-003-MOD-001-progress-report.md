@@ -13,13 +13,16 @@ Before implementation, all overlapping modules were classified:
 
 | Module | Classification | Rationale |
 |--------|---------------|-----------|
-| `app/kernel/relationship.py` | **Canonical** (Kernel primitive) | Frozen adjacency list for fast lookups. Graph EdgeStore provides superset. Both coexist. |
+| `app/kernel/relationship.py` | **Canonical** (Kernel primitive) | Frozen lightweight relationship API and compatibility layer. `RelationshipEngine` remains in-place for backward compatibility and lightweight runtime semantics. **All new writes, traversal, temporal behaviour, indexing, security, and consistency belong to `app/graph/EdgeStore`.** No duplicate sources of truth. The Kernel primitive is preserved, not extended. |
 | `app/shunya/knowledge_store/` | **Canonical** (orthogonal) | Key-value store, not a graph. Orthogonal to Knowledge Graph. No migration needed. |
 | `app/kernel/timeline.py` | **Canonical** (Kernel primitive) | Per-object timeline. Graph temporal.py provides cross-graph queries. Graph reuses TimelineEvent. |
 | `app/kernel/context.py` | **Canonical** (Kernel primitive) | Defines what context IS. Graph provides how context is RESOLVED (traversal). |
 | `app/shunya/infrastructure/event_bus.py` | **Canonical** (infrastructure) | Graph publishes events through this bus. No overlap. |
 
-**No modules classified as Adapter, Deprecated, or Delete.**
+**Relationship ownership clarified:**
+- `app/kernel/relationship.py` → canonical lightweight API + compatibility layer, frozen
+- `app/graph/EdgeStore` → canonical persistence + execution layer for all new behaviour
+- No duplicate sources of truth. Kernel is preserved, not extended.
 
 ---
 
