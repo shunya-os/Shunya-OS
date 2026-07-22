@@ -1,5 +1,5 @@
 """
-Panchi Club Travel OS — Task & Checklist Manager
+SHUNYA OS — Task & Checklist Manager
 
 Encapsulates all task/checklist CRUD behind a clean class facade.
 Used by routes.py and available for programmatic access.

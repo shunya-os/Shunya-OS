@@ -505,11 +505,11 @@ class TestLoginSession:
         from app.auth import TeamMember, UserRole
         from app import db
         with real_app.app_context():
-            admin = TeamMember(name="Admin", email="admin@panchi.club", role=UserRole.ADMIN.value, is_active=True)
+            admin = TeamMember(name="Admin", email="admin@shunyaos.com", role=UserRole.ADMIN.value, is_active=True)
             admin.set_password("admin123")
             db.session.add(admin)
             db.session.commit()
-        r = client.post("/login", json={"email": "admin@panchi.club", "password": "admin123"})
+        r = client.post("/login", json={"email": "admin@shunyaos.com", "password": "admin123"})
         assert r.status_code == 200, f"Login failed: {r.get_json()}"
         data = r.get_json()
         assert data["success"] is True
@@ -527,11 +527,11 @@ class TestLoginSession:
         from app.auth import TeamMember, UserRole
         from app import db
         with real_app.app_context():
-            admin = TeamMember(name="Admin", email="admin@panchi.club", role=UserRole.ADMIN.value, is_active=True)
+            admin = TeamMember(name="Admin", email="admin@shunyaos.com", role=UserRole.ADMIN.value, is_active=True)
             admin.set_password("admin123")
             db.session.add(admin)
             db.session.commit()
-        r = client.post("/login/password", json={"email": "admin@panchi.club", "password": "admin123"})
+        r = client.post("/login/password", json={"email": "admin@shunyaos.com", "password": "admin123"})
         assert r.status_code == 200, f"Login failed: {r.get_json()}"
         data = r.get_json()
         assert data["success"] is True
@@ -541,11 +541,11 @@ class TestLoginSession:
         from app.auth import TeamMember, UserRole
         from app import db
         with real_app.app_context():
-            admin = TeamMember(name="Admin", email="admin@panchi.club", role=UserRole.ADMIN.value, is_active=True)
+            admin = TeamMember(name="Admin", email="admin@shunyaos.com", role=UserRole.ADMIN.value, is_active=True)
             admin.set_password("admin123")
             db.session.add(admin)
             db.session.commit()
-        client.post("/login", json={"email": "admin@panchi.club", "password": "admin123"})
+        client.post("/login", json={"email": "admin@shunyaos.com", "password": "admin123"})
         r = client.get("/")
         assert r.status_code == 200
         assert b"<!DOCTYPE" in r.data or len(r.data) > 1000
@@ -560,11 +560,11 @@ class TestLoginSession:
         from app.auth import TeamMember, UserRole
         from app import db
         with real_app.app_context():
-            admin = TeamMember(name="Admin", email="admin@panchi.club", role=UserRole.ADMIN.value, is_active=True)
+            admin = TeamMember(name="Admin", email="admin@shunyaos.com", role=UserRole.ADMIN.value, is_active=True)
             admin.set_password("admin123")
             db.session.add(admin)
             db.session.commit()
-        client.post("/login", json={"email": "admin@panchi.club", "password": "admin123"})
+        client.post("/login", json={"email": "admin@shunyaos.com", "password": "admin123"})
         client.get("/logout")
         # Dashboard is rendered even after logout (/ route has no @login_required)
         r = client.get("/")

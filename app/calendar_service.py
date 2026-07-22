@@ -1,5 +1,5 @@
 """
-Panchi Club Calendar Service — unified event feed for the calendar view.
+SHUNYA — Calendar Service
 
 Aggregates Leads (via date-range parsing), ItineraryRefs (with date columns),
 and Tasks (with due_date) into a single event stream with color coding.

@@ -1,5 +1,5 @@
 """
-Panchi Club Travel OS — AI Document Reading (Unit 10)
+SHUNYA OS — AI Document Reading
 
 Extracts text from PDFs, DOCX, images, and plain text files.
 Classifies documents and extracts structured lead info.
@@ -13,7 +13,7 @@ from typing import Optional
 
 
 class DocumentReader:
-    """AI-powered document reader for Panchi Club.
+    """AI-powered document reader for SHUNYA OS.
 
     Supports PDF, DOCX, image (OCR), and plain text extraction.
     Classifies documents and extracts structured lead information.

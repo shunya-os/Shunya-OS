@@ -1,5 +1,5 @@
 """
-Panchi Club Travel OS — Core App Unit
+SHUNYA OS — Core App Unit
 Flask application factory with production scaffolding.
 
 Unit 1 of 10 — foundation layer.
@@ -225,7 +225,7 @@ def create_app(config_override: dict | None = None):
     # ---- Config -----------------------------------------------------------
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-in-production")
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-        "DATABASE_URL", "postgresql://panchi:panchi_club_2024@localhost:5432/panchi_db"
+        "DATABASE_URL", "postgresql://shunya:***@localhost:5432/shunya_db"
     )
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["JSON_SORT_KEYS"] = False
@@ -417,8 +417,8 @@ def create_app(config_override: dict | None = None):
         except Exception:
             pass
         return {
-            "brand": "Panchi Club",
-            "assistant_identity": "AI@panchi.club",
+            "brand": "SHUNYA OS",
+            "assistant_identity": "AI@shunyaos.com",
             "year": datetime.utcnow().year,
             "current_user": user,
             "is_admin": user and user.role == "admin",
@@ -457,7 +457,7 @@ def create_app(config_override: dict | None = None):
                     app.logger.warning(f"Tables may already exist or DB not ready: {e}")
 
     app.logger.info(
-        "Panchi Club Travel OS initialised",
+        "SHUNYA OS initialised",
         extra={"request_id": "bootstrap", "db": app.config["SQLALCHEMY_DATABASE_URI"][:30]},
     )
     return app

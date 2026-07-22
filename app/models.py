@@ -1,5 +1,5 @@
 """
-Panchi Club Travel OS — Data Layer (Unit 2)
+SHUNYA OS — Data Layer
 
 Five core models + ActivityLog for lead history tracking.
 All tables use created_at + updated_at timestamps.
@@ -509,7 +509,7 @@ class ClientUser(db.Model):
 # ---------------------------------------------------------------------------
 
 class ClientMessage(db.Model):
-    """Messages between clients and the Panchi team."""
+    """Messages between clients and the SHUNYA OS team."""
 
     __tablename__ = "client_messages"
     __table_args__ = (

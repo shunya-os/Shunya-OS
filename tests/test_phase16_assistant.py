@@ -167,7 +167,7 @@ class TestNoPhase17:
 
 
 # =========================================================================
-# No Travel / Panchi
+# No Travel / SHUNYA
 # =========================================================================
 class TestNoTravel:
     def test_no_travel_fields(self, asvc):

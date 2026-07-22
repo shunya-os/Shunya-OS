@@ -81,7 +81,7 @@ No modifications outside the authorised scope.
 
 | Item | Detail |
 |------|--------|
-| **Legacy module** | `app/shunya/knowledge.py` — the original KnowledgeLayer class (~189 lines) that parsed a markdown knowledge base. This module is NOT part of Phase C scope; it is a pre-existing legacy module used by the existing Panchi Club Travel OS application. |
+| **Legacy module** | `app/shunya/knowledge.py` — the original KnowledgeLayer class (~189 lines) that parsed a markdown knowledge base. This module is NOT part of Phase C scope; it is a pre-existing legacy module used by the existing SHUNYA OS application. |
 | **Why the rename was required** | Creating `app/shunya/knowledge/` as a package directory to house the new Phase C Knowledge Store modules caused Python's import system to shadow the pre-existing `app/shunya/knowledge.py` module. With both a `knowledge.py` file and a `knowledge/` directory in the same package, Python resolves the directory (package) first. To preserve access to both the legacy module and the new package, the new package was renamed to `knowledge_store`. |
 | **Backward compatibility** | The legacy `app/shunya/knowledge.py` module remains importable as `app.shunya.knowledge` (when no `knowledge/` package directory exists). The rename from `knowledge/` to `knowledge_store/` restores the original import path for the legacy module. No legacy `KnowledgeLayer` call sites were modified. |
 | **Migration remaining** | Per ADR-002 (Knowledge Store Transition), the legacy `KnowledgeLayer` will eventually be retired in Phase M. No migration actions were taken or are required during Phase C — the legacy module is untouched. |

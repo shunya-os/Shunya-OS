@@ -13,7 +13,7 @@ Deliverable 1 establishes the foundational identity layer for SHUNYA OS — the 
 **Philosophy:**
 - Every user arrives at shunyaos.com as a stranger with no account.
 - Every user must be able to sign up, create an organization, and enter SHUNYA — exactly like any future customer.
-- No founder shortcuts. No hardcoded organizations. No Panchi-specific logic.
+- No founder shortcuts. No hardcoded organizations. No SHUNYA-specific logic.
 - All capabilities must remain business-agnostic — applicable to any domain (travel, healthcare, legal, education, retail, etc.).
 - The identity layer is the immutable foundation upon which all subsequent deliverables (auth, authorization, workspaces, collaboration) are built.
 
@@ -200,11 +200,11 @@ This is described in D2 (Auth) but is a prerequisite for the onboarding journey.
 
 ## 5. Constraints Verification
 
-### 5.1 No Panchi-specific logic
+### 5.1 No SHUNYA-specific logic
 
 | Check | Status | Evidence |
 |-------|--------|----------|
-| Production identity modules contain no Panchi string references | PASS | One docstring example "Panchi Club → panchi-club" in slug generation — cosmetic only, not logic |
+| Production identity modules contain no SHUNYA string references | PASS | One docstring example "SHUNYA OS → shunya-os" in slug generation — cosmetic only, not logic |
 | No hardcoded admin emails | PASS | Only in `auth_routes.py` (legacy system, not production identity) |
 | No travel-specific business logic | PASS | `business_type` defaults to "other", travel is one valid option among many |
 | Business-agnostic data model | PASS | Tenant model has generic fields applicable to any domain |

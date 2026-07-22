@@ -1,5 +1,5 @@
 """
-Panchi Club Travel OS — Telegram Integration (Unit 5, v2)
+SHUNYA OS — Telegram Integration
 
 Bot token management, webhook registration, inquiry parsing,
 outbound messaging, and dashboard summary engine.

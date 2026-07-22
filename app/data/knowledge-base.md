@@ -1,4 +1,4 @@
-# Panchi Club Destination Knowledge Base
+# SHUNYA OS Destination Knowledge Base
 
 ## Sri Lanka
 

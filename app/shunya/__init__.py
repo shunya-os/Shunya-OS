@@ -1,5 +1,5 @@
 """SHUNYA — Pipeline: Knowledge → Reasoning → Planner → Governance → Workflow
-Panchi Club Travel Operating System
+SHUNYA Operating System
 """
 
 from .knowledge import KnowledgeLayer

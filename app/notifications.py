@@ -1,5 +1,5 @@
 """
-Panchi Club Travel OS — Notification Manager (Unit 8)
+SHUNYA OS — Notification Manager
 
 Central notification service that creates, retrieves, and manages
 in-app notifications. Supports optional user/lead/tenant scoping

@@ -1,5 +1,5 @@
 """
-Panchi Club — Dynamic Fields System (Phase 3D)
+SHUNYA — Dynamic Fields System
 
 Superadmin can create custom fields for any entity (lead, payment, invoice, supplier)
 without code changes. Fields can be text, number, date, dropdown, multi-select, or boolean.

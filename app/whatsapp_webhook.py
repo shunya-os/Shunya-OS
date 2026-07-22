@@ -83,7 +83,7 @@ def handle_whatsapp_verification() -> tuple:
     mode = request.args.get("hub.mode", "")
     token = request.args.get("hub.verify_token", "")
     challenge = request.args.get("hub.challenge", "")
-    verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "panchi_verify_2026")
+    verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "shunya_verify_2026")
     if mode == "subscribe" and token == verify_token:
         return challenge, 200
     return jsonify({"error": "Verification failed"}), 403

@@ -27,7 +27,7 @@ def _generate_slug(company_name: str) -> str:
     """Generate a URL-safe slug from a company name.
 
     Examples:
-        "Panchi Club" → "panchi-club"
+        "SHUNYA OS" → "shunya-os"
         "My Company LLC" → "my-company-llc"
     """
     slug = company_name.lower().strip()

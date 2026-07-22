@@ -1,5 +1,5 @@
 /**
- * Panchi Club — Dashboard UI helpers
+ * SHUNYA OS — Dashboard UI helpers
  */
 
 // Active nav highlighting

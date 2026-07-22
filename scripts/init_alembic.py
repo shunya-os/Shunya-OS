@@ -1,5 +1,5 @@
 """
-Initialize Alembic for Panchi backend.
+Initialize Alembic for SHUNYA backend.
 
 Usage:
   python scripts/init_alembic.py

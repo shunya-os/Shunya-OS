@@ -1,5 +1,5 @@
 """
-Panchi Club — Data Import Engine
+SHUNYA — Data Import Engine
 
 Supports CSV/JSON ingestion, fuzzy column matching, data inspection,
 and batch Lead creation with activity logging.

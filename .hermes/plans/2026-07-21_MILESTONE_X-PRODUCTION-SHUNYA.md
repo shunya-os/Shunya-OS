@@ -1069,7 +1069,7 @@
 - Formal recommendation: GO / NO-GO for Founder deployment
 - Conditions for GO
 - Post-deployment monitoring period (7 days)
-- Panchi Club onboarding checklist
+- SHUNYA OS onboarding checklist
 
 ---
 

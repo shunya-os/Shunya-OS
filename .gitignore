@@ -4,8 +4,8 @@ __pycache__/
 venv/
 env/
 .env
-data/panchi.db
-panchi.db
+data/shunya.db
+shunya.db
 invoices/
 node_modules/
 .DS_Store

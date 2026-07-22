@@ -286,7 +286,7 @@ class EmailAdapter(ChannelAdapter):
         self._smtp_port = int(os.getenv("SMTP_PORT", "587"))
         self._smtp_user = os.getenv("SMTP_USER", "")
         self._smtp_pass = os.getenv("SMTP_PASS", "")
-        self._from = os.getenv("EMAIL_FROM", "ai@panchi.club")
+        self._from = os.getenv("EMAIL_FROM", "ai@shunyaos.com")
 
     def is_configured(self) -> bool:
         return bool(self._smtp_host and self._smtp_user)

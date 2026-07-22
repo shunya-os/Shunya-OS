@@ -1,4 +1,4 @@
-"""Panchi Club — Client Portal Blueprint
+"""SHUNYA — Client Portal Blueprint
 
 Customers can log in, view their itinerary, make payments,
 and communicate with the team via a clean, light-themed portal.

@@ -368,7 +368,7 @@ Response delivered as voice + text fallback
 
 Each client gets a unique, secure link:
 ```
-app.panchi.club/client/PC11072601
+app.shunyaos.com/client/PC11072601
 ```
 
 ## Client Portal Features
@@ -406,12 +406,12 @@ app.panchi.club/client/PC11072601
 ```
 Super Admin (Platform Owner)
     │
-    ├── Brand A (Panchi Club — Travel)
+    ├── Brand A (SHUNYA OS — Travel)
     │   ├── Team, clients, entities, data
     │   ├── Brand theme (logo, colors, domain)
     │   └── AI trained on Brand A's data
     │
-    ├── Brand B (Panchi Events)
+    ├── Brand B (SHUNYA Events)
     │   ├── Team, clients, entities, data
     │   ├── Brand theme
     │   └── AI trained on Brand B's data
@@ -427,7 +427,7 @@ Super Admin (Platform Owner)
 - Cross-brand analytics dashboard
 - Share team members across brands (optional)
 - Each brand is completely data-isolated
-- Each brand has its own domain (travel.panchi.club, events.panchi.club)
+- Each brand has its own domain (travel.shunyaos.com, events.shunyaos.com)
 
 ## Multi-Brand Use Cases
 
@@ -683,7 +683,7 @@ Super Admin sees:
 ## First-Time User Flow
 
 ```
-1. User visits app.panchi.club
+1. User visits app.shunyaos.com
    → Clicks "Get Started"
 
 2. AI: "Welcome to Shunya! What kind of business do you run?"
@@ -1066,7 +1066,7 @@ Active Sessions:
 ## Signup Flow
 
 ```
-1. User visits app.panchi.club
+1. User visits app.shunyaos.com
 2. Clicks "Get Started" or "Sign Up"
 3. Options:
    a. "Continue with Google" → OAuth → account created → done

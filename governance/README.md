@@ -48,8 +48,8 @@ This framework implements engineering governance within constitutional bounds. I
 - [`SHUNYA_ARCHITECTURE.md`](/SHUNYA_ARCHITECTURE.md) — The locked Compounding Intelligence Architecture (v2.0)
 - [`SHUNYA_UNIVERSAL_PLATFORM.md`](/SHUNYA_UNIVERSAL_PLATFORM.md) — Universal Business Platform vision
 - [`SHUNYA_OS_NEXT_PLAN.md`](/SHUNYA_OS_NEXT_PLAN.md) — Next build plan and roadmap
-- [`ARCHITECTURE.md`](/ARCHITECTURE.md) — Current implementation architecture (Panchi Club Travel OS)
-- [`DESIGN.md`](/DESIGN.md) — Frontend design system (Panchi Club)
+- [`ARCHITECTURE.md`](/ARCHITECTURE.md) — Current implementation architecture (SHUNYA OS)
+- [`DESIGN.md`](/DESIGN.md) — Frontend design system (SHUNYA OS)
 
 ---
 

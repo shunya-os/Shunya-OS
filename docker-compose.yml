@@ -6,7 +6,7 @@ services:
       - "8000:8000"
     environment:
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=postgresql://panchi:panchi_club_2024@postgres:5432/panchi_db
+      - DATABASE_URL=postgresql://shunya:***@postgres:5432/shunya_db
     env_file:
       - .env
     volumes:
@@ -19,13 +19,13 @@ services:
   postgres:
     image: pgvector/pgvector:0.8.0-pg16
     environment:
-      POSTGRES_USER: panchi
-      POSTGRES_PASSWORD: panchi_club_2024
-      POSTGRES_DB: panchi_db
+      POSTGRES_USER: shunya
+      POSTGRES_PASSWORD: shunya_os_2024
+      POSTGRES_DB: shunya_db
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U panchi -d panchi_db"]
+      test: ["CMD-SHELL", "pg_isready -U shunya -d shunya_db"]
       interval: 10s
       timeout: 5s
       retries: 5

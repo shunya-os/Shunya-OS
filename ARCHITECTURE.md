@@ -1,6 +1,6 @@
-# Panchi Club Travel OS — Architecture
+# SHUNYA OS — Architecture
 
-**Brand:** Panchi Club · **AI Identity:** AI@panchi.club  
+**Brand:** SHUNYA OS · **AI Identity:** AI@shunyaos.com  
 **Stack:** Python 3.11 · Flask · PostgreSQL 16 · Gunicorn · systemd  
 **Primary Intake:** Telegram Bot  
 **Pipeline:** Shunya — Knowledge → Reasoning → Planner → Workflow
@@ -28,7 +28,7 @@ app/
 **Responsibilities:**
 - `create_app()` factory pattern — avoids circular imports
 - Registers `main` and `api` blueprints
-- Injects `assistant_identity="AI@panchi.club"` into all templates
+- Injects `assistant_identity="AI@shunyaos.com"` into all templates
 - `db.create_all()` on startup with graceful failure
 
 **Env config:**
@@ -208,8 +208,8 @@ Response: {"method": "sendMessage", "chat_id": "123456789", "text": "✅ Inquiry
 
 #### Production (systemd — Contabo VPS)
 ```
-/var/log/panchi/       ← Logs (access.log, error.log)
-/etc/systemd/system/panchi.service  ← systemd unit
+/var/log/shunya/       ← Logs (access.log, error.log)
+/etc/systemd/system/shunya.service  ← systemd unit
 Workers: 2 gunicorn    ← port 5000
 Auto-restart: yes      ← on boot and crash
 Database: PostgreSQL 16 + pgvector
@@ -235,7 +235,7 @@ Database: PostgreSQL 16 + pgvector
 
 | Template | Purpose |
 |----------|---------|
-| `base.html` | Layout — AI@panchi.club branding, nav, sidebar |
+| `base.html` | Layout — AI@shunyaos.com branding, nav, sidebar |
 | `dashboard.html` | Today's stats, recent leads grid |
 | `leads.html` | Lead list with search + create button |
 | `lead_form.html` | New lead form (source, name, destination, pax, dates) |
@@ -293,7 +293,7 @@ Core App (__init__.py)
 
 Deployment:
     ├── Dockerfile + docker-compose.yml
-    ├── systemd (panchi.service)
+    ├── systemd (shunya.service)
     └── CI (.github/workflows/ci.yml)
 ```
 

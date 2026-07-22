@@ -24,8 +24,8 @@
 **The Founder's perfect opening screen:**
 ```
 🧠 Shunya: "Good morning, Rajat! ☀️"
-           "Panchi Travel: 2 deals closed yesterday, ₹4.5L revenue"
-           "Panchi Events: 1 wedding booked, ₹2.8L"
+           "SHUNYA Travel: 2 deals closed yesterday, ₹4.5L revenue"
+           "SHUNYA Events: 1 wedding booked, ₹2.8L"
            "3 team members need your approval"
            "Riya just closed her 10th deal this month — should we celebrate?"
            
@@ -143,7 +143,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│ [🏝️ Panchi Club]                     [🧠 AI]   [🔔 3]  [👤 Rajat] │
+│ [🏝️ SHUNYA OS]                     [🧠 AI]   [🔔 3]  [👤 Rajat] │
 ├─────────────────────────────────────────────────────────────────────┤
 │  📊  📋   🗺️   💰   🧾   📅   👥   📈   📦   ⚙️                │
 │  Home Leads Trips  $  Invs  Cal  Team Rpts Media Settings          │

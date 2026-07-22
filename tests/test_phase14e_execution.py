@@ -247,7 +247,7 @@ class TestTenantIsolation:
 
 
 # =========================================================================
-# No Travel / Panchi Hardcoding
+# No Travel / SHUNYA Hardcoding
 # =========================================================================
 class TestNoTravel:
     def test_no_travel_fields(self, es):

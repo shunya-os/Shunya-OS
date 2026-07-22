@@ -1,5 +1,5 @@
 """
-Panchi Club — Voice Processor (Conversation Mode)
+SHUNYA — Voice Processor
 
 Handles speech text input and returns contextual responses.
 Recognizes common commands and routes to CompanionEngine for banter.

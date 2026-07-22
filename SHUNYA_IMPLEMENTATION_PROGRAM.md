@@ -1016,7 +1016,7 @@ tests/constitutional/
 | `app/routes.py` | Web routing | Kept during migration |
 | `app/shunya/workflow.py` | Workflow orchestration | Kept during migration |
 | `app/client_portal.py` | Client portal | Kept during migration |
-| Database tables (existing) | Panchi Club data | Kept, may be migrated later |
+| Database tables (existing) | SHUNYA OS data | Kept, may be migrated later |
 | `app/shunya/__init__.py` exports | Existing package API | Extended (not removed) |
 
 ### What Is Replaced

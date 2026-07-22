@@ -1,5 +1,5 @@
 """
-Panchi Club Travel OS — Payment Gateway (Simulated)
+SHUNYA OS — Payment Gateway (Simulated)
 
 Simulated Razorpay/Stripe integration with in-memory payment store.
 Designed so switching to a real provider only requires replacing
@@ -256,7 +256,7 @@ class PaymentGateway:
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Payment Receipt — Panchi Club</title>
+  <title>Payment Receipt — SHUNYA OS</title>
   <style>
     * {{ margin: 0; padding: 0; box-sizing: border-box; }}
     body {{
@@ -363,7 +363,7 @@ class PaymentGateway:
 <body>
   <div class="receipt">
     <div class="receipt-header">
-      <div class="logo">🏝️ <span>Panchi</span> Club</div>
+      <div class="logo">🏝️ <span>SHUNYA</span> OS</div>
       <div class="subtitle">Payment Receipt</div>
     </div>
     <div class="receipt-body">
@@ -399,7 +399,7 @@ class PaymentGateway:
       </div>
     </div>
     <div class="receipt-footer">
-      <strong>Panchi Club Travel OS</strong> &mdash; Internal Payment Receipt<br>
+      <strong>SHUNYA OS</strong> &mdash; Internal Payment Receipt<br>
       This is a simulated receipt. No real payment has been processed.
     </div>
   </div>

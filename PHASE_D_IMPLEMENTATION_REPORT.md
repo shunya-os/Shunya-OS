@@ -100,7 +100,7 @@ This subsection documents the architectural transition from the previous SQLAlch
 | **Event integration** | None | Event Bus integration with 4 event types: `identity.created`, `identity.updated`, `identity.merged`, `identity.archived` |
 | **Observability** | None | Metrics counters, structured logging hooks, Health Registry integration |
 
-**Migration strategy:** The transition was a single-phase replacement. The existing `__init__.py` was backed up to `__init__.py.legacy` and replaced with a package structure. No in-place migration of existing identity records was performed because the new Identity Engine stores identities in the Knowledge Store, not in the legacy `PersonIdentity` table. Old records remain in the legacy database and are accessible through the existing Panchi Club application code until Phase M.
+**Migration strategy:** The transition was a single-phase replacement. The existing `__init__.py` was backed up to `__init__.py.legacy` and replaced with a package structure. No in-place migration of existing identity records was performed because the new Identity Engine stores identities in the Knowledge Store, not in the legacy `PersonIdentity` table. Old records remain in the legacy database and are accessible through the existing SHUNYA OS application code until Phase M.
 
 **Rollback strategy:** If the new Identity Engine must be rolled back:
 1. Restore `app/shunya/identity/__init__.py` from `__init__.py.legacy`

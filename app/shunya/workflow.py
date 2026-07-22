@@ -115,7 +115,7 @@ class WorkflowLayer:
         try:
             from app.models import ActivityLog
             log = ActivityLog(lead_id=lead.id, action="created",
-                              detail="Lead created via Shunya pipeline", user="AI@panchi.club")
+                              detail="Lead created via Shunya pipeline", user="AI@shunyaos.com")
             self._db.add(log)
             self._db.commit()
         except Exception:

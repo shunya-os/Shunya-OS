@@ -85,7 +85,7 @@ All 7 engine specifications follow the same template (ENGINE_SPEC_TEMPLATE.md) w
 
 ### R1. Implementation Gap
 
-The gap between the current implementation (Panchi Club Travel OS with rule-based KnowledgeLayer, 5-hardcoded-pattern LearningLayer, template-based PlannerLayer) and the specified architecture is very large. The engine specs describe a system that does not exist yet. Risk of implementation not matching the architecture is **High**.
+The gap between the current implementation (SHUNYA OS with rule-based KnowledgeLayer, 5-hardcoded-pattern LearningLayer, template-based PlannerLayer) and the specified architecture is very large. The engine specs describe a system that does not exist yet. Risk of implementation not matching the architecture is **High**.
 
 ### R2. Event Bus Dependency
 

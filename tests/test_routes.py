@@ -1,5 +1,5 @@
 """
-Panchi Club — Extended Test Suite (Unit 10)
+SHUNYA OS — Extended Test Suite (Unit 10)
 
 Covers: routes, services, pipeline, Telegram webhook.
 """

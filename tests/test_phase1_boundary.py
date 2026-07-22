@@ -38,11 +38,11 @@ class TestCrossTenantResolution:
         from app import db
         from app.shunya.identity import IdentityResolver
         with real_app.app_context():
-            t1 = Tenant(company_name="Panchi Club", slug="panchi", business_type="travel", is_active=True)
+            t1 = Tenant(company_name="SHUNYA OS", slug="shunya", business_type="travel", is_active=True)
             t2 = Tenant(company_name="Bali Travel", slug="bali", business_type="travel", is_active=True)
             db.session.add(t1); db.session.add(t2); db.session.commit()
 
-            p1 = Person(canonical_name="Ritu Panchi", preferred_name="Ritu", tenant_id=t1.id)
+            p1 = Person(canonical_name="Ritu Shunya", preferred_name="Ritu", tenant_id=t1.id)
             p2 = Person(canonical_name="Ritu Bali", preferred_name="Ritu", tenant_id=t2.id)
             db.session.add(p1); db.session.add(p2); db.session.commit()
 

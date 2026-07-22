@@ -1,5 +1,5 @@
 """
-Panchi Club — Celebration Engine (Phase 3H)
+SHUNYA — Celebration Engine
 
 Auto-detects wins and celebrations across the platform.
 Scans for new leads, conversions, payments, and completed tasks.

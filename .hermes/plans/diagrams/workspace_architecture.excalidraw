@@ -1,0 +1,42 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "hermes-agent",
+  "elements": [
+    { "type": "text", "id": "title", "x": 200, "y": 20, "width": 400, "height": 30, "text": "THE ONE LIVING WORKSPACE", "fontSize": 24, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "originalText": "THE ONE LIVING WORKSPACE", "autoResize": true },
+
+    { "type": "rectangle", "id": "workspace", "x": 80, "y": 70, "width": 680, "height": 500, "roundness": { "type": 3 }, "backgroundColor": "#f8f9fa", "fillStyle": "solid", "strokeColor": "#dee2e6", "strokeWidth": 1 },
+
+    { "type": "rectangle", "id": "identity", "x": 100, "y": 90, "width": 640, "height": 35, "roundness": { "type": 3 }, "backgroundColor": "#e9ecef", "fillStyle": "solid", "boundElements": [{ "id": "t_identity", "type": "text" }] },
+    { "type": "text", "id": "t_identity", "x": 120, "y": 95, "width": 600, "height": 25, "text": "Alice Founder  \u25cf  Acme Corp                    [\u25cf online]", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "left", "verticalAlign": "middle", "containerId": "identity", "originalText": "Alice Founder  \u25cf  Acme Corp                    [\u25cf online]", "autoResize": true },
+
+    { "type": "rectangle", "id": "space", "x": 100, "y": 140, "width": 640, "height": 30, "roundness": { "type": 3 }, "backgroundColor": "#d0bfff", "fillStyle": "solid", "opacity": 60, "boundElements": [{ "id": "t_space", "type": "text" }] },
+    { "type": "text", "id": "t_space", "x": 120, "y": 145, "width": 600, "height": 20, "text": "Acme Corp  \u2014  Organization  \u2014  14 objects  \u2014  5 members", "fontSize": 13, "fontFamily": 1, "strokeColor": "#495057", "textAlign": "left", "verticalAlign": "middle", "containerId": "space", "originalText": "Acme Corp  \u2014  Organization  \u2014  14 objects  \u2014  5 members", "autoResize": true },
+
+    { "type": "rectangle", "id": "object", "x": 100, "y": 190, "width": 640, "height": 45, "roundness": { "type": 3 }, "backgroundColor": "#b2f2bb", "fillStyle": "solid", "boundElements": [{ "id": "t_object", "type": "text" }] },
+    { "type": "text", "id": "t_object", "x": 120, "y": 200, "width": 600, "height": 25, "text": "Q3 Strategy Proposal  \u2014  [Strategy]  \u2014  Focused", "fontSize": 16, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "left", "verticalAlign": "middle", "containerId": "object", "originalText": "Q3 Strategy Proposal  \u2014  [Strategy]  \u2014  Focused", "autoResize": true },
+
+    { "type": "line", "id": "line1", "x": 100, "y": 250, "width": 640, "height": 0, "points": [[0,0],[640,0]], "strokeColor": "#dee2e6", "strokeWidth": 1 },
+
+    { "type": "text", "id": "sec_rel", "x": 120, "y": 265, "width": 200, "height": 20, "text": "Relationships", "fontSize": 14, "fontFamily": 1, "strokeColor": "#868e96", "originalText": "Relationships", "autoResize": true },
+    { "type": "text", "id": "rel_items", "x": 140, "y": 290, "width": 300, "height": 40, "text": "\u25cb Rahul (Contact)    \u25cb Q3 Budget (Object)\n\u25cb Acme Corp (Org)    \u25cb Alice (Creator)", "fontSize": 13, "fontFamily": 1, "strokeColor": "#1e1e1e", "originalText": "\u25cb Rahul (Contact)    \u25cb Q3 Budget (Object)\n\u25cb Acme Corp (Org)    \u25cb Alice (Creator)", "autoResize": true },
+
+    { "type": "line", "id": "line2", "x": 100, "y": 345, "width": 640, "height": 0, "points": [[0,0],[640,0]], "strokeColor": "#dee2e6", "strokeWidth": 1 },
+
+    { "type": "text", "id": "sec_conv", "x": 120, "y": 360, "width": 200, "height": 20, "text": "Conversations", "fontSize": 14, "fontFamily": 1, "strokeColor": "#868e96", "originalText": "Conversations", "autoResize": true },
+    { "type": "text", "id": "conv_items", "x": 140, "y": 385, "width": 300, "height": 40, "text": "\u25cb \"Can we review the budget?\" \u2014 2h ago\n\u25cb \"Timeline looks good\" \u2014 yesterday", "fontSize": 13, "fontFamily": 1, "strokeColor": "#1e1e1e", "originalText": "\u25cb \"Can we review the budget?\" \u2014 2h ago\n\u25cb \"Timeline looks good\" \u2014 yesterday", "autoResize": true },
+
+    { "type": "line", "id": "line3", "x": 100, "y": 440, "width": 640, "height": 0, "points": [[0,0],[640,0]], "strokeColor": "#dee2e6", "strokeWidth": 1 },
+
+    { "type": "text", "id": "sec_ai", "x": 120, "y": 455, "width": 200, "height": 20, "text": "AI Understanding", "fontSize": 14, "fontFamily": 1, "strokeColor": "#868e96", "originalText": "AI Understanding", "autoResize": true },
+    { "type": "text", "id": "ai_text", "x": 140, "y": 480, "width": 500, "height": 40, "text": "This strategy has been reviewed by 3 people. The next step is budget\napproval. Rahul is waiting for your review.", "fontSize": 13, "fontFamily": 1, "strokeColor": "#5c7cfa", "originalText": "This strategy has been reviewed by 3 people. The next step is budget\napproval. Rahul is waiting for your review.", "autoResize": true },
+
+    { "type": "rectangle", "id": "search_bottom", "x": 100, "y": 535, "width": 640, "height": 35, "roundness": { "type": 3 }, "backgroundColor": "#ffffff", "fillStyle": "solid", "strokeColor": "#dee2e6", "boundElements": [{ "id": "t_search", "type": "text" }] },
+    { "type": "text", "id": "t_search", "x": 120, "y": 542, "width": 600, "height": 20, "text": "[Search or type to begin...]", "fontSize": 14, "fontFamily": 1, "strokeColor": "#adb5bd", "textAlign": "left", "verticalAlign": "middle", "containerId": "search_bottom", "originalText": "[Search or type to begin...]", "autoResize": true },
+
+    { "type": "text", "id": "note", "x": 120, "y": 590, "width": 600, "height": 20, "text": "Identity \u2192 Space \u2192 Object \u2192 Relationships \u2192 Conversations \u2192 AI \u2192 Search  |  All simultaneously present", "fontSize": 13, "fontFamily": 1, "strokeColor": "#868e96", "textAlign": "center", "originalText": "Identity \u2192 Space \u2192 Object \u2192 Relationships \u2192 Conversations \u2192 AI \u2192 Search  |  All simultaneously present", "autoResize": true }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}

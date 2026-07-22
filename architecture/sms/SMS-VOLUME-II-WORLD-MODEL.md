@@ -29,7 +29,7 @@ The World Model is **language-agnostic**. It describes *what* must be true, not 
 7. Timeline Contract
 8. Evidence Contract
 9. Object Registry
-10. Panchi Club Validation
+10. SHUNYA OS Validation
 
 ---
 
@@ -453,11 +453,11 @@ This eliminates switch statements and object-specific routing. Every capability 
 
 ---
 
-## 10. Panchi Club Validation
+# Tenant Validation Example
 
 ### 10.1 Purpose
 
-Panchi Club is a travel business operating on SHUNYA. It validates the architecture without compromising business-agnostic design. All capabilities must be demonstrable through Panchi Club scenarios.
+An example tenant (e.g., a travel business) validates the architecture without compromising business-agnostic design. All capabilities must be demonstrable through tenant scenarios.
 
 ### 10.2 Validation Scenario: Customer Journey
 
@@ -467,7 +467,7 @@ Panchi Club is a travel business operating on SHUNYA. It validates the architect
    → Both methods link to the same identity
 
 2. Space: Alice creates a Personal Space
-   → She then joins Panchi Club's Organization Space
+   → She then joins an Organization Space (e.g., a travel company)
 
 3. Object: A "Booking Inquiry" is created as an Object
    → It has a conversation attached
@@ -482,7 +482,7 @@ Panchi Club is a travel business operating on SHUNYA. It validates the architect
    → Alice, the agent, and the manager participate
    → Messages are linked to evidence (quotes, documents)
 
-6. Permission: Only Alice and Panchi agents can view the Inquiry
+6. Permission: Only Alice and tenant agents can view the Inquiry
    → Deletion requires agent approval
    → Financial changes require manager approval
 
@@ -501,7 +501,7 @@ The contracts above contain zero travel-specific logic. The word "booking" appea
 
 - Store travel data as Object metadata, not as domain-specific fields.
 - Define travel-specific behavior as Space-level policies, not kernel changes.
-- Map Panchi Club's concepts to universal primitives (Inquiry → Object, Agent → Identity with Role, etc.).
+- Map tenant's concepts to universal primitives (Inquiry → Object, Agent → Identity with Role, etc.).
 
 ---
 

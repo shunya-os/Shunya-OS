@@ -1,4 +1,4 @@
-# Panchi Club — Frontend Design System
+# SHUNYA OS — Frontend Design System
 
 **Version:** 1.0  
 **Stack:** Tailwind CSS v3 + shadcn/ui-inspired component tokens  
@@ -12,7 +12,7 @@
 
 ### Colors
 
-Derived from shadcn/ui neutral palette with Panchi Club brand accent.
+Derived from shadcn/ui neutral palette with SHUNYA OS brand accent.
 
 ```
 --background:       #ffffff
@@ -72,7 +72,7 @@ Derived from shadcn/ui neutral palette with Panchi Club brand accent.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  🏝️ Panchi Club  [AI@panchi.club]            [☰ Menu]   │
+│  🏝️ SHUNYA OS  [AI@shunyaos.com]            [☰ Menu]   │
 └──────────────────────────────────────────────────────────┘
 ```
 

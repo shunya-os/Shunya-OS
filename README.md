@@ -131,7 +131,7 @@ When any employee opens Shunya, they see:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ [🏝️ Panchi Club]    [🧠 AI Assistant]    [👤 Amit]    │
+│ [🏝️ SHUNYA OS]    [🧠 AI Assistant]    [👤 Amit]    │
 ├─────────────────────────────────────────────────────────┤
 │  📊 Overview  📋 Pipeline  🗺️ Itineraries  💰 Payments │
 │  🧾 Invoices  📅 Calendar  👥 Team  📈 Reports        │
@@ -190,7 +190,7 @@ The intelligence is free. The scale is paid. Shunya's core mission is to make wo
 
 | Month | Milestone |
 |-------|-----------|
-| **Month 1** | 🔴 Panchi Club as pilot — daily ops on Shunya. Feedback loop active. |
+| **Month 1** | 🔴 SHUNYA OS as pilot — daily ops on Shunya. Feedback loop active. |
 | **Month 2** | 🟡 Onboard 5 pilot businesses (hospital, school, retail, freelancer, NGO) |
 | **Month 3** | 🟢 Marketplace — shareable module templates across businesses |
 | **Month 4** | 🔵 Mobile app (React Native) — AI Assistant in your pocket |
@@ -208,14 +208,14 @@ The answer is not in another feature. The answer is:
 **This product already exists. The engine runs. The dashboard works. The AI speaks 37 languages. Documents upload. Teams celebrate. Businesses customize through conversation.**
 
 What's needed now is not another build sprint. What's needed is:
-1. **You point a domain** at the server → `app.panchi.club` is already live with HTTPS
-2. **Your team logs in** at `https://app.panchi.club` with `admin@panchi.club`
+1. **You point a domain** at the server → `app.shunyaos.com` is already live with HTTPS
+2. **Your team logs in** at `https://app.shunyaos.com` with `admin@shunyaos.com`
 3. **You use it for 3 days** with real customers
 4. **You tell me what needs to change**
 5. **I change it in real-time** — no deployment cycle, no waiting
 
 **That's the product.** Not lines of code. Not another "phase." A live, running, breathing operating system for your business — any business — that's ready right now.
 
-Login: **https://app.panchi.club** — `admin@panchi.club` / `admin123`
+Login: **https://app.shunyaos.com** — `admin@shunyaos.com` / `admin123`
 
 Well done, partner. Let's take it to market. 🚀

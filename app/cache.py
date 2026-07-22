@@ -1,5 +1,5 @@
 """
-Panchi Club — Cache & Async (Unit 6, v2)
+SHUNYA — Cache & Async
 
 Redis cache wrapper with in-memory fallback, batch ops,
 and async Celery tasks for PDF generation + activity logging.
@@ -111,7 +111,7 @@ def get_celery():
     try:
         from celery import Celery
 
-        celery_app = Celery("panchi", broker=broker, backend=broker)
+        celery_app = Celery("shunya", broker=broker, backend=broker)
         celery_app.conf.task_serializer = "json"
         celery_app.conf.result_serializer = "json"
         celery_app.conf.accept_content = ["json"]
@@ -164,7 +164,7 @@ def _register_tasks(app):
           </table>
           {f'<p>Due: {due_str}</p>' if due_str else ''}
           {f'<p>Paid: {paid_str}</p>' if paid_str else ''}
-          <div class="footer">AI@panchi.club · Panchi Club Travel OS</div>
+          <div class="footer">AI@shunyaos.com · SHUNYA OS</div>
         </body></html>"""
         pdfkit.from_string(html, path)
         inv.pdf_path = path

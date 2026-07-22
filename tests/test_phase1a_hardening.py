@@ -170,10 +170,10 @@ class TestProposalVersioning:
                                  proposal_version=3)
             db.session.add(sess); db.session.commit()
             committer = GovernedCommitter(session=db.session)
-            result = committer.approve(sess.id, approved_by="admin@panchi.club", scope=IntakeSessionState.APPROVE_ALL)
+            result = committer.approve(sess.id, approved_by="admin@shunyaos.com", scope=IntakeSessionState.APPROVE_ALL)
             assert result["success"] is True
             assert result["proposal_version"] == 3
-            assert sess.approved_by == "admin@panchi.club"
+            assert sess.approved_by == "admin@shunyaos.com"
             assert sess.approved_at is not None
             assert sess.approved_proposal_version == 3
 

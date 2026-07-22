@@ -108,7 +108,7 @@ SHUNYA OS CORE (unchanged — compounding intelligence)
          │
     TENANT LAYER (per-company)
     Company A    Company B    Company C
-    (Panchi)     (Health)     (Legal)
+    (SHUNYA)     (Health)     (Legal)
     Logo/Theme   Logo/Theme   Logo/Theme
     Custom Mods  Custom Mods  Custom Mods
          │

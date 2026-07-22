@@ -91,7 +91,7 @@ class WhatsAppOfficialAdapter(CommunicationAdapter):
         """Validate WhatsApp webhook authenticity."""
         payload = request.get_data()
         signature = request.headers.get("X-Hub-Signature-256", "")
-        verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "panchi_verify_2026")
+        verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "shunya_verify_2026")
 
         # GET = verification
         if request.method == "GET":

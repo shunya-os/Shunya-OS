@@ -1,5 +1,5 @@
 """
-Panchi Club — Auth Routes & Middleware (Phase 3A)
+SHUNYA — Auth Routes & Middleware
 
 Wired into the Flask app. Handles login, logout, session management,
 team CRUD (superadmin only), and route protection middleware.
@@ -89,8 +89,8 @@ def login_page():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
 
-        # Handle superadmin creation on first login
-        if email == "admin@panchi.club":
+        # Handle superadmin creation on first login — placeholder for migration
+        if email == "admin@shunyaos.com":
             existing = TeamMember.query.filter_by(email=email).first()
             if not existing:
                 admin = TeamMember(

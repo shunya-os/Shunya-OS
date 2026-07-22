@@ -83,7 +83,7 @@ def test_context_processor_injects_brand(app, client):
     with app.test_request_context():
         from flask import render_template_string
         rendered = render_template_string("{{ brand }}")
-        assert rendered == "Panchi Club"
+        assert rendered == "SHUNYA OS"
 
 
 def test_request_id_passed_from_header(client):

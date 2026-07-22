@@ -44,7 +44,7 @@ health:
   check_interval_s: 30
 
 persistence:
-  database_url: "postgresql://panchi:***@localhost:5432/panchi_db"
+  database_url: "postgresql://shunya:***@localhost:5432/shunya_db"
   pool_size: 5
   pool_timeout_s: 30
   echo: false

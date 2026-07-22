@@ -1,9 +1,9 @@
-# Panchi Club Travel OS — Project Tracker
+# SHUNYA OS — Project Tracker
 
-**Project:** Panchi Club Travel Operating System  
+**Project:** SHUNYA OS Travel Operating System  
 **Launch:** Q3 2026 (Internal) → Q4 2026 (Public)  
 **Status:** 🟡 Phase 1 — Internal Testing  
-**Repo:** https://github.com/trips-ui/panchi-club-backend
+**Repo:** https://github.com/trips-ui/shunya-os-backend
 
 ---
 
@@ -44,7 +44,7 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 | Rate limiting | ✅ V2 | flask-limiter, memory:// fallback, 10/min on webhook |
 | Error handlers (400/403/404/405/500) | ✅ V2 | JSON for API routes, HTML fallback for UI |
 | Built-in /health endpoint | ✅ V2 | DB ping + table counts + version |
-| Context processor (brand, AI@panchi.club) | ✅ V2 | Injected into all templates |
+| Context processor (brand, AI@shunyaos.com) | ✅ V2 | Injected into all templates |
 | Tests (11 passing) | ✅ V2 | 8 new Core App tests + 3 model tests |
 
 ### ✅ 1.2 Telegram Integration — BUILT (v2)
@@ -85,7 +85,7 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 
 | Item | Status | Notes |
 |------|--------|-------|
-| systemd service | ✅ Done | panchi.service — auto-restart on boot/crash |
+| systemd service | ✅ Done | shunya.service — auto-restart on boot/crash |
 | Gunicorn workers (2) | ✅ Done | Port 5000, access + error logs |
 | Local testing verified | ✅ Done | Dashboard, leads, PDFs, Shunya pipeline |
 
@@ -96,7 +96,7 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 | Redis cache with fallback | ✅ Done | Graceful memory:// fallback |
 | Celery worker scaffold | ✅ Done | Async PDF generation |
 | Sentry monitoring | ✅ Done | Optional — no-op when not configured |
-| GitHub repo | ✅ Done | https://github.com/trips-ui/panchi-club-backend |
+| GitHub repo | ✅ Done | https://github.com/trips-ui/shunya-os-backend |
 | ARCHITECTURE.md | ✅ Done | Build breakdown by unit |
 | Dockerfile | ✅ Done | Python 3.11 + wkhtmltopdf |
 | docker-compose.yml | ✅ Done | web + celery + redis + nginx |
@@ -159,7 +159,7 @@ Core stack running on Contabo VPS. Team uses Telegram bot + web dashboard for op
 | Database | PostgreSQL 16 | Production-ready, pgvector for AI search |
 | AI pipeline | Shunya (4-layer) | Clean separation: Knowledge → Reasoning → Planner → Workflow |
 | Inquiry codes | PC{DD}{MM}{YY}{##} | No spaces, auto-sequential per day, globally unique |
-| Assistant identity | AI@panchi.club | Consistent brand across dashboard, Telegram, proposals |
+| Assistant identity | AI@shunyaos.com | Consistent brand across dashboard, Telegram, proposals |
 | Deployment | systemd + gunicorn | Direct VPS control, no container overhead for internal phase |
 | Caching | Redis + memory fallback | Zero-crash on Redis failure |
 | PDF generation | wkhtmltopdf | Simple, no browser dependency |
@@ -198,5 +198,5 @@ Focus: Phase 1 hardening
 |------|------|
 | Owner | Rajat |
 | Team | Chaya |
-| AI Identity | AI@panchi.club |
+| AI Identity | AI@shunyaos.com |
 | Bot Account | trips-ui (GitHub) |

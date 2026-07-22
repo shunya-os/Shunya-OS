@@ -477,10 +477,10 @@ class TestGovernedCommit:
 
 
 # =========================================================================
-# 8. PANCHI LEGACY CUSTOMER PREPARATION
-# =========================================================================
+# 8. SHUNYA LEGACY CUSTOMER PREPARATION
+# 8. SHUNYA LEGACY CUSTOMER PREPARATION
 
-class TestPanchiLegacy:
+class TestShunyaLegacy:
 
     def test_lead_name_only_insufficient(self, real_app, test_tenant):
         """Lead with customer_name only is INSUFFICIENT_IDENTITY — no Person created."""

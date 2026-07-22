@@ -1,7 +1,7 @@
 """Phase 1 migration — additive, nullable, compatibility-preserving."""
 import psycopg2
 
-conn = psycopg2.connect("host=localhost dbname=panchi_db user=panchi password=panchi_club_2024")
+conn = psycopg2.connect("host=localhost dbname=shunya_db user=shunya password=shunya_os_2026")
 cur = conn.cursor()
 
 # New tables

@@ -1,5 +1,5 @@
 """
-Panchi Club Travel OS — Routing & API (Unit 3)
+SHUNYA OS — Routing & API
 
 Dashboard CRUD + Telegram webhook + Shunya API + activity logging.
 All mutating operations log to ActivityLog for audit trail.
@@ -90,7 +90,7 @@ def index():
     
     # Business-type adaptive data
     from app.ontology import registry
-    business_type = "travel"  # Default for Panchi Club
+    business_type = "travel"  # Tenant-configured
     ontology = registry.get(business_type)
     lead_counts = {"new": 0, "active": 0, "won": 0}
     for l in recent:
@@ -149,7 +149,7 @@ def welcome():
         message="Your team is ready. Your pipeline is active. Let's make today count.",
         voice_text=welcome_data["voice_text"],
         stats=stats,
-        company_name="Panchi Club",
+        company_name="SHUNYA",
         company_emoji="🏝️",
         bg_color="#0f172a",
         sidebar_bg="#1e293b",

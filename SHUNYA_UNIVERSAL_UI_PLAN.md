@@ -38,7 +38,7 @@ They think:
               ┌──────────────────┼──────────────────┐
               │                  │                  │
      ┌────────▼───────┐ ┌───────▼───────┐ ┌────────▼───────┐
-     │  PANCHI CLUB   │ │  PANCHI       │ │  NEW BUSINESS  │
+     │  SHUNYA CLUB   │ │  SHUNYA       │ │  NEW BUSINESS  │
      │  Travel        │ │  Events       │ │  (any industry)│
      │                │ │               │ │                │
      │  Modules:      │ │  Modules:     │ │  Modules:      │
@@ -188,7 +188,7 @@ Want to see the breakdown?
 
 ---
 
-## 4. Travel-Specific Tools (Panchi Club First)
+## 4. Travel-Specific Tools (SHUNYA OS First)
 
 ### 4.1 Kanban Pipeline
 
@@ -243,7 +243,7 @@ Want to see the breakdown?
 | Method | What happens |
 |--------|-------------|
 | **WhatsApp** | Formatted itinerary + PDF sent directly to client |
-| **Link** | `app.panchi.club/trip/SHARMA-BALI-01` — client opens in browser |
+| **Link** | `app.shunyaos.com/trip/SHARMA-BALI-01` — client opens in browser |
 | **PDF** | Branded PDF downloaded |
 | **Email** | Full proposal sent to client's email |
 

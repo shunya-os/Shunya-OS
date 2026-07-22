@@ -1,5 +1,5 @@
 """
-Panchi Club — AI Coach Engine (Phase 3B)
+SHUNYA — AI Coach Engine
 
 Every screen teaches. Every interaction develops judgment.
 The AI Coach sits beside every team member, providing:
@@ -148,13 +148,13 @@ class CoachEngine:
         )
 
     def brand_check(self, message: str) -> Optional[CoachInsight]:
-        """Check outgoing messages against Panchi Club communication standards."""
+        """Check outgoing messages against SHUNYA communication standards."""
         transactional_phrases = ["we have booked", "your booking is confirmed", "here is your invoice"]
         for phrase in transactional_phrases:
             if phrase in message.lower():
                 return CoachInsight(
                     message=f'This wording may sound transactional: "{message[:60]}..."',
-                    reasoning=f'Suggested: "We\'ve arranged something special for your trip" — matches Panchi Club\'s warm, personalized communication standards.',
+                    reasoning=f'Suggested: "We\'ve arranged something special for your trip" — matches SHUNYA OS\'s warm, personalized communication standards.',
                     confidence=0.93, category="communication", action_label="Soften Wording",
                 )
         return None

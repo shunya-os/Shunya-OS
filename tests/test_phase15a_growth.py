@@ -190,7 +190,7 @@ class TestTenantIsolation:
 
 
 # =========================================================================
-# No Travel / Panchi
+# No Travel / SHUNYA
 # =========================================================================
 class TestNoTravel:
     def test_no_travel_fields(self, gs):

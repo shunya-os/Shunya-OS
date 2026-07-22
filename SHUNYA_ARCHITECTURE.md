@@ -2,7 +2,7 @@
 
 **Version:** 2.0 — Locked  
 **Date:** July 10, 2026  
-**Author:** Rajat / AI@panchi.club
+**Author:** Rajat / AI@shunyaos.com
 
 ---
 
@@ -11,10 +11,10 @@
 ### Shunya is a Compounding Intelligence Operating System.
 It continuously transforms knowledge into better decisions, better execution, and better outcomes.
 
-### Panchi Club is the first AI-native company built on Shunya.
+### SHUNYA OS is the first AI-native company built on Shunya.
 It applies compounding intelligence to travel so every customer can make better travel decisions with confidence.
 
-### Shunya is the brain. Panchi Club is the first body.
+### Shunya is the brain. SHUNYA OS is the first body.
 
 The same OS will later power healthcare, education, legal, finance, manufacturing, retail, real estate, and enterprise operations — without changing the underlying intelligence architecture.
 
@@ -288,7 +288,7 @@ Instead of one large application, Shunya is: Foundation, Governance, Knowledge, 
 
 ---
 
-## 7. Panchi Club — First Shunya Application
+## 7. SHUNYA OS — First Shunya Application
 
 ### Current State (Phase 1 — Complete)
 - Functional backend with 10 build units
@@ -297,7 +297,7 @@ Instead of one large application, Shunya is: Foundation, Governance, Knowledge, 
 - Shunya v1 pipeline: Knowledge → Reasoning → Planner → Workflow
 - Telegram webhook intake
 - Tailwind CSS dashboard
-- Live at ai.panchi.club
+- Live at ai.shunyaos.com
 
 ### Phase 2 — Deepen the Layers
 
@@ -353,7 +353,7 @@ To move from travel to healthcare:
 4. Shunya core remains identical
 
 ### Domains Shunya Will Power
-- Travel (Panchi Club — first)
+- Travel (SHUNYA OS — first)
 - Healthcare
 - Legal
 - Finance
@@ -369,7 +369,7 @@ To move from travel to healthcare:
 > **Shunya is a Trust-First Compounding Intelligence Operating System.**
 > Its architecture is designed so that no single component can independently compromise correctness, security, or execution. Every critical action passes through independent layers of validation, governance, and observation, making the platform resilient by design.
 >
-> **Panchi Club is the first AI-native company built on Shunya.**
+> **SHUNYA OS is the first AI-native company built on Shunya.**
 > It applies compounding intelligence to travel so every customer can make better travel decisions with confidence, while the team focuses only on relationships and delivering a fabulous experience.
 
 ---
