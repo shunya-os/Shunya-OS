@@ -81,16 +81,10 @@ def _get_identity_name() -> str:
 
 @founder_bp.route("/founder/home")
 def founder_home():
-    """Founder Home — the first page after authentication."""
+    """Redirect to the single continuous workspace."""
     if not _founder_required():
         return redirect(url_for("founder.founder_login"))
-    spaces = FounderSpace.query.filter_by(
-        identity_id=session.get("identity_id"),
-        status="active",
-    ).order_by(FounderSpace.created_at.desc()).all()
-    return render_template("founder_home.html",
-                           spaces=spaces,
-                           founder_name=_get_identity_name())
+    return redirect(url_for("founder.workspace"))
 
 
 @founder_bp.route("/founder/login")
@@ -191,7 +185,7 @@ def api_founder_signin():
         session["identity_id"] = identity.identity_id
         return jsonify({
             "success": True,
-            "redirect": url_for("founder.founder_home"),
+            "redirect": url_for("founder.workspace"),
             "name": user.name or "Founder",
         })
 
@@ -236,7 +230,7 @@ def api_founder_signin():
 
     return jsonify({
         "success": True,
-        "redirect": url_for("founder.founder_home"),
+        "redirect": url_for("founder.workspace"),
         "name": name,
         "is_new": True,
     }), 201
@@ -605,5 +599,176 @@ def api_founder_profile():
         "data": {
             "name": _get_identity_name(),
             "identity_id": session.get("identity_id"),
+        },
+    })
+
+
+# ---------------------------------------------------------------------------
+# Workspace — The One Living Workspace
+# ---------------------------------------------------------------------------
+
+
+@founder_bp.route("/workspace")
+def workspace():
+    """Serve the single continuous workspace shell."""
+    if not _founder_required():
+        return redirect(url_for("founder.founder_login"))
+    return render_template("workspace.html")
+
+
+# ---------------------------------------------------------------------------
+# API — Morning Zero
+# ---------------------------------------------------------------------------
+
+
+@founder_bp.route("/api/v1/founder/morning-zero", methods=["GET"])
+def api_morning_zero():
+    """Return what happened while the founder was away.
+
+    Not a dashboard. Not a notification list.
+    Answers: 'What needs my attention right now?'
+    """
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    identity_id = session.get("identity_id")
+    items = []
+
+    # Get user's spaces
+    spaces = FounderSpace.query.filter_by(
+        identity_id=identity_id, status="active"
+    ).order_by(FounderSpace.created_at.desc()).all()
+
+    total_objects = 0
+    pending_conversations = 0
+
+    for space in spaces:
+        objects = FounderObject.query.filter_by(
+            space_id=space.space_id, status="active"
+        ).order_by(FounderObject.updated_at.desc()).all()
+        total_objects += len(objects)
+
+        for obj in objects:
+            # Check for recent conversations
+            conv = FounderConversation.query.filter_by(
+                object_id=obj.object_id, status="active"
+            ).first()
+            if conv:
+                unread = FounderMessage.query.filter_by(
+                    conv_id=conv.conv_id, role="assistant"
+                ).count()
+                human_msgs = FounderMessage.query.filter_by(
+                    conv_id=conv.conv_id, role="human"
+                ).count()
+                if unread > 0 and human_msgs > 0:
+                    last_msg = FounderMessage.query.filter_by(
+                        conv_id=conv.conv_id
+                    ).order_by(FounderMessage.created_at.desc()).first()
+                    preview = last_msg.content[:80] if last_msg else ""
+                    items.append({
+                        "title": f"{obj.name} \u2014 {unread} message{'s' if unread > 1 else ''}",
+                        "meta": preview,
+                        "priority": "attention",
+                        "focus": {"object_id": obj.object_id, "type": "object"},
+                    })
+                    pending_conversations += 1
+
+    # If no attention items, show quiet state
+    if not items:
+        items.append({
+            "title": f"Everything is quiet across {len(spaces)} space{'s' if len(spaces) != 1 else ''}.",
+            "meta": f"{total_objects} active object{'s' if total_objects != 1 else ''}",
+            "priority": "info",
+            "focus": None,
+        })
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "items": items[:7],  # Max 7 items
+            "summary": {
+                "active_spaces": len(spaces),
+                "active_objects": total_objects,
+                "pending_conversations": pending_conversations,
+            },
+        },
+    })
+
+
+# ---------------------------------------------------------------------------
+# API — Object Focus (object + context)
+# ---------------------------------------------------------------------------
+
+
+@founder_bp.route("/api/v1/founder/focus/<object_id>", methods=["GET"])
+def api_focus_object(object_id: str):
+    """Focus on an object — returns the object with all context.
+
+    The response includes:
+      - The object itself
+      - Its relationships (connected objects)
+      - Its conversation (if any)
+      - Messages in that conversation
+      - AI understanding of the object
+    """
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    if not obj:
+        return jsonify({"success": False, "error": "Object not found"}), 404
+
+    # Get space context
+    space = FounderSpace.query.filter_by(space_id=obj.space_id).first()
+
+    # Get relationships (other objects in same space as related)
+    related_objects = FounderObject.query.filter(
+        FounderObject.space_id == obj.space_id,
+        FounderObject.status == "active",
+        FounderObject.object_id != object_id,
+    ).limit(5).all()
+
+    relationships = []
+    for rel in related_objects:
+        relationships.append({
+            "object_id": rel.object_id,
+            "name": rel.name,
+            "type": rel.object_type,
+            "relationship": "same_space",
+        })
+
+    # Get conversation
+    conversation = FounderConversation.query.filter_by(
+        object_id=object_id, status="active"
+    ).first()
+    messages = []
+    if conversation:
+        msgs = FounderMessage.query.filter_by(
+            conv_id=conversation.conv_id
+        ).order_by(FounderMessage.created_at).all()
+        messages = [m.to_dict() for m in msgs]
+
+    # AI understanding — simple contextual summary
+    ai_parts = []
+    if obj.object_type:
+        ai_parts.append(f"This is a {obj.object_type.lower()}.")
+    if len(messages) > 0:
+        msg_count = len(messages)
+        ai_parts.append(f"{msg_count // 2} message{'s have' if msg_count // 2 != 1 else ' has'} been exchanged.")
+    if space:
+        ai_parts.append(f"It belongs to the '{space.name}' space.")
+    if relationships:
+        ai_parts.append(f"It is connected to {len(relationships)} other object{'s' if len(relationships) != 1 else ''}.")
+    ai_understanding = " ".join(ai_parts) if ai_parts else "SHUNYA is observing this object."
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "object": obj.to_dict(),
+            "space": space.to_dict() if space else None,
+            "relationships": relationships,
+            "conversation": conversation.to_dict() if conversation else None,
+            "messages": messages,
+            "ai_understanding": ai_understanding,
         },
     })

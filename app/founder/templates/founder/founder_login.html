@@ -82,7 +82,7 @@
       });
       const data = await resp.json();
       if (data.success) {
-        window.location.href = data.redirect || '/founder/home';
+        window.location.href = data.redirect || '/workspace';
       } else {
         err.textContent = data.error || 'Something went wrong.';
         err.classList.remove('hidden');

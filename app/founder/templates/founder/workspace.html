@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SHUNYA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/workspace.css">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
+    }
+  </script>
+</head>
+<body>
+
+<div id="workspace">
+
+  <!-- Identity Strip -->
+  <div id="identity-strip">
+    <div class="identity-left">
+      <span class="identity-name" id="identity-name">SHUNYA</span>
+      <span class="identity-dot"></span>
+    </div>
+    <div class="identity-right">
+      <span id="space-indicator" style="cursor:pointer" onclick="loadAmbient()">All Spaces</span>
+      <span id="time-indicator"></span>
+      <span style="cursor:pointer" onclick="fetch('/founder/logout').then(()=>window.location.reload())">Log out</span>
+    </div>
+  </div>
+
+  <!-- Content Area -->
+  <div id="content-area">
+    <!-- Morning Zero -->
+    <div id="view-morning-zero" class="view"></div>
+
+    <!-- Ambient (scanning) -->
+    <div id="view-ambient" class="view"></div>
+
+    <!-- Focused (object-centered) -->
+    <div id="view-focused" class="view"></div>
+
+    <!-- Deep (immersive) -->
+    <div id="view-deep" class="view"></div>
+  </div>
+
+  <!-- Search Overlay -->
+  <div id="search-overlay">
+    <div id="search-input-container">
+      <input type="text" id="search-input" placeholder="Search or type to begin..." autocomplete="off" spellcheck="false">
+    </div>
+    <div id="search-results-container"></div>
+  </div>
+
+  <!-- Status Dot -->
+  <div id="status-dot" class="calm"></div>
+
+</div>
+
+<script src="/static/js/workspace.js"></script>
+
+<!-- Clock -->
+<script>
+  function updateClock() {
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes().toString().padStart(2, '0');
+    document.getElementById('time-indicator').textContent = `${h}:${m}`;
+  }
+  updateClock();
+  setInterval(updateClock, 30000);
+</script>
+
+</body>
+</html>
