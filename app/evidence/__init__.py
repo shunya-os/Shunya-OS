@@ -6,6 +6,7 @@ No persistence implementation. No repositories. No storage engine.
 Architecture references:
     SMS-VOLUME-II-WORLD-MODEL.md §8 — Evidence Contract
     SMS-VOLUME-I_5-CORE-SEMANTICS.md §8 — The Meaning of Evidence
+    UNIVERSAL_KNOWLEDGE_GRAPH_ARCHITECTURE.md §4.3 — Evidence chain
 """
 
 from app.evidence.enums import (
@@ -27,6 +28,21 @@ from app.evidence.models import (
     EvidenceStore,
     InMemoryEvidenceStore,
 )
+from app.evidence.provenance_enums import (
+    DerivationType,
+    VerificationStatus,
+    ProvenanceRelationType,
+)
+from app.evidence.provenance_models import (
+    SourceIdentity,
+    SourceMetadata,
+    DerivationRecord,
+    VerificationRecord,
+    Citation,
+    EvidenceChainLink,
+    EvidenceChain,
+    ProvenanceGraph,
+)
 
 __all__ = [
     # Enums
@@ -45,4 +61,16 @@ __all__ = [
     "Provenance",
     "EvidenceStore",
     "InMemoryEvidenceStore",
+    # Provenance
+    "DerivationType",
+    "VerificationStatus",
+    "ProvenanceRelationType",
+    "SourceIdentity",
+    "SourceMetadata",
+    "DerivationRecord",
+    "VerificationRecord",
+    "Citation",
+    "EvidenceChainLink",
+    "EvidenceChain",
+    "ProvenanceGraph",
 ]
