@@ -7,27 +7,27 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
       theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
     }
   </script>
 </head>
-<body class="bg-[#faf9f7] text-[#1a1a1a] font-sans antialiased min-h-screen flex flex-col">
+<body class="bg-[#fafaf8] text-[#191b1c] font-sans antialiased min-h-screen flex flex-col">
 
-<header class="border-b border-[#1a1a1a]/5">
+<header class="border-b border-[rgba(25,27,28,0.07)]">
   <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
     <div class="flex items-center gap-3 truncate">
-      <a href="/founder/home" class="text-sm text-[#1a1a1a]/40 hover:text-[#1a1a1a]/60 transition-colors shrink-0">SHUNYA</a>
-      <span class="text-[#1a1a1a]/10 shrink-0">/</span>
+      <a href="/founder/home" class="text-sm text-[rgba(25,27,28,0.35)] hover:text-[rgba(25,27,28,0.55)] transition-colors shrink-0">SHUNYA</a>
+      <span class="text-[rgba(25,27,28,0.10)] shrink-0">/</span>
       {% if space %}
-      <a href="/founder/space/{{ space.space_id }}" class="text-sm text-[#1a1a1a]/40 hover:text-[#1a1a1a]/60 transition-colors truncate shrink-0">{{ space.name }}</a>
-      <span class="text-[#1a1a1a]/10 shrink-0">/</span>
+      <a href="/founder/space/{{ space.space_id }}" class="text-sm text-[rgba(25,27,28,0.35)] hover:text-[rgba(25,27,28,0.55)] transition-colors truncate shrink-0">{{ space.name }}</a>
+      <span class="text-[rgba(25,27,28,0.10)] shrink-0">/</span>
       {% endif %}
-      <span class="text-sm text-[#1a1a1a]/70 truncate">{{ object.name }}</span>
+      <span class="text-sm text-[rgba(25,27,28,0.55)] truncate">{{ object.name }}</span>
     </div>
-    <a href="/founder/logout" class="text-xs text-[#1a1a1a]/30 hover:text-[#1a1a1a]/60 transition-colors shrink-0 ml-4">Log out</a>
+    <a href="/founder/logout" class="text-xs text-[rgba(25,27,28,0.30)] hover:text-[rgba(25,27,28,0.55)] transition-colors shrink-0 ml-4">Log out</a>
   </div>
 </header>
 
@@ -36,7 +36,7 @@
   <!-- Object header -->
   <div class="mb-8">
     <div class="flex items-center gap-3 mb-3">
-      <div class="w-10 h-10 rounded-xl bg-[#1a1a1a]/5 flex items-center justify-center text-lg">
+      <div class="w-10 h-10 rounded-xl bg-[rgba(25,27,28,0.05)] flex items-center justify-center text-lg">
         {% if object.object_type == 'Document' %}&#128221;
         {% elif object.object_type == 'Note' %}&#128221;
         {% elif object.object_type == 'Strategy' %}&#128202;

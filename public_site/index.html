@@ -3,38 +3,310 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AI@shunyaos.com | SHUNYA OS</title>
+  <title>SHUNYA — Operating System for Human Organizations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:#0b1220; color:#e6e8ef; margin:0; }
-    .wrap { max-width: 920px; margin: 0 auto; padding: 40px 20px; }
-    h1 { font-size: 42px; line-height: 1.1; margin: 0 0 8px; }
-    .accent { color:#7dd3fc; }
-    .sub { color:#a5b4c7; font-size: 18px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 14px; margin-top: 24px; }
-    .card { background:#0f172a; border:1px solid #1f2a3a; border-radius:16px; padding:18px; }
-    .card h3 { margin: 0 0 8px; font-size:16px; color:#cfe6ff; }
-    .card p { margin:0; color:#a5b4c7; font-size:14px; }
-    .cta { display:inline-block; margin-top:22px; padding: 12px 16px; background:#2563eb; color:#fff; text-decoration:none; border-radius:10px; font-weight:600; }
-    footer { margin-top: 40px; color:#6b7a90; font-size: 13px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #fafaf8;
+      --surface: #ffffff;
+      --text: #191b1c;
+      --text-secondary: rgba(25, 27, 28, 0.55);
+      --text-tertiary: rgba(25, 27, 28, 0.35);
+      --text-faint: rgba(25, 27, 28, 0.15);
+      --border: rgba(25, 27, 28, 0.07);
+      --accent-warm: #aa8964;
+      --zone-left: #f3f2f2;
+      --zone-right: #ebebea;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --transition: 400ms cubic-bezier(0.22, 1, 0.36, 1);
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Strip ── */
+    .strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      background: #faf9f8;
+    }
+    .strip-left { display: flex; align-items: center; gap: 8px; }
+    .strip-logo { font-size: 13px; font-weight: 500; color: var(--text); letter-spacing: -0.01em; }
+    .strip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent-warm); }
+    .strip-nav { display: flex; gap: 24px; font-size: 12px; }
+    .strip-nav a { color: var(--text-tertiary); text-decoration: none; transition: color 200ms; }
+    .strip-nav a:hover { color: var(--text); }
+
+    /* ── Hero ── */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 100px 24px 60px;
+    }
+    .hero-tag {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-warm);
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: 44px;
+      font-weight: 200;
+      letter-spacing: -0.03em;
+      line-height: 1.08;
+      max-width: 640px;
+      margin-bottom: 16px;
+    }
+    .hero h1 strong { font-weight: 400; }
+    .hero p {
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-width: 480px;
+      margin-bottom: 32px;
+    }
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 11px 24px;
+      background: var(--text);
+      color: var(--surface);
+      text-decoration: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      transition: opacity 200ms;
+    }
+    .hero-cta:hover { opacity: 0.85; }
+    .hero-cta-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 11px 24px;
+      border: 1px solid var(--border);
+      color: var(--text);
+      text-decoration: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      margin-left: 10px;
+      transition: border-color 200ms;
+    }
+    .hero-cta-outline:hover { border-color: rgba(25,27,28,0.2); }
+    .hero-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 0; }
+
+    /* ── Three-zone preview ── */
+    .preview {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+    .preview-container {
+      display: grid;
+      grid-template-columns: 200px 1fr 240px;
+      height: 440px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .preview-left { background: var(--zone-left); padding: 20px 16px; }
+    .preview-center { background: var(--surface); padding: 24px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    .preview-right { background: var(--zone-right); padding: 20px 16px; }
+    .preview-bar { height: 6px; background: rgba(25,27,28,0.06); border-radius: 3px; margin-bottom: 10px; }
+    .preview-bar.short { width: 60%; }
+    .preview-line { height: 4px; background: rgba(25,27,28,0.04); border-radius: 2px; margin-bottom: 8px; }
+    .preview-line.short { width: 45%; }
+    .preview-line.thin { width: 70%; height: 3px; }
+    .preview-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(25,27,28,0.08); }
+    .preview-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(25,27,28,0.25); margin-bottom: 14px; }
+    .preview-card { background: var(--surface); border-radius: 6px; padding: 12px; margin-top: 8px; }
+    .preview-card .p-title { font-size: 11px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+    .preview-card .p-meta { font-size: 10px; color: var(--text-tertiary); }
+    .preview-sub { font-size: 10px; color: rgba(25,27,28,0.2); margin-top: 8px; }
+
+    /* ── Features ── */
+    .features {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .feature-card {
+      padding: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .feature-icon { font-size: 20px; margin-bottom: 12px; opacity: 0.4; }
+    .feature-card h3 { font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .feature-card p { font-size: 12px; color: var(--text-tertiary); line-height: 1.6; }
+
+    /* ── Footer ── */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+    .footer a { color: var(--text-secondary); text-decoration: none; transition: color 200ms; }
+    .footer a:hover { color: var(--text); }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 30px; }
+      .hero { padding: 60px 20px 40px; }
+      .preview-container { grid-template-columns: 1fr; height: auto; }
+      .preview-left, .preview-right { display: none; }
+      .preview-center { border: none; padding: 20px; }
+      .features-grid { grid-template-columns: 1fr; }
+      .strip { padding: 0 16px; }
+      .strip-nav { display: none; }
+      .hero-actions { flex-direction: column; gap: 10px; }
+      .hero-cta-outline { margin-left: 0; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>SHUNYA OS <span class="accent">Workspace</span></h1>
-    <p class="sub">Assistant identity: AI@shunyaos.com — internal team workspace for leads, payments, invoices, proposals, itineraries, and Telegram intake.</p>
 
-    <div class="grid">
-      <div class="card"><h3>Telegram Intake</h3><p>Customers book and enquire via Telegram. Auto-generated inquiry codes and instant logging.</p></div>
-      <div class="card"><h3>AI Proposals</h3><p>Generate proposals in PDF, text, email body, short clip, infographic, and movie formats.</p></div>
-      <div class="card"><h3>Offline Itineraries</h3><p>Guest itineraries with local tax guidance, past-trip points, and executable ground details. No internet needed.</p></div>
-      <div class="card"><h3>Accounting Ledger</h3><p>Tally-like supplier accounting, automatic leisure ledger, invoice generation, and payment reconciliation.</p></div>
-      <div class="card"><h3>Sales Analytics</h3><p>Destination popularity, festive trends, revenue, supplier payouts, and customer review mapping.</p></div>
-      <div class="card"><h3>Phased Rollout</h3><p>3-4 months focused internal testing, then public launch for holidays, destination weddings, and events.</p></div>
+  <!-- Strip -->
+  <div class="strip">
+    <div class="strip-left">
+      <span class="strip-dot"></span>
+      <span class="strip-logo">SHUNYA</span>
     </div>
-
-    <a class="cta" href="mailto:team@shunyaos.com">Request Access (Team)</a>
-
-    <footer>SHUNYA OS • AI@shunyaos.com • Private Workspace</footer>
+    <div class="strip-nav">
+      <a href="#philosophy">Philosophy</a>
+      <a href="#workspace">Workspace</a>
+      <a href="/signin">Sign in</a>
+    </div>
   </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-tag">Operating System for Human Organizations</div>
+    <h1>Your organization has a <strong>reality</strong>. SHUNYA helps you <strong>understand it</strong>.</h1>
+    <p>Not a CRM. Not a project manager. A continuously contextual workspace that surfaces what matters — before you ask.</p>
+    <div class="hero-actions">
+      <a href="/signin" class="hero-cta">Enter workspace →</a>
+      <a href="#philosophy" class="hero-cta-outline">Read the philosophy</a>
+    </div>
+  </div>
+
+  <!-- Three-zone preview -->
+  <div class="preview" id="workspace">
+    <div class="preview-container">
+      <div class="preview-left">
+        <div class="preview-label">Navigate</div>
+        <div class="preview-bar" style="width:75%;background:rgba(25,27,28,0.1);margin-bottom:8px"></div>
+        <div class="preview-bar" style="width:55%;background:rgba(25,27,28,0.06);margin-bottom:6px"></div>
+        <div class="preview-bar" style="width:65%;background:rgba(25,27,28,0.04);margin-bottom:6px"></div>
+        <div style="margin-top:20px">
+          <div class="preview-label" style="margin-bottom:10px">Objects</div>
+          <div class="preview-bar" style="width:80%;background:rgba(25,27,28,0.06);margin-bottom:6px"></div>
+          <div class="preview-bar" style="width:50%;background:rgba(25,27,28,0.04);margin-bottom:6px"></div>
+        </div>
+      </div>
+      <div class="preview-center">
+        <div class="preview-label" style="margin-bottom:16px">Object Workspace</div>
+        <div class="preview-bar" style="width:35%;height:18px;border-radius:4px;margin-bottom:6px"></div>
+        <div class="preview-line"></div>
+        <div class="preview-line short"></div>
+        <div class="preview-line" style="width:90%"></div>
+        <div style="margin-top:20px;display:flex;gap:8px">
+          <div class="preview-bar" style="flex:1;height:28px;border-radius:6px"></div>
+          <div class="preview-bar" style="flex:1;height:28px;border-radius:6px"></div>
+          <div class="preview-bar" style="flex:1;height:28px;border-radius:6px"></div>
+        </div>
+        <div style="margin-top:20px">
+          <div class="preview-line" style="height:3px"></div>
+          <div class="preview-line thin" style="margin-top:4px"></div>
+          <div style="display:flex;gap:6px;margin-top:12px">
+            <div class="preview-bar" style="flex:1;height:10px;border-radius:4px;background:rgba(25,27,28,0.04)"></div>
+            <div class="preview-bar" style="flex:1;height:10px;border-radius:4px;background:rgba(25,27,28,0.04)"></div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-right">
+        <div class="preview-label" style="margin-bottom:14px">Intelligence</div>
+        <div class="preview-card">
+          <div class="p-title">Executive Brief</div>
+          <div class="p-meta">78% health</div>
+        </div>
+        <div style="margin-top:10px">
+          <div class="preview-bar" style="background:rgba(25,27,28,0.06);margin-bottom:6px"></div>
+          <div class="preview-bar short" style="background:rgba(25,27,28,0.04)"></div>
+        </div>
+        <div class="preview-sub">Decision queue · Risks · Opportunities</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="features" id="philosophy">
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">◈</div>
+        <h3>Object-centric</h3>
+        <p>Every commitment, decision, execution, and relationship is an Object. Objects are the universe — not pages, not tabs, not database rows.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">◈</div>
+        <h3>Continuously aware</h3>
+        <p>SHUNYA processes in the background, surfacing only what deserves attention. The default state is calm. Interruption is earned, not assumed.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">◈</div>
+        <h3>Traceably intelligent</h3>
+        <p>Every insight links back through decision → prediction → learning → evidence. No hidden reasoning. No black boxes. Full provenance.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">◈</div>
+        <h3>Human-first</h3>
+        <p>SHUNYA recommends. Humans decide. The boundary is inviolable. Automation is earned through demonstrated reliability.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">◈</div>
+        <h3>Collaborative</h3>
+        <p>Multiple humans work inside the same reality. Every participant sees the same canonical objects, evidence, and executive priorities.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">◈</div>
+        <h3>Universally governed</h3>
+        <p>All knowledge obeys governed principles. Markdown is not canonical — structured knowledge is. The constitution is live, not aspirational.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>SHUNYA</span>
+    <a href="https://github.com/shunya-os">GitHub</a>
+  </div>
+
 </body>
 </html>
