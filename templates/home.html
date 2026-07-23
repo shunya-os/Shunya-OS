@@ -2,102 +2,83 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SHUNYA</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SHUNYA — Operating System for Human Organizations</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #fafaf8; --surface: #ffffff; --text: #191b1c;
+      --text-secondary: rgba(25,27,28,0.55); --text-tertiary: rgba(25,27,28,0.35);
+      --text-faint: rgba(25,27,28,0.15); --border: rgba(25,27,28,0.07);
+      --accent-warm: #aa8964; --zone-left: #f3f2f2; --zone-right: #ebebea;
+      --radius: 16px; --radius-sm: 10px;
+      --transition: 400ms cubic-bezier(0.22,1,0.36,1);
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
     }
-  </script>
+    html { -webkit-font-smoothing: antialiased; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+    .strip { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 52px; border-bottom: 1px solid var(--border); background: #faf9f8; }
+    .strip-left { display: flex; align-items: center; gap: 8px; }
+    .strip-logo { font-size: 13px; font-weight: 500; color: var(--text); }
+    .strip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent-warm); }
+    .strip-nav { display: flex; gap: 24px; font-size: 12px; }
+    .strip-nav a { color: var(--text-tertiary); text-decoration: none; transition: color 200ms; }
+    .strip-nav a:hover { color: var(--text); }
+    .hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 100px 24px 60px; }
+    .hero-tag { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-warm); margin-bottom: 20px; }
+    .hero h1 { font-size: 44px; font-weight: 200; letter-spacing: -0.03em; line-height: 1.08; max-width: 640px; margin-bottom: 16px; }
+    .hero h1 strong { font-weight: 400; }
+    .hero p { font-size: 15px; color: var(--text-secondary); line-height: 1.6; max-width: 480px; margin-bottom: 32px; }
+    .hero-cta { display: inline-flex; align-items: center; gap: 6px; padding: 11px 24px; background: var(--text); color: var(--surface); text-decoration: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; transition: opacity 200ms; }
+    .hero-cta:hover { opacity: 0.85; }
+    .hero-cta-outline { display: inline-flex; align-items: center; gap: 6px; padding: 11px 24px; border: 1px solid var(--border); color: var(--text); text-decoration: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; margin-left: 10px; transition: border-color 200ms; }
+    .hero-cta-outline:hover { border-color: rgba(25,27,28,0.2); }
+    .hero-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; }
+    .features { max-width: 960px; margin: 0 auto; padding: 0 24px 80px; }
+    .features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+    .feature-card { padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+    .feature-icon { font-size: 20px; margin-bottom: 12px; opacity: 0.4; }
+    .feature-card h3 { font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .feature-card p { font-size: 12px; color: var(--text-tertiary); line-height: 1.6; }
+    .footer { border-top: 1px solid var(--border); padding: 24px 32px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text-tertiary); }
+    .footer a { color: var(--text-secondary); text-decoration: none; }
+    .footer a:hover { color: var(--text); }
+    @media (max-width:768px) {
+      .hero h1 { font-size: 30px; } .hero { padding: 60px 20px 40px; }
+      .features-grid { grid-template-columns: 1fr; } .strip { padding: 0 16px; }
+      .strip-nav { display: none; } .hero-actions { flex-direction: column; gap: 10px; }
+      .hero-cta-outline { margin-left: 0; }
+    }
+  </style>
 </head>
-<body class="bg-[#faf9f7] text-[#1a1a1a] font-sans antialiased min-h-screen flex flex-col">
-
-<main class="flex-1 flex flex-col max-w-3xl mx-auto w-full px-6 py-16 sm:py-24">
-
-  <!-- Identity mark -->
-  <div class="mb-12 sm:mb-16">
-    <h1 class="text-lg font-medium tracking-tight text-[#1a1a1a]/60">SHUNYA</h1>
-  </div>
-
-  <!-- Thinking surface -->
-  <div class="flex-1 flex flex-col">
-    <p class="text-sm text-[#1a1a1a]/40 mb-4">What's on your mind?</p>
-
-    <form id="thought-form" class="flex-1 flex flex-col">
-      <textarea id="thought-input"
-        class="w-full flex-1 min-h-[240px] bg-transparent border-0 resize-none text-xl sm:text-2xl font-light leading-relaxed text-[#1a1a1a] placeholder-[#1a1a1a]/20 focus:outline-none focus:ring-0"
-        placeholder="Type anything..."></textarea>
-
-      <div id="response-area" class="mt-6 hidden">
-        <div id="response-text" class="text-base leading-relaxed text-[#1a1a1a]/70"></div>
-        <div id="identity-prompt" class="mt-8 p-5 bg-white/60 border border-[#1a1a1a]/5 rounded-2xl hidden">
-          <p class="text-sm text-[#1a1a1a]/60 leading-relaxed">
-            Would you like to create your SHUNYA Identity so we can continue this together?
-          </p>
-          <div class="flex gap-3 mt-4">
-            <a href="/identity/create"
-              class="inline-flex items-center px-4 py-2 bg-[#1a1a1a] text-white text-sm font-medium rounded-xl hover:bg-[#1a1a1a]/90 transition-colors">
-              Create Identity
-            </a>
-            <a href="/login"
-              class="inline-flex items-center px-4 py-2 border border-[#1a1a1a]/10 text-[#1a1a1a]/60 text-sm font-medium rounded-xl hover:border-[#1a1a1a]/20 hover:text-[#1a1a1a]/80 transition-colors">
-              Sign In
-            </a>
-          </div>
-        </div>
-      </div>
-    </form>
-  </div>
-
-  <!-- Footer -->
-  <footer class="mt-16 flex items-center justify-between text-xs text-[#1a1a1a]/25">
-    <span>&copy; SHUNYA</span>
-    <div class="flex gap-4">
-      <a href="/identity/create" class="hover:text-[#1a1a1a]/40 transition-colors">Create Identity</a>
-      <a href="/login" class="hover:text-[#1a1a1a]/40 transition-colors">Sign In</a>
+<body>
+  <div class="strip">
+    <div class="strip-left"><span class="strip-dot"></span><span class="strip-logo">SHUNYA</span></div>
+    <div class="strip-nav">
+      <a href="/signin">Sign in</a>
     </div>
-  </footer>
-
-</main>
-
-<script>
-  const input = document.getElementById('thought-input');
-  const responseArea = document.getElementById('response-area');
-  const responseText = document.getElementById('response-text');
-  const identityPrompt = document.getElementById('identity-prompt');
-  let thoughtCount = 0;
-
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      const text = this.value.trim();
-      if (!text) return;
-
-      thoughtCount++;
-      this.value = '';
-      responseArea.classList.remove('hidden');
-      responseText.textContent = 'I hear you.';
-
-      // Show identity prompt after first meaningful interaction
-      if (thoughtCount >= 1) {
-        setTimeout(() => {
-          identityPrompt.classList.remove('hidden');
-          identityPrompt.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 800);
-      }
-    }
-  });
-
-  // Expand textarea naturally
-  input.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = Math.max(240, this.scrollHeight) + 'px';
-  });
-</script>
-
+  </div>
+  <div class="hero">
+    <div class="hero-tag">Operating System for Human Organizations</div>
+    <h1>Your organization has a <strong>reality</strong>. SHUNYA helps you <strong>understand it</strong>.</h1>
+    <p>Not a CRM. Not a project manager. A continuously contextual workspace that surfaces what matters — before you ask.</p>
+    <div class="hero-actions">
+      <a href="/signin" class="hero-cta">Enter workspace &rarr;</a>
+    </div>
+  </div>
+  <div class="features">
+    <div class="features-grid">
+      <div class="feature-card"><div class="feature-icon">&#9674;</div><h3>Object-centric</h3><p>Every commitment, decision, and execution is an Object — not a page, not a tab, not a database row.</p></div>
+      <div class="feature-card"><div class="feature-icon">&#9674;</div><h3>Continuously aware</h3><p>SHUNYA processes in the background, surfacing only what deserves attention. The default state is calm.</p></div>
+      <div class="feature-card"><div class="feature-icon">&#9674;</div><h3>Traceably intelligent</h3><p>Every insight links back through decision &rarr; prediction &rarr; learning &rarr; evidence. No black boxes.</p></div>
+      <div class="feature-card"><div class="feature-icon">&#9674;</div><h3>Human-first</h3><p>SHUNYA recommends. Humans decide. Automation is earned through demonstrated reliability.</p></div>
+      <div class="feature-card"><div class="feature-icon">&#9674;</div><h3>Collaborative</h3><p>Multiple humans work inside the same reality. Every participant sees the same canonical objects.</p></div>
+      <div class="feature-card"><div class="feature-icon">&#9674;</div><h3>Universally governed</h3><p>All knowledge obeys governed principles. The constitution is live structured knowledge, not inert Markdown.</p></div>
+    </div>
+  </div>
+  <div class="footer"><span>SHUNYA</span></div>
 </body>
 </html>
