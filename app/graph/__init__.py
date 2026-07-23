@@ -36,6 +36,13 @@ from app.graph.temporal import (
 from app.graph.consistency import (
     GraphValidator, ValidationResult, ValidationError,
 )
+from app.graph.security import (
+    GraphPermission, GraphSecurityPolicy, SecurityContext,
+    PermissionResult, GraphAccessDecision, GraphAccessEvaluator,
+    get_evaluator, reset_evaluator,
+    visibility_level_rank, visibility_inherits, is_visibility_compatible,
+    get_effective_visibility,
+)
 
 __all__ = [
     # Node
@@ -54,4 +61,10 @@ __all__ = [
     "get_temporal_store", "reset_temporal_store",
     # Consistency
     "GraphValidator", "ValidationResult", "ValidationError",
+    # Security
+    "GraphPermission", "GraphSecurityPolicy", "SecurityContext",
+    "PermissionResult", "GraphAccessDecision", "GraphAccessEvaluator",
+    "get_evaluator", "reset_evaluator",
+    "visibility_level_rank", "visibility_inherits",
+    "is_visibility_compatible", "get_effective_visibility",
 ]
