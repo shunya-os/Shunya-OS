@@ -1,28 +1,35 @@
 """Governed Knowledge Framework (GKF) — Package Init.
 
-Frameork-generic representation for governed knowledge collections.
-The SHUNYA Constitution is the first governed collection.
+Framework-generic representation for governed knowledge collections.
+GKF-000 defines representation only. No runtime enforcement.
 
-GKF-000 defines representation only.
-No runtime enforcement, compliance, or policy execution.
+GKF-001A: Semantic Enrichment — Authority, Citation, Commentary,
+Example, ImplementationGuidance, GoverningPrinciple, semantic taxonomy.
 """
 
 from app.gkf.enums import (
     AmendmentType,
+    AuthorityType,
     ElementStatus,
     GKFEdgeType,
     GKFNodeType,
+    SemanticCategory,
 )
 from app.gkf.models import (
     Amendment,
     Article,
+    Authority,
     Chapter,
+    Citation,
+    Commentary,
+    Example,
     GKFEvidence,
     GKFVersion,
     GovernedCollection,
+    GoverningPrinciple,
+    ImplementationGuidance,
     ImplementationLink,
     Interpretation,
-    Principle,
     Reference,
     Volume,
 )
@@ -33,16 +40,23 @@ __all__ = [
     "GKFEdgeType",
     "AmendmentType",
     "ElementStatus",
+    "SemanticCategory",
+    "AuthorityType",
     # Models
     "GovernedCollection",
     "Volume",
     "Chapter",
     "Article",
-    "Principle",
+    "GoverningPrinciple",
     "Interpretation",
     "Reference",
+    "Citation",
+    "Authority",
+    "Commentary",
+    "Example",
     "GKFEvidence",
     "ImplementationLink",
+    "ImplementationGuidance",
     "Amendment",
     "GKFVersion",
 ]

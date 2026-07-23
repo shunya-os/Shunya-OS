@@ -19,13 +19,19 @@ class GKFNodeType(str, Enum):
     VOLUME = "gkf_volume"
     CHAPTER = "gkf_chapter"
     ARTICLE = "gkf_article"
-    PRINCIPLE = "gkf_principle"
+    GOVERNING_PRINCIPLE = "gkf_governing_principle"
     INTERPRETATION = "gkf_interpretation"
     REFERENCE = "gkf_reference"
     EVIDENCE = "gkf_evidence"
     IMPLEMENTATION_LINK = "gkf_implementation_link"
     AMENDMENT = "gkf_amendment"
     VERSION = "gkf_version"
+    # GKF-001A Semantic Enrichment
+    AUTHORITY = "gkf_authority"
+    CITATION = "gkf_citation"
+    COMMENTARY = "gkf_commentary"
+    EXAMPLE = "gkf_example"
+    IMPLEMENTATION_GUIDANCE = "gkf_implementation_guidance"
 
 
 class GKFEdgeType(str, Enum):
@@ -41,7 +47,12 @@ class GKFEdgeType(str, Enum):
     # Semantic edges
     CLARIFIES = "gkf_clarifies"
     IS_IMPLEMENTED_BY = "gkf_is_implemented_by"
-    EXPRESSED_IN = "gkf_expressed_in"  # links structural element to semantic element
+    EXPRESSED_IN = "gkf_expressed_in"
+
+    # GKF-001A Semantic edges
+    ATTRIBUTED_TO = "gkf_attributed_to"
+    ILLUSTRATES = "gkf_illustrates"
+    GUIDES = "gkf_guides"
 
     # Cross-cutting edges
     CROSS_REFERENCES = "gkf_cross_references"
@@ -74,3 +85,32 @@ class ElementStatus(str, Enum):
     ACTIVE = "active"
     SUPERSEDED = "superseded"
     DRAFT = "draft"
+
+
+class SemanticCategory(str, Enum):
+    """Framework-level semantic taxonomy for governed knowledge.
+
+    Collections may extend this taxonomy with additional categories.
+    """
+    ARCHITECTURE = "architecture"
+    ENGINEERING = "engineering"
+    GOVERNANCE = "governance"
+    ETHICS = "ethics"
+    SECURITY = "security"
+    DATA = "data"
+    AI = "ai"
+    UX = "ux"
+    OPERATIONS = "operations"
+    PERFORMANCE = "performance"
+    LEGAL = "legal"
+    BUSINESS = "business"
+
+
+class AuthorityType(str, Enum):
+    """Canonical types of governing authorities."""
+    FOUNDER = "founder"
+    ORGANIZATION = "organization"
+    STANDARDS_BODY = "standards_body"
+    GOVERNMENT = "government"
+    COURT = "court"
+    REGULATORY = "regulatory"
