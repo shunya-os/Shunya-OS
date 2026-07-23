@@ -473,3 +473,28 @@ class InMemoryEvidenceStore(EvidenceStore):
                 if ev is not None:
                     results.append(ev)
             return results
+
+
+# ---------------------------------------------------------------------------
+# Legacy compatibility stubs — Phase 7 evidence models
+# Preserve the import contract for app/__init__.py and test files.
+# ---------------------------------------------------------------------------
+
+class SourceReference:
+    """Legacy SQLAlchemy model stub. Compatibility only."""
+    __tablename__ = "source_references"
+
+
+class EvidenceLink:
+    """Legacy SQLAlchemy model stub. Compatibility only."""
+    __tablename__ = "evidence_links"
+
+
+class AssertionRecord:
+    """Legacy SQLAlchemy model stub. Compatibility only."""
+    __tablename__ = "assertion_records"
+
+
+class SourceAssessment:
+    """Legacy SQLAlchemy model stub. Compatibility only."""
+    __tablename__ = "source_assessments"
