@@ -19,60 +19,103 @@
 
 <div id="workspace">
 
-  <!-- Identity Strip -->
+  <!-- ── Identity Strip ── -->
   <div id="identity-strip">
-    <div class="identity-left">
-      <span class="identity-name" id="identity-name">SHUNYA</span>
-      <span class="identity-dot"></span>
+    <div class="strip-left">
+      <span class="strip-logo" id="strip-identity">SHUNYA</span>
+      <span class="strip-logo-dot"></span>
+      <div class="strip-breadcrumb">
+        <span onclick="navClick('morning')">Workspace</span>
+      </div>
     </div>
-    <div class="identity-right">
-      <span id="space-indicator" style="cursor:pointer" onclick="loadAmbient()">All Spaces</span>
-      <span id="time-indicator"></span>
-      <span style="cursor:pointer" onclick="fetch('/founder/logout').then(()=>window.location.reload())">Log out</span>
+    <div class="strip-right">
+      <div class="strip-attention" onclick="navClick('executive')">
+        <span class="strip-attention-dot none"></span>
+        <span>Executive Brief</span>
+      </div>
+      <span class="strip-time" id="time-indicator"></span>
     </div>
   </div>
 
-  <!-- Content Area -->
-  <div id="content-area">
-    <!-- Morning Zero -->
-    <div id="view-morning-zero" class="view"></div>
+  <!-- ── Three Zones ── -->
+  <div id="zones">
 
-    <!-- Ambient (scanning) -->
-    <div id="view-ambient" class="view"></div>
+    <!-- Left Zone: Navigation -->
+    <div id="zone-left">
+      <div class="zone-left-header">Navigate</div>
+      <div class="zone-left-search">
+        <input type="text" placeholder="Search..." onclick="openSearch()" readonly>
+      </div>
+      <div class="zone-left-nav">
+        <div class="nav-section">Workspace</div>
+        <button class="nav-item active" id="nav-morning" onclick="navClick('morning')">
+          <span class="nav-icon">&#127775;</span>
+          Morning Zero
+        </button>
+        <button class="nav-item" id="nav-executive" onclick="navClick('executive')">
+          <span class="nav-icon">&#128202;</span>
+          Executive Brief
+        </button>
 
-    <!-- Focused (object-centered) -->
-    <div id="view-focused" class="view"></div>
+        <div class="nav-section">Objects</div>
+        <button class="nav-item" onclick="loadMorningZero()">
+          <span class="nav-icon">&#128196;</span>
+          All Objects
+        </button>
 
-    <!-- Deep (immersive) -->
-    <div id="view-deep" class="view"></div>
-  </div>
-
-  <!-- Search Overlay -->
-  <div id="search-overlay">
-    <div id="search-input-container">
-      <input type="text" id="search-input" placeholder="Search or type to begin..." autocomplete="off" spellcheck="false">
+        <div class="nav-section">System</div>
+        <button class="nav-item" onclick="fetch('/founder/logout').then(()=>window.location.reload())">
+          <span class="nav-icon">&#128682;</span>
+          Log out
+        </button>
+      </div>
     </div>
-    <div id="search-results-container"></div>
+
+    <!-- Center Zone: Object Workspace -->
+    <div id="zone-center">
+      <div class="empty-state">
+        <div class="empty-icon">&#127775;</div>
+        <h2>Loading SHUNYA...</h2>
+        <p>Your workspace is being prepared.</p>
+      </div>
+    </div>
+
+    <!-- Right Zone: SHUNYA Intelligence -->
+    <div id="zone-right">
+      <div class="zone-right-header">SHUNYA Intelligence</div>
+      <div class="zone-right-body" id="zone-right-body">
+        <div class="intel-section">
+          <div class="intel-section-title">Health</div>
+          <div class="skeleton skeleton-line" style="width:60%"></div>
+        </div>
+        <div class="intel-section">
+          <div class="intel-section-title">Priorities</div>
+          <div class="skeleton skeleton-line"></div>
+          <div class="skeleton skeleton-line short"></div>
+        </div>
+        <div class="intel-section">
+          <div class="intel-section-title">Risks</div>
+          <div class="skeleton skeleton-line"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
-
-  <!-- Status Dot -->
-  <div id="status-dot" class="calm"></div>
-
 </div>
 
-<script src="/static/js/workspace.js"></script>
+<!-- ── Search Overlay ── -->
+<div id="search-overlay">
+  <div class="search-inner">
+    <input type="text" id="search-input" placeholder="Search SHUNYA..." autocomplete="off" spellcheck="false">
+    <div class="search-hint">Type to search objects, conversations, and insights</div>
+    <div id="search-results"></div>
+  </div>
+</div>
 
-<!-- Clock -->
-<script>
-  function updateClock() {
-    const now = new Date();
-    const h = now.getHours();
-    const m = now.getMinutes().toString().padStart(2, '0');
-    document.getElementById('time-indicator').textContent = `${h}:${m}`;
-  }
-  updateClock();
-  setInterval(updateClock, 30000);
-</script>
+<!-- ── Status Dot ── -->
+<div id="status-dot" class="calm"></div>
+
+<script src="/static/js/workspace.js"></script>
 
 </body>
 </html>
