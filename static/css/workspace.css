@@ -6,13 +6,17 @@
 :root {
   --bg: #faf9f7;
   --surface: #ffffff;
-  --text: #1a1a1a;
-  --text-secondary: rgba(26, 26, 26, 0.5);
-  --text-tertiary: rgba(26, 26, 26, 0.3);
-  --text-faint: rgba(26, 26, 26, 0.15);
-  --border: rgba(26, 26, 26, 0.06);
-  --border-hover: rgba(26, 26, 26, 0.12);
-  --accent: #1a1a1a;
+  --text: #0c0e0e;
+  --text-secondary: rgba(12, 14, 14, 0.55);
+  --text-tertiary: rgba(12, 14, 14, 0.35);
+  --text-faint: rgba(12, 14, 14, 0.15);
+  --border: rgba(12, 14, 14, 0.07);
+  --border-hover: rgba(12, 14, 14, 0.14);
+  --accent: #0c0e0e;
+  --zone-left-bg: #f1f1f0;
+  --zone-center-bg: #fbfaf8;
+  --zone-right-bg: #ebebea;
+  --top-bar-bg: #fbfbfa;
   --radius: 16px;
   --radius-sm: 10px;
   --radius-xs: 6px;
@@ -53,7 +57,7 @@ html, body {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   z-index: 20;
-  background: var(--bg);
+  background: var(--top-bar-bg);
 }
 
 .strip-left {
@@ -154,6 +158,7 @@ html, body {
   flex-direction: column;
   flex-shrink: 0;
   overflow: hidden;
+  background: var(--zone-left-bg);
 }
 
 .zone-left-header {
@@ -224,12 +229,12 @@ html, body {
 }
 
 .nav-item:hover {
-  background: rgba(26, 26, 26, 0.03);
+  background: rgba(12, 14, 14, 0.05);
   color: var(--text);
 }
 
 .nav-item.active {
-  background: rgba(26, 26, 26, 0.05);
+  background: rgba(12, 14, 14, 0.07);
   color: var(--text);
   font-weight: 500;
 }
@@ -258,6 +263,7 @@ html, body {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  background: var(--zone-center-bg);
 }
 
 #zone-center .empty-state {
@@ -717,6 +723,7 @@ html, body {
   flex-direction: column;
   flex-shrink: 0;
   overflow: hidden;
+  background: var(--zone-right-bg);
 }
 
 .zone-right-header {
