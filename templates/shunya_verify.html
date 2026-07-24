@@ -9,43 +9,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23a4865f'/></svg>">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-    body {
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background: var(--shunya-bg, #fbfaf8);
-      color: var(--shunya-text, #1a1c1d);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .strip {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 32px;
-      height: 52px;
-      border-bottom: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
-      background: var(--shunya-nav-bg, #fefefe);
-    }
-    .strip-left { display: flex; align-items: center; gap: 10px; }
-    .strip-logo { font-size: 13px; font-weight: 500; color: var(--shunya-text, #1a1c1d); letter-spacing: 0.03em; }
-    .strip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--shunya-gold, #a4865f); flex-shrink: 0; }
-    .strip-nav a {
-      font-size: 12px;
-      color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
-      text-decoration: none;
-      margin-left: 24px;
-      transition: color 300ms ease;
-    }
-    .strip-nav a:hover { color: var(--shunya-text, #1a1c1d); }
-    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
-    .card { width: 100%; max-width: 420px; }
-    h1 { font-size: 24px; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 6px; }
-    .sub { font-size: 13px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.35)); margin-bottom: 32px; line-height: 1.5; }
-
+    /* ─── Code Input ─── */
     .code-inputs {
       display: flex;
       gap: 12px;
@@ -59,70 +26,57 @@
       font-size: 24px;
       font-weight: 300;
       font-family: 'Inter', sans-serif;
-      background: var(--shunya-surface, #ffffff);
-      border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
-      border-radius: var(--shunya-radius-sm, 10px);
-      color: var(--shunya-text, #1a1c1d);
+      background: var(--shunya-surface);
+      border: 1px solid var(--shunya-border);
+      border-radius: var(--shunya-radius-sm);
+      color: var(--shunya-text);
       outline: none;
-      transition: border-color 200ms ease;
+      transition: border-color var(--shunya-duration-fast) var(--shunya-ease);
     }
     .code-inputs input:focus { border-color: rgba(26,28,29,0.2); }
     .code-inputs input.filled { border-color: rgba(26,28,29,0.14); }
 
-    .btn {
-      width: 100%;
-      padding: 10px;
-      background: var(--shunya-text, #1a1c1d);
-      color: var(--shunya-surface, #ffffff);
-      border: none;
-      border-radius: var(--shunya-radius-sm, 10px);
-      font-size: 13px;
-      font-weight: 500;
-      font-family: 'Inter', sans-serif;
-      cursor: pointer;
-      transition: opacity 200ms ease;
-    }
-    .btn:hover { opacity: 0.85; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .resend {
-      text-align: center;
-      font-size: 12px;
-      color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
-      margin-top: 24px;
-    }
-    .resend a {
-      color: var(--shunya-text, #1a1c1d);
-      text-decoration: none;
-      border-bottom: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
-      padding-bottom: 1px;
-    }
-    .resend a:hover { border-color: var(--shunya-text, #1a1c1d); }
+    /* ─── Email Display ─── */
     .email-display {
       text-align: center;
       font-size: 14px;
-      color: var(--shunya-text, #1a1c1d);
+      color: var(--shunya-text);
       margin-bottom: 24px;
       padding: 8px 16px;
-      background: var(--shunya-surface, #ffffff);
-      border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
-      border-radius: var(--shunya-radius-sm, 10px);
+      background: var(--shunya-surface);
+      border: 1px solid var(--shunya-border);
+      border-radius: var(--shunya-radius-sm);
     }
-    @media (max-width: 768px) { .strip { padding: 0 16px; } }
+
+    /* ─── Resend Link ─── */
+    .auth-resend {
+      text-align: center;
+      font-size: 12px;
+      color: var(--shunya-text-tertiary);
+      margin-top: 24px;
+    }
+    .auth-resend a {
+      color: var(--shunya-text);
+      text-decoration: none;
+      border-bottom: 1px solid var(--shunya-border);
+      padding-bottom: 1px;
+      transition: border-color var(--shunya-duration-fast) var(--shunya-ease);
+    }
+    .auth-resend a:hover { border-color: var(--shunya-text); }
   </style>
 </head>
 <body>
-  <div class="strip">
-    <div class="strip-left">
-      <span class="strip-dot" aria-hidden="true"></span>
-      <span class="strip-logo">SHUNYA</span>
+  <div class="auth-strip">
+    <div class="auth-strip-left">
+      <span class="auth-strip-dot" aria-hidden="true"></span>
+      <span class="auth-strip-logo">SHUNYA</span>
     </div>
-    <div class="strip-nav">
+    <div class="auth-strip-nav">
       <a href="/">Home</a>
     </div>
   </div>
-  <main>
-    <div class="card">
+  <main class="auth-main">
+    <div class="auth-card">
       <h1>Check your email</h1>
       <p class="sub">We sent a verification code to your email address. Enter it below to continue.</p>
 
@@ -138,10 +92,10 @@
           <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
         </div>
         <input type="hidden" name="code" id="code-hidden">
-        <button type="submit" class="btn" id="verify-btn" disabled>Verify</button>
+        <button type="submit" class="auth-btn" id="verify-btn" disabled>Verify</button>
       </form>
 
-      <div class="resend">
+      <div class="auth-resend">
         Didn't receive it? <a href="#">Send again</a>
       </div>
     </div>

@@ -5,27 +5,8 @@
    ========================================================================= */
 
 /* =========================================================================
-   1. BASE & VARIABLES (imported from design-system.css)
+   1. BASE — relies on design-system.css for --shunya-* tokens
    ========================================================================= */
-
-:root {
-  --bg: #fbfaf8;
-  --surface: #ffffff;
-  --text: #1a1c1d;
-  --text-soft: rgba(26,28,29,0.5);
-  --text-faint: rgba(26,28,29,0.28);
-  --text-label: rgba(26,28,29,0.35);
-  --gold: #a4865f;
-  --gold-light: #d4c0a8;
-  --border: rgba(26,28,29,0.07);
-  --border-hover: rgba(26,28,29,0.14);
-  --artwork-bg: #f8f6f2;
-  --nav-bg: #fefefe;
-  --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --max-w: 1200px;
-  --duration-slow: 1.2s;
-  --duration-normal: 0.6s;
-}
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -36,9 +17,9 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  font-family: var(--shunya-font-body);
+  background: var(--shunya-bg);
+  color: var(--shunya-text);
   min-height: 100vh;
   overflow-x: hidden;
   line-height: 1.5;
@@ -54,10 +35,10 @@ body {
   justify-content: space-between;
   height: 52px;
   padding: 0 32px;
-  background: var(--nav-bg);
+  background: var(--shunya-nav-bg);
   position: relative;
   z-index: 100;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--shunya-border);
 }
 
 .nav-l { display: flex; align-items: center; gap: 10px; }
@@ -65,7 +46,7 @@ body {
 .nav-dot {
   width: 5px; height: 5px;
   border-radius: 50%;
-  background: var(--gold);
+  background: var(--shunya-gold);
   flex-shrink: 0;
 }
 
@@ -73,7 +54,7 @@ body {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.03em;
-  color: var(--text);
+  color: var(--shunya-text);
   text-decoration: none;
 }
 
@@ -87,10 +68,10 @@ body {
 .nav-a {
   font-size: 12px;
   font-weight: 400;
-  color: var(--text-faint);
+  color: var(--shunya-text-tertiary);
   text-decoration: none;
   letter-spacing: 0.02em;
-  transition: color var(--duration-normal) var(--ease);
+  transition: color var(--shunya-duration-normal) var(--shunya-ease);
   position: relative;
 }
 
@@ -101,21 +82,21 @@ body {
   bottom: -2px;
   width: 0;
   height: 1px;
-  background: var(--text);
-  transition: width var(--duration-normal) var(--ease);
+  background: var(--shunya-text);
+  transition: width var(--shunya-duration-normal) var(--shunya-ease);
 }
 
-.nav-a:hover { color: var(--text); }
+.nav-a:hover { color: var(--shunya-text); }
 .nav-a:hover::after { width: 100%; }
-.nav-a.current { color: var(--text); }
+.nav-a.current { color: var(--shunya-text); }
 
 .nav-si {
   font-size: 11px;
   font-weight: 500;
-  color: var(--text);
+  color: var(--shunya-text);
   text-decoration: none;
   letter-spacing: 0.02em;
-  transition: opacity var(--duration-normal) var(--ease);
+  transition: opacity var(--shunya-duration-normal) var(--shunya-ease);
 }
 
 .nav-si:hover { opacity: 0.7; }
@@ -124,13 +105,13 @@ body {
 .nav-si-btn {
   font-size: 11px;
   font-weight: 500;
-  color: var(--surface);
-  background: var(--text);
+  color: var(--shunya-surface);
+  background: var(--shunya-text);
   text-decoration: none;
   padding: 6px 16px;
   border-radius: 999px;
   letter-spacing: 0.02em;
-  transition: opacity var(--duration-normal) var(--ease);
+  transition: opacity var(--shunya-duration-normal) var(--shunya-ease);
 }
 
 .nav-si-btn:hover { opacity: 0.85; }
@@ -145,7 +126,7 @@ body {
   gap: 0;
   min-height: calc(100vh - 52px);
   padding: 0 32px;
-  max-width: var(--max-w);
+  max-width: var(--shunya-max-width);
   margin: 0 auto;
 }
 
@@ -161,7 +142,7 @@ body {
   font-weight: 400;
   line-height: 1.08;
   letter-spacing: -0.025em;
-  color: var(--text);
+  color: var(--shunya-text);
   margin-bottom: 24px;
 }
 
@@ -171,7 +152,7 @@ body {
 .hero-p {
   font-size: 14px;
   line-height: 1.7;
-  color: var(--text-soft);
+  color: var(--shunya-text-secondary);
   max-width: 380px;
   margin-bottom: 36px;
 }
@@ -199,28 +180,28 @@ body {
   cursor: pointer;
   border: none;
   line-height: 1.2;
-  transition: all var(--duration-normal) var(--ease);
+  transition: all var(--shunya-duration-normal) var(--shunya-ease);
 }
 
 .btn-p {
-  background: var(--text);
-  color: var(--surface);
+  background: var(--shunya-text);
+  color: var(--shunya-surface);
 }
 
 .btn-p:hover { opacity: 0.85; }
 
 .btn-o {
   background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
+  color: var(--shunya-text);
+  border: 1px solid var(--shunya-border);
 }
 
-.btn-o:hover { border-color: var(--border-hover); }
+.btn-o:hover { border-color: var(--shunya-border-hover); }
 
 .btn-ar {
   font-size: 14px;
   line-height: 0;
-  transition: transform var(--duration-normal) var(--ease);
+  transition: transform var(--shunya-duration-normal) var(--shunya-ease);
 }
 
 .btn:hover .btn-ar { transform: translateX(3px); }
@@ -233,7 +214,7 @@ body {
   flex: 1;
   min-width: 0;
   aspect-ratio: 736/425;
-  background: var(--artwork-bg);
+  background: var(--shunya-artwork-bg);
   border-radius: 20px;
   position: relative;
   overflow: hidden;
@@ -252,7 +233,7 @@ body {
 
 .section {
   padding: 80px 32px;
-  max-width: var(--max-w);
+  max-width: var(--shunya-max-width);
   margin: 0 auto;
 }
 
@@ -261,7 +242,7 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--gold);
+  color: var(--shunya-gold);
   margin-bottom: 16px;
   text-align: center;
   font-family: 'Inter', sans-serif;
@@ -272,7 +253,7 @@ body {
   font-size: 32px;
   font-weight: 400;
   text-align: center;
-  color: var(--text);
+  color: var(--shunya-text);
   margin-bottom: 12px;
   line-height: 1.2;
   letter-spacing: -0.02em;
@@ -280,7 +261,7 @@ body {
 
 .section-p {
   font-size: 14px;
-  color: var(--text-soft);
+  color: var(--shunya-text-secondary);
   text-align: center;
   max-width: 480px;
   margin: 0 auto 48px;
@@ -299,17 +280,17 @@ body {
 }
 
 .event {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--shunya-surface);
+  border: 1px solid var(--shunya-border);
   border-radius: 16px;
   padding: 22px;
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  transition: border-color var(--duration-normal) var(--ease);
+  transition: border-color var(--shunya-duration-normal) var(--shunya-ease);
 }
 
-.event:hover { border-color: var(--gold-light); }
+.event:hover { border-color: var(--shunya-gold-light); }
 
 .event-i {
   width: 38px; height: 38px;
@@ -331,20 +312,20 @@ body {
 .event-t {
   font-size: 13px;
   font-weight: 500;
-  color: var(--text);
+  color: var(--shunya-text);
   margin-bottom: 3px;
   line-height: 1.4;
 }
 
 .event-d {
   font-size: 12px;
-  color: var(--text-label);
+  color: var(--shunya-text-tertiary);
   line-height: 1.55;
 }
 
 .event-time {
   font-size: 10px;
-  color: var(--text-faint);
+  color: var(--shunya-text-tertiary);
   margin-top: 8px;
   letter-spacing: 0.02em;
 }
@@ -359,8 +340,8 @@ body {
   gap: 8px;
   padding: 48px 0;
   margin: 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--shunya-border);
+  border-bottom: 1px solid var(--shunya-border);
 }
 
 .industry-i {
@@ -371,7 +352,7 @@ body {
   padding: 16px 4px;
   text-align: center;
   cursor: default;
-  transition: opacity var(--duration-normal) var(--ease);
+  transition: opacity var(--shunya-duration-normal) var(--shunya-ease);
 }
 
 .industry-i:hover { opacity: 0.6; }
@@ -379,7 +360,7 @@ body {
 .industry-i svg {
   width: 22px;
   height: 22px;
-  stroke: var(--text);
+  stroke: var(--shunya-text);
   stroke-width: 1.5;
   fill: none;
   stroke-linecap: round;
@@ -389,7 +370,7 @@ body {
 .industry-lbl {
   font-size: 10px;
   font-weight: 400;
-  color: var(--text-label);
+  color: var(--shunya-text-tertiary);
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
@@ -398,20 +379,20 @@ body {
   text-align: center;
   margin-top: 24px;
   font-size: 12px;
-  color: var(--text-faint);
+  color: var(--shunya-text-tertiary);
   letter-spacing: 0.02em;
   line-height: 1.5;
 }
 
 .industry-more a {
-  color: var(--text);
+  color: var(--shunya-text);
   text-decoration: none;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--shunya-border);
   padding-bottom: 2px;
-  transition: border-color var(--duration-normal) var(--ease);
+  transition: border-color var(--shunya-duration-normal) var(--shunya-ease);
 }
 
-.industry-more a:hover { border-color: var(--text); }
+.industry-more a:hover { border-color: var(--shunya-text); }
 
 /* =========================================================================
    9. FOOTER
@@ -422,8 +403,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 28px 32px;
-  border-top: 1px solid var(--border);
-  max-width: var(--max-w);
+  border-top: 1px solid var(--shunya-border);
+  max-width: var(--shunya-max-width);
   margin: 0 auto;
 }
 
@@ -436,20 +417,20 @@ body {
 .footer-dot {
   width: 5px; height: 5px;
   border-radius: 50%;
-  background: var(--gold);
+  background: var(--shunya-gold);
   flex-shrink: 0;
 }
 
 .footer-b {
   font-size: 12px;
   font-weight: 500;
-  color: var(--text);
+  color: var(--shunya-text);
   letter-spacing: 0.03em;
 }
 
 .footer-c {
   font-size: 11px;
-  color: var(--text-label);
+  color: var(--shunya-text-tertiary);
   letter-spacing: 0.02em;
 }
 
@@ -461,13 +442,13 @@ body {
 
 .footer-a {
   font-size: 11px;
-  color: var(--text-label);
+  color: var(--shunya-text-tertiary);
   text-decoration: none;
   letter-spacing: 0.02em;
-  transition: color var(--duration-normal) var(--ease);
+  transition: color var(--shunya-duration-normal) var(--shunya-ease);
 }
 
-.footer-a:hover { color: var(--text); }
+.footer-a:hover { color: var(--shunya-text); }
 
 /* =========================================================================
    10. ENTRANCE ANIMATIONS
@@ -484,12 +465,12 @@ body {
 }
 
 .afu {
-  animation: fade-up var(--duration-slow) var(--ease) forwards;
+  animation: fade-up var(--shunya-duration-slowest) var(--shunya-ease) forwards;
   opacity: 0;
 }
 
 .afi {
-  animation: fade-in 1.2s var(--ease) forwards;
+  animation: fade-in 1.2s var(--shunya-ease) forwards;
   opacity: 0;
 }
 
@@ -516,7 +497,7 @@ body {
    ========================================================================= */
 
 :focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--shunya-gold);
   outline-offset: 2px;
 }
 
