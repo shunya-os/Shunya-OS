@@ -306,6 +306,12 @@ def create_app(config_override: dict | None = None):
             filename
         )
 
+    # ---- Explainable Intelligence Runtime (Phase Z3) ----
+    from app.intelligence.runtime import load_scenario_data, register_explainability_middleware
+    with app.app_context():
+        load_scenario_data()
+    register_explainability_middleware(app)
+
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
     @app.route("/admin/<path:subpath>")
