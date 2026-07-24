@@ -348,6 +348,12 @@ def create_app(config_override: dict | None = None):
         load_orchestration_data()
     register_orchestration_middleware(app)
 
+    # ---- Universal Business Graph (Phase Z10) ----
+    from app.graph_universal.runtime import load_graph_data, register_graph_middleware
+    with app.app_context():
+        load_graph_data()
+    register_graph_middleware(app)
+
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
     @app.route("/admin/<path:subpath>")
