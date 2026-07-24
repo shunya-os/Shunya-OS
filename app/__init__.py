@@ -342,6 +342,12 @@ def create_app(config_override: dict | None = None):
         load_planning_data()
     register_planning_middleware(app)
 
+    # ---- Orchestration Runtime (Phase Z9) ----
+    from app.orchestration.runtime import load_orchestration_data, register_orchestration_middleware
+    with app.app_context():
+        load_orchestration_data()
+    register_orchestration_middleware(app)
+
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
     @app.route("/admin/<path:subpath>")
