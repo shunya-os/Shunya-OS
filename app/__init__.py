@@ -9,7 +9,7 @@ import os
 import uuid
 import logging
 from datetime import datetime
-from flask import Flask, g, request, jsonify, session, redirect, url_for, current_app
+from flask import Flask, g, request, jsonify, session, redirect, url_for, current_app, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from jinja2 import FileSystemLoader, ChoiceLoader
@@ -298,6 +298,14 @@ def create_app(config_override: dict | None = None):
     from app.founder import founder_bp
     app.register_blueprint(founder_bp)
 
+    # ---- Serve screenshots for coherence board ----
+    @app.route("/screenshots/<path:filename>")
+    def serve_screenshot(filename):
+        return send_from_directory(
+            os.path.join(os.path.dirname(__file__), "..", "screenshots"),
+            filename
+        )
+
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
     @app.route("/admin/<path:subpath>")
@@ -353,7 +361,7 @@ def create_app(config_override: dict | None = None):
         if app.config.get("TESTING"):
             return None
         path = request.path
-        if path.startswith("/static/") or path.startswith("/health"):
+        if path.startswith("/static/") or path.startswith("/health") or path.startswith("/screenshots/"):
             return None
         if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/") or path.startswith("/identity/") or path.startswith("/space/") or path.startswith("/founder/") or path.startswith("/workspace") or path == "/":
             return None

@@ -110,3 +110,9 @@ def workspace_verify():
 def workspace_loading():
     """Loading screen between auth and workspace."""
     return render_template("shunya_loading.html", redirect=url_for("workspace.workspace_home"), year=datetime.utcnow().year)
+
+
+@workspace_bp.route("/coherence")
+def coherence_board():
+    """Visual coherence board showing all screens at 3 sizes."""
+    return render_template("coherence_board.html", year=datetime.utcnow().year)

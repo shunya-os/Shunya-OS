@@ -181,7 +181,7 @@ html, body {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--shunya-radius-sm, 10px);
   font-size: 13px;
   font-family: var(--font);
   background: var(--surface);
@@ -907,6 +907,12 @@ html, body {
   font-size: 11px;
   color: var(--text-tertiary);
   margin-top: 1px;
+}
+
+/* ─── Focus ─── */
+:focus-visible {
+  outline: 2px solid var(--shunya-gold, #a4865f);
+  outline-offset: 2px;
 }
 
 /* ─── Status Dot ─── */
