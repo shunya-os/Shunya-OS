@@ -12,7 +12,7 @@
 <div id="object-workspace">
   <div class="object-header" style="border-bottom: none; padding-bottom: 8px;">
     <div class="object-type">SHUNYA Intelligence</div>
-    <div class="object-name" style="font-size: 20px; font-weight: 400;">Ask SHUNYA anything</div>
+    <div class="object-name" style="font-size: 20px; font-weight: 400;">What would you like to know?</div>
   </div>
 
   <div class="object-body" style="display: flex; flex-direction: column; justify-content: space-between; padding-top: 8px;">
@@ -27,12 +27,35 @@
         </div>
         {% endfor %}
       {% else %}
-      <div class="empty-state" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 40px; text-align: center;">
-        <div style="font-size: 40px; margin-bottom: 16px; opacity: 0.3;">&#9679;</div>
-        <h2 style="font-size: 18px; font-weight: 300; color: var(--text-secondary, rgba(25,27,28,0.55)); margin-bottom: 8px;">Start a conversation</h2>
-        <p style="font-size: 13px; color: var(--text-tertiary, rgba(25,27,28,0.35)); max-width: 320px; line-height: 1.5;">
-          SHUNYA Intelligence can help you understand your organization, surface insights, and answer questions about your objects, people, and decisions.
-        </p>
+      <!-- Executive partner welcome — speaks first, reduces uncertainty -->
+      <div class="conv-message assistant" style="margin-right: 0;">
+        <div>
+          I've been watching {{ org_name|default('your organization') }} for 3 days now.
+          I can see patterns in your portfolio, surface risks before they escalate,
+          and help you make decisions faster.
+        </div>
+        <div class="msg-time">just now</div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 0 8px;">
+        <div class="link-chip" onclick="document.getElementById('conv-input').value='What needs my attention today'; sendMessage()" style="cursor: pointer;">
+          <span class="link-type">Ask</span>
+          <span>What needs attention</span>
+        </div>
+        <div class="link-chip" onclick="document.getElementById('conv-input').value='How is revenue trending'; sendMessage()" style="cursor: pointer;">
+          <span class="link-type">Ask</span>
+          <span>How is revenue trending</span>
+        </div>
+        <div class="link-chip" onclick="document.getElementById('conv-input').value='What risks should I know about'; sendMessage()" style="cursor: pointer;">
+          <span class="link-type">Ask</span>
+          <span>What risks should I know about</span>
+        </div>
+        <div class="link-chip" onclick="document.getElementById('conv-input').value='Tell me about my team'; sendMessage()" style="cursor: pointer;">
+          <span class="link-type">Ask</span>
+          <span>Tell me about my team</span>
+        </div>
+      </div>
+      <div class="conv-message" style="font-size: 12px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.35)); padding: 8px 0; border: none; background: transparent;">
+        I don't wait for you to ask. If something changes, I'll tell you.
       </div>
       {% endif %}
     </div>
@@ -40,7 +63,7 @@
     <!-- Input -->
     <div class="conv-input-row">
       <input type="text" placeholder="Ask SHUNYA anything..." id="conv-input" value="{{ query|default('') }}">
-      <button onclick="sendMessage()">Send</button>
+      <button onclick="sendMessage()">Ask</button>
     </div>
   </div>
 </div>
@@ -51,7 +74,6 @@
   var convInput = document.getElementById('conv-input');
   if (convInput) {
     convInput.focus();
-    // Move cursor to end
     var len = convInput.value.length;
     convInput.setSelectionRange(len, len);
   }

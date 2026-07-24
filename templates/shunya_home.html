@@ -15,65 +15,104 @@
 {% block center %}
 <div class="morning-zero">
   <div class="greeting" id="greeting">Good morning.</div>
-  <div class="subtitle" id="subtitle">Your workspace is ready. Here's what needs attention.</div>
+  <div class="subtitle" id="subtitle">
+    I've been watching {{ org_name|default('your organization') }}.
+    Here's what I've found.
+  </div>
 
-  <!-- Attention Items -->
+  <!-- SHUNYA's proactive brief -->
+  <div class="mz-section" style="margin-bottom: 24px;">
+    <div class="mz-section-title">What SHUNYA sees</div>
+    <div class="mz-quiet" style="font-style: normal; font-size: 13px; line-height: 1.6; padding: 0 0 12px; color: var(--text-secondary, rgba(25,27,28,0.55));">
+      Your organization has <strong style="color: var(--text, #1a1c1d); font-weight: 500;">24 active objects</strong> across
+      <strong style="color: var(--text, #1a1c1d); font-weight: 500;">3 spaces</strong>.
+      I've been observing for 3 days and I've identified patterns worth surfacing.
+      I'll never ask you to do manually what I can do for you.
+    </div>
+  </div>
+
+  <!-- Requires attention -->
   <div class="mz-section">
-    <div class="mz-section-title">Requires attention</div>
-    <div class="mz-item">
+    <div class="mz-section-title">Requires your attention</div>
+    <div class="mz-item" onclick="window.location.href='/workspace/object/jupiter-media'" style="cursor: pointer;">
+      <span class="mz-dot info"></span>
+      <div class="mz-body">
+        <div class="mz-title">Jupiter Media Partnership — Q3 deliverables due</div>
+        <div class="mz-meta">Content distribution launched in 2 of 3 regions. Quarterly review should be scheduled by 15 Oct. <span style="color: var(--shunya-gold, #a4865f);">View object →</span></div>
+      </div>
+    </div>
+    <div class="mz-item" onclick="window.location.href='/workspace/object/northgate-mfg'" style="cursor: pointer;">
       <span class="mz-dot attention"></span>
       <div class="mz-body">
-        <div class="mz-title">Contract signed — Jupiter Media</div>
-        <div class="mz-meta">New agreement requires review. 3 deliverables due this week.</div>
+        <div class="mz-title">Northgate Manufacturing — cash flow alert</div>
+        <div class="mz-meta">Covenant breach risk in 45 days at current burn rate. Root cause identified: aerospace contract delay. <span style="color: var(--shunya-gold, #a4865f);">View object →</span></div>
       </div>
     </div>
     <div class="mz-item">
       <span class="mz-dot attention"></span>
       <div class="mz-body">
-        <div class="mz-title">Budget approval pending</div>
-        <div class="mz-meta">Q3 engineering budget awaiting your sign-off. 2 days remaining.</div>
+        <div class="mz-title">Q3 Budget approval pending</div>
+        <div class="mz-meta">Engineering budget allocation awaiting your sign-off. 2 days remaining before the deadline.</div>
       </div>
     </div>
+  </div>
+
+  <!-- Recent decisions -->
+  <div class="mz-section">
+    <div class="mz-section-title">Recent decisions</div>
     <div class="mz-item">
       <span class="mz-dot info"></span>
       <div class="mz-body">
-        <div class="mz-title">Deployment v2.4.1 complete</div>
-        <div class="mz-meta">Zero-downtime. 3 new integrations enabled.</div>
+        <div class="mz-title">Jupiter Media agreement signed</div>
+        <div class="mz-meta">14 Jul 2026 &middot; Legal &middot; Revenue share: 60/40</div>
       </div>
     </div>
     <div class="mz-item">
       <span class="mz-dot opportunity"></span>
       <div class="mz-body">
-        <div class="mz-title">Team velocity up 30%</div>
-        <div class="mz-meta">Design team shipped 12 components this sprint.</div>
+        <div class="mz-title">Portfolio revenue trending +12% QoQ</div>
+        <div class="mz-meta">Driven by Jupiter Media, Atlas Logistics, Pine Street Partners</div>
       </div>
     </div>
   </div>
 
-  <!-- Recent Activity -->
+  <!-- What SHUNYA can do (progressive capability reveal) -->
   <div class="mz-section">
-    <div class="mz-section-title">Recent activity</div>
-    <div class="mz-item">
-      <span class="mz-dot info"></span>
-      <div class="mz-body">
-        <div class="mz-title">New lead created — Acme Corp</div>
-        <div class="mz-meta">5 minutes ago &middot; Pipeline</div>
+    <div class="mz-section-title">What I can do for you</div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 12px;">
+      <div class="link-chip" onclick="window.location.href='/workspace/converse?q=What needs my attention today'" style="cursor: pointer;">
+        <span class="link-type">Ask</span>
+        <span>What needs attention</span>
       </div>
-    </div>
-    <div class="mz-item">
-      <span class="mz-dot info"></span>
-      <div class="mz-body">
-        <div class="mz-title">Invoice #INV-024 paid</div>
-        <div class="mz-meta">1 hour ago &middot; Finance</div>
+      <div class="link-chip" onclick="window.location.href='/workspace/converse?q=How is revenue trending'" style="cursor: pointer;">
+        <span class="link-type">Ask</span>
+        <span>How is revenue trending</span>
+      </div>
+      <div class="link-chip" onclick="window.location.href='/workspace/converse?q=What risks should I know about'" style="cursor: pointer;">
+        <span class="link-type">Ask</span>
+        <span>What risks should I know about</span>
+      </div>
+      <div class="link-chip" onclick="window.location.href='/workspace/converse?q=Tell me about my team'" style="cursor: pointer;">
+        <span class="link-type">Ask</span>
+        <span>Tell me about my team</span>
       </div>
     </div>
   </div>
 
-  <!-- Quiet state -->
-  <div class="mz-quiet">Everything else is running as expected.</div>
+  <!-- Executive dashboard link -->
+  <div class="mz-section" style="border-top: 1px solid var(--border, rgba(26,28,29,0.07)); padding-top: 16px;">
+    <div class="mz-section-title">Go deeper</div>
+    <div class="mz-item" onclick="window.location.href='/workspace/executive'" style="cursor: pointer;">
+      <span class="mz-dot opportunity"></span>
+      <div class="mz-body">
+        <div class="mz-title">Executive Dashboard</div>
+        <div class="mz-meta">Full overview of your organization's health, metrics, and intelligence. <span style="color: var(--shunya-gold, #a4865f);">Open dashboard →</span></div>
+      </div>
+    </div>
+  </div>
 
   <!-- Conversation input -->
-  <div class="conv-input-row" style="margin-top: 32px; padding: 0;">
+  <div class="conv-input-row" style="margin-top: 24px; padding: 0;">
     <input type="text" placeholder="Ask SHUNYA anything..." id="mz-input">
     <button onclick="handleMZInput()">Ask</button>
   </div>
@@ -89,13 +128,10 @@
     var subtitle = document.getElementById('subtitle');
     if (hour < 12) {
       greeting.textContent = 'Good morning.';
-      subtitle.textContent = 'Your workspace is ready. Here\'s what needs attention today.';
     } else if (hour < 17) {
       greeting.textContent = 'Good afternoon.';
-      subtitle.textContent = 'Your workspace is active. Here\'s what\'s happening.';
     } else {
       greeting.textContent = 'Good evening.';
-      subtitle.textContent = 'Your workspace is quiet. Review today\'s progress.';
     }
   })();
 
@@ -105,7 +141,6 @@
     var val = input.value.trim();
     if (!val) return;
     input.value = '';
-    // Navigate to conversation view
     window.location.href = '/workspace/converse?q=' + encodeURIComponent(val);
   }
 
