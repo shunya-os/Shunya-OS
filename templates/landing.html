@@ -8,185 +8,326 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@200;300;400;500;600&family=Noto+Sans+Devanagari:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@200;300;400;500;600&family=Noto+Sans+Devanagari:wght@300;400;500;600&display=swap" rel="stylesheet"></noscript>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23a4865f'/></svg>">
   <style>
     /* =================================================================
-       SHUNYA Hero — Phase H Reconstruction
-       Directly reproduces the approved canonical visual
+       SHUNYA — Canonical Landing Page Reproduction
+       Phase Z0 — Specification-driven implementation
+       Source: static/shunya_canonical_visual.png
        ================================================================= */
     :root {
-      --sh-bg: #f9f8f6;
-      --sh-surface: #ffffff;
-      --sh-text: #1a1c1d;
-      --sh-text-soft: rgba(26, 28, 29, 0.5);
-      --sh-text-faint: rgba(26, 28, 29, 0.28);
-      --sh-gold: #a4865f;
-      --sh-border: rgba(26, 28, 29, 0.07);
-      --sh-border-hover: rgba(26, 28, 29, 0.14);
-      --sh-artwork-bg: #f8f6f2;
-      --sh-ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --bg: #fbfaf8;
+      --surface: #ffffff;
+      --text: #1a1c1d;
+      --text-soft: rgba(26,28,29,0.5);
+      --text-faint: rgba(26,28,29,0.28);
+      --text-label: rgba(26,28,29,0.35);
+      --gold: #a4865f;
+      --gold-light: #d4c0a8;
+      --border: rgba(26,28,29,0.07);
+      --border-hover: rgba(26,28,29,0.14);
+      --artwork-bg: #f8f6f2;
+      --nav-bg: #fefefe;
+      --ease: cubic-bezier(0.22,1,0.36,1);
+      --max-w: 1200px;
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+    body{
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+      background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden
     }
 
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--sh-bg);
-      color: var(--sh-text);
-      min-height: 100vh;
-      overflow-x: hidden;
+    /* ----- Navigation ----- */
+    .nav{
+      display:flex;align-items:center;justify-content:space-between;
+      height:52px;padding:0 32px;background:var(--nav-bg);
+      position:relative;z-index:100
+    }
+    .nav-l{display:flex;align-items:center;gap:10px}
+    .nav-dot{width:5px;height:5px;border-radius:50%;background:var(--gold);flex-shrink:0}
+    .nav-logo{font-size:13px;font-weight:500;letter-spacing:.03em;color:var(--text);text-decoration:none}
+    .nav-r{display:flex;align-items:center;gap:28px;list-style:none}
+    .nav-a{font-size:11px;font-weight:400;color:var(--text-faint);text-decoration:none;letter-spacing:.02em;transition:color .3s ease}
+    .nav-a:hover{color:var(--text)}
+    .nav-si{font-size:11px;font-weight:400;color:var(--text-faint);text-decoration:none;letter-spacing:.02em;transition:color .3s ease}
+    .nav-si:hover{color:var(--text)}
+
+    /* ----- Hero Container ----- */
+    .hero{
+      display:flex;align-items:center;gap:0;
+      min-height:calc(100vh - 52px);padding:0 32px;
+      max-width:var(--max-w);margin:0 auto
+    }
+    .hero-c{flex:0 0 auto;width:42%;padding-right:48px}
+    .hero-h{
+      font-family:'Playfair Display','Georgia','Times New Roman',serif;
+      font-size:54px;font-weight:400;line-height:1.08;letter-spacing:-.025em;
+      color:var(--text);margin-bottom:22px
+    }
+    .hero-h-l{display:block}
+    .hero-h-l:last-child{font-style:italic}
+    .hero-p{
+      font-size:14px;line-height:1.7;color:var(--text-soft);
+      max-width:380px;margin-bottom:36px
+    }
+    .hero-a{display:flex;align-items:center;gap:12px}
+    .btn{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:9px 22px;border-radius:10px;
+      font-size:12px;font-weight:500;font-family:'Inter',sans-serif;
+      text-decoration:none;cursor:pointer;border:none;line-height:1.2;
+      transition:all .3s var(--ease)
+    }
+    .btn-p{background:var(--text);color:var(--surface)}
+    .btn-p:hover{opacity:.85}
+    .btn-o{background:transparent;color:var(--text);border:1px solid var(--border);padding:9px 22px}
+    .btn-o:hover{border-color:var(--border-hover)}
+    .btn-ar{font-size:14px;line-height:0;transition:transform .3s var(--ease)}
+    .btn:hover .btn-ar{transform:translateX(2px)}
+
+    /* ----- Artwork Panel ----- */
+    .artwork{
+      flex:1;min-width:0;
+      aspect-ratio:736/425;
+      background:var(--artwork-bg);border-radius:20px;
+      position:relative;overflow:hidden
+    }
+    .artwork svg{position:absolute;inset:0;width:100%;height:100%}
+
+    /* ----- Section Base ----- */
+    .section{padding:80px 32px;max-width:var(--max-w);margin:0 auto}
+    .section-l{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin-bottom:16px;text-align:center;font-family:'Inter',sans-serif}
+    .section-h{font-family:'Playfair Display','Georgia','Times New Roman',serif;font-size:32px;font-weight:400;text-align:center;color:var(--text);margin-bottom:12px;line-height:1.2}
+    .section-p{font-size:14px;color:var(--text-soft);text-align:center;max-width:500px;margin:0 auto 48px;line-height:1.6}
+
+    /* ----- Event Cards / Real-time Section ----- */
+    .events{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}
+    .event{
+      background:var(--surface);border:1px solid var(--border);border-radius:16px;
+      padding:20px;display:flex;align-items:flex-start;gap:14px;
+      transition:border-color .3s var(--ease)
+    }
+    .event:hover{border-color:var(--gold-light)}
+    .event-i{
+      width:36px;height:36px;border-radius:10px;
+      display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;font-size:16px
+    }
+    .event-i.gold{background:rgba(164,134,95,0.1)}
+    .event-i.blue{background:rgba(59,130,246,0.1)}
+    .event-i.emerald{background:rgba(16,185,129,0.1)}
+    .event-i.amber{background:rgba(245,158,11,0.1)}
+    .event-c{flex:1;min-width:0}
+    .event-t{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
+    .event-d{font-size:11px;color:var(--text-label);line-height:1.5}
+    .event-time{font-size:10px;color:var(--text-faint);margin-top:6px;letter-spacing:.02em}
+
+    /* ----- Industry Strip ----- */
+    .industry{
+      display:grid;grid-template-columns:repeat(10,1fr);
+      gap:8px;padding:40px 0;margin:0;
+      border-top:1px solid var(--border);border-bottom:1px solid var(--border)
+    }
+    .industry-i{
+      display:flex;flex-direction:column;align-items:center;gap:8px;
+      padding:12px 4px;text-align:center;cursor:default;transition:opacity .3s ease
+    }
+    .industry-i:hover{opacity:.7}
+    .industry-i svg{width:22px;height:22px;stroke:var(--text);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+    .industry-lbl{font-size:10px;font-weight:400;color:var(--text-label);letter-spacing:.03em;white-space:nowrap}
+    .industry-more{
+      text-align:center;margin-top:16px;font-size:11px;color:var(--text-faint);letter-spacing:.02em
+    }
+    .industry-more a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--border);padding-bottom:2px}
+    .industry-more a:hover{border-color:var(--text)}
+
+    /* ----- Footer ----- */
+    .footer{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:24px 32px;border-top:1px solid var(--border);
+      max-width:var(--max-w);margin:0 auto
+    }
+    .footer-l{display:flex;align-items:center;gap:10px}
+    .footer-dot{width:5px;height:5px;border-radius:50%;background:var(--gold);flex-shrink:0}
+    .footer-b{font-size:12px;font-weight:500;color:var(--text);letter-spacing:.03em}
+    .footer-c{font-size:11px;color:var(--text-label);letter-spacing:.02em}
+    .footer-r{display:flex;align-items:center;gap:20px}
+    .footer-a{font-size:11px;color:var(--text-label);text-decoration:none;letter-spacing:.02em;transition:color .3s ease}
+    .footer-a:hover{color:var(--text)}
+
+    /* ----- Animation ----- */
+    @keyframes fu{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fi{from{opacity:0}to{opacity:1}}
+    .afu{animation:fu 1s var(--ease) forwards;opacity:0}
+    .afi{animation:fi 1.2s var(--ease) forwards;opacity:0}
+    .d1{animation-delay:.15s}.d2{animation-delay:.3s}.d3{animation-delay:.45s}.d4{animation-delay:.6s}.d5{animation-delay:.75s}
+
+    /* ----- Reduced Motion ----- */
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+    /* ----- Responsive: Tablet ----- */
+    @media(max-width:960px){
+      .hero{flex-direction:column;padding:24px 20px;gap:32px;min-height:auto}
+      .hero-c{width:100%;padding-right:0;text-align:center;display:flex;flex-direction:column;align-items:center}
+      .hero-p{text-align:center;max-width:480px}
+      .hero-a{justify-content:center}
+      .artwork{width:100%;max-width:600px}
+      .hero-h{font-size:38px}
+      .section{padding:48px 20px}
+      .events{grid-template-columns:1fr}
+      .industry{grid-template-columns:repeat(5,1fr)}
+      .footer{flex-direction:column;gap:16px;text-align:center}
+      .footer-r{flex-wrap:wrap;justify-content:center}
     }
 
-    /* --- Navigation --- */
-    .nav {
-      display: flex; align-items: center; justify-content: space-between;
-      height: 52px; padding: 0 32px; position: relative; z-index: 100;
-      background: #fefefe;
-    }
-    .nav-left { display: flex; align-items: center; gap: 10px; }
-    .nav-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sh-gold); flex-shrink: 0; }
-    .nav-logo { font-size: 13px; font-weight: 500; letter-spacing: 0.03em; color: var(--sh-text); text-decoration: none; }
-    .nav-links { display: flex; align-items: center; gap: 28px; list-style: none; }
-    .nav-link { font-size: 11px; font-weight: 400; color: var(--sh-text-faint); text-decoration: none; letter-spacing: 0.02em; transition: color 0.3s ease; }
-    .nav-link:hover { color: var(--sh-text); }
-    .nav-link-signin { font-size: 11px; font-weight: 400; color: var(--sh-text-faint); text-decoration: none; letter-spacing: 0.02em; transition: color 0.3s ease; }
-    .nav-link-signin:hover { color: var(--sh-text); }
-
-    /* --- Hero Container --- */
-    .hero {
-      display: flex; align-items: center; gap: 0;
-      min-height: calc(100vh - 52px);
-      padding: 0 32px;
-      max-width: 1200px; margin: 0 auto;
+    /* ----- Responsive: Mobile ----- */
+    @media(max-width:600px){
+      .nav{padding:0 16px;height:48px}
+      .nav-r{gap:12px}
+      .hero{padding:16px 16px;gap:24px}
+      .hero-h{font-size:28px}
+      .hero-p{font-size:13px;max-width:100%}
+      .hero-a{flex-direction:column;gap:10px}
+      .artwork{width:100%;max-width:100%}
+      .section{padding:32px 16px}
+      .section-h{font-size:24px}
+      .events{gap:12px}
+      .event{padding:16px}
+      .industry{grid-template-columns:repeat(5,1fr);gap:4px;padding:24px 0}
+      .industry-i{padding:8px 2px}
+      .industry-i svg{width:18px;height:18px}
+      .industry-lbl{font-size:9px}
+      .footer{padding:20px 16px;flex-direction:column;gap:12px}
     }
 
-    /* --- Hero Content (left column) --- */
-    .hero-content {
-      flex: 0 0 auto;
-      width: 42%;
-      padding-right: 48px;
-    }
-
-    .hero-heading {
-      font-family: 'Playfair Display', 'Georgia', 'Times New Roman', serif;
-      font-size: 54px; font-weight: 400; line-height: 1.08; letter-spacing: -0.025em;
-      color: var(--sh-text); margin-bottom: 22px;
-    }
-    .hero-heading-line { display: block; }
-    .hero-heading-line:last-child { font-style: italic; }
-
-    .hero-description {
-      font-size: 14px; line-height: 1.7;
-      color: var(--sh-text-soft); max-width: 380px; margin-bottom: 36px;
-    }
-
-    .hero-actions { display: flex; align-items: center; gap: 12px; }
-
-    .btn {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 9px 22px; border-radius: 10px;
-      font-size: 12px; font-weight: 500; font-family: 'Inter', sans-serif;
-      text-decoration: none; cursor: pointer; border: none; line-height: 1.2;
-      transition: all 0.3s var(--sh-ease);
-    }
-    .btn-primary { background: var(--sh-text); color: var(--sh-surface); }
-    .btn-primary:hover { opacity: 0.85; }
-    .btn-outline { background: transparent; color: var(--sh-text); border: 1px solid var(--sh-border); padding: 9px 22px; }
-    .btn-outline:hover { border-color: var(--sh-border-hover); }
-    .btn-arrow { font-size: 14px; line-height: 0; transition: transform 0.3s var(--sh-ease); }
-    .btn:hover .btn-arrow { transform: translateX(2px); }
-
-    /* --- Artwork Panel (right column) --- */
-    .hero-artwork {
-      flex: 1;
-      min-width: 0;
-      aspect-ratio: 736 / 425;
-      background: var(--sh-artwork-bg);
-      border-radius: 20px;
-      position: relative; overflow: hidden;
-    }
-    .hero-artwork svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-
-    /* --- Animation --- */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(14px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    .animate-fade-up { animation: fadeUp 1s var(--sh-ease) forwards; opacity: 0; }
-    .animate-fade-in { animation: fadeIn 1.2s var(--sh-ease) forwards; opacity: 0; }
-    .d1 { animation-delay: 0.15s; }
-    .d2 { animation-delay: 0.3s; }
-    .d3 { animation-delay: 0.45s; }
-    .d4 { animation-delay: 0.6s; }
-
-    /* --- Reduced Motion --- */
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
-    }
-
-    /* --- Responsive --- */
-    @media (max-width: 960px) {
-      .hero { flex-direction: column; padding: 24px 20px; gap: 32px; }
-      .hero-content { width: 100%; padding-right: 0; text-align: center; display: flex; flex-direction: column; align-items: center; }
-      .hero-description { text-align: center; }
-      .hero-actions { justify-content: center; }
-      .hero-artwork { width: 100%; max-width: 600px; }
-      .hero-heading { font-size: 38px; }
-    }
-    @media (max-width: 600px) {
-      .hero { padding: 16px 16px; gap: 24px; }
-      .nav { padding: 0 16px; }
-      .nav-links { gap: 16px; }
-      .hero-heading { font-size: 28px; }
-      .hero-description { font-size: 13px; max-width: 100%; }
-      .hero-artwork { width: 100%; max-width: 100%; }
-    }
+    /* ----- Focus ----- */
+    :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   </style>
 </head>
 <body>
 
-<!-- Navigation -->
+<!-- ============================================================
+     NAVIGATION
+     ============================================================ -->
 <nav class="nav" role="navigation" aria-label="Main navigation">
-  <div class="nav-left">
+  <div class="nav-l">
     <span class="nav-dot" aria-hidden="true"></span>
     <a href="/" class="nav-logo">SHUNYA</a>
   </div>
-  <ul class="nav-links" role="menubar">
-    <li role="none"><a href="#product" class="nav-link" role="menuitem">Product</a></li>
-    <li role="none"><a href="#philosophy" class="nav-link" role="menuitem">Philosophy</a></li>
-    <li role="none"><a href="#security" class="nav-link" role="menuitem">Security</a></li>
-    <li role="none"><a href="#contact" class="nav-link" role="menuitem">Contact</a></li>
-    <li role="none"><a href="/auth/login" class="nav-link-signin" role="menuitem">Sign In</a></li>
+  <ul class="nav-r" role="menubar">
+    <li role="none"><a href="#product" class="nav-a" role="menuitem">Product</a></li>
+    <li role="none"><a href="#philosophy" class="nav-a" role="menuitem">Philosophy</a></li>
+    <li role="none"><a href="#security" class="nav-a" role="menuitem">Security</a></li>
+    <li role="none"><a href="#contact" class="nav-a" role="menuitem">Contact</a></li>
+    <li role="none"><a href="/auth/login" class="nav-si" role="menuitem">Sign In</a></li>
   </ul>
 </nav>
 
-<!-- Hero -->
+<!-- ============================================================
+     HERO
+     ============================================================ -->
 <section class="hero" aria-label="Hero">
-  <div class="hero-content">
-    <h1 class="hero-heading animate-fade-up d1">
-      <span class="hero-heading-line">Think clearly.</span>
-      <span class="hero-heading-line">Operate intelligently.</span>
+  <div class="hero-c">
+    <h1 class="hero-h afu d1">
+      <span class="hero-h-l">Think clearly.</span>
+      <span class="hero-h-l">Operate intelligently.</span>
     </h1>
-    <p class="hero-description animate-fade-up d2">
+    <p class="hero-p afu d2">
       An operating system for human organizations. SHUNYA helps you understand what matters&mdash;before you ask.
     </p>
-    <div class="hero-actions animate-fade-up d3">
-      <a href="/identity/create" class="btn btn-primary">
-        Get started <span class="btn-arrow" aria-hidden="true">&rarr;</span>
+    <div class="hero-a afu d3">
+      <a href="/identity/create" class="btn btn-p">
+        Get started <span class="btn-ar" aria-hidden="true">&rarr;</span>
       </a>
-      <a href="#product" class="btn btn-outline">Learn more</a>
+      <a href="#product" class="btn btn-o">Learn more</a>
     </div>
   </div>
-  <div class="hero-artwork animate-fade-in d2" role="img" aria-label="SHUNYA artwork: flowing gold ribbons with Devanagari identity mark">
+  <div class="artwork afi d2" role="img" aria-label="SHUNYA artwork with Devanagari identity mark">
     {% include 'artwork_hero.html' ignore missing %}
   </div>
 </section>
+
+<!-- ============================================================
+     EVENT CARDS — Real-time across your world
+     ============================================================ -->
+<section class="section" id="product" aria-label="Real-time events">
+  <p class="section-l">Real-time</p>
+  <h2 class="section-h">Real-time across your world.</h2>
+  <p class="section-p">SHUNYA quietly observes your organization in real time, surfacing only what deserves attention.</p>
+
+  <div class="events">
+    <div class="event">
+      <div class="event-i gold" aria-hidden="true">&#9679;</div>
+      <div class="event-c">
+        <div class="event-t">Contract signed</div>
+        <div class="event-d">New partnership agreement finalized with Acme Corp. Scope includes Q3-Q4 deliverables across 3 regions.</div>
+        <div class="event-time">Just now &middot; Legal</div>
+      </div>
+    </div>
+    <div class="event">
+      <div class="event-i blue" aria-hidden="true">&#9679;</div>
+      <div class="event-c">
+        <div class="event-t">Budget approved</div>
+        <div class="event-d">Q3 engineering budget approved by board. Allocation includes 40% infrastructure, 35% R&amp;D, 25% operations.</div>
+        <div class="event-time">12 min ago &middot; Finance</div>
+      </div>
+    </div>
+    <div class="event">
+      <div class="event-i emerald" aria-hidden="true">&#9679;</div>
+      <div class="event-c">
+        <div class="event-t">Deployment complete</div>
+        <div class="event-d">v2.4.1 rolled out to production. Zero-downtime deployment. 3 new integrations enabled.</div>
+        <div class="event-time">1 hour ago &middot; Engineering</div>
+      </div>
+    </div>
+    <div class="event">
+      <div class="event-i amber" aria-hidden="true">&#9679;</div>
+      <div class="event-c">
+        <div class="event-t">Team milestone</div>
+        <div class="event-d">Design team shipped 12 components this sprint. Velocity up 30% from last quarter.</div>
+        <div class="event-time">2 hours ago &middot; Product</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     INDUSTRY STRIP
+     ============================================================ -->
+<section class="section" id="philosophy" aria-label="Industries">
+  <div class="industry">
+    <div class="industry-i"><svg viewBox="0 0 24 24"><path d="M9 2v4h4V2"/><path d="M7 12V6h10v6"/><path d="M7 12a4 4 0 0 0 4 4h2a4 4 0 0 0 4-4"/><circle cx="12" cy="16" r="2"/></svg><span class="industry-lbl">Healthcare</span></div>
+    <div class="industry-i"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M3 10l4-4 4 4 5-5 5 5"/><path d="M3 18l4-4 4 4 5-5 5 5"/></svg><span class="industry-lbl">Finance</span></div>
+    <div class="industry-i"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg><span class="industry-lbl">Manufacturing</span></div>
+    <div class="industry-i"><svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span class="industry-lbl">Retail</span></div>
+    <div class="industry-i"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M12 6v8"/><path d="M8 8l4-2 4 2"/></svg><span class="industry-lbl">Education</span></div>
+    <div class="industry-i"><svg viewBox="0 0 24 24"><path d="M16 16h3a1 1 0 0 0 1-1v-5l-3-4H9a1 1 0 0 0-1 1v1"/><path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M17 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M9 14h8"/></svg><span class="industry-lbl">Logistics</span></div>
+    <div class="industry-i"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-5 7 5v14"/><path d="M9 21V9h6v12"/><path d="M9 12h6"/><path d="M9 15h6"/></svg><span class="industry-lbl">Government</span></div>
+    <div class="industry-i"><svg viewBox="0 0 24 24"><path d="M12 2v20"/><path d="M6 6l6-4 6 4"/><path d="M4 12l4-4 4 4"/><path d="M12 12l4 4 4-4"/><path d="M4 20h16"/></svg><span class="industry-lbl">Legal</span></div>
+    <div class="industry-i"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/><path d="M12 7v2"/></svg><span class="industry-lbl">Real Estate</span></div>
+    <div class="industry-i"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8v8H8z"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg><span class="industry-lbl">Technology</span></div>
+  </div>
+  <div class="industry-more">And many more &mdash; <a href="#contact">contact us</a></div>
+</section>
+
+<!-- ============================================================
+     FOOTER
+     ============================================================ -->
+<footer class="footer" role="contentinfo">
+  <div class="footer-l">
+    <span class="footer-dot" aria-hidden="true"></span>
+    <span class="footer-b">SHUNYA</span>
+    <span class="footer-c">&copy; {{ year|default(2026) }} SHUNYA. All rights reserved.</span>
+  </div>
+  <div class="footer-r">
+    <a href="/privacy" class="footer-a">Privacy</a>
+    <a href="/terms" class="footer-a">Terms</a>
+    <a href="/security" class="footer-a">Security</a>
+    <a href="mailto:hello@shunyaos.com" class="footer-a">Contact</a>
+  </div>
+</footer>
 
 </body>
 </html>
