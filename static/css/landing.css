@@ -194,34 +194,34 @@ body {
   align-items: center;
   gap: var(--space-3xl);
   padding: var(--space-4xl) 0 var(--space-3xl);
-  min-height: calc(100vh - var(--nav-height) - 80px);
+  min-height: calc(100vh - var(--nav-height));
   position: relative;
 }
 
 .hero-content {
   flex: 1;
-  max-width: 520px;
+  max-width: 480px;
   z-index: 2;
 }
 
 .hero-tag {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
   color: var(--color-gold);
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   font-family: var(--font-body);
 }
 
 .hero-heading {
   font-family: var(--font-display);
-  font-size: 52px;
+  font-size: 56px;
   font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
   color: var(--color-text);
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .hero-heading-line {
@@ -234,12 +234,13 @@ body {
 }
 
 .hero-description {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--color-text-secondary);
-  line-height: 1.7;
-  max-width: 420px;
-  margin-bottom: 36px;
+  line-height: 1.75;
+  max-width: 400px;
+  margin-bottom: 40px;
   font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
 .hero-actions {
@@ -328,6 +329,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  will-change: transform;
+  box-shadow: 0 4px 40px rgba(164, 134, 95, 0.08);
 }
 
 .hero-artwork svg {
@@ -335,6 +338,7 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
+  will-change: transform;
 }
 
 /* Subtle radial glow */
@@ -637,7 +641,7 @@ body {
   .hero {
     flex-direction: column;
     gap: var(--space-2xl);
-    padding: var(--space-3xl) 0 var(--space-2xl);
+    padding: var(--space-2xl) 0 var(--space-xl);
     min-height: auto;
   }
 
@@ -651,6 +655,7 @@ body {
 
   .hero-description {
     text-align: center;
+    max-width: 480px;
   }
 
   .hero-actions {
@@ -658,12 +663,12 @@ body {
   }
 
   .hero-artwork {
-    max-width: 480px;
+    max-width: 420px;
     width: 100%;
   }
 
   .hero-heading {
-    font-size: 40px;
+    font-size: 42px;
   }
 
   .industry-strip {
@@ -734,7 +739,7 @@ body {
   }
 
   .hero-heading {
-    font-size: 30px;
+    font-size: 32px;
   }
 
   .hero-description {
@@ -826,6 +831,17 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .hero-artwork svg * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .hero-artwork svg [class*="animate"] {
+    animation: none !important;
+  }
+  .hero-artwork svg animate,
+  .hero-artwork svg animateTransform {
+    /* SVG animations are stopped by the wildcard above */
   }
 }
 

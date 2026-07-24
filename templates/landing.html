@@ -7,9 +7,9 @@
   <meta name="description" content="An operating system for human organizations. Think clearly. Operate intelligently.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@200;300;400;500;600&family=Noto+Sans+Devanagari:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet"></noscript>
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@200;300;400;500;600&family=Noto+Sans+Devanagari:wght@300;400;500;600&display=swap" rel="stylesheet"></noscript>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23a4865f'/></svg>">
 </head>
 <body>
@@ -222,6 +222,32 @@
       observer.observe(el);
     });
   }
+
+  // Cursor parallax for artwork (desktop only)
+  (function() {
+    var artwork = document.querySelector('.hero-artwork');
+    if (!artwork || window.innerWidth < 768) return;
+    var artworkSvg = artwork.querySelector('svg');
+    if (!artworkSvg) return;
+
+    var rect = artwork.getBoundingClientRect();
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+
+    artwork.addEventListener('mousemove', function(e) {
+      var dx = (e.clientX - cx) / rect.width;
+      var dy = (e.clientY - cy) / rect.height;
+      var moveX = dx * 8;
+      var moveY = dy * 8;
+      artworkSvg.style.transform = 'translate(' + moveX + 'px, ' + moveY + 'px) scale(1.02)';
+      artworkSvg.style.transition = 'transform 0.8s cubic-bezier(0.22, 1, 0.36, 1)';
+    });
+
+    artwork.addEventListener('mouseleave', function() {
+      artworkSvg.style.transform = 'translate(0, 0) scale(1)';
+      artworkSvg.style.transition = 'transform 1.2s cubic-bezier(0.22, 1, 0.36, 1)';
+    });
+  })();
 </script>
 </body>
 </html>

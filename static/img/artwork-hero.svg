@@ -1,71 +1,243 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 520" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 520" fill="none" style="position:absolute;inset:0;width:100%;height:100%">
   <defs>
-    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#a4865f" stop-opacity="0.15"/>
+    <!-- ====================================================================
+         Glow System — radial illumination gradients
+         ==================================================================== -->
+    <radialGradient id="glow-center" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f5efe6" stop-opacity="0.8"/>
+      <stop offset="40%" stop-color="#f3ebe2" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#f3ebe2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-warm" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#d4c0a8" stop-opacity="0.12"/>
+      <stop offset="50%" stop-color="#a4865f" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-soft" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+      <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.06"/>
+    </radialGradient>
+
+    <!-- Ribbon gradient — gold -->
+    <linearGradient id="gold-ribbon-1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c4a87a" stop-opacity="0.35"/>
+      <stop offset="30%" stop-color="#d4bc94" stop-opacity="0.25"/>
+      <stop offset="60%" stop-color="#b89868" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="gold-ribbon-2" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d4b888" stop-opacity="0.28"/>
+      <stop offset="40%" stop-color="#c4a470" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0.06"/>
+    </linearGradient>
+    <linearGradient id="gold-ribbon-3" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#b89868" stop-opacity="0.2"/>
+      <stop offset="50%" stop-color="#c4a87a" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0.04"/>
+    </linearGradient>
+
+    <!-- Halo gradients -->
+    <linearGradient id="halo-1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a4865f" stop-opacity="0.12"/>
       <stop offset="100%" stop-color="#a4865f" stop-opacity="0.03"/>
     </linearGradient>
-    <linearGradient id="g2" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0%" stop-color="#a4865f" stop-opacity="0.12"/>
+    <linearGradient id="halo-2" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a4865f" stop-opacity="0.08"/>
       <stop offset="100%" stop-color="#a4865f" stop-opacity="0.02"/>
     </linearGradient>
-    <linearGradient id="g3" x1="0.5" y1="0" x2="0.5" y2="1">
-      <stop offset="0%" stop-color="#a4865f" stop-opacity="0.08"/>
+    <linearGradient id="halo-3" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#d4c0a8" stop-opacity="0.06"/>
       <stop offset="100%" stop-color="#a4865f" stop-opacity="0.01"/>
     </linearGradient>
+
+    <!-- Gaussian blur for soft glow -->
+    <filter id="blur-subtle">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+    <filter id="blur-soft">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+    <filter id="blur-medium">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    <filter id="blur-wide">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
   </defs>
 
-  <!-- Subtle background gradient shapes -->
-  <ellipse cx="260" cy="260" rx="200" ry="200" fill="url(#g1)" opacity="0.6"/>
-  <ellipse cx="300" cy="220" rx="160" ry="160" fill="url(#g2)" opacity="0.4"/>
-  <ellipse cx="200" cy="320" rx="140" ry="140" fill="url(#g3)" opacity="0.5"/>
+  <!-- ====================================================================
+       Background — warm ambient base
+       ==================================================================== -->
+  <rect width="520" height="520" fill="#f3ebe2" rx="24"/>
 
-  <!-- Central radial glow -->
-  <circle cx="260" cy="260" r="180" fill="none" stroke="#a4865f" stroke-width="0.5" opacity="0.08"/>
-  <circle cx="260" cy="260" r="120" fill="none" stroke="#a4865f" stroke-width="0.5" opacity="0.05"/>
+  <!-- ====================================================================
+       Glow System — layered illumination
+       ==================================================================== -->
+  <rect width="520" height="520" fill="url(#glow-center)"/>
+  <rect width="520" height="520" fill="url(#glow-warm)"/>
+  <rect width="520" height="520" fill="url(#glow-soft)"/>
+  <rect width="520" height="520" fill="url(#vignette)"/>
 
-  <!-- Flowing gold lines - elegant curves -->
-  <path d="M80 400 C120 320, 200 200, 320 180 C400 168, 460 200, 480 240"
-        stroke="#a4865f" stroke-width="1.2" opacity="0.3" fill="none"
-        stroke-linecap="round" stroke-dasharray="800" stroke-dashoffset="0">
-    <animate attributeName="stroke-dashoffset" from="800" to="0" dur="4s" fill="freeze"/>
-  </path>
+  <!-- ====================================================================
+       Halo System — concentric circles with rotation
+       ==================================================================== -->
+  <g id="halo-system">
+    <!-- Outermost ring — very subtle, slow rotation -->
+    <circle cx="260" cy="260" r="220" fill="none" stroke="url(#halo-1)" stroke-width="0.8" opacity="0.25">
+      <animateTransform attributeName="transform" type="rotate" from="0 260 260" to="360 260 260" dur="60s" repeatCount="indefinite"/>
+    </circle>
+    <!-- Second ring -->
+    <circle cx="260" cy="260" r="185" fill="none" stroke="url(#halo-2)" stroke-width="0.6" opacity="0.2">
+      <animateTransform attributeName="transform" type="rotate" from="360 260 260" to="0 260 260" dur="50s" repeatCount="indefinite"/>
+    </circle>
+    <!-- Third ring with dash pattern -->
+    <circle cx="260" cy="260" r="155" fill="none" stroke="#a4865f" stroke-width="0.4" opacity="0.12" stroke-dasharray="4 8">
+      <animateTransform attributeName="transform" type="rotate" from="0 260 260" to="360 260 260" dur="45s" repeatCount="indefinite"/>
+    </circle>
+    <!-- Fourth ring — tighter, faster -->
+    <circle cx="260" cy="260" r="130" fill="none" stroke="url(#halo-3)" stroke-width="0.5" opacity="0.15">
+      <animateTransform attributeName="transform" type="rotate" from="360 260 260" to="0 260 260" dur="35s" repeatCount="indefinite"/>
+    </circle>
+    <!-- Inner ring with dash -->
+    <circle cx="260" cy="260" r="105" fill="none" stroke="#a4865f" stroke-width="0.3" opacity="0.08" stroke-dasharray="3 6">
+      <animateTransform attributeName="transform" type="rotate" from="0 260 260" to="360 260 260" dur="25s" repeatCount="indefinite"/>
+    </circle>
+    <!-- Innermost whisper ring -->
+    <circle cx="260" cy="260" r="82" fill="none" stroke="#d4c0a8" stroke-width="0.5" opacity="0.06">
+      <animateTransform attributeName="transform" type="rotate" from="360 260 260" to="0 260 260" dur="20s" repeatCount="indefinite"/>
+    </circle>
+  </g>
 
-  <path d="M60 320 C100 260, 160 180, 260 140 C340 108, 440 160, 470 200"
-        stroke="#a4865f" stroke-width="0.8" opacity="0.2" fill="none"
-        stroke-linecap="round" stroke-dasharray="800" stroke-dashoffset="0">
-    <animate attributeName="stroke-dashoffset" from="800" to="0" dur="5s" fill="freeze"/>
-  </path>
+  <!-- ====================================================================
+       Ribbon System — flowing golden curves
+       ==================================================================== -->
+  <g id="ribbon-system" filter="url(#blur-subtle)">
+    <!-- Ribbon 1 — primary sweeping curve, top-left to bottom-right -->
+    <path d="M30 420 C90 340, 160 200, 260 170 C340 146, 410 180, 460 240"
+          stroke="url(#gold-ribbon-1)" stroke-width="6" fill="none" stroke-linecap="round">
+      <animate attributeName="d"
+        values="M30 420 C90 340, 160 200, 260 170 C340 146, 410 180, 460 240;
+                M30 420 C100 330, 170 210, 260 165 C350 125, 420 175, 460 240;
+                M30 420 C90 340, 160 200, 260 170 C340 146, 410 180, 460 240"
+        dur="8s" repeatCount="indefinite"/>
+    </path>
 
-  <path d="M40 260 C80 200, 180 120, 300 100 C380 86, 450 120, 490 180"
-        stroke="#a4865f" stroke-width="0.6" opacity="0.15" fill="none"
-        stroke-linecap="round" stroke-dasharray="800" stroke-dashoffset="0">
-    <animate attributeName="stroke-dashoffset" from="800" to="0" dur="6s" fill="freeze"/>
-  </path>
+    <!-- Ribbon 2 — secondary curve, offset -->
+    <path d="M50 390 C120 300, 190 190, 280 160 C360 130, 430 160, 480 220"
+          stroke="url(#gold-ribbon-2)" stroke-width="4" fill="none" stroke-linecap="round">
+      <animate attributeName="d"
+        values="M50 390 C120 300, 190 190, 280 160 C360 130, 430 160, 480 220;
+                M50 390 C130 290, 200 180, 280 150 C370 120, 440 155, 480 220;
+                M50 390 C120 300, 190 190, 280 160 C360 130, 430 160, 480 220"
+        dur="10s" repeatCount="indefinite"/>
+    </path>
 
-  <!-- Decorative dots -->
-  <circle cx="320" cy="180" r="3" fill="#a4865f" opacity="0.25">
-    <animate attributeName="opacity" values="0.25;0.5;0.25" dur="4s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="260" cy="140" r="2" fill="#a4865f" opacity="0.2">
-    <animate attributeName="opacity" values="0.2;0.45;0.2" dur="5s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="300" cy="100" r="1.5" fill="#a4865f" opacity="0.15">
-    <animate attributeName="opacity" values="0.15;0.4;0.15" dur="6s" repeatCount="indefinite"/>
-  </circle>
+    <!-- Ribbon 3 — subtle accent from bottom -->
+    <path d="M20 360 C70 290, 140 210, 220 190 C300 170, 380 200, 440 260"
+          stroke="url(#gold-ribbon-3)" stroke-width="3" fill="none" stroke-linecap="round">
+      <animate attributeName="d"
+        values="M20 360 C70 290, 140 210, 220 190 C300 170, 380 200, 440 260;
+                M20 360 C80 280, 150 200, 220 180 C300 160, 390 195, 440 260;
+                M20 360 C70 290, 140 210, 220 190 C300 170, 380 200, 440 260"
+        dur="12s" repeatCount="indefinite"/>
+    </path>
 
-  <!-- Small geometric accent shapes -->
-  <rect x="140" y="280" width="8" height="8" rx="2" fill="#a4865f" opacity="0.08" transform="rotate(45 144 284)"/>
-  <rect x="380" y="160" width="6" height="6" rx="1.5" fill="#a4865f" opacity="0.06" transform="rotate(45 383 163)"/>
-  <rect x="200" y="380" width="10" height="10" rx="2.5" fill="#a4865f" opacity="0.05" transform="rotate(45 205 385)"/>
+    <!-- Ribbon 4 — wide subtle arc -->
+    <path d="M60 300 C120 220, 200 160, 300 140 C380 124, 440 150, 490 200"
+          stroke="url(#gold-ribbon-1)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.5">
+      <animate attributeName="d"
+        values="M60 300 C120 220, 200 160, 300 140 C380 124, 440 150, 490 200;
+                M60 300 C130 210, 210 150, 300 130 C390 112, 450 145, 490 200;
+                M60 300 C120 220, 200 160, 300 140 C380 124, 440 150, 490 200"
+        dur="14s" repeatCount="indefinite"/>
+    </path>
 
-  <!-- Thin ring accents -->
-  <circle cx="260" cy="260" r="80" fill="none" stroke="#a4865f" stroke-width="0.4" opacity="0.1"
-          stroke-dasharray="6 12">
-    <animateTransform attributeName="transform" type="rotate" from="0 260 260" to="360 260 260" dur="30s" repeatCount="indefinite"/>
-  </circle>
+    <!-- Ribbon 5 — thin high accent -->
+    <path d="M80 250 C150 180, 220 140, 320 120 C400 104, 450 130, 480 170"
+          stroke="url(#gold-ribbon-2)" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.4">
+      <animate attributeName="d"
+        values="M80 250 C150 180, 220 140, 320 120 C400 104, 450 130, 480 170;
+                M80 250 C160 170, 230 130, 320 110 C410 94, 460 125, 480 170;
+                M80 250 C150 180, 220 140, 320 120 C400 104, 450 130, 480 170"
+        dur="11s" repeatCount="indefinite"/>
+    </path>
+  </g>
 
-  <circle cx="260" cy="260" r="50" fill="none" stroke="#a4865f" stroke-width="0.3" opacity="0.08"
-          stroke-dasharray="4 8">
-    <animateTransform attributeName="transform" type="rotate" from="360 260 260" to="0 260 260" dur="25s" repeatCount="indefinite"/>
-  </circle>
+  <!-- ====================================================================
+       Wide ambient glow behind identity (blurred)
+       ==================================================================== -->
+  <ellipse cx="260" cy="260" rx="140" ry="100" fill="#f5efe6" opacity="0.15" filter="url(#blur-wide)"/>
+  <ellipse cx="260" cy="250" rx="90" ry="60" fill="#ffffff" opacity="0.08" filter="url(#blur-soft)"/>
+
+  <!-- ====================================================================
+       Shunya Identity — Devanagari शून्य
+       ==================================================================== -->
+  <g id="shunya-identity">
+    <text x="260" y="248" text-anchor="middle" dominant-baseline="central"
+          font-family="'Noto Sans Devanagari','Nirmala UI','Sanskrit Text','Mukta',serif"
+          font-size="38" font-weight="500" fill="#191b1c" opacity="0.82" letter-spacing="0.04em">
+      शून्य
+      <animate attributeName="opacity" values="0.75;0.85;0.75" dur="6s" repeatCount="indefinite"/>
+    </text>
+  </g>
+
+  <!-- ====================================================================
+       Infinite Tagline
+       ==================================================================== -->
+  <g id="infinite-tagline">
+    <!-- "Infinite Intelligence." -->
+    <text x="260" y="282" text-anchor="middle" dominant-baseline="central"
+          font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+          font-size="10" font-weight="400" fill="#191b1c" opacity="0.45" letter-spacing="0.18em">
+      INFINITE INTELLIGENCE.
+    </text>
+    <!-- "Zero Noise." -->
+    <text x="260" y="298" text-anchor="middle" dominant-baseline="central"
+          font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+          font-size="10" font-weight="400" fill="#191b1c" opacity="0.35" letter-spacing="0.18em">
+      ZERO NOISE.
+    </text>
+  </g>
+
+  <!-- ====================================================================
+       Additional ambient glow particles
+       ==================================================================== -->
+  <g id="glow-particles" filter="url(#blur-soft)">
+    <circle cx="200" cy="300" r="30" fill="#a4865f" opacity="0.03">
+      <animate attributeName="opacity" values="0.03;0.07;0.03" dur="7s" repeatCount="indefinite"/>
+      <animate attributeName="r" values="30;35;30" dur="7s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="320" cy="220" r="25" fill="#a4865f" opacity="0.02">
+      <animate attributeName="opacity" values="0.02;0.05;0.02" dur="9s" repeatCount="indefinite"/>
+      <animate attributeName="r" values="25;30;25" dur="9s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="150" cy="200" r="20" fill="#d4c0a8" opacity="0.02">
+      <animate attributeName="opacity" values="0.02;0.06;0.02" dur="8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="360" cy="320" r="22" fill="#d4c0a8" opacity="0.02">
+      <animate attributeName="opacity" values="0.02;0.05;0.02" dur="10s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- ====================================================================
+       Subtle decorative dots
+       ==================================================================== -->
+  <g id="decorative-dots">
+    <circle cx="160" cy="350" r="2" fill="#a4865f" opacity="0.12">
+      <animate attributeName="opacity" values="0.12;0.25;0.12" dur="5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="360" cy="180" r="1.5" fill="#a4865f" opacity="0.08">
+      <animate attributeName="opacity" values="0.08;0.2;0.08" dur="6s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="380" cy="340" r="1.5" fill="#a4865f" opacity="0.06">
+      <animate attributeName="opacity" values="0.06;0.18;0.06" dur="7s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="140" cy="220" r="1" fill="#a4865f" opacity="0.1">
+      <animate attributeName="opacity" values="0.1;0.22;0.1" dur="4s" repeatCount="indefinite"/>
+    </circle>
+  </g>
 </svg>
