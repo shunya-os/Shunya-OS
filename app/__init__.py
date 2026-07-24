@@ -330,6 +330,12 @@ def create_app(config_override: dict | None = None):
         load_temporal_data()
     register_temporal_middleware(app)
 
+    # ---- Autonomous Organization Runtime (Phase Z7) ----
+    from app.organization.runtime import load_organization_data, register_organization_middleware
+    with app.app_context():
+        load_organization_data()
+    register_organization_middleware(app)
+
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
     @app.route("/admin/<path:subpath>")
