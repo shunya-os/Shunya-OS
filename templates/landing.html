@@ -8,265 +8,185 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@200;300;400;500;600&family=Noto+Sans+Devanagari:wght@300;400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@200;300;400;500;600&family=Noto+Sans+Devanagari:wght@300;400;500;600&display=swap" rel="stylesheet"></noscript>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23a4865f'/></svg>">
+  <style>
+    /* =================================================================
+       SHUNYA Hero — Phase H Reconstruction
+       Directly reproduces the approved canonical visual
+       ================================================================= */
+    :root {
+      --sh-bg: #f9f8f6;
+      --sh-surface: #ffffff;
+      --sh-text: #1a1c1d;
+      --sh-text-soft: rgba(26, 28, 29, 0.5);
+      --sh-text-faint: rgba(26, 28, 29, 0.28);
+      --sh-gold: #a4865f;
+      --sh-border: rgba(26, 28, 29, 0.07);
+      --sh-border-hover: rgba(26, 28, 29, 0.14);
+      --sh-artwork-bg: #f8f6f2;
+      --sh-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--sh-bg);
+      color: var(--sh-text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* --- Navigation --- */
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 52px; padding: 0 32px; position: relative; z-index: 100;
+      background: #fefefe;
+    }
+    .nav-left { display: flex; align-items: center; gap: 10px; }
+    .nav-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sh-gold); flex-shrink: 0; }
+    .nav-logo { font-size: 13px; font-weight: 500; letter-spacing: 0.03em; color: var(--sh-text); text-decoration: none; }
+    .nav-links { display: flex; align-items: center; gap: 28px; list-style: none; }
+    .nav-link { font-size: 11px; font-weight: 400; color: var(--sh-text-faint); text-decoration: none; letter-spacing: 0.02em; transition: color 0.3s ease; }
+    .nav-link:hover { color: var(--sh-text); }
+    .nav-link-signin { font-size: 11px; font-weight: 400; color: var(--sh-text-faint); text-decoration: none; letter-spacing: 0.02em; transition: color 0.3s ease; }
+    .nav-link-signin:hover { color: var(--sh-text); }
+
+    /* --- Hero Container --- */
+    .hero {
+      display: flex; align-items: center; gap: 0;
+      min-height: calc(100vh - 52px);
+      padding: 0 32px;
+      max-width: 1200px; margin: 0 auto;
+    }
+
+    /* --- Hero Content (left column) --- */
+    .hero-content {
+      flex: 0 0 auto;
+      width: 42%;
+      padding-right: 48px;
+    }
+
+    .hero-heading {
+      font-family: 'Playfair Display', 'Georgia', 'Times New Roman', serif;
+      font-size: 54px; font-weight: 400; line-height: 1.08; letter-spacing: -0.025em;
+      color: var(--sh-text); margin-bottom: 22px;
+    }
+    .hero-heading-line { display: block; }
+    .hero-heading-line:last-child { font-style: italic; }
+
+    .hero-description {
+      font-size: 14px; line-height: 1.7;
+      color: var(--sh-text-soft); max-width: 380px; margin-bottom: 36px;
+    }
+
+    .hero-actions { display: flex; align-items: center; gap: 12px; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 22px; border-radius: 10px;
+      font-size: 12px; font-weight: 500; font-family: 'Inter', sans-serif;
+      text-decoration: none; cursor: pointer; border: none; line-height: 1.2;
+      transition: all 0.3s var(--sh-ease);
+    }
+    .btn-primary { background: var(--sh-text); color: var(--sh-surface); }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-outline { background: transparent; color: var(--sh-text); border: 1px solid var(--sh-border); padding: 9px 22px; }
+    .btn-outline:hover { border-color: var(--sh-border-hover); }
+    .btn-arrow { font-size: 14px; line-height: 0; transition: transform 0.3s var(--sh-ease); }
+    .btn:hover .btn-arrow { transform: translateX(2px); }
+
+    /* --- Artwork Panel (right column) --- */
+    .hero-artwork {
+      flex: 1;
+      min-width: 0;
+      aspect-ratio: 736 / 425;
+      background: var(--sh-artwork-bg);
+      border-radius: 20px;
+      position: relative; overflow: hidden;
+    }
+    .hero-artwork svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    /* --- Animation --- */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .animate-fade-up { animation: fadeUp 1s var(--sh-ease) forwards; opacity: 0; }
+    .animate-fade-in { animation: fadeIn 1.2s var(--sh-ease) forwards; opacity: 0; }
+    .d1 { animation-delay: 0.15s; }
+    .d2 { animation-delay: 0.3s; }
+    .d3 { animation-delay: 0.45s; }
+    .d4 { animation-delay: 0.6s; }
+
+    /* --- Reduced Motion --- */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    }
+
+    /* --- Responsive --- */
+    @media (max-width: 960px) {
+      .hero { flex-direction: column; padding: 24px 20px; gap: 32px; }
+      .hero-content { width: 100%; padding-right: 0; text-align: center; display: flex; flex-direction: column; align-items: center; }
+      .hero-description { text-align: center; }
+      .hero-actions { justify-content: center; }
+      .hero-artwork { width: 100%; max-width: 600px; }
+      .hero-heading { font-size: 38px; }
+    }
+    @media (max-width: 600px) {
+      .hero { padding: 16px 16px; gap: 24px; }
+      .nav { padding: 0 16px; }
+      .nav-links { gap: 16px; }
+      .hero-heading { font-size: 28px; }
+      .hero-description { font-size: 13px; max-width: 100%; }
+      .hero-artwork { width: 100%; max-width: 100%; }
+    }
+  </style>
 </head>
 <body>
 
-<div class="landing-container">
+<!-- Navigation -->
+<nav class="nav" role="navigation" aria-label="Main navigation">
+  <div class="nav-left">
+    <span class="nav-dot" aria-hidden="true"></span>
+    <a href="/" class="nav-logo">SHUNYA</a>
+  </div>
+  <ul class="nav-links" role="menubar">
+    <li role="none"><a href="#product" class="nav-link" role="menuitem">Product</a></li>
+    <li role="none"><a href="#philosophy" class="nav-link" role="menuitem">Philosophy</a></li>
+    <li role="none"><a href="#security" class="nav-link" role="menuitem">Security</a></li>
+    <li role="none"><a href="#contact" class="nav-link" role="menuitem">Contact</a></li>
+    <li role="none"><a href="/auth/login" class="nav-link-signin" role="menuitem">Sign In</a></li>
+  </ul>
+</nav>
 
-  <!-- ============================================================
-       NAVIGATION
-       ============================================================ -->
-  <nav class="nav" role="navigation" aria-label="Main navigation">
-    <div class="nav-left">
-      <span class="nav-dot" aria-hidden="true"></span>
-      <a href="/" class="nav-logo">SHUNYA</a>
+<!-- Hero -->
+<section class="hero" aria-label="Hero">
+  <div class="hero-content">
+    <h1 class="hero-heading animate-fade-up d1">
+      <span class="hero-heading-line">Think clearly.</span>
+      <span class="hero-heading-line">Operate intelligently.</span>
+    </h1>
+    <p class="hero-description animate-fade-up d2">
+      An operating system for human organizations. SHUNYA helps you understand what matters&mdash;before you ask.
+    </p>
+    <div class="hero-actions animate-fade-up d3">
+      <a href="/identity/create" class="btn btn-primary">
+        Get started <span class="btn-arrow" aria-hidden="true">&rarr;</span>
+      </a>
+      <a href="#product" class="btn btn-outline">Learn more</a>
     </div>
+  </div>
+  <div class="hero-artwork animate-fade-in d2" role="img" aria-label="SHUNYA artwork: flowing gold ribbons with Devanagari identity mark">
+    {% include 'artwork_hero.html' ignore missing %}
+  </div>
+</section>
 
-    <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" onclick="toggleNav()">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-        <line x1="3" y1="5" x2="17" y2="5"/>
-        <line x1="3" y1="10" x2="17" y2="10"/>
-        <line x1="3" y1="15" x2="17" y2="15"/>
-      </svg>
-    </button>
-
-    <ul class="nav-links" id="navLinks" role="menubar">
-      <li role="none"><a href="#product" class="nav-link" role="menuitem">Product</a></li>
-      <li role="none"><a href="#philosophy" class="nav-link" role="menuitem">Philosophy</a></li>
-      <li role="none"><a href="#security" class="nav-link" role="menuitem">Security</a></li>
-      <li role="none"><a href="#contact" class="nav-link" role="menuitem">Contact</a></li>
-      <li role="none"><a href="/auth/login" class="nav-link-signin" role="menuitem">Sign In</a></li>
-    </ul>
-  </nav>
-
-  <div class="nav-overlay" id="navOverlay" onclick="toggleNav()"></div>
-
-  <!-- ============================================================
-       HERO
-       ============================================================ -->
-  <section class="hero" aria-label="Hero">
-    <div class="hero-content">
-      <p class="hero-tag animate-fade-up">SHUNYA OS</p>
-      <h1 class="hero-heading animate-fade-up animate-delay-1">
-        <span class="hero-heading-line">Think clearly.</span>
-        <span class="hero-heading-line">Operate intelligently.</span>
-      </h1>
-      <p class="hero-description animate-fade-up animate-delay-2">
-        An operating system for human organizations. SHUNYA helps you understand what matters&mdash;before you ask.
-      </p>
-      <div class="hero-actions animate-fade-up animate-delay-3">
-        <a href="/identity/create" class="btn btn-primary">
-          Get started
-          <span class="btn-arrow" aria-hidden="true">&rarr;</span>
-        </a>
-        <a href="#product" class="btn btn-outline">Learn more</a>
-      </div>
-    </div>
-
-    <div class="hero-artwork animate-fade-in animate-delay-2" role="img" aria-label="Decorative artwork with flowing gold lines">
-      <div class="artwork-glow animate-float-glow" aria-hidden="true"></div>
-      {% include 'artwork_hero.html' ignore missing %}
-    </div>
-  </section>
-
-  <!-- ============================================================
-       INDUSTRY STRIP
-       ============================================================ -->
-  <section class="section" id="product" aria-label="Industries">
-    <div class="industry-strip">
-      {% set industries = [
-        ('Healthcare', 'ico-healthcare'),
-        ('Finance', 'ico-finance'),
-        ('Manufacturing', 'ico-manufacturing'),
-        ('Retail', 'ico-retail'),
-        ('Education', 'ico-education'),
-        ('Logistics', 'ico-logistics'),
-        ('Government', 'ico-government'),
-        ('Legal', 'ico-legal'),
-        ('Real Estate', 'ico-realestate'),
-        ('Technology', 'ico-technology'),
-      ] %}
-      {% for label, icon in industries %}
-      <div class="industry-item">
-        <div class="industry-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><use href="#{{ icon }}"/></svg>
-        </div>
-        <span class="industry-label">{{ label }}</span>
-      </div>
-      {% endfor %}
-    </div>
-  </section>
-
-  <!-- ============================================================
-       CAPABILITY PANEL
-       ============================================================ -->
-  <section class="section" id="philosophy" aria-label="Capabilities">
-    <p class="section-label">Capabilities</p>
-    <h2 class="section-title">What SHUNYA does</h2>
-    <p class="section-subtitle">A continuously contextual workspace that surfaces what matters&mdash;before you ask.</p>
-
-    <div class="capability-grid">
-      {% set capabilities = [
-        ('01', 'Understand', 'Continuously process your organization\u2019s reality. SHUNYA listens, learns, and builds a shared understanding of what is happening.'),
-        ('02', 'Reason', 'Connect evidence to decisions. Every insight links back through decision, prediction, learning, and evidence\u2014no black boxes.'),
-        ('03', 'Plan', 'Turn understanding into action. SHUNYA helps you formulate plans grounded in your organization\u2019s governed principles.'),
-        ('04', 'Execute', 'Coordinate execution across teams. Automation is earned through demonstrated reliability. SHUNYA recommends. Humans decide.'),
-        ('05', 'Learn', 'Every execution feeds back into the system. SHUNYA continuously improves from outcomes, refining its understanding of your organization.'),
-      ] %}
-      {% for num, name, desc in capabilities %}
-      <div class="capability-card">
-        <div class="capability-number">{{ num }}</div>
-        <h3 class="capability-name">{{ name }}</h3>
-        <p class="capability-desc">{{ desc }}</p>
-      </div>
-      {% endfor %}
-    </div>
-  </section>
-
-  <!-- ============================================================
-       FOOTER
-       ============================================================ -->
-  <footer class="footer" role="contentinfo">
-    <div class="footer-left">
-      <span class="footer-dot" aria-hidden="true"></span>
-      <span class="footer-brand">SHUNYA</span>
-      <span class="footer-copy">&copy; {{ year|default(2026) }} SHUNYA. All rights reserved.</span>
-    </div>
-    <div class="footer-links">
-      <a href="/privacy" class="footer-link">Privacy</a>
-      <a href="/terms" class="footer-link">Terms</a>
-      <a href="/security" class="footer-link">Security</a>
-      <a href="mailto:hello@shunyaos.com" class="footer-link">Contact</a>
-    </div>
-  </footer>
-
-</div>
-
-<!-- Industry icons SVG sprite -->
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
-  <defs>
-    <symbol id="ico-healthcare" viewBox="0 0 24 24">
-      <path d="M9 2v4h4V2"/><path d="M7 12V6h10v6"/><path d="M7 12a4 4 0 0 0 4 4h2a4 4 0 0 0 4-4"/><circle cx="12" cy="16" r="2"/>
-    </symbol>
-    <symbol id="ico-finance" viewBox="0 0 24 24">
-      <path d="M3 21h18"/><path d="M3 10l4-4 4 4 5-5 5 5"/><path d="M3 18l4-4 4 4 5-5 5 5"/>
-    </symbol>
-    <symbol id="ico-manufacturing" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-    </symbol>
-    <symbol id="ico-retail" viewBox="0 0 24 24">
-      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>
-    </symbol>
-    <symbol id="ico-education" viewBox="0 0 24 24">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M12 6v8"/><path d="M8 8l4-2 4 2"/>
-    </symbol>
-    <symbol id="ico-logistics" viewBox="0 0 24 24">
-      <path d="M16 16h3a1 1 0 0 0 1-1v-5l-3-4H9a1 1 0 0 0-1 1v1"/><path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M17 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M9 14h8"/>
-    </symbol>
-    <symbol id="ico-government" viewBox="0 0 24 24">
-      <path d="M3 21h18"/><path d="M5 21V7l7-5 7 5v14"/><path d="M9 21V9h6v12"/><path d="M9 12h6"/><path d="M9 15h6"/>
-    </symbol>
-    <symbol id="ico-legal" viewBox="0 0 24 24">
-      <path d="M12 2v20"/><path d="M6 6l6-4 6 4"/><path d="M4 12l4-4 4 4"/><path d="M12 12l4 4 4-4"/><path d="M4 20h16"/>
-    </symbol>
-    <symbol id="ico-realestate" viewBox="0 0 24 24">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/><path d="M12 7v2"/>
-    </symbol>
-    <symbol id="ico-technology" viewBox="0 0 24 24">
-      <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h8v8H8z"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>
-    </symbol>
-  </defs>
-</svg>
-
-<!-- ============================================================
-     JavaScript (minimal)
-     ============================================================ -->
-<script>
-  // Mobile nav toggle
-  function toggleNav() {
-    const links = document.getElementById('navLinks');
-    const overlay = document.getElementById('navOverlay');
-    const btn = document.querySelector('.nav-toggle');
-    const isOpen = links.classList.toggle('open');
-    overlay.classList.toggle('open', isOpen);
-    btn.setAttribute('aria-expanded', isOpen);
-  }
-
-  // Close nav on link click (mobile)
-  document.querySelectorAll('.nav-link, .nav-link-signin').forEach(function(link) {
-    link.addEventListener('click', function() {
-      document.getElementById('navLinks').classList.remove('open');
-      document.getElementById('navOverlay').classList.remove('open');
-      document.querySelector('.nav-toggle').setAttribute('aria-expanded', 'false');
-    });
-  });
-
-  // Intersection Observer for scroll-triggered animations
-  if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver(function(entries) {
-      entries.forEach(function(entry) {
-        if (entry.isIntersecting) {
-          entry.target.style.opacity = '1';
-          entry.target.style.transform = 'translateY(0)';
-        }
-      });
-    }, { threshold: 0.1 });
-
-    document.querySelectorAll('.capability-card, .industry-item').forEach(function(el) {
-      el.style.opacity = '0';
-      el.style.transform = 'translateY(10px)';
-      el.style.transition = 'opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), transform 0.8s cubic-bezier(0.22, 1, 0.36, 1)';
-      observer.observe(el);
-    });
-  }
-
-  // Cursor parallax for artwork (desktop only) — subtle, almost imperceptible
-  (function() {
-    var artwork = document.querySelector('.hero-artwork');
-    if (!artwork || window.innerWidth < 768) return;
-    var artworkSvg = artwork.querySelector('svg');
-    if (!artworkSvg) return;
-
-    var rect = artwork.getBoundingClientRect();
-    var cx = rect.left + rect.width / 2;
-    var cy = rect.top + rect.height / 2;
-    var idleTimeout;
-
-    function updateParallax(e) {
-      var dx = (e.clientX - cx) / rect.width;
-      var dy = (e.clientY - cy) / rect.height;
-      var moveX = dx * 4;
-      var moveY = dy * 4;
-      artworkSvg.style.transform = 'translate(' + moveX + 'px, ' + moveY + 'px)';
-      artworkSvg.style.transition = 'transform 0.8s cubic-bezier(0.22, 1, 0.36, 1)';
-      clearTimeout(idleTimeout);
-    }
-
-    artwork.addEventListener('mousemove', updateParallax);
-
-    artwork.addEventListener('mouseleave', function() {
-      artworkSvg.style.transform = 'translate(0, 0)';
-      artworkSvg.style.transition = 'transform 1.5s cubic-bezier(0.22, 1, 0.36, 1)';
-    });
-  })();
-
-  // Smooth nav link hover — add subtle indicator
-  document.querySelectorAll('.nav-link').forEach(function(link) {
-    link.addEventListener('mouseenter', function() {
-      this.style.transition = 'color 0.2s ease';
-    });
-  });
-
-  // CTA button refined interaction
-  document.querySelectorAll('.btn').forEach(function(btn) {
-    btn.addEventListener('mouseenter', function() {
-      this.style.transition = 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)';
-    });
-  });
-</script>
 </body>
 </html>
