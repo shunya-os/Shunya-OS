@@ -290,6 +290,10 @@ def create_app(config_override: dict | None = None):
     # SHUNYA Public — Milestone E1
     app.register_blueprint(shunya_bp)
 
+    # SHUNYA Workspace — Phase Z1
+    from app.workspace_routes import workspace_bp
+    app.register_blueprint(workspace_bp)
+
     # Founder Experience — Sprint 1
     from app.founder import founder_bp
     app.register_blueprint(founder_bp)

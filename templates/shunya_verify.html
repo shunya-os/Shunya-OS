@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SHUNYA — Verify your identity</title>
+  <meta name="description" content="Verify your identity to continue">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23a4865f'/></svg>">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--shunya-bg, #fbfaf8);
+      color: var(--shunya-text, #1a1c1d);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 52px;
+      border-bottom: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+      background: var(--shunya-nav-bg, #fefefe);
+    }
+    .strip-left { display: flex; align-items: center; gap: 10px; }
+    .strip-logo { font-size: 13px; font-weight: 500; color: var(--shunya-text, #1a1c1d); letter-spacing: 0.03em; }
+    .strip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--shunya-gold, #a4865f); flex-shrink: 0; }
+    .strip-nav a {
+      font-size: 12px;
+      color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
+      text-decoration: none;
+      margin-left: 24px;
+      transition: color 300ms ease;
+    }
+    .strip-nav a:hover { color: var(--shunya-text, #1a1c1d); }
+    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+    .card { width: 100%; max-width: 420px; }
+    h1 { font-size: 24px; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .sub { font-size: 13px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.35)); margin-bottom: 32px; line-height: 1.5; }
+
+    .code-inputs {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+    .code-inputs input {
+      width: 52px;
+      height: 60px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 300;
+      font-family: 'Inter', sans-serif;
+      background: var(--shunya-surface, #ffffff);
+      border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+      border-radius: var(--shunya-radius-sm, 10px);
+      color: var(--shunya-text, #1a1c1d);
+      outline: none;
+      transition: border-color 200ms ease;
+    }
+    .code-inputs input:focus { border-color: rgba(26,28,29,0.2); }
+    .code-inputs input.filled { border-color: rgba(26,28,29,0.14); }
+
+    .btn {
+      width: 100%;
+      padding: 10px;
+      background: var(--shunya-text, #1a1c1d);
+      color: var(--shunya-surface, #ffffff);
+      border: none;
+      border-radius: var(--shunya-radius-sm, 10px);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: opacity 200ms ease;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .resend {
+      text-align: center;
+      font-size: 12px;
+      color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
+      margin-top: 24px;
+    }
+    .resend a {
+      color: var(--shunya-text, #1a1c1d);
+      text-decoration: none;
+      border-bottom: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+      padding-bottom: 1px;
+    }
+    .resend a:hover { border-color: var(--shunya-text, #1a1c1d); }
+    .email-display {
+      text-align: center;
+      font-size: 14px;
+      color: var(--shunya-text, #1a1c1d);
+      margin-bottom: 24px;
+      padding: 8px 16px;
+      background: var(--shunya-surface, #ffffff);
+      border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+      border-radius: var(--shunya-radius-sm, 10px);
+    }
+    @media (max-width: 768px) { .strip { padding: 0 16px; } }
+  </style>
+</head>
+<body>
+  <div class="strip">
+    <div class="strip-left">
+      <span class="strip-dot" aria-hidden="true"></span>
+      <span class="strip-logo">SHUNYA</span>
+    </div>
+    <div class="strip-nav">
+      <a href="/">Home</a>
+    </div>
+  </div>
+  <main>
+    <div class="card">
+      <h1>Check your email</h1>
+      <p class="sub">We sent a verification code to your email address. Enter it below to continue.</p>
+
+      <div class="email-display">{{ email|default('you@example.com') }}</div>
+
+      <form method="post" action="{{ action|default('/auth/verify') }}" id="verify-form">
+        <div class="code-inputs" id="code-inputs">
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autofocus>
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+          <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+        </div>
+        <input type="hidden" name="code" id="code-hidden">
+        <button type="submit" class="btn" id="verify-btn" disabled>Verify</button>
+      </form>
+
+      <div class="resend">
+        Didn't receive it? <a href="#">Send again</a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    var inputs = document.querySelectorAll('#code-inputs input');
+    var hidden = document.getElementById('code-hidden');
+    var btn = document.getElementById('verify-btn');
+
+    inputs.forEach(function(input, index) {
+      input.addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+        if (this.value.length === 1 && index < inputs.length - 1) {
+          inputs[index + 1].focus();
+        }
+        updateCode();
+      });
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace' && !this.value && index > 0) {
+          inputs[index - 1].focus();
+        }
+      });
+      input.addEventListener('focus', function() {
+        this.select();
+      });
+    });
+
+    function updateCode() {
+      var code = '';
+      inputs.forEach(function(input) { code += input.value; });
+      hidden.value = code;
+      btn.disabled = code.length !== inputs.length;
+    }
+  </script>
+</body>
+</html>

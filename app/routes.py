@@ -66,6 +66,9 @@ def index():
             flask_session["shunya_thought_count"] = 0
         return render_template("landing.html", year=__import__('datetime').datetime.utcnow().year)
 
+    # Phase Z1: Redirect authenticated users to new SHUNYA workspace
+    return redirect(url_for("workspace.workspace_home"))
+
     s = get_summary("today")
     recent = Lead.query.order_by(Lead.created_at.desc()).limit(8).all()
     # Companion greeting

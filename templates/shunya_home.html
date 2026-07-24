@@ -1,0 +1,116 @@
+{% extends "base_shunya.html" %}
+
+{% block title %}SHUNYA — Morning Zero{% endblock %}
+
+{% block breadcrumb %}
+<span>Home</span>
+<span class="sep">&#8250;</span>
+<span>Morning Zero</span>
+{% endblock %}
+
+{% block strip_right %}
+{{ super() }}
+{% endblock %}
+
+{% block center %}
+<div class="morning-zero">
+  <div class="greeting" id="greeting">Good morning.</div>
+  <div class="subtitle" id="subtitle">Your workspace is ready. Here's what needs attention.</div>
+
+  <!-- Attention Items -->
+  <div class="mz-section">
+    <div class="mz-section-title">Requires attention</div>
+    <div class="mz-item">
+      <span class="mz-dot attention"></span>
+      <div class="mz-body">
+        <div class="mz-title">Contract signed — Jupiter Media</div>
+        <div class="mz-meta">New agreement requires review. 3 deliverables due this week.</div>
+      </div>
+    </div>
+    <div class="mz-item">
+      <span class="mz-dot attention"></span>
+      <div class="mz-body">
+        <div class="mz-title">Budget approval pending</div>
+        <div class="mz-meta">Q3 engineering budget awaiting your sign-off. 2 days remaining.</div>
+      </div>
+    </div>
+    <div class="mz-item">
+      <span class="mz-dot info"></span>
+      <div class="mz-body">
+        <div class="mz-title">Deployment v2.4.1 complete</div>
+        <div class="mz-meta">Zero-downtime. 3 new integrations enabled.</div>
+      </div>
+    </div>
+    <div class="mz-item">
+      <span class="mz-dot opportunity"></span>
+      <div class="mz-body">
+        <div class="mz-title">Team velocity up 30%</div>
+        <div class="mz-meta">Design team shipped 12 components this sprint.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="mz-section">
+    <div class="mz-section-title">Recent activity</div>
+    <div class="mz-item">
+      <span class="mz-dot info"></span>
+      <div class="mz-body">
+        <div class="mz-title">New lead created — Acme Corp</div>
+        <div class="mz-meta">5 minutes ago &middot; Pipeline</div>
+      </div>
+    </div>
+    <div class="mz-item">
+      <span class="mz-dot info"></span>
+      <div class="mz-body">
+        <div class="mz-title">Invoice #INV-024 paid</div>
+        <div class="mz-meta">1 hour ago &middot; Finance</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quiet state -->
+  <div class="mz-quiet">Everything else is running as expected.</div>
+
+  <!-- Conversation input -->
+  <div class="conv-input-row" style="margin-top: 32px; padding: 0;">
+    <input type="text" placeholder="Ask SHUNYA anything..." id="mz-input">
+    <button onclick="handleMZInput()">Ask</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // ─── Greeting based on time of day ───
+  (function() {
+    var hour = new Date().getHours();
+    var greeting = document.getElementById('greeting');
+    var subtitle = document.getElementById('subtitle');
+    if (hour < 12) {
+      greeting.textContent = 'Good morning.';
+      subtitle.textContent = 'Your workspace is ready. Here\'s what needs attention today.';
+    } else if (hour < 17) {
+      greeting.textContent = 'Good afternoon.';
+      subtitle.textContent = 'Your workspace is active. Here\'s what\'s happening.';
+    } else {
+      greeting.textContent = 'Good evening.';
+      subtitle.textContent = 'Your workspace is quiet. Review today\'s progress.';
+    }
+  })();
+
+  // ─── Morning Zero input handler ───
+  function handleMZInput() {
+    var input = document.getElementById('mz-input');
+    var val = input.value.trim();
+    if (!val) return;
+    input.value = '';
+    // Navigate to conversation view
+    window.location.href = '/workspace/converse?q=' + encodeURIComponent(val);
+  }
+
+  document.getElementById('mz-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') handleMZInput();
+  });
+</script>
+{% endblock %}

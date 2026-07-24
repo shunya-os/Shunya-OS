@@ -1,0 +1,180 @@
+{% extends "base_shunya.html" %}
+
+{% block title %}SHUNYA — {{ object.name }}{% endblock %}
+
+{% block breadcrumb %}
+<span>Home</span>
+<span class="sep">&#8250;</span>
+<span>Objects</span>
+<span class="sep">&#8250;</span>
+<span>{{ object.name }}</span>
+{% endblock %}
+
+{% block left_nav %}
+{{ super() }}
+{% endblock %}
+
+{% block center %}
+<div id="object-workspace">
+  <div class="object-header">
+    <div class="object-type">{{ object.object_type }}</div>
+    <div class="object-name">{{ object.name }}</div>
+    <div class="object-meta">
+      <span>Created {{ object.created_at }}</span>
+      <span>&middot;</span>
+      <span>{{ object.space }}</span>
+      <div class="object-health">
+        <span class="object-health-dot {{ object.health_class }}"></span>
+        <span>{{ object.health_label }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="object-body">
+    <div class="object-tabs" role="tablist">
+      <button class="object-tab active" role="tab" aria-selected="true" data-tab="content">Content</button>
+      <button class="object-tab" role="tab" aria-selected="false" data-tab="timeline">Timeline</button>
+      <button class="object-tab" role="tab" aria-selected="false" data-tab="conversation">Conversation</button>
+      <button class="object-tab" role="tab" aria-selected="false" data-tab="evidence">Evidence</button>
+      <button class="object-tab" role="tab" aria-selected="false" data-tab="links">Links</button>
+      <button class="object-tab" role="tab" aria-selected="false" data-tab="reasoning">Reasoning</button>
+    </div>
+
+    <!-- Content Tab -->
+    <div class="object-tab-panel active" id="panel-content" role="tabpanel">
+      <div class="panel-content">
+        {{ object.description }}
+      </div>
+    </div>
+
+    <!-- Timeline Tab -->
+    <div class="object-tab-panel" id="panel-timeline" role="tabpanel">
+      {% for event in object.timeline %}
+      <div class="timeline-item">
+        <span class="timeline-dot {{ event.type }}"></span>
+        <div class="timeline-body">
+          <div class="timeline-title">{{ event.title }}</div>
+          <div class="timeline-meta">{{ event.date }} &middot; {{ event.source }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Conversation Tab -->
+    <div class="object-tab-panel" id="panel-conversation" role="tabpanel">
+      <button class="conv-start-btn" onclick="startConversation()">Start conversation</button>
+    </div>
+
+    <!-- Evidence Tab -->
+    <div class="object-tab-panel" id="panel-evidence" role="tabpanel">
+      {% for item in object.evidence %}
+      <div class="evidence-item">
+        <div class="ev-source">{{ item.source }}</div>
+        <div class="ev-title">{{ item.title }}</div>
+        <div class="ev-confidence">{{ item.confidence }}</div>
+      </div>
+      {% else %}
+      <div class="panel-content">No evidence recorded yet.</div>
+      {% endfor %}
+    </div>
+
+    <!-- Links Tab -->
+    <div class="object-tab-panel" id="panel-links" role="tabpanel">
+      <div class="links-grid">
+        {% for link in object.links %}
+        <div class="link-chip">
+          <span class="link-type">{{ link.type }}</span>
+          <span>{{ link.name }}</span>
+        </div>
+        {% else %}
+        <div class="panel-content">No linked objects.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Reasoning Tab -->
+    <div class="object-tab-panel" id="panel-reasoning" role="tabpanel">
+      <div class="reasoning-trace">
+        {% for step in object.reasoning %}
+        <div class="trace-step">
+          <div class="step-line"></div>
+          <div class="step-content">
+            <div class="step-label">{{ step.label }}</div>
+            {{ step.content }}
+          </div>
+        </div>
+        {% else %}
+        <div class="panel-content">No reasoning traces available.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block right %}
+<div class="intel-section">
+  <div class="intel-section-title">Executive Brief</div>
+  <div class="exec-brief-header">
+    <div class="exec-health">
+      <span>Health</span>
+      <div class="health-bar">
+        <div class="health-bar-fill {{ object.health_class }}" style="width: {{ object.health_pct }}%"></div>
+      </div>
+      <span>{{ object.health_label }}</span>
+    </div>
+    <div class="exec-brief-summary">{{ object.brief_summary }}</div>
+  </div>
+</div>
+
+<div class="intel-section">
+  <div class="intel-section-title">Key Insights</div>
+  {% for insight in object.insights %}
+  <div class="intel-card">
+    <div class="intel-label">{{ insight.label }}</div>
+    <div class="intel-meta">{{ insight.detail }}</div>
+    <div class="intel-confidence">{{ insight.confidence }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="intel-section">
+  <div class="intel-section-title">Related Objects</div>
+  {% for rel in object.related %}
+  <div class="intel-card">
+    <div class="intel-label">{{ rel.name }}</div>
+    <div class="intel-meta">{{ rel.type }} &middot; {{ rel.relationship }}</div>
+  </div>
+  {% else %}
+  <div class="intel-empty">No related objects.</div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // ─── Tab switching ───
+  document.querySelectorAll('.object-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.object-tab').forEach(function(t) {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      this.classList.add('active');
+      this.setAttribute('aria-selected', 'true');
+
+      document.querySelectorAll('.object-tab-panel').forEach(function(p) {
+        p.classList.remove('active');
+      });
+      var panel = document.getElementById('panel-' + this.getAttribute('data-tab'));
+      if (panel) panel.classList.add('active');
+    });
+  });
+
+  function startConversation() {
+    var tab = document.querySelector('.object-tab[data-tab="conversation"]');
+    if (tab) tab.click();
+    // In a real implementation, this would load the conversation UI
+  }
+</script>
+{% endblock %}

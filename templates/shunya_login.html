@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SHUNYA — Sign in</title>
+  <meta name="description" content="Sign in to SHUNYA">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23a4865f'/></svg>">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--shunya-bg, #fbfaf8);
+      color: var(--shunya-text, #1a1c1d);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 52px;
+      border-bottom: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+      background: var(--shunya-nav-bg, #fefefe);
+    }
+    .strip-left { display: flex; align-items: center; gap: 10px; }
+    .strip-logo { font-size: 13px; font-weight: 500; color: var(--shunya-text, #1a1c1d); letter-spacing: 0.03em; }
+    .strip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--shunya-gold, #a4865f); flex-shrink: 0; }
+    .strip-nav a {
+      font-size: 12px;
+      color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
+      text-decoration: none;
+      margin-left: 24px;
+      transition: color 300ms ease;
+    }
+    .strip-nav a:hover { color: var(--shunya-text, #1a1c1d); }
+    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+    .card { width: 100%; max-width: 380px; }
+    h1 { font-size: 24px; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .sub { font-size: 13px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.35)); margin-bottom: 32px; line-height: 1.5; }
+    label { display: block; font-size: 12px; font-weight: 500; color: var(--shunya-text-secondary, rgba(26,28,29,0.55)); margin-bottom: 6px; }
+    input {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--shunya-surface, #ffffff);
+      border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+      border-radius: var(--shunya-radius-sm, 10px);
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      color: var(--shunya-text, #1a1c1d);
+      outline: none;
+      transition: border-color 200ms ease;
+    }
+    input:focus { border-color: rgba(26,28,29,0.2); }
+    input::placeholder { color: var(--shunya-text-faint, rgba(26,28,29,0.15)); }
+    .field { margin-bottom: 20px; }
+    .error { font-size: 12px; color: #ff6b6b; display: none; margin-bottom: 16px; }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      background: var(--shunya-text, #1a1c1d);
+      color: var(--shunya-surface, #ffffff);
+      border: none;
+      border-radius: var(--shunya-radius-sm, 10px);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: opacity 200ms ease;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0;
+      font-size: 11px;
+      color: var(--shunya-text-faint, rgba(26,28,29,0.15));
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--shunya-border, rgba(26,28,29,0.07));
+    }
+    .signup-link {
+      text-align: center;
+      font-size: 12px;
+      color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
+      margin-top: 24px;
+    }
+    .signup-link a {
+      color: var(--shunya-text, #1a1c1d);
+      text-decoration: none;
+      border-bottom: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+      padding-bottom: 1px;
+    }
+    .signup-link a:hover { border-color: var(--shunya-text, #1a1c1d); }
+    @media (max-width: 768px) { .strip { padding: 0 16px; } }
+  </style>
+</head>
+<body>
+  <div class="strip">
+    <div class="strip-left">
+      <span class="strip-dot" aria-hidden="true"></span>
+      <span class="strip-logo">SHUNYA</span>
+    </div>
+    <div class="strip-nav">
+      <a href="/">Home</a>
+    </div>
+  </div>
+  <main>
+    <div class="card">
+      <h1>Welcome back</h1>
+      <p class="sub">Sign in to continue to your workspace.</p>
+      <form method="post" action="{{ action|default('/auth/login') }}">
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required autofocus placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required minlength="6" placeholder="Your password">
+        </div>
+        {% if error %}
+        <div class="error" style="display:block">{{ error }}</div>
+        {% endif %}
+        <button type="submit" class="btn">Sign in</button>
+      </form>
+      <div class="signup-link">
+        No account? <a href="/identity/create">Create one</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

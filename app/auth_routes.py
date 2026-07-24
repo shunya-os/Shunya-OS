@@ -81,7 +81,7 @@ def login_page():
             user.last_login = datetime.utcnow()
             user.generate_token()
             db.session.commit()
-            return jsonify({"success": True, "redirect": url_for("main.index")})
+            return jsonify({"success": True, "redirect": url_for("workspace.workspace_home")})
         return jsonify({"success": False, "error": "Invalid email or password"}), 401
 
     # Handle form POST (legacy)
@@ -113,11 +113,11 @@ def login_page():
             return redirect(next_url)
 
         flash("Invalid email or password", "error")
-        return render_template("login.html")
+        return render_template("shunya_login.html")
 
     if session.get("user_id"):
         return redirect(url_for("main.index"))
-    return render_template("login.html")
+    return render_template("shunya_login.html")
 
 
 # Shunya OS frontend posts to /auth/login/password — alias to same handler

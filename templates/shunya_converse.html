@@ -1,0 +1,70 @@
+{% extends "base_shunya.html" %}
+
+{% block title %}SHUNYA — Conversation{% endblock %}
+
+{% block breadcrumb %}
+<span>Home</span>
+<span class="sep">&#8250;</span>
+<span>Conversation</span>
+{% endblock %}
+
+{% block center %}
+<div id="object-workspace">
+  <div class="object-header" style="border-bottom: none; padding-bottom: 8px;">
+    <div class="object-type">SHUNYA Intelligence</div>
+    <div class="object-name" style="font-size: 20px; font-weight: 400;">Ask SHUNYA anything</div>
+  </div>
+
+  <div class="object-body" style="display: flex; flex-direction: column; justify-content: space-between; padding-top: 8px;">
+
+    <!-- Messages -->
+    <div class="conv-messages" style="flex: 1; overflow-y: auto;">
+      {% if messages %}
+        {% for msg in messages %}
+        <div class="conv-message {{ msg.role }}">
+          <div>{{ msg.content }}</div>
+          <div class="msg-time">{{ msg.time }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="empty-state" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 40px; text-align: center;">
+        <div style="font-size: 40px; margin-bottom: 16px; opacity: 0.3;">&#9679;</div>
+        <h2 style="font-size: 18px; font-weight: 300; color: var(--text-secondary, rgba(25,27,28,0.55)); margin-bottom: 8px;">Start a conversation</h2>
+        <p style="font-size: 13px; color: var(--text-tertiary, rgba(25,27,28,0.35)); max-width: 320px; line-height: 1.5;">
+          SHUNYA Intelligence can help you understand your organization, surface insights, and answer questions about your objects, people, and decisions.
+        </p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Input -->
+    <div class="conv-input-row">
+      <input type="text" placeholder="Ask SHUNYA anything..." id="conv-input" value="{{ query|default('') }}">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  var convInput = document.getElementById('conv-input');
+  if (convInput) {
+    convInput.focus();
+    // Move cursor to end
+    var len = convInput.value.length;
+    convInput.setSelectionRange(len, len);
+  }
+
+  function sendMessage() {
+    var input = document.getElementById('conv-input');
+    var val = input.value.trim();
+    if (!val) return;
+    window.location.href = '/workspace/converse?q=' + encodeURIComponent(val);
+  }
+
+  document.getElementById('conv-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') sendMessage();
+  });
+</script>
+{% endblock %}
