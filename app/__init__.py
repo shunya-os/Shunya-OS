@@ -336,6 +336,12 @@ def create_app(config_override: dict | None = None):
         load_organization_data()
     register_organization_middleware(app)
 
+    # ---- Universal Planning Runtime (Phase Z8) ----
+    from app.planning.runtime import load_planning_data, register_planning_middleware
+    with app.app_context():
+        load_planning_data()
+    register_planning_middleware(app)
+
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
     @app.route("/admin/<path:subpath>")
