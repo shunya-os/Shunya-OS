@@ -144,20 +144,22 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 18px;
-  background: var(--color-text);
-  color: var(--color-surface) !important;
-  border-radius: var(--radius-sm);
+  padding: 0;
+  background: none;
+  color: var(--color-text-tertiary) !important;
+  border-radius: 0;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   text-decoration: none;
   letter-spacing: 0.02em;
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  transition: color var(--transition-fast);
+  line-height: inherit;
 }
 
 .nav-link-signin:hover {
-  opacity: 0.88;
-  transform: translateY(-1px);
+  color: var(--color-text) !important;
+  background: none;
+  transform: none;
 }
 
 /* Mobile nav toggle */
@@ -241,14 +243,14 @@ body {
 }
 
 /* =========================================================================
-   Buttons
+   Buttons — refined, minimal, editorial
    ========================================================================= */
 
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 28px;
+  gap: 6px;
+  padding: 10px 24px;
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 500;
@@ -256,52 +258,44 @@ body {
   text-decoration: none;
   letter-spacing: 0.01em;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all 0.3s var(--shunya-ease);
   border: none;
   outline: none;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .btn-primary {
   background: var(--color-text);
   color: var(--color-surface);
-  box-shadow: var(--shadow-button);
 }
 
 .btn-primary:hover {
-  opacity: 0.88;
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-button-hover);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
+  opacity: 0.85;
+  box-shadow: none;
+  transform: none;
 }
 
 .btn-outline {
   background: transparent;
   color: var(--color-text);
   border: 1px solid var(--color-border);
+  padding: 10px 24px;
 }
 
 .btn-outline:hover {
   border-color: var(--color-border-hover);
-  background: rgba(25, 27, 28, 0.02);
-  transform: translateY(-1px);
-}
-
-.btn-outline:active {
-  transform: translateY(0);
+  background: transparent;
+  transform: none;
 }
 
 .btn-arrow {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 0;
-  transition: transform var(--transition-fast);
+  transition: transform 0.3s var(--shunya-ease);
 }
 
 .btn:hover .btn-arrow {
-  transform: translateX(3px);
+  transform: translateX(2px);
 }
 
 /* =========================================================================
@@ -570,7 +564,7 @@ body {
 @keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -585,43 +579,34 @@ body {
 
 @keyframes floatGlow {
   0%, 100% {
-    opacity: 0.4;
+    opacity: 0.3;
     transform: translate(-50%, -50%) scale(1);
   }
   50% {
-    opacity: 0.6;
-    transform: translate(-50%, -50%) scale(1.1);
-  }
-}
-
-@keyframes lineFlow {
-  0% {
-    stroke-dashoffset: 1000;
-  }
-  100% {
-    stroke-dashoffset: 0;
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1.05);
   }
 }
 
 .animate-fade-up {
-  animation: fadeUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fadeUp 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   opacity: 0;
 }
 
 .animate-fade-in {
-  animation: fadeIn 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fadeIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   opacity: 0;
 }
 
 .animate-float-glow {
-  animation: floatGlow 6s ease-in-out infinite;
+  animation: floatGlow 8s ease-in-out infinite;
 }
 
-.animate-delay-1 { animation-delay: 0.1s; }
-.animate-delay-2 { animation-delay: 0.2s; }
-.animate-delay-3 { animation-delay: 0.3s; }
-.animate-delay-4 { animation-delay: 0.4s; }
-.animate-delay-5 { animation-delay: 0.5s; }
+.animate-delay-1 { animation-delay: 0.2s; }
+.animate-delay-2 { animation-delay: 0.4s; }
+.animate-delay-3 { animation-delay: 0.6s; }
+.animate-delay-4 { animation-delay: 0.8s; }
+.animate-delay-5 { animation-delay: 1s; }
 
 /* =========================================================================
    Responsive: Tablet

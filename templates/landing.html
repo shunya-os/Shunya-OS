@@ -218,13 +218,13 @@
 
     document.querySelectorAll('.capability-card, .industry-item').forEach(function(el) {
       el.style.opacity = '0';
-      el.style.transform = 'translateY(12px)';
-      el.style.transition = 'opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)';
+      el.style.transform = 'translateY(10px)';
+      el.style.transition = 'opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), transform 0.8s cubic-bezier(0.22, 1, 0.36, 1)';
       observer.observe(el);
     });
   }
 
-  // Cursor parallax for artwork (desktop only)
+  // Cursor parallax for artwork (desktop only) — subtle, almost imperceptible
   (function() {
     var artwork = document.querySelector('.hero-artwork');
     if (!artwork || window.innerWidth < 768) return;
@@ -239,26 +239,19 @@
     function updateParallax(e) {
       var dx = (e.clientX - cx) / rect.width;
       var dy = (e.clientY - cy) / rect.height;
-      var moveX = dx * 6;
-      var moveY = dy * 6;
-      var rotate = dx * 2;
-      artworkSvg.style.transform = 'translate(' + moveX + 'px, ' + moveY + 'px) scale(1.01) rotate(' + rotate + 'deg)';
-      artworkSvg.style.transition = 'transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)';
+      var moveX = dx * 4;
+      var moveY = dy * 4;
+      artworkSvg.style.transform = 'translate(' + moveX + 'px, ' + moveY + 'px)';
+      artworkSvg.style.transition = 'transform 0.8s cubic-bezier(0.22, 1, 0.36, 1)';
       clearTimeout(idleTimeout);
     }
 
     artwork.addEventListener('mousemove', updateParallax);
 
     artwork.addEventListener('mouseleave', function() {
-      artworkSvg.style.transform = 'translate(0, 0) scale(1) rotate(0deg)';
-      artworkSvg.style.transition = 'transform 1.2s cubic-bezier(0.22, 1, 0.36, 1)';
+      artworkSvg.style.transform = 'translate(0, 0)';
+      artworkSvg.style.transition = 'transform 1.5s cubic-bezier(0.22, 1, 0.36, 1)';
     });
-
-    // Gentle idle animation
-    idleTimeout = setTimeout(function() {
-      artworkSvg.style.transform = 'translate(0, 0) scale(1)';
-      artworkSvg.style.transition = 'transform 2s cubic-bezier(0.22, 1, 0.36, 1)';
-    }, 3000);
   })();
 
   // Smooth nav link hover — add subtle indicator
