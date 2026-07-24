@@ -324,6 +324,12 @@ def create_app(config_override: dict | None = None):
         load_cortex_data()
     register_cortex_middleware(app)
 
+    # ---- Temporal Intelligence (Phase Z6) ----
+    from app.temporal.runtime import load_temporal_data, register_temporal_middleware
+    with app.app_context():
+        load_temporal_data()
+    register_temporal_middleware(app)
+
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
     @app.route("/admin/<path:subpath>")
