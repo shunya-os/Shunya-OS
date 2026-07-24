@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SHUNYA — Founder Workspace</title>
+  <meta name="description" content="SHUNYA — An operating system for human organizations">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Noto+Sans+Devanagari:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/founder-workspace.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23a4865f'/></svg>">
+</head>
+<body>
+<div class="fw" id="app">
+
+  <!-- ─── Identity Strip ─── -->
+  <div class="fw-strip">
+    <div class="fw-strip-l">
+      <span class="fw-dot" aria-hidden="true"></span>
+      <span class="fw-logo">SHUNYA</span>
+    </div>
+    <div class="fw-strip-r">
+      <span class="fw-attention-dot good" id="health-dot" title="Health: 92%"></span>
+      <span id="health-label">All nominal</span>
+      <span id="fw-time"></span>
+    </div>
+  </div>
+
+  <div class="fw-body">
+
+    <!-- ─── Left: Awareness ─── -->
+    <div class="fw-awareness" id="awareness-pane">
+      <div class="fw-aw-header">Organizational Awareness</div>
+      <div class="fw-hbar">
+        <span class="fw-hbar-label">Health</span>
+        <div class="fw-hbar-track"><div class="fw-hbar-fill good" id="health-bar" style="width:92%"></div></div>
+        <span class="fw-hbar-value" id="health-value">92%</span>
+      </div>
+      <div class="fw-aw-body" id="aw-body">
+        <div class="fw-aw-section">Attention</div>
+        <div id="attention-items"></div>
+        <div class="fw-aw-section">Quick Actions</div>
+        <button class="fw-aw-item" onclick="FW.navigate('object','jupiter-media')"><span class="fw-aw-dot info"></span>Jupiter Media</button>
+        <button class="fw-aw-item" onclick="FW.navigate('object','northgate-mfg')"><span class="fw-aw-dot caution"></span>Northgate Mfg</button>
+        <button class="fw-aw-item" onclick="FW.navigate('executive')"><span class="fw-aw-dot good"></span>Executive View</button>
+      </div>
+    </div>
+
+    <!-- ─── Center: Context Surface ─── -->
+    <div class="fw-context" id="context-pane">
+      <div class="fw-ctx-header">
+        <div class="fw-ctx-type" id="ctx-type">Context</div>
+        <div class="fw-ctx-name" id="ctx-name">Morning Zero</div>
+        <div class="fw-ctx-meta" id="ctx-meta">SHUNYA Intelligence · Updated just now</div>
+      </div>
+      <div class="fw-ctx-body" id="ctx-body">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- ─── Right: Intelligence ─── -->
+    <div class="fw-intelligence" id="intel-pane">
+      <div class="fw-intel-header">SHUNYA Intelligence</div>
+      <div class="fw-intel-body" id="intel-body">
+        <div class="fw-intel-section">
+          <div class="fw-intel-section-title">Context</div>
+          <div class="fw-intel-empty" id="intel-context">No object selected. Open an object to see intelligence.</div>
+        </div>
+        <div class="fw-intel-section">
+          <div class="fw-intel-section-title">Insights</div>
+          <div id="intel-insights"></div>
+        </div>
+        <div class="fw-intel-section">
+          <div class="fw-intel-section-title">Related</div>
+          <div id="intel-related"></div>
+        </div>
+        <div class="fw-intel-section">
+          <div class="fw-intel-section-title">Ask SHUNYA</div>
+          <div class="fw-intel-input">
+            <input type="text" id="intel-query" placeholder="Ask anything..." onkeydown="if(event.key==='Enter')FW.ask(this.value)">
+            <button onclick="FW.ask(document.getElementById('intel-query').value)">Ask</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Command Palette ─── -->
+  <div class="fw-command" id="cmd-palette" role="dialog" aria-label="Command palette">
+    <div class="fw-command-inner">
+      <input type="text" id="cmd-input" placeholder="Search, navigate, or execute..." aria-label="Command">
+      <div class="fw-command-hint">Type to search · Esc to close</div>
+      <div class="fw-command-results" id="cmd-results"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── SHUNYA Founder Workspace — Runtime ───
+const FW = {
+  state: { view: 'morning-zero', objectId: null, query: '' },
+
+  init() {
+    this.updateTime(); setInterval(() => this.updateTime(), 30000);
+    document.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); this.openCommand(); }
+      if (e.key === 'Escape') this.closeCommand();
+    });
+    document.getElementById('cmd-palette').addEventListener('click', e => { if (e.target === e.currentTarget) this.closeCommand(); });
+    document.getElementById('cmd-input').addEventListener('input', e => this.searchCommand(e.target.value));
+    document.getElementById('cmd-input').addEventListener('keydown', e => { if (e.key === 'Enter') this.executeCommand(e.target.value); });
+    this.renderMorningZero();
+    this.loadAttention();
+    this.loadIntel();
+  },
+
+  updateTime() {
+    const now = new Date();
+    document.getElementById('fw-time').textContent =
+      String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  },
+
+  // ─── Views ───
+  renderMorningZero() {
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Good morning.' : hour < 17 ? 'Good afternoon.' : 'Good evening.';
+    const body = document.getElementById('ctx-body');
+    body.innerHTML = `
+      <div class="fw-mz-greeting">${greeting}</div>
+      <div class="fw-mz-subtitle">I've been watching your organization. Here's what I've found.</div>
+      <div class="fw-mz-section">
+        <div class="fw-mz-section-title">Requires attention</div>
+        <div class="fw-mz-item" onclick="FW.navigate('object','jupiter-media')">
+          <span class="fw-mz-dot info"></span><div class="fw-mz-body">
+          <div class="fw-mz-title">Jupiter Media — Q3 deliverables due</div>
+          <div class="fw-mz-meta">Content distribution in 2 of 3 regions. Review by 15 Oct.</div></div>
+        </div>
+        <div class="fw-mz-item" onclick="FW.navigate('object','northgate-mfg')">
+          <span class="fw-mz-dot attention"></span><div class="fw-mz-body">
+          <div class="fw-mz-title">Northgate Manufacturing — cash flow alert</div>
+          <div class="fw-mz-meta">Covenant breach risk in 45 days. Root cause identified.</div></div>
+        </div>
+        <div class="fw-mz-item">
+          <span class="fw-mz-dot attention"></span><div class="fw-mz-body">
+          <div class="fw-mz-title">Q3 Budget approval pending</div>
+          <div class="fw-mz-meta">Engineering budget awaiting sign-off. 2 days remaining.</div></div>
+        </div>
+      </div>
+      <div class="fw-mz-section">
+        <div class="fw-mz-section-title">Recent decisions</div>
+        <div class="fw-tl-item"><span class="fw-tl-dot decision"></span><div class="fw-tl-body">
+          <div class="fw-tl-title">Jupiter Media agreement signed</div>
+          <div class="fw-tl-meta">14 Jul 2026 · Legal · 60/40 revenue share</div></div>
+        </div>
+        <div class="fw-tl-item"><span class="fw-tl-dot decision"></span><div class="fw-tl-body">
+          <div class="fw-tl-title">Q3 Budget approved</div>
+          <div class="fw-tl-meta">12 Jul 2026 · Finance · $1.2M allocated</div></div>
+        </div>
+        <div class="fw-tl-item"><span class="fw-tl-dot evidence"></span><div class="fw-tl-body">
+          <div class="fw-tl-title">Due diligence completed — Jupiter Media</div>
+          <div class="fw-tl-meta">5 Jul 2026 · Compliance · No material risks</div></div>
+        </div>
+      </div>
+    `;
+    document.getElementById('ctx-type').textContent = 'Context';
+    document.getElementById('ctx-name').textContent = 'Morning Zero';
+    document.getElementById('ctx-meta').textContent = 'SHUNYA Intelligence · Updated just now';
+  },
+
+  renderObject(objectId) {
+    const names = { 'jupiter-media': { name: 'Jupiter Media Partnership', type: 'Agreement', health: 'good', pct: 85 },
+                   'northgate-mfg': { name: 'Northgate Manufacturing', type: 'Portfolio Company', health: 'caution', pct: 62 } };
+    const obj = names[objectId] || names['jupiter-media'];
+    document.getElementById('ctx-type').textContent = obj.type;
+    document.getElementById('ctx-name').textContent = obj.name;
+    document.getElementById('ctx-meta').innerHTML = `<span class="fw-attention-dot ${obj.health}"></span> ${obj.health === 'good' ? 'Healthy' : 'Needs attention'} · 14 Jul 2026`;
+    document.getElementById('ctx-body').innerHTML = `
+      <div class="fw-mz-section"><div class="fw-mz-section-title">Overview</div>
+      <div style="font-size:13px;color:var(--shunya-text-secondary,rgba(26,28,29,0.55));line-height:1.7;padding:4px 0 16px;">
+        ${obj.name} is a strategic business relationship. SHUNYA has been monitoring its performance and has identified patterns worth surfacing.</div></div>
+      <div class="fw-mz-section"><div class="fw-mz-section-title">Timeline</div>
+      <div class="fw-tl-item"><span class="fw-tl-dot decision"></span><div class="fw-tl-body">
+        <div class="fw-tl-title">Agreement signed</div><div class="fw-tl-meta">14 Jul 2026 · Legal</div></div></div>
+      <div class="fw-tl-item"><span class="fw-tl-dot change"></span><div class="fw-tl-body">
+        <div class="fw-tl-title">Scope finalized</div><div class="fw-tl-meta">10 Jul 2026 · Executive</div></div></div>
+      <div class="fw-tl-item"><span class="fw-tl-dot evidence"></span><div class="fw-tl-body">
+        <div class="fw-tl-title">Due diligence complete</div><div class="fw-tl-meta">5 Jul 2026 · Compliance</div></div></div></div>
+    `;
+  },
+
+  // ─── Navigation ───
+  navigate(view, id) {
+    if (view === 'object') { this.state.view = 'object'; this.state.objectId = id; this.renderObject(id); this.loadIntel(id); }
+    else if (view === 'executive') { this.state.view = 'executive'; this.renderMorningZero(); }
+    else { this.state.view = 'morning-zero'; this.state.objectId = null; this.renderMorningZero(); }
+  },
+
+  // ─── Attention ───
+  loadAttention() {
+    const items = [
+      { label: 'Jupiter Media deliverables', type: 'info', action: 'object/jupiter-media' },
+      { label: 'Northgate cash flow', type: 'caution', action: 'object/northgate-mfg' },
+      { label: 'Q3 Budget pending', type: 'caution', action: 'executive' },
+    ];
+    const el = document.getElementById('attention-items');
+    el.innerHTML = items.map(i => `
+      <button class="fw-aw-item" onclick="FW.navigate('${i.action.split('/')[0]}','${i.action.split('/')[1]||''}')">
+        <span class="fw-aw-dot ${i.type}"></span>${i.label}
+      </button>
+    `).join('');
+  },
+
+  // ─── Intelligence ───
+  loadIntel(objectId) {
+    const insights = objectId ? [
+      { label: 'Revenue impact: +18% QoQ', meta: 'High confidence', conf: 'High confidence' },
+      { label: 'Risk score: 2.3/10', meta: 'Low regulatory risk', conf: 'Medium confidence' },
+      { label: 'Next action: quarterly review', meta: 'By 15 Oct', conf: 'High confidence' },
+    ] : [
+      { label: 'Portfolio revenue +12% QoQ', meta: 'Across 3 portfolio companies', conf: 'High confidence' },
+      { label: '24 active objects', meta: 'Across 3 spaces', conf: 'High confidence' },
+    ];
+    const el = document.getElementById('intel-insights');
+    el.innerHTML = insights.map(i => `
+      <div class="fw-intel-card"><div class="fw-intel-label">${i.label}</div>
+      <div class="fw-intel-meta">${i.meta}</div><div class="fw-intel-confidence">${i.conf}</div></div>
+    `).join('');
+    document.getElementById('intel-context').textContent = objectId ? `Analyzing ${objectId}...` : 'No object selected.';
+
+    const related = document.getElementById('intel-related');
+    if (objectId) {
+      related.innerHTML = `
+        <div class="fw-intel-card"><div class="fw-intel-label">Q3 Budget Allocation</div><div class="fw-intel-meta">Object · linked</div></div>
+        <div class="fw-intel-card"><div class="fw-intel-label">Sarah Chen</div><div class="fw-intel-meta">Contact · stakeholder</div></div>`;
+    } else {
+      related.innerHTML = `<div class="fw-intel-empty">No related objects detected.</div>`;
+    }
+  },
+
+  // ─── AI Query ───
+  ask(query) {
+    if (!query.trim()) return;
+    document.getElementById('intel-query').value = '';
+    const el = document.getElementById('intel-insights');
+    el.innerHTML = `<div class="fw-intel-card"><div class="fw-intel-label">Thinking...</div>
+      <div class="fw-intel-meta">Let me analyze that for you.</div></div>` + el.innerHTML;
+    setTimeout(() => {
+      el.innerHTML = `<div class="fw-intel-card"><div class="fw-intel-label">Analysis complete</div>
+        <div class="fw-intel-meta">I've been monitoring your organization. Here's what I can tell you about "${query}" — this is a simulated response while the AI runtime is being connected.</div>
+        <div class="fw-intel-confidence">Generated just now</div></div>` + el.innerHTML;
+    }, 800);
+  },
+
+  // ─── Command Palette ───
+  openCommand() { document.getElementById('cmd-palette').classList.add('open'); setTimeout(() => document.getElementById('cmd-input').focus(), 100); },
+  closeCommand() { document.getElementById('cmd-palette').classList.remove('open'); document.getElementById('cmd-input').value = ''; document.getElementById('cmd-results').innerHTML = ''; },
+  searchCommand(val) {
+    const results = document.getElementById('cmd-results');
+    if (!val.trim()) { results.innerHTML = ''; return; }
+    const q = val.toLowerCase();
+    const cmds = [
+      { name: 'Morning Zero', meta: 'Return to workspace home', action: 'morning-zero' },
+      { name: 'Jupiter Media Partnership', meta: 'Open object · Agreement', action: 'object/jupiter-media' },
+      { name: 'Northgate Manufacturing', meta: 'Open object · Portfolio Company', action: 'object/northgate-mfg' },
+      { name: 'Executive Dashboard', meta: 'View organizational health', action: 'executive' },
+      { name: 'Inspect System', meta: 'View runtime state (inspect_cortex=1)', action: 'inspect' },
+    ];
+    const filtered = cmds.filter(c => c.name.toLowerCase().includes(q) || c.meta.toLowerCase().includes(q));
+    results.innerHTML = filtered.map(c => `<div class="fw-cmd-result" onclick="FW.executeNamed('${c.action}')">
+      <div class="fw-cmd-result-name">${c.name}</div><div class="fw-cmd-result-meta">${c.meta}</div></div>
+    `).join('') || '<div class="fw-cmd-result-meta" style="padding:10px 0">No results</div>';
+  },
+  executeCommand(val) { this.closeCommand(); this.ask(val); },
+  executeNamed(action) {
+    this.closeCommand();
+    if (action === 'morning-zero') this.navigate('home');
+    else if (action.startsWith('object/')) this.navigate('object', action.split('/')[1]);
+    else if (action === 'executive') this.navigate('executive');
+    else if (action === 'inspect') window.location.href = '/workspace/?inspect_cortex=1';
+  },
+};
+document.addEventListener('DOMContentLoaded', () => FW.init());
+</script>
+</body>
+</html>

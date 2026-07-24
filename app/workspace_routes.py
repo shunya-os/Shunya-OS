@@ -280,17 +280,19 @@ def workspace_verify():
 
 @workspace_bp.route("/loading")
 def workspace_loading():
-    """Loading screen — the transition from auth to workspace.
-    
-    The steps should communicate what SHUNYA is actually doing,
-    building confidence that the system is working for the user.
-    """
+    """Loading screen — the transition from auth to workspace."""
     return render_template(
         "shunya_loading.html",
         redirect=url_for("workspace.workspace_home"),
         org_name=ORGANIZATION,
         year=datetime.utcnow().year,
     )
+
+
+@workspace_bp.route("/founder")
+def founder_workspace():
+    """Founder Workspace — primary operating interface for SHUNYA."""
+    return render_template("founder_workspace.html", year=datetime.utcnow().year)
 
 
 @workspace_bp.route("/coherence")
