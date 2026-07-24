@@ -36,7 +36,7 @@ def home():
     if "shunya_conversation" not in session:
         session["shunya_conversation"] = []
         session["shunya_thought_count"] = 0
-    return render_template("home.html")
+    return render_template("landing.html", year=datetime.utcnow().year)
 
 
 # ---------------------------------------------------------------------------

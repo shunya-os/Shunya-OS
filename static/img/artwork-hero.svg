@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 520" fill="none">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a4865f" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0.03"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#a4865f" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0.02"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#a4865f" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0.01"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Subtle background gradient shapes -->
+  <ellipse cx="260" cy="260" rx="200" ry="200" fill="url(#g1)" opacity="0.6"/>
+  <ellipse cx="300" cy="220" rx="160" ry="160" fill="url(#g2)" opacity="0.4"/>
+  <ellipse cx="200" cy="320" rx="140" ry="140" fill="url(#g3)" opacity="0.5"/>
+
+  <!-- Central radial glow -->
+  <circle cx="260" cy="260" r="180" fill="none" stroke="#a4865f" stroke-width="0.5" opacity="0.08"/>
+  <circle cx="260" cy="260" r="120" fill="none" stroke="#a4865f" stroke-width="0.5" opacity="0.05"/>
+
+  <!-- Flowing gold lines - elegant curves -->
+  <path d="M80 400 C120 320, 200 200, 320 180 C400 168, 460 200, 480 240"
+        stroke="#a4865f" stroke-width="1.2" opacity="0.3" fill="none"
+        stroke-linecap="round" stroke-dasharray="800" stroke-dashoffset="0">
+    <animate attributeName="stroke-dashoffset" from="800" to="0" dur="4s" fill="freeze"/>
+  </path>
+
+  <path d="M60 320 C100 260, 160 180, 260 140 C340 108, 440 160, 470 200"
+        stroke="#a4865f" stroke-width="0.8" opacity="0.2" fill="none"
+        stroke-linecap="round" stroke-dasharray="800" stroke-dashoffset="0">
+    <animate attributeName="stroke-dashoffset" from="800" to="0" dur="5s" fill="freeze"/>
+  </path>
+
+  <path d="M40 260 C80 200, 180 120, 300 100 C380 86, 450 120, 490 180"
+        stroke="#a4865f" stroke-width="0.6" opacity="0.15" fill="none"
+        stroke-linecap="round" stroke-dasharray="800" stroke-dashoffset="0">
+    <animate attributeName="stroke-dashoffset" from="800" to="0" dur="6s" fill="freeze"/>
+  </path>
+
+  <!-- Decorative dots -->
+  <circle cx="320" cy="180" r="3" fill="#a4865f" opacity="0.25">
+    <animate attributeName="opacity" values="0.25;0.5;0.25" dur="4s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="260" cy="140" r="2" fill="#a4865f" opacity="0.2">
+    <animate attributeName="opacity" values="0.2;0.45;0.2" dur="5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="300" cy="100" r="1.5" fill="#a4865f" opacity="0.15">
+    <animate attributeName="opacity" values="0.15;0.4;0.15" dur="6s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Small geometric accent shapes -->
+  <rect x="140" y="280" width="8" height="8" rx="2" fill="#a4865f" opacity="0.08" transform="rotate(45 144 284)"/>
+  <rect x="380" y="160" width="6" height="6" rx="1.5" fill="#a4865f" opacity="0.06" transform="rotate(45 383 163)"/>
+  <rect x="200" y="380" width="10" height="10" rx="2.5" fill="#a4865f" opacity="0.05" transform="rotate(45 205 385)"/>
+
+  <!-- Thin ring accents -->
+  <circle cx="260" cy="260" r="80" fill="none" stroke="#a4865f" stroke-width="0.4" opacity="0.1"
+          stroke-dasharray="6 12">
+    <animateTransform attributeName="transform" type="rotate" from="0 260 260" to="360 260 260" dur="30s" repeatCount="indefinite"/>
+  </circle>
+
+  <circle cx="260" cy="260" r="50" fill="none" stroke="#a4865f" stroke-width="0.3" opacity="0.08"
+          stroke-dasharray="4 8">
+    <animateTransform attributeName="transform" type="rotate" from="360 260 260" to="0 260 260" dur="25s" repeatCount="indefinite"/>
+  </circle>
+</svg>

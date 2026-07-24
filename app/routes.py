@@ -64,7 +64,7 @@ def index():
         if "shunya_conversation" not in flask_session:
             flask_session["shunya_conversation"] = []
             flask_session["shunya_thought_count"] = 0
-        return render_template("home.html")
+        return render_template("landing.html", year=__import__('datetime').datetime.utcnow().year)
 
     s = get_summary("today")
     recent = Lead.query.order_by(Lead.created_at.desc()).limit(8).all()

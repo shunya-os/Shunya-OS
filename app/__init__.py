@@ -212,14 +212,15 @@ def create_app(config_override: dict | None = None):
 
     app = Flask(
         __name__,
-        template_folder="/root/shunya_os/templates",
-        static_folder="/root/shunya_os/static",
+        template_folder=os.path.join(os.path.dirname(__file__), "..", "templates"),
+        static_folder=os.path.join(os.path.dirname(__file__), "..", "static"),
     )
 
     # ---- Shunya OS primary template path with fallback to old templates ----
+    templates_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
     app.jinja_loader = ChoiceLoader([
-        FileSystemLoader("/root/shunya_os/templates"),
-        FileSystemLoader(os.path.join(os.path.dirname(__file__), "..", "templates")),
+        FileSystemLoader(templates_dir),
+        FileSystemLoader(templates_dir),
     ])
 
     # ---- Config -----------------------------------------------------------
