@@ -312,6 +312,12 @@ def create_app(config_override: dict | None = None):
         load_scenario_data()
     register_explainability_middleware(app)
 
+    # ---- Decision Runtime (Phase Z4) ----
+    from app.decision_runtime.runtime import load_demo_decisions, register_decision_middleware
+    with app.app_context():
+        load_demo_decisions()
+    register_decision_middleware(app)
+
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
     @app.route("/admin/<path:subpath>")
