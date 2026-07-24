@@ -318,6 +318,12 @@ def create_app(config_override: dict | None = None):
         load_demo_decisions()
     register_decision_middleware(app)
 
+    # ---- Organizational Cortex (Phase Z5) ----
+    from app.cortex.runtime import load_cortex_data, register_cortex_middleware
+    with app.app_context():
+        load_cortex_data()
+    register_cortex_middleware(app)
+
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
     @app.route("/admin/<path:subpath>")
