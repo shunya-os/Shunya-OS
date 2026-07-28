@@ -50,13 +50,13 @@ def _founder_required() -> bool:
 
 
 def _get_identity_name() -> str:
-    """Get the current user's display name from session."""
-    from app.auth import TeamMember
-    user_id = session.get("user_id")
-    if user_id:
-        user = db.session.get(TeamMember, user_id)
-        if user:
-            return user.name
+    """Get the current user's display name from the canonical OS identity model."""
+    identity_id = session.get("identity_id")
+    if identity_id:
+        from app.adapters.os_adapter import get_identity_name
+        name = get_identity_name(identity_id)
+        if name:
+            return name
     return "Founder"
 
 
