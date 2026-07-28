@@ -289,6 +289,10 @@ def api_create_space():
     )
     # Dual-write: persist to DB for backward compat during migration
     space_id = result.get("object_id", "")
+    if not space_id and result.get("success"):
+        # Pipeline confirmed validity but doesn't generate IDs for spaces
+        import uuid
+        space_id = f"spc_{uuid.uuid4().hex[:16]}"
     if space_id:
         existing = FounderSpace.query.filter_by(space_id=space_id).first()
         if not existing:
