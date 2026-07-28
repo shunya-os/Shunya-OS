@@ -1,0 +1,739 @@
+# SHUNYA Knowledge Graph
+# Repository-wide relationship mapping
+# Part of the Canonical Repository & Knowledge Runtime Directive
+---
+manifest_version: "1.0"
+generated: "2026-07-28"
+repository: "shunya-os/Shunya-OS"
+relationships:
+  # ── CONSTITUTIONAL DERIVATION ──────────────────────────────────────────────
+  - source: CONST-II
+    type: derives_from
+    target: CONST-I
+    description: "SHUNYA Constitution derives authority from First Principles"
+
+  - source: CONST-III
+    type: derives_from
+    target: CONST-II
+    description: "Canonical Definitions derive from Constitutional Articles"
+
+  - source: CONST-IV
+    type: derives_from
+    target: CONST-II
+    description: "Compliance rules derive from Constitutional Articles"
+
+  - source: CONST-V
+    type: derives_from
+    target: CONST-I
+    description: "Implementation Charter derives from First Principles"
+
+  - source: CONST-META
+    type: derives_from
+    target: CONST-II
+    description: "Metadata describes the constitutional program"
+
+  # ── ENGINE DERIVATION ──────────────────────────────────────────────────────
+  - source: ENG-OBS
+    type: derives_from
+    target: CONST-II
+    description: "ENG-OBS §3.1(1)"
+
+  - source: ENG-MEM
+    type: derives_from
+    target: CONST-II
+    description: "ENG-MEM §3.1(2)"
+
+  - source: ENG-KNW
+    type: derives_from
+    target: CONST-II
+    description: "ENG-KNW §3.1(3)"
+
+  - source: ENG-RSN
+    type: derives_from
+    target: CONST-II
+    description: "ENG-RSN §3.1(4)"
+
+  - source: ENG-SIM
+    type: derives_from
+    target: CONST-II
+    description: "ENG-SIM §3.7"
+
+  - source: ENG-PLN
+    type: derives_from
+    target: CONST-II
+    description: "ENG-PLN §3.1(6)"
+
+  - source: ENG-EXC
+    type: derives_from
+    target: CONST-II
+    description: "ENG-EXC §3.1(7)"
+
+  - source: ENG-EVL
+    type: derives_from
+    target: CONST-II
+    description: "ENG-EVL §3.1(8)"
+
+  - source: ENG-LRN
+    type: derives_from
+    target: CONST-II
+    description: "ENG-LRN §3.1(9)"
+
+  - source: ENG-GOV
+    type: derives_from
+    target: CONST-II
+    description: "ENG-GOV §3.1(10), §9.1"
+
+  - source: ENG-SIM
+    type: derives_from
+    target: CONST-I
+    description: "ENG-SIM derives from Principle XIII (Necessity of Foresight)"
+
+  # ── ENGINE → FIRST PRINCIPLE ──────────────────────────────────────────────
+  - source: ENG-OBS
+    type: governed_by
+    target: CONST-I
+    description: "Principle III (Necessity of Intelligence)"
+
+  - source: ENG-MEM
+    type: governed_by
+    target: CONST-I
+    description: "Principles III, IX (Intelligence, Permanence of Memory)"
+
+  - source: ENG-KNW
+    type: governed_by
+    target: CONST-I
+    description: "Principles III, V (Intelligence, Architecture of Principle)"
+
+  - source: ENG-RSN
+    type: governed_by
+    target: CONST-I
+    description: "Principle III (Necessity of Intelligence)"
+
+  - source: ENG-SIM
+    type: governed_by
+    target: CONST-I
+    description: "Principle XIII (Necessity of Foresight)"
+
+  - source: ENG-PLN
+    type: governed_by
+    target: CONST-I
+    description: "Principle III (Necessity of Intelligence)"
+
+  - source: ENG-EXC
+    type: governed_by
+    target: CONST-I
+    description: "Principle VII (Discipline of Execution)"
+
+  - source: ENG-EVL
+    type: governed_by
+    target: CONST-I
+    description: "Principle III (Necessity of Intelligence)"
+
+  - source: ENG-LRN
+    type: governed_by
+    target: CONST-I
+    description: "Principle III (Necessity of Intelligence)"
+
+  - source: ENG-GOV
+    type: governed_by
+    target: CONST-I
+    description: "Principle VIII (Primacy of Governance)"
+
+  # ── ENGINE → DEFINITION ────────────────────────────────────────────────────
+  - source: ENG-OBS
+    type: references
+    target: DEF-026
+    description: "ENG-OBS defined by DEF-026 (Observation)"
+
+  - source: ENG-MEM
+    type: references
+    target: DEF-025
+    description: "ENG-MEM defined by DEF-025 (Memory)"
+
+  - source: ENG-KNW
+    type: references
+    target: DEF-021
+    description: "ENG-KNW defined by DEF-021 (Knowledge)"
+
+  - source: ENG-SIM
+    type: references
+    target: DEF-031
+    description: "ENG-SIM defined by DEF-031 (Simulation Engine)"
+
+  - source: ENG-LRN
+    type: references
+    target: DEF-023
+    description: "ENG-LRN defined by DEF-023 (Learner Engine)"
+
+  - source: ENG-GOV
+    type: references
+    target: DEF-017
+    description: "ENG-GOV defined by DEF-017 (Governance Engine)"
+
+  - source: ENG-EVL
+    type: references
+    target: DEF-028
+    description: "ENG-EVL uses DEF-028 (Outcome)"
+
+  # ── ENGINE → ENGINE SPEC ───────────────────────────────────────────────────
+  - source: ES-001
+    type: implements
+    target: ENG-GOV
+    description: "ES-001 specifies the Governance Engine"
+
+  - source: ES-002
+    type: implements
+    target: ENG-KNW
+    description: "ES-002 specifies the Knowledge Engine"
+
+  - source: ES-003
+    type: implements
+    target: ENG-RSN
+    description: "ES-003 specifies the Reasoning Engine"
+
+  - source: ES-004
+    type: implements
+    target: ENG-PLN
+    description: "ES-004 specifies the Planner Engine"
+
+  - source: ES-005
+    type: implements
+    target: ENG-EXC
+    description: "ES-005 specifies the Executive/Executor Engine"
+
+  - source: ES-006
+    type: implements
+    target: ENG-OBS
+    description: "ES-006 specifies the Observer Engine"
+
+  - source: ES-007
+    type: implements
+    target: ENG-LRN
+    description: "ES-007 specifies the Learner Engine"
+
+  - source: ES-001
+    type: derives_from
+    target: CONST-II
+    description: "ES-001 derives from CONST-II §9"
+
+  - source: ES-002
+    type: derives_from
+    target: CONST-II
+    description: "ES-002 derives from CONST-II §3"
+
+  - source: ES-003
+    type: derives_from
+    target: CONST-II
+    description: "ES-003 derives from CONST-II §3"
+
+  - source: ES-004
+    type: derives_from
+    target: CONST-II
+    description: "ES-004 derives from CONST-II §3"
+
+  - source: ES-005
+    type: derives_from
+    target: CONST-II
+    description: "ES-005 derives from CONST-II §7"
+
+  - source: ES-006
+    type: derives_from
+    target: CONST-II
+    description: "ES-006 derives from CONST-II §3"
+
+  - source: ES-007
+    type: derives_from
+    target: CONST-II
+    description: "ES-007 derives from CONST-II §3.6"
+
+  # ── ENGINE → RUNTIME ──────────────────────────────────────────────────────
+  - source: ENG-OBS
+    type: owned_by
+    target: RUNTIME-INTEL
+    description: "ENG-OBS implemented in core/intelligence/perception/"
+
+  - source: ENG-MEM
+    type: owned_by
+    target: RUNTIME-MEM
+    description: "ENG-MEM implemented in core/memory_knowledge_runtime/"
+
+  - source: ENG-KNW
+    type: owned_by
+    target: RUNTIME-MEM
+    description: "ENG-KNW implemented in core/memory_knowledge_runtime/"
+
+  - source: ENG-RSN
+    type: owned_by
+    target: RUNTIME-INTEL
+    description: "ENG-RSN implemented in core/intelligence/reasoning/"
+
+  - source: ENG-SIM
+    type: owned_by
+    target: RUNTIME-PROJ
+    description: "ENG-SIM implemented in core/projection/"
+
+  - source: ENG-PLN
+    type: owned_by
+    target: RUNTIME-PLAN
+    description: "ENG-PLN implemented in core/planning_runtime/"
+
+  - source: ENG-EXC
+    type: owned_by
+    target: RUNTIME-EXEC
+    description: "ENG-EXC implemented in core/execution_runtime/"
+
+  - source: ENG-EVL
+    type: owned_by
+    target: RUNTIME-INTEL
+    description: "ENG-EVL implemented in core/intelligence/decision/"
+
+  - source: ENG-LRN
+    type: owned_by
+    target: RUNTIME-INTEL
+    description: "ENG-LRN implemented in core/intelligence/learning/"
+
+  - source: ENG-GOV
+    type: owned_by
+    target: RUNTIME-PIPE
+    description: "ENG-GOV implemented in core/runtime_pipeline/"
+
+  # ── ENGINE → ADR ──────────────────────────────────────────────────────────
+  - source: ENG-OBS
+    type: references
+    target: ADR-001
+    description: "ENG-OBS uses Event Bus (ADR-001)"
+
+  - source: ENG-KNW
+    type: references
+    target: ADR-002
+    description: "ENG-KNW uses Knowledge Store (ADR-002)"
+
+  - source: ENG-GOV
+    type: references
+    target: ADR-001
+    description: "ENG-GOV constrains Event Bus (ADR-001)"
+
+  - source: ENG-EXC
+    type: references
+    target: ADR-003
+    description: "ENG-EXC uses Credential Store (ADR-003)"
+
+  - source: RUNTIME-KRNL
+    type: references
+    target: ADR-004
+    description: "Kernel implements Object Protocol (ADR-004)"
+
+  - source: RUNTIME-ID
+    type: references
+    target: ADR-005
+    description: "Identity Runtime implements Identity (ADR-005)"
+
+  - source: RUNTIME-WS
+    type: references
+    target: ADR-006
+    description: "Workspace Runtime implements Space Architecture (ADR-006)"
+
+  - source: RUNTIME-REL
+    type: references
+    target: ADR-007
+    description: "Relationship Runtime implements Relationship Contract (ADR-007)"
+
+  # ── ENGINE → PHASE ─────────────────────────────────────────────────────────
+  - source: ENG-OBS
+    type: introduced_in_phase
+    target: PHASE-C
+    description: "ENG-OBS implemented in Phase C"
+
+  - source: ENG-MEM
+    type: introduced_in_phase
+    target: PHASE-H
+    description: "ENG-MEM implemented in Phase H"
+
+  - source: ENG-KNW
+    type: introduced_in_phase
+    target: PHASE-E
+    description: "ENG-KNW implemented in Phase E"
+
+  - source: ENG-RSN
+    type: introduced_in_phase
+    target: PHASE-B
+    description: "ENG-RSN implemented in Phase B"
+
+  - source: ENG-SIM
+    type: introduced_in_phase
+    target: PHASE-K
+    description: "ENG-SIM implemented in Phase K"
+
+  - source: ENG-PLN
+    type: introduced_in_phase
+    target: PHASE-I
+    description: "ENG-PLN implemented in Phase I"
+
+  - source: ENG-EXC
+    type: introduced_in_phase
+    target: PHASE-F
+    description: "ENG-EXC implemented in Phase F"
+
+  - source: ENG-EVL
+    type: introduced_in_phase
+    target: PHASE-D
+    description: "ENG-EVL implemented in Phase D"
+
+  - source: ENG-LRN
+    type: introduced_in_phase
+    target: PHASE-G
+    description: "ENG-LRN implemented in Phase G"
+
+  - source: ENG-GOV
+    type: introduced_in_phase
+    target: PHASE-A
+    description: "ENG-GOV implemented in Phase A"
+
+  # ── ENGINE → DESIGN CANON ─────────────────────────────────────────────────
+  - source: ENG-OBS
+    type: references
+    target: CANON-07
+    description: "ENG-OBS influenced by AI Canon"
+
+  - source: ENG-RSN
+    type: references
+    target: CANON-07
+    description: "ENG-RSN influenced by AI Canon"
+
+  - source: ENG-SIM
+    type: references
+    target: CANON-PROJ
+    description: "ENG-SIM influenced by Projection Engine Canon"
+
+  - source: ENG-PLN
+    type: references
+    target: CANON-PLAN
+    description: "ENG-PLN influenced by Planning Runtime Canon"
+
+  - source: ENG-EXC
+    type: references
+    target: CANON-EXEC
+    description: "ENG-EXC influenced by Execution Runtime Canon"
+
+  - source: ENG-GOV
+    type: references
+    target: CANON-EXEC
+    description: "ENG-GOV influenced by Execution Governance"
+
+  - source: ENG-SIM
+    type: references
+    target: CANON-INTEL
+    description: "ENG-SIM influenced by Intelligence Runtime Canon"
+
+  # ── ENGINE → TEST ──────────────────────────────────────────────────────────
+  - source: ENG-OBS
+    type: validated_by
+    target: "tests/engines/test_observer_engine.py"
+    description: "ENG-OBS validated by observer engine tests"
+
+  - source: ENG-KNW
+    type: validated_by
+    target: "tests/engines/test_knowledge_engine.py"
+    description: "ENG-KNW validated by knowledge engine tests"
+
+  - source: ENG-RSN
+    type: validated_by
+    target: "tests/engines/test_reasoning_engine.py"
+    description: "ENG-RSN validated by reasoning engine tests"
+
+  - source: ENG-PLN
+    type: validated_by
+    target: "tests/engines/test_planner_engine.py"
+    description: "ENG-PLN validated by planner engine tests"
+
+  - source: ENG-EXC
+    type: validated_by
+    target: "tests/engines/test_executor_engine.py"
+    description: "ENG-EXC validated by executor engine tests"
+
+  - source: ENG-LRN
+    type: validated_by
+    target: "tests/engines/test_learning_engine.py"
+    description: "ENG-LRN validated by learning engine tests"
+
+  - source: ENG-GOV
+    type: validated_by
+    target: "tests/engines/test_governance_engine.py"
+    description: "ENG-GOV validated by governance engine tests"
+
+  - source: ENG-ID
+    type: validated_by
+    target: "tests/engines/test_identity_engine.py"
+    description: "ENG-ID validated by identity engine tests"
+
+  - source: RUNTIME-PIPE
+    type: validated_by
+    target: "tests/runtime_pipeline/test_pipeline.py"
+    description: "Pipeline validated by pipeline tests"
+
+  # ── RUNTIME DEPENDENCIES ───────────────────────────────────────────────────
+  - source: RUNTIME-COG
+    type: depends_on
+    target: RUNTIME-KRNL
+    description: "Cognitive Runtime depends on Kernel"
+
+  - source: RUNTIME-EXEC
+    type: depends_on
+    target: RUNTIME-COG
+    description: "Execution Runtime depends on Cognitive"
+
+  - source: RUNTIME-INTEG
+    type: depends_on
+    target: RUNTIME-EXEC
+    description: "Integration Runtime depends on Execution"
+
+  - source: RUNTIME-MEM
+    type: depends_on
+    target: RUNTIME-KRNL
+    description: "Memory/Knowledge Runtime depends on Kernel"
+
+  - source: RUNTIME-PLAN
+    type: depends_on
+    target: RUNTIME-INTEL
+    description: "Planning Runtime depends on Intelligence"
+
+  - source: RUNTIME-PROJ
+    type: depends_on
+    target: RUNTIME-INTEL
+    description: "Projection Runtime depends on Intelligence"
+
+  - source: RUNTIME-WS
+    type: depends_on
+    target: RUNTIME-KRNL
+    description: "Workspace Runtime depends on Kernel"
+
+  - source: RUNTIME-PIPE
+    type: depends_on
+    target: RUNTIME-COG
+    description: "Pipeline orchestrates Cognitive Runtime"
+
+  - source: RUNTIME-PIPE
+    type: depends_on
+    target: RUNTIME-EXEC
+    description: "Pipeline orchestrates Execution Runtime"
+
+  - source: RUNTIME-PIPE
+    type: depends_on
+    target: RUNTIME-INTEG
+    description: "Pipeline orchestrates Integration Runtime"
+
+  - source: RUNTIME-EVENT
+    type: depends_on
+    target: RUNTIME-KRNL
+    description: "Event Runtime depends on Kernel"
+
+  - source: RUNTIME-EVID
+    type: depends_on
+    target: RUNTIME-KRNL
+    description: "Evidence Runtime depends on Kernel"
+
+  - source: RUNTIME-TL
+    type: depends_on
+    target: RUNTIME-KRNL
+    description: "Timeline Runtime depends on Kernel"
+
+  # ── ADR → IMPLEMENTATION ──────────────────────────────────────────────────
+  - source: ADR-001
+    type: implemented_by
+    target: RUNTIME-EVENT
+    description: "ADR-001 (Event Bus) implemented by Event Runtime"
+
+  - source: ADR-004
+    type: implemented_by
+    target: RUNTIME-KRNL
+    description: "ADR-004 (Object Contract) implemented by Kernel"
+
+  - source: ADR-005
+    type: implemented_by
+    target: RUNTIME-ID
+    description: "ADR-005 (Identity) implemented by Identity Runtime"
+
+  - source: ADR-007
+    type: implemented_by
+    target: RUNTIME-REL
+    description: "ADR-007 (Relationship Contract) implemented by Relationship Runtime"
+
+  # ── PHASE DEPENDENCIES ────────────────────────────────────────────────────
+  - source: PHASE-B
+    type: depends_on
+    target: PHASE-A
+    description: "Phase B depends on Phase A foundation"
+
+  - source: PHASE-C
+    type: depends_on
+    target: PHASE-B
+    description: "Phase C depends on Phase B (Reasoner)"
+
+  - source: PHASE-D
+    type: depends_on
+    target: PHASE-C
+    description: "Phase D depends on Phase C (Observer)"
+
+  - source: PHASE-E
+    type: depends_on
+    target: PHASE-D
+    description: "Phase E depends on Phase D (Evaluator)"
+
+  - source: PHASE-F
+    type: depends_on
+    target: PHASE-E
+    description: "Phase F depends on Phase E (Knowledge)"
+
+  - source: PHASE-G
+    type: depends_on
+    target: PHASE-F
+    description: "Phase G depends on Phase F (Executive)"
+
+  - source: PHASE-H
+    type: depends_on
+    target: PHASE-G
+    description: "Phase H depends on Phase G (Learner)"
+
+  - source: PHASE-I
+    type: depends_on
+    target: PHASE-H
+    description: "Phase I depends on Phase H (Memory)"
+
+  - source: PHASE-J
+    type: depends_on
+    target: PHASE-I
+    description: "Phase J depends on Phase I (Planner)"
+
+  - source: PHASE-K
+    type: depends_on
+    target: PHASE-J
+    description: "Phase K depends on Phase J (Automation)"
+
+  - source: PHASE-L
+    type: depends_on
+    target: PHASE-K
+    description: "Phase L depends on Phase K (Projection)"
+
+  - source: PHASE-M
+    type: depends_on
+    target: PHASE-L
+    description: "Phase M depends on Phase L (Convergence)"
+
+  - source: PHASE-N
+    type: depends_on
+    target: PHASE-M
+    description: "Phase N depends on Phase M (Platform)"
+
+  # ── CANON DEPENDENCIES ────────────────────────────────────────────────────
+  - source: CANON-01
+    type: derives_from
+    target: CONST-I
+    description: "Vision derives from First Principles"
+
+  - source: CANON-02
+    type: derives_from
+    target: CONST-II
+    description: "Constitution canon derives from SHUNYA Constitution"
+
+  - source: CANON-04
+    type: derives_from
+    target: ADR-004
+    description: "Object Protocol canon derives from ADR-004"
+
+  - source: CANON-05
+    type: derives_from
+    target: RUNTIME-PIPE
+    description: "Runtime canon derives from Pipeline"
+
+  - source: CANON-UX-01
+    type: derives_from
+    target: CANON-08
+    description: "Experience Philosophy derives from Experience Canon"
+
+  - source: CANON-UX-07
+    type: derives_from
+    target: DNA-01
+    description: "Component System derives from DNA-01"
+
+  - source: CANON-UX-09
+    type: derives_from
+    target: DNA-01
+    description: "Design System derives from DNA-01"
+
+  - source: CANON-UX-10
+    type: derives_from
+    target: DNA-01
+    description: "Mobile Canon derives from DNA-01"
+
+  - source: DNA-01
+    type: derives_from
+    target: CONST-II
+    description: "Device-Native Architecture derives from CONST-II §5.2"
+
+  # ── GOVERNANCE RELATIONSHIPS ──────────────────────────────────────────────
+  - source: GOV-ENG
+    type: derives_from
+    target: CONST-II
+    description: "Engineering Constitution derives from CONST-II §9"
+
+  - source: GOV-MODEL
+    type: derives_from
+    target: GOV-ENG
+    description: "Governance Model derives from Engineering Constitution"
+
+  - source: GOV-FREEZE-01
+    type: derives_from
+    target: GOV-MODEL
+    description: "GF-01 derives from Governance Model"
+
+  - source: GOV-FREEZE-01-RAT
+    type: references
+    target: GOV-FREEZE-01
+    description: "Ratification package references GF-01 report"
+
+  - source: GOV-FREEZE-01-XREF
+    type: references
+    target: GOV-FREEZE-01
+    description: "XREF report references GF-01"
+
+  - source: GOV-FREEZE-01-CR
+    type: references
+    target: GOV-FREEZE-01
+    description: "Conflict resolution references GF-01"
+
+  # ── DOCUMENT → DOCUMENT REFERENCES ─────────────────────────────────────────
+  - source: SHUNYA_ARCHITECTURE_v1.0.md
+    type: references
+    target: CONST-II
+    description: "Architecture spec references Constitution"
+
+  - source: SHUNYA_ARCHITECTURE_v1.0.md
+    type: references
+    target: ES-001
+    description: "Architecture spec references engine specs"
+
+  - source: SHUNYA_IMPLEMENTATION_PROGRAM.md
+    type: references
+    target: ARCH-BASELINE
+    description: "Implementation program references Architecture Baseline"
+
+  - source: SHUNYA_ENGINEERING_DASHBOARD.md
+    type: references
+    target: SHUNYA_IMPLEMENTATION_PROGRAM.md
+    description: "Dashboard derives from Implementation Program"
+
+  # ── FRONTEND → CANON ──────────────────────────────────────────────────────
+  - source: "frontend/src/runtimes/experience/engine.ts"
+    type: references
+    target: CANON-08
+    description: "Experience runtime references Experience Canon"
+
+  - source: "frontend/src/runtimes/layout/engine.ts"
+    type: references
+    target: DNA-01
+    description: "Layout runtime references DNA-01"
+
+  - source: "frontend/src/runtimes/object/engine.ts"
+    type: references
+    target: CANON-04
+    description: "Object runtime references Object Protocol"
