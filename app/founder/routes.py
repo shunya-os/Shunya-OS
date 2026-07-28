@@ -564,6 +564,27 @@ def api_search():
 
 
 # ---------------------------------------------------------------------------
+# API — Executive Home v2 (full founder operating surface)
+# ---------------------------------------------------------------------------
+
+
+@founder_bp.route("/api/v1/founder/executive-home-v2", methods=["GET"])
+def api_executive_home_v2():
+    """Return the complete Executive Home payload.
+
+    Includes: Morning Brief, Recommendations, Business Health,
+    Recent Activity, Continue Working — all from real runtime state.
+    """
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    identity_id = session.get("identity_id")
+    assert identity_id is not None  # guarded by _founder_required
+    from app.founder.executive_home_service import build_executive_home
+    data = build_executive_home(identity_id=identity_id)
+    return jsonify({"success": True, "data": data})
+
+
+# ---------------------------------------------------------------------------
 # API — Morning Zero (read-only, transitional)
 # ---------------------------------------------------------------------------
 
