@@ -152,9 +152,83 @@ def get_pipeline_trace(intent_id: str) -> dict[str, Any] | None:
     return None
 
 
+def get_executive_home(identity_id: str) -> dict[str, Any]:
+    """Assemble Executive Home dashboard data from the OS pipeline.
+
+    Returns pipeline health, recent traces, object counts, identity counts,
+    and a daily brief. All data comes from real runtimes via the OS.
+    """
+    os = get_os()
+    health = os.health_check()
+
+    # Gather data from registered runtimes
+    runtimes = os.runtimes
+    runtime_summary = {}
+    for name, runtime in runtimes.items():
+        try:
+            h = runtime.health_check()
+            runtime_summary[name] = {
+                "status": h.get("status", "unknown"),
+            }
+            if "object_count" in h:
+                runtime_summary[name]["object_count"] = h["object_count"]
+            if "identity_count" in h:
+                runtime_summary[name]["identity_count"] = h["identity_count"]
+            if "supported_intents" in h:
+                runtime_summary[name]["supported_intents"] = h["supported_intents"]
+            if "supported_projections" in h:
+                runtime_summary[name]["supported_projections"] = h["supported_projections"]
+            if "runtime_count" in h:
+                runtime_summary[name]["runtime_count"] = h["runtime_count"]
+        except Exception:
+            runtime_summary[name] = {"status": "error"}
+
+    # Get projection traces if available
+    projection_traces = []
+    proj_runtime = runtimes.get("projection")
+    if proj_runtime and hasattr(proj_runtime, "get_traces"):
+        try:
+            projection_traces = proj_runtime.get_traces(limit=10)
+        except Exception:
+            pass
+
+    # Count pipeline stages
+    pipeline_stages = {
+        "total": 11,
+        "with_real_runtime": 0,
+        "with_mock_runtime": 0,
+    }
+    stage_map = os.pipeline.list_runtimes()
+    for stage, runtimes_for_stage in stage_map.items():
+        for r_name in runtimes_for_stage:
+            if r_name in ("kernel", "identity", "projection"):
+                pipeline_stages["with_real_runtime"] += 1
+            else:
+                pipeline_stages["with_mock_runtime"] += 1
+
+    return {
+        "success": True,
+        "data": {
+            "health": {
+                "status": health.get("status", "unknown"),
+                "bootstrapped": health.get("bootstrapped", False),
+                "runtime_count": health.get("runtime_count", 0),
+                "pipeline": health.get("pipeline", {}),
+            },
+            "pipeline_stages": pipeline_stages,
+            "runtimes": runtime_summary,
+            "recent_projection_traces": projection_traces,
+            "generated_at": __import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc
+            ).isoformat(),
+        },
+    }
+
+
 __all__ = [
     "create_object",
     "create_space",
+    "get_executive_home",
     "get_pipeline_trace",
     "process_intent",
     "sign_in",

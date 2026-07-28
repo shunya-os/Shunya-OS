@@ -24,6 +24,7 @@ from app import db
 from app.adapters.os_adapter import (
     create_object,
     create_space,
+    get_executive_home,
     process_intent,
     sign_in,
 )
@@ -179,6 +180,67 @@ def api_founder_profile():
             "name": _get_identity_name(),
             "identity_id": session.get("identity_id"),
         },
+    })
+
+
+# ---------------------------------------------------------------------------
+# API — Executive Home (pipeline-powered dashboard)
+# ---------------------------------------------------------------------------
+
+
+@founder_bp.route("/api/v1/founder/executive-home", methods=["GET"])
+def api_executive_home():
+    """Return Executive Home dashboard data assembled from the real OS pipeline.
+
+    Returns pipeline health, runtime summaries, recent projection traces,
+    and the current state of all registered runtimes.
+    """
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    identity_id = session.get("identity_id")
+    result = get_executive_home(identity_id=identity_id)
+    return jsonify(result)
+
+
+@founder_bp.route("/api/v1/founder/pipeline/health", methods=["GET"])
+def api_pipeline_health():
+    """Return real-time pipeline health from the OS.
+
+    Shows which runtimes are registered, which pipeline stages have
+    real vs. mock runtimes, and aggregate health status.
+    """
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from core.os import get_os
+    os = get_os()
+    health = os.health_check()
+    return jsonify({
+        "success": True,
+        "data": health,
+    })
+
+
+@founder_bp.route("/api/v1/founder/pipeline/traces", methods=["GET"])
+def api_pipeline_traces():
+    """Return recent pipeline execution traces.
+
+    Shows the intent, stages executed, timing, and status for recent
+    pipeline executions. Useful for founder observability and debugging.
+    """
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from core.os import get_os
+    os = get_os()
+    proj_runtime = os.get_runtime("projection")
+    traces = []
+    if proj_runtime and hasattr(proj_runtime, "get_traces"):
+        try:
+            traces = proj_runtime.get_traces(limit=20)
+        except Exception:
+            pass
+    return jsonify({
+        "success": True,
+        "data": traces,
     })
 
 

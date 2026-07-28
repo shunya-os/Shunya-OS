@@ -112,9 +112,11 @@ class ShunyaOS:
         self._register_mock("automation", [
             PipelineStage.AUTOMATION_EVALUATION,
         ])
-        self._register_mock("projection", [
-            PipelineStage.PROJECTION_ASSEMBLY,
-        ])
+        from core.runtime_pipeline.projection_adapter import ProjectionRuntimeAdapter
+        self._projection_runtime = ProjectionRuntimeAdapter()
+        self._runtimes["projection"] = self._projection_runtime
+        self._pipeline.register(self._projection_runtime)
+
         self._register_mock("workspace", [
             PipelineStage.WORKSPACE_UPDATE,
         ])
