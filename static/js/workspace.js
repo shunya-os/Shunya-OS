@@ -19,6 +19,9 @@ const WS = (function() {
     spaces: [],
     breadcrumb: [],
     contextPanel: 'overview',
+    pipelineData: null,
+    pipelineHealth: null,
+    pipelineTraces: [],
   };
 
   // ─── Object Renderers ───
@@ -55,12 +58,80 @@ const WS = (function() {
     `;
   });
 
-  // ─── Overview Renderer ───
+  // ─── Overview Renderer (pipeline-powered) ───
   registerRenderer('overview', function() {
     const recent = state.recentObjects.slice(0, 5);
     const spaces = state.spaces.slice(0, 8);
+    const pd = state.pipelineData;
+    const health = state.pipelineHealth;
+
+    // Health status
+    const healthStatus = health ? health.status : (pd && pd.health ? pd.health.status : 'unknown');
+    const bootstrapped = pd && pd.health ? pd.health.bootstrapped : false;
+    const runtimeCount = pd && pd.health ? pd.health.runtime_count : 0;
+    const stages = pd && pd.pipeline_stages ? pd.pipeline_stages : null;
+    const runtimes = pd && pd.runtimes ? pd.runtimes : {};
+    const traces = pd && pd.recent_projection_traces ? pd.recent_projection_traces : [];
+    const generatedAt = pd && pd.generated_at ? pd.generated_at : null;
+
     return `
-      <div class="ws-h2 ws-mb-lg">Overview</div>
+      <div class="ws-h2 ws-mb-lg">Executive Home</div>
+
+      <!-- Pipeline Health Card -->
+      <div class="ws-panel ws-mb-md">
+        <div class="ws-panel-header">
+          <span>Pipeline Health</span>
+          <span class="ws-badge ${healthStatus === 'healthy' ? 'ws-badge-success' : 'ws-badge-warning'}">${healthStatus}</span>
+        </div>
+        <div class="ws-flex ws-gap-md ws-mb-sm ws-small ws-text-secondary">
+          <span>Runtime count: ${runtimeCount}</span>
+          ${stages ? `<span>Real runtimes: ${stages.with_real_runtime || 0}</span>` : ''}
+          ${stages ? `<span>Mock runtimes: ${stages.with_mock_runtime || 0}</span>` : ''}
+          <span>Bootstrapped: ${bootstrapped ? 'Yes' : 'No'}</span>
+        </div>
+        ${generatedAt ? `<div class="ws-tiny ws-text-faint">Generated: ${new Date(generatedAt).toLocaleTimeString()}</div>` : ''}
+      </div>
+
+      <!-- Runtime Summary -->
+      ${Object.keys(runtimes).length ? `
+      <div class="ws-panel ws-mb-md">
+        <div class="ws-panel-header"><span>Registered Runtimes</span></div>
+        <div class="ws-list">
+          ${Object.entries(runtimes).map(([name, rt]) => `
+            <div class="ws-list-item">
+              <div class="ws-list-item-icon" style="background: ${rt.status === 'healthy' ? 'var(--ws-success)' : 'var(--ws-warning)'}; width: 8px; height: 8px; border-radius: 50%; margin: 12px;"></div>
+              <div class="ws-list-item-content">
+                <div class="ws-list-item-title">${name}</div>
+                <div class="ws-list-item-subtitle">${rt.status}</div>
+              </div>
+              <div class="ws-list-item-meta">
+                ${rt.supported_intents ? `${rt.supported_intents.length} intents` : ''}
+                ${rt.object_count !== undefined ? `${rt.object_count} objects` : ''}
+                ${rt.identity_count !== undefined ? `${rt.identity_count} identities` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Projection Traces -->
+      ${traces.length ? `
+      <div class="ws-panel ws-mb-md">
+        <div class="ws-panel-header"><span>Recent Projection Traces</span></div>
+        <div class="ws-list">
+          ${traces.slice(0, 5).map(t => `
+            <div class="ws-list-item">
+              <div class="ws-list-item-content">
+                <div class="ws-list-item-title">${t.operation} — ${t.projection_type}</div>
+                <div class="ws-list-item-subtitle">${t.root_id} · ${t.timing_ms}ms · ${t.node_count} nodes</div>
+              </div>
+              <div class="ws-list-item-meta">${t.degraded ? 'Degraded' : 'Full'}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Objects / Spaces -->
       ${spaces.length ? `
       <div class="ws-panel">
         <div class="ws-panel-header"><span>Objects</span></div>
@@ -80,7 +151,7 @@ const WS = (function() {
       <div class="ws-empty">
         <div class="ws-empty-icon">◈</div>
         <div class="ws-empty-title">Welcome to SHUNYA</div>
-        <div class="ws-empty-text">Your workspace is ready. Objects will appear here as you use SHUNYA.</div>
+        <div class="ws-empty-text">Your workspace is ready. The pipeline is ${healthStatus}. Objects will appear here as you use SHUNYA.</div>
       </div>`}
       ${recent.length ? `
       <div class="ws-panel">
@@ -156,23 +227,33 @@ const WS = (function() {
     `;
   });
 
-  // Overview context renderer
+  // Overview context renderer (pipeline-aware)
   registerContextRenderer('overview', function() {
+    const health = state.pipelineHealth;
+    const pd = state.pipelineData;
+    const healthStatus = health ? health.status : (pd && pd.health ? pd.health.status : 'unknown');
+    const runtimes = pd && pd.runtimes ? pd.runtimes : {};
+    const realCount = Object.values(runtimes).filter(r => r.status === 'healthy').length;
     return `
       <div class="ws-panel">
-        <div class="ws-panel-header"><span>SHUNYA</span></div>
+        <div class="ws-panel-header"><span>SHUNYA Executive Home</span></div>
         <div class="ws-small ws-text-secondary ws-mb-sm">
-          The workspace is ready. All systems nominal.
-        </div>
-        <div class="ws-small ws-text-secondary">
+          <div class="ws-mb-sm">· Pipeline: ${healthStatus}</div>
+          <div class="ws-mb-sm">· ${realCount} healthy runtimes</div>
           <div class="ws-mb-sm">· ${state.spaces.length} objects available</div>
           <div class="ws-mb-sm">· ${state.recentObjects.length} recently viewed</div>
+        </div>
+        <div class="ws-small ws-text-secondary" style="border-top: 1px solid var(--ws-border); padding-top: 8px; margin-top: 4px;">
+          <div class="ws-mb-sm"><strong>Runtimes</strong></div>
+          ${Object.entries(runtimes).slice(0, 5).map(([name, rt]) => `
+            <div class="ws-mb-xs">· ${name}: ${rt.status}</div>
+          `).join('')}
         </div>
       </div>
       <div class="ws-panel">
         <div class="ws-panel-header"><span>Quick Actions</span></div>
         <div class="ws-flex ws-flex-col ws-gap-sm">
-          <button class="ws-btn ws-btn-ghost ws-btn-sm" onclick="WS.navigate('overview')">Overview</button>
+          <button class="ws-btn ws-btn-ghost ws-btn-sm" onclick="WS.navigate('overview')">Executive Home</button>
           <button class="ws-btn ws-btn-ghost ws-btn-sm" onclick="WS.navigate('recent')">Recent Activity</button>
         </div>
       </div>
@@ -190,6 +271,25 @@ const WS = (function() {
     } catch (e) {
       console.error('WS API error:', e);
       return { error: e.message };
+    }
+  }
+
+  // ─── Load Pipeline Data (Executive Home) ───
+  async function loadPipelineData() {
+    // Fetch executive home data
+    const homeData = await apiFetch('/api/v1/founder/executive-home');
+    if (homeData && homeData.success) {
+      state.pipelineData = homeData.data;
+    }
+    // Fetch pipeline health
+    const healthData = await apiFetch('/api/v1/founder/pipeline/health');
+    if (healthData && healthData.success) {
+      state.pipelineHealth = healthData.data;
+    }
+    // Fetch pipeline traces
+    const tracesData = await apiFetch('/api/v1/founder/pipeline/traces');
+    if (tracesData && tracesData.success) {
+      state.pipelineTraces = tracesData.data || [];
     }
   }
 
@@ -213,7 +313,8 @@ const WS = (function() {
     });
     let html = '';
     Object.keys(types).sort().forEach(type => {
-      html += `<div class="ws-rail-section">${type.charAt(0).toUpperCase() + type.slice(1)}s</div>`;
+      const label = type.endsWith('y') ? type.slice(0, -1) + 'ies' : type + 's';
+      html += `<div class="ws-rail-section">${label.charAt(0).toUpperCase() + label.slice(1)}</div>`;
       types[type].forEach(s => {
         html += `<button class="ws-rail-item" data-view="object" data-id="${s.space_id}" onclick="WS.navigate('object', '${s.space_id}')">
           <span class="ws-rail-dot" style="background: var(--ws-gold);"></span>
@@ -244,9 +345,9 @@ const WS = (function() {
     content.innerHTML = `<div class="ws-loading"><div class="ws-loading-spinner"></div><span class="ws-small">Loading...</span></div>`;
 
     if (view === 'overview') {
-      breadcrumb.innerHTML = '<span>SHUNYA</span><span class="sep">/</span><span>Overview</span>';
-      title.textContent = 'Welcome';
-      await loadSpaces();
+      breadcrumb.innerHTML = '<span>SHUNYA</span><span class="sep">/</span><span>Executive Home</span>';
+      title.textContent = 'Executive Home';
+      await Promise.all([loadSpaces(), loadPipelineData()]);
       content.innerHTML = renderers['overview']();
       renderContext('overview');
       closeMobilePanels();
