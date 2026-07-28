@@ -1,0 +1,213 @@
+/* =========================================================================
+   SHUNYA Design System — v1.0
+   Executive Grid, Primitives, and Tokens
+   ========================================================================= */
+
+/* =========================================================================
+   1. COLOR SYSTEM
+   ========================================================================= */
+
+:root {
+  /* --- Core --- */
+  --shunya-bg: #fbfaf8;
+  --shunya-surface: #ffffff;
+  --shunya-text: #1a1c1d;
+  --shunya-text-secondary: rgba(26, 28, 29, 0.55);
+  --shunya-text-tertiary: rgba(26, 28, 29, 0.35);
+  --shunya-text-faint: rgba(26, 28, 29, 0.15);
+  --shunya-border: rgba(26, 28, 29, 0.07);
+  --shunya-border-hover: rgba(26, 28, 29, 0.14);
+
+  /* --- Gold --- */
+  --shunya-gold: #a4865f;
+  --shunya-gold-light: #d4c0a8;
+  --shunya-gold-dark: #8a7050;
+  --shunya-gold-glow: rgba(164, 134, 95, 0.08);
+
+  /* --- Surfaces --- */
+  --shunya-nav-bg: #fefefe;
+  --shunya-artwork-bg: #f3ebe2;
+  --shunya-hero-bg: #fefefe;
+  --shunya-footer-bg: #ffffff;
+  --shunya-glass: rgba(255, 255, 255, 0.6);
+  --shunya-glass-border: rgba(255, 255, 255, 0.2);
+
+  /* --- Elevation --- */
+  --shunya-shadow-sm: 0 1px 4px rgba(26, 28, 29, 0.03);
+  --shunya-shadow-md: 0 2px 12px rgba(26, 28, 29, 0.05);
+  --shunya-shadow-lg: 0 4px 24px rgba(26, 28, 29, 0.06);
+  --shunya-shadow-xl: 0 8px 40px rgba(26, 28, 29, 0.08);
+  --shunya-shadow-gold: 0 4px 40px rgba(164, 134, 95, 0.08);
+  --shunya-shadow-button: 0 2px 8px rgba(26, 28, 29, 0.06);
+  --shunya-shadow-button-hover: 0 4px 16px rgba(26, 28, 29, 0.1);
+}
+
+/* =========================================================================
+   2. TYPOGRAPHY
+   ========================================================================= */
+
+:root {
+  --shunya-font-display: 'Playfair Display', 'Georgia', 'Times New Roman', serif;
+  --shunya-font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --shunya-font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --shunya-font-devanagari: 'Noto Sans Devanagari', 'Nirmala UI', 'Sanskrit Text', 'Mukta', serif;
+
+  /* --- Type scale (golden ratio 1.618) --- */
+  --shunya-text-xs: 10px;
+  --shunya-text-sm: 12px;
+  --shunya-text-base: 14px;
+  --shunya-text-md: 16px;
+  --shunya-text-lg: 18px;
+  --shunya-text-xl: 24px;
+  --shunya-text-2xl: 32px;
+  --shunya-text-3xl: 42px;
+  --shunya-text-4xl: 56px;
+  --shunya-text-5xl: 72px;
+
+  /* --- Leading --- */
+  --shunya-leading-tight: 1.08;
+  --shunya-leading-snug: 1.25;
+  --shunya-leading-normal: 1.5;
+  --shunya-leading-relaxed: 1.75;
+  --shunya-leading-loose: 2;
+
+  /* --- Tracking --- */
+  --shunya-tracking-tight: -0.025em;
+  --shunya-tracking-normal: 0;
+  --shunya-tracking-wide: 0.02em;
+  --shunya-tracking-wider: 0.06em;
+  --shunya-tracking-widest: 0.12em;
+  --shunya-tracking-ultra: 0.2em;
+}
+
+/* =========================================================================
+   3. EXECUTIVE GRID
+   ========================================================================= */
+
+:root {
+  /* --- Base grid unit (4px) --- */
+  --shunya-unit: 4px;
+
+  /* --- Spacing scale (8px × n) --- */
+  --shunya-space-1: calc(var(--shunya-unit) * 1);    /*  4px */
+  --shunya-space-2: calc(var(--shunya-unit) * 2);    /*  8px */
+  --shunya-space-3: calc(var(--shunya-unit) * 3);    /* 12px */
+  --shunya-space-4: calc(var(--shunya-unit) * 4);    /* 16px */
+  --shunya-space-5: calc(var(--shunya-unit) * 5);    /* 20px */
+  --shunya-space-6: calc(var(--shunya-unit) * 6);    /* 24px */
+  --shunya-space-8: calc(var(--shunya-unit) * 8);    /* 32px */
+  --shunya-space-10: calc(var(--shunya-unit) * 10);  /* 40px */
+  --shunya-space-12: calc(var(--shunya-unit) * 12);  /* 48px */
+  --shunya-space-14: calc(var(--shunya-unit) * 14);  /* 56px */
+  --shunya-space-16: calc(var(--shunya-unit) * 16);  /* 64px */
+  --shunya-space-20: calc(var(--shunya-unit) * 20);  /* 80px */
+  --shunya-space-24: calc(var(--shunya-unit) * 24);  /* 96px */
+  --shunya-space-32: calc(var(--shunya-unit) * 32);  /* 128px */
+
+  /* --- Layout --- */
+  --shunya-max-width: 1200px;
+  --shunya-nav-height: 52px;
+  --shunya-gutter: var(--shunya-space-6);
+
+  /* --- Border radius --- */
+  --shunya-radius-sm: 10px;
+  --shunya-radius-md: 16px;
+  --shunya-radius-lg: 24px;
+  --shunya-radius-xl: 32px;
+  --shunya-radius-full: 9999px;
+
+  /* --- Motion --- */
+  --shunya-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --shunya-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --shunya-ease-in: cubic-bezier(0.4, 0, 0.68, 0.06);
+  --shunya-duration-fast: 200ms;
+  --shunya-duration-normal: 400ms;
+  --shunya-duration-slow: 600ms;
+  --shunya-duration-slower: 800ms;
+  --shunya-duration-slowest: 1200ms;
+}
+
+/* =========================================================================
+   4. GLASS SURFACE
+   ========================================================================= */
+
+.shunya-glass {
+  background: var(--shunya-glass);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  border: 1px solid var(--shunya-glass-border);
+}
+
+/* =========================================================================
+   5. BASELINE RHYTHM
+   ========================================================================= */
+
+.shunya-baseline {
+  --baseline: 8px;
+  line-height: calc(var(--baseline) * 3);  /* 24px default */
+}
+
+.shunya-baseline h1 { line-height: calc(var(--baseline) * 7); }
+.shunya-baseline h2 { line-height: calc(var(--baseline) * 5); }
+.shunya-baseline h3 { line-height: calc(var(--baseline) * 4); }
+.shunya-baseline p  { line-height: calc(var(--baseline) * 3); }
+.shunya-baseline small { line-height: calc(var(--baseline) * 2); }
+
+/* =========================================================================
+   6. UTILITY CLASSES
+   ========================================================================= */
+
+.shunya-container {
+  max-width: var(--shunya-max-width);
+  margin: 0 auto;
+  padding: 0 var(--shunya-gutter);
+}
+
+.shunya-flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shunya-flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* =========================================================================
+   7. TRANSITION PRESETS
+   ========================================================================= */
+
+.shunya-transition {
+  transition: all var(--shunya-duration-normal) var(--shunya-ease);
+}
+
+.shunya-transition-fast {
+  transition: all var(--shunya-duration-fast) var(--shunya-ease);
+}
+
+.shunya-lift {
+  transition: transform var(--shunya-duration-fast) var(--shunya-ease),
+              box-shadow var(--shunya-duration-fast) var(--shunya-ease);
+}
+
+.shunya-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shunya-shadow-lg);
+}
+
+/* =========================================================================
+   8. REDUCED MOTION
+   ========================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    --shunya-duration-fast: 0.01ms;
+    --shunya-duration-normal: 0.01ms;
+    --shunya-duration-slow: 0.01ms;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

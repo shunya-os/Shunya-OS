@@ -1,227 +1,276 @@
-"""Shunya OS — Universal Data Import (simplest form).
-
-Upload CSV/JSON → pick entity type → fuzzy match columns → bulk create entities.
-No AI needed — Shunya OS already knows the schema from the vertical template.
-
-Flow:
-1. User picks an entity type (Lead, Patient, Case, Booking...)
-2. User uploads CSV or pastes JSON array
-3. System inspects columns, matches to entity schema fields
-4. Shows mapping preview + confidence scores
-5. User confirms → bulk create entities
 """
-import csv, io, json, re, logging
-from typing import Optional
+SHUNYA — Data Import Engine
+
+Supports CSV/JSON ingestion, fuzzy column matching, data inspection,
+and batch Lead creation with activity logging.
+"""
+
+import csv
+import io
+import json
+import re
 from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Optional
 
-logger = logging.getLogger(__name__)
+from app import db
+from app.models import ActivityLog, Lead, LeadSource, next_inquiry_code
 
+
+# ---------------------------------------------------------------------------
+# ColumnMatch — output of fuzzy matching
+# ---------------------------------------------------------------------------
 
 @dataclass
 class ColumnMatch:
-    """A matched column from input data to an entity schema field."""
-    column: str           # original column name from input
-    field_name: str       # matched entity schema field name
-    field_label: str      # matched entity schema field label
-    confidence: float     # 0.0 - 1.0
+    """Describes how a source column was matched to a target field."""
+    source_column: str
+    target_field: str
+    strategy: str  # exact / label / substring / non_match
+    confidence: float = 1.0
 
 
-@dataclass
-class ImportPreview:
-    """Preview of what will be imported."""
-    entity_type: str
-    entity_label: str
-    total_rows: int
-    matched_columns: list[ColumnMatch]      # matched fields
-    unmatched_columns: list[str]            # columns not matched
-    sample_rows: list[dict]                 # first 3 rows for preview
-    missing_required: list[str]             # required fields not in input
+# ---------------------------------------------------------------------------
+# Parsers
+# ---------------------------------------------------------------------------
+
+def parse_csv(content: str) -> list[dict[str, str]]:
+    """
+    Parse CSV string content into a list of dicts.
+    Handles leading/trailing whitespace in headers and values.
+    Returns empty list for empty content.
+    """
+    if not content or not content.strip():
+        return []
+
+    reader = csv.DictReader(io.StringIO(content.strip()))
+    rows = []
+    for row in reader:
+        cleaned = {k.strip(): v.strip() if v else "" for k, v in row.items()}
+        rows.append(cleaned)
+
+    return rows
 
 
-def _normalize(name: str) -> str:
-    """Normalize a name for fuzzy matching: lowercase, strip, remove special chars."""
-    return re.sub(r'[^a-z0-9]', '', name.lower().strip())
+def parse_json(content: str) -> list[dict[str, str]]:
+    """
+    Parse JSON string content into a list of dicts.
+    Accepts either a JSON array or a JSON object (single record wrapped).
+    Returns empty list for empty or non-dict/list content.
+    """
+    if not content or not content.strip():
+        return []
+
+    data = json.loads(content)
+    if isinstance(data, dict):
+        return [data]
+    if isinstance(data, list):
+        return data
+    return []
 
 
-def _fuzzy_match(column: str, schema_fields: list[dict]) -> Optional[ColumnMatch]:
-    """Try to match a column name to a schema field using various strategies."""
-    col_norm = _normalize(column)
-    if not col_norm:
-        return None
-    
-    best = None
-    best_score = 0.0
-    
-    for field in schema_fields:
-        fname = field.get("name", "")
-        flabel = field.get("label", "")
-        ftype = field.get("type", "text")
-        
-        field_norms = [_normalize(fname), _normalize(flabel)]
-        
-        for fn in field_norms:
-            if not fn:
-                continue
-            
-            # Strategy 1: exact match
-            if col_norm == fn:
-                return ColumnMatch(column, fname, flabel, 1.0)
-            
-            # Strategy 2: starts-with
-            if col_norm.startswith(fn) or fn.startswith(col_norm):
-                score = 0.9 * (min(len(col_norm), len(fn)) / max(len(col_norm), len(fn)))
-                if score > best_score:
-                    best_score = score
-                    best = ColumnMatch(column, fname, flabel, round(score, 2))
-            
-            # Strategy 3: substring match
-            if fn in col_norm or col_norm in fn:
-                ratio = min(len(col_norm), len(fn)) / max(len(col_norm), len(fn))
-                score = 0.7 * ratio
-                if score > best_score:
-                    best_score = score
-                    best = ColumnMatch(column, fname, flabel, round(score, 2))
-            
-            # Strategy 4: partial word match
-            col_words = set(col_norm.split())
-            field_words = set(fn.split())
-            common = col_words & field_words
-            if common:
-                score = 0.6 * (len(common) / max(len(col_words | field_words), 1))
-                if score > best_score:
-                    best_score = score
-                    best = ColumnMatch(column, fname, flabel, round(score, 2))
-    
-    return best
+# ---------------------------------------------------------------------------
+# Fuzzy column matching
+# ---------------------------------------------------------------------------
+
+# Known target fields → list of aliases
+_TARGET_ALIASES: dict[str, list[str]] = {
+    "customer_name": ["name", "customer name", "client name", "guest name", "full name", "traveller name", "traveler name"],
+    "phone": ["mobile", "phone number", "contact", "contact number", "tel", "telephone", "whatsapp"],
+    "email": ["e-mail", "email address", "mail"],
+    "destination": ["dest", "place", "city", "location", "travel destination", "going to", "to"],
+    "pax": ["guests", "adults", "passengers", "travellers", "travelers", "people", "persons", "number of guests"],
+    "dates": ["date", "travel dates", "trip dates", "start date", "when", "period"],
+    "budget": ["price", "cost", "amount", "spend", "max budget", "budget range", "estimated budget"],
+    "notes": ["note", "comments", "remarks", "special requests", "requirements", "additional info", "extra"],
+}
+
+# Fields considered "required" for a valid import
+_REQUIRED_FIELDS = ["customer_name", "destination"]
 
 
-def inspect_data(
-    data_rows: list[dict],
-    entity_type: str,
-    schema: list[dict],
-    entity_label: str = ""
-) -> ImportPreview:
-    """Inspect incoming data and match columns to entity schema fields."""
-    if not data_rows:
-        return ImportPreview(entity_type, entity_label or entity_type, 0, [], [], [], [])
-    
-    # Get all column names from data
-    all_columns = set()
-    for row in data_rows:
-        all_columns.update(row.keys())
-    all_columns = sorted(all_columns)
-    
-    # Match each column to schema fields
-    matched = []
-    unmatched = []
-    matched_fields = set()
-    
-    for col in all_columns:
-        match = _fuzzy_match(col, schema)
-        if match and match.confidence >= 0.3:  # lower threshold, user confirms
-            matched.append(match)
-            matched_fields.add(match.field_name)
-        else:
-            unmatched.append(col)
-    
-    # Find missing required fields
-    missing_required = []
-    for field in schema:
-        if field.get("required") and field["name"] not in matched_fields:
-            missing_required.append(f"{field['label']} ({field['name']})")
-    
-    sample = data_rows[:3]
-    
-    return ImportPreview(
-        entity_type=entity_type,
-        entity_label=entity_label or entity_type,
-        total_rows=len(data_rows),
-        matched_columns=sorted(matched, key=lambda m: m.confidence, reverse=True),
-        unmatched_columns=unmatched,
-        sample_rows=sample,
-        missing_required=missing_required,
-    )
+def _normalise(s: str) -> str:
+    """Lower-case and collapse whitespace."""
+    return re.sub(r"\s+", " ", s.strip().lower())
 
 
-def import_data(
-    data_rows: list[dict],
-    entity_type: str,
-    schema: list[dict],
-    tenant_id: int,
-    definition_id: int,
-    field_mapping: dict[str, str],  # {column_name: schema_field_name}
-    user_id: int,
-    db_session,
-) -> dict:
-    """Import validated data into entities. Returns import summary."""
-    from app.models import Entity, ActivityLog, next_entity_code
-    
-    imported = 0
-    errors = []
-    
-    for i, row in enumerate(data_rows):
-        try:
-            # Map columns to schema fields
-            entity_data = {}
-            for col, fname in field_mapping.items():
-                val = row.get(col)
-                if val is not None and val != "":
-                    entity_data[fname] = val
-            
-            # Generate entity code
-            code = next_entity_code(db_session, tenant_id, entity_type)
-            
-            # Get status from schema (first status = default)
-            statuses = [f.get("options", ["new"])[0] for f in schema if f.get("name") == "status"]
-            status = statuses[0] if statuses else "new"
-            
-            entity = Entity(
-                tenant_id=tenant_id,
-                definition_id=definition_id,
-                code=code,
-                status=status,
-                data=entity_data,
-                created_by=user_id,
-            )
-            db_session.add(entity)
-            db_session.flush()
-            
-            # Log activity
-            activity = ActivityLog(
-                tenant_id=tenant_id,
-                entity_id=entity.id,
-                user_id=user_id,
-                action="imported",
-                detail=f"Imported via bulk upload ({entity_type})",
-            )
-            db_session.add(activity)
-            imported += 1
-            
-        except Exception as e:
-            errors.append(f"Row {i+1}: {str(e)}")
-    
-    db_session.commit()
-    
+def _fuzzy_match(source_columns: list[str], target_fields: list[str] | None = None) -> list[ColumnMatch]:
+    """
+    Match source CSV/JSON column names to known target fields.
+
+    Strategies tried in order:
+      1. exact       — source column equals target field name
+      2. label       — source column matches an alias in _TARGET_ALIASES
+      3. substring   — normalised alias is a substring of source column or vice versa
+      4. non_match   — no match found
+
+    Returns one ColumnMatch per source column.
+    """
+    if target_fields is None:
+        target_fields = list(_TARGET_ALIASES.keys())
+
+    results: list[ColumnMatch] = []
+    remaining_targets = set(target_fields)
+
+    for source_col in source_columns:
+        norm_source = _normalise(source_col)
+        match = None
+
+        # 1. Exact match (case-insensitive)
+        for tf in target_fields:
+            if _normalise(tf) == norm_source and tf in remaining_targets:
+                match = ColumnMatch(source_col, tf, "exact", 1.0)
+                remaining_targets.discard(tf)
+                break
+
+        # 2. Label match — check aliases
+        if match is None:
+            for tf in target_fields:
+                if tf not in remaining_targets:
+                    continue
+                aliases = _TARGET_ALIASES.get(tf, [])
+                if norm_source in (_normalise(a) for a in aliases):
+                    match = ColumnMatch(source_col, tf, "label", 0.9)
+                    remaining_targets.discard(tf)
+                    break
+
+        # 3. Substring match
+        if match is None:
+            for tf in target_fields:
+                if tf not in remaining_targets:
+                    continue
+                aliases = _TARGET_ALIASES.get(tf, [])
+                for alias in aliases + [tf]:
+                    norm_alias = _normalise(alias)
+                    if norm_alias and (norm_alias in norm_source or norm_source in norm_alias):
+                        match = ColumnMatch(source_col, tf, "substring", 0.7)
+                        remaining_targets.discard(tf)
+                        break
+                if match:
+                    break
+
+        # 4. No match
+        if match is None:
+            match = ColumnMatch(source_col, "", "non_match", 0.0)
+
+        results.append(match)
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Data inspection
+# ---------------------------------------------------------------------------
+
+def inspect_data(rows: list[dict[str, str]]) -> dict[str, Any]:
+    """
+    Inspect a list of dicts and return a report useful for import UI.
+
+    Returns:
+        {
+            "total_rows": int,
+            "matched_columns": [ColumnMatch, ...],       # matched only
+            "unmatched_columns": [ColumnMatch, ...],      # non_match only
+            "missing_required": [str],                    # required fields with no match
+            "sample_rows": [dict, ...]                    # first 3 rows
+        }
+    """
+    if not rows:
+        return {
+            "total_rows": 0,
+            "matched_columns": [],
+            "unmatched_columns": [],
+            "missing_required": _REQUIRED_FIELDS.copy(),
+            "sample_rows": [],
+        }
+
+    # Get all source columns from first row
+    source_columns = list(rows[0].keys())
+    matches = _fuzzy_match(source_columns)
+
+    matched = [m for m in matches if m.strategy != "non_match"]
+    unmatched = [m for m in matches if m.strategy == "non_match"]
+
+    matched_targets = {m.target_field for m in matched}
+    missing_required = [f for f in _REQUIRED_FIELDS if f not in matched_targets]
+
     return {
-        "imported": imported,
-        "errors": errors,
-        "entity_type": entity_type,
+        "total_rows": len(rows),
+        "matched_columns": matched,
+        "unmatched_columns": unmatched,
+        "missing_required": missing_required,
+        "sample_rows": rows[:3],
     }
 
 
-def parse_csv(text: str) -> list[dict]:
-    """Parse CSV text into list of dicts."""
-    reader = csv.DictReader(io.StringIO(text))
-    return [dict(row) for row in reader]
+# ---------------------------------------------------------------------------
+# Import execution
+# ---------------------------------------------------------------------------
 
+def import_data(
+    rows: list[dict[str, str]],
+    tenant_id: int | None = None,
+    user: str = "system",
+) -> dict[str, Any]:
+    """
+    Import data rows as Lead records.
 
-def parse_json(text: str) -> list[dict]:
-    """Parse JSON array string into list of dicts."""
-    data = json.loads(text)
-    if isinstance(data, dict):
-        # Try to find the array
-        for v in data.values():
-            if isinstance(v, list):
-                return v
-        return [data]
-    return data
+    Steps:
+      1. Inspect data to determine column mapping
+      2. For each row, build a Lead and log an activity
+      3. Commit all to DB
+
+    Returns:
+        {
+            "imported": int,
+            "errors": [str],
+            "lead_ids": [int],
+        }
+    """
+    report = inspect_data(rows)
+
+    imported = 0
+    errors: list[str] = []
+    lead_ids: list[int] = []
+
+    for idx, row in enumerate(rows):
+        try:
+            lead = Lead(
+                source=LeadSource.API.value if tenant_id else LeadSource.MANUAL.value,
+                code=next_inquiry_code(db.session),
+                status="new",
+                created_at=datetime.utcnow(),
+            )
+
+            # Apply matched columns
+            for match in report["matched_columns"]:
+                value = row.get(match.source_column, "").strip()
+                if value:
+                    setattr(lead, match.target_field, value)
+
+            db.session.add(lead)
+            db.session.flush()  # get lead.id
+
+            # Log activity
+            log = ActivityLog(
+                lead_id=lead.id,
+                action="imported",
+                detail=f"Imported via data import from {'tenant' if tenant_id else 'manual'} source",
+                user=user,
+            )
+            db.session.add(log)
+            lead_ids.append(lead.id)
+            imported += 1
+
+        except Exception as exc:
+            db.session.rollback()
+            errors.append(f"Row {idx}: {exc}")
+
+    if not errors:
+        db.session.commit()
+
+    return {
+        "imported": imported,
+        "errors": errors,
+        "lead_ids": lead_ids,
+    }

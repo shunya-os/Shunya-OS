@@ -1,0 +1,63 @@
+# SHUNYA Application Configuration
+# Environment variables override: SHUNYA_{SECTION}__{KEY}={value}
+
+app:
+  name: shunya
+  environment: development
+  debug: false
+
+event_bus:
+  max_queue_size: 10000
+  consumer_timeout_ms: 5000
+  idempotency_cache_ttl_hours: 24
+  retry_max_attempts: 3
+  retry_backoff_ms: [100, 500, 2000]
+  dead_letter_queue_size: 1000
+  health_check_interval_s: 30
+
+credential_store:
+  encryption_key_id: key-1
+  audit_log_enabled: true
+
+knowledge:
+  iks_enabled: true
+  knowledge_layer_fallback: true
+
+governance:
+  policy_registry_path: policies/
+  audit_log_enabled: true
+
+logging:
+  level: INFO
+  format: json
+  output: stdout
+  privacy_filter_enabled: true
+
+metrics:
+  enabled: true
+  port: 8001
+  path: /metrics
+
+health:
+  enabled: true
+  path: /health
+  check_interval_s: 30
+
+persistence:
+  database_url: "postgresql://shunya:***@localhost:5432/shunya_db"
+  pool_size: 5
+  pool_timeout_s: 30
+  echo: false
+  migration_dir: app/data/migrations/
+
+engines:
+  identity: {}
+  knowledge: {}
+  context_fusion: {}
+  reasoning: {}
+  planner: {}
+  governance: {}
+  executor: {}
+  observer: {}
+  learning: {}
+  doctor: {}

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create Space — SHUNYA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
+    }
+  </script>
+</head>
+<body class="bg-[#faf9f7] text-[#1a1a1a] font-sans antialiased min-h-screen flex flex-col">
+
+<header class="border-b border-[#1a1a1a]/5">
+  <div class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="/founder/home" class="text-sm text-[#1a1a1a]/40 hover:text-[#1a1a1a]/60 transition-colors">SHUNYA</a>
+      <span class="text-[#1a1a1a]/10">/</span>
+      <span class="text-sm text-[#1a1a1a]/70">New Space</span>
+    </div>
+    <a href="/founder/logout" class="text-xs text-[#1a1a1a]/30 hover:text-[#1a1a1a]/60 transition-colors">Log out</a>
+  </div>
+</header>
+
+<main class="flex-1 max-w-3xl mx-auto w-full px-6 py-12">
+
+  <a href="/founder/home" class="text-sm text-[#1a1a1a]/30 hover:text-[#1a1a1a]/50 transition-colors mb-8 inline-block">&larr; Back to Home</a>
+
+  <h1 class="text-2xl font-light tracking-tight mb-2">Create a Space</h1>
+  <p class="text-sm text-[#1a1a1a]/50 mb-10 leading-relaxed">
+    A Space is where your work happens. Name it, describe it, and begin.
+  </p>
+
+  <form id="space-form" class="max-w-lg space-y-5">
+    <div>
+      <label class="block text-sm font-medium text-[#1a1a1a]/60 mb-1.5">Space Name</label>
+      <input type="text" id="name" name="name" required autofocus
+        class="w-full px-4 py-3 bg-white border border-[#1a1a1a]/10 rounded-xl text-base text-[#1a1a1a] placeholder-[#1a1a1a]/20 focus:outline-none focus:border-[#1a1a1a]/30 focus:ring-0 transition-colors"
+        placeholder="e.g., My Company, Acme Corp">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-[#1a1a1a]/60 mb-1.5">Type</label>
+      <select id="space_type" name="space_type"
+        class="w-full px-4 py-3 bg-white border border-[#1a1a1a]/10 rounded-xl text-base text-[#1a1a1a] focus:outline-none focus:border-[#1a1a1a]/30 focus:ring-0 transition-colors">
+        <option value="organization">Organization</option>
+        <option value="personal">Personal</option>
+        <option value="project">Project</option>
+        <option value="research">Research</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-[#1a1a1a]/60 mb-1.5">Description <span class="text-[#1a1a1a]/25">(optional)</span></label>
+      <textarea id="description" name="description" rows="3"
+        class="w-full px-4 py-3 bg-white border border-[#1a1a1a]/10 rounded-xl text-base text-[#1a1a1a] placeholder-[#1a1a1a]/20 focus:outline-none focus:border-[#1a1a1a]/30 focus:ring-0 transition-colors resize-none"
+        placeholder="What is this space for?"></textarea>
+    </div>
+
+    <div id="error-msg" class="text-sm text-red-500 hidden"></div>
+
+    <button type="submit"
+      class="w-full py-3 bg-[#1a1a1a] text-white text-sm font-medium rounded-xl hover:bg-[#1a1a1a]/90 transition-colors">
+      Create Space
+    </button>
+  </form>
+
+</main>
+
+<script>
+  document.getElementById('space-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = this.querySelector('button[type="submit"]');
+    const err = document.getElementById('error-msg');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+    err.classList.add('hidden');
+
+    try {
+      const resp = await fetch('/api/v1/founder/spaces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('name').value.trim(),
+          space_type: document.getElementById('space_type').value,
+          description: document.getElementById('description').value.trim(),
+        }),
+      });
+      const data = await resp.json();
+      if (data.success && data.redirect) {
+        window.location.href = data.redirect;
+      } else if (data.success) {
+        window.location.href = '/founder/home';
+      } else {
+        err.textContent = data.error || 'Something went wrong.';
+        err.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Create Space';
+      }
+    } catch (e) {
+      err.textContent = 'Could not connect. Please try again.';
+      err.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Create Space';
+    }
+  });
+</script>
+
+</body>
+</html>

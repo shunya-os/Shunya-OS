@@ -1,0 +1,52 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "hermes-agent",
+  "elements": [
+    { "type": "text", "id": "title", "x": 250, "y": 20, "width": 400, "height": 30, "text": "WORKSPACE STATE TRANSITIONS", "fontSize": 24, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "originalText": "WORKSPACE STATE TRANSITIONS", "autoResize": true },
+
+    { "type": "rectangle", "id": "mz", "x": 280, "y": 90, "width": 180, "height": 60, "roundness": { "type": 3 }, "backgroundColor": "#fff3bf", "fillStyle": "solid", "boundElements": [{ "id": "t_mz", "type": "text" }] },
+    { "type": "text", "id": "t_mz", "x": 300, "y": 105, "width": 140, "height": 25, "text": "MORNING ZERO", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "mz", "originalText": "MORNING ZERO", "autoResize": true },
+
+    { "type": "rectangle", "id": "amb", "x": 280, "y": 240, "width": 180, "height": 60, "roundness": { "type": 3 }, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "boundElements": [{ "id": "t_amb", "type": "text" }] },
+    { "type": "text", "id": "t_amb", "x": 305, "y": 255, "width": 130, "height": 25, "text": "AMBIENT", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "amb", "originalText": "AMBIENT", "autoResize": true },
+
+    { "type": "rectangle", "id": "foc", "x": 280, "y": 390, "width": 180, "height": 60, "roundness": { "type": 3 }, "backgroundColor": "#b2f2bb", "fillStyle": "solid", "boundElements": [{ "id": "t_foc", "type": "text" }] },
+    { "type": "text", "id": "t_foc", "x": 300, "y": 405, "width": 140, "height": 25, "text": "FOCUSED", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "foc", "originalText": "FOCUSED", "autoResize": true },
+
+    { "type": "rectangle", "id": "deep", "x": 280, "y": 540, "width": 180, "height": 60, "roundness": { "type": 3 }, "backgroundColor": "#d0bfff", "fillStyle": "solid", "boundElements": [{ "id": "t_deep", "type": "text" }] },
+    { "type": "text", "id": "t_deep", "x": 310, "y": 555, "width": 120, "height": 25, "text": "DEEP", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "deep", "originalText": "DEEP", "autoResize": true },
+
+    { "type": "rectangle", "id": "search", "x": 560, "y": 300, "width": 160, "height": 50, "roundness": { "type": 3 }, "backgroundColor": "#ffd8a8", "fillStyle": "solid", "boundElements": [{ "id": "t_search", "type": "text" }] },
+    { "type": "text", "id": "t_search", "x": 590, "y": 312, "width": 100, "height": 25, "text": "SEARCH", "fontSize": 18, "fontFamily": 1, "strokeColor": "#1e1e1e", "textAlign": "center", "verticalAlign": "middle", "containerId": "search", "originalText": "SEARCH", "autoResize": true },
+
+    { "type": "arrow", "id": "a_mz_amb", "x": 370, "y": 150, "width": 0, "height": 90, "points": [[0,0],[0,90]], "endArrowhead": "arrow", "startBinding": { "elementId": "mz", "fixedPoint": [0.5, 1] }, "endBinding": { "elementId": "amb", "fixedPoint": [0.5, 0] } },
+    { "type": "text", "id": "l_mz_amb", "x": 380, "y": 180, "width": 80, "height": 15, "text": "click item", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "containerId": "a_mz_amb", "originalText": "click item", "autoResize": true },
+
+    { "type": "arrow", "id": "a_amb_foc", "x": 370, "y": 300, "width": 0, "height": 90, "points": [[0,0],[0,90]], "endArrowhead": "arrow", "startBinding": { "elementId": "amb", "fixedPoint": [0.5, 1] }, "endBinding": { "elementId": "foc", "fixedPoint": [0.5, 0] } },
+    { "type": "text", "id": "l_amb_foc", "x": 380, "y": 330, "width": 80, "height": 15, "text": "click object", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "containerId": "a_amb_foc", "originalText": "click object", "autoResize": true },
+
+    { "type": "arrow", "id": "a_foc_deep", "x": 370, "y": 450, "width": 0, "height": 90, "points": [[0,0],[0,90]], "endArrowhead": "arrow", "startBinding": { "elementId": "foc", "fixedPoint": [0.5, 1] }, "endBinding": { "elementId": "deep", "fixedPoint": [0.5, 0] } },
+    { "type": "text", "id": "l_foc_deep", "x": 380, "y": 480, "width": 80, "height": 15, "text": "double-click", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "containerId": "a_foc_deep", "originalText": "double-click", "autoResize": true },
+
+    { "type": "arrow", "id": "a_deep_foc", "x": 460, "y": 570, "width": 100, "height": 0, "points": [[0,0],[100,0]], "endArrowhead": "arrow", "startBinding": { "elementId": "deep", "fixedPoint": [1, 0.5] }, "endBinding": null },
+    { "type": "text", "id": "l_deep_foc", "x": 480, "y": 555, "width": 50, "height": 15, "text": "escape", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "containerId": "a_deep_foc", "originalText": "escape", "autoResize": true },
+
+    { "type": "arrow", "id": "a_foc_amb", "x": 460, "y": 420, "width": 100, "height": 0, "points": [[0,0],[100,0]], "endArrowhead": "arrow", "startBinding": { "elementId": "foc", "fixedPoint": [1, 0.5] }, "endBinding": null },
+    { "type": "text", "id": "l_foc_amb", "x": 480, "y": 405, "width": 50, "height": 15, "text": "escape", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "containerId": "a_foc_amb", "originalText": "escape", "autoResize": true },
+
+    { "type": "arrow", "id": "a_amb_mz", "x": 460, "y": 270, "width": 100, "height": 0, "points": [[0,0],[100,0]], "endArrowhead": "arrow", "startBinding": { "elementId": "amb", "fixedPoint": [1, 0.5] }, "endBinding": null },
+    { "type": "text", "id": "l_amb_mz", "x": 480, "y": 255, "width": 60, "height": 15, "text": "new day", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "containerId": "a_amb_mz", "originalText": "new day", "autoResize": true },
+
+    { "type": "arrow", "id": "a_amb_search", "x": 460, "y": 265, "width": 100, "height": 40, "points": [[0,0],[100,40]], "endArrowhead": "arrow", "startBinding": { "elementId": "amb", "fixedPoint": [1, 0.5] }, "endBinding": { "elementId": "search", "fixedPoint": [0, 0.5] } },
+    { "type": "text", "id": "l_amb_search", "x": 480, "y": 280, "width": 50, "height": 15, "text": "type", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "containerId": "a_amb_search", "originalText": "type", "autoResize": true },
+
+    { "type": "arrow", "id": "a_search_foc", "x": 560, "y": 310, "width": 0, "height": 90, "points": [[0,0],[0,90]], "endArrowhead": "arrow", "startBinding": { "elementId": "search", "fixedPoint": [0.5, 1] }, "endBinding": null },
+    { "type": "text", "id": "l_search_foc", "x": 570, "y": 340, "width": 60, "height": 15, "text": "click result", "fontSize": 14, "fontFamily": 1, "strokeColor": "#495057", "containerId": "a_search_foc", "originalText": "click result", "autoResize": true },
+
+    { "type": "text", "id": "legend", "x": 600, "y": 550, "width": 200, "height": 60, "text": "Legend:\n\u25a0 Morning Zero  \u25a0 Ambient\n\u25a0 Focused  \u25a0 Deep  \u25a0 Search", "fontSize": 14, "fontFamily": 1, "strokeColor": "#868e96", "originalText": "Legend:\n\u25a0 Morning Zero  \u25a0 Ambient\n\u25a0 Focused  \u25a0 Deep  \u25a0 Search", "autoResize": true }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}

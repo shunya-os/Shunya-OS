@@ -1,89 +1,81 @@
-{% extends "auth_base.html" %}
-{% block title %}Sign In | Shunya OS{% endblock %}
-{% block content %}
-<div class="w-full max-w-sm mx-auto">
-  <div class="text-center mb-8">
-    <span class="text-4xl block mb-3">🧠</span>
-    <h1 class="text-2xl font-bold text-white">Welcome back</h1>
-    <p class="text-slate-400 text-sm mt-1">Sign in to your Shunya OS account</p>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SHUNYA — Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #fafaf8; --surface: #ffffff; --text: #191b1c;
+      --text-secondary: rgba(25,27,28,0.55); --text-tertiary: rgba(25,27,28,0.35);
+      --text-faint: rgba(25,27,28,0.15); --border: rgba(25,27,28,0.07);
+      --accent-warm: #aa8964; --radius-sm: 10px;
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    html { -webkit-font-smoothing: antialiased; }
+    body {
+      font-family: var(--font); background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; flex-direction: column;
+    }
+    .strip { display: flex; align-items: center; padding: 0 32px; height: 52px; border-bottom: 1px solid var(--border); background: #faf9f8; }
+    .strip-left { display: flex; align-items: center; gap: 8px; }
+    .strip-logo { font-size: 13px; font-weight: 500; color: var(--text); }
+    .strip-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent-warm); }
+    .strip-nav a { font-size: 12px; color: var(--text-tertiary); text-decoration: none; margin-left: 24px; }
+    .strip-nav a:hover { color: var(--text); }
+    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+    .card { width: 100%; max-width: 380px; }
+    h1 { font-size: 22px; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .sub { font-size: 13px; color: var(--text-tertiary); margin-bottom: 28px; line-height: 1.5; }
+    label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 10px 14px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 14px; font-family: var(--font); color: var(--text);
+      outline: none; transition: border-color 200ms;
+    }
+    input:focus { border-color: rgba(25,27,28,0.2); }
+    input::placeholder { color: var(--text-faint); }
+    .field { margin-bottom: 18px; }
+    .error { font-size: 12px; color: #c0392b; display: none; margin-bottom: 14px; }
+    .btn {
+      width: 100%; padding: 10px; background: var(--text); color: var(--surface);
+      border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
+      font-family: var(--font); cursor: pointer; transition: opacity 200ms;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    @media (max-width:768px) { .strip { padding: 0 16px; } }
+  </style>
+</head>
+<body>
+  <div class="strip">
+    <div class="strip-left"><span class="strip-dot"></span><span class="strip-logo">SHUNYA</span></div>
+    <div class="strip-nav"><a href="/">Home</a></div>
   </div>
-
-  <div class="auth-card rounded-2xl p-6 auth-glow">
-    <form id="login-form" onsubmit="loginPassword(event)" class="space-y-4">
-      <div>
-        <label for="login-email" class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
-        <input id="login-email" name="email" type="email" required
-          class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-          placeholder="you@company.com">
-      </div>
-      <div>
-        <label for="login-password" class="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
-        <div class="relative">
-          <input id="login-password" name="password" type="password" required
-            class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 pr-10 transition-all"
-            placeholder="••••••••">
-          <button type="button" class="password-toggle" onclick="togglePasswordVis('login-password', this)" aria-label="Toggle password visibility">
-            <svg class="w-5 h-5 eye-open" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-            <svg class="w-5 h-5 eye-closed" style="display:none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
-          </button>
+  <main>
+    <div class="card">
+      <h1>Welcome back</h1>
+      <p class="sub">Sign in to continue to your workspace.</p>
+      <form method="post" action="/login">
+        <div class="field">
+          <label>Email</label>
+          <input type="email" name="email" required autofocus placeholder="you@example.com">
         </div>
-      </div>
-      <button type="submit" id="login-submit-btn"
-        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center justify-center"
-        aria-label="Sign in to your account">
-        <span class="btn-text">Sign In</span>
-      </button>
-    </form>
-
-    <div class="relative my-5">
-      <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-100"></div></div>
-      <div class="relative flex justify-center text-sm"><span class="px-2 bg-white text-slate-400">or</span></div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" name="password" required minlength="6" placeholder="Your password">
+        </div>
+        {% if error %}
+        <div class="error" style="display:block">{{ error }}</div>
+        {% endif %}
+        <button type="submit" class="btn">Sign in</button>
+      </form>
     </div>
-
-    <button onclick="sendMagicLink()"
-      class="w-full bg-slate-50 hover:bg-slate-100 text-slate-600 text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
-      aria-label="Send magic login link">
-      Send Magic Link
-    </button>
-
-    <p class="text-center text-xs text-slate-400 mt-5">
-      Don't have an account? <a href="/auth/signup" class="text-indigo-600 hover:text-indigo-700 font-medium hover:underline">Sign up</a>
-    </p>
-  </div>
-</div>
-
-<script>
-async function loginPassword(e) {
-  e.preventDefault(); const f = e.target;
-  const btn = document.getElementById('login-submit-btn');
-  const btnText = btn.querySelector('.btn-text');
-  btn.disabled = true;
-  btnText.innerHTML = '<span class="spinner"></span> Signing in...';
-  const r = await fetch('/login/password', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email: f.email.value, password: f.password.value})});
-  const d = await r.json();
-  if (d.success) window.location.href = d.redirect;
-  else { alert(d.error); btn.disabled = false; btnText.innerHTML = 'Sign In'; }
-}
-async function sendMagicLink() {
-  const email = prompt('Enter your email:');
-  if (!email) return;
-  const r = await fetch('/auth/login/magic-link', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email})});
-  const d = await r.json();
-  alert(d.message || d.error);
-}
-function togglePasswordVis(inputId, btn) {
-  const input = document.getElementById(inputId);
-  const openEye = btn.querySelector('.eye-open');
-  const closedEye = btn.querySelector('.eye-closed');
-  if (input.type === 'password') {
-    input.type = 'text';
-    openEye.style.display = 'none';
-    closedEye.style.display = 'block';
-  } else {
-    input.type = 'password';
-    openEye.style.display = 'block';
-    closedEye.style.display = 'none';
-  }
-}
-</script>
-{% endblock %}
+  </main>
+</body>
+</html>

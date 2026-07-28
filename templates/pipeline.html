@@ -1,0 +1,124 @@
+{% extends "base_universal.html" %}
+{% block page_icon %}📋{% endblock %}
+{% block page_title %}Pipeline{% endblock %}
+{% block title %}{{ brand or 'Shunya OS' }} — Pipeline{% endblock %}
+
+{% block content %}
+<!-- Pipeline Header -->
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h2 class="text-lg font-bold">Deal Pipeline</h2>
+    <p class="text-sm text-surface-400">{{ leads|length }} active deals · {{ pipeline_total.value if pipeline_total else '0' }} total value</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="/leads/new" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium transition-all">+ New Deal</a>
+  </div>
+</div>
+
+<!-- Kanban Board - Horizontal scroll on mobile, columns on desktop -->
+<div class="overflow-x-auto -mx-4 md:-mx-6 px-4 md:px-6 pb-4">
+  <div class="flex gap-4 min-w-[900px] lg:min-w-0 lg:grid lg:grid-cols-5">
+    
+    {% set stages = [
+      ('new', 'New', '📥', 'border-t-amber-500', 'bg-amber-500/10'),
+      ('proposal', 'Proposal', '📄', 'border-t-blue-500', 'bg-blue-500/10'),
+      ('negotiation', 'Negotiation', '🤝', 'border-t-violet-500', 'bg-violet-500/10'),
+      ('booked', 'Booked', '🎉', 'border-t-emerald-500', 'bg-emerald-500/10'),
+      ('completed', 'Completed', '✅', 'border-t-slate-500', 'bg-slate-500/10'),
+    ] %}
+
+    {% for key, label, icon, border, bg in stages %}
+    <div class="flex-1 min-w-[200px]">
+      <!-- Column header -->
+      <div class="flex items-center justify-between mb-3 px-1">
+        <div class="flex items-center gap-2">
+          <span>{{ icon }}</span>
+          <span class="text-sm font-semibold">{{ label }}</span>
+          <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full {{ bg }}">{{ pipeline_counts.get(key, 0) }}</span>
+        </div>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="kanban-col min-h-[60vh] rounded-xl border border-dashed border-white/5 bg-white/[0.02] p-2 space-y-2"
+           data-stage="{{ key }}"
+           ondrop="handleDrop(event, '{{ key }}')"
+           ondragover="handleDragOver(event)">
+        
+        {% for lead in leads if lead.status == key %}
+        <div class="kanban-card glass rounded-xl p-4 border-t-2 {{ border }} cursor-grab active:cursor-grabbing"
+             draggable="true"
+             data-lead-id="{{ lead.id }}"
+             data-stage="{{ lead.status }}"
+             ondragstart="handleDragStart(event)"
+             onclick="window.location.href='{{ url_for('main.lead_detail', lead_id=lead.id) }}'"
+             title="Click to open · Drag to move">
+          
+          <div class="flex items-start justify-between mb-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <div class="w-7 h-7 rounded-lg bg-surface-800 flex items-center justify-center text-[10px] font-bold text-surface-400 shrink-0">
+                {{ lead.customer_name[:2] if lead.customer_name else '?' }}
+              </div>
+              <div class="min-w-0">
+                <div class="text-sm font-medium truncate">{{ lead.customer_name or 'Unnamed' }}</div>
+                <div class="text-[10px] text-surface-500 truncate">{{ lead.destination or '—' }}</div>
+              </div>
+            </div>
+            {% if lead.assigned_to %}
+            <span class="text-[10px] text-surface-500 shrink-0" title="Assigned to {{ lead.assigned_to }}">👤</span>
+            {% endif %}
+          </div>
+
+          {% if lead.budget %}
+          <div class="text-xs font-semibold text-surface-300 mb-2">₹{{ '{:,.0f}'.format(lead.budget) }}</div>
+          {% endif %}
+
+          <div class="flex items-center gap-2 text-[10px] text-surface-500">
+            <span>📅 {{ lead.created_at.strftime('%d %b') if lead.created_at else '—' }}</span>
+            {% if lead.source %}
+            <span class="px-1.5 py-0.5 rounded-full bg-surface-800">{{ lead.source }}</span>
+            {% endif %}
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-surface-600 text-xs">Drop deals here</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+function handleDragStart(e) {
+  e.dataTransfer.setData('text/plain', e.currentTarget.dataset.leadId);
+  e.currentTarget.classList.add('opacity-40');
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('bg-white/5');
+}
+
+function handleDrop(e, newStage) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('bg-white/5');
+  const leadId = e.dataTransfer.getData('text/plain');
+  if (!leadId) return;
+
+  // Send status update via API
+  fetch(`/api/leads/${leadId}/status`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status: newStage})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      // Reload to reflect changes
+      window.location.reload();
+    }
+  })
+  .catch(() => window.location.reload());
+}
+</script>
+{% endblock %}

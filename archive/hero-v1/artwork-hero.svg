@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 520" fill="none" style="position:absolute;inset:0;width:100%;height:100%">
+  <defs>
+    <!-- Ambient light — soft, barely there -->
+    <radialGradient id="ambient" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#faf5ed" stop-opacity="0.5"/>
+      <stop offset="40%" stop-color="#f5efe6" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#f3ebe2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="warmth" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#d4c0a8" stop-opacity="0.1"/>
+      <stop offset="50%" stop-color="#a4865f" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="toplight" cx="50%" cy="15%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="65%">
+      <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.05"/>
+    </radialGradient>
+
+    <!-- Silk gradients — warm gold -->
+    <linearGradient id="silk-a" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#d4bc94" stop-opacity="0.25"/>
+      <stop offset="40%" stop-color="#c4a87a" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="silk-b" x1="1" y1="0.2" x2="0.2" y2="1">
+      <stop offset="0%" stop-color="#d4b888" stop-opacity="0.2"/>
+      <stop offset="50%" stop-color="#c4a470" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0.02"/>
+    </linearGradient>
+    <linearGradient id="silk-c" x1="0.2" y1="1" x2="0.8" y2="0">
+      <stop offset="0%" stop-color="#b89868" stop-opacity="0.12"/>
+      <stop offset="50%" stop-color="#d4c0a8" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0.01"/>
+    </linearGradient>
+
+    <!-- Halo gradients -->
+    <linearGradient id="halo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a4865f" stop-opacity="0.1"/>
+      <stop offset="50%" stop-color="#c4a87a" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#a4865f" stop-opacity="0.01"/>
+    </linearGradient>
+
+    <filter id="blur-silk"><feGaussianBlur stdDeviation="2.5"/></filter>
+    <filter id="blur-glow"><feGaussianBlur stdDeviation="10"/></filter>
+    <filter id="blur-bloom"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+
+  <!-- Base surface -->
+  <rect width="520" height="520" fill="#f3ebe2" rx="24"/>
+
+  <!-- ====================================================================
+       Light System — physically believable, indirect illumination
+       ==================================================================== -->
+  <g id="light-system">
+    <rect width="520" height="520" fill="url(#ambient)"/>
+    <rect width="520" height="520" fill="url(#warmth)"/>
+    <rect width="520" height="520" fill="url(#toplight)"/>
+    <rect width="520" height="520" fill="url(#vignette)"/>
+  </g>
+
+  <!-- Deep bloom behind identity -->
+  <ellipse cx="260" cy="248" rx="120" ry="85" fill="#f5efe6" opacity="0.15" filter="url(#blur-bloom)"/>
+  <ellipse cx="260" cy="248" rx="55" ry="38" fill="#a4865f" opacity="0.03" filter="url(#blur-glow)"/>
+
+  <!-- ====================================================================
+       Halo System — 3 partial arcs, barely perceptible
+       ==================================================================== -->
+  <g id="halo-system">
+    <!-- Outer arc — 3/4 circle, very slow -->
+    <path d="M 260 45 A 215 215 0 0 1 470 180 A 215 215 0 0 1 475 290" 
+          fill="none" stroke="url(#halo)" stroke-width="0.6" opacity="0.15" stroke-linecap="round">
+      <animateTransform attributeName="transform" type="rotate" from="0 260 260" to="360 260 260" dur="80s" repeatCount="indefinite"/>
+    </path>
+    <!-- Mid arc — dashed, counter-rotating -->
+    <path d="M 100 240 A 160 160 0 0 1 420 240" 
+          fill="none" stroke="#a4865f" stroke-width="0.4" opacity="0.08" stroke-dasharray="6 14" stroke-linecap="round">
+      <animateTransform attributeName="transform" type="rotate" from="360 260 260" to="0 260 260" dur="60s" repeatCount="indefinite"/>
+    </path>
+    <!-- Inner whisper arc -->
+    <path d="M 150 190 A 110 110 0 0 1 370 190" 
+          fill="none" stroke="#d4c0a8" stroke-width="0.3" opacity="0.05" stroke-dasharray="3 10" stroke-linecap="round">
+      <animateTransform attributeName="transform" type="rotate" from="0 260 260" to="360 260 260" dur="45s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- ====================================================================
+       Silk Ribbon System — 3 graceful curves, handcrafted
+       ==================================================================== -->
+  <g id="ribbon-system">
+    <!-- Deep background ribbon — soft blur, wide -->
+    <path d="M 20 430 C 90 340, 160 200, 260 170 C 360 140, 440 175, 490 240"
+          stroke="url(#silk-a)" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.25" filter="url(#blur-silk)">
+      <animate attributeName="d"
+        values="M 20 430 C 90 340, 160 200, 260 170 C 360 140, 440 175, 490 240;
+                M 20 430 C 95 335, 165 195, 260 162 C 365 132, 445 170, 490 240;
+                M 20 430 C 90 340, 160 200, 260 170 C 360 140, 440 175, 490 240"
+        dur="20s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1"/>
+    </path>
+
+    <!-- Primary ribbon — main sweep, graceful -->
+    <path d="M 40 395 C 110 310, 180 185, 270 160 C 360 135, 435 165, 480 225"
+          stroke="url(#silk-a)" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.3">
+      <animate attributeName="d"
+        values="M 40 395 C 110 310, 180 185, 270 160 C 360 135, 435 165, 480 225;
+                M 40 395 C 115 305, 185 180, 270 152 C 365 126, 440 160, 480 225;
+                M 40 395 C 110 310, 180 185, 270 160 C 360 135, 435 165, 480 225"
+        dur="18s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1"/>
+    </path>
+
+    <!-- Accent ribbon — counter-sweep from bottom -->
+    <path d="M 25 365 C 80 290, 150 220, 240 195 C 330 170, 420 190, 470 250"
+          stroke="url(#silk-b)" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.2">
+      <animate attributeName="d"
+        values="M 25 365 C 80 290, 150 220, 240 195 C 330 170, 420 190, 470 250;
+                M 25 365 C 85 285, 155 215, 240 188 C 335 160, 425 185, 470 250;
+                M 25 365 C 80 290, 150 220, 240 195 C 330 170, 420 190, 470 250"
+        dur="22s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1"/>
+    </path>
+  </g>
+
+  <!-- ====================================================================
+       शून्य — calm center of intelligence
+       ==================================================================== -->
+  <g id="shunya-identity">
+    <text x="260" y="248" text-anchor="middle" dominant-baseline="central"
+          font-family="'Noto Sans Devanagari','Nirmala UI','Sanskrit Text','Mukta',serif"
+          font-size="40" font-weight="500" fill="#1a1c1d" opacity="0.8" letter-spacing="0.06em">
+      शून्य
+      <animate attributeName="opacity" values="0.78;0.84;0.78" dur="8s" repeatCount="indefinite"/>
+    </text>
+  </g>
+
+  <!-- ====================================================================
+       Infinite Tagline
+       ==================================================================== -->
+  <g id="infinite-tagline">
+    <text x="260" y="288" text-anchor="middle" dominant-baseline="central"
+          font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+          font-size="9.5" font-weight="400" fill="#1a1c1d" opacity="0.35" letter-spacing="0.25em">
+      INFINITE INTELLIGENCE.
+    </text>
+    <text x="260" y="303" text-anchor="middle" dominant-baseline="central"
+          font-family="'Inter','Helvetica Neue',Arial,sans-serif"
+          font-size="9.5" font-weight="400" fill="#1a1c1d" opacity="0.28" letter-spacing="0.25em">
+      ZERO NOISE.
+    </text>
+  </g>
+
+  <!-- ====================================================================
+       Scatter — 3 subtle light particles
+       ==================================================================== -->
+  <g id="scatter-particles" filter="url(#blur-glow)">
+    <circle cx="190" cy="330" r="18" fill="#d4c0a8" opacity="0.03">
+      <animate attributeName="opacity" values="0.02;0.05;0.02" dur="10s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="330" cy="190" r="15" fill="#a4865f" opacity="0.02">
+      <animate attributeName="opacity" values="0.01;0.04;0.01" dur="12s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="350" cy="340" r="12" fill="#ffffff" opacity="0.03">
+      <animate attributeName="opacity" values="0.02;0.05;0.02" dur="9s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+</svg>

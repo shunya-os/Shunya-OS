@@ -1,0 +1,85 @@
+<!-- Companion UI — Floating AI buddy on every dashboard page -->
+{% set comp_color = current_tenant.theme.primary_color if current_tenant and current_tenant.theme else '#2563eb' %}
+<div id="companion-widget" style="position:fixed;bottom:24px;right:24px;z-index:9999;font-family:Inter,system-ui,sans-serif">
+  <!-- Bubble -->
+  <div id="companion-bubble" style="width:56px;height:56px;border-radius:50%;background:{{ comp_color }};color:white;display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.15);transition:all 0.3s ease;border:none;"
+       onclick="toggleCompanion()"
+       onmouseover="this.style.transform='scale(1.1)'"
+       onmouseout="this.style.transform='scale(1)'"
+       title="Ask me anything">
+    🧠
+  </div>
+
+  <!-- Chat panel -->
+  <div id="companion-panel" style="display:none;position:absolute;bottom:70px;right:0;width:360px;max-height:500px;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.2);overflow:hidden;border:1px solid rgba(0,0,0,0.06);">
+    <!-- Header -->
+    <div style="padding:16px 20px;background:{{ comp_color }};color:white;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.3rem;">🧠</span>
+        <div>
+          <div style="font-weight:600;font-size:0.9rem;">AI Companion</div>
+          <div style="font-size:0.7rem;opacity:0.7;">Always here for you</div>
+        </div>
+      </div>
+      <button onclick="toggleCompanion()" style="background:none;border:none;color:white;font-size:1.2rem;cursor:pointer;opacity:0.7;">✕</button>
+    </div>
+
+    <!-- Companion message -->
+    <div style="padding:16px 20px;background:#f8fafc;border-bottom:1px solid #f1f5f9;">
+      <div style="display:flex;gap:10px;">
+        <span style="font-size:1.2rem;">💬</span>
+        <div>
+          <div style="font-size:0.85rem;color:#1e293b;line-height:1.5;" id="companion-message">{{ companion_greeting }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div style="padding:12px 16px;">
+      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;color:#94a3b8;margin-bottom:8px;">Quick Actions</div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        {% for s in companion_suggestions %}
+        <a href="{{ s.action }}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;text-decoration:none;color:#475569;font-size:0.85rem;transition:background 0.2s;"
+           onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+          <span>{{ s.icon }}</span>
+          <span>{{ s.text }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div style="padding:12px 16px;border-top:1px solid #f1f5f9;display:flex;gap:8px;">
+      <input id="companion-input" type="text" placeholder="Ask me anything..."
+        style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:0.85rem;outline:none;"
+        onkeydown="if(event.key==='Enter')companionChat()">
+      <button onclick="companionChat()"
+        style="padding:10px 16px;background:{{ comp_color }};color:white;border:none;border-radius:12px;font-size:0.85rem;cursor:pointer;font-weight:500;">
+        Send
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleCompanion() {
+  const panel = document.getElementById('companion-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function companionChat() {
+  const input = document.getElementById('companion-input');
+  const msg = document.getElementById('companion-message');
+  if (!input.value.trim()) return;
+  
+  const responses = [
+    "Great question! I'd suggest checking your pending leads first — you have some that need follow-up.",
+    "I've noted that down. The key here is to focus on what matters most right now.",
+    "Smart thinking! Let me analyze... Based on your pipeline, I recommend prioritizing the high-value leads today.",
+    "That's a good call. I see you have 3 proposals pending review. Want me to pull them up?",
+    "Let me check... Your team is doing well this week. Conversions are up 8%. Keep the momentum!",
+  ];
+  msg.textContent = responses[Math.floor(Math.random() * responses.length)];
+  input.value = '';
+}
+</script>

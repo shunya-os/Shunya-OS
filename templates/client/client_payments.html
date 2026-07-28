@@ -1,0 +1,128 @@
+{% extends "client/client_base.html" %}
+{% block title %}Payments — SHUNYA OS Client Portal{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Payments</h1>
+      <p class="text-gray-500 mt-1">View your payment history or make a new payment</p>
+    </div>
+    <a href="{{ url_for('client.client_dashboard') }}"
+      class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors">
+      ← Back to Dashboard
+    </a>
+  </div>
+
+  {% if lead %}
+  <!-- Total Paid Summary -->
+  <div class="bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl border border-emerald-200 p-6 mb-6">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm font-medium text-emerald-600 uppercase tracking-wider">Total Payments Made</p>
+        <p class="text-3xl font-bold text-emerald-700 mt-1">₹{{ "{:,.2f}".format(total_paid) }}</p>
+      </div>
+      <div class="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center">
+        <span class="text-3xl">💰</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Make Payment -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+    <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-4">Make a Payment</h2>
+    <form method="post" class="space-y-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="amount" class="block text-sm font-medium text-gray-700 mb-1.5">Amount (₹)</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+              <span class="text-gray-400 font-medium">₹</span>
+            </div>
+            <input type="number" id="amount" name="amount" step="0.01" min="1" required
+              class="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+              placeholder="0.00">
+          </div>
+        </div>
+        <div>
+          <label for="method" class="block text-sm font-medium text-gray-700 mb-1.5">Payment Method</label>
+          <select id="method" name="method"
+            class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all bg-white">
+            <option value="bank_transfer">Bank Transfer</option>
+            <option value="upi">UPI</option>
+            <option value="credit_card">Credit Card</option>
+            <option value="debit_card">Debit Card</option>
+            <option value="cash">Cash</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label for="notes" class="block text-sm font-medium text-gray-700 mb-1.5">Notes (optional)</label>
+        <input type="text" id="notes" name="notes"
+          class="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+          placeholder="Payment reference or note">
+      </div>
+      <div class="text-xs text-gray-400 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+        💡 This is a simulated payment. No actual money is transferred. The record helps your travel team track your account.
+      </div>
+      <button type="submit"
+        class="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all shadow-md hover:shadow-lg">
+        Record Payment
+      </button>
+    </form>
+  </div>
+
+  <!-- Payment History -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400">Payment History</h2>
+    </div>
+    {% if payments %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <th class="px-6 py-3.5 text-left">Date</th>
+            <th class="px-6 py-3.5 text-left">Method</th>
+            <th class="px-6 py-3.5 text-left">Amount</th>
+            <th class="px-6 py-3.5 text-left">Reference</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for p in payments %}
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-4 text-gray-600 text-xs">{{ p.paid_at.strftime('%d %b %Y') }}</td>
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700">
+                {{ p.method|replace('_', ' ')|title or 'N/A' }}
+              </span>
+            </td>
+            <td class="px-6 py-4 font-semibold text-emerald-600">₹{{ "{:,.2f}".format(p.amount) }}</td>
+            <td class="px-6 py-4 text-gray-400 text-xs">{{ p.notes or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-6 py-12 text-center text-gray-400">
+      <p class="text-lg mb-1">No payments recorded yet</p>
+      <p class="text-sm">Use the form above to record your first payment</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {% else %}
+  <!-- No lead linked -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+    <div class="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+      <span class="text-4xl">💰</span>
+    </div>
+    <h2 class="text-xl font-bold text-gray-900 mb-2">No Active Trip</h2>
+    <p class="text-gray-500 max-w-md mx-auto">
+      Your account hasn't been linked to a trip yet. Please contact your travel team for assistance.
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base_shunya.html" %}
+
+{% block title %}SHUNYA — Morning Zero{% endblock %}
+
+{% block breadcrumb %}
+<span>Home</span>
+<span class="sep">&#8250;</span>
+<span>Morning Zero</span>
+{% endblock %}
+
+{% block strip_right %}
+{{ super() }}
+{% endblock %}
+
+{% block center %}
+<div class="morning-zero">
+  <div class="greeting" id="greeting">Good morning.</div>
+  <div class="subtitle" id="subtitle">
+    I've been watching {{ org_name|default('your organization') }}.
+    Here's what I've found.
+  </div>
+
+  <!-- SHUNYA's proactive brief -->
+  <div class="mz-section" style="margin-bottom: 24px;">
+    <div class="mz-section-title">What SHUNYA sees</div>
+    <div class="mz-quiet" style="font-style: normal; font-size: 13px; line-height: 1.6; padding: 0 0 12px; color: var(--text-secondary, rgba(25,27,28,0.55));">
+      Your organization has <strong style="color: var(--text, #1a1c1d); font-weight: 500;">24 active objects</strong> across
+      <strong style="color: var(--text, #1a1c1d); font-weight: 500;">3 spaces</strong>.
+      I've been observing for 3 days and I've identified patterns worth surfacing.
+      I'll never ask you to do manually what I can do for you.
+    </div>
+  </div>
+
+  <!-- Requires attention -->
+  <div class="mz-section">
+    <div class="mz-section-title">Requires your attention</div>
+    <div class="mz-item" onclick="window.location.href='/workspace/object/jupiter-media'" style="cursor: pointer;">
+      <span class="mz-dot info"></span>
+      <div class="mz-body">
+        <div class="mz-title">Jupiter Media Partnership — Q3 deliverables due</div>
+        <div class="mz-meta">Content distribution launched in 2 of 3 regions. Quarterly review should be scheduled by 15 Oct. <span style="color: var(--shunya-gold, #a4865f);">View object →</span></div>
+      </div>
+    </div>
+    <div class="mz-item" onclick="window.location.href='/workspace/object/northgate-mfg'" style="cursor: pointer;">
+      <span class="mz-dot attention"></span>
+      <div class="mz-body">
+        <div class="mz-title">Northgate Manufacturing — cash flow alert</div>
+        <div class="mz-meta">Covenant breach risk in 45 days at current burn rate. Root cause identified: aerospace contract delay. <span style="color: var(--shunya-gold, #a4865f);">View object →</span></div>
+      </div>
+    </div>
+    <div class="mz-item">
+      <span class="mz-dot attention"></span>
+      <div class="mz-body">
+        <div class="mz-title">Q3 Budget approval pending</div>
+        <div class="mz-meta">Engineering budget allocation awaiting your sign-off. 2 days remaining before the deadline.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent decisions -->
+  <div class="mz-section">
+    <div class="mz-section-title">Recent decisions</div>
+    <div class="mz-item">
+      <span class="mz-dot info"></span>
+      <div class="mz-body">
+        <div class="mz-title">Jupiter Media agreement signed</div>
+        <div class="mz-meta">14 Jul 2026 &middot; Legal &middot; Revenue share: 60/40</div>
+      </div>
+    </div>
+    <div class="mz-item">
+      <span class="mz-dot opportunity"></span>
+      <div class="mz-body">
+        <div class="mz-title">Portfolio revenue trending +12% QoQ</div>
+        <div class="mz-meta">Driven by Jupiter Media, Atlas Logistics, Pine Street Partners</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- What SHUNYA can do (progressive capability reveal) -->
+  <div class="mz-section">
+    <div class="mz-section-title">What I can do for you</div>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 12px;">
+      <div class="link-chip" onclick="window.location.href='/workspace/converse?q=What needs my attention today'" style="cursor: pointer;">
+        <span class="link-type">Ask</span>
+        <span>What needs attention</span>
+      </div>
+      <div class="link-chip" onclick="window.location.href='/workspace/converse?q=How is revenue trending'" style="cursor: pointer;">
+        <span class="link-type">Ask</span>
+        <span>How is revenue trending</span>
+      </div>
+      <div class="link-chip" onclick="window.location.href='/workspace/converse?q=What risks should I know about'" style="cursor: pointer;">
+        <span class="link-type">Ask</span>
+        <span>What risks should I know about</span>
+      </div>
+      <div class="link-chip" onclick="window.location.href='/workspace/converse?q=Tell me about my team'" style="cursor: pointer;">
+        <span class="link-type">Ask</span>
+        <span>Tell me about my team</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Executive dashboard link -->
+  <div class="mz-section" style="border-top: 1px solid var(--border, rgba(26,28,29,0.07)); padding-top: 16px;">
+    <div class="mz-section-title">Go deeper</div>
+    <div class="mz-item" onclick="window.location.href='/workspace/executive'" style="cursor: pointer;">
+      <span class="mz-dot opportunity"></span>
+      <div class="mz-body">
+        <div class="mz-title">Executive Dashboard</div>
+        <div class="mz-meta">Full overview of your organization's health, metrics, and intelligence. <span style="color: var(--shunya-gold, #a4865f);">Open dashboard →</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conversation input -->
+  <div class="conv-input-row" style="margin-top: 24px; padding: 0;">
+    <input type="text" placeholder="Ask SHUNYA anything..." id="mz-input">
+    <button onclick="handleMZInput()">Ask</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // ─── Greeting based on time of day ───
+  (function() {
+    var hour = new Date().getHours();
+    var greeting = document.getElementById('greeting');
+    var subtitle = document.getElementById('subtitle');
+    if (hour < 12) {
+      greeting.textContent = 'Good morning.';
+    } else if (hour < 17) {
+      greeting.textContent = 'Good afternoon.';
+    } else {
+      greeting.textContent = 'Good evening.';
+    }
+  })();
+
+  // ─── Morning Zero input handler ───
+  function handleMZInput() {
+    var input = document.getElementById('mz-input');
+    var val = input.value.trim();
+    if (!val) return;
+    input.value = '';
+    window.location.href = '/workspace/converse?q=' + encodeURIComponent(val);
+  }
+
+  document.getElementById('mz-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') handleMZInput();
+  });
+</script>
+{% endblock %}

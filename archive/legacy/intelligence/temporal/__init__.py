@@ -1,0 +1,1 @@
+"""SHUNYA Temporal Engine — Immutable snapshots, trajectory, trend detection, and forecasting."""

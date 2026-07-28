@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SHUNYA — {% block ws_title %}Workspace{% endblock %}</title>
+  <meta name="description" content="SHUNYA — An operating system for human organizations">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/workspace.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23a4865f'/></svg>">
+  {% block ws_head %}{% endblock %}
+</head>
+<body>
+<div class="ws-app" id="app">
+
+  <!-- ─── Top Bar ─── -->
+  <header class="ws-topbar">
+    <div class="ws-topbar-l">
+      <button class="ws-btn ws-btn-icon ws-btn-ghost" id="ws-rail-toggle" aria-label="Toggle rail" onclick="WS.toggleRail()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <div class="ws-brand">
+        <span class="ws-brand-dot"></span>
+        <span>SHUNYA</span>
+      </div>
+      <div class="ws-shunya-input" style="margin-left: 16px; flex: 1; max-width: 400px; position: relative;">
+        <input type="text" id="ws-command" class="ws-shunya-input" placeholder="Ask SHUNYA or search..." style="width: 100%;">
+        <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--ws-text-faint);">⌘K</span>
+      </div>
+    </div>
+    <div class="ws-topbar-r">
+      {% if current_user %}
+      <span class="ws-tiny" style="margin-right: 4px;">{{ current_user.name }}</span>
+      <div class="ws-avatar" id="ws-avatar" onclick="WS.toggleUserMenu()" style="width: 28px; height: 28px; border-radius: 50%; background: var(--ws-gold); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 600; cursor: pointer;">
+        {{ current_user.name[:1]|upper }}
+      </div>
+      {% endif %}
+    </div>
+  </header>
+
+  <!-- ─── Main Body ─── -->
+  <div class="ws-body">
+
+    <!-- Left Rail Overlay (mobile) -->
+    <div class="ws-rail-overlay" id="ws-rail-overlay" onclick="WS.toggleRail()"></div>
+
+    <!-- ─── Left Rail ─── -->
+    <nav class="ws-rail" id="ws-rail">
+      <div class="ws-rail-header">
+        <div class="ws-rail-search">
+          <span class="ws-search-icon">⌕</span>
+          <input type="text" id="ws-rail-search-input" placeholder="Search objects..." oninput="WS.search(this.value)">
+        </div>
+      </div>
+      <div class="ws-rail-items" id="ws-rail-items">
+        <div class="ws-rail-section">Context</div>
+        <button class="ws-rail-item active" data-view="overview" onclick="WS.navigate('overview')">
+          <span class="ws-rail-dot" style="background: var(--ws-gold);"></span>
+          Overview
+        </button>
+        <button class="ws-rail-item" data-view="recent" onclick="WS.navigate('recent')">
+          <span class="ws-rail-dot" style="background: var(--ws-info);"></span>
+          Recent Activity
+        </button>
+        <div class="ws-rail-section" style="margin-top: 8px;">Objects</div>
+        <div id="ws-object-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </nav>
+
+    <!-- ─── Main Workspace ─── -->
+    <main class="ws-main" id="ws-main">
+      <div class="ws-main-header" id="ws-main-header">
+        <div class="ws-main-breadcrumb" id="ws-breadcrumb">
+          <span>SHUNYA</span>
+          <span class="sep">/</span>
+          <span id="ws-current-view">Overview</span>
+        </div>
+        <div class="ws-h1" id="ws-main-title">Welcome</div>
+      </div>
+      <div class="ws-main-content" id="ws-main-content">
+        <!-- Dynamic content rendered by WS.render() -->
+        <div class="ws-loading" id="ws-loading">
+          <div class="ws-loading-spinner"></div>
+          <span class="ws-small">Loading...</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Context Panel Overlay (mobile) -->
+    <div class="ws-context-overlay" id="ws-context-overlay" onclick="WS.toggleContext()"></div>
+
+    <!-- ─── Context Panel (Right) ─── -->
+    <aside class="ws-context" id="ws-context">
+      <div class="ws-context-header">
+        <span class="ws-context-title">Context</span>
+        <button class="ws-btn ws-btn-icon ws-btn-ghost ws-btn-sm" onclick="WS.toggleContext()" aria-label="Close context">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="ws-context-body" id="ws-context-body">
+        <!-- Populated by WS.renderContext() -->
+      </div>
+    </aside>
+  </div>
+
+  <!-- ─── Bottom Status Bar ─── -->
+  <footer class="ws-statusbar">
+    <div class="ws-statusbar-l">
+      <div class="ws-shunya">
+        <span class="ws-shunya-dot"></span>
+        <span>SHUNYA</span>
+        <span class="ws-tiny" id="ws-status-text">Listening</span>
+      </div>
+    </div>
+    <div class="ws-statusbar-r">
+      <span class="ws-tiny" id="ws-health-text">All nominal</span>
+      <span class="ws-status-dot good" id="ws-health-dot"></span>
+    </div>
+  </footer>
+</div>
+
+<script src="{{ url_for('static', filename='js/workspace.js') }}"></script>
+<script>
+  // Boot the workspace
+  document.addEventListener('DOMContentLoaded', function() {
+    WS.init({
+      userName: '{{ current_user.name if current_user else "Founder" }}',
+      userId: '{{ current_user.id if current_user else 0 }}',
+      spaceApiUrl: '/api/v1/space',
+    });
+  });
+</script>
+</body>
+</html>

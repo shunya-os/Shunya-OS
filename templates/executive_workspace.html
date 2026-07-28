@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SHUNYA Executive Workspace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+          colors: {
+            surface: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1', 400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155', 800: '#1e293b', 900: '#0f172a' },
+            health: { good: '#22c55e', caution: '#eab308', atrisk: '#f97316', critical: '#ef4444' },
+            accent: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' },
+          }
+        }
+      }
+    }
+  </script>
+  {% raw %}
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;background:#f8fafc;color:#0f172a}
+    :focus-visible{outline:2px solid #3b82f6;outline-offset:2px;border-radius:4px}
+    ::selection{background:#dbeafe;color:#1d4ed8}
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+    #workspace{display:grid;grid-template-columns:280px 1fr 320px;height:100vh;transition:grid-template-columns 0.3s}
+    @media(max-width:1200px){#workspace{grid-template-columns:240px 1fr 280px}}
+    @media(max-width:900px){#workspace{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}}
+    @media(max-width:768px){.right-panel,.left-panel{display:none}}
+    .panel{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid #e2e8f0}
+    .left-panel{background:#fff}
+    .center-panel{background:#f8fafc;overflow:hidden}
+    .right-panel{background:#fff;border-right:none;border-left:1px solid #e2e8f0}
+    .awareness-bar{display:flex;align-items:center;gap:16px;padding:8px 20px;background:#fff;border-bottom:1px solid #e2e8f0;font-size:13px;flex-shrink:0}
+    .awareness-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+    .object-workspace{flex:1;overflow-y:auto;padding:0}
+    .object-tabs{display:flex;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0;padding:0 20px}
+    .object-tab{padding:12px 16px;font-size:13px;font-weight:500;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap}
+    .object-tab:hover{color:#334155;background:#f8fafc}
+    .object-tab.active{color:#2563eb;border-bottom-color:#2563eb}
+    .tab-content{display:none;padding:20px;overflow-y:auto;flex:1}
+    .tab-content.active{display:block}
+    .search-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.4);z-index:100;display:none;align-items:flex-start;justify-content:center;padding-top:80px;backdrop-filter:blur(2px)}
+    .search-overlay.open{display:flex}
+    .search-modal{width:640px;max-width:90vw;background:#fff;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,0.25);overflow:hidden;max-height:70vh;display:flex;flex-direction:column}
+    .search-input-wrap{padding:16px 20px;border-bottom:1px solid #e2e8f0}
+    .search-input{width:100%;border:none;outline:none;font-size:16px;font-family:inherit;color:#0f172a;background:transparent}
+    .search-input::placeholder{color:#94a3b8}
+    .search-results{overflow-y:auto;padding:8px 0;flex:1}
+    .search-result{display:flex;align-items:center;gap:12px;padding:10px 20px;cursor:pointer;transition:background 0.1s}
+    .search-result:hover,.search-result.highlighted{background:#f1f5f9}
+    .search-result .type-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .health-bar{display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;background:#e2e8f0}
+    .health-bar .segment{flex:1;transition:background 0.3s}
+    .msg{border-radius:12px;padding:10px 14px;font-size:14px;line-height:1.5;max-width:85%;margin-bottom:8px}
+    .msg.human{background:#eff6ff;color:#1e40af;align-self:flex-end;border-bottom-right-radius:4px}
+    .msg.shunya{background:#fff;color:#334155;border:1px solid #e2e8f0;align-self:flex-start;border-bottom-left-radius:4px}
+    .object-header{display:flex;align-items:center;gap:12px;padding:16px 20px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0}
+    .object-status{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:0.5px}
+    .intel-card{border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px;transition:box-shadow 0.15s}
+    .intel-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+    .intel-card .label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+    .intel-card .value{font-size:14px;font-weight:500;color:#0f172a}
+    .intel-card .evidence{font-size:11px;color:#94a3b8;margin-top:4px}
+    .conv-input-wrap{display:flex;gap:8px;padding:12px 20px;border-top:1px solid #e2e8f0;background:#fff;flex-shrink:0}
+    .conv-input{flex:1;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:13px;outline:none;font-family:inherit;transition:border-color 0.15s}
+    .conv-input:focus{border-color:#3b82f6}
+    .conv-msgs{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column}
+    .cmd-palette{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.12);font-size:13px;color:#94a3b8;z-index:50;display:flex;align-items:center;gap:8px;cursor:pointer;transition:all 0.15s}
+    .cmd-palette:hover{box-shadow:0 6px 24px rgba(0,0,0,0.16);color:#475569}
+    .cmd-palette kbd{font-family:inherit;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:2px 6px;font-size:11px;color:#64748b}
+    .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:#94a3b8;font-size:14px;gap:8px}
+    .empty-state .icon{font-size:32px;opacity:0.5}
+    .attention-badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:4px}
+    .exec-mode-btn{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:500;border:1px solid #e2e8f0;background:#fff;color:#475569;cursor:pointer;transition:all 0.15s}
+    .exec-mode-btn:hover,.exec-mode-btn.active{border-color:#3b82f6;color:#2563eb;background:#eff6ff}
+    .object-list{display:flex;flex-direction:column;gap:4px;padding:8px 12px}
+    .object-list-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;color:#475569;transition:all 0.1s}
+    .object-list-item:hover{background:#f1f5f9;color:#0f172a}
+    .object-list-item.active{background:#eff6ff;color:#2563eb;font-weight:500}
+    .graph-section{padding:8px 12px}
+    .graph-section-title{font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;padding:8px 10px 4px}
+    .reasoning-chain{padding:12px 0}
+    .reasoning-step{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;color:#64748b}
+    .reasoning-step .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+    .reasoning-step .arrow{color:#cbd5e1;font-size:10px;flex-shrink:0}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .fade-in{animation:fadeIn 0.2s ease-out}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+  </style>
+{% endraw %}
+</head>
+<body>
+<div id="workspace">
+
+<!-- LEFT PANEL: Workspace Graph -->
+<div class="left-panel panel">
+  <div class="graph-section" style="padding-top:16px">
+    <div style="display:flex;align-items:center;gap:8px;padding:0 10px 12px">
+      <span style="font-size:18px">∞</span>
+      <span style="font-weight:700;font-size:15px;color:#0f172a">SHUNYA</span>
+      <span style="font-size:10px;font-weight:600;background:#2563eb;color:#fff;padding:1px 6px;border-radius:999px">EXEC</span>
+    </div>
+    <button onclick="toggleSearch()" class="exec-mode-btn" style="width:calc(100% - 20px);margin:0 10px;display:flex;align-items:center;justify-content:space-between;padding:8px 12px">
+      <span>Search objects...</span>
+      <kbd style="font-family:inherit;background:#e2e8f0;border-radius:4px;padding:1px 5px;font-size:10px">⌘K</kbd>
+    </button>
+  </div>
+
+  <div class="graph-section-title">Recent Context</div>
+  <div class="object-list" id="recent-list">
+    <div class="object-list-item active" data-obj='{"type":"execution","id":"e-2026-0715","label":"Booking E-2026-0715","status":"blocked","health":"atrisk"}' onclick="openObject(this.dataset.obj)">
+      <span style="width:24px;height:24px;border-radius:6px;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:12px">⚡</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Booking E-2026-0715</div><div style="font-size:11px;color:#94a3b8">execution · blocked</div></div>
+      <span style="width:6px;height:6px;border-radius:50%;background:#f97316;flex-shrink:0"></span>
+    </div>
+    <div class="object-list-item" data-obj='{"type":"commitment","id":"c-2026-0714","label":"Acme Corp Q3","status":"active","health":"good"}' onclick="openObject(this.dataset.obj)">
+      <span style="width:24px;height:24px;border-radius:6px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:12px">📋</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Acme Corp Q3</div><div style="font-size:11px;color:#94a3b8">commitment · active</div></div>
+      <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0"></span>
+    </div>
+    <div class="object-list-item" data-obj='{"type":"decision","id":"d-2026-0713","label":"Resource Allocation","status":"pending","health":"caution"}' onclick="openObject(this.dataset.obj)">
+      <span style="width:24px;height:24px;border-radius:6px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:12px">⚖️</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Resource Allocation</div><div style="font-size:11px;color:#94a3b8">decision · pending</div></div>
+      <span style="width:6px;height:6px;border-radius:50%;background:#eab308;flex-shrink:0"></span>
+    </div>
+  </div>
+
+  <div class="graph-section-title">Relationships</div>
+  <div class="object-list" id="relations-list">
+    <div class="object-list-item" onclick="openObject({type:'organization',id:'org-1',label:'Acme Corp',status:'active',health:'good'})">
+      <span style="width:24px;height:24px;border-radius:6px;background:#f3e8ff;display:flex;align-items:center;justify-content:center;font-size:12px">🏢</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:500">Acme Corp</div><div style="font-size:11px;color:#94a3b8">organization</div></div>
+    </div>
+    <div class="object-list-item" onclick="openObject({type:'relationship',id:'rel-1',label:'Partner Agreement',status:'active',health:'good'})">
+      <span style="width:24px;height:24px;border-radius:6px;background:#fce7f3;display:flex;align-items:center;justify-content:center;font-size:12px">🤝</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:500">Partner Agreement</div><div style="font-size:11px;color:#94a3b8">relationship</div></div>
+    </div>
+  </div>
+
+  <div class="graph-section-title">Pinned</div>
+  <div class="object-list">
+    <div class="object-list-item" onclick="switchExecutiveMode('brief')"><span>📊</span><span>Executive Brief</span></div>
+    <div class="object-list-item" onclick="switchExecutiveMode('timeline')"><span>📅</span><span>Timeline</span></div>
+    <div class="object-list-item" onclick="switchExecutiveMode('risks')"><span>⚠️</span><span>Risk Monitor</span></div>
+  </div>
+
+  <div style="margin-top:auto;padding:12px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center">
+    SHUNYA v1.0 · Executive Workspace
+  </div>
+</div>
+
+<!-- CENTER PANEL: Current Object Workspace -->
+<div class="center-panel panel" style="border-right:none">
+  <div class="awareness-bar">
+    <div style="display:flex;align-items:center;gap:6px">
+      <span class="awareness-dot" style="background:#22c55e"></span>
+      <span style="font-weight:500;color:#166534">78%</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span class="awareness-dot" style="background:#f97316"></span>
+      <span id="attention-priority-count" style="color:#9a3412">1 priority</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span class="awareness-dot" style="background:#eab308"></span>
+      <span id="attention-risk-count" style="color:#854d0e">2 risks</span>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8">
+      <span>Executive · Team ·</span>
+      <select id="attention-layer" onchange="switchAttention(this.value)" style="border:none;background:transparent;font-size:11px;color:#475569;font-weight:500;cursor:pointer;outline:none">
+        <option value="executive">Executive</option>
+        <option value="team">Team</option>
+        <option value="personal">Personal</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Executive Mode Selector -->
+  <div style="display:flex;gap:6px;padding:8px 20px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0;overflow-x:auto">
+    <button class="exec-mode-btn active" data-mode="brief" onclick="switchExecutiveMode('brief')">📋 Brief</button>
+    <button class="exec-mode-btn" data-mode="timeline" onclick="switchExecutiveMode('timeline')">📅 Timeline</button>
+    <button class="exec-mode-btn" data-mode="queue" onclick="switchExecutiveMode('queue')">📋 Decision Queue</button>
+    <button class="exec-mode-btn" data-mode="risks" onclick="switchExecutiveMode('risks')">⚠️ Risks</button>
+    <button class="exec-mode-btn" data-mode="opportunities" onclick="switchExecutiveMode('opportunities')">💡 Opportunities</button>
+    <button class="exec-mode-btn" data-mode="health" onclick="switchExecutiveMode('health')">❤️ Health</button>
+    <button class="exec-mode-btn" data-mode="focus" onclick="switchExecutiveMode('focus')">🎯 Strategic Focus</button>
+  </div>
+
+  <!-- Object Workspace Container -->
+  <div id="object-workspace" class="object-workspace">
+    <!-- Executive Brief (default view) -->
+    <div id="mode-brief" class="exec-mode-content">
+      <div style="padding:20px;max-width:800px">
+        <h1 style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:4px">Executive Brief</h1>
+        <p style="font-size:14px;color:#64748b;margin-bottom:20px">Last synthesized 2 minutes ago · Tenant 1 · Overall health 78%</p>
+
+        <div class="health-bar" style="margin-bottom:20px;height:8px;border-radius:4px">
+          <div class="segment" style="background:#22c55e;flex:3"></div>
+          <div class="segment" style="background:#eab308;flex:2"></div>
+          <div class="segment" style="background:#f97316;flex:1"></div>
+          <div class="segment" style="background:#e2e8f0;flex:2"></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+          <div class="intel-card">
+            <div class="label">Execution Health</div>
+            <div class="value" style="color:#16a34a">● 75%</div>
+            <div class="evidence">Trend: stable</div>
+          </div>
+          <div class="intel-card">
+            <div class="label">Organizational Health</div>
+            <div class="value" style="color:#16a34a">● 80%</div>
+            <div class="evidence">Trend: stable</div>
+          </div>
+          <div class="intel-card">
+            <div class="label">Decision Health</div>
+            <div class="value" style="color:#ca8a04">● 70%</div>
+            <div class="evidence">Trend: stable</div>
+          </div>
+          <div class="intel-card">
+            <div class="label">Learning Health</div>
+            <div class="value" style="color:#ca8a04">● 65%</div>
+            <div class="evidence">Trend: stable · Patterns: 12</div>
+          </div>
+          <div class="intel-card">
+            <div class="label">Prediction Health</div>
+            <div class="value" style="color:#ca8a04">● 70%</div>
+            <div class="evidence">Trend: stable</div>
+          </div>
+          <div class="intel-card">
+            <div class="label">Governance Health</div>
+            <div class="value" style="color:#16a34a">● 90%</div>
+            <div class="evidence">Trend: stable</div>
+          </div>
+        </div>
+
+        <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#0f172a">⚠️ Priorities</h2>
+        <div id="brief-priorities"></div>
+
+        <h2 style="font-size:16px;font-weight:600;margin:16px 0 12px;color:#0f172a">📋 Decision Queue</h2>
+        <div id="brief-decisions"></div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div id="mode-timeline" class="exec-mode-content" style="display:none;padding:20px;max-width:800px">
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:16px">Executive Timeline</h1>
+      <div id="timeline-entries"></div>
+    </div>
+
+    <!-- Decision Queue -->
+    <div id="mode-queue" class="exec-mode-content" style="display:none;padding:20px;max-width:800px">
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:16px">Decision Queue</h1>
+      <div id="decision-queue-list"></div>
+    </div>
+
+    <!-- Risks -->
+    <div id="mode-risks" class="exec-mode-content" style="display:none;padding:20px;max-width:800px">
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:16px">Risk Monitor</h1>
+      <div id="risk-list"></div>
+    </div>
+
+    <!-- Opportunities -->
+    <div id="mode-opportunities" class="exec-mode-content" style="display:none;padding:20px;max-width:800px">
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:16px">Opportunity Board</h1>
+      <div id="opportunity-list"></div>
+    </div>
+
+    <!-- Health -->
+    <div id="mode-health" class="exec-mode-content" style="display:none;padding:20px;max-width:800px">
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:16px">Business Health</h1>
+      <div id="health-detail"></div>
+    </div>
+
+    <!-- Strategic Focus -->
+    <div id="mode-focus" class="exec-mode-content" style="display:none;padding:20px;max-width:800px">
+      <h1 style="font-size:22px;font-weight:700;margin-bottom:16px">Strategic Focus</h1>
+      <div id="focus-list"></div>
+    </div>
+
+    <!-- Dynamic Object View (shown when an object is selected) -->
+    <div id="object-view" style="display:none;height:100%;display:none;flex-direction:column">
+      <div class="object-header" id="object-header">
+        <span id="obj-icon" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px"></span>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="obj-title" style="font-weight:600;font-size:15px"></span>
+            <span id="obj-status-badge" class="object-status"></span>
+          </div>
+          <div id="obj-meta" style="font-size:12px;color:#94a3b8;margin-top:2px"></div>
+        </div>
+        <span id="obj-health-dot" style="width:10px;height:10px;border-radius:50%;flex-shrink:0"></span>
+      </div>
+
+      <div class="object-tabs" id="object-tabs">
+        <div class="object-tab active" data-tab="summary" onclick="switchObjTab('summary')">Summary</div>
+        <div class="object-tab" data-tab="timeline" onclick="switchObjTab('timeline')">Timeline</div>
+        <div class="object-tab" data-tab="evidence" onclick="switchObjTab('evidence')">Evidence</div>
+        <div class="object-tab" data-tab="reasoning" onclick="switchObjTab('reasoning')">Reasoning</div>
+        <div class="object-tab" data-tab="conversation" onclick="switchObjTab('conversation')">Conversation</div>
+        <div class="object-tab" data-tab="relations" onclick="switchObjTab('relations')">Linked</div>
+      </div>
+
+      <div id="obj-summary" class="tab-content active"></div>
+      <div id="obj-timeline" class="tab-content"></div>
+      <div id="obj-evidence" class="tab-content"></div>
+      <div id="obj-reasoning" class="tab-content"></div>
+      <div id="obj-conversation" class="tab-content" style="display:flex;flex-direction:column;padding:0">
+        <div class="conv-msgs" id="conv-msgs"></div>
+        <div class="conv-input-wrap">
+          <input class="conv-input" id="conv-input" placeholder="Ask about this object..." onkeydown="if(event.key==='Enter')sendMessage()">
+          <button onclick="sendMessage()" style="padding:8px 16px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Send</button>
+        </div>
+      </div>
+      <div id="obj-relations" class="tab-content"></div>
+    </div>
+  </div>
+
+  <!-- Command Palette -->
+  <div class="cmd-palette" onclick="toggleSearch()">
+    <span>🔍</span>
+    <span>Search or execute action...</span>
+    <kbd>Ctrl+K</kbd>
+  </div>
+</div>
+
+<!-- RIGHT PANEL: SHUNYA Intelligence -->
+<div class="right-panel panel">
+  <div style="padding:16px;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:600;color:#475569;display:flex;align-items:center;gap:8px">
+    <span>🧠</span> Intelligence
+    <span style="margin-left:auto;font-size:10px;font-weight:400;color:#94a3b8">auto-refreshing</span>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:12px">
+
+    <div class="intel-card" style="background:#f0f9ff;border-color:#bae6fd">
+      <div class="label">Executive Summary</div>
+      <div class="value" style="font-size:13px;font-weight:400;line-height:1.5">
+        Tenant 1: 3 active executions, 1 blocked, 78% overall health. Learning stable with 12 patterns.
+      </div>
+      <div class="evidence">Synthesized from all subsystems</div>
+    </div>
+
+    <div class="intel-card" id="intel-priority">
+      <div class="label">🔴 Top Priority</div>
+      <div class="value">Blocked Execution E-2026-0715</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">3 blocked obligations · Attention score: 0.78</div>
+      <div style="display:flex;gap:4px;margin-top:6px">
+        <span class="attention-badge" style="background:#fef3c7;color:#92400e">Urgency: 0.7</span>
+        <span class="attention-badge" style="background:#dbeafe;color:#1e40af">Impact: 0.8</span>
+        <span class="attention-badge" style="background:#dcfce7;color:#166534">Confidence: 0.85</span>
+      </div>
+      <div class="evidence">decision_lineage: d-2026-0713 · prediction: delay_probability 0.6</div>
+    </div>
+
+    <div class="intel-card">
+      <div class="label">📊 Decision Support</div>
+      <div style="margin-top:8px">
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Option: Proceed</div>
+        <div style="display:flex;gap:8px;font-size:11px;color:#64748b">
+          <span>Benefit: 0.7</span> <span>Cost: 0.8</span> <span>Risk: 0.6</span>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Option: Escalate</div>
+        <div style="display:flex;gap:8px;font-size:11px;color:#64748b">
+          <span>Benefit: 0.6</span> <span>Cost: 0.4</span> <span>Risk: 0.7</span>
+        </div>
+      </div>
+      <div class="evidence">From Decision Intelligence · 2 feasible options</div>
+    </div>
+
+    <div class="intel-card">
+      <div class="label">🔮 Predictions</div>
+      <div style="margin-top:4px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0">
+          <span>Completion</span>
+          <span style="font-weight:500">~48h (72% confidence)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0">
+          <span>Delay probability</span>
+          <span style="font-weight:500;color:#ea580c">0.6 (medium)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0">
+          <span>Bottleneck</span>
+          <span style="font-weight:500">obl_payment_001</span>
+        </div>
+      </div>
+      <div class="evidence">From Prediction Engine mi3.0 · horizon 72h</div>
+    </div>
+
+    <div class="intel-card">
+      <div class="label">⚠️ Active Risks</div>
+      <div style="margin-top:6px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #f1f5f9">
+          <span>Execution Risk</span>
+          <span style="color:#ea580c">0.4 · stable</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #f1f5f9">
+          <span>Capacity Risk</span>
+          <span style="color:#ca8a04">0.3 · increasing ↑</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0">
+          <span>Prediction Uncertainty</span>
+          <span style="color:#94a3b8">0.5 · stable</span>
+        </div>
+      </div>
+      <div class="evidence">From Executive Risk Intelligence</div>
+    </div>
+
+    <div class="intel-card">
+      <div class="label">💡 Opportunities</div>
+      <div style="margin-top:6px">
+        <div style="font-size:13px;padding:4px 0">Knowledge Reuse <span style="color:#16a34a;font-weight:500">+0.7 EV</span></div>
+        <div style="font-size:13px;padding:4px 0">Execution Acceleration <span style="color:#16a34a;font-weight:500">+0.6 EV</span></div>
+      </div>
+      <div class="evidence">From Executive Opportunity Intel</div>
+    </div>
+
+    <div class="intel-card">
+      <div class="label">🧠 Reasoning Trace</div>
+      <div class="reasoning-chain" id="reasoning-chain">
+        <div class="reasoning-step"><span class="dot" style="background:#3b82f6"></span> Business Event<span class="arrow">→</span></div>
+        <div class="reasoning-step"><span class="dot" style="background:#22c55e"></span> Execution<span class="arrow">→</span></div>
+        <div class="reasoning-step"><span class="dot" style="background:#eab308"></span> Evidence<span class="arrow">→</span></div>
+        <div class="reasoning-step"><span class="dot" style="background:#a855f7"></span> Learning<span class="arrow">→</span></div>
+        <div class="reasoning-step"><span class="dot" style="background:#f97316"></span> Prediction<span class="arrow">→</span></div>
+        <div class="reasoning-step"><span class="dot" style="background:#ef4444"></span> Decision<span class="arrow">→</span></div>
+        <div class="reasoning-step"><span class="dot" style="background:#6366f1"></span> Governance<span class="arrow">→</span></div>
+        <div class="reasoning-step"><span class="dot" style="background:#ec4899"></span> Recommendation</div>
+      </div>
+      <div class="evidence">Cognitive trace: 8 stages · All referenced</div>
+    </div>
+  </div>
+</div>
+
+<!-- Search Overlay -->
+<div class="search-overlay" id="search-overlay" onclick="if(event.target===this)toggleSearch()">
+  <div class="search-modal">
+    <div class="search-input-wrap">
+      <input class="search-input" id="search-input" placeholder="Search objects, relationships, conversations, evidence..." autofocus oninput="doSearch(this.value)" onkeydown="handleSearchKey(event)">
+    </div>
+    <div class="search-results" id="search-results"></div>
+  </div>
+</div>
+</div>
+
+<script>
+// =========================================================================
+// Application State
+// =========================================================================
+const state = {
+  currentObject: null,
+  currentMode: 'brief',
+  currentTab: 'summary',
+  attentionLayer: 'executive',
+  conversationHistory: {},
+  searchIndex: [
+    {type:'execution',id:'e-2026-0715',label:'Booking E-2026-0715',subtitle:'execution · blocked',icon:'⚡'},
+    {type:'commitment',id:'c-2026-0714',label:'Acme Corp Q3',subtitle:'commitment · active',icon:'📋'},
+    {type:'decision',id:'d-2026-0713',label:'Resource Allocation',subtitle:'decision · pending',icon:'⚖️'},
+    {type:'organization',id:'org-1',label:'Acme Corp',subtitle:'organization · active',icon:'🏢'},
+    {type:'relationship',id:'rel-1',label:'Partner Agreement',subtitle:'relationship · active',icon:'🤝'},
+    {type:'execution',id:'e-2026-0712',label:'Payment Run Jul 21',subtitle:'execution · active',icon:'⚡'},
+    {type:'prediction',id:'p-2026-0711',label:'Completion Forecast E-2026-0715',subtitle:'prediction · active',icon:'🔮'},
+    {type:'evidence',id:'ev-2026-0710',label:'Partner Confirmation Email',subtitle:'evidence · verified',icon:'📎'},
+    {type:'task',id:'t-2026-0709',label:'Review Obligation Status',subtitle:'task · assigned',icon:'✅'},
+    {type:'conversation',id:'conv-2026-0708',label:'Blocked Execution Discussion',subtitle:'conversation · active',icon:'💬'},
+    {type:'document',id:'doc-2026-0707',label:'Q3 Service Agreement',subtitle:'document · final',icon:'📄'},
+  ],
+  execModes: {
+    brief: {label:'Executive Brief',icon:'📋'},
+    timeline: {label:'Executive Timeline',icon:'📅'},
+    queue: {label:'Decision Queue',icon:'📋'},
+    risks: {label:'Risk Monitor',icon:'⚠️'},
+    opportunities: {label:'Opportunity Board',icon:'💡'},
+    health: {label:'Business Health',icon:'❤️'},
+    focus: {label:'Strategic Focus',icon:'🎯'},
+  },
+  timelineEvents: [
+    {time:'2026-07-21 14:30',event:'Execution E-2026-0715 entered blocked state',type:'state',importance:'high'},
+    {time:'2026-07-21 13:15',event:'Decision d-2026-0713 created: Resource Allocation',type:'decision',importance:'high'},
+    {time:'2026-07-21 11:00',event:'Prediction revision: delay probability increased to 0.6',type:'prediction',importance:'medium'},
+    {time:'2026-07-21 09:30',event:'Capacity risk trend changed to increasing',type:'risk',importance:'medium'},
+    {time:'2026-07-21 08:00',event:'Learning update: 12 patterns active',type:'learning',importance:'low'},
+    {time:'2026-07-20 16:45',event:'Commitment C-2026-0714 activated: Acme Corp Q3',type:'execution',importance:'high'},
+    {time:'2026-07-20 14:00',event:'Governance review: Resource allocation policy updated',type:'governance',importance:'medium'},
+  ],
+  decisions: [
+    {id:'d-2026-0713',summary:'Resource allocation for blocked execution',urgency:0.7,options:['Proceed','Escalate','Re-plan'],top:'Escalate',review:'executive'},
+    {id:'d-2026-0712',summary:'Budget approval for additional capacity',urgency:0.5,options:['Approve','Defer','Decline'],top:'Approve',review:'standard'},
+  ],
+  risks: [
+    {id:'r-1',title:'Execution Risk',likelihood:0.4,impact:0.7,trend:'stable',desc:'Multiple executions face blocking conditions'},
+    {id:'r-2',title:'Capacity Risk',likelihood:0.3,impact:0.8,trend:'increasing',desc:'Resource utilization approaching 85%'},
+    {id:'r-3',title:'Prediction Uncertainty',likelihood:0.5,impact:0.5,trend:'stable',desc:'Some predictions have confidence below 0.7'},
+  ],
+  opportunities: [
+    {id:'o-1',title:'Knowledge Reuse',ev:0.7,conf:0.7,desc:'Historical booking patterns suggest reuse opportunities'},
+    {id:'o-2',title:'Execution Acceleration',ev:0.6,conf:0.65,desc:'Similar executions completed faster historically'},
+  ],
+};
+
+// =========================================================================
+// Keyboard Shortcuts
+// =========================================================================
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); toggleSearch(); }
+  if (e.key === 'Escape') { closeSearch(); }
+});
+
+// =========================================================================
+// Search
+// =========================================================================
+function toggleSearch() {
+  const overlay = document.getElementById('search-overlay');
+  const open = overlay.classList.toggle('open');
+  if (open) setTimeout(() => document.getElementById('search-input').focus(), 100);
+  if (!open) document.getElementById('search-input').value = '';
+}
+
+function closeSearch() {
+  document.getElementById('search-overlay').classList.remove('open');
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-results').innerHTML = '';
+}
+
+function doSearch(query) {
+  const results = document.getElementById('search-results');
+  if (!query.trim()) { results.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">Type to search objects, conversations, evidence...</div>'; return; }
+  const q = query.toLowerCase();
+  const matches = state.searchIndex.filter(item =>
+    item.label.toLowerCase().includes(q) ||
+    item.subtitle.toLowerCase().includes(q) ||
+    item.id.toLowerCase().includes(q) ||
+    item.type.toLowerCase().includes(q)
+  );
+  if (matches.length === 0) {
+    results.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">No results found</div>';
+    return;
+  }
+  results.innerHTML = matches.map((m, i) =>
+    `<div class="search-result ${i===0?'highlighted':''}" onclick="selectSearchResult('${m.type}','${m.id}')" data-index="${i}">
+      <span class="type-icon" style="background:${getTypeColor(m.type)}20;color:${getTypeColor(m.type)}">${m.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:500;font-size:14px;color:#0f172a">${highlightMatch(m.label, q)}</div>
+        <div style="font-size:12px;color:#64748b">${highlightMatch(m.subtitle, q)}</div>
+      </div>
+      <span style="font-size:11px;color:#94a3b8;text-transform:uppercase">${m.type}</span>
+    </div>`
+  ).join('');
+}
+
+function highlightMatch(text, query) {
+  const idx = text.toLowerCase().indexOf(query);
+  if (idx === -1) return text;
+  return text.slice(0,idx) + '<strong style="color:#2563eb">' + text.slice(idx,idx+query.length) + '</strong>' + text.slice(idx+query.length);
+}
+
+function handleSearchKey(e) {
+  const results = document.getElementById('search-results');
+  const items = results.querySelectorAll('.search-result');
+  if (!items.length) return;
+  let current = results.querySelector('.highlighted');
+  let idx = current ? parseInt(current.dataset.index) : -1;
+
+  if (e.key === 'ArrowDown') { e.preventDefault(); idx = Math.min(idx + 1, items.length - 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); idx = Math.max(idx - 1, 0); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (current) current.click(); return; }
+  else return;
+
+  items.forEach(i => i.classList.remove('highlighted'));
+  items[idx].classList.add('highlighted');
+  items[idx].scrollIntoView({block:'nearest'});
+}
+
+function selectSearchResult(type, id) {
+  closeSearch();
+  const item = state.searchIndex.find(i => i.id === id);
+  if (item) openObject(item);
+}
+
+function getTypeColor(type) {
+  const colors = {execution:'#f97316',commitment:'#22c55e',decision:'#3b82f6',organization:'#a855f7',relationship:'#ec4899',prediction:'#eab308',evidence:'#64748b',task:'#14b8a6',conversation:'#6366f1',document:'#94a3b8'};
+  return colors[type] || '#64748b';
+}
+
+// =========================================================================
+// Object Navigation
+// =========================================================================
+function openObject(objData) {
+  const obj = typeof objData === 'string' ? JSON.parse(objData) : objData;
+  state.currentObject = obj;
+  state.currentMode = null;
+
+  // Hide executive modes, show object view
+  document.querySelectorAll('.exec-mode-content').forEach(el => el.style.display = 'none');
+  const objView = document.getElementById('object-view');
+  objView.style.display = 'flex';
+
+  // Update header
+  document.getElementById('obj-icon').textContent = getIconForType(obj.type);
+  document.getElementById('obj-icon').style.background = getTypeColor(obj.type) + '20';
+  document.getElementById('obj-icon').style.color = getTypeColor(obj.type);
+  document.getElementById('obj-title').textContent = obj.label || obj.id;
+  document.getElementById('obj-status-badge').textContent = obj.status || 'active';
+  document.getElementById('obj-status-badge').style.background = getStatusColor(obj.status || 'active', 'bg');
+  document.getElementById('obj-status-badge').style.color = getStatusColor(obj.status || 'active', 'text');
+  document.getElementById('obj-meta').textContent = `${obj.type} · ${obj.id} · updated 2 min ago`;
+  document.getElementById('obj-health-dot').style.background = getHealthColor(obj.health || 'good');
+
+  // Highlight in recent list
+  document.querySelectorAll('.object-list-item').forEach(el => el.classList.remove('active'));
+  const recentItem = document.querySelector(`.object-list-item[data-obj]`);
+  if (recentItem) recentItem.classList.add('active');
+
+  // Default to summary tab
+  switchObjTab('summary');
+  renderObjectSummary(obj);
+  renderObjectTimeline(obj);
+  renderObjectEvidence(obj);
+  renderObjectReasoning(obj);
+  renderObjectRelations(obj);
+  loadConversation(obj.id);
+
+  // Update URL hash
+  history.pushState(null, '', `#${obj.type}/${obj.id}`);
+}
+
+function getIconForType(type) {
+  const icons = {execution:'⚡',commitment:'📋',decision:'⚖️',organization:'🏢',relationship:'🤝',prediction:'🔮',evidence:'📎',task:'✅',conversation:'💬',document:'📄'};
+  return icons[type] || '📦';
+}
+
+function getStatusColor(status, mode) {
+  const colors = {active:{bg:'#dcfce7',text:'#166534'},blocked:{bg:'#fef3c7',text:'#92400e'},pending:{bg:'#dbeafe',text:'#1e40af'},fulfilled:{bg:'#dcfce7',text:'#166534'},failed:{bg:'#fee2e2',text:'#991b1b'}};
+  return colors[status] ? colors[status][mode] : colors.active[mode];
+}
+
+function getHealthColor(health) {
+  const colors = {good:'#22c55e',caution:'#eab308',atrisk:'#f97316',critical:'#ef4444'};
+  return colors[health] || colors.good;
+}
+
+// =========================================================================
+// Object Tab Rendering
+// =========================================================================
+function switchObjTab(tab) {
+  state.currentTab = tab;
+  document.querySelectorAll('.object-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'obj-' + tab));
+}
+
+function renderObjectSummary(obj) {
+  const el = document.getElementById('obj-summary');
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div class="intel-card"><div class="label">Status</div><div class="value">${obj.status || 'active'}</div></div>
+      <div class="intel-card"><div class="label">Health</div><div class="value" style="color:${getHealthColor(obj.health||'good')}">${obj.health||'good'} (78%)</div></div>
+      <div class="intel-card"><div class="label">Type</div><div class="value">${obj.type}</div></div>
+      <div class="intel-card"><div class="label">ID</div><div class="value" style="font-family:monospace;font-size:12px">${obj.id}</div></div>
+    </div>
+    <div class="intel-card">
+      <div class="label">Executive Summary</div>
+      <div style="font-size:13px;line-height:1.6;margin-top:4px">This ${obj.type} is currently ${obj.status}. Overall health is ${obj.health||'good'} at 78%. Active predictions suggest completion within 48h with 72% confidence. One blocked obligation requires attention.</div>
+      <div class="evidence">From Executive Intelligence · confidence 0.85</div>
+    </div>
+    <div class="intel-card">
+      <div class="label">Recent Activity</div>
+      <div style="margin-top:4px">
+        ${state.timelineEvents.slice(0,3).map(e => `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f1f5f9;display:flex;gap:8px"><span style="color:#94a3b8;flex-shrink:0">${e.time.slice(11,16)}</span><span>${e.event}</span></div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderObjectTimeline(obj) {
+  document.getElementById('obj-timeline').innerHTML = state.timelineEvents.map(e =>
+    `<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <div style="width:60px;flex-shrink:0;font-size:11px;color:#94a3b8;padding-top:2px">${e.time.slice(5,16)}</div>
+      <div style="width:8px;height:8px;border-radius:50%;background:${e.importance==='high'?'#ef4444':e.importance==='medium'?'#eab308':'#94a3b8'};margin-top:4px;flex-shrink:0"></div>
+      <div style="font-size:13px">${e.event}</div>
+    </div>`
+  ).join('');
+}
+
+function renderObjectEvidence(obj) {
+  document.getElementById('obj-evidence').innerHTML = `
+    <div class="empty-state"><div class="icon">📎</div><div>3 evidence items linked to this ${obj.type}</div></div>
+    <div style="margin-top:12px">
+      <div class="intel-card"><div class="label">Partner Confirmation Email</div><div style="font-size:13px">Received 2026-07-20 · Confidence: 0.9</div><div class="evidence">Source: external · verified</div></div>
+      <div class="intel-card"><div class="label">System Log: Execution State Change</div><div style="font-size:13px">State: active → blocked · 2026-07-21 14:30</div><div class="evidence">Source: system_derivation</div></div>
+      <div class="intel-card"><div class="label">Learning Pattern: booking_blocked</div><div style="font-size:13px">Frequency: 12 · Success rate: 0.58</div><div class="evidence">Source: learning_intelligence</div></div>
+    </div>`;
+}
+
+function renderObjectReasoning(obj) {
+  document.getElementById('obj-reasoning').innerHTML = `
+    <div class="reasoning-chain" style="padding:0">
+      <div class="reasoning-step"><span class="dot" style="background:#3b82f6"></span> Business Event<span style="font-size:11px;color:#94a3b8;margin-left:auto">${obj.id} activated</span></div>
+      <div class="reasoning-step"><span class="dot" style="background:#22c55e"></span> Execution<span style="font-size:11px;color:#94a3b8;margin-left:auto">state: ${obj.status}</span></div>
+      <div class="reasoning-step"><span class="dot" style="background:#eab308"></span> Evidence<span style="font-size:11px;color:#94a3b8;margin-left:auto">3 items collected</span></div>
+      <div class="reasoning-step"><span class="dot" style="background:#a855f7"></span> Learning<span style="font-size:11px;color:#94a3b8;margin-left:auto">12 patterns applied</span></div>
+      <div class="reasoning-step"><span class="dot" style="background:#f97316"></span> Prediction<span style="font-size:11px;color:#94a3b8;margin-left:auto">completion ~48h · conf 0.72</span></div>
+      <div class="reasoning-step"><span class="dot" style="background:#ef4444"></span> Decision<span style="font-size:11px;color:#94a3b8;margin-left:auto">2 feasible options</span></div>
+      <div class="reasoning-step"><span class="dot" style="background:#6366f1"></span> Governance<span style="font-size:11px;color:#94a3b8;margin-left:auto">approved ✓</span></div>
+      <div class="reasoning-step"><span class="dot" style="background:#ec4899"></span> Recommendation<span style="font-size:11px;color:#94a3b8;margin-left:auto">proceed with caution</span></div>
+    </div>
+    <div style="margin-top:16px;padding:12px;background:#f8fafc;border-radius:8px;font-size:12px;color:#64748b">
+      <strong>Provenance:</strong><br>
+      Engine versions: orchestrator mi4.0 · decision mi5.0 · cognitive miva.0 · executive mi6.0<br>
+      Module versions: execution 14e · learning mi2 · prediction mi3<br>
+      Architecture version: 1.0 · Replay ID: rp-a3f8c2
+    </div>`;
+}
+
+function renderObjectRelations(obj) {
+  document.getElementById('obj-relations').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+      <div class="intel-card" onclick="openObject({type:'commitment',id:'c-2026-0714',label:'Acme Corp Q3',status:'active',health:'good'})" style="cursor:pointer">
+        <div class="label">Parent Commitment</div>
+        <div class="value" style="font-size:13px">Acme Corp Q3</div>
+        <div class="evidence">active · health: good</div>
+      </div>
+      <div class="intel-card" onclick="openObject({type:'decision',id:'d-2026-0713',label:'Resource Allocation',status:'pending',health:'caution'})" style="cursor:pointer">
+        <div class="label">Decision</div>
+        <div class="value" style="font-size:13px">Resource Allocation</div>
+        <div class="evidence">pending · urgency: 0.7</div>
+      </div>
+      <div class="intel-card" onclick="openObject({type:'prediction',id:'p-2026-0711',label:'Completion Forecast',status:'active',health:'good'})" style="cursor:pointer">
+        <div class="label">Prediction</div>
+        <div class="value" style="font-size:13px">Completion Forecast</div>
+        <div class="evidence">active · conf: 0.72</div>
+      </div>
+      <div class="intel-card">
+        <div class="label">Obligations (3)</div>
+        <div style="font-size:12px;margin-top:4px">obl_payment_001 · blocked<br>obl_review_002 · pending<br>obl_approval_003 · satisfied</div>
+      </div>
+    </div>`;
+}
+
+// =========================================================================
+// Conversation
+// =========================================================================
+let currentConvId = null;
+const conversations = {};
+
+function loadConversation(objId) {
+  currentConvId = objId;
+  if (!conversations[objId]) {
+    conversations[objId] = [
+      {role:'shunya',text:`I'm monitoring this ${state.currentObject?.type||'object'}. Current state: ${state.currentObject?.status||'active'}. How can I help?`}
+    ];
+  }
+  renderConversation();
+  document.getElementById('conv-input').focus();
+}
+
+function renderConversation() {
+  const msgs = document.getElementById('conv-msgs');
+  const conv = conversations[currentConvId] || [];
+  msgs.innerHTML = conv.map(m =>
+    `<div class="msg ${m.role}" style="align-self:${m.role==='human'?'flex-end':'flex-start'}">${m.text}</div>`
+  ).join('');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function sendMessage() {
+  const input = document.getElementById('conv-input');
+  const text = input.value.trim();
+  if (!text || !currentConvId) return;
+  input.value = '';
+
+  if (!conversations[currentConvId]) conversations[currentConvId] = [];
+  conversations[currentConvId].push({role:'human',text});
+  renderConversation();
+
+  // Simulate SHUNYA response
+  setTimeout(() => {
+    const response = generateResponse(text);
+    conversations[currentConvId].push({role:'shunya',text:response});
+    renderConversation();
+  }, 300);
+}
+
+function generateResponse(text) {
+  const t = text.toLowerCase();
+  const obj = state.currentObject;
+  if (t.includes('block') || t.includes('why')) {
+    return `This ${obj?.type||'object'} is currently ${obj?.status||'active'} because 3 obligations are blocked. The primary blocker is obl_payment_001 (payment approval). Historical patterns show similar blocking in 4 of 12 executions (33%). Recommended action: escalate for approval.`;
+  }
+  if (t.includes('risk') || t.includes('risk')) {
+    return `Current risk level: medium. Key risks: (1) Execution risk: 0.4 likelihood, stable. (2) Capacity risk: 0.3 likelihood, increasing. Risk accumulation detected in payment obligations. Confidence in risk assessment: 0.75.`;
+  }
+  if (t.includes('evidence') || t.includes('proof')) {
+    return `Evidence for this ${obj?.type||'object'}: (1) Partner confirmation email (verified, conf 0.9). (2) System log: state change (conf 1.0). (3) Learning pattern: booking_blocked, 12 samples (conf 0.7). All evidence traceable through cognitive pipeline.`;
+  }
+  if (t.includes('predict') || t.includes('forecast')) {
+    return `Predictions for this execution: (1) Completion: ~48h (72% confidence). (2) Delay probability: 0.6 (medium). (3) Bottleneck identified: obl_payment_001. Prediction source: Prediction Engine mi3.0, horizon 72h.`;
+  }
+  if (t.includes('option') || t.includes('decision') || t.includes('what')) {
+    return `Decision options for this situation:\n1. **Proceed** — Benefit: 0.7, Cost: 0.8, Risk: 0.6. Best if unblocking is quick.\n2. **Escalate** — Benefit: 0.6, Cost: 0.4, Risk: 0.7. Recommended if approval is needed.\n3. **Re-plan** — Benefit: 0.5, Cost: 0.4, Risk: 0.5. Consider if scope changed.\nTop recommendation: Escalate (attention score: 0.78).`;
+  }
+  return `Understood. Here's what I know about this ${obj?.type||'object'}: state=${obj?.status||'active'}, health=${obj?.health||'good'}, predictions indicate completion within 48h. I've recorded your message in the conversation history for traceability.`;
+}
+
+// =========================================================================
+// Executive Mode Switching
+// =========================================================================
+function switchExecutiveMode(mode) {
+  state.currentMode = mode;
+
+  // Update button states
+  document.querySelectorAll('.exec-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+
+  // Hide object view if showing
+  document.getElementById('object-view').style.display = 'none';
+
+  // Show selected mode
+  document.querySelectorAll('.exec-mode-content').forEach(el => el.style.display = 'none');
+  const modeEl = document.getElementById('mode-' + mode);
+  if (modeEl) modeEl.style.display = 'block';
+
+  // Lazy render content
+  if (mode === 'brief') renderBrief();
+  if (mode === 'timeline') renderTimeline();
+  if (mode === 'queue') renderDecisionQueue();
+  if (mode === 'risks') renderRisks();
+  if (mode === 'opportunities') renderOpportunities();
+  if (mode === 'health') renderHealth();
+  if (mode === 'focus') renderFocus();
+
+  history.pushState(null, '', '#executive/' + mode);
+}
+
+function renderBrief() {
+  const pEl = document.getElementById('brief-priorities');
+  pEl.innerHTML = [
+    {title:'Blocked Execution E-2026-0715',desc:'3 blocked obligations require unblocking',urgency:0.7,impact:0.8,score:0.78,type:'priority'},
+    {title:'Deadline Threat: Payment Approval',desc:'Approval deadline in 48h',urgency:0.8,impact:0.7,score:0.72,type:'deadline'},
+    {title:'Resource Allocation Decision Pending',desc:'Exec level decision required',urgency:0.5,impact:0.6,score:0.55,type:'decision'},
+  ].map(p => `
+    <div class="intel-card" style="cursor:pointer" onclick="openObject({type:'execution',id:'e-2026-0715',label:'${p.title}',status:'blocked',health:'atrisk'})">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div class="value" style="font-size:14px">${p.title}</div>
+        <span class="attention-badge" style="background:${p.score>0.7?'#fee2e2':p.score>0.5?'#fef3c7':'#dbeafe'};color:${p.score>0.7?'#991b1b':p.score>0.5?'#92400e':'#1e40af'}">${p.score}</span>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">${p.desc}</div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <span class="attention-badge" style="background:#fef3c7;color:#92400e">Urgency: ${p.urgency}</span>
+        <span class="attention-badge" style="background:#dbeafe;color:#1e40af">Impact: ${p.impact}</span>
+      </div>
+    </div>
+  `).join('');
+
+  const dEl = document.getElementById('brief-decisions');
+  dEl.innerHTML = state.decisions.map(d => `
+    <div class="intel-card">
+      <div style="display:flex;justify-content:space-between">
+        <div class="value" style="font-size:14px">${d.summary}</div>
+        <span class="attention-badge" style="background:${d.urgency>0.6?'#fee2e2':'#fef3c7'};color:${d.urgency>0.6?'#991b1b':'#92400e'}">${d.urgency}</span>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">Options: ${d.options.join(', ')} · Top: ${d.top} · Review: ${d.review}</div>
+    </div>
+  `).join('');
+}
+
+function renderTimeline() {
+  document.getElementById('timeline-entries').innerHTML = state.timelineEvents.map(e =>
+    `<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9" class="fade-in">
+      <div style="width:80px;flex-shrink:0;font-size:11px;color:#94a3b8;padding-top:2px">${e.time}</div>
+      <div style="width:10px;height:10px;border-radius:50%;background:${e.importance==='high'?'#ef4444':e.importance==='medium'?'#eab308':'#94a3b8'};margin-top:3px;flex-shrink:0"></div>
+      <div style="font-size:13px;flex:1">${e.event}</div>
+      <span style="font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase">${e.type}</span>
+    </div>`
+  ).join('');
+}
+
+function renderDecisionQueue() {
+  document.getElementById('decision-queue-list').innerHTML = state.decisions.map(d => `
+    <div class="intel-card" style="cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div class="value" style="font-size:14px">${d.summary}</div>
+        <span class="attention-badge" style="background:${d.urgency>0.6?'#fee2e2':'#fef3c7'};color:${d.urgency>0.6?'#991b1b':'#92400e'}">urgency: ${d.urgency}</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        ${d.options.map(o => `<span style="padding:4px 10px;border-radius:6px;font-size:12px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0">${o}</span>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button onclick="event.stopPropagation();alert('Decision recorded: '+this.textContent)" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:500;border:none;background:#2563eb;color:#fff;cursor:pointer">Approve</button>
+        <button onclick="event.stopPropagation();alert('Decision recorded: '+this.textContent)" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:500;border:1px solid #e2e8f0;background:#fff;color:#475569;cursor:pointer">Reject</button>
+        <button onclick="event.stopPropagation();alert('Decision deferred')" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:500;border:1px solid #e2e8f0;background:#fff;color:#475569;cursor:pointer">Defer</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderRisks() {
+  document.getElementById('risk-list').innerHTML = state.risks.map(r => `
+    <div class="intel-card">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div class="value" style="font-size:14px">${r.title}</div>
+        <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:${r.trend==='increasing'?'#fee2e2':'#f1f5f9'};color:${r.trend==='increasing'?'#991b1b':'#64748b'}">${r.trend} ${r.trend==='increasing'?'↑':r.trend==='decreasing'?'↓':''}</span>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">${r.desc}</div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <span class="attention-badge" style="background:#fef3c7;color:#92400e">Likelihood: ${r.likelihood}</span>
+        <span class="attention-badge" style="background:#fee2e2;color:#991b1b">Impact: ${r.impact}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderOpportunities() {
+  document.getElementById('opportunity-list').innerHTML = state.opportunities.map(o => `
+    <div class="intel-card">
+      <div style="display:flex;justify-content:space-between">
+        <div class="value" style="font-size:14px">${o.title}</div>
+        <span style="font-weight:600;color:#16a34a">+${o.ev} EV</span>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">${o.desc}</div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <span class="attention-badge" style="background:#dcfce7;color:#166534">Expected Value: ${o.ev}</span>
+        <span class="attention-badge" style="background:#dbeafe;color:#1e40af">Confidence: ${o.conf}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderHealth() {
+  const dims = [
+    {name:'Execution',score:0.75,color:'#16a34a'},
+    {name:'Organizational',score:0.80,color:'#16a34a'},
+    {name:'Decision',score:0.70,color:'#ca8a04'},
+    {name:'Learning',score:0.65,color:'#ca8a04'},
+    {name:'Prediction',score:0.70,color:'#ca8a04'},
+    {name:'Governance',score:0.90,color:'#16a34a'},
+    {name:'Relationship',score:0.75,color:'#16a34a'},
+  ];
+  document.getElementById('health-detail').innerHTML = `
+    <div style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-weight:600;font-size:18px">Overall: 78%</span>
+        <span style="font-size:13px;color:#64748b">Trend: stable</span>
+      </div>
+      <div class="health-bar" style="height:10px;border-radius:5px">
+        <div class="segment" style="background:#22c55e;flex:3"></div>
+        <div class="segment" style="background:#eab308;flex:2"></div>
+        <div class="segment" style="background:#f97316;flex:1"></div>
+        <div class="segment" style="background:#e2e8f0;flex:2"></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      ${dims.map(d => `
+        <div class="intel-card" style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:500;font-size:13px">${d.name}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:600;color:${d.color}">${(d.score*100).toFixed(0)}%</span>
+            <span style="font-size:11px;color:#94a3b8">stable</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="margin-top:16px;padding:12px;background:#f0f9ff;border-radius:8px;font-size:13px;color:#1e40af">
+      <strong>Critical dimensions:</strong> Learning (65%) needs attention. Prediction (70%) within normal range. All other dimensions healthy.
+    </div>`;
+}
+
+function renderFocus() {
+  document.getElementById('focus-list').innerHTML = `
+    <div class="intel-card" style="border-left:3px solid #ef4444">
+      <div class="label">Strategic Priority 1</div>
+      <div class="value" style="font-size:14px">Resolve Blocked Payment Pipeline</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">Cross-functional impact: finance, operations, partner management. 3 blocked executions in the payment chain.</div>
+      <div class="evidence">Strategic importance: 0.85 · Affects: 2 org units</div>
+    </div>
+    <div class="intel-card" style="border-left:3px solid #f97316">
+      <div class="label">Strategic Priority 2</div>
+      <div class="value" style="font-size:14px">Resource Capacity Planning</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">Budget utilization at 82% with increasing trend. Q3 commitments may exceed available capacity.</div>
+      <div class="evidence">Strategic importance: 0.72 · Timeline: Q3 2026</div>
+    </div>
+    <div class="intel-card" style="border-left:3px solid #eab308">
+      <div class="label">Strategic Priority 3</div>
+      <div class="value" style="font-size:14px">Knowledge Reuse Program</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">12 learning patterns available for reuse. Opportunity to reduce execution time by 15-20%.</div>
+      <div class="evidence">Strategic importance: 0.65 · Expected value: +0.7</div>
+    </div>`;
+}
+
+// =========================================================================
+// Attention Layer
+// =========================================================================
+function switchAttention(layer) {
+  state.attentionLayer = layer;
+  const counts = {executive:{priorities:3,risks:2},team:{priorities:5,risks:3},personal:{priorities:1,risks:1}};
+  const c = counts[layer] || counts.executive;
+  document.getElementById('attention-priority-count').textContent = c.priorities + ' priority';
+  document.getElementById('attention-risk-count').textContent = c.risks + ' risks';
+}
+
+// =========================================================================
+// Init
+// =========================================================================
+function init() {
+  // Check URL hash for initial navigation
+  const hash = location.hash.slice(1);
+  if (hash.startsWith('executive/')) {
+    const mode = hash.split('/')[1];
+    switchExecutiveMode(mode);
+  } else if (hash) {
+    const parts = hash.split('/');
+    const item = state.searchIndex.find(i => i.type === parts[0] && i.id === parts[1]);
+    if (item) openObject(item);
+  } else {
+    renderBrief();
+  }
+
+  window.addEventListener('popstate', () => {
+    const h = location.hash.slice(1);
+    if (h.startsWith('executive/')) switchExecutiveMode(h.split('/')[1]);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

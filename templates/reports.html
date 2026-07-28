@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-slate-900">Reports</h1>
+  <span class="text-sm text-slate-400">Year {{ year }}</span>
+</div>
+
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-slate-100">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Top Destinations</h3>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <th class="px-5 py-3 text-left">Destination</th>
+        <th class="px-5 py-3 text-right">Leads</th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for d,c in dest_counts %}
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-5 py-3.5 font-medium">{{ d }}</td>
+          <td class="px-5 py-3.5 text-right font-mono font-semibold">{{ c }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="2" class="px-5 py-8 text-center text-slate-400">No data yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

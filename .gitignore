@@ -1,41 +1,47 @@
-# Environment files
-.env
-*.env.local
-
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.egg-info/
-dist/
-build/
+*$py.class
 
-# IDE
-.vscode/
-.idea/
+# Environment
+.venv/
+.venv_test/
+venv/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Database
-*.db
-*.sqlite
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# Uploads
-media/
-static/uploads/brand/
-static/uploads/temp/
+# Project specific
+shunya_os_crm/
+shunya_os_dashboard/
+shunya_os_documents/
+shunya_os_gmail/
+shunya_os_workflow/
 
-# Packages (TypeScript foundation)
-packages/*/node_modules/
-packages/*/dist/
+# Cache
+.hermes/cache/
 
-# Logs
-*.log
-/var/log/shunya/
+# Frontend / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/coverage/
+frontend/*.log
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
 
-# Test artifacts
-.pytest_cache/
-test-results.xml
-htmlcov/
+# Environment / data
+.env
 .coverage
+logs/
+audit/
+invoices/
+tasks/
+/reports/
