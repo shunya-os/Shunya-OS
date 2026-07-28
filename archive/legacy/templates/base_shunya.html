@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}SHUNYA{% endblock %}</title>
+  <meta name="description" content="SHUNYA — An operating system for human organizations.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Noto+Sans+Devanagari:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Design system + workspace styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/workspace.css') }}">
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23a4865f'/></svg>">
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<div id="workspace">
+
+  <!-- ================================================================
+       IDENTITY STRIP
+       ================================================================ -->
+  <div id="identity-strip">
+    <div class="strip-left">
+      <span class="strip-dot" aria-hidden="true"></span>
+      <span class="strip-logo">SHUNYA</span>
+      <div class="strip-breadcrumb">
+        {% block breadcrumb %}
+        <span>Home</span>
+        {% endblock %}
+      </div>
+    </div>
+    <div class="strip-right">
+      {% block strip_right %}
+      <div class="strip-attention">
+        <span class="strip-attention-dot none"></span>
+        <span>All clear</span>
+      </div>
+      <span class="strip-time" id="strip-time"></span>
+      {% endblock %}
+    </div>
+  </div>
+
+  <!-- ================================================================
+       THREE-ZONE LAYOUT
+       ================================================================ -->
+  <div id="zones">
+
+    <!-- Left Zone: Navigation -->
+    <div id="zone-left">
+      <div class="zone-left-header">Spaces</div>
+      <div class="zone-left-search">
+        <input type="search" placeholder="Search objects..." aria-label="Search">
+      </div>
+      <nav class="zone-left-nav" aria-label="Workspace navigation">
+        {% block left_nav %}
+        <div class="nav-section">Context</div>
+        <button class="nav-item active">
+          <span class="nav-icon" aria-hidden="true">&#9679;</span>
+          <span>Morning Zero</span>
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon" aria-hidden="true">&#9679;</span>
+          <span>Objects</span>
+          <span class="nav-badge">12</span>
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon" aria-hidden="true">&#9679;</span>
+          <span>Intelligence</span>
+          <span class="nav-badge">3</span>
+        </button>
+
+        <div class="nav-section">Workspace</div>
+        <button class="nav-item">
+          <span class="nav-icon" aria-hidden="true">&#9679;</span>
+          <span>Calendar</span>
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon" aria-hidden="true">&#9679;</span>
+          <span>Files</span>
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon" aria-hidden="true">&#9679;</span>
+          <span>Memory</span>
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon" aria-hidden="true">&#9679;</span>
+          <span>Settings</span>
+        </button>
+        {% endblock %}
+      </nav>
+    </div>
+
+    <!-- Center Zone: Content -->
+    <div id="zone-center">
+      {% block center %}{% endblock %}
+    </div>
+
+    <!-- Right Zone: Intelligence -->
+    <div id="zone-right">
+      <div class="zone-right-header">SHUNYA Intelligence</div>
+      <div class="zone-right-body">
+        {% block right %}
+        <div class="intel-section">
+          <div class="intel-section-title">Context</div>
+          <div class="intel-empty">No objects selected. Open an object to see intelligence.</div>
+        </div>
+        <div class="intel-section">
+          <div class="intel-section-title">Insights</div>
+          <div class="intel-empty">Intelligence will appear here as you work.</div>
+        </div>
+        <div class="intel-section">
+          <div class="intel-section-title">Related</div>
+          <div class="intel-empty">No related objects detected.</div>
+        </div>
+        {% endblock %}
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ================================================================
+     STATUS DOT
+     ================================================================ -->
+<div id="status-dot"></div>
+
+<!-- ================================================================
+     SEARCH OVERLAY
+     ================================================================ -->
+<div id="search-overlay" role="dialog" aria-label="Search">
+  <div class="search-inner">
+    <input type="text" placeholder="Search anything..." aria-label="Search input" id="search-input">
+    <div class="search-hint">Type to search &middot; Esc to close</div>
+    <div id="search-results"></div>
+  </div>
+</div>
+
+<script>
+  // ─── Time ───
+  function updateTime() {
+    const el = document.getElementById('strip-time');
+    if (el) {
+      const now = new Date();
+      const h = now.getHours().toString().padStart(2, '0');
+      const m = now.getMinutes().toString().padStart(2, '0');
+      el.textContent = h + ':' + m;
+    }
+  }
+  updateTime();
+  setInterval(updateTime, 30000);
+
+  // ─── Search ───
+  document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('search-overlay').classList.add('open');
+      setTimeout(function() {
+        document.getElementById('search-input').focus();
+      }, 100);
+    }
+    if (e.key === 'Escape') {
+      document.getElementById('search-overlay').classList.remove('open');
+    }
+  });
+
+  document.getElementById('search-overlay').addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.remove('open');
+    }
+  });
+
+  // ─── Navigation items ───
+  document.querySelectorAll('.nav-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+      document.querySelectorAll('.nav-item').forEach(function(n) {
+        n.classList.remove('active');
+      });
+      this.classList.add('active');
+    });
+  });
+</script>
+
+{% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

@@ -1,16 +1,61 @@
+/**
+ * Workspace Container — Zone 3 content area.
+ *
+ * Renders the active workspace inside the three-zone shell.
+ * Progressive rendering: the shell is always rendered, content fills in.
+ * No boot spinner, no loading screen — the shell itself is the loading indicator.
+ *
+ * Handles all workspace states:
+ *   loading → skeleton
+ *   error   → error state with retry
+ *   active  → composed panels
+ *   null    → Home workspace
+ *   empty   → no modules, no data
+ */
+
 import { useRef, useEffect, useState } from 'react';
 import { useActiveWorkspace } from '../../hooks/workspace-hooks';
 import { useRuntimeHealth } from '../../hooks/runtime-hooks';
+import { useWorkspaceStore } from '../../runtimes/workspace/store';
 import { CompositionEngine } from '../../runtimes/composition/engine';
 import { ModuleRegistry } from '../../runtimes/module-registry';
-import { AiCopilot } from '../copilot/ai-copilot';
 import { Panel } from '../executive/index';
+import { WorkspaceShell } from './workspace-shell';
+import { HomeWorkspace } from './home-workspace';
+import { bus } from '../../runtimes/event-bus';
+
+function WorkspaceErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <div className="wksp-error" role="alert">
+      <div className="wksp-error-icon">⚠</div>
+      <div className="wksp-error-title">Workspace Error</div>
+      <div className="wksp-error-message">{error}</div>
+      <button className="wksp-error-retry" onClick={onRetry}>Retry</button>
+    </div>
+  );
+}
+
+function WorkspaceLoadingState() {
+  return (
+    <div className="wksp-loading" aria-busy="true">
+      <div className="wksp-loading-shimmer" />
+      <div className="wksp-panels-skeleton">
+        <div className="wksp-skel-panel"><div className="sh-skel-line w-32" /><div className="sh-skel-line w-48" /><div className="sh-skel-line w-24" /></div>
+        <div className="wksp-skel-panel"><div className="sh-skel-line w-24" /><div className="sh-skel-line w-40" /><div className="sh-skel-line w-36" /></div>
+      </div>
+    </div>
+  );
+}
 
 export function WorkspaceContainer() {
   const active = useActiveWorkspace();
   const health = useRuntimeHealth();
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(1200);
+  const [runtimesReady, setRuntimesReady] = useState(false);
+  const [objectData, setObjectData] = useState<Record<string, unknown> | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -20,81 +65,163 @@ export function WorkspaceContainer() {
     return () => ro.disconnect();
   }, []);
 
-  if (health.total > 0 && health.ready < health.total) {
-    return (
-      <div className="wksp-boot" role="status" aria-label="Platform starting">
-        <div className="wksp-boot-spinner" />
-        <div className="wksp-boot-text">Initialising… ({health.ready}/{health.total})</div>
-        {health.failed > 0 && <div className="wksp-boot-error">{health.failed} runtime(s) failed</div>}
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (health.total > 0 && health.ready >= health.total) {
+      setRuntimesReady(true);
+    }
+  }, [health]);
 
-  if (!ModuleRegistry.hasModules && !active) {
-    return (
-      <div className="wksp-empty" role="status">
-        <div className="wksp-empty-zero">शून्य</div>
-        <h2 className="wksp-empty-title">Welcome to SHUNYA</h2>
-        <p className="wksp-empty-desc">One Operating System for Your Business.</p>
-        <div className="wksp-empty-actions">
-          <button className="wksp-empty-btn" onClick={() => {
-            window.open('/api/v1/founder/seed', '_blank')?.focus();
-          }}>
-            Load Demo Data
-          </button>
-          <button className="wksp-empty-btn wksp-empty-btn-secondary" onClick={() => {
-            window.open('https://shunyaos.com', '_blank')?.focus();
-          }}>
-            Learn More
-          </button>
+  // Fetch object data when an object workspace becomes active
+  // Dependencies include active identity id so effect re-fires on workspace
+  // activation (tab click) even when objectId/type are unchanged from hydration
+  useEffect(() => {
+    if (!active || active.identity.type !== 'object' || !active.identity.objectId) {
+      setObjectData(null);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const oid = active.identity.objectId;
+    setIsLoading(true);
+    setLoadError(null);
+
+    fetch(`/api/v1/founder/objects/${oid}`, { credentials: 'include' })
+      .then(r => {
+        if (!r.ok) {
+          if (r.status === 404) throw new Error(`Object not found or has been deleted`);
+          if (r.status === 401 || r.status === 403) throw new Error(`You don't have permission to view this object`);
+          throw new Error(`Server error (${r.status})`);
+        }
+        return r.json();
+      })
+      .then(d => {
+        if (!cancelled) {
+          if (!d.data) throw new Error('Object data is empty');
+          setObjectData(d.data ?? null);
+          setLoadError(null);
+          setIsLoading(false);
+          // Emit ObjectLoaded to transition workspace from loading → hydrating
+          bus.emit({ type: 'ObjectLoaded', objectType: active.identity.objectType!, objectId: oid, data: d.data });
+          // Emit TimelineLoaded to transition from hydrating → active
+          bus.emit({ type: 'TimelineLoaded', objectType: active.identity.objectType!, objectId: oid, events: [] });
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setLoadError(err.message);
+          setObjectData(null);
+          setIsLoading(false);
+          useWorkspaceStore.getState().markError(active.identity.id, err.message);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [active?.identity.id, active?.identity.objectId, active?.identity.type]);
+
+  const shellContext = active ? {
+    workspaceType: active.layout,
+    objectId: active.identity.objectId,
+    objectType: active.identity.objectType,
+  } : { workspaceType: 'home' };
+
+  const runtimeStates: Record<string, Record<string, unknown>> = objectData
+    ? { object: objectData as Record<string, unknown> }
+    : {};
+
+  function renderContent() {
+    // While booting, render the Home workspace with skeleton loading
+    if (health.total > 0 && !runtimesReady) {
+      return <HomeWorkspace loading={true} />;
+    }
+
+    // Empty state — no modules, no active workspace
+    if (!ModuleRegistry.hasModules && !active) {
+      return <HomeWorkspace />;
+    }
+
+    // No active workspace — show Home workspace
+    if (!active) {
+      return <HomeWorkspace />;
+    }
+
+    // Error state (from local fetch or workspace status)
+    if (loadError || active.status === 'error') {
+      return (
+        <WorkspaceErrorState
+          error={loadError ?? active.error ?? 'Unknown error'}
+          onRetry={() => {
+            setLoadError(null);
+            setObjectData(null);
+            setIsLoading(true);
+          }}
+        />
+      );
+    }
+
+    // Loading state (local fetch or workspace still initializing)
+    if (isLoading && !objectData) {
+      return <WorkspaceLoadingState />;
+    }
+
+    // Active workspace — compose panels (even if workspace status is still transitioning)
+    // The local objectData is the source of truth for rendering
+    if (objectData) {
+      const workspaceType = active.layout ?? 'home';
+      let composed;
+      try {
+        composed = CompositionEngine.compose(workspaceType, width, runtimeStates);
+      } catch {
+        return <HomeWorkspace />;
+      }
+
+      return (
+        <div className="wksp-panels" ref={ref}>
+          {composed.panels.map(p => {
+            // Error state for individual panels
+            if (p.error) {
+              return (
+                <div key={p.id} className="wksp-panel-error">
+                  <div className="wksp-panel-error-label">{p.label ?? p.componentId}</div>
+                  <div className="wksp-panel-error-msg">{p.error}</div>
+                </div>
+              );
+            }
+            return (
+              <Panel key={p.id} id={p.id} name={p.label ?? p.componentId} loading={p.loading} error={p.error}>
+                {p.Component && <p.Component state={p.props} loading={p.loading} error={p.error} />}
+              </Panel>
+            );
+          })}
         </div>
-        <div className="wksp-empty-hint">Press <kbd>⌘K</kbd> to search · <kbd>⌘1</kbd>–<kbd>⌘9</kbd> workspaces</div>
-      </div>
-    );
-  }
+      );
+    }
 
-  const workspaceType = active?.layout ?? 'executive';
-  const composed = CompositionEngine.compose(workspaceType, width, {});
+    // Fallback: no object data, no active workspace
+    return <HomeWorkspace />;
+  }
 
   return (
-    <div className={active ? 'wksp-with-copilot' : ''} ref={ref}>
-      <div className="wksp-area">
-        {composed.panels.map(p => (
-          <Panel key={p.id} id={p.id} name={p.label ?? p.componentId} loading={p.loading} error={p.error}>
-            {p.Component && <p.Component state={p.props} loading={p.loading} error={p.error} />}
-          </Panel>
-        ))}
-      </div>
-      {active && (
-        <AiCopilot context={{
-          workspaceType: active.layout,
-          objectId: active.identity.objectId,
-          objectType: active.identity.objectType,
-        }} />
-      )}
-    </div>
+    <WorkspaceShell context={shellContext}>
+      {renderContent()}
+    </WorkspaceShell>
   );
 }
 
 const styles = `
-.wksp-area { display: flex; gap: var(--shunya-spacing-md); padding: var(--shunya-spacing-md); flex: 1; overflow: auto; align-items: stretch; container-type: inline-size; }
-.wksp-with-copilot { display: flex; height: 100%; }
-.wksp-with-copilot > .wksp-area { overflow-y: auto; }
-.wksp-boot { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: var(--shunya-bg); gap: var(--shunya-spacing-md); }
-.wksp-boot-spinner { width: 32px; height: 32px; border: 3px solid var(--shunya-color-primary); border-top-color: var(--shunya-color-secondary); border-radius: 50%; animation: wksp-spin 0.8s linear infinite; }
-@keyframes wksp-spin { to { transform: rotate(360deg); } }
-.wksp-boot-text { font-size: var(--shunya-font-size-lg); color: var(--shunya-text-secondary); }
-.wksp-boot-error { font-size: var(--shunya-font-size-sm); color: var(--shunya-color-danger); }
-.wksp-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--shunya-text-secondary); gap: var(--shunya-spacing-md); text-align: center; padding: var(--shunya-spacing-3xl); }
-.wksp-empty-zero { font-size: clamp(3rem, 8vw, 5rem); color: #fff; font-weight: 300; opacity: 0.8; }
-.wksp-empty-title { font-size: var(--shunya-font-size-xl); color: var(--shunya-text); margin: 0; }
-.wksp-empty-desc { font-size: var(--shunya-font-size-md); color: var(--shunya-text-secondary); max-width: 400px; }
-.wksp-empty-actions { display: flex; gap: var(--shunya-spacing-sm); margin-top: var(--shunya-spacing-sm); }
-.wksp-empty-btn { padding: var(--shunya-spacing-sm) var(--shunya-spacing-lg); border-radius: var(--shunya-radius-sm); font-size: var(--shunya-font-size-sm); cursor: pointer; border: none; background: var(--shunya-color-primary, #555); color: #fff; }
-.wksp-empty-btn-secondary { background: transparent; border: 1px solid var(--shunya-color-primary, #444); color: var(--shunya-text-secondary); }
-.wksp-empty-btn:hover { opacity: 0.85; }
-.wksp-empty-hint { font-size: var(--shunya-font-size-xs); color: var(--shunya-text-secondary); padding: var(--shunya-spacing-sm); margin-top: var(--shunya-spacing-lg); }
-.wksp-empty-hint kbd { padding: 1px 4px; border: 1px solid var(--shunya-color-primary); border-radius: 3px; font-family: monospace; }
+.wksp-panels { display: flex; gap: var(--shunya-spacing-md); padding: var(--shunya-spacing-md); flex: 1; overflow: auto; align-items: stretch; container-type: inline-size; }
+.wksp-loading { display: flex; flex-direction: column; gap: var(--shunya-spacing-md); padding: var(--shunya-spacing-lg); flex: 1; }
+.wksp-loading-shimmer { height: 4px; background: linear-gradient(90deg, var(--shunya-surface-1, #22222e) 0%, var(--shunya-surface-2, #2a2a3a) 50%, var(--shunya-surface-1, #22222e) 100%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 2px; }
+.wksp-panels-skeleton { display: flex; gap: var(--shunya-spacing-md); flex: 1; }
+.wksp-skel-panel { flex: 1; background: var(--shunya-surface-2, #1a1a26); border: 1px solid var(--shunya-surface-1, #22222e); border-radius: var(--shunya-radius-md); padding: var(--shunya-spacing-md); display: flex; flex-direction: column; gap: var(--shunya-spacing-sm); }
+.wksp-error { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--shunya-spacing-md); padding: var(--shunya-spacing-xl); flex: 1; text-align: center; }
+.wksp-error-icon { font-size: 2rem; }
+.wksp-error-title { font-size: var(--shunya-font-size-lg); font-weight: 500; color: var(--shunya-text, #e0e0e0); }
+.wksp-error-message { font-size: var(--shunya-font-size-sm); color: var(--shunya-text-secondary, #888); max-width: 400px; }
+.wksp-error-retry { padding: var(--shunya-spacing-sm) var(--shunya-spacing-lg); background: var(--shunya-color-primary, #555); color: #fff; border: none; border-radius: var(--shunya-radius-sm); cursor: pointer; }
+.wksp-panel-error { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--shunya-surface-2, #1a1a26); border: 1px solid rgba(255,85,85,0.3); border-radius: var(--shunya-radius-md); padding: var(--shunya-spacing-md); }
+.wksp-panel-error-label { font-size: var(--shunya-font-size-xs); color: var(--shunya-text-secondary, #888); font-weight: 600; text-transform: uppercase; }
+.wksp-panel-error-msg { font-size: var(--shunya-font-size-sm); color: #f88; margin-top: 4px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 `;
 
 if (typeof document !== 'undefined') {

@@ -47,7 +47,7 @@ import { bus } from '../event-bus';
 // ── Types ──────────────────────────────────────────────────────
 
 export interface ExecutiveContext {
-  type: 'object' | 'conversation' | 'commitment' | 'timeline' | 'intelligence' | 'search' | 'dashboard';
+  type: 'object' | 'conversation' | 'commitment' | 'timeline' | 'intelligence' | 'search' | 'home';
   objectType?: string;
   objectId?: string;
   workspaceId?: string;
@@ -87,7 +87,7 @@ export interface ExperiencePreferences {
 // ── Default Preferences ────────────────────────────────────────
 
 const DEFAULT_PREFS: ExperiencePreferences = {
-  defaultWorkspace: 'executive',
+  defaultWorkspace: 'home',
   panelDensity: 'normal',
   reducedMotion: typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   highContrast: typeof window !== 'undefined' && window.matchMedia('(prefers-contrast: more)').matches,
@@ -103,7 +103,7 @@ const DEFAULT_PREFS: ExperiencePreferences = {
 // ── Experience Engine ──────────────────────────────────────────
 
 class ExperienceEngine {
-  private context: ExecutiveContext = { type: 'dashboard', label: 'Executive Dashboard', timestamp: Date.now() };
+  private context: ExecutiveContext = { type: 'home', label: 'Home Workspace', timestamp: Date.now() };
   private contextHistory: ExecutiveContext[] = [];
   private focusTarget: string | null = null;
   private notifications: Notification[] = [];
@@ -225,9 +225,9 @@ class ExperienceEngine {
 
   registerDefaultCommands(): void {
     this.registerCommand({
-      id: 'open-executive', label: 'Open Executive Dashboard', description: 'Switch to the executive overview',
+      id: 'open-home', label: 'Open Home Workspace', description: 'Switch to the home workspace',
       category: 'navigation', shortcut: 'Cmd+1',
-      execute: async () => this.navigate('dashboard', 'Executive Dashboard'),
+      execute: async () => this.navigate('home', 'Home Workspace'),
       available: () => true,
     });
     this.registerCommand({
@@ -364,7 +364,7 @@ class ExperienceEngine {
   // ── State ────────────────────────────────────────────────────
 
   clear(): void {
-    this.context = { type: 'dashboard', label: 'Executive Dashboard', timestamp: Date.now() };
+    this.context = { type: 'home', label: 'Home Workspace', timestamp: Date.now() };
     this.contextHistory = [];
     this.focusTarget = null;
     this.notifications = [];

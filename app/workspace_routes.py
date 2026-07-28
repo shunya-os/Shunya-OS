@@ -1,62 +1,30 @@
-"""SHUNYA Phase B1 — Universal Workspace Routes.
+"""SHUNYA Phase B1 -- Universal Workspace Routes.
 
-The workspace is the single entry point after authentication.
-No future application may bypass or replace this workspace.
+All `/workspace/*` routes now serve the React SPA shell,
+which is the canonical workspace runtime.
 """
-from flask import Blueprint, render_template, request, session, redirect, url_for
-from datetime import datetime
+import os
+from flask import Blueprint, send_from_directory
 
-workspace_bp = Blueprint("workspace", __name__, url_prefix="/workspace")
+workspace_bp = Blueprint("workspace", __name__, template_folder="../templates")
 
-ORGANIZATION = "SHUNYA"
-ORG_DESCRIPTION = "An operating system for human organizations."
+_FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+
+
+def _serve_spa():
+    idx = os.path.join(_FRONTEND_DIST, "index.html")
+    if os.path.exists(idx):
+        return send_from_directory(_FRONTEND_DIST, "index.html")
+    return "Frontend not built. Run `cd frontend && npm run build`", 503
 
 
 @workspace_bp.route("/")
 def workspace_home():
-    """Main workspace entry point — the universal workspace.
-
-    All authenticated users enter SHUNYA through this surface.
-    The workspace renders the universal layout with dynamic
-    object rendering in the center panel.
-    """
-    now = datetime.utcnow()
-    return render_template(
-        "workspace.html",
-        year=now.year,
-        org_name=ORGANIZATION,
-        org_description=ORG_DESCRIPTION,
-        current_user=_get_current_user(),
-    )
+    """Serve the SPA shell -- the React SPA handles workspace routing."""
+    return _serve_spa()
 
 
 @workspace_bp.route("/object/<object_id>")
 def workspace_object(object_id):
-    """Navigate directly to an object's Space."""
-    now = datetime.utcnow()
-    return render_template(
-        "workspace.html",
-        year=now.year,
-        org_name=ORGANIZATION,
-        org_description=ORG_DESCRIPTION,
-        current_user=_get_current_user(),
-        initial_object=object_id,
-    )
-
-
-def _get_current_user():
-    """Get the current user from session, if available."""
-    from flask import g
-    user = getattr(g, "user", None)
-    if user:
-        return user
-    # Fallback: check session
-    user_id = session.get("user_id")
-    if user_id:
-        try:
-            from app.auth import TeamMember
-            from app import db
-            return db.session.get(TeamMember, user_id)
-        except Exception:
-            pass
-    return None
+    """Serve the SPA shell -- the React SPA handles object views."""
+    return _serve_spa()

@@ -82,7 +82,7 @@
 
       <div class="email-display">{{ email|default('you@example.com') }}</div>
 
-      <form method="post" action="{{ action|default('/auth/verify') }}" id="verify-form">
+      <form method="post" action="{{ action|default('/login') }}" id="verify-form">
         <div class="code-inputs" id="code-inputs">
           <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autofocus>
           <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">

@@ -43,24 +43,22 @@ export interface LayoutDefinition {
  * Each entry answers only: which panels exist, in what order, with what constraints.
  */
 export const layouts: Record<string, LayoutDefinition> = {
-  executive: {
-    name: 'Executive Overview',
+  home: {
+    name: 'Home Workspace',
     overflow: 'stack',
     panels: [
-      { id: 'metrics',     name: 'Key Metrics',  minWidth: 300, weight: 1, order: 0 },
-      { id: 'insights',    name: 'AI Insights',   minWidth: 280, weight: 400, order: 1 },
-      { id: 'risks',       name: 'Active Risks',  minWidth: 280, weight: 400, order: 2 },
-      { id: 'activity',    name: 'Recent Activity', minWidth: 300, weight: 1, order: 3 },
+      { id: 'org-health',  name: 'Organization Health', minWidth: 300, weight: 1, order: 0 },
+      { id: 'recent-decs', name: 'Recent Decisions',    minWidth: 280, weight: 400, order: 1 },
+      { id: 'active-tasks',name: 'Active Tasks',        minWidth: 280, weight: 400, order: 2 },
+      { id: 'upcoming',    name: 'Upcoming Deadlines',  minWidth: 300, weight: 1, order: 3 },
     ],
   },
   object: {
     name: 'Object Workspace',
     overflow: 'stack',
     panels: [
-      { id: 'identity',    name: 'Identity & Summary', minWidth: 280, weight: 400, order: 0 },
-      { id: 'timeline',    name: 'Timeline',           minWidth: 300, weight: 1, order: 1 },
-      { id: 'details',     name: 'Details',            minWidth: 280, weight: 400, order: 2 },
-      { id: 'ai',          name: 'AI Understanding',    minWidth: 280, weight: 350, order: 3 },
+      { id: 'object-identity', name: 'Identity', minWidth: 280, weight: 400, order: 0 },
+      { id: 'insight-card',    name: 'Details',   minWidth: 300, weight: 1, order: 1 },
     ],
   },
   conversation: {
@@ -86,14 +84,6 @@ export const layouts: Record<string, LayoutDefinition> = {
       { id: 'graph',       name: 'Execution Graph',     minWidth: 280, weight: 450, order: 0 },
       { id: 'narrative',   name: 'Progress Narrative',  minWidth: 300, weight: 1, order: 1 },
       { id: 'ai-insight',  name: 'AI Insight',          minWidth: 280, weight: 380, order: 2 },
-    ],
-  },
-  dashboard: {
-    name: 'Dashboard',
-    overflow: 'stack',
-    panels: [
-      { id: 'metric-grid', name: 'Metric Grid', minWidth: 320, weight: 1, order: 0 },
-      { id: 'charts',      name: 'Charts',      minWidth: 320, weight: 1, order: 1 },
     ],
   },
   search: {

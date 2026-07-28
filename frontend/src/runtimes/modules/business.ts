@@ -71,8 +71,8 @@ const module: ShunyaModule = {
     const activeCommitments = objs.filter((o: any) => o.object_type === 'commitment');
 
     WorkspaceRegistry.register({
-      id: 'executive', name: 'Executive', description: 'Your business at a glance',
-      supportedObjectTypes: [], requiredRuntimes: [], layoutTemplate: 'executive',
+      id: 'home', name: 'Home', description: 'Your business at a glance',
+      supportedObjectTypes: [], requiredRuntimes: [], layoutTemplate: 'home',
       panels: [
         { componentId: 'metric', dependsOn: [], critical: true, label: 'Customers',
           propsResolver: () => ({ value: customers, subtitle: customers > 0 ? 'Active customers' : 'No customers yet' }) },
@@ -123,9 +123,9 @@ const module: ShunyaModule = {
       id: 'object', name: 'Object', description: 'Business object view',
       supportedObjectTypes: ['*'], requiredRuntimes: [], layoutTemplate: 'object',
       panels: [
-        { componentId: 'object-identity', dependsOn: [], critical: true, label: 'Identity',
+        { componentId: 'object-identity', dependsOn: ['object'], label: 'Identity',
           propsResolver: (s: any) => ({ name: s.name ?? 'Unknown', type: s.object_type ?? 'object', status: s.status ?? 'active', id: s.object_id ?? '' }) },
-        { componentId: 'insight-card', dependsOn: [], label: 'Details',
+        { componentId: 'insight-card', dependsOn: ['object'], label: 'Details',
           propsResolver: (s: any) => {
             let body = 'No additional data';
             try { const d = JSON.parse(s.content ?? '{}'); body = JSON.stringify(d, null, 2).slice(0, 300); } catch {}

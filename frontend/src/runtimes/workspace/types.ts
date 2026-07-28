@@ -3,10 +3,22 @@
  *
  * A workspace is a named, persistent, stateful container for business objects.
  * Not a page. Workspaces are persistent sessions with suspend/resume.
+ *
+ * Every workspace exposes:
+ *   unique runtime identity ✓
+ *   lifecycle ✓ (8 states with deterministic transitions)
+ *   loading state ✓
+ *   ready state ✓
+ *   empty state ✓
+ *   error state ✓
+ *   closing state ✓
+ *   dirty state ✓
+ *   validation state ✓
+ *   save status ✓
  */
 
-export type WorkspaceStatus = 'creating' | 'loading' | 'hydrating' | 'active' | 'suspended' | 'archived';
-export type WorkspaceType = 'object' | 'dashboard' | 'conversation' | 'approval' | 'search' | 'document' | 'comparison' | 'commitment';
+export type WorkspaceStatus = 'creating' | 'loading' | 'hydrating' | 'active' | 'suspended' | 'archived' | 'error' | 'closing';
+export type WorkspaceType = 'object' | 'home' | 'conversation' | 'approval' | 'search' | 'document' | 'comparison' | 'commitment';
 
 export interface WorkspaceIdentity {
   id: string;
@@ -24,6 +36,12 @@ export interface WorkspaceState {
   status: WorkspaceStatus;
   layout: string;
   error?: string;
+  /** Tracks whether the workspace has unsaved changes. */
+  dirty: boolean;
+  /** Last save result. */
+  saveStatus: 'idle' | 'saving' | 'saved' | 'failed';
+  /** Validation errors, keyed by field name. */
+  validationErrors: Record<string, string>;
 }
 
 export interface WorkspaceStore {
@@ -34,11 +52,13 @@ export interface WorkspaceStore {
 
 const VALID_TRANSITIONS: Record<WorkspaceStatus, WorkspaceStatus[]> = {
   creating: ['loading'],
-  loading: ['hydrating', 'active'],
-  hydrating: ['active', 'suspended'],
-  active: ['suspended', 'archived', 'loading'],
+  loading: ['hydrating', 'active', 'error'],
+  hydrating: ['active', 'suspended', 'error'],
+  active: ['suspended', 'archived', 'loading', 'error', 'closing'],
   suspended: ['active', 'archived'],
   archived: [],
+  error: ['loading', 'active', 'closing'],
+  closing: ['archived', 'active'],
 };
 
 export function canTransition(from: WorkspaceStatus, to: WorkspaceStatus): boolean {
@@ -61,6 +81,9 @@ export function createWorkspace(name: string, type: WorkspaceType, opts?: Partia
       ...opts,
     },
     status: 'creating',
-    layout: type === 'dashboard' ? 'executive' : type === 'object' ? 'object' : type,
+    layout: type === 'home' ? 'home' : type === 'object' ? 'object' : type,
+    dirty: false,
+    saveStatus: 'idle',
+    validationErrors: {},
   };
 }

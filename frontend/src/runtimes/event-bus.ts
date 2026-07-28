@@ -11,13 +11,21 @@ export type RuntimeEvent =
   | { type: 'WorkspaceHydrated';  workspaceId: string }
   | { type: 'WorkspaceSuspended'; workspaceId: string }
   | { type: 'WorkspaceResumed';   workspaceId: string }
+  | { type: 'WorkspaceClosing';   workspaceId: string }
   | { type: 'WorkspaceDestroyed'; workspaceId: string }
+  | { type: 'WorkspaceChanged';   workspaceId: string; from: string; to: string }
+  | { type: 'WorkspaceError';     workspaceId: string; error: string }
   // ── Object Lifecycle ─────────────────────────────────────
   | { type: 'ObjectRequested';    objectType: string; objectId: string; workspaceId: string }
   | { type: 'ObjectLoaded';       objectType: string; objectId: string; data: unknown }
   | { type: 'ObjectUpdated';      objectType: string; objectId: string; delta: Record<string, unknown> }
   | { type: 'ObjectCached';       objectType: string; objectId: string }
   | { type: 'ObjectError';        objectType: string; objectId: string; error: string }
+  | { type: 'ObjectSaveRequested'; objectType: string; objectId: string; workspaceId: string }
+  | { type: 'ObjectSaved';        objectType: string; objectId: string; workspaceId: string }
+  | { type: 'ObjectSaveFailed';   objectType: string; objectId: string; workspaceId: string; error: string }
+  | { type: 'ObjectDirtyChanged'; objectType: string; objectId: string; dirty: boolean }
+  | { type: 'ObjectClosed';       objectType: string; objectId: string; workspaceId: string }
   // ── Timeline Lifecycle ───────────────────────────────────
   | { type: 'TimelineRequested';  objectType: string; objectId: string; workspaceId: string }
   | { type: 'TimelineLoaded';     objectType: string; objectId: string; events: unknown[] }
@@ -30,6 +38,8 @@ export type RuntimeEvent =
   | { type: 'CommitmentCreated';   commitmentId: string }
   | { type: 'CommitmentStateChanged'; commitmentId: string; from: string; to: string }
   | { type: 'CommitmentCompleted'; commitmentId: string }
+  // ── Navigation ───────────────────────────────────────────
+  | { type: 'NavigationChanged';   workspaceId: string; url: string }
   // ── System ───────────────────────────────────────────────
   | { type: 'SystemError';         source: string; error: string };
 

@@ -516,19 +516,32 @@ def api_send_message(conv_id: str):
         object_id=conversation.object_id,
     )
 
-    # Dual-write: persist messages to DB
-    human_msg = FounderMessage(conv_id=conv_id, role="human", content=content)
-    db.session.add(human_msg)
-    response_text = "I hear you. I've noted your thoughts on this object. What else would you like to explore?"
-    assistant_msg = FounderMessage(conv_id=conv_id, role="assistant", content=response_text)
-    db.session.add(assistant_msg)
-    conversation.updated_at = datetime.now(timezone.utc)
-    db.session.commit()
+    # Process through AI Copilot
+    from app.ai.copilot import process_message
+    copilot_result = process_message(conv_id=conv_id, user_message=content)
 
-    return jsonify({
-        "success": True,
-        "data": {"human": human_msg.to_dict(), "assistant": assistant_msg.to_dict()},
-    }), 201
+    if copilot_result["success"]:
+        return jsonify({
+            "success": True,
+            "data": {
+                "response": copilot_result["response"],
+                "model": copilot_result["model"],
+                "intent": copilot_result["intent"],
+            },
+        }), 201
+    else:
+        # Fallback: use old hardcoded behavior
+        human_msg = FounderMessage(conv_id=conv_id, role="human", content=content)
+        db.session.add(human_msg)
+        response_text = "I hear you. I've noted your thoughts on this object. What else would you like to explore?"
+        assistant_msg = FounderMessage(conv_id=conv_id, role="assistant", content=response_text)
+        db.session.add(assistant_msg)
+        conversation.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return jsonify({
+            "success": True,
+            "data": {"human": human_msg.to_dict(), "assistant": assistant_msg.to_dict()},
+        }), 201
 
 
 # ---------------------------------------------------------------------------
@@ -791,3 +804,198 @@ def api_list_founder_objects():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     objs = FounderObject.query.filter_by(status="active").order_by(FounderObject.updated_at.desc()).all()
     return jsonify({"success": True, "data": [o.to_dict() for o in objs], "count": len(objs)})
+
+
+# ---------------------------------------------------------------------------
+# M4 — Workspace Intelligence API
+# ---------------------------------------------------------------------------
+
+
+@founder_bp.route("/api/v1/founder/workspace/<object_id>", methods=["GET"])
+def api_workspace_intelligence(object_id: str):
+    """Return the complete workspace intelligence for an object.
+
+    Assembles all M4 panels: summary, AI understanding, relationships,
+    timeline, conversation, next actions, missing context, health, evidence.
+    """
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import build_full_workspace
+    result = build_full_workspace(object_id)
+    return jsonify({"success": True, "data": result})
+
+
+@founder_bp.route("/api/v1/founder/workspace/<object_id>/summary", methods=["GET"])
+def api_workspace_summary(object_id: str):
+    """Return workspace summary for an object."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import build_workspace_summary
+    return jsonify({"success": True, "data": build_workspace_summary(object_id)})
+
+
+@founder_bp.route("/api/v1/founder/workspace/<object_id>/ai-understanding", methods=["GET"])
+def api_ai_understanding(object_id: str):
+    """Return AI Understanding panel."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import build_ai_understanding
+    return jsonify({"success": True, "data": build_ai_understanding(object_id)})
+
+
+@founder_bp.route("/api/v1/founder/workspace/<object_id>/relationships", methods=["GET"])
+def api_workspace_relationships(object_id: str):
+    """Return relationship intelligence for an object."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import build_relationship_intelligence
+    return jsonify({"success": True, "data": build_relationship_intelligence(object_id)})
+
+
+@founder_bp.route("/api/v1/founder/workspace/<object_id>/timeline", methods=["GET"])
+def api_workspace_timeline(object_id: str):
+    """Return activity timeline for an object."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import build_activity_timeline
+    limit = request.args.get("limit", 50, type=int)
+    return jsonify({"success": True, "data": build_activity_timeline(object_id, limit=limit)})
+
+
+@founder_bp.route("/api/v1/founder/workspace/<object_id>/conversation", methods=["GET"])
+def api_workspace_conversation(object_id: str):
+    """Return conversation workspace for an object."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import get_conversation_workspace
+    return jsonify({"success": True, "data": get_conversation_workspace(object_id)})
+
+
+@founder_bp.route("/api/v1/founder/workspace/<object_id>/next-actions", methods=["GET"])
+def api_workspace_next_actions(object_id: str):
+    """Return next actions for an object."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import build_next_actions
+    return jsonify({"success": True, "data": build_next_actions(object_id)})
+
+
+@founder_bp.route("/api/v1/founder/workspace/<object_id>/missing-context", methods=["GET"])
+def api_workspace_missing_context(object_id: str):
+    """Return missing context for an object."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import detect_missing_context
+    return jsonify({"success": True, "data": detect_missing_context(object_id)})
+
+
+@founder_bp.route("/api/v1/founder/workspace/<object_id>/health", methods=["GET"])
+def api_workspace_health(object_id: str):
+    """Return workspace health assessment."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import compute_workspace_health
+    return jsonify({"success": True, "data": compute_workspace_health(object_id)})
+
+
+@founder_bp.route("/api/v1/founder/workspace/<object_id>/evidence", methods=["GET"])
+def api_workspace_evidence(object_id: str):
+    """Return evidence explorer for an object."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import build_evidence_explorer
+    return jsonify({"success": True, "data": build_evidence_explorer(object_id)})
+
+
+@founder_bp.route("/api/v1/founder/workspace/next-actions/<int:action_id>/complete", methods=["POST"])
+def api_complete_next_action(action_id: int):
+    """Mark a next action as completed."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import acknowledge_next_action
+    result = acknowledge_next_action(action_id)
+    return jsonify({"success": result == "completed", "status": result})
+
+
+@founder_bp.route("/api/v1/founder/workspace/missing-context/<int:context_id>/dismiss", methods=["POST"])
+def api_dismiss_missing_context(context_id: int):
+    """Dismiss a missing context entry."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import dismiss_missing_context
+    result = dismiss_missing_context(context_id)
+    return jsonify({"success": result == "addressed", "status": result})
+
+
+@founder_bp.route("/api/v1/founder/workspace/navigate", methods=["POST"])
+def api_workspace_navigate():
+    """Navigate between related objects, preserving context."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    data = request.get_json(silent=True) or {}
+    from app.founder.workspace_intelligence import navigate_to_object
+    identity_id = session.get("identity_id")
+    result = navigate_to_object(
+        source_object_id=data.get("source_object_id", ""),
+        target_object_id=data.get("target_object_id", ""),
+        identity_id=identity_id,
+        relationship_type=data.get("relationship_type", "related"),
+        context_label=data.get("context_label", ""),
+    )
+    if "error" in result:
+        return jsonify({"success": False, "error": result["error"]}), 404
+    return jsonify({"success": True, "data": result})
+
+
+@founder_bp.route("/api/v1/founder/workspace/navigation-history", methods=["GET"])
+def api_navigation_history():
+    """Return navigation history for the current identity."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.founder.workspace_intelligence import get_navigation_history
+    identity_id = session.get("identity_id")
+    return jsonify({"success": True, "data": get_navigation_history(identity_id)})
+
+
+# ---------------------------------------------------------------------------
+# M5 — AI Copilot API
+# ---------------------------------------------------------------------------
+
+
+@founder_bp.route("/api/v1/founder/ai/summarize/<object_id>", methods=["GET"])
+def api_ai_summarize(object_id: str):
+    """Generate an AI summary for a business object."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.ai.copilot import generate_entity_summary
+    result = generate_entity_summary(object_id)
+    return jsonify(result)
+
+
+@founder_bp.route("/api/v1/founder/ai/health", methods=["GET"])
+def api_ai_health():
+    """Return AI Copilot health status."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from app.ai.copilot import copilot_health
+    return jsonify({"success": True, "data": copilot_health()})
+
+
+@founder_bp.route("/api/v1/founder/ai/chat/<conv_id>", methods=["POST"])
+def api_ai_chat(conv_id: str):
+    """Send a message to the AI Copilot in an existing conversation."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    data = request.get_json(silent=True) or {}
+    content = data.get("content", "").strip()
+    if not content:
+        return jsonify({"success": False, "error": "Message is required"}), 400
+    from app.ai.copilot import process_message
+    result = process_message(conv_id=conv_id, user_message=content)
+    if result.get("error"):
+        return jsonify({"success": False, "error": result["error"]}), 400
+    return jsonify({"success": True, "data": {
+        "response": result["response"],
+        "model": result.get("model", "unknown"),
+        "intent": result.get("intent", "general"),
+    }})
