@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SHUNYA — Loading your workspace</title>
+  <meta name="description" content="Preparing your workspace">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%23a4865f'/></svg>">
+  <style>
+    .auth-loading { text-align: center; max-width: 360px; }
+    .auth-loading-dot {
+      display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+      background: var(--shunya-gold); margin-bottom: 24px;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.3); }
+    }
+    .auth-loading h1 {
+      font-size: 18px; font-weight: 300; letter-spacing: -0.01em; margin-bottom: 8px;
+    }
+    .auth-loading p {
+      font-size: 13px; color: var(--shunya-text-tertiary); line-height: 1.5;
+    }
+    .auth-loading-steps { margin-top: 32px; text-align: left; }
+    .auth-step {
+      display: flex; align-items: center; gap: 10px; padding: 8px 0;
+      font-size: 12px; color: var(--shunya-text-tertiary);
+      animation: fade-up 0.4s var(--shunya-ease) forwards; opacity: 0;
+    }
+    .auth-step.active { color: var(--shunya-text); }
+    .auth-step.done { color: var(--shunya-text-secondary); }
+    .auth-step-indicator {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--shunya-text-faint); flex-shrink: 0;
+    }
+    .auth-step.active .auth-step-indicator {
+      background: var(--shunya-gold);
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+    .auth-step.done .auth-step-indicator { background: var(--shunya-text); }
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .auth-step:nth-child(1) { animation-delay: 0.2s; }
+    .auth-step:nth-child(2) { animation-delay: 0.6s; }
+    .auth-step:nth-child(3) { animation-delay: 1.0s; }
+    .auth-step:nth-child(4) { animation-delay: 1.4s; }
+    .auth-step:nth-child(5) { animation-delay: 1.8s; }
+    .auth-step:nth-child(6) { animation-delay: 2.2s; }
+  </style>
+</head>
+<body>
+  <main class="auth-main">
+    <div class="auth-loading">
+      <div class="auth-loading-dot"></div>
+      <h1>Preparing {{ org_name|default('your workspace') }}</h1>
+      <p>SHUNYA is connecting to your organization. This will only take a moment.</p>
+      <div class="auth-loading-steps" id="steps">
+        <div class="auth-step" id="step-1">
+          <span class="auth-step-indicator"></span>
+          <span>Verifying your identity</span>
+        </div>
+        <div class="auth-step" id="step-2">
+          <span class="auth-step-indicator"></span>
+          <span>Loading your objects</span>
+        </div>
+        <div class="auth-step" id="step-3">
+          <span class="auth-step-indicator"></span>
+          <span>Building your context</span>
+        </div>
+        <div class="auth-step" id="step-4">
+          <span class="auth-step-indicator"></span>
+          <span>Connecting intelligence</span>
+        </div>
+        <div class="auth-step" id="step-5">
+          <span class="auth-step-indicator"></span>
+          <span>Preparing your workspace</span>
+        </div>
+        <div class="auth-step" id="step-6">
+          <span class="auth-step-indicator"></span>
+          <span>Ready</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function() {
+      var steps = [
+        document.getElementById('step-1'), document.getElementById('step-2'),
+        document.getElementById('step-3'), document.getElementById('step-4'),
+        document.getElementById('step-5'), document.getElementById('step-6'),
+      ];
+      var current = 0;
+      function advanceStep() {
+        if (current > 0) { steps[current-1].classList.remove('active'); steps[current-1].classList.add('done'); }
+        if (current < steps.length) { steps[current].classList.add('active'); current++; }
+        if (current < steps.length) { setTimeout(advanceStep, 800); }
+        else { setTimeout(function() { window.location.href = '{{ redirect|default("/workspace") }}'; }, 600); }
+      }
+      setTimeout(advanceStep, 400);
+    })();
+  </script>
+</body>
+</html>

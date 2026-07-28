@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ object.name }} — SHUNYA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
+    }
+  </script>
+</head>
+<body class="bg-[#fafaf8] text-[#191b1c] font-sans antialiased min-h-screen flex flex-col">
+
+<header class="border-b border-[rgba(25,27,28,0.07)]">
+  <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3 truncate">
+      <a href="/founder/home" class="text-sm text-[rgba(25,27,28,0.35)] hover:text-[rgba(25,27,28,0.55)] transition-colors shrink-0">SHUNYA</a>
+      <span class="text-[rgba(25,27,28,0.10)] shrink-0">/</span>
+      {% if space %}
+      <a href="/founder/space/{{ space.space_id }}" class="text-sm text-[rgba(25,27,28,0.35)] hover:text-[rgba(25,27,28,0.55)] transition-colors truncate shrink-0">{{ space.name }}</a>
+      <span class="text-[rgba(25,27,28,0.10)] shrink-0">/</span>
+      {% endif %}
+      <span class="text-sm text-[rgba(25,27,28,0.55)] truncate">{{ object.name }}</span>
+    </div>
+    <a href="/founder/logout" class="text-xs text-[rgba(25,27,28,0.30)] hover:text-[rgba(25,27,28,0.55)] transition-colors shrink-0 ml-4">Log out</a>
+  </div>
+</header>
+
+<main class="flex-1 max-w-4xl mx-auto w-full px-6 py-8">
+
+  <!-- Object header -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-10 h-10 rounded-xl bg-[rgba(25,27,28,0.05)] flex items-center justify-center text-lg">
+        {% if object.object_type == 'Document' %}&#128221;
+        {% elif object.object_type == 'Note' %}&#128221;
+        {% elif object.object_type == 'Strategy' %}&#128202;
+        {% elif object.object_type == 'Brief' %}&#128240;
+        {% else %}&#11088;{% endif %}
+      </div>
+      <div>
+        <h1 class="text-xl font-light tracking-tight">{{ object.name }}</h1>
+        <p class="text-xs text-[#1a1a1a]/30 mt-0.5">{{ object.object_type }} &middot; {{ object.updated_at.strftime('%d %b %Y') if object.updated_at else '' }}</p>
+      </div>
+    </div>
+    {% if object.content %}
+    <div class="mt-4 p-4 bg-white/50 border border-[#1a1a1a]/5 rounded-xl">
+      <p class="text-sm text-[#1a1a1a]/60 leading-relaxed whitespace-pre-wrap">{{ object.content }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Conversation section -->
+  <div class="border-t border-[#1a1a1a]/5 pt-8">
+    <h2 class="text-sm font-medium text-[#1a1a1a]/60 mb-6">Conversation</h2>
+
+    <div id="messages-container" class="space-y-4 mb-8">
+      {% if messages %}
+        {% for msg in messages %}
+        <div class="flex gap-3 {% if msg.role == 'assistant' %}justify-start{% else %}justify-end{% endif %}">
+          <div class="max-w-[80%] {% if msg.role == 'assistant' %}bg-white border border-[#1a1a1a]/8{% else %}bg-[#1a1a1a]{% endif %} rounded-2xl px-4 py-3">
+            <p class="text-xs {% if msg.role == 'assistant' %}text-[#1a1a1a]/70{% else %}text-white/90{% endif %} leading-relaxed">{{ msg.content }}</p>
+            <p class="text-[10px] {% if msg.role == 'assistant' %}text-[#1a1a1a]/20{% else %}text-white/30{% endif %} mt-1.5">{{ msg.created_at.strftime('%H:%M') if msg.created_at else '' }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        {% if conversation %}
+        <p class="text-sm text-[#1a1a1a]/30 text-center py-8">Conversation started. Send a message to begin.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    {% if conversation %}
+    <!-- Message input -->
+    <form id="message-form" class="flex gap-3">
+      <input type="text" id="message-input" required autofocus
+        class="flex-1 px-4 py-3 bg-white border border-[#1a1a1a]/10 rounded-xl text-sm text-[#1a1a1a] placeholder-[#1a1a1a]/20 focus:outline-none focus:border-[#1a1a1a]/30 transition-colors"
+        placeholder="Type your message...">
+      <button type="submit"
+        class="px-5 py-3 bg-[#1a1a1a] text-white text-sm font-medium rounded-xl hover:bg-[#1a1a1a]/90 transition-colors">
+        Send
+      </button>
+    </form>
+    {% else %}
+    <div class="text-center py-8">
+      <button id="start-conversation-btn"
+        class="px-5 py-2.5 bg-[#1a1a1a] text-white text-sm font-medium rounded-xl hover:bg-[#1a1a1a]/90 transition-colors">
+        Start Conversation
+      </button>
+    </div>
+    {% endif %}
+  </div>
+
+</main>
+
+<script>
+  const objectId = '{{ object.object_id }}';
+  let convId = '{{ conversation.conv_id if conversation else "" }}';
+
+  // Start conversation
+  const startBtn = document.getElementById('start-conversation-btn');
+  if (startBtn) {
+    startBtn.addEventListener('click', async function() {
+      this.disabled = true;
+      this.textContent = 'Starting...';
+      try {
+        const resp = await fetch('/api/v1/founder/objects/' + objectId + '/conversation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await resp.json();
+        if (data.success && data.data) {
+          convId = data.data.conv_id;
+          // Reload to show conversation
+          window.location.reload();
+        }
+      } catch(e) {
+        this.textContent = 'Start Conversation';
+        this.disabled = false;
+      }
+    });
+  }
+
+  // Send message
+  const messageForm = document.getElementById('message-form');
+  if (messageForm) {
+    messageForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const input = document.getElementById('message-input');
+      const content = input.value.trim();
+      if (!content || !convId) return;
+
+      const btn = this.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      input.disabled = true;
+
+      try {
+        const resp = await fetch('/api/v1/founder/conversations/' + convId + '/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content }),
+        });
+        const data = await resp.json();
+        if (data.success && data.data) {
+          // Add human message
+          const container = document.getElementById('messages-container');
+          const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+          const humanEl = document.createElement('div');
+          humanEl.className = 'flex gap-3 justify-end';
+          humanEl.innerHTML = '<div class="max-w-[80%] bg-[#1a1a1a] rounded-2xl px-4 py-3">'
+            + '<p class="text-xs text-white/90 leading-relaxed">' + escapeHtml(content) + '</p>'
+            + '<p class="text-[10px] text-white/30 mt-1.5">' + now + '</p></div>';
+          container.appendChild(humanEl);
+
+          // Add assistant response
+          const assistantEl = document.createElement('div');
+          assistantEl.className = 'flex gap-3 justify-start';
+          assistantEl.innerHTML = '<div class="max-w-[80%] bg-white border border-[#1a1a1a]/8 rounded-2xl px-4 py-3">'
+            + '<p class="text-xs text-[#1a1a1a]/70 leading-relaxed">' + escapeHtml(data.data.assistant.content) + '</p>'
+            + '<p class="text-[10px] text-[#1a1a1a]/20 mt-1.5">' + now + '</p></div>';
+          container.appendChild(assistantEl);
+
+          container.scrollTop = container.scrollHeight;
+          input.value = '';
+        }
+      } catch(e) {
+        console.error('Failed to send message', e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send';
+        input.disabled = false;
+        input.focus();
+      }
+    });
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+</script>
+
+</body>
+</html>

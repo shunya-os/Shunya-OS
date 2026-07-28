@@ -1,0 +1,1 @@
+"""SHUNYA Reasoning Engine — Analysis, inference, and pattern detection."""

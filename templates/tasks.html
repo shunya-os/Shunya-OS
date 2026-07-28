@@ -1,0 +1,536 @@
+{% extends "base_universal.html" %}
+{% block page_icon %}✅{% endblock %}
+{% block page_title %}Tasks & Checklists{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+  :root {
+    --bg-primary: #0f172a;
+    --bg-card: #1e293b;
+    --bg-hover: #334155;
+    --border: rgba(255,255,255,0.08);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --primary: #2563eb;
+    --accent: #7c3aed;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+  }
+  .tasks-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 1.5rem;
+    min-height: calc(100vh - 180px);
+  }
+  @media (max-width: 768px) {
+    .tasks-layout { grid-template-columns: 1fr; }
+  }
+
+  /* Lists panel */
+  .lists-panel {
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .lists-panel-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .lists-panel-header h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .lists-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+  }
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+  }
+  .list-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .list-item.active {
+    background: rgba(37,99,235,0.1);
+    border-color: rgba(37,99,235,0.3);
+    color: var(--text-primary);
+  }
+  .list-item .list-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+  .list-item .list-info { flex: 1; min-width: 0; }
+  .list-item .list-name {
+    font-size: 0.9rem; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .list-item .list-meta { font-size: 0.75rem; color: var(--text-secondary); }
+  .list-item .list-count {
+    font-size: 0.75rem; font-weight: 600;
+    background: rgba(255,255,255,0.06);
+    padding: 2px 8px; border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Tasks panel */
+  .tasks-panel {
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+  .tasks-panel-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .tasks-panel-header h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .tasks-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+  }
+  .empty-tasks {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 3rem 1rem;
+    color: var(--text-secondary); text-align: center;
+  }
+  .empty-tasks .empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+
+  /* Task item */
+  .task-item {
+    display: flex; align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+    cursor: grab;
+    user-select: none;
+  }
+  .task-item:hover {
+    background: rgba(255,255,255,0.03);
+    border-color: var(--border);
+  }
+  .task-item.dragging { opacity: 0.5; border-color: var(--primary); background: rgba(37,99,235,0.08); }
+  .task-item.drag-over { border-top: 2px solid var(--primary); }
+  .task-item.completed .task-title { text-decoration: line-through; opacity: 0.6; }
+  .task-checkbox { flex-shrink: 0; margin-top: 2px; }
+  .task-checkbox input[type="checkbox"] {
+    width: 18px; height: 18px;
+    accent-color: var(--success);
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .task-body { flex: 1; min-width: 0; }
+  .task-title { font-size: 0.9rem; font-weight: 500; color: var(--text-primary); }
+  .task-desc { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
+  .task-footer {
+    display: flex; align-items: center; gap: 0.5rem; margin-top: 6px; flex-wrap: wrap;
+  }
+
+  /* Priority badges */
+  .priority-badge {
+    font-size: 0.65rem; font-weight: 600;
+    padding: 2px 8px; border-radius: 6px;
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .priority-low { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .priority-medium { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .priority-high { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .priority-urgent { background: rgba(239,68,68,0.25); color: #f87171; }
+
+  /* Status badges */
+  .status-badge {
+    font-size: 0.65rem; font-weight: 600;
+    padding: 2px 8px; border-radius: 6px;
+  }
+  .status-pending { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .status-in_progress { background: rgba(37,99,235,0.15); color: #60a5fa; }
+  .status-completed { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .status-cancelled { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+  .due-date { font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; gap: 3px; }
+  .due-date.overdue { color: var(--danger); font-weight: 600; }
+  .task-assignee {
+    font-size: 0.7rem; color: var(--text-secondary);
+    background: rgba(255,255,255,0.05);
+    padding: 2px 6px; border-radius: 4px;
+  }
+
+  /* Task actions */
+  .task-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .task-actions button {
+    background: none; border: none;
+    color: var(--text-secondary);
+    cursor: pointer; padding: 4px;
+    border-radius: 6px; font-size: 0.85rem;
+    transition: all 0.15s;
+  }
+  .task-actions button:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+  .task-actions .btn-delete:hover { color: var(--danger); }
+
+  /* Drag handle */
+  .drag-handle { cursor: grab; color: var(--text-secondary); opacity: 0.4; flex-shrink: 0; margin-top: 4px; font-size: 0.8rem; }
+  .task-item:hover .drag-handle { opacity: 0.8; }
+
+  /* Inline add form */
+  .add-task-form {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border);
+    background: rgba(0,0,0,0.15);
+  }
+  .add-task-form .form-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+  .add-task-form input,
+  .add-task-form select,
+  .add-task-form textarea {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .add-task-form input:focus,
+  .add-task-form select:focus,
+  .add-task-form textarea:focus { border-color: var(--primary); }
+  .add-task-form input::placeholder,
+  .add-task-form textarea::placeholder { color: var(--text-secondary); }
+  .add-task-form select option { background: var(--bg-card); color: var(--text-primary); }
+  .add-task-form .btn-add {
+    background: var(--primary); color: white;
+    border: none; border-radius: 8px;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.85rem; font-weight: 500;
+    cursor: pointer; transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .add-task-form .btn-add:hover { background: #1d4ed8; }
+
+  /* Progress */
+  .tasks-progress-bar {
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .progress-bg {
+    width: 100%; height: 8px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2563eb, #7c3aed);
+    border-radius: 4px; transition: width 0.4s ease;
+  }
+  .tasks-progress-stats {
+    display: flex; justify-content: space-between;
+    margin-top: 4px; font-size: 0.75rem; color: var(--text-secondary);
+  }
+
+  /* Create list in header */
+  .create-list-form { display: flex; gap: 0.5rem; align-items: center; }
+  .create-list-form input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    color: var(--text-primary);
+    font-size: 0.85rem; outline: none;
+    width: 140px;
+  }
+  .create-list-form input:focus { border-color: var(--primary); }
+  .create-list-form input::placeholder { color: var(--text-secondary); }
+  .create-list-form button {
+    background: var(--accent); color: white;
+    border: none; border-radius: 8px;
+    padding: 0.4rem 1rem;
+    font-size: 0.8rem; font-weight: 500;
+    cursor: pointer; transition: background 0.15s; white-space: nowrap;
+  }
+  .create-list-form button:hover { background: #6d28d9; }
+
+  .delete-list-btn {
+    background: none; border: none;
+    color: var(--text-secondary); cursor: pointer;
+    padding: 4px 6px; border-radius: 6px;
+    font-size: 0.8rem; transition: all 0.15s;
+  }
+  .delete-list-btn:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+
+  .no-selection {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; color: var(--text-secondary);
+    text-align: center; padding: 4rem 2rem;
+  }
+  .no-selection .big-icon { font-size: 4rem; margin-bottom: 1rem; opacity: 0.4; }
+  .no-selection h3 { color: var(--text-primary); font-size: 1.1rem; margin-bottom: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tasks-layout">
+  <!-- ===== LEFT: Task Lists ===== -->
+  <div class="lists-panel">
+    <div class="lists-panel-header">
+      <h2>📋 Lists</h2>
+      <form method="POST" action="{{ url_for('main.tasks_create_list') }}" class="create-list-form" onsubmit="return confirmCreate(this)">
+        <input type="text" name="name" placeholder="New list..." required maxlength="200">
+        <button type="submit">+ New</button>
+      </form>
+    </div>
+    <div class="lists-scroll" id="lists-container">
+      {% if lists_data %}
+        {% for ld in lists_data %}
+        <div class="list-item {% if selected_list and selected_list.id == ld.id %}active{% endif %}"
+             onclick="selectList({{ ld.id }})">
+          <div class="list-icon" style="background:rgba(99,102,241,0.15);color:#818cf8;">📋</div>
+          <div class="list-info">
+            <div class="list-name">{{ ld.name }}</div>
+            <div class="list-meta">
+              {{ ld.count }} task{% if ld.count != 1 %}s{% endif %}
+              {% if ld.done > 0 %} · {{ ld.done }} done{% endif %}
+            </div>
+          </div>
+          <div class="list-count">{{ ld.count }}</div>
+          <form method="POST" action="{{ url_for('main.tasks_delete_list', id=ld.id) }}" style="display:inline" onsubmit="return confirm('Delete this list and all its tasks?')">
+            <button type="submit" class="delete-list-btn" title="Delete list">✕</button>
+          </form>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="padding:2rem 1rem;text-align:center;color:var(--text-secondary);font-size:0.9rem;">
+          No task lists yet.<br>Create one to get started.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ===== RIGHT: Tasks ===== -->
+  <div class="tasks-panel">
+    {% if selected_list %}
+      <!-- Progress bar -->
+      <div class="tasks-progress-bar">
+        <div class="progress-bg">
+          <div class="progress-fill" style="width:{{ progress_pct }}%"></div>
+        </div>
+        <div class="tasks-progress-stats">
+          <span>{{ done_count }}/{{ total_count }} done</span>
+          <span>{{ progress_pct }}%</span>
+        </div>
+      </div>
+
+      <!-- Header -->
+      <div class="tasks-panel-header">
+        <h2>{{ selected_list.name }}</h2>
+        <span class="status-badge status-pending" style="font-size:0.75rem;">{{ pending_count }} pending</span>
+      </div>
+
+      <!-- Tasks -->
+      <div class="tasks-scroll" id="tasks-container">
+        {% if tasks %}
+          {% for t in tasks %}
+          <div class="task-item {% if t.status == 'completed' %}completed{% endif %}"
+               draggable="true" data-task-id="{{ t.id }}" id="task-{{ t.id }}">
+            <div class="drag-handle" title="Drag to reorder">⠿</div>
+            <div class="task-checkbox">
+              <input type="checkbox"
+                     {% if t.status == 'completed' %}checked{% endif %}
+                     onchange="toggleStatus({{ t.id }}, this.checked ? 'completed' : 'pending')">
+            </div>
+            <div class="task-body">
+              <div class="task-title">{{ t.title }}</div>
+              {% if t.description %}
+              <div class="task-desc">{{ t.description[:200] }}{% if t.description|length > 200 %}…{% endif %}</div>
+              {% endif %}
+              <div class="task-footer">
+                <span class="priority-badge priority-{{ t.priority }}">{{ t.priority }}</span>
+                <span class="status-badge status-{{ t.status }}">{{ t.status.replace('_',' ') }}</span>
+                {% if t.due_date %}
+                <span class="due-date {% if t.status not in ('completed','cancelled') and t.due_date < today %}overdue{% endif %}">
+                  📅 {{ t.due_date.strftime('%d %b %Y') }}
+                  {% if t.status not in ('completed','cancelled') and t.due_date < today %}
+                    <span style="color:#ef4444;font-weight:600;">(Overdue)</span>
+                  {% endif %}
+                </span>
+                {% endif %}
+                {% if t.assigned_to %}
+                <span class="task-assignee">👤 {{ t.assigned_to }}</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="task-actions">
+              <button onclick="deleteTask({{ t.id }})" class="btn-delete" title="Delete task">🗑️</button>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-tasks">
+            <div class="empty-icon">✅</div>
+            <h3 style="color:var(--text-primary);font-size:1rem;margin-bottom:0.5rem;">No tasks yet</h3>
+            <p>Add tasks using the form below.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Add task form -->
+      <form method="POST" action="{{ url_for('main.tasks_add_item', id=selected_list.id) }}" class="add-task-form">
+        <div class="form-row">
+          <input type="text" name="title" placeholder="Task title…" required maxlength="255" style="flex:2;min-width:120px;">
+          <select name="priority" style="flex:0.6;min-width:90px;">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+          <input type="date" name="due_date" style="flex:0.8;min-width:120px;">
+          <button type="submit" class="btn-add">+ Add</button>
+        </div>
+        <div class="form-row" style="margin-bottom:0;">
+          <textarea name="description" placeholder="Description (optional)…" rows="1" style="flex:2;resize:none;"></textarea>
+          <input type="text" name="assigned_to" placeholder="Assign to…" style="flex:0.7;">
+        </div>
+      </form>
+    {% else %}
+      <div class="no-selection">
+        <div class="big-icon">📋</div>
+        <h3>Select a task list</h3>
+        <p>Choose a list from the left panel to view and manage its tasks.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% include '_companion.html' %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function selectList(listId) {
+  window.location.href = '{{ url_for("main.tasks_list") }}?list=' + listId;
+}
+
+function toggleStatus(taskId, newStatus) {
+  fetch('/tasks/item/' + taskId + '/status', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status: newStatus})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) { window.location.reload(); }
+    else { alert('Error: ' + (data.error || 'Failed to update')); }
+  })
+  .catch(() => alert('Network error'));
+}
+
+function deleteTask(taskId) {
+  if (!confirm('Delete this task?')) return;
+  fetch('/tasks/item/' + taskId + '/delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'}
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) { window.location.reload(); }
+    else { alert('Error: ' + (data.error || 'Failed to delete')); }
+  })
+  .catch(() => alert('Network error'));
+}
+
+// Drag-to-reorder
+(function() {
+  const container = document.getElementById('tasks-container');
+  if (!container) return;
+  let dragSrcEl = null;
+
+  container.addEventListener('dragstart', function(e) {
+    const item = e.target.closest('.task-item');
+    if (!item) return;
+    dragSrcEl = item;
+    item.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.dataset.taskId);
+  });
+
+  container.addEventListener('dragend', function(e) {
+    const item = e.target.closest('.task-item');
+    if (item) item.classList.remove('dragging');
+    document.querySelectorAll('.task-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+  });
+
+  container.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    const item = e.target.closest('.task-item');
+    if (!item || item === dragSrcEl) return;
+    item.classList.add('drag-over');
+  });
+
+  container.addEventListener('dragleave', function(e) {
+    const item = e.target.closest('.task-item');
+    if (item) item.classList.remove('drag-over');
+  });
+
+  container.addEventListener('drop', function(e) {
+    e.preventDefault();
+    const target = e.target.closest('.task-item');
+    if (!target || !dragSrcEl || target === dragSrcEl) return;
+    target.classList.remove('drag-over');
+    if (target.compareDocumentPosition(dragSrcEl) & Node.DOCUMENT_POSITION_FOLLOWING) {
+      target.parentNode.insertBefore(dragSrcEl, target.nextSibling);
+    } else {
+      target.parentNode.insertBefore(dragSrcEl, target);
+    }
+    const order = Array.from(container.querySelectorAll('.task-item')).map(el => parseInt(el.dataset.taskId));
+    fetch('/tasks/reorder', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({order: order})
+    }).catch(() => {});
+  });
+})();
+
+function confirmCreate(form) {
+  const name = form.querySelector('input[name="name"]').value.trim();
+  if (!name) { alert('Please enter a list name.'); return false; }
+  return true;
+}
+</script>
+{% endblock %}

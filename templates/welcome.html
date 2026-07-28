@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Welcome — {{ company_name or "Shunya OS" }}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      font-family:'Inter',system-ui,sans-serif;
+      background:linear-gradient(135deg,{{ bg_color or '#0f172a' }},{{ sidebar_bg or '#1e293b' }});
+      min-height:100vh;display:flex;align-items:center;justify-content:center;
+      color:white;overflow:hidden;
+    }
+    .welcome-container{text-align:center;padding:2rem;max-width:600px;animation:fadeIn 0.8s ease}
+    .logo-container{margin-bottom:2rem;animation:float 3s ease-in-out infinite}
+    .logo-img{max-width:180px;max-height:180px;border-radius:{{ '50%' if logo_style == 'circle' else '24px' }};box-shadow:0 0 60px {{ primary_color }}33}
+    .greeting{font-size:2.5rem;font-weight:700;margin-bottom:0.5rem}
+    .message{font-size:1.1rem;color:rgba(255,255,255,0.7);margin-bottom:2rem;line-height:1.6}
+    .action-btn{
+      display:inline-flex;align-items:center;gap:0.75rem;
+      padding:1rem 2.5rem;border-radius:16px;font-size:1rem;font-weight:600;
+      background:{{ primary_color or '#2563eb' }};color:white;text-decoration:none;
+      transition:all 0.3s ease;border:none;cursor:pointer;
+    }
+    .action-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px {{ primary_color }}44}
+    .stats-row{display:flex;gap:1.5rem;justify-content:center;margin-bottom:2rem;flex-wrap:wrap}
+    .stat{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:1rem 1.5rem;min-width:120px}
+    .stat-value{font-size:1.5rem;font-weight:700;color:{{ accent_color or '#a78bfa' }}}
+    .stat-label{font-size:0.8rem;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.5px;margin-top:0.25rem}
+    .subtitle{font-size:0.8rem;color:rgba(255,255,255,0.3);margin-top:3rem}
+    .skip{position:absolute;top:1.5rem;right:1.5rem;color:rgba(255,255,255,0.3);text-decoration:none;font-size:0.85rem}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  </style>
+</head>
+<body>
+  <a href="/" class="skip">Skip →</a>
+  <div class="welcome-container">
+    <div class="logo-container">
+      {% if logo_path %}
+      <img src="{{ logo_path }}" alt="Company Logo" class="logo-img">
+      {% else %}
+      <div style="width:120px;height:120px;border-radius:24px;background:{{ primary_color }}22;border:2px solid {{ primary_color }}44;display:flex;align-items:center;justify-content:center;font-size:3rem;margin:0 auto">
+        {{ company_emoji or '🏝️' }}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="greeting">{{ greeting }}</div>
+    <div class="message">{{ message }}</div>
+
+    <div class="stats-row">
+      {% for s in stats %}
+      <div class="stat">
+        <div class="stat-value">{{ s.value }}</div>
+        <div class="stat-label">{{ s.label }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <a href="/" class="action-btn">
+      {{ cta_text or "Start Your Day" }}
+      <span>→</span>
+    </a>
+
+    <div class="subtitle">Powered by Shunya OS</div>
+  </div>
+
+  <script>
+    // Auto-play voice greeting if available
+    const voiceText = {{ voice_text|tojson }};
+    if ('speechSynthesis' in window && voiceText) {
+      setTimeout(() => {
+        const utter = new SpeechSynthesisUtterance(voiceText);
+        utter.rate = 1.1;
+        utter.pitch = 1.05;
+        window.speechSynthesis.speak(utter);
+      }, 500);
+    }
+    // Redirect to dashboard after 8 seconds
+    setTimeout(() => { window.location.href = '/'; }, 8000);
+  </script>
+</body>
+</html>

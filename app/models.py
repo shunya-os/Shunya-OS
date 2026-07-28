@@ -1,1399 +1,1380 @@
-"""Shunya OS — All database models."""
-import uuid, hashlib, secrets, json
+"""
+SHUNYA OS — Data Layer
+
+Five core models + ActivityLog for lead history tracking.
+All tables use created_at + updated_at timestamps.
+"""
+
+import re
 from datetime import datetime, date
 from enum import Enum as PyEnum
 from typing import Optional
 from app import db
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Date, Float, ForeignKey, JSON, Numeric, Index
-from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Numeric, func, Index, CheckConstraint, text
+
 
 # ---------------------------------------------------------------------------
-# Enums
+# Enums (string-based for DB compat, typed for code safety)
 # ---------------------------------------------------------------------------
 
-class TenantPlan(str, PyEnum):
-    FREE = "free"
-    PRO = "pro"
-    BUSINESS = "business"
-    ENTERPRISE = "enterprise"
+class LeadStatus(str, PyEnum):
+    NEW = "new"
+    IN_PROGRESS = "in_progress"
+    CONVERTED = "converted"
+    CANCELLED = "cancelled"
+    ON_HOLD = "on_hold"
 
-class UserRole(str, PyEnum):
-    ADMIN = "admin"
-    MANAGER = "manager"
-    AGENT = "agent"
-    VIEWER = "viewer"
 
-class GovernanceLevel(str, PyEnum):
+class PaymentType(str, PyEnum):
+    GUEST = "guest_payment"
+    SUPPLIER = "supplier_payment"
+    REFUND = "refund"
+    DEPOSIT = "deposit"
+
+
+class InvoiceStatus(str, PyEnum):
     DRAFT = "draft"
-    AUTO = "auto"
-    GOVERN = "govern"
+    SENT = "sent"
+    PAID = "paid"
+    VOID = "void"
+    OVERDUE = "overdue"
+
+
+class LeadSource(str, PyEnum):
+    TELEGRAM = "telegram"
+    MANUAL = "manual"
+    API = "api"
+    EMAIL = "email"
+
+
+# ---------------------------------------------------------------------------
+# Lead
+# ---------------------------------------------------------------------------
+
+class Lead(db.Model):
+    """Customer inquiry / booking lead. Auto-coded with PC{DD}{MM}{YY}{##}."""
+
+    __tablename__ = "leads"
+    __table_args__ = (
+        Index("ix_leads_status_created", "status", "created_at"),
+        Index("ix_leads_source_created", "source", "created_at"),
+        Index("ix_leads_destination", "destination"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    source = db.Column(db.String(30), default=LeadSource.TELEGRAM.value)
+    customer_name = db.Column(db.String(255), index=True)
+    phone = db.Column(db.String(30), index=True)
+    email = db.Column(db.String(255))
+    destination = db.Column(db.String(255))
+    pax = db.Column(db.String(100))
+    dates = db.Column(db.String(255))
+    budget = db.Column(Numeric(12, 2), default=0)
+    notes = db.Column(db.Text)
+    status = db.Column(db.String(30), default=LeadStatus.NEW.value, index=True)
+    assigned_to = db.Column(db.String(120))
+    # Person compatibility (Phase 1)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=True)
+    person = db.relationship("Person", backref="leads", lazy="select")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    payments = db.relationship("Payment", backref="lead", lazy="dynamic", cascade="all,delete-orphan")
+    invoices = db.relationship("Invoice", backref="lead", lazy="dynamic", cascade="all,delete-orphan")
+    activities = db.relationship("ActivityLog", backref="lead", lazy="dynamic", cascade="all,delete-orphan")
+
+    def __repr__(self):
+        return f"<Lead {self.code} [{self.status}] {self.customer_name or '?'}>"
+
+    def to_dict(self, include_payments=False, include_invoices=False) -> dict:
+        d = {
+            "id": self.id,
+            "code": self.code,
+            "source": self.source,
+            "customer_name": self.customer_name,
+            "phone": self.phone,
+            "email": self.email,
+            "destination": self.destination,
+            "pax": self.pax,
+            "dates": self.dates,
+            "budget": float(self.budget or 0),
+            "status": self.status,
+            "assigned_to": self.assigned_to,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "notes": self.notes,
+        }
+        if include_payments:
+            d["payments"] = [p.to_dict() for p in self.payments]
+        if include_invoices:
+            d["invoices"] = [i.to_dict() for i in self.invoices]
+        return d
+
+    @property
+    def total_revenue(self) -> float:
+        return float(
+            db.session.query(func.coalesce(func.sum(Payment.amount), 0))
+            .filter(Payment.lead_id == self.id, Payment.type == PaymentType.GUEST.value)
+            .scalar()
+            or 0
+        )
+
+    @property
+    def total_supplier_payout(self) -> float:
+        return float(
+            db.session.query(func.coalesce(func.sum(Payment.amount), 0))
+            .filter(Payment.lead_id == self.id, Payment.type == PaymentType.SUPPLIER.value)
+            .scalar()
+            or 0
+        )
+
+    @property
+    def profit_margin(self) -> float:
+        return self.total_revenue - self.total_supplier_payout
+
+    def log_activity(self, action: str, detail: str = "", user: str = ""):
+        """Helper: log an activity entry against this lead."""
+        log = ActivityLog(lead_id=self.id, action=action, detail=detail, user=user)
+        db.session.add(log)
+        db.session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Payment
+# ---------------------------------------------------------------------------
+
+class Payment(db.Model):
+    """Dual-ledger payment: guest revenue vs supplier expense."""
+
+    __tablename__ = "payments"
+    __table_args__ = (
+        Index("ix_payments_lead_type", "lead_id", "type"),
+        Index("ix_payments_paid_at", "paid_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    type = db.Column(db.String(30), default=PaymentType.GUEST.value, nullable=False)
+    amount = db.Column(Numeric(12, 2), default=0, nullable=False)
+    method = db.Column(db.String(80))
+    ref_number = db.Column(db.String(120), index=True)
+    paid_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Payment #{self.id} {self.type} ₹{self.amount:.0f}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "lead_id": self.lead_id,
+            "type": self.type,
+            "amount": float(self.amount or 0),
+            "method": self.method,
+            "ref_number": self.ref_number,
+            "paid_at": self.paid_at.isoformat() if self.paid_at else None,
+            "notes": self.notes,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Supplier
+# ---------------------------------------------------------------------------
+
+class Supplier(db.Model):
+    """Vendor catalog: hotels, transport, activities, vendors."""
+
+    __tablename__ = "suppliers"
+    __table_args__ = (
+        Index("ix_suppliers_city_category", "city", "category"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), unique=True, nullable=False)
+    category = db.Column(db.String(120))  # hotel / flight / transport / activity / venue
+    contact = db.Column(db.String(255))
+    email = db.Column(db.String(255))
+    phone = db.Column(db.String(30))
+    city = db.Column(db.String(120))
+    gstin = db.Column(db.String(50))  # GST number (India)
+    payment_terms = db.Column(db.String(255))
+    notes = db.Column(db.Text)
+    rating = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Supplier {self.name} [{self.category}] {self.city}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "category": self.category,
+            "contact": self.contact,
+            "email": self.email,
+            "phone": self.phone,
+            "city": self.city,
+            "gstin": self.gstin,
+            "payment_terms": self.payment_terms,
+            "rating": self.rating,
+            "notes": self.notes,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Invoice
+# ---------------------------------------------------------------------------
+
+class Invoice(db.Model):
+    """Invoices with PDF generation. Lifecycle: draft → sent → paid / void."""
+
+    __tablename__ = "invoices"
+    __table_args__ = (
+        Index("ix_invoices_status", "status"),
+        Index("ix_invoices_lead", "lead_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    invoice_number = db.Column(db.String(50), unique=True, nullable=False)
+    total_amount = db.Column(Numeric(12, 2), default=0)
+    tax = db.Column(Numeric(12, 2), default=0)
+    tax_rate = db.Column(Numeric(5, 2), default=0)  # e.g. 18.00 for 18%
+    discount = db.Column(Numeric(12, 2), default=0)
+    grand_total = db.Column(Numeric(12, 2), default=0)
+    currency = db.Column(db.String(10), default="INR")
+    pdf_path = db.Column(db.String(500))
+    status = db.Column(db.String(30), default=InvoiceStatus.DRAFT.value)
+    due_date = db.Column(db.Date)
+    raised_at = db.Column(db.DateTime, default=datetime.utcnow)
+    paid_at = db.Column(db.DateTime)
+
+    def __repr__(self):
+        return f"<Invoice {self.invoice_number} [{self.status}] ₹{self.grand_total:.0f}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "lead_id": self.lead_id,
+            "invoice_number": self.invoice_number,
+            "total_amount": float(self.total_amount or 0),
+            "tax": float(self.tax or 0),
+            "tax_rate": float(self.tax_rate or 0),
+            "discount": float(self.discount or 0),
+            "grand_total": float(self.grand_total or 0),
+            "currency": self.currency,
+            "status": self.status,
+            "due_date": self.due_date.isoformat() if self.due_date else None,
+            "raised_at": self.raised_at.isoformat() if self.raised_at else None,
+            "paid_at": self.paid_at.isoformat() if self.paid_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# ItineraryRef
+# ---------------------------------------------------------------------------
+
+class ItineraryRef(db.Model):
+    """Reference archive: past executed trips for knowledge base."""
+
+    __tablename__ = "itinerary_refs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    guest_name = db.Column(db.String(255), index=True)
+    destination = db.Column(db.String(255), index=True)
+    start_date = db.Column(db.Date)
+    end_date = db.Column(db.Date)
+    pax = db.Column(db.String(100))
+    highlights = db.Column(db.Text)
+    day_count = db.Column(db.Integer, default=0)
+    file_path = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ItineraryRef {self.guest_name} → {self.destination} ({self.day_count}d)>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "guest_name": self.guest_name,
+            "destination": self.destination,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
+            "pax": self.pax,
+            "day_count": self.day_count,
+            "highlights": self.highlights,
+            "file_path": self.file_path,
+        }
+
+
+# ---------------------------------------------------------------------------
+# TaskList
+# ---------------------------------------------------------------------------
+
+class TaskList(db.Model):
+    """Grouped task lists for checklists, lead onboarding, and team workflows."""
+
+    __tablename__ = "task_lists"
+    __table_args__ = (
+        Index("ix_task_lists_created", "created_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, nullable=True)
+    name = db.Column(db.String(255), nullable=False)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    created_by = db.Column(db.String(120))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    tasks = db.relationship("Task", backref="task_list", lazy="dynamic",
+                            cascade="all,delete-orphan",
+                            order_by="Task.created_at")
+
+    def __repr__(self):
+        return f"<TaskList #{self.id} {self.name}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "name": self.name,
+            "lead_id": self.lead_id,
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "task_count": self.tasks.count(),
+        }
+
+
+# ---------------------------------------------------------------------------
+# Task
+# ---------------------------------------------------------------------------
+
+class Task(db.Model):
+    """Individual checklist item within a TaskList."""
+
+    __tablename__ = "tasks"
+    __table_args__ = (
+        Index("ix_tasks_list_status", "task_list_id", "status"),
+        Index("ix_tasks_assigned", "assigned_to"),
+        Index("ix_tasks_due", "due_date"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    task_list_id = db.Column(db.Integer, db.ForeignKey("task_lists.id"), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, default="")
+    assigned_to = db.Column(db.String(120))
+    priority = db.Column(db.String(20), default="medium")  # low / medium / high / urgent
+    status = db.Column(db.String(30), default="pending")   # pending / in_progress / completed / cancelled
+    sort_order = db.Column(db.Integer, default=0)
+    due_date = db.Column(db.Date, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<Task #{self.id} [{self.status}] {self.title}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "task_list_id": self.task_list_id,
+            "title": self.title,
+            "description": self.description,
+            "assigned_to": self.assigned_to,
+            "priority": self.priority,
+            "status": self.status,
+            "sort_order": self.sort_order,
+            "due_date": self.due_date.isoformat() if self.due_date else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Notification
+# ---------------------------------------------------------------------------
 
 class NotificationType(str, PyEnum):
-    ENTITY_CREATED = "entity_created"
-    STATUS_CHANGED = "status_changed"
+    LEAD_CREATED = "lead_created"
     PAYMENT_RECEIVED = "payment_received"
+    STATUS_CHANGED = "status_changed"
     TASK_ASSIGNED = "task_assigned"
     CELEBRATION = "celebration"
     SYSTEM = "system"
 
-# ---------------------------------------------------------------------------
-# Tenant / Multi-Brand
-# ---------------------------------------------------------------------------
 
-class Tenant(db.Model):
-    """A company using Shunya OS. Completely isolated data namespace."""
-    __tablename__ = "tenants"
-    __table_args__ = (Index("ix_tenants_slug", "slug", unique=True),)
+class Notification(db.Model):
+    """In-app notification for users, with optional lead/tenant scoping."""
 
-    id = Column(Integer, primary_key=True)
-    company_name = Column(String(255), nullable=False)
-    slug = Column(String(120), unique=True, nullable=False)
-    business_type = Column(String(60), default="other")  # travel, hospital, school, retail...
-    parent_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
-    domain = Column(String(255), nullable=True)
-    is_active = Column(Boolean, default=True)
-    plan = Column(String(30), default=TenantPlan.FREE.value)
-    max_team_members = Column(Integer, default=5)
-    max_storage_mb = Column(Integer, default=500)
-    max_ai_calls_daily = Column(Integer, default=100)
-    logo_url = Column(String(500), default="")
-    brand_tagline = Column(String(500), default="")
-    brand_description = Column(Text, default="")
-    brand_color = Column(String(7), default="#2563eb")  # Primary brand color (hex)
-    brand_color_secondary = Column(String(7), default="#7c3aed")  # Secondary brand color
-    onboarding_completed = Column(Boolean, default=False)
-    theme_config = Column(JSONB, default=dict)
-    ai_config = Column(JSONB, default=dict)  # web_search_enabled, confidence_threshold, etc.
-    business_type = Column(String(60), default="other")  # travel, hospital, school, retail...
-    vertical_config = Column(JSONB, default=dict)  # vertical-specific defaults
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Business hierarchy
-    owner_id = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    brand_id = Column(Integer, ForeignKey("brands.id"), nullable=True)
-    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=True)
-
-    # Relationships
-    children = relationship("Tenant", backref="parent", remote_side=[id], lazy="select")
-    team_members = relationship("TeamMember", backref="tenant", lazy="select", cascade="all,delete-orphan",
-                                foreign_keys="TeamMember.tenant_id")
-    entity_definitions = relationship("EntityDefinition", backref="tenant", lazy="select", cascade="all,delete-orphan")
-    entities = relationship("Entity", backref="tenant", lazy="select", cascade="all,delete-orphan")
-
-    def to_dict(self):
-        return {
-            "id": self.id, "company_name": self.company_name, "slug": self.slug,
-            "business_type": self.business_type, "parent_id": self.parent_id,
-            "is_active": self.is_active, "plan": self.plan, "logo_url": self.logo_url,
-            "theme_config": self.theme_config or {},
-            "brand_tagline": self.brand_tagline or "",
-            "vertical_config": self.vertical_config or {},
-        }
-
-# ---------------------------------------------------------------------------
-# Business Hierarchy — Universal OS Structure
-# ---------------------------------------------------------------------------
-# A Person owns Businesses. A Business may belong to a BusinessGroup.
-# A Business has Brands. A Brand gets a Tenant (Shunya OS instance).
-#
-# Person → BusinessGroup (optional, e.g. Reliance)
-#        → Business (e.g. Jio)
-#              → Brand (e.g. JioFiber)
-#                    → Tenant (Shunya OS instance, data isolated)
-
-class BusinessGroup(db.Model):
-    """A collection of businesses under common ownership (e.g. Reliance Industries)."""
-    __tablename__ = "business_groups"
-    __table_args__ = (Index("ix_business_group_owner", "owner_id"),)
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
-    owner_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
-    description = Column(Text, default="")
-    industry = Column(String(60), default="")  # conglomerate, holding, etc.
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    businesses = relationship("Business", backref="group", lazy="select",
-                               foreign_keys="Business.group_id")
-
-    def to_dict(self):
-        return {"id": self.id, "name": self.name, "industry": self.industry}
-
-
-class Business(db.Model):
-    """A single business entity. Belongs to a Person or a BusinessGroup."""
-    __tablename__ = "businesses"
-    __table_args__ = (Index("ix_business_owner", "owner_id"),)
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
-    owner_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
-    group_id = Column(Integer, ForeignKey("business_groups.id"), nullable=True)
-    business_type = Column(String(60), nullable=False)  # travel, hospital, legal, retail...
-    description = Column(Text, default="")
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    brands = relationship("Brand", backref="business", lazy="select",
-                           foreign_keys="Brand.business_id", cascade="all,delete-orphan")
-
-    @property
-    def tenant_count(self):
-        return len([b for b in self.brands if b.tenants])
-
-    def to_dict(self):
-        return {
-            "id": self.id, "name": self.name, "business_type": self.business_type,
-            "group_id": self.group_id, "is_active": self.is_active,
-            "brand_count": len(self.brands),
-        }
-
-
-class Brand(db.Model):
-    """A brand under a Business. Gets its own Tenant (Shunya OS instance)."""
-    __tablename__ = "brands"
-    __table_args__ = (Index("ix_brand_business", "business_id"),)
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
-    business_id = Column(Integer, ForeignKey("businesses.id"), nullable=False)
-    is_default = Column(Boolean, default=False)  # first brand = default
-    description = Column(Text, default="")
-    logo_url = Column(String(500), default="")
-    brand_color = Column(String(7), default="#2563eb")
-    brand_tagline = Column(String(500), default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    tenants = relationship("Tenant", backref="brand_rel", lazy="select",
-                            foreign_keys="Tenant.brand_id")
-
-    def to_dict(self):
-        return {
-            "id": self.id, "name": self.name, "business_id": self.business_id,
-            "is_default": self.is_default, "logo_url": self.logo_url,
-            "tenant_count": len(self.tenants),
-        }
-
-# ---------------------------------------------------------------------------
-# Team Members & Auth
-# ---------------------------------------------------------------------------
-
-class TeamMember(db.Model):
-    """A user belonging to a tenant."""
-    __tablename__ = "team_members"
+    __tablename__ = "notifications"
     __table_args__ = (
-        Index("ix_team_members_email", "email"),
-        Index("ix_team_members_tenant_email", "tenant_id", "email", unique=True),
+        Index("ix_notifications_user_read", "user_id", "is_read", "created_at"),
+        Index("ix_notifications_lead", "lead_id", "created_at"),
     )
 
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    name = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=False)
-    phone = Column(String(30), nullable=True)
-    secondary_phone = Column(String(30), nullable=True)
-    whatsapp_phone = Column(String(30), nullable=True)
-    whatsapp_verified = Column(Boolean, default=False)
-    password_hash = Column(String(128), nullable=True)
-    role = Column(String(30), default=UserRole.AGENT.value)
-    is_active = Column(Boolean, default=True)
-    avatar_url = Column(String(500), default="")
-    preferences = Column(JSONB, default=dict)
-    last_login = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, nullable=True)
+    user_id = db.Column(db.Integer, nullable=True, index=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    type = db.Column(db.String(30), default=NotificationType.SYSTEM.value, nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, default="")
+    icon = db.Column(db.String(50), default="🔔")
+    link = db.Column(db.String(500))
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-    sessions = relationship("UserSession", backref="user", lazy="dynamic", cascade="all,delete-orphan")
-    oauth_accounts = relationship("OAuthAccount", backref="user", lazy="dynamic", cascade="all,delete-orphan")
+    lead = db.relationship("Lead", backref="notifications", lazy="select")
+
+    def __repr__(self):
+        return f"<Notification #{self.id} [{self.type}] {self.title[:50]}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "user_id": self.user_id,
+            "lead_id": self.lead_id,
+            "type": self.type,
+            "title": self.title,
+            "message": self.message,
+            "icon": self.icon,
+            "link": self.link,
+            "is_read": self.is_read,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# ClientUser — Client Portal Accounts
+# ---------------------------------------------------------------------------
+
+class ClientUser(db.Model):
+    """Client portal user account. Created when a lead registers or is invited."""
+
+    __tablename__ = "client_users"
+    __table_args__ = (
+        Index("ix_client_users_email", "email"),
+        Index("ix_client_users_lead", "lead_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, nullable=True)
+    name = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    phone = db.Column(db.String(30), default="")
+    password_hash = db.Column(db.String(128), nullable=False)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_login = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    lead = db.relationship("Lead", backref="client_users", lazy="select")
 
     def set_password(self, password: str):
+        import hashlib, secrets
         salt = secrets.token_hex(16)
         self.password_hash = f"{salt}${hashlib.sha256((salt + password).encode()).hexdigest()}"
 
     def check_password(self, password: str) -> bool:
+        import hashlib
         if not self.password_hash or "$" not in self.password_hash:
             return False
         salt, hsh = self.password_hash.split("$", 1)
         return hsh == hashlib.sha256((salt + password).encode()).hexdigest()
 
-    def to_dict(self):
-        return {"id": self.id, "name": self.name, "email": self.email, "phone": self.phone,
-                "secondary_phone": self.secondary_phone,
-                "whatsapp_phone": self.whatsapp_phone,
-                "whatsapp_verified": self.whatsapp_verified,
-                "role": self.role, "is_active": self.is_active, "avatar_url": self.avatar_url}
+    def __repr__(self):
+        return f"<ClientUser #{self.id} {self.email}>"
 
-class OAuthAccount(db.Model):
-    """Linked OAuth accounts (Google, Apple, etc.)"""
-    __tablename__ = "oauth_accounts"
-    __table_args__ = (Index("ix_oauth_provider_id", "provider", "provider_id", unique=True),)
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
-    provider = Column(String(30), nullable=False)  # google, apple
-    provider_id = Column(String(255), nullable=False)
-    email = Column(String(255))
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class UserSession(db.Model):
-    """Active user sessions (multi-session support)."""
-    __tablename__ = "user_sessions"
-    # token index handled by unique + index on column
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
-    token = Column(String(128), unique=True, nullable=False, index=True)
-    device_info = Column(String(500), default="")
-    ip_address = Column(String(45), default="")
-    is_active = Column(Boolean, default=True)
-    expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class LoginCode(db.Model):
-    """One-time codes for OTP and magic link auth."""
-    __tablename__ = "login_codes"
-    # code index handled by column(index=True)
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
-    email = Column(String(255), nullable=True)
-    phone = Column(String(30), nullable=True)
-    code = Column(String(64), nullable=False, index=True)
-    type = Column(String(20), nullable=False)  # otp, magic_link
-    is_used = Column(Boolean, default=False)
-    expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-# ---------------------------------------------------------------------------
-# Entity Model (Generic — all business types)
-# ---------------------------------------------------------------------------
-
-class EntityDefinition(db.Model):
-    """Schema definition for a business entity type."""
-    __tablename__ = "entity_definitions"
-    __table_args__ = (Index("ix_entity_def_type_tenant", "tenant_id", "type", unique=True),)
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    type = Column(String(60), nullable=False)  # lead, patient, student, order...
-    label = Column(String(120), nullable=False)  # "Lead", "Patient", "Student"
-    label_plural = Column(String(120), default="")
-    icon = Column(String(10), default="📋")
-    schema = Column(JSONB, default=list)  # field definitions
-    statuses = Column(JSONB, default=list)  # status flow
-    layout = Column(String(30), default="table")  # table, kanban, calendar, cards
-    primary_field = Column(String(60), default="name")  # field used in summaries
-    searchable_fields = Column(JSONB, default=list)  # fields included in search
-    default_sort = Column(String(60), default="created_at")
-    code_prefix = Column(String(10), default="")  # auto-computed unique prefix for entity codes
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    entities = relationship("Entity", backref="definition", lazy="dynamic",
-                            foreign_keys="Entity.definition_id", cascade="all,delete-orphan")
-
-    def to_dict(self):
-        return {
-            "id": self.id, "type": self.type, "label": self.label,
-            "label_plural": self.label_plural, "icon": self.icon,
-            "schema": self.schema, "statuses": self.statuses,
-            "layout": self.layout, "primary_field": self.primary_field,
-            "searchable_fields": self.searchable_fields, "is_active": self.is_active,
-        }
-
-class Entity(db.Model):
-    """A single record of any entity type (lead, patient, student, order...)."""
-    __tablename__ = "entities"
-    __table_args__ = (
-        Index("ix_entities_tenant_type", "tenant_id", "definition_id"),
-        Index("ix_entities_status", "status"),
-        Index("ix_entities_assigned", "assigned_to"),
-        Index("ix_entities_created", "created_at"),
-    )
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    definition_id = Column(Integer, ForeignKey("entity_definitions.id"), nullable=False)
-    code = Column(String(30), nullable=True)  # e.g. PC11072601
-    status = Column(String(30), default="new")
-    assigned_to = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    data = Column(JSONB, default=dict)  # ALL field values here
-    ai_summary = Column(Text, default="")
-    tags = Column(JSONB, default=list)
-    is_archived = Column(Boolean, default=False)
-    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Dynamic code prefix per tenant
-    code_prefix = Column(String(10), default="PC")
-
-    activities = relationship("ActivityLog", backref="entity", lazy="dynamic", cascade="all,delete-orphan")
-    files = relationship("File", backref="entity", lazy="dynamic", cascade="all,delete-orphan")
-    messages = relationship("Message", backref="entity", lazy="dynamic", cascade="all,delete-orphan")
-
-    @property
-    def display_name(self) -> str:
-        """Return the primary field value for display."""
-        if self.definition and self.definition.primary_field:
-            return self.data.get(self.definition.primary_field, self.code or f"#{self.id}")
-        return self.code or f"#{self.id}"
-
-    def to_dict(self):
-        return {
-            "id": self.id, "code": self.code, "entity_type": self.definition.type if self.definition else None,
-            "status": self.status, "assigned_to": self.assigned_to, "data": self.data,
-            "ai_summary": self.ai_summary, "tags": self.tags, "is_archived": self.is_archived,
-            "created_by": self.created_by, "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-        }
-
-# ---------------------------------------------------------------------------
-# Entity Code Generator
-# ---------------------------------------------------------------------------
-
-# Special prefixes for built-in entity types (PC for Lead by user specification)
-_BUILTIN_PREFIX_OVERRIDE = {
-    "lead": "PC",
-}
-
-def _compute_entity_prefix(entity_type: str, existing_types: list[str]) -> str:
-    """Compute a unique 2+ letter prefix for an entity type.
-    
-    Priority:
-    1. Built-in override (e.g. lead → PC)
-    2. First 2 letters of entity_type
-    3. If conflict with any existing type, add 3rd letter
-    4. Continue until unique or full name exhausted
-    
-    Example: lead → PC, opportunity → OPP, operations → OPE
-    """
-    if entity_type in _BUILTIN_PREFIX_OVERRIDE:
-        return _BUILTIN_PREFIX_OVERRIDE[entity_type]
-    
-    normalized = entity_type.replace("_", "").replace("-", "")
-    if not normalized:
-        return entity_type[:4].upper()
-    
-    # Compute ALL prefixes atomically to avoid conflicts
-    all_prefixes = compute_all_prefixes(existing_types + [entity_type])
-    return all_prefixes.get(entity_type, normalized[:4].upper())
-
-
-def compute_all_prefixes(entity_types: list[str]) -> dict[str, str]:
-    """Compute unique prefixes for ALL entity types atomically.
-    
-    This ensures no two entity types get the same prefix.
-    Built-in overrides (lead→PC) are applied first.
-    Remaining types get first 2+ unique chars, shorter names first.
-    """
-    result = {}
-    taken = set()
-    
-    # First pass: built-in overrides
-    for et in entity_types:
-        if et in _BUILTIN_PREFIX_OVERRIDE:
-            p = _BUILTIN_PREFIX_OVERRIDE[et]
-            result[et] = p
-            taken.add(p)
-    
-    # Remaining: sort by length (shorter names first → less likely to conflict)
-    remaining = sorted(
-        [et for et in entity_types if et not in result],
-        key=lambda x: (len(x), x)
-    )
-    
-    for et in remaining:
-        normalized = et.replace("_", "").replace("-", "")
-        if not normalized:
-            normalized = et[:4]
-        
-        prefix = None
-        for length in range(2, min(len(normalized), 8) + 1):
-            candidate = normalized[:length].upper()
-            if candidate not in taken:
-                prefix = candidate
-                taken.add(candidate)
-                break
-        
-        if prefix is None:
-            prefix = normalized[:4].upper()
-            # Make unique by appending number if still taken
-            n = 1
-            while prefix in taken:
-                prefix = f"{normalized[:3].upper()}{n}"
-                n += 1
-            taken.add(prefix)
-        
-        result[et] = prefix
-    
-    return result
-
-
-def ensure_entity_prefixes(session, tenant_id: int) -> None:
-    """Compute and persist code_prefix for all entity definitions without one."""
-    from app.models import EntityDefinition
-    defs = session.query(EntityDefinition).filter(
-        EntityDefinition.tenant_id == tenant_id,
-    ).all()
-    types = [d.type for d in defs]
-    
-    for d in defs:
-        if not d.code_prefix:
-            d.code_prefix = _compute_entity_prefix(d.type, types)
-    
-    session.commit()
-
-
-def get_code_prefix(session, entity_type: str, tenant_id: int) -> str:
-    """Get the unique code prefix for an entity type, computing it if missing."""
-    from app.models import EntityDefinition
-    d = session.query(EntityDefinition).filter(
-        EntityDefinition.tenant_id == tenant_id,
-        EntityDefinition.type == entity_type,
-    ).first()
-    
-    if d:
-        if not d.code_prefix:
-            types = [row[0] for row in session.query(EntityDefinition.type).filter(
-                EntityDefinition.tenant_id == tenant_id).all()]
-            d.code_prefix = _compute_entity_prefix(entity_type, types)
-            session.commit()
-        return d.code_prefix
-    
-    return _compute_entity_prefix(entity_type, [entity_type])
-
-
-def next_entity_code(session, tenant_id: int, entity_type: str = "lead", ref_date: date = None) -> str:
-    """Generate entity code: {PREFIX}{DD}{MM}{YY}{##}
-    
-    Prefix derived from entity type (Lead → PC, others → first 2+ unique letters).
-    Sequence is per type per day.
-    """
-    prefix = get_code_prefix(session, entity_type, tenant_id)
-    today = ref_date or date.today()
-    date_part = f"{today.day:02d}{today.month:02d}{today.year % 100:02d}"
-    prefix_full = f"{prefix}{date_part}"
-
-    count = session.query(db.func.count(Entity.id)).filter(
-        Entity.tenant_id == tenant_id,
-        Entity.definition.has(type=entity_type),
-        Entity.created_at >= datetime(today.year, today.month, today.day),
-        Entity.created_at < datetime(today.year, today.month, today.day + 1),
-    ).scalar() or 0
-
-    return f"{prefix_full}{count + 1:02d}"
-
-# ---------------------------------------------------------------------------
-# API Keys (Public API Key Management)
-# ---------------------------------------------------------------------------
-
-class ApiKey(db.Model):
-    """API key for programmatic access to Shunya APIs."""
-    __tablename__ = "api_keys"
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    name = Column(String(120), nullable=False)  # label like "Zapier", "Mobile App"
-    key_hash = Column(String(64), nullable=False)  # SHA256 of the key
-    key_prefix = Column(String(8), nullable=False)  # first 8 chars of key for display
-    scopes = Column(JSONB, default=list)  # ["read:lead", "write:lead", "read:*"]
-    is_active = Column(Boolean, default=True)
-    last_used_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-
-    tenant = relationship("Tenant", backref="api_keys",
-                          foreign_keys=[tenant_id])
-
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "name": self.name,
-            "key_prefix": f"{self.key_prefix}...",
-            "scopes": self.scopes or [],
+            "email": self.email,
+            "phone": self.phone,
+            "lead_id": self.lead_id,
             "is_active": self.is_active,
-            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_login": self.last_login.isoformat() if self.last_login else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# ClientMessage — Client <-> Team Messaging
+# ---------------------------------------------------------------------------
+
+class ClientMessage(db.Model):
+    """Messages between clients and the SHUNYA OS team."""
+
+    __tablename__ = "client_messages"
+    __table_args__ = (
+        Index("ix_client_messages_lead", "lead_id"),
+        Index("ix_client_messages_created", "created_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=False)
+    client_user_id = db.Column(db.Integer, db.ForeignKey("client_users.id"), nullable=True)
+    sender = db.Column(db.String(20), nullable=False)  # 'client' or 'team'
+    message = db.Column(db.Text, nullable=False)
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    lead = db.relationship("Lead", backref="client_messages", lazy="select")
+    client_user = db.relationship("ClientUser", backref="messages", lazy="select")
+
+    def __repr__(self):
+        return f"<ClientMessage #{self.id} [{self.sender}] on lead #{self.lead_id}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "lead_id": self.lead_id,
+            "client_user_id": self.client_user_id,
+            "sender": self.sender,
+            "message": self.message,
+            "is_read": self.is_read,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
+
 # ---------------------------------------------------------------------------
-# Activity Log
+# Document — AI Document Reading
+# ---------------------------------------------------------------------------
+
+class Document(db.Model):
+    """Uploaded documents with AI-extracted text and structured data."""
+
+    __tablename__ = "documents"
+    __table_args__ = (
+        Index("ix_documents_lead", "lead_id"),
+        Index("ix_documents_classification", "classification"),
+        Index("ix_documents_created", "created_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True, index=True)
+    filename = db.Column(db.String(500), nullable=False)
+    file_path = db.Column(db.String(1000), nullable=False)
+    file_type = db.Column(db.String(20), nullable=False)  # pdf / docx / image / text
+    extracted_text = db.Column(db.Text, default="")
+    structured_data = db.Column(db.Text, default="")  # JSON string
+    classification = db.Column(db.String(50), default="other")
+    uploaded_by = db.Column(db.String(120), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationship
+    lead = db.relationship("Lead", backref=db.backref("documents", lazy="dynamic", cascade="all,delete-orphan"))
+
+    def __repr__(self):
+        return f"<Document #{self.id} {self.filename} [{self.classification}]>"
+
+    def to_dict(self) -> dict:
+        import json
+        struct = {}
+        try:
+            if self.structured_data:
+                struct = json.loads(self.structured_data)
+        except (json.JSONDecodeError, TypeError):
+            struct = {}
+        return {
+            "id": self.id,
+            "lead_id": self.lead_id,
+            "filename": self.filename,
+            "file_path": self.file_path,
+            "file_type": self.file_type,
+            "extracted_text": self.extracted_text,
+            "structured_data": struct,
+            "classification": self.classification,
+            "uploaded_by": self.uploaded_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# ActivityLog
 # ---------------------------------------------------------------------------
 
 class ActivityLog(db.Model):
-    """Cross-entity audit trail."""
+    """Audit trail for every lead — captures state changes, notes, actions."""
+
     __tablename__ = "activity_logs"
     __table_args__ = (
-        Index("ix_activity_entity", "entity_id"),
-        Index("ix_activity_tenant", "tenant_id", "created_at"),
+        Index("ix_activity_lead_created", "lead_id", "created_at"),
     )
 
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
-    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    action = Column(String(60), nullable=False)  # created, updated, status_changed, message_sent...
-    detail = Column(Text, default="")
-    metadata_json = Column(JSONB, default=dict)
-    governance_level = Column(String(20), default="auto")  # draft, auto, govern
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=False)
+    action = db.Column(db.String(60), nullable=False)  # created / status_changed / payment_received / note_added / proposal_sent
+    detail = db.Column(db.Text, default="")
+    user = db.Column(db.String(120), default="")  # who performed the action
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-# ---------------------------------------------------------------------------
-# Files / Documents
-# ---------------------------------------------------------------------------
+    def __repr__(self):
+        return f"<ActivityLog {self.action} on lead #{self.lead_id}>"
 
-class File(db.Model):
-    __tablename__ = "files"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
-    filename = Column(String(500), nullable=False)
-    file_path = Column(String(500), nullable=False)
-    file_type = Column(String(60), default="")
-    file_size = Column(Integer, default=0)
-    mime_type = Column(String(100), default="")
-    extracted_text = Column(Text, default="")
-    uploaded_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-# ---------------------------------------------------------------------------
-# Messages (client <-> team)
-# ---------------------------------------------------------------------------
-
-class Message(db.Model):
-    __tablename__ = "messages"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=False)
-    sender_type = Column(String(20), nullable=False)  # team, client, system, ai
-    sender_id = Column(Integer, nullable=True)
-    channel = Column(String(30), default="app")  # app, whatsapp, telegram, email
-    content = Column(Text, nullable=False)
-    is_from_client = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-# ---------------------------------------------------------------------------
-# Notifications
-# ---------------------------------------------------------------------------
-
-class Notification(db.Model):
-    __tablename__ = "notifications"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
-    type = Column(String(30), nullable=False)
-    title = Column(String(255), nullable=False)
-    message = Column(Text, default="")
-    icon = Column(String(10), default="🔔")
-    link = Column(String(500), nullable=True)
-    is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-# ---------------------------------------------------------------------------
-# Knowledge Base (compounding intelligence)
-# ---------------------------------------------------------------------------
-
-class KnowledgeEntry(db.Model):
-    """Stored knowledge from AI interactions."""
-    __tablename__ = "knowledge_entries"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    question = Column(Text, nullable=False)
-    answer = Column(Text, nullable=False)
-    source = Column(String(30), default="ai_generated")  # internal, web, ai_generated
-    source_url = Column(String(500), nullable=True)
-    confidence = Column(Float, default=0.0)
-    verified_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    use_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    category = Column(String(50), default="general")
-    meta_data = Column(Text, nullable=True)  # JSON blob
-    file_type = Column(String(20), nullable=True)
-
-
-# ---------------------------------------------------------------------------
-# Feedback / Corrections
-# ---------------------------------------------------------------------------
-
-class AIFeedback(db.Model):
-    """User feedback on AI responses."""
-    __tablename__ = "ai_feedback"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    query = Column(Text, nullable=False)
-    response = Column(Text, nullable=False)
-    rating = Column(Integer, nullable=True)  # 1 (thumbs up) or -1 (thumbs down)
-    correction = Column(Text, nullable=True)
-    knowledge_entry_id = Column(Integer, ForeignKey("knowledge_entries.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-# ---------------------------------------------------------------------------
-# Entity Modules (user-created via Module Builder)
-# ---------------------------------------------------------------------------
-
-class EntityModule(db.Model):
-    """A module created by the user via Module Builder."""
-    __tablename__ = "entity_modules"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    name = Column(String(120), nullable=False)
-    description = Column(Text, default="")
-    definition_schema = Column(JSONB, default=dict)  # entity definition payload
-    is_official = Column(Boolean, default=False)  # true for built-in modules
-    is_published = Column(Boolean, default=False)  # published to marketplace
-    install_count = Column(Integer, default=0)
-    rating = Column(Float, default=0.0)
-    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-# ---------------------------------------------------------------------------
-# Automations
-# ---------------------------------------------------------------------------
-
-class Automation(db.Model):
-    """User-configured automations triggered by events."""
-    __tablename__ = "automations"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    name = Column(String(120), nullable=False)
-    trigger_event = Column(String(60), nullable=False)  # status_changed, payment_received, etc.
-    trigger_filters = Column(JSONB, default=dict)
-    actions = Column(JSONB, nullable=False)  # [{type: "send_message", ...}]
-    is_active = Column(Boolean, default=True)
-    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-# ---------------------------------------------------------------------------
-# Supplier / Payment Models
-# ---------------------------------------------------------------------------
-
-class Supplier(db.Model):
-    __tablename__ = "suppliers"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    name = Column(String(255), nullable=False)
-    category = Column(String(60), default="")
-    contact = Column(String(255), default="")
-    email = Column(String(255), default="")
-    phone = Column(String(30), default="")
-    city = Column(String(120), default="")
-    gstin = Column(String(30), default="")
-    payment_terms = Column(String(120), default="")
-    notes = Column(Text, default="")
-    rating = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class Payment(db.Model):
-    __tablename__ = "payments"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
-    amount = Column(Numeric(12, 2), default=0)
-    currency = Column(String(10), default="INR")
-    type = Column(String(30), default="guest_payment")  # guest_payment, supplier_payment
-    gateway = Column(String(30), default="")
-    gateway_ref = Column(String(255), default="")
-    status = Column(String(30), default="pending")
-    notes = Column(Text, default="")
-    paid_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class Invoice(db.Model):
-    __tablename__ = "invoices"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
-    invoice_number = Column(String(60), nullable=False)
-    total_amount = Column(Numeric(12, 2), default=0)
-    tax_rate = Column(Numeric(5, 2), default=0)
-    tax = Column(Numeric(12, 2), default=0)
-    discount = Column(Numeric(12, 2), default=0)
-    grand_total = Column(Numeric(12, 2), default=0)
-    currency = Column(String(10), default="INR")
-    status = Column(String(30), default="pending")  # pending, paid, cancelled
-    pdf_path = Column(String(500), default="")
-    due_date = Column(DateTime, nullable=True)
-    paid_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-# ---------------------------------------------------------------------------
-# Client Portal
-# ---------------------------------------------------------------------------
-
-class ClientUser(db.Model):
-    __tablename__ = "client_users"
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    entity_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
-    name = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=True)
-    phone = Column(String(30), nullable=True)
-    otp_hash = Column(String(128), nullable=True)
-    is_active = Column(Boolean, default=True)
-    last_login = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-# ---------------------------------------------------------------------------
-# Webhook Engine
-# ---------------------------------------------------------------------------
-
-class WebhookLog(db.Model):
-    """Delivery log of a webhook call."""
-    __tablename__ = "webhook_logs"
-
-    id = Column(Integer, primary_key=True)
-    webhook_id = Column(Integer, ForeignKey("webhooks.id"), nullable=False)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    event = Column(String(60), nullable=False)
-    payload = Column(JSONB, default=dict)
-    status_code = Column(Integer, nullable=True)
-    response_body = Column(Text, default="")
-    duration_ms = Column(Integer, default=0)
-    error = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-# ---------------------------------------------------------------------------
-# User Mood / Health Check-in
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# Webhooks
-# ---------------------------------------------------------------------------
-
-class Webhook(db.Model):
-    """Outgoing webhook — sends HTTP POST when events fire."""
-    __tablename__ = "webhooks"
-    __table_args__ = (Index("ix_webhook_tenant_event", "tenant_id", "event"),)
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    name = Column(String(120), nullable=False)
-    url = Column(String(500), nullable=False)
-    event = Column(String(60), nullable=False)
-    entity_type = Column(String(60), default="*")
-    headers = Column(JSONB, default=dict)
-    secret = Column(String(64), default="")
-    is_active = Column(Boolean, default=True)
-    last_sent_at = Column(DateTime, nullable=True)
-    last_status = Column(Integer, nullable=True)
-    failure_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
-            "id": self.id, "name": self.name, "url": self.url,
-            "event": self.event, "entity_type": self.entity_type,
-            "headers": self.headers, "is_active": self.is_active,
-            "last_sent_at": self.last_sent_at.isoformat() if self.last_sent_at else None,
-            "last_status": self.last_status, "failure_count": self.failure_count,
+            "id": self.id,
+            "lead_id": self.lead_id,
+            "action": self.action,
+            "detail": self.detail,
+            "user": self.user,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
-# RelationShip & Person Models — Compounding Relationship Intelligence
+
+
 # ---------------------------------------------------------------------------
-# Canonical: A customer relationship is continuous. A booking is temporary.
-# An opportunity has a lifecycle. RELATIONSHIP is the deepest domain object.
+# Celebration — System-level wins and celebrations
 # ---------------------------------------------------------------------------
+
+class Celebration(db.Model):
+    """A recorded win or celebration event, auto-detected or manually created."""
+
+    __tablename__ = "celebrations"
+    __table_args__ = (
+        Index("ix_celebrations_type_created", "type", "created_at"),
+        Index("ix_celebrations_lead", "lead_id", "created_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(30), nullable=False, default="generic", index=True)
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, default="")
+    icon = db.Column(db.String(20), default="🎉")
+    animation = db.Column(db.String(30), default="woosh")
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    created_by = db.Column(db.String(120), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationship
+    lead = db.relationship("Lead", backref="celebrations", lazy="select")
+
+    def __repr__(self):
+        return f"<Celebration #{self.id} [{self.type}] {self.title[:50]}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "type": self.type,
+            "title": self.title,
+            "message": self.message,
+            "icon": self.icon,
+            "animation": self.animation,
+            "lead_id": self.lead_id,
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Person — Unified Human Identity (Phase 1)
+# ---------------------------------------------------------------------------
+
 
 class Person(db.Model):
-    """An individual human — identity independent of any organization.
-
-    A person exists whether or not they have a relationship with any Shunya tenant.
-    The same person may have relationships with multiple tenants (multi-tenant Shunya).
-    """
+    """Canonical human identity. One Person = one human."""
     __tablename__ = "persons"
-    __table_args__ = (Index("ix_persons_email", "email"),)
+    __table_args__ = (
+        Index("ix_person_tenant", "tenant_id", "status"),
+    )
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=True)
-    phone = Column(String(30), nullable=True)
-    alternate_phone = Column(String(30), nullable=True)
-    photo_url = Column(String(500), default="")
-    birthdate = Column(String(20), nullable=True)  # YYYY-MM-DD
-    passport = Column(String(60), nullable=True)
-    govt_id = Column(String(60), nullable=True)
-    nationality = Column(String(60), default="IN")
-    preferred_language = Column(String(10), default="en")
-    is_test = Column(Boolean, default=False)
-    tags = Column(JSONB, default=list)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
+    canonical_name = db.Column(db.String(255), nullable=False, index=True)
+    preferred_name = db.Column(db.String(255), default="", index=True)
+    status = db.Column(db.String(30), default="active", index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def to_dict(self):
+    # Relationship
+    identities = db.relationship("PersonIdentity", backref="person", lazy="select", cascade="all, delete-orphan")
+    employee_profile = db.relationship("EmployeeProfile", uselist=False, backref="person", lazy="select")
+    customer_profile = db.relationship("CustomerProfile", uselist=False, backref="person", lazy="select")
+    supplier_contact_profile = db.relationship("SupplierContactProfile", uselist=False, backref="person", lazy="select")
+    client_user_profile = db.relationship("ClientUserProfile", uselist=False, backref="person", lazy="select")
+
+    def __repr__(self):
+        return f"<Person #{self.id} {self.canonical_name}>"
+
+    def to_dict(self) -> dict:
         return {
-            "id": self.id, "name": self.name, "email": self.email,
-            "phone": self.phone, "photo_url": self.photo_url,
-            "nationality": self.nationality, "tags": self.tags,
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "canonical_name": self.canonical_name,
+            "preferred_name": self.preferred_name,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class PersonIdentity(db.Model):
+    """Normalized identity values for a Person (email, phone, channel IDs)."""
+    __tablename__ = "person_identities"
+    __table_args__ = (
+        Index("ix_pi_type_value", "identity_type", "normalized_value"),
+        Index("ix_pi_person", "person_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False)
+    identity_type = db.Column(db.String(60), nullable=False, index=True)
+    identity_value = db.Column(db.String(255), nullable=False)
+    normalized_value = db.Column(db.String(255), nullable=False, index=True)
+    verification_state = db.Column(db.String(30), default="unverified")
+
+    def __repr__(self):
+        return f"<PersonIdentity #{self.id} {self.identity_type}:{self.normalized_value}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "person_id": self.person_id,
+            "identity_type": self.identity_type,
+            "identity_value": self.identity_value,
+            "normalized_value": self.normalized_value,
+            "verification_state": self.verification_state,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Role / Business Projections (Phase 1)
+# ---------------------------------------------------------------------------
+
+
+class EmployeeProfile(db.Model):
+    """Employee role projection over Person."""
+    __tablename__ = "employee_profiles"
+    __table_args__ = (
+        Index("ix_emp_profile_tenant", "tenant_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    employee_code = db.Column(db.String(60), unique=True, nullable=True)
+    department = db.Column(db.String(120), default="")
+    manager_person_id = db.Column(db.Integer, nullable=True)
+    role = db.Column(db.String(60), default="")
+    status = db.Column(db.String(30), default="active")
+    joined_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<EmployeeProfile #{self.id} person={self.person_id}>"
+
+
+class CustomerProfile(db.Model):
+    """Customer role projection over Person."""
+    __tablename__ = "customer_profiles"
+    __table_args__ = (
+        Index("ix_cust_profile_tenant", "tenant_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    lifetime_value = db.Column(db.Numeric(14, 2), default=0)
+    segment = db.Column(db.String(60), default="")
+    preferred_channel = db.Column(db.String(30), default="")
+    preferred_channel_provenance = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<CustomerProfile #{self.id} person={self.person_id}>"
+
+
+class SupplierContactProfile(db.Model):
+    """Supplier contact role projection over Person."""
+    __tablename__ = "supplier_contact_profiles"
+    __table_args__ = (
+        Index("ix_sc_profile_tenant", "tenant_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    supplier_id = db.Column(db.Integer, nullable=True)
+    role_in_organization = db.Column(db.String(120), default="")
+    is_primary = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<SupplierContactProfile #{self.id} person={self.person_id}>"
+
+
+class ClientUserProfile(db.Model):
+    __tablename__ = "client_user_profiles"
+    __table_args__ = (
+        Index("ix_cu_profile_tenant", "tenant_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    portal_access_granted = db.Column(db.Boolean, default=False)
+    last_login = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ClientUserProfile #{self.id} person={self.person_id}>"
+
+
+# ---------------------------------------------------------------------------
+# Relationship Intelligence (Phase 2)
+# ---------------------------------------------------------------------------
 
 
 class Relationship(db.Model):
-    """The institutional bond between a Person and a Tenant (organization).
-
-    THIS is the unit of compounding relationship intelligence.
-    A person can have one relationship per tenant. The relationship outlives
-    any single booking, opportunity, or employee. It carries lifetime memory.
-    """
+    """Canonical relationship between a Person and a business context."""
     __tablename__ = "relationships"
     __table_args__ = (
-        Index("ix_rel_person_tenant", "person_id", "tenant_id", unique=True),
-        Index("ix_rel_phone", "tenant_id", "phone"),
-        Index("ix_rel_email", "tenant_id", "email"),
+        Index("ix_rel_tenant_person", "tenant_id", "person_id", "relationship_type"),
+        Index("ix_rel_person", "person_id"),
+        Index("ix_rel_status", "status"),
     )
 
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    person_id = Column(Integer, ForeignKey("persons.id"), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, index=True)
+    relationship_type = db.Column(db.String(60), nullable=False, index=True)
+    status = db.Column(db.String(30), default="active", index=True)
+    started_at = db.Column(db.DateTime, nullable=True)
+    ended_at = db.Column(db.DateTime, nullable=True)
+    source = db.Column(db.String(255), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Identity (may differ from Person — e.g. preferred name for this org)
-    display_name = Column(String(255), nullable=True)
-    email = Column(String(255), nullable=True)
-    phone = Column(String(30), nullable=True)
+    person = db.relationship("Person", backref="relationships", lazy="select")
 
-    # Relationship metadata
-    tenure_years = Column(Integer, default=0)
-    health = Column(String(20), default="new")
-    # new → learning → established → strong → at_risk → lapsed
-    advisor_id = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    total_experiences = Column(Integer, default=0)
-    total_referrals = Column(Integer, default=0)
-    last_meaningful_interaction = Column(DateTime, nullable=True)
+    def __repr__(self):
+        return f"<Relationship #{self.id} {self.relationship_type} person={self.person_id}>"
 
-    # Communication
-    preferred_channel = Column(String(20), default="whatsapp")
-    communication_style = Column(String(60), default="")  # concise, detailed, formal, casual
-
-    # Traveller graph — who travels under this relationship
-    traveller_graph = Column(JSONB, default=dict)
-    # {"self": {"person_id": 1, "name": "...", "birthdate": "..."},
-    #  "spouse": {"person_id": 2, ...},
-    #  "children": [{"name": "...", "birthdate": "..."}],
-    #  "parents": [{"name": "..."}]}
-
-    # Household / Family
-    household_id = Column(Integer, ForeignKey("households.id"), nullable=True)
-
-    # Status
-    status = Column(String(20), default="active")  # active, inactive, lapsed, churned
-    tags = Column(JSONB, default=list)
-
-    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # FK relationships
-    person = relationship("Person", backref="relationships", lazy="joined",
-                          foreign_keys=[person_id])
-    opportunities = relationship("Opportunity", backref="relationship", lazy="select",
-                                 cascade="all,delete-orphan",
-                                 foreign_keys="Opportunity.relationship_id")
-
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
-            "id": self.id,
-            "display_name": self.display_name or (self.person.name if self.person else ""),
-            "email": self.email,
-            "phone": self.phone,
-            "tenure_years": self.tenure_years,
-            "health": self.health,
-            "total_experiences": self.total_experiences,
-            "total_referrals": self.total_referrals,
-            "preferred_channel": self.preferred_channel,
+            "id": self.id, "tenant_id": self.tenant_id,
+            "person_id": self.person_id, "relationship_type": self.relationship_type,
             "status": self.status,
-            "tags": self.tags,
-            "person": self.person.to_dict() if self.person else None,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-        }
-
-
-class Household(db.Model):
-    """A family or household — multiple persons who travel/share together.
-
-    Enables: family preferences, group booking patterns, referral networks,
-    multi-person relationships that compound as a unit.
-    """
-    __tablename__ = "households"
-    __table_args__ = (Index("ix_household_tenant", "tenant_id"),)
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    name = Column(String(255), nullable=True)  # e.g. "Nishesh Family"
-    head_relationship_id = Column(Integer, ForeignKey("relationships.id"), nullable=True)
-    members = Column(JSONB, default=list)
-    # [{"relationship_id": 1, "role": "head", "since": "2020"},
-    #  {"person_id": 2, "role": "spouse", "since": "2020"},
-    #  {"person_id": 3, "role": "child", "since": "2022"}]
-    shared_preferences = Column(JSONB, default=list)
-    notes = Column(Text, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
-class RelationshipPreference(db.Model):
-    """A stored preference for a relationship, with evidence and confidence.
-
-    "Last time you preferred..." not "You always prefer..."
-    Preferences belong to the relationship, not the person — they reflect
-    how this person relates to this organization.
-    """
-    __tablename__ = "relationship_preferences"
-    __table_args__ = (Index("ix_rel_pref_type", "relationship_id", "preference_type"),)
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    relationship_id = Column(Integer, ForeignKey("relationships.id"), nullable=False)
-
-    preference_type = Column(String(60), nullable=False)
-    # hotel_location, travel_pace, budget_range, airline, room_category,
-    # transfer_preference, decision_style, communication_style
-
-    value = Column(Text, nullable=False)
-    confidence = Column(String(20), default="medium")  # low, medium, high
-    source = Column(String(30), default="observed")  # stated, observed, inferred, imported
-
-    evidence = Column(JSONB, default=list)
-    # [{"opportunity": "Thailand 2022", "action": "selected city centre hotel"},
-    #  {"opportunity": "Dubai 2023", "action": "selected Downtown hotel"}]
-
-    contradictions = Column(JSONB, default=list)
-    # [{"opportunity": "Europe 2024", "note": "selected outskirts — budget constraint"}]
-
-    last_confirmed = Column(DateTime, nullable=True)
-    confirmed_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    notes = Column(Text, default="")
-    is_active = Column(Boolean, default=True)
-
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "preference_type": self.preference_type,
-            "value": self.value,
-            "confidence": self.confidence,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
             "source": self.source,
-            "evidence": self.evidence,
-            "contradictions": self.contradictions,
-            "last_confirmed": self.last_confirmed.isoformat() if self.last_confirmed else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class RelationshipEvent(db.Model):
+    """Durable lifecycle event for a relationship."""
+    __tablename__ = "relationship_events"
+    __table_args__ = (
+        Index("ix_re_rel", "relationship_id"),
+        Index("ix_re_event_time", "event_time"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    relationship_id = db.Column(db.Integer, db.ForeignKey("relationships.id"), nullable=False, index=True)
+    event_type = db.Column(db.String(60), nullable=False, index=True)
+    event_time = db.Column(db.DateTime, default=datetime.utcnow)
+    source = db.Column(db.String(255), default="")
+    metadata_json = db.Column(db.Text, default="{}")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    relationship = db.relationship("app.models.Relationship", backref="events", lazy="select")
+
+    def __repr__(self):
+        return f"<RelationshipEvent #{self.id} {self.event_type} rel={self.relationship_id}>"
+
+    def to_dict(self) -> dict:
+        import json
+        return {
+            "id": self.id, "relationship_id": self.relationship_id,
+            "event_type": self.event_type,
+            "event_time": self.event_time.isoformat() if self.event_time else None,
+            "source": self.source,
+            "metadata": json.loads(self.metadata_json or "{}"),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class RelationshipCommitment(db.Model):
+    """Explicit commitment or obligation associated with a relationship."""
+    __tablename__ = "relationship_commitments"
+    __table_args__ = (
+        Index("ix_rc_rel", "relationship_id"),
+        Index("ix_rc_status", "status"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+    relationship_id = db.Column(db.Integer, db.ForeignKey("relationships.id"), nullable=False, index=True)
+    direction = db.Column(db.String(30), default="company_to_person")
+    summary = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(30), default="open", index=True)
+    due_at = db.Column(db.DateTime, nullable=True)
+    source = db.Column(db.String(255), default="")
+    created_by = db.Column(db.String(120), default="")
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    resolution_note = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    relationship = db.relationship("app.models.Relationship", backref="commitments", lazy="select")
+
+    def __repr__(self):
+        return f"<RelationshipCommitment #{self.id} [{self.status}] {self.summary[:50]}>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "tenant_id": self.tenant_id,
+            "relationship_id": self.relationship_id, "direction": self.direction,
+            "summary": self.summary, "status": self.status,
+            "due_at": self.due_at.isoformat() if self.due_at else None,
+            "source": self.source, "created_by": self.created_by,
+            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
+            "resolution_note": self.resolution_note,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 
 # ---------------------------------------------------------------------------
-# Opportunity Domain — Current Intent Container
+# Data Intake & Transformation (Phase 1A)
 # ---------------------------------------------------------------------------
 
-class Opportunity(db.Model):
-    """A customer's current travel intent. Has a defined lifecycle.
 
-    One relationship can have simultaneous opportunities: personal holiday,
-    parents' pilgrimage, corporate offsite. The Opportunity carries current
-    intent; the Relationship carries lifetime memory.
-
-    Lifecycle: ENQUIRY → DISCOVERY → PLANNING → PROPOSAL → NEGOTIATION
-              → BOOKING → EXPERIENCE → OUTCOME → CLOSED
-              ↘ LOST at any stage
-    """
-    __tablename__ = "opportunities"
+class IntakeSession(db.Model):
+    """Lifecycle model for a data intake operation."""
+    __tablename__ = "intake_sessions"
     __table_args__ = (
-        Index("ix_opp_relationship", "relationship_id", "status"),
-        Index("ix_opp_tenant_stage", "tenant_id", "status"),
+        Index("ix_intake_tenant", "tenant_id", "status"),
     )
 
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    relationship_id = Column(Integer, ForeignKey("relationships.id"), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
+    source_type = db.Column(db.String(30), nullable=False, index=True)  # csv, xlsx, manual
+    source_name = db.Column(db.String(255), default="")
+    source_checksum = db.Column(db.String(64), default="")
+    row_count = db.Column(db.Integer, default=0)
+    column_names = db.Column(db.Text, default="")  # JSON array
+    status = db.Column(db.String(30), default="received", index=True)
+    summary = db.Column(db.Text, default="")  # JSON blob for import proposal
+    created_by = db.Column(db.String(120), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    code = Column(String(30), nullable=True, index=True)
+    # Proposal versioning (Phase 1A hardening)
+    proposal_version = db.Column(db.Integer, default=0)
+    proposal_generated_at = db.Column(db.DateTime, nullable=True)
+    approved_by = db.Column(db.String(120), default="")
+    approved_at = db.Column(db.DateTime, nullable=True)
+    approved_proposal_version = db.Column(db.Integer, default=0)
 
-    # Core intent
-    title = Column(String(255), nullable=False)
-    destination = Column(String(255), nullable=True)
-    intent_description = Column(Text, default="")  # What the customer actually wants
-    experience_mood = Column(String(60), default="")  # exploring, relaxing, adventure, luxury, cultural
-    notes = Column(Text, default="")
+    # Lifecycle states
+    # RECEIVED → PROFILED → MAPPING_REQUIRED → READY_FOR_REVIEW → APPROVED → IMPORTING → COMPLETED
+    #                                                                                      → FAILED
+    # Any state → CANCELLED
 
-    # Lifecycle
-    stage = Column(String(30), default="enquiry", index=True)
-    # enquiry, discovery, planning, proposal, negotiation, booking,
-    # experience, outcome, closed, lost
-    status = Column(String(20), default="open")  # open, won, lost, abandoned
+    def __repr__(self):
+        return f"<IntakeSession #{self.id} [{self.status}] {self.source_type}:{self.source_name}>"
 
-    # Timeline
-    target_dates = Column(JSONB, default=dict)
-    duration_days = Column(Integer, nullable=True)
-
-    # Budget
-    estimated_budget = Column(Numeric(12, 2), nullable=True)
-    actual_cost = Column(Numeric(12, 2), nullable=True)
-    currency = Column(String(10), default="INR")
-
-    # People — with typed roles
-    participants = Column(JSONB, default=list)
-    # [{"person_id": 1, "role": "traveller", "name": "Nishesh"},
-    #  {"person_id": 2, "role": "traveller", "name": "Spouse"},
-    #  {"person_id": null, "role": "decision_maker", "name": "Nishesh"},
-    #  {"person_id": null, "role": "payer", "name": "Nishesh"},
-    #  {"person_id": 3, "role": "beneficiary", "name": "Parents"}]
-    traveller_count = Column(Integer, default=1)
-    decision_maker = Column(String(255), nullable=True)
-    payer = Column(String(255), nullable=True)
-    referrer = Column(String(255), nullable=True)
-
-    # Progress
-    assigned_to = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    priority = Column(String(20), default="medium")  # low, medium, high, urgent
-    probability = Column(Integer, default=50)  # 0-100
-    risk = Column(String(20), default="low")  # low, medium, high
-
-    # Decisions, quotes, bookings (JSONB for flexibility)
-    decisions = Column(JSONB, default=list)
-    quotes = Column(JSONB, default=list)
-    bookings = Column(JSONB, default=list)
-
-    # Key dates
-    enquiry_date = Column(DateTime, nullable=True)
-    booking_date = Column(DateTime, nullable=True)
-    experience_start = Column(DateTime, nullable=True)
-    experience_end = Column(DateTime, nullable=True)
-    closed_at = Column(DateTime, nullable=True)
-
-    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    activities = relationship("OpportunityActivity", backref="opportunity", lazy="dynamic",
-                              cascade="all,delete-orphan")
-    experiences = relationship("Experience", backref="opportunity", lazy="select",
-                               cascade="all,delete-orphan",
-                               foreign_keys="Experience.opportunity_id")
-
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        import json
         return {
             "id": self.id,
-            "code": self.code,
-            "title": self.title,
-            "destination": self.destination,
-            "stage": self.stage,
+            "tenant_id": self.tenant_id,
+            "source_type": self.source_type,
+            "source_name": self.source_name,
+            "source_checksum": self.source_checksum,
+            "row_count": self.row_count,
+            "column_names": json.loads(self.column_names) if self.column_names else [],
             "status": self.status,
-            "experience_mood": self.experience_mood,
-            "estimated_budget": float(self.estimated_budget) if self.estimated_budget else None,
-            "actual_cost": float(self.actual_cost) if self.actual_cost else None,
-            "traveller_count": self.traveller_count,
-            "priority": self.priority,
-            "probability": self.probability,
-            "risk": self.risk,
-            "assigned_to": self.assigned_to,
-            "enquiry_date": self.enquiry_date.isoformat() if self.enquiry_date else None,
-            "booking_date": self.booking_date.isoformat() if self.booking_date else None,
+            "summary": json.loads(self.summary) if self.summary else {},
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class IntakeCandidate(db.Model):
+    """A single row candidate from an intake session, before governed commit."""
+    __tablename__ = "intake_candidates"
+    __table_args__ = (
+        Index("ix_ic_session", "session_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("intake_sessions.id"), nullable=False, index=True)
+    row_index = db.Column(db.Integer, default=0)
+    raw_data = db.Column(db.Text, default="")  # JSON of original row
+    normalized_data = db.Column(db.Text, default="")  # JSON of normalized fields
+    classification = db.Column(db.String(30), default="unknown")  # customer, employee, unknown
+    identity_status = db.Column(db.String(30), default="unknown")  # MATCHED, NO_MATCH, AMBIGUOUS, INSUFFICIENT_IDENTITY
+    matched_person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=True)
+    identity_conflict = db.Column(db.Text, default="")  # JSON describing conflict
+    validation_status = db.Column(db.String(30), default="info")
+    validation_messages = db.Column(db.Text, default="")  # JSON array
+    duplicate_type = db.Column(db.String(30), default="")  # SOURCE_DUPLICATE, IDENTITY_DUPLICATE, etc.
+    duplicate_group = db.Column(db.String(64), default="")
+    import_status = db.Column(db.String(30), default="pending")  # pending, approved, blocked, imported, skipped
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship
+    session = db.relationship("IntakeSession", backref="candidates", lazy="select")
+    matched_person = db.relationship("Person", backref="intake_candidates", lazy="select")
+
+    def __repr__(self):
+        return f"<IntakeCandidate #{self.id} session={self.session_id} row={self.row_index}>"
+
+
+class IntakeFieldMapping(db.Model):
+    """Mapping from a source column to a canonical target field."""
+    __tablename__ = "intake_field_mappings"
+    __table_args__ = (
+        Index("ix_ifm_session", "session_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("intake_sessions.id"), nullable=False)
+    source_column = db.Column(db.String(255), nullable=False)
+    target_field = db.Column(db.String(255), default="")  # canonical field path
+    target_domain = db.Column(db.String(60), default="")  # person, identity, customer
+    mapping_status = db.Column(db.String(30), default="unmapped")  # mapped, unmapped, ignored
+    mapping_method = db.Column(db.String(30), default="auto")  # auto, manual, alias
+    confidence = db.Column(db.Float, default=0.0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<IntakeFieldMapping #{self.id} {self.source_column} → {self.target_field}>"
+
+
+# ---------------------------------------------------------------------------
+# Inquiry Code Generator
+# ---------------------------------------------------------------------------
+
+def next_inquiry_code(session) -> str:
+    """
+    Generate space-free inquiry code: PC{DD}{MM}{YY}{##}
+
+    Examples:
+        PC10072601  (July 10, 2026 — first lead of the day)
+        PC10072602  (second lead of the day)
+        PC11072601  (next day, counter resets)
+    """
+    today = date.today()
+    prefix = f"PC{today.day:02d}{today.month:02d}{today.year % 100:02d}"
+
+    count = (
+        session.query(func.count(Lead.id))
+        .filter(
+            Lead.created_at >= datetime(today.year, today.month, today.day),
+            Lead.created_at < datetime(today.year, today.month, today.day + 1),
+        )
+        .scalar()
+        or 0
+    ) + 1
+    return f"{prefix}{count:02d}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FOR-2A Canonical Consolidation — Organization Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class Organization(db.Model):
+    """An organization (canonical successor to Tenant).
+
+    Everything in SHUNYA belongs to an Organization.
+    Industry-specific behaviour belongs in Industry Packs.
+    """
+    __tablename__ = "organizations"
+    __table_args__ = (
+        Index("ix_org_slug", "slug", unique=True),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    slug = db.Column(db.String(120), nullable=False, unique=True)
+    business_type = db.Column(db.String(60), default="")
+
+    # Branding
+    logo_url = db.Column(db.String(500), default="")
+    brand_color = db.Column(db.String(20), default="#2563eb")
+    brand_color_secondary = db.Column(db.String(20), default="#7c3aed")
+    brand_tagline = db.Column(db.String(500), default="")
+    brand_description = db.Column(db.Text, default="")
+
+    # Business info
+    tax_id = db.Column(db.String(100), default="")
+    registration_number = db.Column(db.String(100), default="")
+    phone = db.Column(db.String(60), default="")
+    email = db.Column(db.String(255), default="")
+    website = db.Column(db.String(500), default="")
+    address = db.Column(db.Text, default="")
+    city = db.Column(db.String(120), default="")
+    state = db.Column(db.String(120), default="")
+    country = db.Column(db.String(120), default="")
+    postal_code = db.Column(db.String(30), default="")
+
+    # Settings
+    timezone = db.Column(db.String(60), default="UTC")
+    currency = db.Column(db.String(10), default="INR")
+    date_format = db.Column(db.String(20), default="DD/MM/YYYY")
+    is_active = db.Column(db.Boolean, default=True)
+    max_members = db.Column(db.Integer, default=10)
+    ai_enabled = db.Column(db.Boolean, default=True)
+    ai_config = db.Column(db.Text, default="{}")
+
+    # Legacy linkage
+    legacy_tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
+
+    created_by = db.Column(db.String(120), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "name": self.name, "slug": self.slug,
+            "business_type": self.business_type,
+            "logo_url": self.logo_url, "brand_color": self.brand_color,
+            "brand_color_secondary": self.brand_color_secondary,
+            "brand_tagline": self.brand_tagline,
+            "brand_description": self.brand_description,
+            "tax_id": self.tax_id, "phone": self.phone, "email": self.email,
+            "website": self.website, "city": self.city, "country": self.country,
+            "currency": self.currency, "timezone": self.timezone,
+            "is_active": self.is_active, "max_members": self.max_members,
+            "ai_enabled": self.ai_enabled,
+            "created_by": self.created_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 
-class OpportunityActivity(db.Model):
-    """Timeline entries for an opportunity."""
-    __tablename__ = "opportunity_activities"
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    opportunity_id = Column(Integer, ForeignKey("opportunities.id"), nullable=False)
-
-    activity_type = Column(String(30), nullable=False)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, default="")
-    metadata_json = Column(JSONB, default=dict)
-
-    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-# ---------------------------------------------------------------------------
-# Experience Domain — WHAT THE CUSTOMER LIVED (not what we sold)
-# ---------------------------------------------------------------------------
-# Canonical: BOOKING = what we sold. EXPERIENCE = what the customer lived.
-# These are not the same thing. The learning loop needs both.
-
-class Experience(db.Model):
-    """What the customer actually lived through during a trip.
-
-    BOOKING records what was sold. EXPERIENCE records what happened.
-    The gap between them is where learning lives.
+class OrgMember(db.Model):
+    """A person who belongs to an Organization.
+    One SHUNYA Identity can be a member of multiple Organizations.
+    Roles are per-organization.
     """
-    __tablename__ = "experiences"
-    __table_args__ = (Index("ix_exp_opportunity", "opportunity_id"),)
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    relationship_id = Column(Integer, ForeignKey("relationships.id"), nullable=False)
-    opportunity_id = Column(Integer, ForeignKey("opportunities.id"), nullable=True)
-
-    title = Column(String(255), nullable=False)
-    experience_type = Column(String(30), default="trip")  # trip, day_trip, event, service
-
-    # Expectations (from the Booking)
-    expectations = Column(JSONB, default=dict)
-    # {"hotels": "Marriott Downtown", "flights": "EK507 09:00", "transfers": "Private"}
-
-    # What actually happened
-    delivered_reality = Column(JSONB, default=dict)
-    # {"hotels": "Marriott Downtown (upgraded)", "flights": "EK507 (delayed 1hr)",
-    #  "transfers": "Driver arrived 35min late"}
-
-    # Events during experience
-    events = Column(JSONB, default=list)
-    # [{"date": "...", "type": "checkin", "status": "smooth"},
-    #  {"date": "...", "type": "transfer", "status": "issue", "detail": "35min delay"}]
-
-    # Exceptions and recovery
-    exceptions = Column(JSONB, default=list)
-    # [{"component": "transfer", "issue": "delay", "severity": "medium", "recovery": "compensated"}]
-    recovery_actions = Column(JSONB, default=list)
-
-    # Feedback
-    feedback = Column(Text, default="")
-    satisfaction_signals = Column(JSONB, default=list)
-    # [{"source": "survey", "metric": "overall", "score": 4},
-    #  {"source": "message", "text": "transfer was late", "sentiment": "negative"}]
-
-    overall_rating = Column(Integer, nullable=True)  # 1-5
-    would_recommend = Column(Boolean, nullable=True)
-
-    # Timing
-    start_date = Column(DateTime, nullable=True)
-    end_date = Column(DateTime, nullable=True)
-
-    created_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    outcomes = relationship("Outcome", backref="experience", lazy="select",
-                            cascade="all,delete-orphan",
-                            foreign_keys="Outcome.experience_id")
-
-
-# ---------------------------------------------------------------------------
-# Observation Domain — Structured Expected vs Actual
-# ---------------------------------------------------------------------------
-
-class Observation(db.Model):
-    """A structured observation: what was expected vs what actually happened.
-
-    ActivityLog is an audit trail. Observation is intelligence input.
-    Every execution should create an observation opportunity.
-    """
-    __tablename__ = "observations"
-    __table_args__ = (Index("ix_obs_subject", "subject_type", "subject_id"),)
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-
-    subject_type = Column(String(30), nullable=False)  # opportunity, experience, task, execution
-    subject_id = Column(Integer, nullable=False)
-
-    event = Column(String(60), nullable=False)
-    source = Column(String(30), nullable=False)  # system, human, ai, integration
-    observer = Column(String(60), nullable=True)  # who/what observed it
-
-    expected_state = Column(Text, default="")
-    actual_state = Column(Text, default="")
-    delta = Column(String(255), default="")  # the difference
-
-    severity = Column(String(20), default="info")  # info, minor, medium, major, critical
-    confidence = Column(String(20), default="high")  # low, medium, high
-
-    metadata_json = Column(JSONB, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-# ---------------------------------------------------------------------------
-# Outcome Domain — Compared Intent
-# ---------------------------------------------------------------------------
-
-class Outcome(db.Model):
-    """The result of an experience or execution.
-
-    Every meaningful process should answer:
-    WHAT WERE WE TRYING TO ACHIEVE? WHAT ACTUALLY HAPPENED? WHAT WAS DIFFERENT? WHY?
-    """
-    __tablename__ = "outcomes"
-    __table_args__ = (Index("ix_outcome_subject", "subject_type", "subject_id"),)
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-
-    subject_type = Column(String(30), nullable=False)  # opportunity, experience, execution
-    subject_id = Column(Integer, nullable=False)
-    experience_id = Column(Integer, ForeignKey("experiences.id"), nullable=True)
-
-    goal = Column(Text, default="")
-    expected_outcome = Column(Text, default="")
-    actual_outcome = Column(Text, default="")
-
-    result = Column(String(20), default="unknown")  # success, partial, failure, unknown
-    reason = Column(Text, default="")
-
-    customer_impact = Column(Text, default="")
-    business_impact = Column(Text, default="")
-    financial_impact = Column(Text, default="")
-
-    lessons = Column(JSONB, default=list)
-    # [{"lesson": "Confirm transfers in advance", "category": "ops", "priority": "high"}]
-
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
-# ---------------------------------------------------------------------------
-# Learning Domain — Pattern → Proposal → Governance → Knowledge
-# ---------------------------------------------------------------------------
-
-class LearningCandidate(db.Model):
-    """A detected pattern that MAY become organizational knowledge.
-
-    OBSERVATION ≠ LEARNING. AI-detected pattern ≠ company truth.
-    Learning proposes. Governance evaluates. Humans approve.
-    """
-    __tablename__ = "learning_candidates"
-    __table_args__ = (Index("ix_learn_tenant_status", "tenant_id", "status"),)
-
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-
-    pattern = Column(Text, nullable=False)
-    evidence = Column(JSONB, default=list)
-    confidence = Column(Float, default=0.0)
-    category = Column(String(60), default="pattern")  # pattern, anomaly, improvement, risk
-
-    proposed_knowledge = Column(Text, default="")
-    proposed_rule = Column(Text, default="")
-    proposed_policy_change = Column(Text, default="")
-    proposed_workflow_change = Column(Text, default="")
-
-    status = Column(String(20), default="candidate")  # candidate, proposed, under_review, approved, rejected
-    reviewed_by = Column(Integer, ForeignKey("team_members.id"), nullable=True)
-    reviewed_at = Column(DateTime, nullable=True)
-    review_notes = Column(Text, default="")
-
-    source_observations = Column(JSONB, default=list)  # observation IDs
-    related_outcomes = Column(JSONB, default=list)  # outcome IDs
-
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
-# ---------------------------------------------------------------------------
-# User Mood / Check-in Tracker
-# ---------------------------------------------------------------------------
-
-class UserMoodCheckin(db.Model):
-    """A daily mood/energy check-in from a team member.
-
-    Stored as individual rows for trend analysis.
-    """
-    __tablename__ = "user_mood_checkins"
+    __tablename__ = "org_members"
     __table_args__ = (
-        Index("ix_mood_user_date", "tenant_id", "user_id", "created_at"),
-        {"extend_existing": True},
+        Index("ix_orgmem_org", "organization_id"),
+        Index("ix_orgmem_identity", "identity_id"),
+        Index("ix_orgmem_org_identity", "organization_id", "identity_id", unique=True),
     )
 
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=False)
+    identity_id = db.Column(db.String(64), nullable=False)
+    name = db.Column(db.String(255), default="")
+    email = db.Column(db.String(255), default="")
+    phone = db.Column(db.String(60), default="")
+    role = db.Column(db.String(30), default="member")
+    designation = db.Column(db.String(120), default="")
+    department_id = db.Column(db.Integer, db.ForeignKey("departments.id"), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    invited_by = db.Column(db.String(64), default="")
 
-    mood = Column(String(20), nullable=False)  # great, good, okay, rough, tough
-    energy = Column(Integer, nullable=False)  # 1-5
-    notes = Column(Text, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    organization = db.relationship("Organization", backref="members", lazy="select")
 
     def to_dict(self):
         return {
-            "id": self.id,
-            "mood": self.mood,
-            "energy": self.energy,
-            "notes": self.notes,
+            "id": self.id, "organization_id": self.organization_id,
+            "identity_id": self.identity_id, "name": self.name,
+            "email": self.email, "phone": self.phone, "role": self.role,
+            "designation": self.designation, "department_id": self.department_id,
+            "is_active": self.is_active,
+            "joined_at": self.joined_at.isoformat() if self.joined_at else None,
+        }
+
+
+class OrgInvitation(db.Model):
+    """An invitation for a person to join an Organization."""
+    __tablename__ = "org_invitations"
+    __table_args__ = (
+        Index("ix_orginvite_token", "token", unique=True),
+        Index("ix_orginvite_email", "email"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    name = db.Column(db.String(255), default="")
+    role = db.Column(db.String(30), default="member")
+    token = db.Column(db.String(128), nullable=False, unique=True)
+    status = db.Column(db.String(30), default="pending")
+    invited_by = db.Column(db.String(64), default="")
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "organization_id": self.organization_id,
+            "email": self.email, "name": self.name, "role": self.role,
+            "status": self.status, "invited_by": self.invited_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 
-# ---------------------------------------------------------------------------
-# User Activity & Intelligence Tracking
-# ---------------------------------------------------------------------------
-
-class UserActivityLog(db.Model):
-    """Granular tracking of every user interaction on the platform.
-
-    Records page views, feature usage, Bird AI queries, mood check-ins,
-    relationship touches, and entertainment/social media activity.
-    """
-    __tablename__ = "user_activity_logs"
+class Department(db.Model):
+    """A department or team within an Organization."""
+    __tablename__ = "departments"
     __table_args__ = (
-        Index("ix_user_activity_type", "tenant_id", "user_id", "activity_type"),
-        Index("ix_user_activity_date", "tenant_id", "user_id", "created_at"),
+        Index("ix_dept_org", "organization_id"),
     )
 
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
-    session_id = Column(String(64), nullable=True)
-    page_path = Column(String(500), default="")
-    page_title = Column(String(255), default="")
-    activity_type = Column(String(40), nullable=False)  # page_view, feature_use, bird_ai_query, mood_checkin, relationship_touch, social_media, entertainment, focus_time, break
-    duration_seconds = Column(Integer, default=0)
-    metadata_json = Column(JSONB, default=dict)
-    device_info = Column(String(255), default="")
-    ip_address = Column(String(45), default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, default="")
+    head_identity_id = db.Column(db.String(64), nullable=True)
+    parent_department_id = db.Column(db.Integer, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     def to_dict(self):
         return {
-            "id": self.id, "activity_type": self.activity_type,
-            "page_path": self.page_path, "page_title": self.page_title,
-            "duration_seconds": self.duration_seconds,
-            "metadata": self.metadata_json or {},
-            "session_id": self.session_id,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "id": self.id, "organization_id": self.organization_id,
+            "name": self.name, "description": self.description,
+            "head_identity_id": self.head_identity_id,
+            "parent_department_id": self.parent_department_id,
+            "is_active": self.is_active,
         }
 
 
-class UserDailySummary(db.Model):
-    """Rolled-up daily summary for a user — pre-computed for dashboards."""
-    __tablename__ = "user_daily_summaries"
+# ═══════════════════════════════════════════════════════════════════════════════
+# FOR-1 Canonical Consolidation — Proposal & Knowledge Models
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class Proposal(db.Model):
+    """A business proposal / quotation for an opportunity.
+    Lifecycle: draft → ai_generating → review → sent → accepted → booked → cancelled
+    Linked to an organization and optionally a relationship.
+    """
+    __tablename__ = "proposals"
     __table_args__ = (
-        Index("ix_uds_user_date", "tenant_id", "user_id", "date", unique=True),
+        Index("ix_proposals_org", "organization_id"),
+        Index("ix_proposals_status", "status"),
     )
 
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("team_members.id"), nullable=False)
-    date = Column(Date, nullable=False)
-    total_active_minutes = Column(Integer, default=0)
-    total_sessions = Column(Integer, default=0)
-    mood_entries = Column(Integer, default=0)
-    relationship_touches = Column(Integer, default=0)
-    bird_ai_queries = Column(Integer, default=0)
-    entertainment_minutes = Column(Integer, default=0)
-    social_media_minutes = Column(Integer, default=0)
-    focus_minutes = Column(Integer, default=0)
-    break_minutes = Column(Integer, default=0)
-    pages_visited = Column(JSONB, default=list)
-    summary_text = Column(Text, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=True)
+    relationship_id = db.Column(db.Integer, db.ForeignKey("rel_relationships.id"), nullable=True)
+    opportunity_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    version_number = db.Column(db.Integer, default=1, nullable=False)
+    status = db.Column(db.String(30), default="draft", nullable=False)
+    title = db.Column(db.String(500), default="")
+    destination = db.Column(db.String(255), default="")
+    duration_days = db.Column(db.Integer, default=0)
+    pax = db.Column(db.String(100), default="")
+    budget = db.Column(db.Numeric(12, 2), default=0)
+    currency = db.Column(db.String(10), default="INR")
+    itinerary_json = db.Column(db.Text, default="[]")
+    pricing_json = db.Column(db.Text, default="{}")
+    inclusions = db.Column(db.Text, default="")
+    exclusions = db.Column(db.Text, default="")
+    terms = db.Column(db.Text, default="")
+    brand_color = db.Column(db.String(20), default="")
+    brand_logo_url = db.Column(db.String(500), default="")
+    cover_image_url = db.Column(db.String(500), default="")
+    ai_generated = db.Column(db.Boolean, default=False)
+    ai_model = db.Column(db.String(100), default="")
+    ai_prompt = db.Column(db.Text, default="")
+    generation_notes = db.Column(db.Text, default="")
+    web_html = db.Column(db.Text, default="")
+    pdf_path = db.Column(db.String(500), default="")
+    sent_at = db.Column(db.DateTime, nullable=True)
+    sent_via = db.Column(db.String(30), default="")
+    viewed_at = db.Column(db.DateTime, nullable=True)
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    created_by = db.Column(db.String(120), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self, include_html=False):
+        import json
+        result = {
+            "id": self.id, "organization_id": self.organization_id,
+            "relationship_id": self.relationship_id,
+            "version_number": self.version_number, "status": self.status,
+            "title": self.title, "destination": self.destination,
+            "duration_days": self.duration_days, "pax": self.pax,
+            "budget": float(self.budget or 0), "currency": self.currency,
+            "inclusions": self.inclusions, "exclusions": self.exclusions,
+            "terms": self.terms, "brand_color": self.brand_color,
+            "ai_generated": self.ai_generated, "ai_model": self.ai_model,
+            "pdf_path": self.pdf_path,
+            "sent_at": self.sent_at.isoformat() if self.sent_at else None,
+            "viewed_at": self.viewed_at.isoformat() if self.viewed_at else None,
+            "accepted_at": self.accepted_at.isoformat() if self.accepted_at else None,
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+        try:
+            result["itinerary"] = json.loads(self.itinerary_json or "[]")
+        except (json.JSONDecodeError, TypeError):
+            result["itinerary"] = []
+        try:
+            result["pricing"] = json.loads(self.pricing_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            result["pricing"] = {}
+        if include_html and self.web_html:
+            result["web_html"] = self.web_html
+        return result
+
+
+class ProposalVersion(db.Model):
+    """Immutable version history for proposals."""
+    __tablename__ = "proposal_versions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    proposal_id = db.Column(db.Integer, db.ForeignKey("proposals.id"), nullable=False, index=True)
+    version_number = db.Column(db.Integer, nullable=False)
+    snapshot_json = db.Column(db.Text, default="{}")
+    change_summary = db.Column(db.String(500), default="")
+    created_by = db.Column(db.String(120), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class KnowledgeDocument(db.Model):
+    """Uploaded knowledge document — brochures, SOPs, itineraries, contracts.
+    Text is extracted and indexed for semantic search. Belongs to an organization.
+    """
+    __tablename__ = "knowledge_documents"
+    __table_args__ = (
+        Index("ix_kd_org", "organization_id"),
+        Index("ix_kd_category", "category"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=True)
+    title = db.Column(db.String(500), nullable=False)
+    category = db.Column(db.String(60), default="general")
+    file_path = db.Column(db.String(500), default="")
+    file_type = db.Column(db.String(60), default="")
+    file_size_bytes = db.Column(db.BigInteger, default=0)
+    extracted_text = db.Column(db.Text, default="")
+    summary = db.Column(db.Text, default="")
+    tags = db.Column(db.String(1000), default="")
+    uploaded_by = db.Column(db.String(120), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {
-            "date": self.date.isoformat() if self.date else None,
-            "total_active_minutes": self.total_active_minutes,
-            "total_sessions": self.total_sessions,
-            "mood_entries": self.mood_entries,
-            "relationship_touches": self.relationship_touches,
-            "bird_ai_queries": self.bird_ai_queries,
-            "entertainment_minutes": self.entertainment_minutes,
-            "social_media_minutes": self.social_media_minutes,
-            "focus_minutes": self.focus_minutes,
-            "break_minutes": self.break_minutes,
-            "summary_text": self.summary_text,
+            "id": self.id, "organization_id": self.organization_id,
+            "title": self.title, "category": self.category,
+            "file_path": self.file_path, "file_type": self.file_type,
+            "file_size_bytes": self.file_size_bytes,
+            "summary": (self.summary or "")[:500],
+            "tags": [t.strip() for t in (self.tags or "").split(",") if t.strip()],
+            "uploaded_by": self.uploaded_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }

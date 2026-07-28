@@ -1,124 +1,116 @@
-"""Shunya OS pytest configuration — fresh temp file per test."""
-import pytest, os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+"""
+Pytest configuration for Shunya OS tests — canonical infrastructure.
 
-# JSONB → JSON for SQLite
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.compiler import compiles
+Provides fixtures backed by the production create_app() factory and the
+global db instance. Replaces the old _test_db approach that had dead-code
+inline model definitions.
 
-@compiles(JSONB, "sqlite")
-def _jsonb_sqlite(element, compiler, **kw):
-    return compiler.visit_JSON(element, **kw)
+Exposes:
+    app, client, db, tenant, test_tenant, admin_user, logged_in_client
+    real_app  (alias for app — backward compat for phase test files)
+"""
 
-from app import create_app, db as _db
-from app.models import Tenant, TeamMember, EntityDefinition, Entity, Business, Brand
+import pytest
+from app import create_app, db
 
+
+# ---------------------------------------------------------------------------
+# App and database fixtures
+# ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="function")
 def app():
-    """Create a fresh app for each test using an isolated temp SQLite file."""
-    import tempfile as _tf, config as _cfg
-    db_fd, db_path = _tf.mkstemp(suffix=".db")
-    os.close(db_fd)
+    """Create a full Flask app via the production factory.
 
-    # Override config BEFORE create_app so engine binds to temp path (Flask-SQLAlchemy 3.x quirk)
-    original_uri = _cfg.TestConfig.SQLALCHEMY_DATABASE_URI
-    _cfg.TestConfig.SQLALCHEMY_DATABASE_URI = f"sqlite:///{db_path}"
+    Uses the production db instance so ALL models are registered
+    (Person, PersonIdentity, Relationship, IntakeSession, etc.).
+    Replaces the old _test_db approach that only had Lead and ActivityLog.
 
-    from app import create_app, db as _db
-    app = create_app("test")
+    Imports all model modules before create_all() so every table
+    that tests may reference is created in the in-memory SQLite.
+    """
+    application = create_app(config_override={
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "SECRET_KEY": "test-secret",
+        "DISABLE_RATE_LIMIT": "true",
+        "WTF_CSRF_ENABLED": False,
+    })
+    with application.app_context():
+        # Register all models before create_all — some are only imported
+        # lazily inside create_app's context processor / middleware.
+        from app import models  # noqa: F401
+        from app.tenant import Tenant  # noqa: F401
+        from app.communication import models as _comm_models  # noqa: F401
+        from app.privacy import models as _privacy_models  # noqa: F401
+        from app.human_context import models as _hc_models  # noqa: F401
+        from app.memory import models as _mem_models  # noqa: F401
+        from app.evidence import models as _ev_models  # noqa: F401
+        from app.document import models as _doc_models  # noqa: F401
+        from app.llm import models as _llm_models  # noqa: F401
+        from app.auth import TeamMember  # noqa: F401
+        from app.production.identity.workspace_model import Workspace  # noqa: F401
+        from app.production.identity_repository import SHUNYAIdentityModel  # noqa: F401
+        db.create_all()
+        yield application
+        db.drop_all()
 
-    with app.app_context():
-        _db.create_all()
-    yield app
-    with app.app_context():
-        _db.session.close()
-        _db.engine.dispose()
-    # Remove cached engine so the next test's app doesn't reuse it
-    try:
-        if app in _db.engines:
-            del _db.engines[app]
-    except RuntimeError:
-        pass  # No app context available, engine already disposed
 
-    _cfg.TestConfig.SQLALCHEMY_DATABASE_URI = original_uri
-    try:
-        os.unlink(db_path)
-    except OSError:
-        pass
+# Alias for backward compatibility with phase test files that use `real_app`
+@pytest.fixture(scope="function")
+def real_app(app):
+    """Alias for the app fixture — backward compat with existing tests."""
+    return app
 
 
 @pytest.fixture(scope="function")
 def client(app):
+    """Test client bound to the app."""
     return app.test_client()
 
 
 @pytest.fixture(scope="function")
-def db(app):
-    with app.app_context():
-        yield _db
-
-
-@pytest.fixture(scope="function")
-def tenant(db):
-    t = Tenant(company_name="Test Travel", slug="test-travel",
-               business_type="travel", brand_color="#2563eb",
-               vertical_config={"vertical": "travel", "completed": True})
-    db.session.add(t); db.session.flush()
+def tenant(app, db):
+    """Create a sample tenant for multi-tenant tests."""
+    from app.tenant import Tenant
+    t = Tenant(
+        company_name="Test Travel Co",
+        slug="test-travel",
+        business_type="travel",
+        is_active=True,
+    )
+    db.session.add(t)
+    db.session.commit()
     return t
 
 
 @pytest.fixture(scope="function")
-def admin_user(db, tenant):
-    import hashlib
-    u = TeamMember(tenant_id=tenant.id, name="Test Admin",
-                   email="admin@test.com", role="admin",
-                   password_hash=hashlib.sha256(b"pw123").hexdigest())
-    db.session.add(u); db.session.flush()
-    return u
+def test_tenant(tenant):
+    """Return the tenant's ID for use as tenant_id parameter."""
+    return tenant.id
 
 
 @pytest.fixture(scope="function")
-def logged_in_client(client, tenant, admin_user, db):
-    """Create a properly authenticated client with real UserSession."""
-    from app.models import UserSession
-    from app.utils import generate_token, hash_token
-    from datetime import datetime, timedelta
-
-    token = generate_token(48)
-    token_hash = hash_token(token)
-    sess = UserSession(
-        user_id=admin_user.id,
-        token=token_hash,
-        expires_at=datetime.utcnow() + timedelta(hours=24),
+def admin_user(app, db):
+    """Create an admin TeamMember for auth-required tests."""
+    from app.auth import TeamMember
+    user = TeamMember(
+        name="Admin User",
+        email="admin@test.com",
+        role="admin",
+        is_active=True,
     )
-    db.session.add(sess)
+    user.set_password("password123")
+    user.generate_token()
+    db.session.add(user)
     db.session.commit()
+    return user
 
-    with client.session_transaction() as s:
-        s["session_token"] = token
+
+@pytest.fixture(scope="function")
+def logged_in_client(app, client, admin_user):
+    """Return a test client with an active session logged in as admin_user."""
+    with client.session_transaction() as session:
+        session["user_id"] = admin_user.id
+        session["_fresh"] = True
     return client
-
-
-@pytest.fixture(scope="function")
-def lead_definition(db, tenant):
-    d = EntityDefinition(tenant_id=tenant.id, type="lead", label="Lead",
-        label_plural="Leads", icon="🎯", primary_field="name", layout="kanban",
-        statuses=["new","contacted","qualified","converted","lost"], code_prefix="PC",
-        schema=[{"name":"name","label":"Name","type":"text","required":True}])
-    db.session.add(d); db.session.flush()
-    return d
-
-
-@pytest.fixture(scope="function")
-def business(db, admin_user):
-    b = Business(name="Test Biz", owner_id=admin_user.id, business_type="travel")
-    db.session.add(b); db.session.flush()
-    return b
-
-
-@pytest.fixture(scope="function")
-def brand(db, business):
-    b = Brand(name="Test Brand", business_id=business.id, is_default=True)
-    db.session.add(b); db.session.flush()
-    return b

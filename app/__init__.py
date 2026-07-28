@@ -1,303 +1,672 @@
-"""Shunya OS — Application Factory."""
-import os, logging, uuid, hashlib
+"""
+SHUNYA OS — Core App Unit
+Flask application factory with production scaffolding.
+
+Unit 1 of 10 — foundation layer.
+"""
+
+import os
+import uuid
+import logging
 from datetime import datetime
-from functools import wraps
-from flask import Flask, g, request, jsonify, redirect, url_for, session
-from flask_cors import CORS
-from app.extensions import db
+from flask import Flask, g, request, jsonify, session, redirect, url_for, current_app, send_from_directory, abort
+from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
+from jinja2 import FileSystemLoader, ChoiceLoader
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOG_LEVEL = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper())
+# ---------------------------------------------------------------------------
+# Extensions (initialized without app, bound in create_app)
+# ---------------------------------------------------------------------------
+db = SQLAlchemy()
+
+# ---------------------------------------------------------------------------
+# Logging setup
+# ---------------------------------------------------------------------------
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
 
-def create_app(config_name: str = "development"):
-    app = Flask(__name__,
-                template_folder=os.path.join(BASE_DIR, "templates"),
-                static_folder=os.path.join(BASE_DIR, "static"))
+def _setup_logging(app: Flask):
+    """Configure structured JSON logging for production, plain for dev."""
+    is_dev = os.getenv("FLASK_ENV", "production") == "development"
 
-    # Load config
-    import config as cfg
-    cfg_obj = cfg.config_by_name.get(config_name, cfg.Config)
-    app.config.from_object(cfg_obj)
+    if not is_dev:
+        try:
+            from pythonjsonlogger import jsonlogger
 
-    # Ensure upload dir
-    os.makedirs(app.config.get("UPLOAD_DIR", "media"), exist_ok=True)
+            handler = logging.StreamHandler()
+            fmt = jsonlogger.JsonFormatter(
+                "%(asctime)s %(name)s %(levelname)s %(message)s %(request_id)s"
+            )
+            handler.setFormatter(fmt)
+            app.logger.handlers.clear()
+            app.logger.addHandler(handler)
+            app.logger.setLevel(LOG_LEVEL)
+        except ImportError:
+            pass  # fallback to default Flask logger
 
-    # Init extensions
-    db.init_app(app)
-    CORS(app, origins="*", supports_credentials=True)
-
-    # Middleware
-    _setup_logging(app)
-    _request_id_middleware(app)
-
-    # Register everything
-    with app.app_context():
-        _register_blueprints(app)
-        _register_error_handlers(app)
-        _register_health(app)
-        _register_context_processors(app)
-        if not app.config.get("TESTING"):
-            db.create_all()
-
-    app.logger.info("Shunya OS initialised")
-    return app
+    app.logger.info("Logging initialised", extra={"request_id": "bootstrap"})
 
 
 # ---------------------------------------------------------------------------
-# Blueprints
+# Middleware
 # ---------------------------------------------------------------------------
 
-def _register_blueprints(app):
-    from app.routes.auth import auth_bp, login_redirect_bp
-    from app.routes.entities import entities_bp
-    from app.routes.dashboard import dashboard_bp
-    from app.routes.settings import settings_bp
-    from app.routes.client_portal import client_bp
-    from app.routes.api import api_bp
-    from app.routes.voice import voice_bp
-    from app.shunya.whatsapp import whatsapp_bp
-    from app.shunya.ingestion import ingestion_bp
-    from app.shunya.finance import finance_bp
-    from app.shunya.operations import ops_bp
-    from app.shunya.onboarding import onboarding_bp
-    from app.shunya.ai_settings import ai_settings_bp
-    from app.shunya.module_builder_routes import module_builder_bp
-    from app.shunya.governance_routes import governance_bp
-    from app.routes.agent import agent_bp
-    from app.shunya.theme_routes import theme_bp
-    from app.routes.supply_chain import supply_chain_bp
-    from app.routes.field_services import field_services_bp
-    from app.routes.legal import legal_bp
-    from app.routes.sales_crm import sales_bp
-    from app.routes.relationships import relationships_bp
-    from app.shunya.user_mood import mood_bp
-    from app.routes.admin import admin_bp
-    from app.routes.webhooks import webhooks_bp
-    from app.routes.agent import agent_bp
-    from app.routes.user_intelligence import user_intel_bp
-    from app.routes.user_intel_page import user_intel_page_bp
+def _request_id_middleware(app: Flask):
+    """Attach a unique request_id to every request for tracing."""
 
+    @app.before_request
+    def _attach_request_id():
+        rid = request.headers.get("X-Request-Id") or str(uuid.uuid4())
+        g.request_id = rid
+
+    @app.after_request
+    def _tag_response(response):
+        rid = getattr(g, "request_id", "")
+        response.headers["X-Request-Id"] = rid
+        return response
+
+
+def _security_headers_middleware(app: Flask):
+    """Apply standard security headers to every response."""
+
+    @app.after_request
+    def _add_security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(self), camera=()")
+        return response
+
+
+def _cors_setup(app: Flask):
+    """Enable CORS for API routes (Shunya endpoints)."""
     try:
-        from app.routes.hr import hr_bp
+        from flask_cors import CORS
+
+        CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+        app.logger.info("CORS enabled for /api/*")
     except ImportError:
-        hr_bp = None
+        app.logger.warning("flask-cors not available — CORS disabled")
+
+
+def _rate_limiter_setup(app: Flask):
+    """Rate-limit webhook and API endpoints."""
     try:
-        from app.routes.marketing import marketing_bp
+        from flask_limiter import Limiter
+        from flask_limiter.util import get_remote_address
+
+        store = os.getenv("REDIS_URL") or "memory://"
+        limiter = Limiter(
+            app=app,
+            key_func=get_remote_address,
+            storage_uri=store,
+            default_limits=["200 per day", "50 per hour"],
+            enabled=not os.getenv("DISABLE_RATE_LIMIT", ""),
+        )
+
+        # Tighten limits on Telegram webhook
+        limiter.limit("10 per minute")(lambda: None)  # applied per-route in routes.py
+
+        app.logger.info("Rate limiter initialised (storage: %s)", store)
     except ImportError:
-        marketing_bp = None
-    try:
-        from app.routes.support import support_bp
-    except ImportError:
-        support_bp = None
-
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(login_redirect_bp)
-    app.register_blueprint(entities_bp)
-    app.register_blueprint(dashboard_bp)
-    app.register_blueprint(settings_bp)
-    app.register_blueprint(client_bp, url_prefix="/client")
-    app.register_blueprint(api_bp, url_prefix="/api")
-    app.register_blueprint(voice_bp)
-    app.register_blueprint(whatsapp_bp)
-    app.register_blueprint(ingestion_bp)
-    app.register_blueprint(finance_bp)
-    app.register_blueprint(ops_bp)
-    app.register_blueprint(onboarding_bp)
-    app.register_blueprint(ai_settings_bp)
-    app.register_blueprint(module_builder_bp)
-    app.register_blueprint(governance_bp)
-    app.register_blueprint(agent_bp)
-    app.register_blueprint(theme_bp)
-    app.register_blueprint(supply_chain_bp)
-    app.register_blueprint(field_services_bp)
-    app.register_blueprint(legal_bp)
-    app.register_blueprint(sales_bp)
-    app.register_blueprint(relationships_bp)
-    if hr_bp:
-        app.register_blueprint(hr_bp)
-    if marketing_bp:
-        app.register_blueprint(marketing_bp)
-    if support_bp:
-        app.register_blueprint(support_bp)
-
-    app.register_blueprint(mood_bp)
-    app.register_blueprint(admin_bp)
-    app.register_blueprint(webhooks_bp)
-
-    app.register_blueprint(user_intel_page_bp)
-
-    app.register_blueprint(user_intel_bp)
-
-
-# ---------------------------------------------------------------------------
-# Auth middleware — protect all routes by default
-# ---------------------------------------------------------------------------
-
-PUBLIC_PATHS = ("/auth/", "/health", "/static/", "/client/")
-
-
-def _register_context_processors(app):
-    @app.context_processor
-    def inject_globals():
-        user = getattr(g, "user", None)
-        tenant = getattr(g, "tenant", None)
-        brand_colors = None
-        if tenant:
-            from app.shunya.theme import get_brand_colors
-            brand_colors = get_brand_colors(tenant)
-
-        # Build breadcrumbs from request path
-        path = request.path
-        crumbs = []
-        if path == "/":
-            crumbs.append({"label": "Dashboard", "url": "/"})
-        elif path.startswith("/hr/"):
-            crumbs.extend([{"label": "Dashboard", "url": "/"}, {"label": "HR", "url": "/hr/dashboard"}])
-        elif path.startswith("/sales/"):
-            crumbs.extend([{"label": "Dashboard", "url": "/"}, {"label": "Sales", "url": "/sales/dashboard"}])
-        elif path.startswith("/admin/"):
-            crumbs.extend([{"label": "Dashboard", "url": "/"}, {"label": "Admin", "url": "/admin/brand"}])
-        elif path.startswith("/finance"):
-            crumbs.extend([{"label": "Dashboard", "url": "/"}, {"label": "Finance", "url": "/finance"}])
-        else:
-            crumbs.append({"label": "Dashboard", "url": "/"})
-
-        return {
-            "current_user": user,
-            "current_tenant": tenant,
-            "brand_colors": brand_colors,
-            "year": __import__("datetime").datetime.utcnow().year,
-            "app_name": "Shunya OS",
-            "nav_modules": [
-                {"label": "Dashboard", "icon": "🏠", "url": "/"},
-                {"label": "Finance", "icon": "💰", "url": "/finance"},
-                {"label": "Ops", "icon": "📋", "url": "/ops"},
-                {"label": "Supply Chain", "icon": "📦", "url": "/supply-chain"},
-                {"label": "Field Services", "icon": "🔧", "url": "/field-services"},
-                {"label": "HR", "icon": "👥", "url": "/hr/dashboard"},
-                {"label": "Relationships", "icon": "🤝", "url": "/relationships"},
-                {"label": "Sales", "icon": "💎", "url": "/sales/dashboard"},
-                {"label": "Marketing", "icon": "🚀", "url": "/marketing/dashboard"},
-                {"label": "Support", "icon": "🎫", "url": "/support/dashboard"},
-                {"label": "Legal", "icon": "📜", "url": "/legal"},
-                {"label": "Ingest", "icon": "📥", "url": "/ingestion"},
-                {"label": "Analytics", "icon": "📊", "url": "/analytics"},
-                {"label": "Learn", "icon": "🧠", "url": "/learning"},
-                {"label": "Modules", "icon": "🧩", "url": "/modules"},
-                {"label": "Settings", "icon": "⚙️", "url": "/settings"},
-                {"label": "AI", "icon": "🤖", "url": "/ai-settings"},
-                {"label": "Governance", "icon": "⚖️", "url": "/governance"},
-                {"label": "Webhooks", "icon": "🔗", "url": "/admin/webhooks"},
-            ],
-            "breadcrumbs": crumbs,
-        }
+        app.logger.warning("flask-limiter not available — rate limiting disabled")
 
 
 # ---------------------------------------------------------------------------
 # Error handlers
 # ---------------------------------------------------------------------------
 
-def _register_error_handlers(app):
+def _register_error_handlers(app: Flask):
+    """Return JSON for API errors, HTML for UI errors."""
+
+    @app.errorhandler(400)
+    def bad_request(e):
+        return _error_response(400, "Bad request", str(e))
+
+    @app.errorhandler(403)
+    def forbidden(e):
+        return _error_response(403, "Forbidden", str(e))
+
     @app.errorhandler(404)
     def not_found(e):
-        if request.path.startswith("/api/"):
-            return jsonify({"error": "Not found"}), 404
-        return "<h1>404</h1><p>Page not found</p>", 404
+        return _error_response(404, "Not found", str(e))
+
+    @app.errorhandler(405)
+    def method_not_allowed(e):
+        return _error_response(405, "Method not allowed", str(e))
 
     @app.errorhandler(500)
     def server_error(e):
         rid = getattr(g, "request_id", "")
-        app.logger.error("Internal server error", extra={"request_id": rid, "error": str(e)})
-        if request.path.startswith("/api/"):
-            return jsonify({"error": "Internal error", "request_id": rid}), 500
-        return "<h1>500</h1><p>Internal server error. Contact support.</p>", 500
+        app.logger.error("Internal server error", extra={
+            "request_id": rid,
+            "error": str(e),
+        })
+        return _error_response(500, "Internal server error", "Contact support with request ID")
+
+    def _error_response(code, message, detail=""):
+        is_api = request.path.startswith("/api/") or request.path.startswith("/shunya/")
+        if is_api or request.accept_mimetypes.best == "application/json":
+            return jsonify({
+                "error": message,
+                "detail": str(detail),
+                "request_id": getattr(g, "request_id", ""),
+            }), code
+        # HTML fallback for browser routes
+        return (
+            f"<!doctype html><title>{code} {message}</title>"
+            f"<h1>{code}</h1><p>{message}</p>",
+            code,
+        )
 
 
 # ---------------------------------------------------------------------------
-# Health
+# Health endpoints — /health, /ready, /live
 # ---------------------------------------------------------------------------
 
-def _register_health(app):
+# Track application startup time
+_APP_START_TIME = __import__("time").time()
+
+
+def _health_check(app: Flask) -> dict:
+    """Run a full health check against runtime dependencies."""
+    from sqlalchemy import text
+    from app.models import Lead, Payment, Supplier, Invoice, ItineraryRef
+
+    checks = {"status": "ok", "version": "1.0.0"}
+    checks["uptime_seconds"] = int(__import__("time").time() - _APP_START_TIME)
+    checks["environment"] = os.getenv("SHUNYA_ENVIRONMENT", os.getenv("FLASK_ENV", "production"))
+    checks["request_id"] = getattr(g, "request_id", "")
+
+    # Database check
+    try:
+        db.session.execute(text("SELECT 1"))
+        checks["database"] = "connected"
+        checks["tables"] = {
+            "leads": db.session.query(Lead).count(),
+            "payments": db.session.query(Payment).count(),
+            "suppliers": db.session.query(Supplier).count(),
+            "invoices": db.session.query(Invoice).count(),
+            "itinerary_refs": db.session.query(ItineraryRef).count(),
+        }
+    except Exception as e:
+        checks["database"] = f"error: {e}"
+        checks["status"] = "degraded"
+
+    return checks
+
+
+def _register_health(app: Flask):
+    """Register /health, /ready, /live endpoints.
+
+    /health — full runtime check (DB, services, versions)
+    /ready  — application readiness (dependencies available)
+    /live   — process liveness (simple 200)
+    """
+
     @app.route("/health")
     def health():
+        checks = _health_check(app)
+        status_code = 200 if checks["status"] == "ok" else 503
+        return jsonify(checks), status_code
+
+    @app.route("/ready")
+    def ready():
+        """Readiness probe — verifies the app can serve traffic."""
+        result = {"status": "ok", "service": "shunya"}
         try:
-            db.session.execute(db.text("SELECT 1"))
-            return jsonify({"status": "ok", "database": "connected"})
+            from sqlalchemy import text
+            db.session.execute(text("SELECT 1"))
+            result["database"] = "ready"
         except Exception as e:
-            return jsonify({"status": "degraded", "database": str(e)}), 503
+            result["database"] = f"not_ready: {e}"
+            result["status"] = "not_ready"
+            return jsonify(result), 503
+
+        result["uptime_seconds"] = int(__import__("time").time() - _APP_START_TIME)
+        result["environment"] = os.getenv("SHUNYA_ENVIRONMENT", os.getenv("FLASK_ENV", "production"))
+        return jsonify(result), 200
+
+    @app.route("/live")
+    def live():
+        """Liveness probe — lightweight process health check."""
+        return jsonify({
+            "status": "alive",
+            "service": "shunya",
+            "uptime_seconds": int(__import__("time").time() - _APP_START_TIME),
+        }), 200
 
 
 # ---------------------------------------------------------------------------
-# Logging
+# Factory
 # ---------------------------------------------------------------------------
 
-def _setup_logging(app):
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        "%(asctime)s %(levelname)s %(message)s"
-    ))
-    app.logger.handlers.clear()
-    app.logger.addHandler(handler)
-    app.logger.setLevel(LOG_LEVEL)
-
-
-def _request_id_middleware(app):
-    @app.before_request
-    def _set_request_id():
-        g.request_id = request.headers.get("X-Request-Id", uuid.uuid4().hex[:12])
-
-    @app.after_request
-    def _htmx_headers(resp):
-        if request.headers.get("HX-Request"):
-            # HTMX partial requests should not set cookies (they're for the full page)
-            resp.headers["Vary"] = "HX-Request"
-            # Redirects from HTMX should use HX-Redirect
-            if resp.status_code in (302, 303, 307):
-                resp.headers["HX-Redirect"] = resp.headers.get("Location", "/")
-                resp.status_code = 200
-        return resp
-
-
-# ---------------------------------------------------------------------------
-# API Key authentication — decorate /api/ routes that accept API keys
-# ---------------------------------------------------------------------------
-
-
-def api_key_required(f):
-    """Decorator: validate X-API-Key header, set g.api_key_scopes.
-
-    Reads the X-API-Key header, hashes it, looks up in the ApiKey table,
-    sets g.api_key_scopes / g.api_key_tenant_id, and updates last_used_at.
-    Returns 401/403 on failure.
+def create_app(config_override: dict | None = None):
     """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        api_key = request.headers.get("X-API-Key", "")
-        if not api_key:
-            return jsonify({"error": "X-API-Key header required"}), 401
+    Flask application factory.
 
-        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    Usage:
+        app = create_app()
+        app.run()
 
-        from app.models import ApiKey
-        record = db.session.query(ApiKey).filter(
-            ApiKey.key_hash == key_hash,
-            ApiKey.is_active == True,  # noqa: E712
-        ).first()
+    For testing, pass config_override to override DATABASE_URL etc.
+    """
+    load_dotenv()
 
-        if not record:
-            return jsonify({"error": "Invalid or inactive API key"}), 403
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(os.path.dirname(__file__), "..", "templates"),
+        static_folder=os.path.join(os.path.dirname(__file__), "..", "static"),
+    )
 
-        # Expose scopes and tenant context via g
-        g.api_key_scopes = record.scopes or []
-        g.api_key_id = record.id
-        g.api_key_tenant_id = record.tenant_id
-        g.api_key_authenticated = True
+    # ---- Shunya OS primary template path with fallback to old templates ----
+    templates_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
+    app.jinja_loader = ChoiceLoader([
+        FileSystemLoader(templates_dir),
+        FileSystemLoader(templates_dir),
+    ])
 
-        # Update last-used timestamp
-        record.last_used_at = datetime.utcnow()
-        db.session.commit()
+    # ---- Config -----------------------------------------------------------
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-in-production")
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
+        "DATABASE_URL", "postgresql://shunya:***@localhost:5432/shunya_db"
+    )
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["JSON_SORT_KEYS"] = False
+    app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB upload limit
 
-        return f(*args, **kwargs)
+    # Apply test/config overrides
+    if config_override:
+        app.config.update(config_override)
 
-    return decorated_function
+    # ---- Extensions -------------------------------------------------------
+    db.init_app(app)
+
+    # ---- Register models with metadata ------------------------------------
+    # Ensure all models are registered with db.Model.metadata before
+    # db.create_all() is called, so their tables are created.
+    # Import KnowledgeFact from the legacy knowledge_store module.
+    from app.shunya.knowledge_store import KnowledgeFact  # noqa: F401
+    from app.privacy.models import MemoryEligibilityPolicy  # noqa: F401
+    from app.production.identity.workspace_model import Workspace  # noqa: F401
+    from app.production.identity_repository import SHUNYAIdentityModel  # noqa: F401
+    from app.founder.models import (  # noqa: F401
+        FounderSpace, FounderObject, FounderConversation, FounderMessage, BusinessRelationship,
+    )
+    from app.authz.models import (  # noqa: F401
+        Role, OrgMemberRole,
+    )
+
+    # Canonical consolidated models (from FOR-1/2)
+    from app.models import (  # noqa: F401
+        Organization, OrgMember, OrgInvitation, Department,
+    )
+    # Authorization engine models
+    from app.authz.models import (  # noqa: F401
+        Role, OrgMemberRole,
+    )
+    # Finance domain models
+    from app.finance.models import (  # noqa: F401
+        Account, LedgerEntry, JournalEntry,
+        FinInvoice as Invoice, InvoiceItem, FinancePayment as Payment,
+        TaxProfile, PurchaseOrder, Budget,
+    )
+    # Financial governance models
+    from app.finance.controls import (  # noqa: F401
+        ApprovalRequest, ApprovalAction, Delegation, FinancialPeriod,
+    )
+    # Financial evidence models
+    from app.finance.evidence import (  # noqa: F401
+        FinancialEvidence, EvidencePolicy,
+    )
+
+    # ---- Auto-create tables (safe for first run) --------------------------
+    with app.app_context():
+        from sqlalchemy.exc import OperationalError, ProgrammingError
+        try:
+            db.create_all()
+            app.logger.info("Database tables created/verified")
+        except (OperationalError, ProgrammingError) as e:
+            app.logger.warning(f"Tables may already exist or DB not ready: {e}")
+
+    # ---- Middleware stack --------------------------------------------------
+    _setup_logging(app)
+    _request_id_middleware(app)
+    _security_headers_middleware(app)
+    _cors_setup(app)
+    _rate_limiter_setup(app)
+    _register_error_handlers(app)
+    _register_health(app)
+
+    # ---- Blueprints -------------------------------------------------------
+    from app.auth_routes import auth_bp, login_required, inject_auth_globals
+    from app.routes import main, api
+    from app.client_portal import client_bp
+    from app.production import production_bp
+    from app.shunya_public import shunya_bp
+    from app.production.auth import (  # noqa: F401 — registers auth routes on auth_bp
+        password_reset_routes, email_verification_routes,
+        mfa_routes, session_routes,
+    )
+
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(main)
+    app.register_blueprint(client_bp)
+    # Keep API at /shunya/* for backward compat (routes.py defines @api.route('/shunya/...'))
+    app.register_blueprint(api)
+    # Production API v1 — Milestone X
+    app.register_blueprint(production_bp)
+    # SHUNYA Public — Milestone E1
+    app.register_blueprint(shunya_bp)
+
+    # SHUNYA Workspace — Phase Z1
+    from app.workspace_routes import workspace_bp
+    app.register_blueprint(workspace_bp)
+
+    # Founder Experience — Sprint 1
+    from app.founder import founder_bp
+    app.register_blueprint(founder_bp)
+
+    # FOR-1 — First Operational Release
+    from app.for1 import for1_bp
+    app.register_blueprint(for1_bp)
+
+    # FOR-2 — Business Operational Readiness
+    from app.for2 import for2_bp
+    app.register_blueprint(for2_bp)
+
+    # FOR-2C — Relationship Intelligence Operating System
+    from app.relationship import relationship_bp
+    app.register_blueprint(relationship_bp)
+
+    # FOR-2C.2 — Authorization Engine
+    from app.authz import authz_bp
+    app.register_blueprint(authz_bp)
+
+    # FOR-2D — Finance Intelligence
+    from app.finance import finance_bp
+    app.register_blueprint(finance_bp)
+
+    # Universal Business Discovery — Onboarding
+    from app.onboarding import onboarding_bp
+    app.register_blueprint(onboarding_bp)
+
+    # Workspace Experience Framework
+    from app.workspace import workspace_bp
+    app.register_blueprint(workspace_bp)
+
+    # ---- Serve screenshots for coherence board ----
+    @app.route("/screenshots/<path:filename>")
+    def serve_screenshot(filename):
+        return send_from_directory(
+            os.path.join(os.path.dirname(__file__), "..", "screenshots"),
+            filename
+        )
+
+    # ---- Serve production frontend build ----
+    frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+
+    @app.route("/assets/<path:filename>")
+    def serve_frontend_asset(filename):
+        """Serve built frontend assets (JS, CSS, images from the Vite build)."""
+        full = os.path.join(frontend_dist, "assets", filename)
+        if os.path.isfile(full):
+            return send_from_directory(os.path.join(frontend_dist, "assets"), filename)
+        abort(404)
+
+    # ---- Explainable Intelligence Runtime (Phase Z3) ----
+    from app.intelligence.runtime import load_scenario_data, register_explainability_middleware
+    with app.app_context():
+        load_scenario_data()
+    register_explainability_middleware(app)
+
+    # ---- Decision Runtime (Phase Z4) ----
+    from app.decision_runtime.runtime import load_demo_decisions, register_decision_middleware
+    with app.app_context():
+        load_demo_decisions()
+    register_decision_middleware(app)
+
+    # ---- Organizational Cortex (Phase Z5) ----
+    from app.cortex.runtime import load_cortex_data, register_cortex_middleware
+    with app.app_context():
+        load_cortex_data()
+    register_cortex_middleware(app)
+
+    # ---- Temporal Intelligence (Phase Z6) ----
+    from app.temporal.runtime import load_temporal_data, register_temporal_middleware
+    with app.app_context():
+        load_temporal_data()
+    register_temporal_middleware(app)
+
+    # ---- Autonomous Organization Runtime (Phase Z7) ----
+    from app.organization.runtime import load_organization_data, register_organization_middleware
+    with app.app_context():
+        load_organization_data()
+    register_organization_middleware(app)
+
+    # ---- Universal Planning Runtime (Phase Z8) ----
+    from app.planning.runtime import load_planning_data, register_planning_middleware
+    with app.app_context():
+        load_planning_data()
+    register_planning_middleware(app)
+
+    # ---- Orchestration Runtime (Phase Z9) ----
+    from app.orchestration.runtime import load_orchestration_data, register_orchestration_middleware
+    with app.app_context():
+        load_orchestration_data()
+    register_orchestration_middleware(app)
+
+    # ---- Universal Business Graph (Phase Z10) ----
+    from app.graph_universal.runtime import load_graph_data, register_graph_middleware
+    with app.app_context():
+        load_graph_data()
+    register_graph_middleware(app)
+
+    # ---- Universal SHUNYA Space (Phase A1) ----
+    from app.space.runtime import load_space_data, register_space_middleware
+    with app.app_context():
+        load_space_data()
+    register_space_middleware(app)
+
+    # ---- 404 catch-all: redirect admin routes to settings ----
+    @app.route("/admin/")
+    @app.route("/admin/<path:subpath>")
+    def admin_catchall(subpath=""):
+        return redirect(url_for("main.settings"))
+    
+    @app.route("/ai-settings")
+    def ai_settings_redirect():
+        return redirect(url_for("main.settings"))
+
+    @app.route("/relationships")
+    def relationships_redirect():
+        return redirect(url_for("main.index"))
+
+    @app.route("/financial")
+    @app.route("/finance")
+    def finance_redirect():
+        return redirect(url_for("main.index"))
+
+    @app.errorhandler(404)
+    def custom_404(e):
+        # API paths return JSON; browser paths get styled HTML
+        if request.path.startswith("/api/") or request.path.startswith("/shunya/"):
+            from flask import jsonify
+            return jsonify({
+                "error": "Not found",
+                "detail": str(e),
+                "request_id": getattr(g, "request_id", ""),
+            }), 404
+        from flask import render_template_string
+        html = '''<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>404 | Shunya OS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f172a;color:#fff;font-family:Inter,system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+.container{text-align:center}
+.icon{font-size:4rem;display:block;margin-bottom:1rem}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:.5rem}
+p{color:#94a3b8;font-size:.875rem;margin-bottom:1.5rem}
+a{display:inline-flex;align-items:center;gap:.5rem;padding:.625rem 1.25rem;background:#4f46e5;color:#fff;font-size:.875rem;font-weight:500;border-radius:.5rem;text-decoration:none;transition:background .2s}
+a:hover{background:#4338ca}
+</style>
+</head>
+<body>
+<div class="container">
+<span class="icon">🧭</span>
+<h1>Page not found</h1>
+<p>The page you are looking for does not exist or has been moved.</p>
+<a href="/">Back to Dashboard</a>
+</div>
+</body>
+</html>'''
+        return html, 404
+
+    # ---- Auth Middleware ----------------------------------------------------
+    @app.before_request
+    def _check_auth():
+        """Protect all routes by default. Public paths are exempt."""
+        if app.config.get("TESTING"):
+            return None
+        path = request.path
+        if path.startswith("/static/") or path.startswith("/health") or path.startswith("/screenshots/"):
+            return None
+        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/") or path.startswith("/identity/") or path.startswith("/space/") or path.startswith("/founder/") or path.startswith("/workspace") or path == "/" or path.startswith("/for1/") or path.startswith("/for2/") or path.startswith("/relationships/") or path.startswith("/finance/") or path.startswith("/api/v1/onboarding/") or path.startswith("/assets/"):
+            return None
+        user_id = session.get("user_id")
+        if not user_id:
+            if path.startswith("/shunya/") or path.startswith("/api/"):
+                return jsonify({"error": "Authentication required"}), 401
+            return redirect(url_for("auth.login_page", next=path))
+        from app.auth import TeamMember
+        # Legacy auth uses integer IDs; OS identity uses string sid_xxx
+        # Only look up TeamMember for integer IDs
+        user = None
+        if isinstance(user_id, int) or (isinstance(user_id, str) and user_id.isdigit()):
+            user = db.session.get(TeamMember, int(user_id))
+        elif not path.startswith("/for1/"):
+            # For non-FOR-1 routes, require a valid TeamMember
+            session.clear()
+            return redirect(url_for("auth.login_page"))
+        if user is not None and not user.is_active:
+            session.clear()
+            return redirect(url_for("auth.login_page"))
+        from flask import g
+        g.user = user
+
+    @app.context_processor
+    def inject_globals():
+        user = getattr(g, "user", None)
+        # Load ontology for navigation
+        from app.ontology import registry
+        from app.tenant import Tenant
+        from app.communication.models import (
+            CommunicationSource, CommunicationCapturePolicy, CommunicationCaptureScope,
+            ExternalConversation, ExternalMessage, ExternalParticipant,
+            ExternalAttachmentReference, SyncCursor,
+        )
+        from app.privacy.models import (
+            PrivacyPolicy, SensitivityPolicy, RetentionPolicy, MemoryEligibilityPolicy,
+            SensitivityAssessment, PrivacyDecision, Restriction, ForgetRequest, PrivacyReviewItem,
+        )
+        from app.human_context.models import (
+            HumanContextItem, ContextProposal, ContextConcept,
+        )
+        from app.memory.models import (
+            MemoryRecord, MemoryCandidate, MemoryConcept as MemConcept,
+            MemoryProvenance,
+        )
+        from app.evidence.models import (
+            SourceReference, EvidenceLink, AssertionRecord, SourceAssessment,
+        )
+        from app.document.models import (
+            DocumentRecord, DocumentSection, ExtractedField, DocumentComparison, ComparisonItem,
+        )
+        from app.llm.models import ModelRun
+        ont = registry.get("travel")
+        nav_modules = [m for m in ont.modules if m.enabled] if ont else []
+
+        # Notification context
+        from app.notifications import NotificationManager
+        nm = NotificationManager()
+        user_id = user.id if user else None
+        unread_count = 0
+        recent_notifications = []
+        try:
+            unread_count = nm.get_unread_count(user_id=user_id)
+            recent_notifications = nm.get_recent_unread(user_id=user_id, limit=10)
+        except Exception:
+            pass
+        # Celebration context
+        celebration_count = 0
+        try:
+            from app.celebrations import CelebrationEngine
+            ce = CelebrationEngine()
+            celebration_count = ce.get_celebration_count_since()
+        except Exception:
+            pass
+        return {
+            "brand": "SHUNYA OS",
+            "assistant_identity": "AI@shunyaos.com",
+            "year": datetime.utcnow().year,
+            "current_user": user,
+            "is_admin": user and user.role == "admin",
+            "is_manager": user and user.role == "manager",
+            "current_tenant": None,
+            "nav_modules": nav_modules,
+            "companion_greeting": "Hey! Ready to make today productive? 🚀",
+            "current_lang": "en",
+            "ui_labels": {},
+            "companion_suggestions": [
+                {"icon": "📋", "text": "Review pending leads", "action": "/leads"},
+                {"icon": "💰", "text": "Check payments", "action": "/payments"},
+                {"icon": "📊", "text": "View reports", "action": "/reports"},
+            ],
+            # Notification context
+            "unread_count": unread_count,
+            "recent_notifications": recent_notifications,
+            # Celebration context
+            "celebration_count": celebration_count,
+            "datetime": datetime,
+        }
+
+    # ---- Auto-create tables (safe for first run) --------------------------
+        with app.app_context():
+            from sqlalchemy.exc import OperationalError, ProgrammingError
+            from app.tenant import Tenant
+
+            # Skip create_all for :memory: test databases — test fixtures handle it
+            if "sqlite:///:memory:" in str(app.config.get("SQLALCHEMY_DATABASE_URI", "")):
+                pass
+            else:
+                try:
+                    db.create_all()
+                    app.logger.info("Database tables verified")
+                except (OperationalError, ProgrammingError) as e:
+                    app.logger.warning(f"Tables may already exist or DB not ready: {e}")
+
+    app.logger.info(
+        "SHUNYA OS initialised",
+        extra={"request_id": "bootstrap", "db": app.config["SQLALCHEMY_DATABASE_URI"][:30]},
+    )
+
+    # Load persisted identities into the identity engine
+    try:
+        from core.os import get_os as get_shunya_os
+        shunya_os = get_shunya_os()
+        with app.app_context():
+            from app.production.identity_repository import IdentityRepository
+            repo = IdentityRepository()
+            shunya_os.bootstrap()
+            if hasattr(shunya_os, '_identity_runtime') and hasattr(shunya_os._identity_runtime, 'load_persisted'):
+                shunya_os._identity_runtime._repository = repo
+                shunya_os._identity_runtime.load_persisted()
+                cnt = len(shunya_os._identity_runtime._engine._identities) if hasattr(shunya_os._identity_runtime._engine, '_identities') else 0
+                app.logger.info("Loaded %d persisted identities", cnt)
+    except Exception as exc:
+        app.logger.warning("Could not load persisted identities: %s", exc)
+
+    return app

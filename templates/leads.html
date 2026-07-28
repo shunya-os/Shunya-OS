@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-slate-900">Leads</h1>
+  <a href="{{ url_for('main.lead_new') }}" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">+ New Lead</a>
+</div>
+
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm mb-6">
+  <div class="p-4">
+    <form method="get" class="flex gap-3">
+      <input type="text" name="q" placeholder="Search code, destination, name..." value="{{ q }}" class="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" />
+      <button type="submit" class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">Search</button>
+    </form>
+  </div>
+</div>
+
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <th class="px-5 py-3 text-left">Code</th>
+          <th class="px-5 py-3 text-left">Source</th>
+          <th class="px-5 py-3 text-left">Name</th>
+          <th class="px-5 py-3 text-left">Destination</th>
+          <th class="px-5 py-3 text-left">Pax</th>
+          <th class="px-5 py-3 text-left">Dates</th>
+          <th class="px-5 py-3 text-left">Status</th>
+          <th class="px-5 py-3 text-center">💬</th>
+          <th class="px-5 py-3 text-right">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for l in leads %}
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-5 py-3.5"><span class="font-mono text-xs font-semibold text-blue-600 bg-blue-50 rounded-full px-2.5 py-0.5">{{ l.code }}</span></td>
+          <td class="px-5 py-3.5 text-slate-500 text-xs">{{ l.source }}</td>
+          <td class="px-5 py-3.5 font-medium">{{ l.customer_name or '-' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ l.destination or '-' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ l.pax or '-' }}</td>
+          <td class="px-5 py-3.5 text-slate-600 text-xs">{{ l.dates or '-' }}</td>
+          <td class="px-5 py-3.5">{% with r=l %}{% include "_status_badge.html" %}{% endwith %}</td>
+          <td class="px-5 py-3.5 text-center">
+            {% if l.phone %}
+            {% set wa_phone = l.phone|replace('+','')|replace(' ','')|replace('-','') %}
+            {% set wa_name = (l.customer_name or 'Valued+Customer')|urlencode %}
+            <a href="https://wa.me/{{ wa_phone }}?text=Hi+{{ wa_name }}!+I%27m+reaching+out+from+our+team+regarding+your+{{ l.destination or 'travel' }}+inquiry." target="_blank" rel="noopener" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all" title="Send WhatsApp to {{ l.customer_name or 'customer' }}">
+              💬
+            </a>
+            {% else %}
+            <span class="text-slate-300 text-xs">—</span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-3.5 text-right"><a href="{{ url_for('main.lead_detail',lead_id=l.id) }}" class="text-sm text-blue-600 hover:text-blue-700 font-medium">Open →</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="px-5 py-8 text-center text-slate-400">No leads found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

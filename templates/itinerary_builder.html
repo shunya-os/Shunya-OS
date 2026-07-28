@@ -1,0 +1,230 @@
+{% extends "base_universal.html" %}
+{% block page_icon %}🗺️{% endblock %}
+{% block page_title %}{% if plan %}Itinerary: {{ plan_name }}{% else %}Itinerary Builder{% endif %}{% endblock %}
+{% block title %}{{ brand or 'Shunya OS' }} — Itinerary{% endblock %}
+
+{% block content %}
+<div class="grid lg:grid-cols-4 gap-6">
+  <!-- Lead selector sidebar -->
+  <div class="lg:col-span-1">
+    <div class="glass rounded-xl p-4 sticky top-20">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-surface-400 mb-3">Select Lead</h3>
+      <div class="space-y-1">
+        {% for lead in leads %}
+        <a href="?lead_id={{ lead.id }}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all
+          {% if selected_lead and selected_lead.id == lead.id %}bg-brand-600/20 text-brand-300 border border-brand-500/20
+          {% else %}text-surface-300 hover:bg-white/5{% endif %}">
+          <span class="text-xs font-bold w-5 h-5 rounded flex items-center justify-center bg-surface-800">{{ lead.customer_name[:1] if lead.customer_name else '?' }}</span>
+          <span class="truncate">{{ lead.customer_name or 'Unnamed' }}</span>
+        </a>
+        {% else %}
+        <div class="text-xs text-surface-500 text-center py-4">No leads yet</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Main itinerary area -->
+  <div class="lg:col-span-3">
+    {% if selected_lead %}
+    <!-- Lead header -->
+    <div class="glass rounded-xl p-5 mb-4">
+      <div class="flex items-start justify-between">
+        <div>
+          <h2 class="text-lg font-bold">{{ selected_lead.customer_name or 'Unnamed' }}</h2>
+          <div class="flex flex-wrap gap-3 text-sm text-surface-400 mt-1">
+            <span>📍 {{ selected_lead.destination or '—' }}</span>
+            <span>👥 {{ selected_lead.pax or '—' }}</span>
+            <span>📅 {{ selected_lead.dates or '—' }}</span>
+            {% if selected_lead.budget %}<span>💰 ₹{{ '{:,.0f}'.format(selected_lead.budget) }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="shareItinerary('whatsapp')" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-all flex items-center gap-1.5">
+            💬 WhatsApp
+          </button>
+          <button onclick="shareItinerary('link')" class="px-3 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium transition-all flex items-center gap-1.5">
+            🔗 Copy Link
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Days grid -->
+    <div class="space-y-3" id="itinerary-days">
+      {% for day in plan_days %}
+      <div class="glass rounded-xl p-5 border-l-4 border-brand-500 animate-slide-up" style="animation-delay: {{ loop.index * 0.1 }}s">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-bold px-2 py-1 rounded-lg bg-brand-600/20 text-brand-300">Day {{ day.day }}</span>
+            <input type="text" value="{{ day.title }}" 
+              class="bg-transparent border-b border-transparent hover:border-white/10 focus:border-brand-500 text-sm font-semibold text-white outline-none transition-all"
+              onchange="updateDay({{ day.day }}, 'title', this.value)">
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="moveDay({{ day.day }}, -1)" class="p-1.5 rounded-lg hover:bg-white/5 text-surface-400" title="Move up">↑</button>
+            <button onclick="moveDay({{ day.day }}, 1)" class="p-1.5 rounded-lg hover:bg-white/5 text-surface-400" title="Move down">↓</button>
+            <button onclick="removeDay({{ day.day }})" class="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400" title="Remove">✕</button>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] uppercase tracking-wider text-surface-500 block mb-1">🌅 Morning</label>
+            <textarea rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 transition-all resize-none"
+              placeholder="Morning activities..." onchange="updateDay({{ day.day }}, 'morning', this.value)">{{ day.morning }}</textarea>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wider text-surface-500 block mb-1">☀️ Afternoon</label>
+            <textarea rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 transition-all resize-none"
+              placeholder="Afternoon activities..." onchange="updateDay({{ day.day }}, 'afternoon', this.value)">{{ day.afternoon }}</textarea>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wider text-surface-500 block mb-1">🌙 Evening</label>
+            <textarea rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 transition-all resize-none"
+              placeholder="Evening activities..." onchange="updateDay({{ day.day }}, 'evening', this.value)">{{ day.evening }}</textarea>
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-wider text-surface-500 block mb-1">🏨 Accommodation</label>
+            <input type="text" value="{{ day.accommodation }}"
+              class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 transition-all"
+              placeholder="Hotel name..." onchange="updateDay({{ day.day }}, 'accommodation', this.value)">
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="glass rounded-xl p-8 text-center">
+        <div class="text-4xl mb-3">🗺️</div>
+        <h3 class="text-lg font-semibold mb-1">No itinerary yet</h3>
+        <p class="text-sm text-surface-400 mb-4">Select a lead and generate an AI itinerary, or build one from scratch.</p>
+        <button onclick="addDay()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium transition-all">+ Build Itinerary</button>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Add day + Budget bar -->
+    <div class="flex items-center justify-between mt-4">
+      <button onclick="addDay()" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-dashed border-white/10 hover:border-brand-500/50 text-sm text-surface-400 hover:text-white transition-all">
+        + Add Day
+      </button>
+      <div class="text-sm text-surface-400">
+        <strong class="text-white">Total: ₹{{ '{:,.0f}'.format(total_cost or 0) }}</strong>
+      </div>
+    </div>
+
+    {% else %}
+    <!-- No lead selected -->
+    <div class="glass rounded-xl p-12 text-center">
+      <div class="text-5xl mb-4">🗺️</div>
+      <h2 class="text-xl font-bold mb-2">Itinerary Builder</h2>
+      <p class="text-surface-400 max-w-md mx-auto mb-6">Select a lead from the sidebar to create and manage their travel itinerary. Add days, edit activities, set accommodations, and share with one click.</p>
+      <div class="flex items-center justify-center gap-8 text-sm text-surface-500">
+        <div class="text-center"><div class="text-2xl mb-1">📋</div>Select Lead</div>
+        <span class="text-xl">→</span>
+        <div class="text-center"><div class="text-2xl mb-1">📝</div>Build Days</div>
+        <span class="text-xl">→</span>
+        <div class="text-center"><div class="text-2xl mb-1">💬</div>Share</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+let currentDayCount = {{ plan_days|length or 0 }};
+let leadPhone = '{{ selected_lead.phone|replace('+','')|replace(' ','')|replace('-','') if selected_lead and selected_lead.phone else '' }}';
+
+function addDay() {
+  currentDayCount++;
+  const container = document.getElementById('itinerary-days');
+  if (!container) return;
+  
+  const empty = container.querySelector('.text-center');
+  if (empty && !container.querySelector('.border-l-4')) {
+    empty.remove();
+  }
+  
+  const div = document.createElement('div');
+  div.className = 'glass rounded-xl p-5 border-l-4 border-brand-500 animate-slide-up';
+  div.innerHTML = `
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-bold px-2 py-1 rounded-lg bg-brand-600/20 text-brand-300">Day ${currentDayCount}</span>
+        <input type="text" value="Day ${currentDayCount}" 
+          class="bg-transparent border-b border-transparent hover:border-white/10 focus:border-brand-500 text-sm font-semibold text-white outline-none transition-all"
+          onchange="updateDay(${currentDayCount}, 'title', this.value)">
+      </div>
+      <div class="flex items-center gap-1">
+        <button onclick="moveDay(${currentDayCount}, -1)" class="p-1.5 rounded-lg hover:bg-white/5 text-surface-400">↑</button>
+        <button onclick="moveDay(${currentDayCount}, 1)" class="p-1.5 rounded-lg hover:bg-white/5 text-surface-400">↓</button>
+        <button onclick="removeDay(${currentDayCount})" class="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400">✕</button>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-2 gap-3">
+      <div>
+        <label class="text-[10px] uppercase tracking-wider text-surface-500 block mb-1">🌅 Morning</label>
+        <textarea rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 transition-all resize-none"
+          placeholder="Morning activities..." onchange="updateDay(${currentDayCount}, 'morning', this.value)"></textarea>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-wider text-surface-500 block mb-1">☀️ Afternoon</label>
+        <textarea rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 transition-all resize-none"
+          placeholder="Afternoon activities..." onchange="updateDay(${currentDayCount}, 'afternoon', this.value)"></textarea>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-wider text-surface-500 block mb-1">🌙 Evening</label>
+        <textarea rows="2" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 transition-all resize-none"
+          placeholder="Evening activities..." onchange="updateDay(${currentDayCount}, 'evening', this.value)"></textarea>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-wider text-surface-500 block mb-1">🏨 Accommodation</label>
+        <input type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-surface-500 outline-none focus:border-brand-500/50 transition-all"
+          placeholder="Hotel name..." onchange="updateDay(${currentDayCount}, 'accommodation', this.value)">
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+function updateDay(day, field, value) {
+  // Save to localStorage for persistence during session
+  const key = `itinerary_lead_{{ selected_lead.id if selected_lead else 0 }}_day${day}`;
+  const data = JSON.parse(localStorage.getItem(key) || '{}');
+  data[field] = value;
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function moveDay(day, direction) {
+  // Visual reorder — reload for simplicity
+  window.location.reload();
+}
+
+function removeDay(day) {
+  if (confirm('Remove this day?')) {
+    localStorage.setItem(`itinerary_day_removed_${day}`, 'true');
+    window.location.reload();
+  }
+}
+
+function shareItinerary(channel) {
+  const leadName = '{{ selected_lead.customer_name if selected_lead else "Client" }}';
+  const dest = '{{ selected_lead.destination if selected_lead else "Trip" }}';
+  const url = window.location.href;
+  
+  let shareUrl = '';
+  if (channel === 'whatsapp') {
+    const msg = `🗺️ *${leadName}'s Itinerary — ${dest}*\n\nView full itinerary: ${url}`;
+    if (leadPhone) {
+      shareUrl = `https://wa.me/${leadPhone}?text=${encodeURIComponent(msg)}`;
+    } else {
+      shareUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    }
+    window.open(shareUrl, '_blank');
+  } else if (channel === 'link') {
+    navigator.clipboard.writeText(url).then(() => {
+      alert('✅ Itinerary link copied to clipboard!');
+    });
+  }
+}
+</script>
+{% endblock %}

@@ -1,1343 +1,230 @@
 <!doctype html>
-<html lang="en" data-device="desktop" data-theme="{{ current_tenant.theme_config.get('default_theme', current_tenant.ai_config.get('theme', 'modern')) if current_tenant else 'modern' }}" 
-      {% if brand_colors %}style="--brand-h:{{ brand_colors.h }};--brand-s:{{ brand_colors.s }}%;--brand-l:{{ brand_colors.l }}%"{% endif %}>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0f172a">
-  <link rel="manifest" href="/static/manifest.json">
-  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/static/sw.js')}</script>
-  <title>{% if current_tenant %}{{ current_tenant.company_name }}{% else %}Shunya{% endif %} | Shunya OS</title>
-  <meta name="description" content="Shunya OS — AI-Native Universal Operating System. Manage relationships, leads, bookings, finance, HR, and operations from one dashboard.">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https:;">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <title>
+    {% if assistant_identity %}
+      {{ assistant_identity }} | Shunya OS
+    {% else %}
+      Shunya OS
+    {% endif %}
+  </title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
-  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
-  <link rel="stylesheet" href="/static/shunya.css?v=13">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-  // ── Device Detection ──
-  (function() {
-    var d = document.documentElement;
-    function detectDevice() {
-      var w = window.innerWidth;
-      d.setAttribute('data-device', w < 640 ? 'mobile' : w < 1024 ? 'tablet' : 'desktop');
-    }
-    detectDevice();
-    window.addEventListener('resize', detectDevice);
-  })();
-  </script>
-  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
-  <script>htmx.config.selfRequestsOnly=true;htmx.config.refreshOnHistoryMiss=false;htmx.config.historyCacheSize=10</script>
-  <script>
-  // Fix viewport zoom after HTMX swaps
-  document.addEventListener('htmx:afterSwap', function() {
-  var vp = document.querySelector('meta[name="viewport"]');
-  if (vp) {
-    vp.content = 'width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover';
-  }
-  });
-  </script>
-  <style>
-    /* HTMX page loader */
-    #page-loader { position:fixed; top:0; left:0; right:0; height:3px; z-index:99999; background:linear-gradient(90deg,#2563eb,#7c3aed); transform:scaleX(0); transform-origin:left; transition:transform .3s; }
-    .htmx-request#page-loader { transform:scaleX(1); }
-    /* Skeleton placeholders */
-    .skel { background:linear-gradient(90deg,transparent 30%,rgba(255,255,255,0.15) 50%,transparent 70%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px; }
-    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-    /* HTMX page transitions */
-    .htmx-swapping { opacity: 0; transition: opacity 0.2s ease; }
-    #main-content { transition: opacity 0.15s ease; }
-    @media (max-width: 639px) {
-      #bird-panel.bird-open { position:fixed; top:0; left:0; right:0; bottom:0; width:100%; max-width:100%; max-height:100%; border-radius:0; z-index:99999; background:white; display:flex; flex-direction:column; }
-      #bird-panel.bird-open #bird-messages { flex:1; max-height:none !important; }
-      .bottom-nav-btn:active { transform:scale(0.92); opacity:0.7; transition:all .15s; }
-    }
-    /* Focus-visible for keyboard accessibility */
-    :focus-visible { outline:2px solid #3b82f6; outline-offset:2px; border-radius:4px; }
-    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:2px solid #3b82f6; outline-offset:2px; border-radius:4px; }
-    /* Hero greeting fade-in */
-    .hero-greeting { animation: fadeInUp 0.6s ease-out both; }
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    /* Hero subtext staggered fade-in */
-    .hero-subtext { animation: fadeInUp 0.6s ease-out 0.15s both; }
 
-    /* Card micro-interactions — lift + border highlight */
-    [class*="-card"]:not(.skel) { transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
-    [class*="-card"]:not(.skel):hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: rgba(59,130,246,0.3); }
-    /* Journey-specific hover: slightly stronger border glow */
-    .journey-card:not(.skel):hover { border-color: rgba(99,102,241,0.35); }
-    /* Active nav indicator — desktop */
-    .nav-link.active { border-bottom: 2px solid #2563eb; color: #1e293b !important; }
-    .nav-link.active ~ .nav-drop-menu { display: block !important; }
-    /* Logout loading overlay */
-    #logout-overlay { position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; }
-    #logout-overlay .spinner { width:36px; height:36px; border:3px solid #e2e8f0; border-top-color:#2563eb; border-radius:50%; animation:spin 0.8s linear infinite; }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    #logout-overlay span { color:white; font-size:0.9rem; font-weight:500; }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+
+  <script defer>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          },
+          borderRadius: {
+            xl: '12px',
+            '2xl': '16px'
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8'
+            }
+          }
+        }
+      }
+    }
+  </script>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen pb-28 sm:pb-20" style="padding-bottom:calc(6rem + env(safe-area-inset-bottom,0px));" x-data>
-  <a href="#main-content" class="skip-link sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[99999] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:text-sm focus:font-medium">Skip to main content</a>
-  <div id="page-loader"></div>
-  {% if current_user %}
-  <nav class="sticky top-0 z-50 border-b shadow-sm" style="background:var(--nav-bg);color:var(--nav-text);border-color:var(--nav-border,#e2e8f0)">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
-        <div class="flex items-center gap-3">
-          {% if current_tenant and current_tenant.logo_url %}
-          <a href="/" class="flex items-center gap-3" title="Go to Dashboard">
-            <img id="nav-logo" src="{{ current_tenant.logo_url }}" class="h-7 w-auto max-w-[120px] object-contain rounded" alt="{{ current_tenant.company_name }}" onerror="this.style.display='none';document.getElementById('nav-icon').style.display='inline'">
-          </a>
-          {% else %}
-          <a href="/" class="flex items-center gap-3" title="Go to Dashboard">
-            <span id="nav-icon" class="text-xl flex-shrink-0">{{ current_tenant.theme_config.get('icon','🧠') if current_tenant else '🧠' }}</span>
-          </a>
-          {% endif %}
-          <div class="flex flex-col leading-tight">
-            <span id="nav-company-name" class="font-bold text-base truncate">{{ current_tenant.company_name if current_tenant else 'Shunya OS' }}</span>
-            {% if current_tenant and current_tenant.brand_tagline %}
-            <span id="nav-tagline" class="text-[0.6rem] truncate opacity-60" style="color:var(--nav-muted)">{{ current_tenant.brand_tagline }}</span>
+
+<body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen">
+
+<nav class="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+    <div class="flex items-center justify-between h-16">
+
+      <div class="flex items-center gap-3">
+
+        <span class="text-xl">∞</span>
+
+        <span class="font-bold text-base text-slate-900">
+          Shunya
+        </span>
+
+        <span class="text-xs font-semibold bg-blue-600 text-white px-2.5 py-0.5 rounded-full">
+          {{ assistant_identity or 'AI' }}
+        </span>
+
+      </div>
+
+      <div class="flex items-center gap-3">
+
+        {% if current_user %}
+          <span class="text-xs text-slate-400 hidden sm:inline">
+            {{ current_user.name }}
+          </span>
+        {% endif %}
+
+        <details class="relative cursor-pointer group">
+
+          <summary class="list-none flex items-center gap-1.5 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-sm font-medium transition-colors">
+
+            <svg class="w-5 h-5"
+                 fill="none"
+                 stroke="currentColor"
+                 viewBox="0 0 24 24">
+
+              <path stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+
+            <span class="hidden sm:inline">
+              Menu
+            </span>
+
+          </summary>
+
+          <div class="absolute right-0 top-full mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-50">
+
+            <a href="/" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors nav-link">
+              📊 Dashboard
+            </a>
+
+            <a href="/leads" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors nav-link">
+              📋 Leads
+            </a>
+
+            <a href="/payments" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors nav-link">
+              💰 Payments
+            </a>
+
+            <a href="/invoices" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors nav-link">
+              🧾 Invoices
+            </a>
+
+            <a href="/reports" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors nav-link">
+              📈 Reports
+            </a>
+
+            <div class="border-t border-slate-100 my-1"></div>
+
+            <a href="/settings" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors nav-link">
+              ⚙️ Settings
+            </a>
+
+            {% if is_admin %}
+            <a href="/team" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors nav-link">
+              👥 Team
+            </a>
             {% endif %}
-          </div>
-        </div>
-        <div class="flex items-center gap-4">
-          <!-- Top nav links - always visible, no burger menu -->
-          <div class="flex items-center gap-2 sm:gap-4">
-            <a href="/" class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap nav-link" data-route="/">Dashboard</a>
-            <div class="nav-drop hidden sm:inline-block">
-              <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">Modules ▾</span>
-              <div class="nav-drop-menu">
-                <a href="/relationships" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤝 Relationships</a>
-                <a href="/hr/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">👥 HR</a>
-                <a href="/sales/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">💎 Sales</a>
-                <a href="/finance" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">💰 Finance</a>
-                <a href="/support/dashboard" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🎫 Support</a>
-              </div>
-            </div>
-            <div class="nav-drop hidden sm:inline-block">
-              <span class="text-sm text-slate-500 hover:text-slate-700 font-medium whitespace-nowrap cursor-pointer">More ▾</span>
-              <div class="nav-drop-menu">
-                <a href="/settings" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">⚙️ Settings</a>
-                <a href="/ai-settings" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🤖 AI</a>
-                <a href="/admin/brand" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">🏢 Brand</a>
-                <a href="/reports" class="block px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 whitespace-nowrap">📊 Reports</a>
-              </div>
-            </div>
-          </div>
-          <!-- Global Search Bar -->
-          <div class="hidden sm:flex items-center">
-            <input id="global-search" type="search" placeholder="Search leads, invoices..." 
-              class="w-32 sm:w-40 lg:w-56 text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 transition-colors"
-              onkeydown="if(event.key==='Enter' && this.value.trim()){window.location.href='/entities/search?q='+encodeURIComponent(this.value.trim())}">
-          </div>
-          <!-- Theme Switcher -->
-          <div class="relative" style="display:inline-block;">
-            <button onclick="toggleThemeMenu()" id="theme-toggle-btn" class="text-sm text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1" title="Switch theme">
-              <span id="theme-icon">💼</span>
-            </button>
-            <div id="theme-menu" style="display:none;" class="absolute top-full right-0 bg-white border border-slate-200 rounded-xl shadow-lg z-[100] min-w-[180px] sm:min-w-[200px] p-2">
-              <div class="theme-option px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-sm" data-theme="modern" onclick="switchTheme('modern')">
-                <span>💼</span> <span>Modern</span> <span class="ml-auto text-xs text-slate-400">Professional</span>
-              </div>
-              <div class="theme-option px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-sm" data-theme="playful" onclick="switchTheme('playful')">
-                <span>🎨</span> <span>Playful</span> <span class="ml-auto text-xs text-slate-400">Vibrant</span>
-              </div>
-              <div class="theme-option px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-sm" data-theme="elegant" onclick="switchTheme('elegant')">
-                <span>✨</span> <span>Elegant</span> <span class="ml-auto text-xs text-slate-400">Minimal</span>
-              </div>
-              <div class="theme-option px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-sm" data-theme="brandverse" onclick="switchTheme('brandverse')">
-                <span>🌌</span> <span>Brandverse</span> <span class="ml-auto text-xs text-slate-400">Auto</span>
-              </div>
-              <div class="border-t border-slate-200 my-1 py-1">
-                <button onclick="setAsDefaultTheme()" class="px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-xs border-0 bg-transparent w-full text-left text-slate-500" id="default-theme-btn" title="Set current theme as default for all users">
-                  <span>⭐</span> <span>Set as Default</span>
-                </button>
-                <div id="default-theme-label" class="px-3 py-0.5 text-[0.6rem] text-slate-400"></div>
-              </div>
-            </div>
-          </div>
-          <a href="/auth/logout" onclick="if(!confirm('Logout?'))return!1" class="text-sm text-red-500 hover:text-red-700 font-medium">Logout</a>
-          <button onclick="toggleShortcuts()" class="text-sm text-slate-400 hover:text-slate-600 font-medium ml-2" title="Keyboard shortcuts">⌨️</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </nav>
-  {% endif %}
 
-  <main role="main" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" id="main-shell" hx-boost="true" hx-select="#main-content" hx-target="#main-content" hx-swap="innerHTML" hx-indicator="#page-loader">
-    {% if breadcrumbs %}
-    <nav aria-label="Breadcrumb" class="mb-3 text-xs text-slate-500">
-      <ol class="flex items-center gap-1.5 flex-wrap">
-        {% for crumb in breadcrumbs %}
-        <li class="flex items-center gap-1.5">
-          {% if not loop.last %}
-          <a href="{{ crumb.url }}" class="text-blue-600 hover:text-blue-700 hover:underline">{{ crumb.label }}</a>
-          <span class="text-slate-300">/</span>
-          {% else %}
-          <span class="text-slate-700 font-medium">{{ crumb.label }}</span>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ol>
-    </nav>
-    {% endif %}
-    <div id="main-content">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
+            <div class="border-t border-slate-100 my-1"></div>
+
+            <a href="/logout" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+              🚪 Logout
+            </a>
+
+          </div>
+
+        </details>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</nav>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+
+      <div class="space-y-2 mb-6" id="flash-container">
+
         {% for category, msg in messages %}
-        <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium border 
-          {% if category == 'error' %}bg-red-50 border-red-200 text-red-700
-          {% elif category == 'success' %}bg-green-50 border-green-200 text-green-700
-          {% else %}bg-amber-50 border-amber-200 text-amber-700{% endif %}">
-          {{ msg }}
-        </div>
+
+          <div class="flash-message flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-sm font-medium border
+            {% if category == 'error' %}
+              bg-red-50 border-red-200 text-red-700
+            {% elif category == 'success' %}
+              bg-green-50 border-green-200 text-green-700
+            {% else %}
+              bg-amber-50 border-amber-200 text-amber-700
+            {% endif %}
+          ">
+
+            <span>{{ msg }}</span>
+
+            <button onclick="this.parentElement.remove()"
+                    class="text-current opacity-50 hover:opacity-100">
+              &times;
+            </button>
+
+          </div>
+
         {% endfor %}
-      {% endif %}
-    {% endwith %}
-    {% block content %}{% endblock %}
-    </div>
-  </main>
 
-  <!-- Bird Floating Assistant — persistent on every screen -->
-  {% if current_user %}
-  <div id="bird-widget" style="position:fixed;bottom:80px;right:16px;z-index:9999;font-family:Inter,system-ui,sans-serif">
-    <!-- Main bubble button -->
-    <div id="bird-bubble" onclick="toggleBird()"
-      class="sm:flex hidden"
-      style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.15);transition:all .3s ease;border:none;"
-      onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"
-      title="Ask Shunya AI (Ctrl+B)">🧠</div>
-
-    <!-- Chat panel -->
-    <div id="bird-panel" style="display:none;position:absolute;bottom:calc(70px + env(safe-area-inset-bottom,0px));right:0;width:min(380px,calc(100vw - 32px));max-height:560px;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.2);overflow:hidden;border:1px solid rgba(0,0,0,0.06);">
-
-      <!-- Header -->
-      <div style="padding:14px 18px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:1.3rem;">🧠</span>
-            <div>
-              <div style="font-weight:600;font-size:0.9rem;">Shunya AI</div>
-              <div style="font-size:0.7rem;opacity:0.7;">Ask, create, search — I'm here</div>
-            </div>
-          </div>
-          <button onclick="toggleBird()" style="background:none;border:none;color:white;font-size:1.2rem;cursor:pointer;opacity:0.7;" title="Close (Esc)">✕</button>
-        </div>
       </div>
 
-      <!-- Capability bar + Journey insights -->
-      <div style="padding:8px 14px;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap;background:#f8fafc;">
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;cursor:pointer;" onclick="insertExample('movies now showing near me')">🎬 Movies</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;cursor:pointer;" onclick="insertExample('weather forecast')">🌤️ Weather</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;cursor:pointer;" onclick="insertExample('best restaurants nearby')">🍽️ Food</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;cursor:pointer;" onclick="insertExample('latest news')">📰 News</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;cursor:pointer;" onclick="insertExample('events this weekend')">🎉 Events</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#ecfdf5;color:#065f46;font-weight:500;cursor:pointer;" onclick="openMoodCheckin()">😊 Mood check</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#ecfdf5;color:#065f46;font-weight:500;cursor:pointer;" onclick="insertExample('my focus score')">📊 Insights</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🔍 Web search</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🎤 Voice</span>
-        <span class="cap-badge" style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:#dbeafe;color:#1d4ed8;font-weight:500;">🔄 Journey</span>
-      </div>
+    {% endif %}
+  {% endwith %}
 
-      <!-- Quick Actions (collapsible) -->
-      <div id="bird-quick-actions" style="display:none;padding:6px 14px;border-bottom:1px solid #e2e8f0;background:#f0fdf4;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <span style="font-size:0.7rem;font-weight:600;color:#065f46;">⚡ Quick Actions</span>
-          <span onclick="document.getElementById('bird-quick-actions').style.display='none'" style="font-size:0.7rem;color:#94a3b8;cursor:pointer;">✕</span>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;">
-          <span onclick="insertExample('movies now showing near Delhi')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🎬 Movies near me</span>
-          <span onclick="insertExample('weather forecast today')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🌤️ Weather today</span>
-          <span onclick="insertExample('best restaurants near me')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🍽️ Best restaurants</span>
-          <span onclick="insertExample('latest news')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">📰 Latest news</span>
-          <span onclick="insertExample('events this weekend near me')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🎉 Events this weekend</span>
-          <span onclick="openMoodCheckin()" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">😊 Log my mood</span>
-          <span onclick="insertExample('my focus score and insights')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">📊 My activity insights</span>
-          <span onclick="insertExample('top tourist places to visit')" style="font-size:0.65rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🗺️ Nearby attractions</span>
-        </div>
-      </div>
+  {% block content %}{% endblock %}
 
-      <!-- Mood check-in mini form (inside Bird) -->
-      <div id="bird-mood-form" style="display:none;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#fff7ed;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-size:0.75rem;font-weight:600;color:#9a3412;">😊 How are you feeling?</span>
-          <span onclick="closeMoodCheckin()" style="font-size:0.7rem;color:#94a3b8;cursor:pointer;">✕</span>
-        </div>
-        <div id="mood-buttons" style="display:flex;gap:6px;margin-bottom:6px;">
-          <span onclick="selectMood('great')" data-mood="great" style="font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:8px;background:#f1f5f9;border:2px solid transparent;">😄</span>
-          <span onclick="selectMood('good')" data-mood="good" style="font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:8px;background:#f1f5f9;border:2px solid transparent;">😊</span>
-          <span onclick="selectMood('okay')" data-mood="okay" style="font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:8px;background:#f1f5f9;border:2px solid transparent;">😐</span>
-          <span onclick="selectMood('rough')" data-mood="rough" style="font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:8px;background:#f1f5f9;border:2px solid transparent;">😔</span>
-          <span onclick="selectMood('tough')" data-mood="tough" style="font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:8px;background:#f1f5f9;border:2px solid transparent;">😢</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <span style="font-size:0.65rem;color:#64748b;">Energy:</span>
-          <input id="mood-energy" type="range" min="1" max="5" step="1" value="3" style="flex:1;height:4px;">
-          <span id="mood-energy-label" style="font-size:0.7rem;font-weight:600;color:#9a3412;">3/5</span>
-        </div>
-        <input id="mood-notes" type="text" placeholder="Notes (optional)..." style="width:100%;padding:6px 10px;border:1px solid #fed7aa;border-radius:8px;font-size:0.75rem;color:#1e293b;background:white;outline:none;margin-bottom:6px;box-sizing:border-box;">
-        <div style="display:flex;gap:6px;">
-          <button onclick="submitMoodCheckin()" style="flex:1;padding:6px;background:#059669;color:white;border:none;border-radius:8px;font-size:0.75rem;cursor:pointer;font-weight:500;">✅ Log Check-in</button>
-          <button onclick="closeMoodCheckin()" style="padding:6px 12px;background:#f1f5f9;color:#64748b;border:none;border-radius:8px;font-size:0.75rem;cursor:pointer;">Cancel</button>
-        </div>
-        <div id="mood-result" style="display:none;font-size:0.75rem;color:#059669;margin-top:4px;"></div>
-      </div>
+</main>
 
-      <!-- Mood reminder (shown if no check-in today) -->
-      <div id="bird-mood-reminder" style="display:none;padding:6px 14px;border-bottom:1px solid #e2e8f0;background:#fef3c7;">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:0.8rem;">😊</span>
-          <span style="font-size:0.7rem;color:#92400e;flex:1;">You haven't checked in today! <a href="#" onclick="event.preventDefault();openMoodCheckin()" style="color:#2563eb;text-decoration:underline;">Log now</a></span>
-          <span onclick="this.parentElement.parentElement.style.display='none'" style="font-size:0.7rem;color:#94a3b8;cursor:pointer;">✕</span>
-        </div>
-      </div>
-      
-      <!-- Journey mini-view (collapsible) -->
-      <div id="bird-journey" style="display:none;padding:8px 14px;border-bottom:1px solid #e2e8f0;background:#f0fdf4;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-size:0.7rem;font-weight:600;color:#065f46;">🔄 Continuous Journey</span>
-          <span id="journey-close-btn" onclick="document.getElementById('bird-journey').style.display='none'" style="font-size:0.7rem;color:#94a3b8;cursor:pointer;">✕</span>
-        </div>
-        <div id="bird-journey-stages" style="display:flex;gap:4px;font-size:0.65rem;color:#475569;">
-          Loading journey data...
-        </div>
-      </div>
+<footer class="text-center py-6 text-xs text-slate-400">
+  SHUNYA OS · Universal Business Operating System · Internal Use Only
+</footer>
 
-      <!-- Messages -->
-      <div id="bird-messages" class="bird-scroll" style="padding:12px;max-height:320px;overflow-y:auto;background:#f8fafc;">
-        <div class="bird-msg bird-ai" style="margin-bottom:8px;padding:10px 14px;background:white;border-radius:16px 16px 16px 4px;font-size:0.85rem;color:#1e293b;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-          Hey! I can help you with:
-          <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">
-            <span onclick="insertExample('create a lead for Sharma family, Bali trip, 2 adults, budget 2.5L')" style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">➕ Create a lead</span>
-            <span onclick="insertExample('show me pending invoices')" style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">📊 Pending invoices</span>
-            <span onclick="insertExample('search web for Bali travel restrictions')" style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;cursor:pointer;border:1px solid #e2e8f0;">🌐 Search web</span>
-          </div>
-        </div>
-      </div>
+<script>
 
-      <!-- Input area -->
-      <div style="padding:10px 12px;border-top:1px solid #e2e8f0;display:flex;gap:8px;background:white;">
-        <div style="position:relative;">
-          <button onclick="startVoice()" id="voice-btn" title="🎤 Voice input — supports 37 languages. Say anything in English, Hindi, or your language." style="padding:10px;background:#f1f5f9;border:none;border-radius:12px;font-size:1.2rem;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">🎤</button>
-          <div id="voice-tooltip" style="display:none;position:absolute;bottom:48px;left:0;background:#1e293b;color:white;font-size:0.65rem;padding:6px 10px;border-radius:8px;white-space:nowrap;max-width:240px;">🎤 Voice input — 37 languages</div>
-        </div>
-        <input id="bird-input" type="text" placeholder="Ask, create, or search..." style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:0.85rem;color:#1e293b;background:#f8fafc;outline:none;transition:border-color .2s;"
-          onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#e2e8f0'"
-          onkeydown="if(event.key==='Enter')birdChat()">
-        <button onclick="birdChat()" style="padding:10px 16px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;border-radius:12px;font-size:0.85rem;cursor:pointer;font-weight:500;transition:opacity .2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Send</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-  // ── Toggle Bird ──
-  function toggleBird() {
-    const p = document.getElementById('bird-panel');
-    const isOpen = p.style.display === 'block';
-    p.style.display = isOpen ? 'none' : 'block';
-    if (!isOpen) {
-      document.getElementById('bird-input').focus();
-      loadJourneyData();
-      // Add full-screen class on mobile
-      if (window.innerWidth < 640) p.classList.add('bird-open');
-    } else {
-      p.classList.remove('bird-open');
-    }
+document.querySelectorAll('.nav-link').forEach(a => {
+  if (a.getAttribute('href') === location.pathname) {
+    a.classList.add(
+      '!bg-blue-50',
+      '!text-blue-600',
+      'font-semibold'
+    )
   }
+})
 
-  // ── Load Journey Data into Bird ──
-  async function loadJourneyData() {
-    try {
-      const r = await fetch('/api/journey/summary');
-      const d = await r.json();
-      const el = document.getElementById('bird-journey-stages');
-      if (!el || !d.stages) return;
-      const colors = {lead:'bg-blue-400',quote:'bg-amber-400',booking:'bg-emerald-400',payment:'bg-violet-400',trip:'bg-rose-400',feedback:'bg-teal-400',retention:'bg-cyan-400'};
-      const icons = {lead:'📝',quote:'📄',booking:'✅',payment:'💰',trip:'✈️',feedback:'💬',retention:'🎁'};
-      el.innerHTML = d.stages.map(s => 
-        `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:50px;opacity:${s.count > 0 ? '1' : '0.4'}">
-          <span style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.6rem;background:${colors[s.stage] || '#94a3b8'};color:white">${icons[s.stage] || '•'}</span>
-          <span style="font-size:0.55rem;color:#475569">${s.stage}</span>
-          <span style="font-size:0.7rem;font-weight:600;color:#1e293b">${s.count}</span>
-        </div>`
-      ).join(' → ');
-      document.getElementById('bird-journey').style.display = 'block';
-    } catch(e) {
-      // Silently fail — journey data not critical
-    }
+setTimeout(() => {
+  document.querySelectorAll('.flash-message').forEach(el => {
+    el.style.transition = 'opacity .3s, transform .3s'
+    el.style.opacity = '0'
+    el.style.transform = 'translateX(20px)'
+    setTimeout(() => el.remove(), 300)
+  })
+}, 5000)
+
+document.addEventListener('click', e => {
+  const details = document.querySelector('nav details')
+  if (details && !details.contains(e.target)) {
+    details.removeAttribute('open')
   }
+})
 
-  // ── Chat ──
-  async function birdChat() {
-    const input = document.getElementById('bird-input');
-    const q = input.value.trim();
-    if (!q) return;
+</script>
 
-    const msgs = document.getElementById('bird-messages');
-    addMsg(msgs, q, 'user');
-    input.value = '';
-    const thinkingId = addThinking(msgs);
-
-    try {
-      // Use the new Tool Registry Agent
-      const r = await fetch('/api/agent/process', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({text: q})
-      });
-      const d = await r.json();
-      removeThinking(msgs, thinkingId);
-
-      let html = (d.message || 'Done!').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-
-      // Render web results as rich cards
-      if (d.data && d.data.results && d.data.results.length > 0) {
-        var resultType = 'web';
-        if (d.data.query && d.data.query.indexOf('movies') !== -1) resultType = 'movie';
-        else if (d.data.query && (d.data.query.indexOf('weather') !== -1 || d.data.query.indexOf('forecast') !== -1)) resultType = 'weather';
-        else if (d.data.query && (d.data.query.indexOf('restaurant') !== -1 || d.data.query.indexOf('food') !== -1 || d.data.query.indexOf('cuisine') !== -1)) resultType = 'restaurant';
-        else if (d.data.query && (d.data.query.indexOf('news') !== -1)) resultType = 'news';
-        else if (d.data.query && (d.data.query.indexOf('event') !== -1 || d.data.query.indexOf('concert') !== -1 || d.data.query.indexOf('festival') !== -1)) resultType = 'event';
-        else if (d.data.query && (d.data.query.indexOf('place') !== -1 || d.data.query.indexOf('attraction') !== -1 || d.data.query.indexOf('tourist') !== -1)) resultType = 'place';
-        html += renderWebResults(msgs, d.data.results, resultType);
-      }
-
-      // Render quick actions if present
-      if (d.data && d.data.quick_actions && d.data.quick_actions.length > 0) {
-        html += '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">';
-        for (var qi = 0; qi < d.data.quick_actions.length; qi++) {
-          var qa = d.data.quick_actions[qi];
-          if (qa.action && qa.action.indexOf('bird_query:') === 0) {
-            var qText = qa.action.substring(11);
-            html += '<span onclick="insertExample(\'' + qText.replace(/'/g, "\\'") + '\')" style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:#f0fdf4;color:#065f46;cursor:pointer;border:1px solid #bbf7d0;">' + qa.label + '</span>';
-          } else {
-            html += '<span style="font-size:0.7rem;padding:3px 8px;border-radius:8px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">' + qa.label + '</span>';
-          }
-        }
-        html += '</div>';
-      }
-
-      // Add action link if present
-      if (d.target_url) {
-        html += '<div style="margin-top:8px;"><a href="' + d.target_url + '" style="display:inline-block;padding:6px 14px;background:#2563eb;color:white;border-radius:8px;font-size:0.8rem;text-decoration:none;">View →</a></div>';
-      }
-
-      // Show error styling if failed
-      if (!d.success) {
-        html = '<div style="padding:8px 12px;background:#fef2f2;border-radius:12px;color:#991b1b;font-size:0.85rem;">' + html + '</div>';
-      }
-      addMsg(msgs, html, 'ai');
-    } catch(e) {
-      removeThinking(msgs, thinkingId);
-      addMsg(msgs, buildFallbackResponse(q, {}), 'ai');
-    }
-    msgs.scrollTop = msgs.scrollHeight;
-  }
-
-  function getBadgeHtml(badge) {
-    const badges = {
-      'verified': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#dcfce7;color:#16a34a;font-weight:500;margin-right:4px;">✅ Verified</span>',
-      'company': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#dbeafe;color:#2563eb;font-weight:500;margin-right:4px;">📚 Company Data</span>',
-      'web_single': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#fef3c7;color:#d97706;font-weight:500;margin-right:4px;">🌐 Web (Single)</span>',
-      'conflicting': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#fef2f2;color:#dc2626;font-weight:500;margin-right:4px;">⚠️ Conflicting</span>',
-      'low_confidence': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#f1f5f9;color:#64748b;font-weight:500;margin-right:4px;">❓ Low Confidence</span>',
-      'not_found': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#fef2f2;color:#dc2626;font-weight:500;margin-right:4px;">🔴 Not Found</span>',
-      'cached': '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.65rem;background:#f3e8ff;color:#7c3aed;font-weight:500;margin-right:4px;">💾 Cached</span>',
-    };
-    return badges[badge] || '';
-  }
-
-      function renderConfirmationCard(container, intent, data) {
-        const card = intent.confirmation_card || {};
-        const fields = card.fields || [];
-        const missing = data.missing_required || [];
-        const icon = intent.entity_type_icon || '📋';
-
-        let html = '<div style="background:white;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;">';
-        // Header
-        html += '<div style="padding:12px 14px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;display:flex;align-items:center;gap:8px;">';
-        html += '<span style="font-size:1.2rem;">' + icon + '</span>';
-        html += '<div><div style="font-weight:600;font-size:0.85rem;">' + esc(card.title || 'New Record') + '</div>';
-        html += '<div style="font-size:0.7rem;opacity:0.7;">' + esc(card.code || '') + '</div></div></div>';
-        // Body
-        html += '<div style="padding:10px 14px;">';
-        fields.forEach(f => {
-          html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:0.8rem;">';
-          html += '<span style="color:#64748b;">' + esc(f.label) + '</span>';
-          html += '<span style="font-weight:500;color:#1e293b;">' + esc(String(f.value || '')) + '</span>';
-          html += '</div>';
-        });
-        if (missing.length) {
-          html += '<div style="margin-top:8px;padding:8px;background:#fef2f2;border-radius:8px;font-size:0.75rem;color:#dc2626;">';
-          html += '⚠️ Missing: ' + missing.join(', ');
-          html += '</div>';
-        }
-        html += '</div>';
-        // Actions
-        html += '<div style="padding:10px 14px;border-top:1px solid #e2e8f0;display:flex;gap:8px;">';
-        html += '<button onclick="executeIntent()" style="flex:1;padding:8px;background:#059669;color:white;border:none;border-radius:10px;font-size:0.8rem;font-weight:500;cursor:pointer;">✅ Confirm</button>';
-        html += '<button onclick="cancelIntent()" style="flex:1;padding:8px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:0.8rem;cursor:pointer;">✕ Cancel</button>';
-        html += '</div></div>';
-
-        // Store intent data for confirm/cancel
-        window._pendingIntent = intent;
-
-        addMsg(container, html, 'ai');
-      }
-
-      async function executeIntent() {
-        const intent = window._pendingIntent;
-        if (!intent) return;
-        window._pendingIntent = null;
-
-        const msgs = document.getElementById('bird-messages');
-        const thinkingId = addThinking(msgs);
-
-        try {
-          const r = await fetch('/api/ai/action/execute', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({intent_data: intent})
-          });
-          const d = await r.json();
-          removeThinking(msgs, thinkingId);
-
-          if (d.success) {
-            let html = d.message ? d.message.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') : '✅ Done!';
-            html += '<div style="margin-top:8px;"><a href="' + d.target + '" style="display:inline-block;padding:6px 14px;background:#2563eb;color:white;border-radius:8px;font-size:0.8rem;text-decoration:none;">View →</a></div>';
-            addMsg(msgs, html, 'ai');
-          } else {
-            addMsg(msgs, '❌ ' + (d.error || 'Something went wrong'), 'ai');
-          }
-        } catch(e) {
-          removeThinking(msgs, thinkingId);
-          addMsg(msgs, '❌ Failed to execute', 'ai');
-        }
-        msgs.scrollTop = msgs.scrollHeight;
-      }
-
-      function cancelIntent() {
-        window._pendingIntent = null;
-        const msgs = document.getElementById('bird-messages');
-        addMsg(msgs, 'Cancelled. What else?', 'ai');
-      }
-
-  function addMsg(container, html, role) {
-    const div = document.createElement('div');
-    div.className = 'bird-msg bird-' + role;
-    div.style.marginBottom = '8px';
-    div.style.padding = '10px 14px';
-    div.style.fontSize = '0.85rem';
-    div.style.maxWidth = '90%';
-    div.style.wordBreak = 'break-word';
-    div.innerHTML = html;
-
-    if (role === 'user') {
-      div.style.background = '#2563eb';
-      div.style.color = 'white';
-      div.style.borderRadius = '16px 16px 4px 16px';
-      div.style.textAlign = 'right';
-      div.style.marginLeft = 'auto';
-    } else {
-      div.style.background = 'white';
-      div.style.color = '#1e293b';
-      div.style.borderRadius = '16px 16px 16px 4px';
-      div.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)';
-    }
-    container.appendChild(div);
-  }
-
-  function addThinking(container) {
-    const id = 'thinking-' + Date.now();
-    const div = document.createElement('div');
-    div.id = id;
-    div.style.marginBottom = '8px';
-    div.style.padding = '10px 14px';
-    div.style.background = 'white';
-    div.style.borderRadius = '16px';
-    div.style.fontSize = '0.85rem';
-    div.style.color = '#94a3b8';
-    div.textContent = '🧠 Thinking...';
-    container.appendChild(div);
-    return id;
-  }
-
-  function removeThinking(container, id) {
-    const el = document.getElementById(id);
-    if (el) el.remove();
-  }
-
-  function buildFallbackResponse(query, ctx) {
-    const q = query.toLowerCase();
-    const hasCreate = /create|add|new|make|register|track/i.test(q);
-    const hasSearch = /search|find|look up|google|web/i.test(q);
-    const hasQuery = /show|list|how many|what|tell me|dashboard|report|analytics/i.test(q);
-
-    if (hasCreate) {
-      return 'I can help create that! Try being more specific, like:<br><br>'
-        + '<span style="display:inline-block;padding:4px 10px;margin:2px;background:#f1f5f9;border-radius:8px;font-size:0.75rem;">📝 "Create a lead for Sharma family, Bali, 2 adults, budget 2.5L"</span><br><br>'
-        + 'Or go to <a href="/modules" style="color:#2563eb;text-decoration:underline;">Modules</a> to build a custom entity type.';
-    }
-    if (hasSearch) {
-      return 'I can search the web for you! Try:<br><br>'
-        + '<span style="display:inline-block;padding:4px 10px;margin:2px;background:#f1f5f9;border-radius:8px;font-size:0.75rem;">🌐 "Search web for Bali travel restrictions"</span><br><br>'
-        + 'Web search is enabled in your AI settings.';
-    }
-    if (hasQuery) {
-      return 'Let me look that up for you. You can ask things like:<br><br>'
-        + '<span style="display:inline-block;padding:4px 10px;margin:2px;background:#f1f5f9;border-radius:8px;font-size:0.75rem;">📊 "Show me pending invoices"</span><br>'
-        + '<span style="display:inline-block;padding:4px 10px;margin:2px;background:#f1f5f9;border-radius:8px;font-size:0.75rem;">📋 "List my leads"</span><br><br>'
-        + 'Or browse your data in the <a href="/" style="color:#2563eb;text-decoration:underline;">Dashboard</a>.';
-    }
-    // Generic helpful fallback
-    return 'I\'m here! I can:<br>'
-      + '📝 <strong>Create records</strong> — "create a lead for..."<br>'
-      + '🔍 <strong>Search your data</strong> — "show pending invoices"<br>'
-      + '🌐 <strong>Search the web</strong> — "search web for..."<br>'
-      + '🎤 <strong>Use voice</strong> — tap the 🎤 button<br><br>'
-      + 'What would you like to do?';
-  }
-
-  function insertExample(text) {
-    document.getElementById('bird-input').value = text;
-    birdChat();
-  }
-
-  // ── Voice ──
-  function startVoice() {
-    const btn = document.getElementById('voice-btn');
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      showVoiceHint('Voice input needs Chrome or Edge on desktop, or any modern phone browser.');
-      return;
-    }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.continuous = false;
-
-    btn.textContent = '🔴';
-    btn.classList.add('voice-active');
-    btn.style.background = '#fef2f2';
-
-    recognition.onresult = function(event) {
-      const transcript = event.results[0][0].transcript;
-      document.getElementById('bird-input').value = transcript;
-      resetVoiceBtn(btn);
-      birdChat();
-    };
-    recognition.onerror = function() { resetVoiceBtn(btn); };
-    recognition.onend = function() { resetVoiceBtn(btn); };
-    recognition.start();
-  }
-
-  function resetVoiceBtn(btn) {
-    btn.textContent = '🎤';
-    btn.classList.remove('voice-active');
-    btn.style.background = '#f1f5f9';
-  }
-
-  function showVoiceHint(msg) {
-    const tooltip = document.getElementById('voice-tooltip');
-    tooltip.textContent = msg;
-    tooltip.style.display = 'block';
-    setTimeout(() => { tooltip.style.display = 'none'; }, 4000);
-  }
-
-  // Show voice tooltip briefly on hover
-  document.getElementById('voice-btn').addEventListener('mouseenter', function() {
-    document.getElementById('voice-tooltip').style.display = 'block';
-  });
-  document.getElementById('voice-btn').addEventListener('mouseleave', function() {
-    document.getElementById('voice-tooltip').style.display = 'none';
-  });
-
-  // ── Theme Switcher ──
-  const THEME_ICONS = { modern: '💼', playful: '🎨', elegant: '✨', brandverse: '🌌' };
-
-  function toggleThemeMenu() {
-    const m = document.getElementById('theme-menu');
-    if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';
-  }
-
-  // Close theme menu on click outside
-  document.addEventListener('click', function(e) {
-    const menu = document.getElementById('theme-menu');
-    const btn = document.getElementById('theme-toggle-btn');
-    if (menu && btn && !btn.contains(e.target) && !menu.contains(e.target)) {
-      menu.style.display = 'none';
-    }
-  });
-
-  // Apply brandverse palette CSS variables
-  function applyBrandversePalette(p) {
-    if (!p) return;
-    const root = document.documentElement;
-    root.style.setProperty('--bv-bg', p.bg || '#11141c');
-    root.style.setProperty('--bv-bg-card', p.bg_card || '#202531');
-    root.style.setProperty('--bv-nav-bg', p.nav_bg || '#1b202b');
-    root.style.setProperty('--bv-primary', p.primary || '#2563eb');
-    root.style.setProperty('--bv-secondary', p.secondary || '#7c3aed');
-    root.style.setProperty('--bv-text', p.text || '#f1f5f9');
-    root.style.setProperty('--bv-text-muted', p.text_muted || '#94a3b8');
-    root.style.setProperty('--bv-text-dim', p.text_dim || '#64748b');
-    root.style.setProperty('--bv-success', p.success || '#2d9e6f');
-    root.style.setProperty('--bv-warning', p.warning || '#d09c24');
-    root.style.setProperty('--bv-error', p.error || '#ce3b4e');
-    root.style.setProperty('--bv-nav-border', p.nav_border || '#25314a');
-    root.style.setProperty('--bv-gradient', p.gradient || 'linear-gradient(135deg,#2563eb,#7c3aed)');
-    // Sync nav vars
-    root.style.setProperty('--nav-text', p.text || '#f1f5f9');
-    root.style.setProperty('--nav-muted', p.text_muted || '#94a3b8');
-  }
-
-  // ── Bottom Nav Tab Highlight ──
-  function setActiveTab(path) {
-    document.querySelectorAll('.bottom-nav-btn').forEach(b => {
-      const href = b.getAttribute('data-href');
-      b.classList.toggle('text-blue-600', path.startsWith(href));
-      b.classList.toggle('text-slate-400', !path.startsWith(href));
-    });
-    // Desktop nav active indicator
-    document.querySelectorAll('.nav-link').forEach(b => {
-      const route = b.getAttribute('data-route');
-      if (route) {
-        b.classList.toggle('active', path === route || (route !== '/' && path.startsWith(route)));
-      }
-    });
-  }
-  document.addEventListener('DOMContentLoaded', () => {
-    setActiveTab(window.location.pathname);
-  });
-
-  // ── Close Bird panel on outside clicks ──
-  document.addEventListener('click', function(e) {
-    const widget = document.getElementById('bird-widget');
-    const navBtn = document.getElementById('bird-nav-btn');
-    if (widget && navBtn && !widget.contains(e.target) && !navBtn.contains(e.target)) {
-      const panel = document.getElementById('bird-panel');
-      if (panel && panel.style.display !== 'none') {
-        panel.style.display = 'none';
-      }
-    }
-  });
-
-  // ── Keyboard shortcut Ctrl+B ──
-  document.addEventListener('keydown', function(e) {
-    if (e.ctrlKey && e.key === 'b') {
-      e.preventDefault();
-      toggleBird();
-    }
-  });
-
-  async function switchTheme(theme) {
-    // Save to server
-    try {
-      await fetch('/api/theme/set', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({theme: theme})
-      });
-    } catch(e) {}
-
-    // Apply immediately
-    document.documentElement.setAttribute('data-theme', theme);
-    const icon = document.getElementById('theme-icon');
-    if (icon) icon.textContent = THEME_ICONS[theme] || '💼';
-
-    // For brandverse, fetch auto-generated palette
-    if (theme === 'brandverse') {
-      try {
-        const r = await fetch('/admin/api/theme/brandverse');
-        const d = await r.json();
-        if (d.primary) applyBrandversePalette(d);
-      } catch(e) {}
-    }
-
-    const menu = document.getElementById('theme-menu');
-    if (menu) menu.style.display = 'none';
-
-    // Save user preference
-    try { localStorage.setItem('shunya_theme', theme); } catch(e) {}
-    updateDefaultLabel(theme);
-  }
-
-  // ── Default Theme ──
-  async function setAsDefaultTheme() {
-    const t = document.documentElement.getAttribute('data-theme') || 'modern';
-    try {
-      const r = await fetch('/admin/api/theme/default', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({theme: t})
-      });
-      const d = await r.json();
-      if (d.success) {
-        const btn = document.getElementById('default-theme-btn');
-        if (btn) btn.innerHTML = '<span>✅</span> Default Set';
-        updateDefaultLabel(t);
-        showThemeToast('⭐ Default theme: ' + (THEME_ICONS[t]||'') + ' ' + t);
-      } else showThemeToast('❌ ' + d.error);
-    } catch(e) { showThemeToast('❌ Failed to set default'); }
-  }
-
-  function updateDefaultLabel(t) {
-    const lbl = document.getElementById('default-theme-label');
-    if (!lbl) return;
-    const info = document.getElementById('default-theme-info');
-    const def = info ? info.getAttribute('data-default') : 'modern';
-    lbl.textContent = (t === def) ? '⭐ Default · ' + t : 'Current: ' + t;
-    const btn = document.getElementById('default-theme-btn');
-    if (btn && t === def) btn.innerHTML = '<span>⭐</span> Default Set';
-  }
-
-  // ── Toast Notification System ──
-  function showToast(message, type) {
-    var t = document.createElement('div');
-    t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:99999;padding:10px 20px;border-radius:12px;font-size:0.85rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,0.2);transition:all .3s ease;max-width:90vw;';
-    t.style.background = type === 'error' ? '#dc2626' : '#059669';
-    t.style.color = '#fff';
-    t.textContent = message;
-    document.body.appendChild(t);
-    setTimeout(function() { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(20px)'; setTimeout(function() { t.remove(); }, 300); }, 3000);
-  }
-
-  function showThemeToast(m) {
-    const t = document.createElement('div');
-    t.style.cssText = 'position:fixed;top:20px;right:20px;background:#1e293b;color:#f1f5f9;font-size:0.85rem;padding:10px 18px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:99999;border:1px solid #334155;';
-    t.textContent = m;
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 3500);
-  }
-
-  // ── Init theme on page load ──
-  (function initTheme() {
-    // Check localStorage for user preference
-    let saved = null;
-    try { saved = localStorage.getItem('shunya_theme'); } catch(e) {}
-    if (saved && ['modern','playful','elegant','brandverse'].includes(saved)) {
-      document.documentElement.setAttribute('data-theme', saved);
-      const icon = document.getElementById('theme-icon');
-      if (icon) icon.textContent = THEME_ICONS[saved] || '💼';
-      // Load brandverse palette on DOMContentLoaded
-      if (saved === 'brandverse') {
-        document.addEventListener('DOMContentLoaded', () => {
-          fetch('/admin/api/theme/brandverse').then(r => r.json()).then(d => {
-            if (d.primary) applyBrandversePalette(d);
-          }).catch(() => {});
-        });
-      }
-    }
-    // Fetch default theme info
-    fetch('/admin/api/theme/default').then(r => r.json()).then(d => {
-      const info = document.createElement('div');
-      info.id = 'default-theme-info';
-      info.setAttribute('data-default', d.default_theme);
-      document.body.appendChild(info);
-      const current = document.documentElement.getAttribute('data-theme') || d.default_theme;
-      updateDefaultLabel(current);
-    }).catch(() => {});
-  })();
-
-  // ── Mood Check-in Functions ──
-  var _selectedMood = '';
-  var _moodState = {};
-
-  function openMoodCheckin() {
-    var f = document.getElementById('bird-mood-form');
-    var p = document.getElementById('bird-mood-reminder');
-    if (p) p.style.display = 'none';
-    if (f) {
-      f.style.display = 'block';
-      document.getElementById('bird-energy-label').textContent = document.getElementById('mood-energy').value + '/5';
-    }
-    var qa = document.getElementById('bird-quick-actions');
-    if (qa) qa.style.display = 'block';
-  }
-
-  function closeMoodCheckin() {
-    var f = document.getElementById('bird-mood-form');
-    if (f) f.style.display = 'none';
-    document.getElementById('mood-result').style.display = 'none';
-    _selectedMood = '';
-    var btns = document.querySelectorAll('#mood-buttons span');
-    for (var i = 0; i < btns.length; i++) btns[i].style.borderColor = 'transparent';
-  }
-
-  function selectMood(mood) {
-    _selectedMood = mood;
-    var btns = document.querySelectorAll('#mood-buttons span');
-    for (var i = 0; i < btns.length; i++) {
-      btns[i].style.borderColor = btns[i].getAttribute('data-mood') === mood ? '#2563eb' : 'transparent';
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    var eslider = document.getElementById('mood-energy');
-    if (eslider) {
-      eslider.addEventListener('input', function() {
-        document.getElementById('mood-energy-label').textContent = this.value + '/5';
-      });
-    }
-  });
-
-  async function submitMoodCheckin() {
-    if (!_selectedMood) {
-      document.getElementById('mood-result').style.display = 'block';
-      document.getElementById('mood-result').style.color = '#dc2626';
-      document.getElementById('mood-result').textContent = 'Please select your mood';
-      return;
-    }
-    var mood = _selectedMood;
-    var energy = parseInt(document.getElementById('mood-energy').value) || 3;
-    var notes = document.getElementById('mood-notes').value || '';
-
-    try {
-      var r = await fetch('/api/checkin', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({mood: mood, energy: energy, notes: notes})
-      });
-      var d = await r.json();
-      if (d.success) {
-        document.getElementById('mood-result').style.display = 'block';
-        document.getElementById('mood-result').style.color = '#059669';
-        document.getElementById('mood-result').textContent = '✅ Thanks! Feeling ' + mood + ', energy ' + energy + '/5 logged.';
-        closeMoodCheckin();
-        logActivity('mood_checkin', window.location.pathname, 'Mood: ' + mood);
-        setTimeout(function() {
-          document.getElementById('mood-result').style.display = 'none';
-        }, 3000);
-      } else {
-        document.getElementById('mood-result').style.display = 'block';
-        document.getElementById('mood-result').style.color = '#dc2626';
-        document.getElementById('mood-result').textContent = '❌ ' + (d.error || 'Failed');
-      }
-    } catch(e) {
-      document.getElementById('mood-result').style.display = 'block';
-      document.getElementById('mood-result').style.color = '#dc2626';
-      document.getElementById('mood-result').textContent = '❌ Network error';
-    }
-  }
-
-  // ── Rich Web Results Rendering ──
-  function renderWebResults(container, results, type) {
-    if (!results || results.length === 0) return '';
-    var typeIcons = {movie: '🎬', weather: '🌤️', restaurant: '🍽️', news: '📰', event: '🎉', place: '🗺️', web: '🌐'};
-    var icon = typeIcons[type] || '🌐';
-    var html = '<div style="margin-top:4px;">';
-    var maxShow = Math.min(results.length, 5);
-    for (var i = 0; i < maxShow; i++) {
-      var r = results[i];
-      var snippet = (r.snippet || '').substring(0, 120);
-      if (snippet.length >= 120) snippet += '...';
-      html += '<div style="padding:6px 10px;margin-bottom:4px;background:white;border:1px solid #e2e8f0;border-radius:10px;font-size:0.75rem;">';
-      html += '<div style="font-weight:600;color:#1e293b;margin-bottom:2px;">' + (r.title || 'Result') + '</div>';
-      if (snippet) html += '<div style="color:#64748b;margin-bottom:3px;line-height:1.3;">' + escapeHtml(snippet) + '</div>';
-      if (r.url) html += '<a href="' + r.url + '" target="_blank" style="color:#2563eb;text-decoration:none;font-size:0.7rem;">🔗 Open →</a>';
-      html += '</div>';
-    }
-    if (results.length > 5) {
-      html += '<div style="text-align:center;padding:4px;font-size:0.7rem;color:#94a3b8;">+ ' + (results.length - 5) + ' more results</div>';
-    }
-    html += '</div>';
-    return html;
-  }
-
-  function escapeHtml(t) {
-    if (!t) return '';
-    var d = document.createElement('div');
-    d.appendChild(document.createTextNode(t));
-    return d.innerHTML;
-  }
-
-  // ── Activity Tracking ──
-  async function logActivity(type, path, title) {
-    try {
-      await fetch('/api/user-intel/log', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          activity_type: type,
-          page_path: path || window.location.pathname,
-          page_title: title || document.title,
-          duration: 0
-        })
-      });
-    } catch(e) { /* silent */ }
-  }
-
-  // ── Mood Reminder Check ──
-  async function checkMoodReminder() {
-    try {
-      var r = await fetch('/api/checkin/status');
-      var d = await r.json();
-      if (!d.checked_in) {
-        var rem = document.getElementById('bird-mood-reminder');
-        if (rem) rem.style.display = 'block';
-      }
-    } catch(e) { /* silent */ }
-  }
-
-  // Trigger mood check when Bird opens
-  (function() {
-    var origToggle = window.toggleBird;
-    // Already the function exists, we hook via checking the panel after toggle
-  })();
-  // Enhance the toggle function to check mood on open
-  var _origToggleBird = window.toggleBird;
-  window.toggleBird = function() {
-    var p = document.getElementById('bird-panel');
-    var wasHidden = p.style.display === 'none' || p.style.display === '';
-    _origToggleBird();
-    if (wasHidden) {
-      checkMoodReminder();
-      var qa = document.getElementById('bird-quick-actions');
-      if (qa) qa.style.display = 'block';
-    }
-  };
-
-  // Auto-track page views
-  document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(function() {
-      logActivity('page_view', window.location.pathname, document.title);
-    }, 2000);
-  });
-
-  // Enhance birdChat to track queries
-  var _origBirdChat = window.birdChat;
-  window.birdChat = function() {
-    var input = document.getElementById('bird-input');
-    var q = input.value.trim();
-    if (q) {
-      logActivity('bird_ai_query', window.location.pathname, q.substring(0, 100));
-    }
-    return _origBirdChat();
-  };
-
-  // Enhance birdChat response rendering for web results
-  var _origAddMsg = window.addMsg;
-  // Enhanced version that also renders quick_actions if present
-
-  // ── Keyboard shortcuts ──
-  document.addEventListener('keydown', function(e) {
-    // Ctrl+B or Cmd+B to toggle Bird
-    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-      e.preventDefault();
-      toggleBird();
-    }
-    // Escape to close Bird
-    if (e.key === 'Escape') {
-      const panel = document.getElementById('bird-panel');
-      if (panel.style.display === 'block') {
-        toggleBird();
-      }
-    }
-    // / to focus global search
-    if (e.key === '/' && !['INPUT','TEXTAREA'].includes(e.target.tagName)) {
-      e.preventDefault();
-      const s = document.getElementById('global-search');
-      if (s) s.focus();
-    }
-  });
-  // ── Keyboard Shortcuts Help ──
-  function toggleShortcuts() {
-    var o = document.getElementById('shortcuts-overlay');
-    if (!o) {
-      o = document.createElement('div');
-      o.id = 'shortcuts-overlay';
-      o.innerHTML = '<div onclick="this.parentElement.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;">'
-        + '<div onclick="event.stopPropagation()" style="background:white;border-radius:16px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">'
-        + '<h3 style="font-size:1.1rem;font-weight:700;margin-bottom:16px;color:#1e293b;">Keyboard Shortcuts</h3>'
-        + '<div class="space-y-3">'
-        + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">Open Bird AI</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">Ctrl+B</span></div>'
-        + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">Search</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">/</span></div>'
-        + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">Close panel</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">Esc</span></div>'
-        + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">New Lead</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">Ctrl+N</span></div>'
-        + '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:0.85rem;"><span style="color:#64748b;">Shunya AI</span><span style="background:#f1f5f9;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-family:monospace;color:#475569;">Ctrl+K</span></div>'
-        + '</div>'
-        + '<p style="margin-top:16px;font-size:0.75rem;color:#94a3b8;text-align:center;">Click outside or press Esc to close</p>'
-        + '</div></div>';
-      document.body.appendChild(o);
-    } else { o.remove(); }
-  }
-  // ── Scroll-to-top button ──
-  window.addEventListener('scroll', function() {
-    var btn = document.getElementById('scroll-top-btn');
-    if (btn) btn.style.display = window.scrollY > 500 ? 'block' : 'none';
-  });
-
-  // ── Shunya AI Command Bar ──
-  function toggleShunyaBar() {
-    var bar = document.getElementById('shunya-ai-bar');
-    var body = document.body;
-    if (bar.style.display === 'none' || bar.style.display === '') {
-      bar.style.display = 'block';
-      body.style.paddingBottom = 'calc(10rem + env(safe-area-inset-bottom,0px))';
-      document.getElementById('shunya-input').focus();
-    } else {
-      bar.style.display = 'none';
-      body.style.paddingBottom = 'calc(7rem + env(safe-area-inset-bottom,0px))';
-    }
-  }
-
-  function esc(s) {
-    if (!s) return '';
-    var d = document.createElement('div');
-    d.appendChild(document.createTextNode(String(s)));
-    return d.innerHTML;
-  }
-
-  async function shunyaCommand() {
-    var input = document.getElementById('shunya-input');
-    var q = input.value.trim();
-    if (!q) return;
-    var panel = document.getElementById('shunya-results');
-    panel.style.display = 'block';
-    panel.innerHTML = '<div style="padding:12px;text-align:center;color:#94a3b8;">🧠 Processing through Shunya Pipeline...</div>';
-    var ql = q.toLowerCase();
-    if (/^(new|create|add)\s+(a\s+)?lead/i.test(ql)) {
-      await shunyaCreateLead(q, panel);
-    } else if (/show pipeline|pipeline summary|lead status|dashboard summary|leads summary|summary/i.test(ql)) {
-      await shunyaShowSummary(panel);
-    } else if (/proposal|itinerary/i.test(ql)) {
-      var m = ql.match(/proposal.*(?:lead|#|id)?\s*(\d+)/i) || ql.match(/(?:lead|#|id)\s*(\d+).*proposal/i);
-      if (m) await shunyaProposal(parseInt(m[1]), panel);
-      else panel.innerHTML = '<div style="padding:12px;color:#dc2626;">❌ Please specify a lead ID. Example: "proposal for lead 1"</div>';
-    } else if (/knowledge|what do you know|destinations|past itineraries|kb/i.test(ql)) {
-      await shunyaKnowledge(panel);
-    } else {
-      await shunyaProcessGeneral(q, panel);
-    }
-    input.value = '';
-  }
-
-  async function shunyaCreateLead(query, panel) {
-    var nameM = query.match(/(?:lead|for|named|called)\s+([A-Za-z\s]+?)(?:\s+(?:for|to|in|budget|trip|travel|from|approx))/i)
-           || query.match(/(?:create|new|add)\s+(?:a\s+)?lead\s+(?:for\s+)?([A-Za-z\s]+?)(?:\s+(?:for|to|in|budget|trip|travel)|$)/i);
-    var destM = query.match(/(?:for|to|in|destination)\s+([A-Za-z\s]+?)(?:\s+(?:\d|budget|pax|adult|peop|guest|from|approx))/i)
-           || query.match(/(?:trip|travel|tour)\s+(?:to\s+)?([A-Za-z\s]+?)(?:\s+(?:\d|budget|pax|adult|peop|guest|from|approx)|$)/i);
-    var paxM = query.match(/(\d+)\s*(?:pax|adult|peop|guest|person)/i);
-    var dateM = query.match(/(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}|\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|next\s+\w+|this\s+\w+)/i);
-    var budgetM = query.match(/(\d+(?:\.\d+)?)\s*(?:l|lac|lakh|k|cr|crore|thousand|million)/i);
-    try {
-      var r = await fetch('/shunya/process', {method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({customer_name: nameM ? nameM[1].trim() : '', destination: destM ? destM[1].trim() : '', pax: paxM ? paxM[1] : '', dates: dateM ? dateM[1] : '', notes: query, source: 'frontend-ai-bar', format: 'all', create_lead: true})});
-      var d = await r.json();
-      var html = '<div style="padding:4px 0;">';
-      if (d.success) {
-        html += '<div style="font-size:0.9rem;font-weight:600;color:#059669;margin-bottom:8px;">✅ Lead created successfully</div>';
-        if (d.lead_id) html += '<div style="margin-bottom:8px;font-size:0.75rem;color:#64748b;">Lead ID: <strong>' + d.lead_id + '</strong></div>';
-        if (d.profile) {
-          html += '<div style="padding:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">';
-          html += '<div style="font-weight:500;margin-bottom:4px;">🧑 ' + esc(d.profile.customer_name || nameM && nameM[1].trim() || 'New Lead') + '</div>';
-          if (d.profile.destination) html += '<div style="font-size:0.75rem;color:#475569;">📍 ' + esc(d.profile.destination) + '</div>';
-          if (d.profile.budget_range) html += '<div style="font-size:0.75rem;color:#475569;">💰 ' + esc(d.profile.budget_range) + '</div>';
-          if (d.profile.pax) html += '<div style="font-size:0.75rem;color:#475569;">👥 ' + esc(d.profile.pax) + '</div>';
-          html += '</div>';
-        }
-        if (d.proposal_text) {
-          html += '<div style="margin-top:8px;padding:8px;background:white;border:1px solid #e2e8f0;border-radius:8px;font-size:0.75rem;color:#1e293b;line-height:1.5;max-height:200px;overflow-y:auto;">' + d.proposal_text.replace(/\n/g,'<br>') + '</div>';
-        }
-        if (d.lead_id) {
-          html += '<div style="margin-top:10px;"><a href="/entities/lead/' + d.lead_id + '" style="display:inline-block;padding:8px 16px;background:#2563eb;color:white;border-radius:8px;font-size:0.8rem;text-decoration:none;">View Lead →</a></div>';
-        }
-      } else {
-        html += '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ ' + (d.error || 'Failed') + '</div>';
-      }
-      html += '</div>';
-      panel.innerHTML = html;
-    } catch(e) { panel.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ Error: ' + e.message + '</div>'; }
-    panel.scrollTop = panel.scrollHeight;
-  }
-
-  async function shunyaShowSummary(panel) {
-    try {
-      var r = await fetch('/shunya/summary');
-      var data = await r.json();
-      var html = '<div style="padding:4px 0;"><div style="font-size:0.9rem;font-weight:600;color:#1e293b;margin-bottom:8px;">📊 Lead Pipeline Summary</div>';
-      if (data && data.length > 0) {
-        for (var i = 0; i < data.length; i++) {
-          var l = data[i];
-          html += '<div style="padding:8px 10px;background:white;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;">';
-          html += '<div><div style="font-weight:500;">' + esc(l.customer || l.customer_name || 'Unknown') + '</div>';
-          html += '<div style="font-size:0.7rem;color:#64748b;">' + esc(l.destination || '') + (l.status ? ' · ' + l.status : '') + '</div></div>';
-          html += '<div style="text-align:right;font-size:0.7rem;color:#475569;">💰 ₹' + ((l.total_paid || 0)).toLocaleString() + '<br>📄 ' + (l.invoices || 0) + ' invoices</div></div>';
-        }
-      } else {
-        html += '<div style="padding:12px;text-align:center;color:#94a3b8;">No leads found in pipeline.</div>';
-      }
-      html += '</div>';
-      panel.innerHTML = html;
-    } catch(e) { panel.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ Error: ' + e.message + '</div>'; }
-    panel.scrollTop = panel.scrollHeight;
-  }
-
-  async function shunyaProposal(leadId, panel) {
-    try {
-      var r = await fetch('/shunya/proposal/' + leadId + '?format=text');
-      var d = await r.json();
-      var html = '<div style="padding:4px 0;">';
-      if (d.proposal) {
-        html += '<div style="font-size:0.9rem;font-weight:600;color:#1e293b;margin-bottom:8px;">📄 Proposal for ' + esc(d.lead_code || 'Lead #' + leadId) + '</div>';
-        html += '<div style="padding:10px;background:white;border:1px solid #e2e8f0;border-radius:8px;font-size:0.75rem;color:#1e293b;line-height:1.6;max-height:400px;overflow-y:auto;">' + d.proposal.replace(/\n/g,'<br>') + '</div>';
-      } else if (d.error) {
-        html += '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ ' + d.error + '</div>';
-      } else {
-        html += '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ No proposal for lead #' + leadId + '</div>';
-      }
-      html += '</div>';
-      panel.innerHTML = html;
-    } catch(e) { panel.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ Error: ' + e.message + '</div>'; }
-    panel.scrollTop = panel.scrollHeight;
-  }
-
-  async function shunyaKnowledge(panel) {
-    try {
-      var r = await fetch('/shunya/knowledge');
-      var d = await r.json();
-      var html = '<div style="padding:4px 0;"><div style="font-size:0.9rem;font-weight:600;color:#1e293b;margin-bottom:8px;">🧠 Shunya Knowledge Base</div>';
-      html += '<div style="padding:8px 10px;background:white;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;"><div style="font-size:0.75rem;color:#64748b;">Knowledge Base Size</div><div style="font-size:0.9rem;font-weight:600;color:#1e293b;">' + ((d.knowledge_base_length || 0)).toLocaleString() + ' characters</div></div>';
-      if (d.past_itineraries && d.past_itineraries.length > 0) {
-        html += '<div style="font-size:0.8rem;font-weight:500;color:#1e293b;margin:8px 0 4px;">Past Itineraries:</div>';
-        for (var i = 0; i < d.past_itineraries.length; i++) {
-          var it = d.past_itineraries[i];
-          html += '<div style="padding:6px 10px;background:white;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:4px;font-size:0.75rem;">';
-          html += '<span style="font-weight:500;">' + esc(it.destination || 'Unknown') + '</span> — ' + esc(it.customer || '') + (it.dates ? ' (' + it.dates + ')' : '') + '</div>';
-        }
-      } else {
-        html += '<div style="padding:8px;color:#94a3b8;font-size:0.8rem;">No past itineraries found.</div>';
-      }
-      html += '</div>';
-      panel.innerHTML = html;
-    } catch(e) { panel.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ Error: ' + e.message + '</div>'; }
-    panel.scrollTop = panel.scrollHeight;
-  }
-
-  async function shunyaProcessGeneral(query, panel) {
-    try {
-      var r = await fetch('/shunya/process', {method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({notes: query, source: 'frontend-ai-bar', format: 'all', create_lead: false})});
-      var d = await r.json();
-      var html = '<div style="padding:4px 0;">';
-      if (d.success) {
-        if (d.profile) {
-          html += '<div style="padding:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:8px;">';
-          html += '<div style="font-weight:500;color:#065f46;margin-bottom:4px;">📋 Analysis</div>';
-          if (d.profile.customer_name) html += '<div style="font-size:0.75rem;color:#475569;">Customer: ' + esc(d.profile.customer_name) + '</div>';
-          if (d.profile.destination) html += '<div style="font-size:0.75rem;color:#475569;">Destination: ' + esc(d.profile.destination) + '</div>';
-          if (d.profile.pax) html += '<div style="font-size:0.75rem;color:#475569;">Pax: ' + esc(d.profile.pax) + '</div>';
-          if (d.profile.budget_range) html += '<div style="font-size:0.75rem;color:#475569;">Budget: ' + esc(d.profile.budget_range) + '</div>';
-          html += '</div>';
-        }
-        if (d.strategy) {
-          html += '<div style="padding:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin-bottom:8px;">';
-          html += '<div style="font-weight:500;color:#1d4ed8;margin-bottom:4px;">💡 Strategy</div>';
-          html += '<div style="font-size:0.75rem;color:#475569;white-space:pre-wrap;">' + (typeof d.strategy === 'string' ? esc(d.strategy) : esc(JSON.stringify(d.strategy,null,2))).replace(/\n/g,'<br>') + '</div>';
-          html += '</div>';
-        }
-        if (d.proposal_text) {
-          html += '<div style="padding:8px;background:white;border:1px solid #e2e8f0;border-radius:8px;">';
-          html += '<div style="font-weight:500;color:#1e293b;margin-bottom:4px;">📄 Proposal</div>';
-          html += '<div style="font-size:0.75rem;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + d.proposal_text.replace(/\n/g,'<br>') + '</div></div>';
-        }
-      } else {
-        html += '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ ' + (d.error || 'Failed') + '</div>';
-      }
-      html += '</div>';
-      panel.innerHTML = html;
-    } catch(e) { panel.innerHTML = '<div style="padding:8px 12px;background:#fef2f2;border-radius:8px;color:#dc2626;font-size:0.85rem;">❌ Error: ' + e.message + '</div>'; }
-    panel.scrollTop = panel.scrollHeight;
-  }
-
-  // ── Ctrl+K → Shunya AI bar ──
-  document.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-      e.preventDefault();
-      var bar = document.getElementById('shunya-ai-bar');
-      if (!bar) return;
-      if (bar.style.display === 'none' || bar.style.display === '') {
-        toggleShunyaBar();
-      } else {
-        document.getElementById('shunya-input').focus();
-      }
-    }
-    if (e.key === 'Escape') {
-      var pres = document.getElementById('shunya-results');
-      if (pres && pres.style.display !== 'none') pres.style.display = 'none';
-    }
-  });
-
-  // Auto-show AI bar on desktop
-  if (window.innerWidth >= 640) {
-    var bar = document.getElementById('shunya-ai-bar');
-    if (bar) {
-      bar.style.display = 'block';
-    }
-  }
-
-  </script>
-  {% endif %}
-
-  <!-- Bottom Navigation (mobile only) -->
-  {% if current_user %}
-  <nav class="bottom-nav mobile-only fixed bottom-0 left-0 right-0 z-50 sm:hidden border-t shadow-lg" aria-label="Main navigation" style="background:var(--nav-bg,#ffffff);color:var(--nav-text,#1e293b);border-color:var(--nav-border,#e2e8f0);padding-bottom:env(safe-area-inset-bottom,0px);">
-    <div class="flex items-center justify-evenly h-16 px-1">
-      <a href="/" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-[10px] font-medium min-w-0" data-href="/" style="color:var(--nav-muted,#64748b)">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
-        <span class="leading-tight">Home</span>
-      </a>
-      <a href="/entities/lead" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-[10px] font-medium min-w-0" data-href="/entities" style="color:var(--nav-muted,#64748b)">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
-        <span class="leading-tight">Records</span>
-      </a>
-      <button id="bird-nav-btn" onclick="toggleBird()" class="flex flex-col items-center gap-0 text-[10px] font-medium" style="color:var(--nav-muted,#64748b)">
-        <div class="w-11 h-11 -mt-2 rounded-full flex items-center justify-center text-lg shadow-lg" style="background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;box-shadow:0 4px 16px rgba(37,99,235,0.3);">🧠</div>
-        <span class="leading-tight">AI</span>
-      </button>
-      <a href="/finance" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-[10px] font-medium min-w-0" data-href="/finance" style="color:var(--nav-muted,#64748b)">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        <span class="leading-tight">Money</span>
-      </a>
-      <a href="/admin/brand" class="bottom-nav-btn flex flex-col items-center gap-0.5 text-[10px] font-medium min-w-0" data-href="/admin" style="color:var(--nav-muted,#64748b)">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v7.394c0 1.038.626 1.97 1.565 2.342a9 9 0 002.57.639M12 3v7.394a2.375 2.375 0 01-1.565 2.342 9 9 0 01-2.57.639M21 15v3a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-3"/></svg>
-        <span class="leading-tight">Settings</span>
-      </a>
-    </div>
-  </nav>
-  {% endif %}
-
-  <!-- ── Shunya AI Command Bar (fixed bottom) ── -->
-  {% if current_user %}
-  <div id="shunya-ai-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9996;background:white;border-top:1px solid #e2e8f0;padding:8px 16px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 20px rgba(0,0,0,0.08);font-family:Inter,system-ui,sans-serif;">
-    <!-- Inline results panel -->
-    <div id="shunya-results" style="display:none;margin-bottom:8px;max-height:300px;overflow-y:auto;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;padding:12px;font-size:0.85rem;color:#1e293b;scroll-behavior:smooth;"></div>
-    <!-- Input row -->
-    <div style="display:flex;gap:8px;align-items:center;">
-      <span id="shunya-toggle-btn" onclick="toggleShunyaBar()" style="font-size:1.2rem;flex-shrink:0;cursor:pointer;line-height:1;" title="Toggle AI bar">🧠</span>
-      <input id="shunya-input" type="text"
-        placeholder="Ask Shunya AI...  (e.g. 'new lead for Sharma family Bali trip 2 adults budget 2.5L', 'show pipeline', 'proposal for lead 1', 'knowledge', or any inquiry)"
-        style="flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:12px;font-size:0.85rem;color:#1e293b;background:#f8fafc;outline:none;transition:border-color .2s;"
-        onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#e2e8f0'"
-        onkeydown="if(event.key==='Enter')shunyaCommand()">
-      <button onclick="shunyaCommand()" style="padding:10px 20px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:white;border:none;border-radius:12px;font-size:0.8rem;cursor:pointer;font-weight:500;transition:opacity .2s;white-space:nowrap;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">AI</button>
-      <button onclick="toggleShunyaBar()" style="padding:10px;background:#f1f5f9;border:none;border-radius:12px;font-size:0.9rem;cursor:pointer;color:#94a3b8;line-height:1;" title="Close">✕</button>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- Scroll to top button -->
-<button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;bottom:80px;right:20px;width:40px;height:40px;border-radius:50%;background:#2563eb;color:white;border:none;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,0.3);z-index:9998;transition:all .3s;" aria-label="Scroll to top">↑</button>
+{% include '_companion.html' %}
 
 </body>
 </html>

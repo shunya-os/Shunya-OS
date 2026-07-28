@@ -1,0 +1,71 @@
+{% extends "client/client_base.html" %}
+{% block title %}Login — SHUNYA OS Client Portal{% endblock %}
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center">
+  <div class="w-full max-w-md">
+    <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 fade-in">
+      <!-- Brand -->
+      <div class="text-center mb-8">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg mx-auto mb-4">
+          P
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900">Welcome Back</h1>
+        <p class="text-gray-500 text-sm mt-1">Sign in to your SHUNYA OS account</p>
+      </div>
+
+      <!-- Login Form -->
+      <form method="post" class="space-y-4">
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <input type="email" id="email" name="email" required autocomplete="email" autofocus
+              class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-gray-400"
+              placeholder="you@example.com">
+          </div>
+        </div>
+
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+            </div>
+            <input type="password" id="password" name="password" required autocomplete="current-password"
+              class="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-gray-400"
+              placeholder="••••••••">
+          </div>
+        </div>
+
+        <button type="submit"
+          class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all shadow-md hover:shadow-lg">
+          Sign In
+        </button>
+      </form>
+
+      <!-- Divider -->
+      <div class="relative my-6">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
+        <div class="relative flex justify-center"><span class="bg-white px-3 text-xs text-gray-400">or</span></div>
+      </div>
+
+      <!-- Register link -->
+      <p class="text-center text-sm text-gray-500">
+        Don't have an account?
+        <a href="{{ url_for('client.client_register') }}" class="font-semibold text-amber-600 hover:text-amber-700 transition-colors">Create one</a>
+      </p>
+    </div>
+
+    <!-- Back to main site -->
+    <p class="text-center mt-6">
+      <a href="/" class="text-sm text-gray-400 hover:text-gray-600 transition-colors">← Back to Team Portal</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

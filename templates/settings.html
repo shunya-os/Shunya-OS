@@ -1,325 +1,174 @@
 {% extends "base.html" %}
 {% block content %}
-
-<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-  <h1 class="text-2xl font-bold text-white">⚙️ Settings</h1>
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-  <!-- Integrations -->
-  <div class="st-card p-5">
-    <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">🔌 Integrations</h3>
-    <div class="space-y-4">
-
-      <!-- WhatsApp — clickable card with real status -->
-      <a href="/admin/whatsapp"
-         class="flex items-center justify-between p-3 rounded-lg transition hover:bg-slate-700/50 cursor-pointer"
-         style="background:rgba(51,65,85,0.5);"
-         id="wa-card">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="flex-shrink-0">📞</span>
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-white">WhatsApp Business</p>
-            <p class="text-xs st-muted" id="wa-subtitle">
-              {% if wa_configured %}
-                <span class="text-green-400">● Connected</span>
-              {% else %}
-                <span class="text-slate-400">○ Not Configured</span>
-              {% endif %}
-            </p>
-            <div id="wa-stats" class="text-xs st-muted mt-0.5 hidden">
-              <span id="wa-leads-week"></span>
-              <span id="wa-last-msg" class="ml-3"></span>
-            </div>
-          </div>
-        </div>
-        <div class="flex items-center gap-2 flex-shrink-0">
-          <span id="wa-badge"
-                class="text-xs px-2 py-1 rounded-full flex-shrink-0 {% if wa_configured %}bg-green-50 text-green-600{% else %}bg-slate-100 text-slate-400{% endif %}">
-            {% if wa_configured %}Connected{% else %}Not Configured{% endif %}
-          </span>
-          <span class="text-xs px-2 py-1 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition">
-            Configure
-          </span>
-        </div>
-      </a>
-
-      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="flex-shrink-0">🎤</span>
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-white">Voice (37 languages)</p>
-            <p class="text-xs st-muted">STT + TTS via OpenAI</p>
-          </div>
-        </div>
-        <span class="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 flex-shrink-0">Active</span>
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Telegram Bot</h3>
+    <form method="post" action="/telegram/setup" class="space-y-3">
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Bot Token</label>
+        <input name="bot_token" placeholder="123456:ABC-DEF..." required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
       </div>
-    </div>
+      <button type="submit" class="w-full bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">Save Token</button>
+    </form>
+    <form method="post" action="/telegram/setwebhook" class="mt-3">
+      <button type="submit" class="w-full bg-slate-100 text-slate-700 text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-slate-200 transition-colors">Set Webhook</button>
+    </form>
   </div>
 
-  <!-- 📱 My Numbers -->
-  <div class="st-card p-5">
-    <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">📱 My Numbers</h3>
-    <div class="space-y-4" id="phone-numbers-section">
-      <!-- WhatsApp number -->
-      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="flex-shrink-0">💬</span>
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-white">WhatsApp</p>
-            <p class="text-xs st-muted" id="wa-phone-display">
-              {% if user.whatsapp_phone %}
-                {{ user.whatsapp_phone }}
-                {% if user.whatsapp_verified %}
-                  <span class="text-green-400">✓ verified</span>
-                {% else %}
-                  <span class="text-amber-400">unverified</span>
-                {% endif %}
-              {% else %}
-                <span class="text-slate-400">Not set</span>
-              {% endif %}
-            </p>
-          </div>
-        </div>
-        <button onclick="showPhoneForm('whatsapp')"
-                class="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition flex-shrink-0">
-          Change WhatsApp
-        </button>
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">WhatsApp Business</h3>
+    <form method="post" action="/whatsapp/setup" class="space-y-3">
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">API Token</label>
+        <input name="whatsapp_token" placeholder="EAAT..."
+          class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
       </div>
-
-      <!-- Secondary number -->
-      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="flex-shrink-0">📞</span>
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-white">Secondary</p>
-            <p class="text-xs st-muted" id="sec-phone-display">
-              {% if user.secondary_phone %}
-                {{ user.secondary_phone }}
-              {% else %}
-                <span class="text-slate-400">Not set</span>
-              {% endif %}
-            </p>
-          </div>
-        </div>
-        <button onclick="showPhoneForm('secondary')"
-                class="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition flex-shrink-0">
-          Change Secondary
-        </button>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number ID</label>
+        <input name="phone_number_id" placeholder="123456789"
+          class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
       </div>
-    </div>
+      <button type="submit" class="w-full bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-emerald-700 transition-colors">Save WhatsApp Settings</button>
+    </form>
+    <p class="text-xs text-slate-400 mt-2">Webhook URL: <code class="text-blue-600">https://app.shunyaos.com/whatsapp/webhook</code></p>
+  </div>
 
-    <!-- Inline phone edit form (hidden by default) -->
-    <div id="phone-form-container" class="mt-3 hidden">
-      <form id="phone-form" onsubmit="savePhone(event)" class="space-y-3 p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
-        <input type="hidden" id="phone-field-name">
+  <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Add Supplier</h3>
+    <form method="post" class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
         <div>
-          <label id="phone-form-label" class="text-xs text-slate-400 uppercase tracking-wider">Phone Number</label>
-          <input id="phone-input" type="tel" class="input-dark mt-1 w-full" placeholder="+91 XXXXX XXXXX" required>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Name *</label>
+          <input name="name" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
         </div>
-        <div class="flex gap-2">
-          <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">Save</button>
-          <button type="button" onclick="hidePhoneForm()" class="px-4 py-2 bg-slate-600 text-white text-sm rounded-lg hover:bg-slate-700 transition">Cancel</button>
-        </div>
-        <p id="phone-form-feedback" class="text-xs hidden"></p>
-      </form>
-    </div>
-  </div>
-
-  <!-- Entity Types -->
-  <div class="st-card p-5">
-    <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">📋 Entity Types</h3>
-    <div class="space-y-2 mb-4 max-h-64 overflow-y-auto custom-scrollbar">
-      {% for d in definitions %}
-      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
-        <div class="flex items-center gap-2 min-w-0 flex-1">
-          <span class="flex-shrink-0">{{ d.icon }}</span>
-          <span class="text-sm font-medium text-white truncate">{{ d.label }}</span>
-          <span class="text-xs st-muted truncate">({{ d.type }})</span>
-        </div>
-        <div class="flex items-center gap-2 flex-shrink-0">
-          <span class="text-xs st-muted">{{ d.layout }}</span>
-          <span class="text-xs px-1.5 py-0.5 rounded {{ 'bg-green-50 text-green-600' if d.is_active else 'bg-slate-100 text-slate-400' }}">{{ 'active' if d.is_active else 'off' }}</span>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Category</label>
+          <select name="category" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+            <option>hotel</option><option>flight</option><option>activity</option><option>transport</option><option>visa</option><option>venue</option>
+          </select>
         </div>
       </div>
-      {% endfor %}
-    </div>
-    <a href="{{ url_for('settings.list_entity_types') }}"
-       class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-      Manage Entity Types
-    </a>
-  </div>
-
-  <!-- Team -->
-  <div class="st-card p-5">
-    <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">👥 Team</h3>
-    <div class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
-      {% for m in team %}
-      <div class="flex items-center justify-between p-3 rounded-lg" style="background:rgba(51,65,85,0.5);">
-        <div class="min-w-0 flex-1">
-          <span class="text-sm font-medium text-white">{{ m.name }}</span>
-          <span class="text-xs st-muted ml-2 truncate">{{ m.email }}</span>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Contact Person</label>
+          <input name="contact" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
         </div>
-        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 flex-shrink-0">{{ m.role }}</span>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
+          <input name="email" type="email" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
       </div>
-      {% endfor %}
-    </div>
-    <a href="/admin/brand" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition mt-3">Manage Team & Brand</a>
-  </div>
-
-  <!-- Sessions -->
-  <div class="st-card p-5">
-    <h3 class="text-xs font-semibold uppercase tracking-wider st-muted mb-4">🔐 Sessions</h3>
-    <a href="/auth/sessions" class="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700">Manage Sessions</a>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Phone</label>
+          <input name="phone" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">City</label>
+          <input name="city" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">GSTIN</label>
+          <input name="gstin" placeholder="22AAAAA0000A1Z5" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Payment Terms</label>
+          <input name="payment_terms" placeholder="30 days" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Notes</label>
+        <textarea name="notes" rows="2" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-vertical"></textarea>
+      </div>
+      <button type="submit" class="w-full bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">Add Supplier</button>
+    </form>
   </div>
 </div>
 
-<script>
-// ── Load real WhatsApp status from API ──
-async function loadWhatsAppStatus() {
-  try {
-    const r = await fetch('/admin/api/whatsapp');
-    if (!r.ok) return;
-    const d = await r.json();
-    const configured = !!(d.token && d.phone_id);
+<div class="mt-6 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Suppliers</h3>
+    <span class="text-xs text-slate-400">{{ suppliers|length }} total</span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <th class="px-5 py-3 text-left">Name</th>
+        <th class="px-5 py-3 text-left">Category</th>
+        <th class="px-5 py-3 text-left">City</th>
+        <th class="px-5 py-3 text-left">Phone</th>
+        <th class="px-5 py-3 text-left">GSTIN</th>
+        <th class="px-5 py-3 text-left">Terms</th>
+      </tr></thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for s in suppliers %}
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-5 py-3.5 font-medium">{{ s.name }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ s.category or '-' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ s.city or '-' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ s.phone or '-' }}</td>
+          <td class="px-5 py-3.5 font-mono text-xs text-slate-500">{{ s.gstin or '-' }}</td>
+          <td class="px-5 py-3.5 text-slate-600">{{ s.payment_terms or '-' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">No suppliers.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 
-    const subtitle = document.getElementById('wa-subtitle');
-    const badge = document.getElementById('wa-badge');
-    const stats = document.getElementById('wa-stats');
-
-    if (configured) {
-      subtitle.innerHTML = '<span class="text-green-400">● Connected</span>';
-      badge.className = 'text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 flex-shrink-0';
-      badge.textContent = 'Connected';
-      stats.classList.remove('hidden');
-      // Try to fetch message stats from a lightweight endpoint
-      fetchStats(d.phone_id);
-    } else {
-      subtitle.innerHTML = '<span class="text-slate-400">○ Not Configured</span>';
-      badge.className = 'text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-400 flex-shrink-0';
-      badge.textContent = 'Not Configured';
-      stats.classList.add('hidden');
-    }
-  } catch (e) {
-    console.warn('Failed to load WhatsApp status:', e);
-  }
-}
-
-async function fetchStats() {
-  // Attempt to load stats — these will be blank if no endpoint exists yet
-  const leadsEl = document.getElementById('wa-leads-week');
-  const lastMsgEl = document.getElementById('wa-last-msg');
-  try {
-    const r = await fetch('/whatsapp/api/stats');
-    if (r.ok) {
-      const s = await r.json();
-      if (s.leads_this_week !== undefined) {
-        leadsEl.textContent = '📊 Leads this week: ' + s.leads_this_week;
-      }
-      if (s.last_message_ago !== undefined) {
-        lastMsgEl.textContent = '💬 Last message: ' + s.last_message_ago;
-      }
-    }
-  } catch (e) {
-    // Stats endpoint may not exist — silently ignore
-  }
-}
-
-// ── Phone number management ──
-let editingPhoneType = null;
-
-function showPhoneForm(type) {
-  editingPhoneType = type;
-  const container = document.getElementById('phone-form-container');
-  const label = document.getElementById('phone-form-label');
-  const input = document.getElementById('phone-input');
-  const fieldName = document.getElementById('phone-field-name');
-
-  container.classList.remove('hidden');
-  fieldName.value = type;
-
-  if (type === 'whatsapp') {
-    label.textContent = 'WhatsApp Number';
-    input.placeholder = '+91 XXXXX XXXXX';
-  } else {
-    label.textContent = 'Secondary Phone Number';
-    input.placeholder = '+91 XXXXX XXXXX';
-  }
-
-  // Pre-fill from current user data
-  fetch('/settings/api/phone')
-    .then(r => r.json())
-    .then(data => {
-      if (type === 'whatsapp') {
-        input.value = data.whatsapp_phone || data.phone || '';
-      } else {
-        input.value = data.secondary_phone || '';
-      }
-    })
-    .catch(() => { input.value = ''; });
-
-  input.focus();
-}
-
-function hidePhoneForm() {
-  document.getElementById('phone-form-container').classList.add('hidden');
-  document.getElementById('phone-form-feedback').classList.add('hidden');
-  editingPhoneType = null;
-}
-
-async function savePhone(event) {
-  event.preventDefault();
-  const type = document.getElementById('phone-field-name').value;
-  const value = document.getElementById('phone-input').value.trim();
-  const feedback = document.getElementById('phone-form-feedback');
-
-  if (!value) {
-    feedback.textContent = 'Please enter a phone number';
-    feedback.className = 'text-xs text-red-400';
-    feedback.classList.remove('hidden');
-    return;
-  }
-
-  const payload = {};
-  if (type === 'whatsapp') {
-    payload.whatsapp_phone = value;
-  } else {
-    payload.secondary_phone = value;
-  }
-
-  try {
-    const r = await fetch('/settings/api/phone', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const d = await r.json();
-    if (d.success) {
-      feedback.textContent = '✅ Saved successfully';
-      feedback.className = 'text-xs text-green-400';
-      feedback.classList.remove('hidden');
-      // Update display
-      if (type === 'whatsapp') {
-        document.getElementById('wa-phone-display').innerHTML = value + ' <span class="text-amber-400">unverified</span>';
-      } else {
-        document.getElementById('sec-phone-display').textContent = value;
-      }
-      setTimeout(hidePhoneForm, 1200);
-    } else {
-      feedback.textContent = 'Error: ' + (d.error || 'save failed');
-      feedback.className = 'text-xs text-red-400';
-      feedback.classList.remove('hidden');
-    }
-  } catch (e) {
-    feedback.textContent = 'Network error — could not save';
-    feedback.className = 'text-xs text-red-400';
-    feedback.classList.remove('hidden');
-  }
-}
-
-// ── Init ──
-document.addEventListener('DOMContentLoaded', function() {
-  loadWhatsAppStatus();
-});
-</script>
+{% if is_admin %}
+<div class="mt-6 bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+  <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">⚙️ Custom Fields (Superadmin)</h3>
+  <form method="post" action="/settings/fields/add" class="space-y-3">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Entity</label>
+        <select name="entity" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+          <option value="lead">Lead</option>
+          <option value="payment">Payment</option>
+          <option value="invoice">Invoice</option>
+          <option value="supplier">Supplier</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Field Type</label>
+        <select name="field_type" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+          <option value="text">Text</option>
+          <option value="number">Number</option>
+          <option value="date">Date</option>
+          <option value="dropdown">Dropdown</option>
+          <option value="multi_select">Multi-Select</option>
+          <option value="boolean">Yes/No</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Field Name (snake_case)</label>
+        <input name="field_name" required placeholder="passport_number" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Display Label</label>
+        <input name="field_label" required placeholder="Passport Number" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Options (for dropdown/multi-select, one per line)</label>
+      <textarea name="options" rows="2" placeholder="Option A&#10;Option B&#10;Option C" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-vertical"></textarea>
+    </div>
+    <label class="flex items-center gap-2 text-sm cursor-pointer">
+      <input type="checkbox" name="searchable" value="1" class="rounded border-slate-300"> Searchable
+    </label>
+    <button type="submit" class="bg-blue-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors">Create Field</button>
+  </form>
+</div>
+{% endif %}
 {% endblock %}

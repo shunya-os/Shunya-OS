@@ -1,0 +1,217 @@
+{% extends "base_shunya.html" %}
+
+{% block title %}SHUNYA — Executive Dashboard{% endblock %}
+
+{% block breadcrumb %}
+<span>Home</span>
+<span class="sep">&#8250;</span>
+<span>Executive</span>
+{% endblock %}
+
+{% block left_nav %}
+<div class="nav-section">Executive</div>
+<button class="nav-item active">
+  <span class="nav-icon" aria-hidden="true">&#9679;</span>
+  <span>Dashboard</span>
+</button>
+<button class="nav-item" onclick="window.location.href='/workspace/object/jupiter-media'">
+  <span class="nav-icon" aria-hidden="true">&#9679;</span>
+  <span>Jupiter Media</span>
+</button>
+<button class="nav-item" onclick="window.location.href='/workspace/object/northgate-mfg'">
+  <span class="nav-icon" aria-hidden="true">&#9679;</span>
+  <span>Northgate Mfg</span>
+  <span class="nav-badge">!</span>
+</button>
+<button class="nav-item" onclick="window.location.href='/workspace/converse'">
+  <span class="nav-icon" aria-hidden="true">&#9679;</span>
+  <span>Intelligence</span>
+  <span class="nav-badge">3</span>
+</button>
+<div class="nav-section">Workspace</div>
+<button class="nav-item" onclick="window.location.href='/workspace/'">
+  <span class="nav-icon" aria-hidden="true">&#9679;</span>
+  <span>Morning Zero</span>
+</button>
+<button class="nav-item">
+  <span class="nav-icon" aria-hidden="true">&#9679;</span>
+  <span>Files</span>
+</button>
+<button class="nav-item">
+  <span class="nav-icon" aria-hidden="true">&#9679;</span>
+  <span>Memory</span>
+</button>
+<button class="nav-item">
+  <span class="nav-icon" aria-hidden="true">&#9679;</span>
+  <span>Settings</span>
+</button>
+{% endblock %}
+
+{% block center %}
+<div id="object-workspace">
+  <div class="object-header" style="padding-bottom: 24px;">
+    <div class="object-type">Executive</div>
+    <div class="object-name" style="font-size: 22px; font-weight: 300;">{{ org_name|default('Your Organization') }}</div>
+    <div class="object-meta">
+      <span>Updated just now</span>
+      <span>&middot;</span>
+      <span>SHUNYA has been watching for 3 days</span>
+      <div class="object-health">
+        <span class="object-health-dot good"></span>
+        <span>All systems nominal</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="object-body" style="padding-top: 0;">
+
+    <!-- Executive Brief — SHUNYA's first meaningful insight -->
+    <div class="mz-section">
+      <div class="mz-section-title">Executive Brief</div>
+      <div style="font-size: 13px; color: var(--text-secondary, rgba(25,27,28,0.55)); line-height: 1.7; padding: 4px 0 20px;">
+        {{ org_name|default('Your organization') }} is performing well. Portfolio revenue is trending
+        <strong style="color: var(--text, #1a1c1d); font-weight: 500;">+12% QoQ</strong>,
+        driven by the Jupiter Media partnership and organic growth across three portfolio companies.
+        I've identified <strong style="color: var(--text, #1a1c1d); font-weight: 500;">one item requiring attention</strong>:
+        Northgate Manufacturing's cash flow needs monitoring — a covenant breach risk exists in 45 days
+        if the current trend continues. I've prepared the context for each.
+      </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="mz-section">
+      <div class="mz-section-title">Key Metrics</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+        <div style="padding: 16px; background: var(--shunya-surface, #ffffff); border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 12px;">
+          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--shunya-text-faint, rgba(26,28,29,0.15)); margin-bottom: 6px;">Active Objects</div>
+          <div style="font-size: 28px; font-weight: 300; letter-spacing: -0.02em; color: var(--shunya-text, #1a1c1d);">24</div>
+          <div style="font-size: 11px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.35)); margin-top: 4px;">+3 this week</div>
+        </div>
+        <div style="padding: 16px; background: var(--shunya-surface, #ffffff); border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 12px;">
+          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--shunya-text-faint, rgba(26,28,29,0.15)); margin-bottom: 6px;">Revenue Trend</div>
+          <div style="font-size: 28px; font-weight: 300; letter-spacing: -0.02em; color: var(--text, #1a1c1d);">+12%</div>
+          <div style="font-size: 11px; color: var(--text-tertiary, rgba(26,28,29,0.35)); margin-top: 4px;">QoQ across portfolio</div>
+        </div>
+        <div style="padding: 16px; background: var(--shunya-surface, #ffffff); border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 12px;">
+          <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--shunya-text-faint, rgba(26,28,29,0.15)); margin-bottom: 6px;">Health Score</div>
+          <div style="font-size: 28px; font-weight: 300; letter-spacing: -0.02em; color: var(--shunya-text, #1a1c1d);">92%</div>
+          <div style="font-size: 11px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.35)); margin-top: 4px;">1 item flagged for attention</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions requiring attention -->
+    <div class="mz-section">
+      <div class="mz-section-title">Requires your attention</div>
+      <div class="mz-item" onclick="window.location.href='/workspace/object/jupiter-media'" style="cursor: pointer;">
+        <span class="mz-dot info"></span>
+        <div class="mz-body">
+          <div class="mz-title">Jupiter Media — Q3 deliverables due this week</div>
+          <div class="mz-meta">Content distribution launched in 2 of 3 regions. Quarterly review by 15 Oct. <span style="color: var(--shunya-gold, #a4865f);">View →</span></div>
+        </div>
+      </div>
+      <div class="mz-item" onclick="window.location.href='/workspace/object/northgate-mfg'" style="cursor: pointer;">
+        <span class="mz-dot attention"></span>
+        <div class="mz-body">
+          <div class="mz-title">Northgate Manufacturing — cash flow monitoring</div>
+          <div class="mz-meta">Covenant breach risk in 45 days. Root cause identified. <span style="color: var(--shunya-gold, #a4865f);">View →</span></div>
+        </div>
+      </div>
+      <div class="mz-item">
+        <span class="mz-dot attention"></span>
+        <div class="mz-body">
+          <div class="mz-title">Q3 Budget approval pending</div>
+          <div class="mz-meta">Engineering budget allocation awaiting your sign-off. 2 days remaining.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent decisions -->
+    <div class="mz-section">
+      <div class="mz-section-title">Recent Decisions</div>
+      <div class="timeline-item" onclick="window.location.href='/workspace/object/jupiter-media'" style="cursor: pointer;">
+        <span class="timeline-dot decision"></span>
+        <div class="timeline-body">
+          <div class="timeline-title">Jupiter Media agreement signed</div>
+          <div class="timeline-meta">14 Jul 2026 &middot; Legal &middot; 60/40 revenue share</div>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <span class="timeline-dot decision"></span>
+        <div class="timeline-body">
+          <div class="timeline-title">Q3 Budget approved</div>
+          <div class="timeline-meta">12 Jul 2026 &middot; Finance &middot; $1.2M allocated</div>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <span class="timeline-dot change"></span>
+        <div class="timeline-body">
+          <div class="timeline-title">Northgate — new CFO appointed</div>
+          <div class="timeline-meta">1 Jul 2026 &middot; Board</div>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <span class="timeline-dot evidence"></span>
+        <div class="timeline-body">
+          <div class="timeline-title">Due diligence completed — Jupiter Media</div>
+          <div class="timeline-meta">5 Jul 2026 &middot; Compliance &middot; No material risks</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block right %}
+<div class="intel-section">
+  <div class="intel-section-title">Executive Summary</div>
+  <div class="exec-brief-header">
+    <div class="exec-health">
+      <span>Health</span>
+      <div class="health-bar">
+        <div class="health-bar-fill good" style="width: 92%"></div>
+      </div>
+      <span>92%</span>
+    </div>
+    <div class="exec-brief-summary">
+      {{ org_name|default('Portfolio') }} performing within expected parameters.
+      Revenue trending positively. One item flagged for attention.
+    </div>
+  </div>
+</div>
+
+<div class="intel-section">
+  <div class="intel-section-title">Key Insights</div>
+  <div class="intel-card">
+    <div class="intel-label">Revenue trending +12% QoQ</div>
+    <div class="intel-meta">Driven by Jupiter Media, Atlas Logistics, Pine Street</div>
+    <div class="intel-confidence">High confidence</div>
+  </div>
+  <div class="intel-card">
+    <div class="intel-label">Northgate — cash flow risk</div>
+    <div class="intel-meta">45 days to covenant breach at current burn rate</div>
+    <div class="intel-confidence">High confidence</div>
+  </div>
+  <div class="intel-card">
+    <div class="intel-label">Budget approval pending</div>
+    <div class="intel-meta">Q3 engineering — 2 days remaining for sign-off</div>
+    <div class="intel-confidence">Medium confidence</div>
+  </div>
+</div>
+
+<div class="intel-section">
+  <div class="intel-section-title">Recommended Actions</div>
+  <div class="intel-card" onclick="window.location.href='/workspace/object/jupiter-media'" style="cursor: pointer;">
+    <div class="intel-label">Review Jupiter Media deliverables</div>
+    <div class="intel-meta">Q3-Q4 scope across 3 regions</div>
+  </div>
+  <div class="intel-card" onclick="window.location.href='/workspace/object/northgate-mfg'" style="cursor: pointer;">
+    <div class="intel-label">Discuss Northgate financing</div>
+    <div class="intel-meta">Interim bridge or covenant waiver</div>
+  </div>
+  <div class="intel-card">
+    <div class="intel-label">Approve Q3 engineering budget</div>
+    <div class="intel-meta">2 days remaining</div>
+  </div>
+</div>
+{% endblock %}

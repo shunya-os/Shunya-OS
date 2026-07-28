@@ -1,0 +1,160 @@
+{% extends "base_universal.html" %}
+{% block page_icon %}🏠{% endblock %}
+{% block page_title %}{{ companion_greeting or 'Good morning!' }}{% endblock %}
+{% block title %}{{ brand or 'Shunya OS' }} — Overview{% endblock %}
+
+{% block content %}
+<!-- Welcome + AI Insight -->
+<div class="mb-8">
+  <div class="glass rounded-2xl p-6 md:p-8 relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-brand-500/10 to-transparent rounded-full -translate-y-1/2 translate-x-1/2"></div>
+    <div class="relative">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-2xl shadow-lg animate-float">🧠</div>
+        <div class="flex-1">
+          <h2 class="text-xl font-bold">{{ companion_greeting or 'Welcome back!' }}</h2>
+          <p class="text-surface-400 mt-1 text-sm max-w-2xl">{{ ai_insight or 'Your team is active. Your pipeline is moving. Let\'s make today productive.' }}</p>
+          <div class="flex flex-wrap gap-2 mt-4">
+            <a href="/leads/new" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium transition-all">+ New Lead</a>
+            <a href="/leads" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-surface-200 text-sm font-medium transition-all">View Pipeline</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Grid -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
+  {% set stats = [
+    {'label': 'Active Leads', 'value': summary.leads_today or '—', 'icon': '📋', 'change': '+12%', 'color': 'from-brand-500 to-brand-600'},
+    {'label': 'Revenue MTD', 'value': '₹' + '{:,.0f}'.format(summary.revenue_mtd or 0), 'icon': '💰', 'change': '+8%', 'color': 'from-emerald-500 to-emerald-600'},
+    {'label': 'Team Online', 'value': summary.team_online or '—', 'icon': '👥', 'change': '', 'color': 'from-amber-500 to-amber-600'},
+    {'label': 'Pending Tasks', 'value': '3', 'icon': '✅', 'change': '2 due today', 'color': 'from-rose-500 to-rose-600'},
+  ] %}
+  {% for s in stats %}
+  <div class="stat-card glass rounded-xl p-4 md:p-5">
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-lg">{{ s.icon }}</span>
+      {% if s.change %}
+      <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full {% if '+' in s.change %}bg-emerald-500/10 text-emerald-400{% else %}bg-surface-500/10 text-surface-400{% endif %}">{{ s.change }}</span>
+      {% endif %}
+    </div>
+    <div class="text-2xl font-bold">{{ s.value }}</div>
+    <div class="text-xs text-surface-400 mt-0.5">{{ s.label }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid lg:grid-cols-3 gap-6">
+  <!-- Pipeline Preview -->
+  <div class="lg:col-span-2 glass rounded-xl overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-white/5">
+      <h3 class="text-sm font-semibold">Pipeline Overview</h3>
+      <a href="/leads" class="text-xs text-brand-400 hover:text-brand-300">View all →</a>
+    </div>
+    <div class="p-5">
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="text-center p-3 rounded-xl bg-amber-500/10">
+          <div class="text-xl font-bold text-amber-400">{{ summary.pipeline_new or 0 }}</div>
+          <div class="text-[10px] text-surface-400 uppercase tracking-wider mt-0.5">New</div>
+        </div>
+        <div class="text-center p-3 rounded-xl bg-brand-500/10">
+          <div class="text-xl font-bold text-brand-400">{{ summary.pipeline_progress or 0 }}</div>
+          <div class="text-[10px] text-surface-400 uppercase tracking-wider mt-0.5">Active</div>
+        </div>
+        <div class="text-center p-3 rounded-xl bg-emerald-500/10">
+          <div class="text-xl font-bold text-emerald-400">{{ summary.pipeline_done or 0 }}</div>
+          <div class="text-[10px] text-surface-400 uppercase tracking-wider mt-0.5">Closed</div>
+        </div>
+      </div>
+
+      <!-- Recent leads mini-list -->
+      <div class="space-y-2">
+        {% for lead in recent[:5] %}
+        <a href="{{ url_for('main.lead_detail', lead_id=lead.id) }}" class="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-all group">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-8 h-8 rounded-lg bg-surface-800 flex items-center justify-center text-xs font-bold text-surface-400 shrink-0">{{ lead.customer_name[:2] if lead.customer_name else '?' }}</div>
+            <div class="min-w-0">
+              <div class="text-sm font-medium truncate">{{ lead.customer_name or 'Unnamed' }}</div>
+              <div class="text-xs text-surface-500 truncate">{{ lead.destination or 'No destination' }} · ₹{{ '{:,.0f}'.format(lead.budget or 0) }}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-[10px] font-medium px-2 py-0.5 rounded-full 
+              {% if lead.status == 'new' %}bg-amber-500/10 text-amber-400
+              {% elif lead.status == 'in_progress' %}bg-brand-500/10 text-brand-400
+              {% elif lead.status == 'converted' %}bg-emerald-500/10 text-emerald-400
+              {% else %}bg-surface-500/10 text-surface-400{% endif %}">
+              {{ lead.status or 'new' }}
+            </span>
+            <span class="text-surface-600 group-hover:text-surface-400 transition-colors">→</span>
+          </div>
+        </a>
+        {% else %}
+        <div class="text-center py-8 text-surface-500 text-sm">No leads yet. Create your first one!</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity Feed + Quick Actions -->
+  <div class="space-y-6">
+    <!-- Quick Actions -->
+    <div class="glass rounded-xl p-5">
+      <h3 class="text-sm font-semibold mb-3">Quick Actions</h3>
+      <div class="grid grid-cols-2 gap-2">
+        <a href="/leads/new" class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-center">
+          <span class="text-xl">📋</span>
+          <span class="text-[10px] text-surface-400">New Lead</span>
+        </a>
+        <a href="/payments" class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-center">
+          <span class="text-xl">💰</span>
+          <span class="text-[10px] text-surface-400">Add Payment</span>
+        </a>
+        <a href="/invoices" class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-center">
+          <span class="text-xl">🧾</span>
+          <span class="text-[10px] text-surface-400">New Invoice</span>
+        </a>
+        <a href="/team" class="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-center">
+          <span class="text-xl">👥</span>
+          <span class="text-[10px] text-surface-400">Team</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- AI Insight Card -->
+    <div class="glass rounded-xl p-5 bg-gradient-to-br from-brand-500/5 to-transparent">
+      <div class="flex items-start gap-3">
+        <span class="text-xl">💡</span>
+        <div>
+          <h3 class="text-sm font-semibold text-brand-300">AI Suggestion</h3>
+          <p class="text-xs text-surface-400 mt-1">{{ ai_tip or 'Your team\'s conversion rate improves when leads get first response within 5 minutes. Consider assigning a dedicated intake agent during business hours.' }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="glass rounded-xl p-5">
+      <h3 class="text-sm font-semibold mb-3">Recent Activity</h3>
+      <div class="space-y-3">
+        {% for a in activities[:5] %}
+        <div class="flex items-start gap-3 text-xs">
+          <span class="w-1.5 h-1.5 rounded-full mt-1.5 
+            {% if a.action == 'created' %}bg-brand-500
+            {% elif a.action == 'payment_received' %}bg-emerald-500
+            {% elif a.action == 'status_changed' %}bg-amber-500
+            {% else %}bg-surface-500{% endif %} shrink-0"></span>
+          <div>
+            <span class="text-surface-300">{{ a.detail or a.action }}</span>
+            <span class="text-surface-500 block mt-0.5">{{ a.created_at.strftime('%d %b %H:%M') if a.created_at else '' }}</span>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-surface-500 text-xs">No recent activity</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

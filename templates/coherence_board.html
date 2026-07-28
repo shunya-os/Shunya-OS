@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SHUNYA — Visual Coherence Board</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #f3f2f2; color: #1a1c1d; padding: 0; }
+h1 { font-size: 22px; font-weight: 300; letter-spacing: -0.02em; padding: 24px 32px 8px; color: #1a1c1d; }
+h1 span { font-size: 12px; color: rgba(26,28,29,0.35); font-weight: 400; display: block; margin-top: 4px; letter-spacing: 0; }
+.row { display: flex; gap: 0; border-bottom: 1px solid rgba(26,28,29,0.07); }
+.col { flex: 1; padding: 12px; text-align: center; min-width: 0; }
+.col-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(26,28,29,0.35); padding: 4px 0 8px; }
+.col-label span { display: block; font-size: 9px; font-weight: 400; color: rgba(26,28,29,0.2); margin-top: 2px; letter-spacing: 0; }
+img { width: 100%; height: auto; border: 1px solid rgba(26,28,29,0.07); border-radius: 4px; display: block; }
+.section-label { 
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: #a4865f;
+  padding: 20px 32px 8px; border-top: 1px solid rgba(26,28,29,0.07); margin-top: 0;
+}
+.annotation { 
+  font-size: 11px; color: rgba(26,28,29,0.5); line-height: 1.5; padding: 4px 32px 16px;
+}
+.annotation strong { color: #1a1c1d; }
+.annotation .fix { color: #ff6b6b; }
+.annotation .ok { color: #51cf66; }
+</style>
+</head>
+<body>
+
+<h1>SHUNYA Visual Coherence Board <span>Landing · Login · Verify · Loading · Workspace — Desktop · Tablet · Mobile</span></h1>
+
+<!-- Screen labels row -->
+<div class="row" style="border-bottom: none; padding: 8px 0 0;">
+  <div class="col"></div>
+  <div class="col"><div class="col-label">Desktop <span>1280×900</span></div></div>
+  <div class="col"><div class="col-label">Tablet <span>768×1024</span></div></div>
+  <div class="col"><div class="col-label">Mobile <span>375×812</span></div></div>
+</div>
+
+<!-- Landing -->
+<div class="section-label">Landing</div>
+<div class="row">
+  <div class="col" style="max-width: 60px; text-align: left; padding: 12px 4px;">
+    <div style="font-size: 9px; color: rgba(26,28,29,0.35); writing-mode: vertical-rl; text-orientation: mixed; height: 100%;">Public identity</div>
+  </div>
+  <div class="col"><img src="/screenshots/landing_1280x900.png" alt="Landing Desktop"></div>
+  <div class="col"><img src="/screenshots/landing_768x1024.png" alt="Landing Tablet"></div>
+  <div class="col"><img src="/screenshots/landing_375x812.png" alt="Landing Mobile"></div>
+</div>
+
+<!-- Login -->
+<div class="section-label">Login</div>
+<div class="row">
+  <div class="col" style="max-width: 60px; text-align: left; padding: 12px 4px;">
+    <div style="font-size: 9px; color: rgba(26,28,29,0.35); writing-mode: vertical-rl; text-orientation: mixed;">Auth gateway</div>
+  </div>
+  <div class="col"><img src="/screenshots/login_1280x900.png" alt="Login Desktop"></div>
+  <div class="col"><img src="/screenshots/login_768x1024.png" alt="Login Tablet"></div>
+  <div class="col"><img src="/screenshots/login_375x812.png" alt="Login Mobile"></div>
+</div>
+
+<!-- Verify -->
+<div class="section-label">Verify</div>
+<div class="row">
+  <div class="col" style="max-width: 60px; text-align: left; padding: 12px 4px;">
+    <div style="font-size: 9px; color: rgba(26,28,29,0.35); writing-mode: vertical-rl; text-orientation: mixed;">Identity check</div>
+  </div>
+  <div class="col"><img src="/screenshots/verify_1280x900.png" alt="Verify Desktop"></div>
+  <div class="col"><img src="/screenshots/verify_768x1024.png" alt="Verify Tablet"></div>
+  <div class="col"><img src="/screenshots/verify_375x812.png" alt="Verify Mobile"></div>
+</div>
+
+<!-- Loading -->
+<div class="section-label">Loading</div>
+<div class="row">
+  <div class="col" style="max-width: 60px; text-align: left; padding: 12px 4px;">
+    <div style="font-size: 9px; color: rgba(26,28,29,0.35); writing-mode: vertical-rl; text-orientation: mixed;">Transition</div>
+  </div>
+  <div class="col"><img src="/screenshots/loading_1280x900.png" alt="Loading Desktop"></div>
+  <div class="col"><img src="/screenshots/loading_768x1024.png" alt="Loading Tablet"></div>
+  <div class="col"><img src="/screenshots/loading_375x812.png" alt="Loading Mobile"></div>
+</div>
+
+<!-- Workspace -->
+<div class="section-label">Workspace</div>
+<div class="row">
+  <div class="col" style="max-width: 60px; text-align: left; padding: 12px 4px;">
+    <div style="font-size: 9px; color: rgba(26,28,29,0.35); writing-mode: vertical-rl; text-orientation: mixed;">Product shell</div>
+  </div>
+  <div class="col"><img src="/screenshots/workspace_1280x900.png" alt="Workspace Desktop"></div>
+  <div class="col"><img src="/screenshots/workspace_768x1024.png" alt="Workspace Tablet"></div>
+  <div class="col"><img src="/screenshots/workspace_375x812.png" alt="Workspace Mobile"></div>
+</div>
+
+<!-- Annotations -->
+<div class="section-label" style="margin-top: 24px;">Annotations</div>
+
+<div class="annotation">
+<strong>1. Identity Strip</strong><br>
+<span class="ok">✓</span> Landing nav has gold dot + SHUNYA at 52px height<br>
+<span class="ok">✓</span> Login/Verify have auth-strip with gold dot + SHUNYA at 44px height<br>
+<span class="ok">✓</span> Workspace has identity-strip with gold dot + SHUNYA at 44px height<br>
+<span class="fix">✗</span> Landing nav uses 52px; auth-strip and workspace use 44px. Legitimate difference (marketing nav vs identity strip), but the gold dot + SHUNYA pattern is identical.
+</div>
+
+<div class="annotation">
+<strong>2. Typography</strong><br>
+<span class="ok">✓</span> All screens use Inter font family<br>
+<span class="ok">✓</span> All use `--shunya-text` (#1a1c1d) for primary text<br>
+<span class="ok">✓</span> All use `--shunya-text-tertiary` for secondary/subtle text<br>
+<span class="fix">✗</span> Landing hero is 54px Playfair Display; auth screens use 24px Inter weight 300; workspace greeting is 22px Inter weight 300. These are appropriate for different contexts (hero vs tool).
+</div>
+
+<div class="annotation">
+<strong>3. Buttons</strong><br>
+<span class="ok">✓</span> All primary buttons use dark bg (#1a1c1d) + white text<br>
+<span class="ok">✓</span> All buttons use 10px border-radius<br>
+<span class="ok">✓</span> All buttons use opacity 0.85 on hover<br>
+<span class="ok">✓</span> All buttons use Inter 13px weight 500<br>
+<span class="fix">✗</span> Landing buttons have `padding: 10px 24px` (horizontal padding); auth buttons have `padding: 10px` (full-width, no horizontal padding specified). This is correct contextually — landing buttons are inline, auth buttons are full-width.
+</div>
+
+<div class="annotation">
+<strong>4. Spacing & Rhythm</strong><br>
+<span class="ok">✓</span> All screens use 32px horizontal padding on the strip (16px on mobile)<br>
+<span class="ok">✓</span> All screens use the same 4px-base spacing scale via design-system.css<br>
+<span class="fix">✗</span> Landing page uses 32px gutters through its own `.hero`/`.section` padding; workspace uses 20px padding on identity strip. The landing page is a marketing page with wider margins — this is appropriate.
+</div>
+
+<div class="annotation">
+<strong>5. The Gold Dot</strong><br>
+<span class="ok">✓</span> All 5 screens use the gold dot (5px, #a4865f, border-radius: 50%)<br>
+<span class="ok">✓</span> All use the same 10px gap between dot and SHUNYA wordmark<br>
+<span class="ok">✓</span> The dot is the only brand mark across all screens
+</div>
+
+<div class="annotation">
+<strong>6. Input Fields</strong><br>
+<span class="ok">✓</span> Login and Verify use the same input styling (auth.css)<br>
+<span class="fix">✗</span> Workspace search input has `border-radius: var(--radius-xs)` (6px) instead of `var(--shunya-radius-sm)` (10px). This is a minor inconsistency.
+</div>
+
+<div class="annotation">
+<strong>7. Focus-visible</strong><br>
+<span class="ok">✓</span> Landing and auth screens use `outline: 2px solid var(--shunya-gold); outline-offset: 2px`<br>
+<span class="fix">✗</span> Workspace does not define a global `:focus-visible` style — it relies on the browser default. Needs to be added.
+</div>
+
+<div class="annotation">
+<strong>8. Loading Screen Identity</strong><br>
+<span class="fix">✗</span> Loading screen has no auth-strip (no gold dot + SHUNYA in the top bar). It's centered content only. This is intentional — the loading screen is a transitional state, not a navigable page. But the missing identity strip means it doesn't share the same top-bar anatomy as Login/Verify.
+</div>
+
+<div class="annotation">
+<strong>9. Reduced Motion</strong><br>
+<span class="ok">✓</span> Landing, auth.css, and workspace all implement `prefers-reduced-motion: reduce`<br>
+<span class="ok">✓</span> All use the same pattern (0.01ms duration, 1 iteration)
+</div>
+
+<div class="annotation">
+<strong>10. Semantic Colour Usage</strong><br>
+<span class="ok">✓</span> All screens use gold only for identity marks, never for interactive elements<br>
+<span class="ok">✓</span> All screens use dark text (#1a1c1d) as the primary interactive colour<br>
+<span class="ok">✓</span> All screens use the same semantic colour palette (green #51cf66, yellow #fab005, orange #fd7e14, red #ff6b6b)
+</div>
+
+</body>
+</html>
