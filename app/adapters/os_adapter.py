@@ -225,10 +225,29 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
     }
 
 
+def get_identity_name(identity_id: str) -> str | None:
+    """Resolve an identity's display name from the canonical OS Identity model.
+
+    Args:
+        identity_id: The canonical identity ID (sid_ + hex).
+
+    Returns:
+        The display name, or None if the identity is not found.
+    """
+    os = get_os()
+    identity_runtime = os.get_runtime("identity")
+    if identity_runtime:
+        identity = identity_runtime.get_identity(identity_id)
+        if identity:
+            return identity.display_name
+    return None
+
+
 __all__ = [
     "create_object",
     "create_space",
     "get_executive_home",
+    "get_identity_name",
     "get_pipeline_trace",
     "process_intent",
     "sign_in",
