@@ -396,6 +396,22 @@ def create_app(config_override: dict | None = None):
     from app.workspace import workspace_bp
     app.register_blueprint(workspace_bp)
 
+    # M6 — Connected Business
+    from app.integration.routes import integration_bp
+    app.register_blueprint(integration_bp)
+
+    # M7 — Automation
+    from app.automation.routes import automation_bp
+    app.register_blueprint(automation_bp)
+
+    # M8 — Executive Intelligence
+    from app.intelligence.routes import intelligence_bp
+    app.register_blueprint(intelligence_bp)
+
+    # M9 — Enterprise Ready
+    from app.enterprise.routes import enterprise_bp
+    app.register_blueprint(enterprise_bp)
+
     # ---- Serve screenshots for coherence board ----
     @app.route("/screenshots/<path:filename>")
     def serve_screenshot(filename):

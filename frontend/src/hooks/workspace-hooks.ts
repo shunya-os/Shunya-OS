@@ -25,9 +25,15 @@ export function useWorkspaceList() {
 export function useWorkspaceActions() {
   return {
     close: useWorkspaceStore(s => s.close),
+    closeWithConfirmation: useWorkspaceStore(s => s.closeWithConfirmation),
     activate: useWorkspaceStore(s => s.activate),
     pin: useWorkspaceStore(s => s.pin),
     suspend: useWorkspaceStore(s => s.suspend),
+    markDirty: useWorkspaceStore(s => s.markDirty),
+    markSaving: useWorkspaceStore(s => s.markSaving),
+    markSaved: useWorkspaceStore(s => s.markSaved),
+    markSaveFailed: useWorkspaceStore(s => s.markSaveFailed),
+    markError: useWorkspaceStore(s => s.markError),
   };
 }
 
@@ -41,7 +47,24 @@ export function useCommandPalette() {
   return {
     openObject: (type: string, id: string, name: string) =>
       open(name, 'object', { objectType: type, objectId: id }),
-    openDashboard: () => open('Dashboard', 'dashboard'),
+    openHome: () => open('Home', 'home'),
     openSearch: (query: string) => open(`Search: ${query}`, 'search'),
+  };
+}
+
+export function useWorkspaceDirtyState() {
+  const hasDirty = useWorkspaceStore(s => s.hasDirty);
+  const getDirtyIds = useWorkspaceStore(s => s.getDirtyIds);
+  return { hasDirty: hasDirty(), dirtyIds: getDirtyIds() };
+}
+
+export function useActiveWorkspaceStatus() {
+  const active = useActiveWorkspace();
+  return {
+    status: active?.status ?? 'idle',
+    error: active?.error ?? null,
+    dirty: active?.dirty ?? false,
+    saveStatus: active?.saveStatus ?? 'idle',
+    validationErrors: active?.validationErrors ?? {},
   };
 }

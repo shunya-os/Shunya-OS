@@ -51,23 +51,42 @@ def _log_activity(lead_id: int, action: str, detail: str = ""):
 
 
 # ---------------------------------------------------------------------------
-# Dashboard
+# SPA helper
+# ---------------------------------------------------------------------------
+
+_FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+
+
+def _serve_spa_shell():
+    """Serve the built React SPA shell at /frontend/dist/index.html.
+
+    Use this for every route where the SPA should handle rendering,
+    including root, auth paths, and any client-side-routed path.
+    """
+    idx = os.path.join(_FRONTEND_DIST, "index.html")
+    if os.path.exists(idx):
+        return send_from_directory(_FRONTEND_DIST, "index.html")
+    return "Frontend not built. Run `cd frontend && npm run build`", 503
+
+
+# ---------------------------------------------------------------------------
+# Routes
 # ---------------------------------------------------------------------------
 
 @main.route("/")
 def index():
-    # Serve the public SHUNYA homepage for unauthenticated visitors
-    from flask import session as flask_session
-    user_id = flask_session.get("user_id")
-    if not user_id:
-        # Initialize pre-auth conversation in session
-        if "shunya_conversation" not in flask_session:
-            flask_session["shunya_conversation"] = []
-            flask_session["shunya_thought_count"] = 0
-        return render_template("landing.html", year=__import__('datetime').datetime.utcnow().year)
+    # Serve the built React SPA for all visitors — the SPA handles auth,
+    # routing, and workspace rendering entirely client-side.
+    return _serve_spa_shell()
 
-    # Phase Z1: Redirect authenticated users to new SHUNYA workspace
-    return redirect(url_for("workspace.workspace_home"))
+
+# Auth SPA shell routes — these paths exist so the Flask router doesn't
+# 404 when the React SPA handles client-side routing for auth pages.
+# The SPA itself renders login/register content via React Router.
+@main.route("/auth/login")
+@main.route("/auth/register")
+def auth_spa_shell():
+    return _serve_spa_shell()
 
     s = get_summary("today")
     recent = Lead.query.order_by(Lead.created_at.desc()).limit(8).all()
@@ -1576,8 +1595,8 @@ from app.auth_routes import login_required
 @main.route("/executive")
 @login_required
 def executive_workspace():
-    """SHUNYA Executive Workspace — continuously contextual workspace."""
-    return render_template("executive_workspace.html")
+    """Redirect to the canonical React SPA workspace (executive view handled client-side)."""
+    return redirect(url_for("main.index"))
 
 
 # ---------------------------------------------------------------------------

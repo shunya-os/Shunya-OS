@@ -575,6 +575,19 @@ class TestLoginSession:
         r = client.get("/health")
         assert r.status_code == 200
 
+    def test_auth_login_serves_spa_shell(self, client):
+        """GET /auth/login returns the SPA shell (index.html), not a 404/405."""
+        r = client.get("/auth/login")
+        assert r.status_code == 200
+        assert b"<div id=\"root\">" in r.data
+        assert b"<script" in r.data
+
+    def test_auth_register_serves_spa_shell(self, client):
+        """GET /auth/register also returns the SPA shell."""
+        r = client.get("/auth/register")
+        assert r.status_code == 200
+        assert b"<!DOCTYPE html>" in r.data
+
 
 # =========================================================================
 # 11. WHATSAPP WEBHOOK

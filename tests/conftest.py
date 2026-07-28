@@ -51,6 +51,33 @@ def app():
         from app.auth import TeamMember  # noqa: F401
         from app.production.identity.workspace_model import Workspace  # noqa: F401
         from app.production.identity_repository import SHUNYAIdentityModel  # noqa: F401
+        from app.founder.workspace_models import (  # noqa: F401
+            MissingContext,
+            NextAction,
+            WorkspaceEvent,
+            WorkspaceHealthSnapshot,
+            WorkspaceNavigation,
+        )
+        from app.founder.models import (  # noqa: F401
+            BusinessRelationship,
+            FounderConversation,
+            FounderMessage,
+            FounderObject,
+            FounderSpace,
+        )
+        from app.integration.models import (  # noqa: F401
+            CachedEmail, IntegrationConnection, Notification,
+            NotificationPreference,
+        )
+        from app.automation.models import (  # noqa: F401
+            AutomationLog, AutomationRule,
+        )
+        from app.intelligence.models import (  # noqa: F401
+            AnomalyRecord, LearningEvent, ReasoningTrace,
+        )
+        from app.enterprise.models import (  # noqa: F401
+            AuditRecord, EnterpriseRole, EnterpriseTeamMember,
+        )
         db.create_all()
         yield application
         db.drop_all()
