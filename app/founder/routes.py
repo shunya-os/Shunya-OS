@@ -589,6 +589,51 @@ def api_executive_home_v2():
 
 
 # ---------------------------------------------------------------------------
+# API — Executive Intelligence (Insights, Timeline, Attention)
+# ---------------------------------------------------------------------------
+
+
+@founder_bp.route("/api/v1/founder/insights", methods=["GET"])
+def api_insights():
+    """Return Executive Intelligence: derived insights, attention queue, timeline."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    identity_id = session.get("identity_id")
+    assert identity_id is not None
+    from app.founder.insight_engine import build_insights
+    data = build_insights(identity_id=identity_id)
+    return jsonify({"success": True, "data": data})
+
+
+@founder_bp.route("/api/v1/founder/timeline", methods=["GET"])
+def api_timeline():
+    """Return executive timeline."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    identity_id = session.get("identity_id")
+    assert identity_id is not None
+    from app.founder.insight_engine import build_timeline
+    data = build_timeline(identity_id=identity_id)
+    return jsonify({"success": True, "data": data})
+
+
+@founder_bp.route("/api/v1/founder/insights/<insight_id>/lifecycle", methods=["POST"])
+def api_insight_lifecycle(insight_id: str):
+    """Update insight lifecycle: acknowledge, resolve, dismiss."""
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    data = request.get_json(silent=True) or {}
+    action = data.get("action", "")
+    from app.founder.insight_engine import acknowledge_insight, resolve_insight, dismiss_insight
+    handlers = {"acknowledge": acknowledge_insight, "resolve": resolve_insight, "dismiss": dismiss_insight}
+    handler = handlers.get(action)
+    if not handler:
+        return jsonify({"success": False, "error": f"Unknown action: {action}"}), 400
+    state = handler(insight_id)
+    return jsonify({"success": True, "data": {"insight_id": insight_id, "lifecycle": state}})
+
+
+# ---------------------------------------------------------------------------
 # API — Morning Zero (read-only, transitional)
 # ---------------------------------------------------------------------------
 
