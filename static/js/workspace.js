@@ -431,16 +431,16 @@ const WS = (function() {
     }
 
     if (view === 'object' && id) {
-      var data = await apiFetch('/api/v1/founder/focus/' + id);
+      var data = await apiFetch('/api/v1/founder/workspace/' + id);
       if (data && data.success) {
-        var obj = data.data;
-        state.currentObject = obj;
-        var o = obj.object || {};
-        breadcrumb.innerHTML = '<span onclick="WS.navigate(\'overview\')">SHUNYA</span><span class="sep">/</span><span>' + _escapeHtml(o.name || 'Object') + '</span>';
-        title.textContent = o.name || 'Object';
-        content.innerHTML = _renderObjectView(obj);
-        renderContextForObject(obj);
-        addToRecent(o);
+        var wsData = data.data;
+        state.currentObject = wsData;
+        var summary = wsData.summary || {};
+        breadcrumb.innerHTML = '<span onclick="WS.navigate(\'overview\')">SHUNYA</span><span class="sep">/</span><span class="ws-breadcrumb-obj">' + _escapeHtml(summary.name || 'Object') + '</span>';
+        title.textContent = summary.name || 'Object';
+        content.innerHTML = _renderM4Workspace(wsData);
+        _renderM4Context(wsData);
+        addToRecent(summary);
         closeMobilePanels();
       } else {
         content.innerHTML = '<div class="ws-empty"><div class="ws-empty-icon">\u25C8</div><div class="ws-empty-title">Object not found</div></div>';
@@ -466,6 +466,187 @@ const WS = (function() {
     }
   }
 
+  // ─── M4 Intelligent Workspace Renderer ───
+  function _renderM4Workspace(ws) {
+    if (!ws || ws.error) return '<div class="ws-empty"><div class="ws-empty-icon">\u25C8</div><div class="ws-empty-title">Workspace not available</div></div>';
+
+    var summary = ws.summary || {};
+    var ai = ws.ai_understanding || {};
+    var rel = ws.relationships || {groups:[]};
+    var tl = ws.timeline || [];
+    var conv = ws.conversation || {};
+    var actions = ws.next_actions || [];
+    var gaps = ws.missing_context || [];
+    var health = ws.health || {};
+    var ev = ws.evidence || [];
+
+    var healthColor = health.label === 'healthy' ? '#51cf66' : health.label === 'needs_attention' ? '#fab005' : '#ff6b6b';
+
+    var html = '';
+
+    // ─── 1. Workspace Summary ───
+    html += '<div class="ws-panel ws-mb-md"><div class="ws-panel-header"><span>Executive Summary</span>' +
+      '<span class="ws-badge" style="background:' + healthColor + ';color:#fff;font-size:10px;">' + _escapeHtml(health.label || 'unknown') + '</span></div>' +
+      '<div class="ws-body ws-small">' +
+      '<div class="ws-flex ws-gap-md ws-mb-sm"><span><strong>Status:</strong> ' + _escapeHtml(summary.status || 'active') + '</span>' +
+      '<span><strong>Type:</strong> ' + _escapeHtml(summary.object_type || 'unknown') + '</span>' +
+      (summary.space_name ? '<span><strong>Space:</strong> ' + _escapeHtml(summary.space_name) + '</span>' : '') + '</div>' +
+      '<div class="ws-flex ws-gap-md ws-mb-sm"><span><strong>Created:</strong> ' + (summary.created_at ? new Date(summary.created_at).toLocaleDateString() : 'unknown') + '</span>' +
+      '<span><strong>Activity:</strong> ' + _escapeHtml(summary.activity_label || '') + '</span></div>' +
+      (summary.created_by ? '<div><strong>Owner:</strong> ' + _escapeHtml(summary.created_by.slice(0, 20)) + '</div>' : '') +
+      (summary.significance ? '<div class="ws-text-tertiary ws-mt-sm">' + _escapeHtml(summary.significance) + '</div>' : '') +
+      '</div></div>';
+
+    // ─── 2. AI Understanding ───
+    html += '<div class="ws-panel ws-mb-md"><div class="ws-panel-header"><span>AI Understanding</span>' +
+      '<span class="ws-tiny" style="color:' + (ai.confidence && ai.confidence.score >= 0.7 ? '#51cf66' : '#fab005') + ';">confidence: ' + (ai.confidence ? ai.confidence.score : '0') + '</span></div>' +
+      '<div class="ws-body ws-small">' +
+      '<div class="ws-mb-sm"><strong>What is this?</strong><br>' + _escapeHtml(ai.what_is || 'Awaiting context') + '</div>' +
+      '<div class="ws-mb-sm"><strong>Why does it exist?</strong><br>' + _escapeHtml(ai.why_exists || 'Unknown') + '</div>' +
+      '<div class="ws-mb-sm"><strong>Current Understanding</strong><br>' + _escapeHtml(ai.current_understanding || 'Observing...') + '</div>';
+
+    if (ai.missing_information && ai.missing_information.length) {
+      html += '<div class="ws-mb-sm"><strong>Information Gaps</strong><br>' +
+        ai.missing_information.map(function(m) {
+          return '<div class="ws-text-tertiary ws-mb-xs">- ' + _escapeHtml(m.description) + '</div>';
+        }).join('') + '</div>';
+    }
+
+    html += '<div class="ws-text-tertiary">Confidence factors: ' + ((ai.confidence && ai.confidence.factors) || []).join(', ') + '</div>' +
+      '</div></div>';
+
+    // ─── 3. Relationship Intelligence ───
+    if (rel.groups && rel.groups.length) {
+      html += '<div class="ws-panel ws-mb-md"><div class="ws-panel-header"><span>Relationships</span></div><div class="ws-body">';
+      rel.groups.forEach(function(group) {
+        html += '<div class="ws-mb-sm"><div class="ws-section-label">' + _escapeHtml(group.group_label || '') + ' (' + group.items.length + ')</div>';
+        group.items.forEach(function(item) {
+          html += '<div class="ws-list-item" onclick="WS.navigate(\'object\',\'' + item.object_id + '\')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;">' +
+            '<span>' + (item.icon || '\uD83D\uDCE6') + '</span>' +
+            '<div style="flex:1"><div class="ws-list-item-title">' + _escapeHtml(item.name) + '</div>' +
+            '<div class="ws-text-tertiary" style="font-size:11px;">' + _escapeHtml(item.subtitle || item.type) + '</div></div>' +
+            '<span class="ws-text-faint">\u2192</span></div>';
+        });
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    // ─── 4. Activity Timeline ───
+    if (tl.length) {
+      html += '<div class="ws-panel ws-mb-md"><div class="ws-panel-header"><span>Activity Timeline</span>' +
+        '<span class="ws-tiny ws-text-faint">' + tl.length + ' events</span></div><div class="ws-body ws-small">';
+      tl.slice(0, 10).forEach(function(e) {
+        var importanceIcon = e.importance === 'system' ? '\u2699' : e.importance === 'high' ? '\u25B6' : '\u25CB';
+        html += '<div class="ws-flex ws-gap-sm ws-mb-xs" style="align-items:flex-start;">' +
+          '<span class="ws-mono" style="font-size:10px;color:var(--ws-text-tertiary);min-width:60px;">' + (e.created_at ? new Date(e.created_at).toLocaleDateString() : '') + '</span>' +
+          '<span class="ws-mono" style="font-size:10px;color:var(--ws-text-tertiary);min-width:50px;">' + (e.created_at ? new Date(e.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '') + '</span>' +
+          '<span>' + importanceIcon + '</span>' +
+          '<div><strong>' + _escapeHtml(e.title) + '</strong>' +
+          (e.detail ? '<div class="ws-text-tertiary">' + _escapeHtml(e.detail.slice(0, 120)) + '</div>' : '') + '</div></div>';
+      });
+      if (tl.length > 10) html += '<div class="ws-text-center ws-text-faint ws-tiny">+' + (tl.length - 10) + ' more events</div>';
+      html += '</div></div>';
+    }
+
+    // ─── 5. Conversation Workspace ───
+    html += '<div class="ws-panel ws-mb-md"><div class="ws-panel-header"><span>Conversation</span>' +
+      (conv.conversation ? '<span class="ws-tiny ws-text-faint">' + (conv.messages || []).length + ' messages</span>' : '') + '</div>' +
+      '<div class="ws-body ws-small">';
+    if (conv.messages && conv.messages.length) {
+      conv.messages.slice(-6).forEach(function(m) {
+        var role = m.role === 'human' ? 'You' : 'SHUNYA';
+        var cls = m.role === 'human' ? 'ws-badge-info' : 'ws-badge-gold';
+        html += '<div class="ws-mb-sm"><span class="ws-badge ' + cls + '" style="font-size:10px;padding:1px 6px;">' + role + '</span> ' + _escapeHtml(m.content.slice(0, 200)) + '</div>';
+      });
+      if (conv.messages.length > 6) html += '<div class="ws-text-center ws-text-faint ws-tiny">+' + (conv.messages.length - 6) + ' more messages</div>';
+    } else {
+      html += '<div class="ws-text-tertiary">No conversation yet. Start a discussion to help SHUNYA understand this object.</div>';
+    }
+    html += '</div></div>';
+
+    // ─── 6. Next Actions ───
+    html += '<div class="ws-panel ws-mb-md"><div class="ws-panel-header"><span>Next Actions</span></div><div class="ws-body ws-small">';
+    var pendingActions = actions.filter(function(a) { return a.status === 'pending'; });
+    if (pendingActions.length) {
+      pendingActions.forEach(function(a) {
+        var prioColor = a.priority === 'high' || a.priority === 'urgent' ? '#ff6b6b' : a.priority === 'medium' ? '#fab005' : '#51cf66';
+        html += '<div class="ws-mb-sm" style="padding:6px 0;border-bottom:1px solid var(--ws-border);">' +
+          '<div class="ws-flex ws-gap-sm" style="align-items:center;"><span style="width:6px;height:6px;border-radius:50%;background:' + prioColor + ';display:inline-block;"></span>' +
+          '<strong>' + _escapeHtml(a.label) + '</strong>' +
+          '<span class="ws-tiny ws-text-faint">(' + _escapeHtml(a.priority) + ')</span></div>' +
+          '<div class="ws-text-tertiary" style="font-size:11px;margin-left:14px;">' + _escapeHtml(a.explanation.slice(0, 150)) + '</div></div>';
+      });
+    } else {
+      html += '<div class="ws-text-tertiary">All actions completed for this object.</div>';
+    }
+    html += '</div></div>';
+
+    // ─── 7. Missing Context ───
+    if (gaps.length) {
+      html += '<div class="ws-panel ws-mb-md"><div class="ws-panel-header"><span>Missing Context</span>' +
+        '<span class="ws-tiny ws-text-faint">' + gaps.length + ' opportunities</span></div><div class="ws-body ws-small">';
+      gaps.forEach(function(g) {
+        var sevColor = g.severity === 'recommendation' ? '#fab005' : g.severity === 'suggestion' ? '#4dabf7' : '#adb5bd';
+        html += '<div class="ws-flex ws-gap-sm ws-mb-xs" style="align-items:flex-start;">' +
+          '<span style="width:6px;height:6px;border-radius:50%;background:' + sevColor + ';display:inline-block;margin-top:6px;"></span>' +
+          '<div><strong>' + _escapeHtml(g.label) + '</strong><br><span class="ws-text-tertiary">' + _escapeHtml(g.detail) + '</span></div></div>';
+      });
+      html += '</div></div>';
+    }
+
+    // ─── 8. Workspace Health ───
+    html += '<div class="ws-panel ws-mb-md"><div class="ws-panel-header"><span>Workspace Health</span>' +
+      '<span style="color:' + healthColor + ';font-weight:600;">' + (health.overall_score ? (health.overall_score * 100).toFixed(0) + '%' : 'N/A') + '</span></div>' +
+      '<div class="ws-body ws-small">' +
+      '<div class="ws-flex ws-gap-md ws-mb-sm">';
+    var dims = health.breakdown || {};
+    Object.keys(dims).forEach(function(d) {
+      var score = dims[d] ? dims[d].score || 0 : 0;
+      var dimColor = score >= 0.7 ? '#51cf66' : score >= 0.4 ? '#fab005' : '#ff6b6b';
+      html += '<div style="flex:1;text-align:center;padding:6px;border-radius:6px;background:var(--ws-surface-alt);">' +
+        '<div style="font-size:18px;font-weight:700;color:' + dimColor + ';">' + (score * 100).toFixed(0) + '%</div>' +
+        '<div class="ws-text-tertiary" style="font-size:10px;">' + d.charAt(0).toUpperCase() + d.slice(1) + '</div></div>';
+    });
+    html += '</div>' + (health.description ? '<div class="ws-text-tertiary">' + _escapeHtml(health.description) + '</div>' : '') +
+      '</div></div>';
+
+    // ─── 9. Evidence Explorer ───
+    if (ev.length) {
+      html += '<div class="ws-panel ws-mb-md"><div class="ws-panel-header"><span>Evidence Explorer</span>' +
+        '<span class="ws-tiny ws-text-faint">' + ev.length + ' entries</span></div><div class="ws-body ws-small">';
+      ev.forEach(function(e) {
+        html += '<div class="ws-flex ws-gap-sm ws-mb-xs" style="padding:4px 0;">' +
+          '<span style="font-size:10px;color:var(--ws-text-tertiary);min-width:50px;">' + _escapeHtml(e.source_type || '') + '</span>' +
+          '<div><div>' + _escapeHtml(e.statement || '') + '</div>' +
+          '<div class="ws-mono ws-text-faint" style="font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px;">' + _escapeHtml(e.provenance || '') + '</div></div></div>';
+      });
+      html += '</div></div>';
+    }
+
+    return html;
+  }
+
+  function _renderM4Context(ws) {
+    var el = document.getElementById('ws-context-body');
+    if (!el) return;
+    var summary = ws.summary || {};
+    var health = ws.health || {};
+    var ai = ws.ai_understanding || {};
+
+    var healthColor = health.label === 'healthy' ? '#51cf66' : health.label === 'needs_attention' ? '#fab005' : '#ff6b6b';
+
+    el.innerHTML = '<div class="ws-panel"><div class="ws-panel-header"><span>Workspace Context</span></div><div class="ws-body ws-small ws-text-secondary">' +
+      '<div class="ws-mb-sm"><strong>' + _escapeHtml(summary.name || 'Object') + '</strong></div>' +
+      '<div class="ws-mb-xs">\u00B7 <strong>Type:</strong> ' + _escapeHtml(summary.object_type || 'unknown') + '</div>' +
+      '<div class="ws-mb-xs">\u00B7 <strong>Status:</strong> ' + _escapeHtml(summary.status || 'active') + '</div>' +
+      (summary.space_name ? '<div class="ws-mb-xs">\u00B7 <strong>Space:</strong> ' + _escapeHtml(summary.space_name) + '</div>' : '') +
+      '<div class="ws-mb-xs">\u00B7 <strong>Health:</strong> <span style="color:' + healthColor + ';">' + (health.overall_score ? (health.overall_score * 100).toFixed(0) + '%' : 'N/A') + '</span></div>' +
+      (ai.confidence ? '<div class="ws-mb-xs">\u00B7 <strong>AI Confidence:</strong> ' + ai.confidence.score : '') +
+      '<div style="border-top:1px solid var(--ws-border);margin-top:8px;padding-top:8px;">' +
+      '<div class="ws-mb-xs ws-text-tertiary">Quick Actions</div>' +
+      '<button class="ws-btn ws-btn-ghost ws-btn-sm" style="width:100%;justify-content:flex-start;margin-bottom:4px;" onclick="document.getElementById(\'ws-main-content\').querySelector(\'.ws-panel\').scrollIntoView({behavior:\'smooth\'})">To Summary</button>' +
+      '</div></div></div>';
   function _renderObjectView(obj) {
     var o = obj.object || {};
     var messages = obj.messages || [];
