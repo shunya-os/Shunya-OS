@@ -3,6 +3,8 @@
 > **Phase L · System Convergence & Operating System Unification**
 > **Status: CANONICAL — This document is the governing constitution for all SHUNYA OS development.**
 > **Version: 1.0**
+> **Governed By: [SHUNYA Constitution](../docs/canon/02_shunya_constitution.md) — This document operates within the SHUNYA Constitution's framework. No article herein may contradict the SHUNYA Constitution.**
+> **Governance Authority: [SHUNYA Governance Model](../governance/SHUNYA_GOVERNANCE_MODEL.md) — Amendment process, conflict resolution, and role definitions are governed by the Governance Model.**
 
 ---
 

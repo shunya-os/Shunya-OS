@@ -42,7 +42,10 @@ This directory contains the complete canonical architecture of SHUNYA. These 13 
 | 09 | [09_repository_canon.md](09_repository_canon.md) | ✓ Phase C1A | Derived from 00, 03, 05, 07, 08 — repository structure as architectural consequence |
 | 10 | [10_migration_canon.md](10_migration_canon.md) | ✓ Complete | Derived from 06 (§9) + 09 — 6-phase strangler fig migration strategy |
 | 11 | [11_engineering_canon.md](11_engineering_canon.md) | ✓ Complete | Derived from all — coding/testing/CI-CD/security/observability/release standards |
-| 12 | [12_launch_roadmap.md](12_launch_roadmap.md) | ✓ Complete | 7 milestones from Phase C1 to SHUNYA v1.0 |
+|| 12 | [12_launch_roadmap.md](12_launch_roadmap.md) | ✓ Complete | 7 milestones from Phase C1 to SHUNYA v1.0 (SUPERSEDED by 13) |
+||| 13 | [SHUNYA_FOUNDER_EXPERIENCE_ROADMAP_v1.0.md](SHUNYA_FOUNDER_EXPERIENCE_ROADMAP_v1.0.md) | ✓ GOVERNING | Founder Experience Roadmap v1.0 — 10 milestones, production readiness stages, definitive execution plan |
+||| 14 | [14_product_constitution.md](14_product_constitution.md) | ✓ NEW | Product Constitution — Universal Founder Experience & Intelligence Specification, 12 sections, 57 measurable requirements, automated routing, knowledge priority, output generation, action classification, certification |
+||| 15 | [15_product_completion_checklist.md](15_product_completion_checklist.md) | ✓ NEW | Executable certification checklist — 81 pass/fail requirements tracking progress toward Product Constitution compliance |
 
 ---
 
@@ -79,6 +82,21 @@ This directory contains the complete canonical architecture of SHUNYA. These 13 
     00 — for ontological definitions
     01 — for vision alignment
     02 — for constitutional compliance
+```
+
+### Product Constitution Documents
+
+```
+01 (Vision) ──── the "why" — governs all
+    │
+    ▼
+02 (Constitution) ──── binding constraints — derived from 01
+    │
+    ▼
+14 (Product Constitution) ──── Founder Experience & Intelligence — derived from 02
+    │
+    ▼
+15 (Completion Checklist) ──── executable certification test of 14
 ```
 
 ---
@@ -123,9 +141,11 @@ This directory contains the complete canonical architecture of SHUNYA. These 13 
 7. **Layer separation**: core/ → intelligence/ → experience/ → domains/
 8. **No domain-specific code in core** — travel, healthcare, finance are domain surfaces
 9. **Event-driven, append-only timeline** — trust through immutability
-10. **AI as collaborator, not replacement** — always suggests, never decides
-11. **Calm as default** — 70/20/10 rule, progressive disclosure
-12. **Object-first experience** — navigation, workspace, and relationships define the UX
+12. **AI as collaborator, not replacement** — always suggests, never decides
+13. **Calm as default** — 70/20/10 rule, progressive disclosure
+14. **Object-first experience** — navigation, workspace, and relationships define the UX
+15. **Single intelligence surface** — all capabilities accessible through natural language, automatically orchestrated (14)
+16. **Measurable certification** — 81 requirements trackable as pass/fail per release (15)
 
 ### What This Architecture Does Not Yet Define
 

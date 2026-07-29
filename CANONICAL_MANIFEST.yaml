@@ -1,1282 +1,1163 @@
-# SHUNYA Canonical Manifest
-# Part of the Canonical Repository & Knowledge Runtime Directive
-# Every artifact receives a permanent identifier. Identifiers never change.
-# ============================================================================
-# Format: each entry has id, name, type, path, description, status, authority
+# SHUNYA OS — Canonical Artifact Manifest
+# Every canonical artifact in the SHUNYA OS repository with permanent IDs.
+# Authority: SHUNYA Constitution (CONST-I), SHUNYA Engineering Constitution (CONST-II)
+# Last updated: 2026-07-28
 
-manifest_version: "1.0"
-generated: "2026-07-28"
-repository: "shunya-os/Shunya-OS"
+manifest:
+  version: "1.0"
+  repository: "shunya_os"
+  root: "."
 
 artifacts:
-  # ── CONSTITUTIONAL VOLUMES ────────────────────────────────────────────────
+
+  # ============================================================================
+  # CONSTITUTIONAL VOLUMES
+  # ============================================================================
   - id: CONST-I
-    name: "First Principles"
+    name: "SHUNYA Constitution v1.0"
     type: constitutional-volume
-    path: "constitution/FIRST_PRINCIPLES.md"
-    description: "13 axioms from which all constitutional law derives"
+    path: constitution/SHUNYA_CONSTITUTION.md
+    description: "Volume II — The SHUNYA Constitution. Foundational governing document establishing human-first principles, 12 articles, system obligations, and prohibited behaviors."
     status: candidate-for-founder-review
-    authority: "Self-evident (foundational axioms)"
+    authority: "SHUNYA Constitutional Program"
 
   - id: CONST-II
-    name: "SHUNYA Constitution"
+    name: "SHUNYA Engineering Constitution"
     type: constitutional-volume
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "9 articles, 10 engines, 17 protected guarantees"
-    status: candidate-for-founder-review
-    authority: "CONST-I (Principles I–XIII)"
+    path: governance/SHUNYA_ENGINEERING_CONSTITUTION.md
+    description: "Engineering constitution derived from the SHUNYA Constitution. Ratified under Governance Freeze 01. Governs all engineering practices."
+    status: ratified
+    authority: "SHUNYA Constitution (CONST-I)"
 
   - id: CONST-III
-    name: "Canonical Definitions"
+    name: "First Principles"
     type: constitutional-volume
-    path: "constitution/CANONICAL_DEFINITIONS.md"
-    description: "31 definitions, glossary, cross-reference mapping"
+    path: constitution/FIRST_PRINCIPLES.md
+    description: "Volume I — First Principles. The foundational axioms and philosophical underpinnings of the SHUNYA system."
     status: candidate-for-founder-review
-    authority: "CONST-II (Art. VI), CONST-I (Principles VI, XI)"
+    authority: "SHUNYA Constitutional Program"
 
   - id: CONST-IV
-    name: "Constitutional Compliance"
+    name: "Canonical Definitions"
     type: constitutional-volume
-    path: "constitution/CONSTITUTIONAL_COMPLIANCE.md"
-    description: "6 articles, violation classification, audit process, CAP"
+    path: constitution/CANONICAL_DEFINITIONS.md
+    description: "Volume III — Canonical Definitions. Defines every term used across the SHUNYA constitutional program."
     status: candidate-for-founder-review
-    authority: "CONST-II (Art. IX), CONST-I (Principles VIII, XII)"
+    authority: "SHUNYA Constitutional Program"
 
   - id: CONST-V
-    name: "Hermes Implementation Charter"
-    type: constitutional-volume
-    path: "constitution/HERMES_IMPLEMENTATION_CHARTER.md"
-    description: "9 articles, implementation obligations, compliance checklist"
-    status: candidate-for-founder-review
-    authority: "CONST-I (Principles V, VII, VIII)"
-
-  - id: CONST-META
     name: "Constitutional Metadata"
     type: constitutional-volume
-    path: "constitution/CONSTITUTIONAL_METADATA.md"
-    description: "Document inventory, table of contents, cross-references, amendment history"
+    path: constitution/CONSTITUTIONAL_METADATA.md
+    description: "Constitutional metadata — version tracking, amendment history, and document lineage for the SHUNYA Constitution."
     status: candidate-for-founder-review
-    authority: "CONST-II (Preamble)"
+    authority: "SHUNYA Constitutional Program"
 
-  # ── ENGINES ───────────────────────────────────────────────────────────────
+  # ============================================================================
+  # ENGINES (Implementation)
+  # ============================================================================
   - id: ENG-OBS
     name: "Observer Engine"
     type: engine
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "Perception and event detection"
-    status: ratified
-    authority: "CONST-II §3.1(1), CONST-I Principle III"
-
-  - id: ENG-MEM
-    name: "Memory Engine"
-    type: engine
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "Experience storage and recall"
-    status: ratified
-    authority: "CONST-II §3.1(2), CONST-I Principles III, IX"
+    path: core/cognitive_runtime/
+    description: "Observer Engine (Cognitive Runtime). Perception and observation subsystem — monitors system state, user activity, and external signals."
+    status: active
+    authority: "ES-006 (Observer Engine Spec)"
 
   - id: ENG-KNW
     name: "Knowledge Engine"
     type: engine
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "Structured fact and relationship management"
-    status: ratified
-    authority: "CONST-II §3.1(3), CONST-I Principles III, V"
+    path: core/memory_knowledge_runtime/
+    description: "Knowledge Engine (Memory Knowledge Runtime). Storage, retrieval, and organization of knowledge, memories, and learned information."
+    status: active
+    authority: "ES-002 (Knowledge Engine Spec)"
 
   - id: ENG-RSN
-    name: "Reasoner Engine"
+    name: "Reasoning Engine"
     type: engine
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "Inference, deduction, and analysis"
-    status: ratified
-    authority: "CONST-II §3.1(4), CONST-I Principle III"
-
-  - id: ENG-SIM
-    name: "Simulation Engine"
-    type: engine
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "Counterfactual generation, scenario evaluation, outcome prediction"
-    status: ratified (CAP-01)
-    authority: "CONST-II §3.7, CONST-I Principle XIII"
+    path: core/intelligence/reasoning/
+    description: "Reasoning Engine. Logical inference, deduction, and structured reasoning capabilities."
+    status: active
+    authority: "ES-003 (Reasoning Engine Spec)"
 
   - id: ENG-PLN
     name: "Planner Engine"
     type: engine
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "Strategy and goal decomposition"
-    status: ratified
-    authority: "CONST-II §3.1(6), CONST-I Principle III"
+    path: core/planning_runtime/
+    description: "Planner Engine (Planning Runtime). Goal decomposition, task sequencing, and plan generation."
+    status: active
+    authority: "ES-004 (Planner Engine Spec)"
 
-  - id: ENG-EXC
-    name: "Executive Engine"
+  - id: ENG-EXE
+    name: "Executor Engine"
     type: engine
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "Action authorization and execution"
-    status: ratified
-    authority: "CONST-II §3.1(7), CONST-I Principle VII"
+    path: core/execution_runtime/
+    description: "Executor Engine (Execution Runtime). Plan execution, action dispatch, and step orchestration."
+    status: active
+    authority: "ES-005 (Executor Engine Spec)"
 
-  - id: ENG-EVL
-    name: "Evaluator Engine"
+  - id: ENG-CNTXT
+    name: "Context Fusion Engine"
     type: engine
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "Confidence computation and outcome assessment"
-    status: ratified
-    authority: "CONST-II §3.1(8), CONST-I Principle III"
+    path: core/intelligence/context_assembly/
+    description: "Context Fusion Engine. Multi-source context assembly — merges signals from perception, memory, and reasoning into coherent context."
+    status: active
+    authority: "ES-009 (Context Fusion Engine Spec)"
+
+  - id: ENG-DOC
+    name: "Doctor Engine"
+    type: engine
+    path: core/validation/
+    description: "Doctor Engine (Validation). Validation, self-diagnosis, and system health monitoring."
+    status: active
+    authority: "ES-008 (Doctor Engine Spec)"
 
   - id: ENG-LRN
-    name: "Learner Engine"
+    name: "Learning Engine"
     type: engine
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "Experience consolidation and improvement"
-    status: ratified
-    authority: "CONST-II §3.1(9), CONST-I Principle III"
+    path: core/intelligence/learning/
+    description: "Learning Engine. Experience-driven learning, pattern discovery, and capability improvement."
+    status: active
+    authority: "ES-007 (Learning Engine Spec)"
+
+  - id: ENG-DEC
+    name: "Decision Engine"
+    type: engine
+    path: core/intelligence/decision/
+    description: "Decision Engine. Decision-making under uncertainty, preference-based selection, and multi-criteria evaluation."
+    status: active
+    authority: "SHUNYA Constitution (CONST-I)"
 
   - id: ENG-GOV
     name: "Governance Engine"
     type: engine
-    path: "constitution/SHUNYA_CONSTITUTION.md"
-    description: "Policy enforcement and constitutional compliance"
-    status: ratified
-    authority: "CONST-II §3.1(10), §9.1, CONST-I Principle VIII"
+    path: governance/
+    description: "Governance Engine. Constitutional compliance, governance enforcement, and policy-driven system control."
+    status: active
+    authority: "ES-001 (Governance Engine Spec)"
 
-  # ── ENGINE SPECS ──────────────────────────────────────────────────────────
+  # ============================================================================
+  # ENGINE SPECS
+  # ============================================================================
   - id: ES-001
-    name: "Governance Engine Specification"
+    name: "ES-001: Governance Engine Spec"
     type: engine-spec
-    path: "governance/engine_specs/ES-001-GOVERNANCE-ENGINE.md"
-    description: "Policy registry, enforcement, audit"
+    path: governance/engine_specs/ES-001-GOVERNANCE-ENGINE.md
+    description: "Engine specification for the Governance Engine. Defines constitutional compliance, policy enforcement, and governance controls."
     status: draft
-    authority: "ENG-GOV, CONST-II §9"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ES-002
-    name: "Knowledge Engine Specification"
+    name: "ES-002: Knowledge Engine Spec"
     type: engine-spec
-    path: "governance/engine_specs/ES-002-KNOWLEDGE-ENGINE.md"
-    description: "Knowledge stores, fact management, evidence"
+    path: governance/engine_specs/ES-002-KNOWLEDGE-ENGINE.md
+    description: "Engine specification for the Knowledge Engine. Defines knowledge storage, retrieval, and organization."
     status: draft
-    authority: "ENG-KNW, CONST-II §3"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ES-003
-    name: "Reasoning Engine Specification"
+    name: "ES-003: Reasoning Engine Spec"
     type: engine-spec
-    path: "governance/engine_specs/ES-003-REASONING-ENGINE.md"
-    description: "Inference rules, deduction, evidence chains"
+    path: governance/engine_specs/ES-003-REASONING-ENGINE.md
+    description: "Engine specification for the Reasoning Engine. Defines inference, deduction, and reasoning capabilities."
     status: draft
-    authority: "ENG-RSN, CONST-II §3"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ES-004
-    name: "Planner Engine Specification"
+    name: "ES-004: Planner Engine Spec"
     type: engine-spec
-    path: "governance/engine_specs/ES-004-PLANNER-ENGINE.md"
-    description: "Goal decomposition, strategy, planning"
+    path: governance/engine_specs/ES-004-PLANNER-ENGINE.md
+    description: "Engine specification for the Planner Engine. Defines goal decomposition, task sequencing, and plan generation."
     status: draft
-    authority: "ENG-PLN, CONST-II §3"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ES-005
-    name: "Executor Engine Specification"
+    name: "ES-005: Executor Engine Spec"
     type: engine-spec
-    path: "governance/engine_specs/ES-005-EXECUTOR-ENGINE.md"
-    description: "Action execution, authorization"
+    path: governance/engine_specs/ES-005-EXECUTOR-ENGINE.md
+    description: "Engine specification for the Executor Engine. Defines action dispatch, execution, and step orchestration."
     status: draft
-    authority: "ENG-EXC, CONST-II §7"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ES-006
-    name: "Observer Engine Specification"
+    name: "ES-006: Observer Engine Spec"
     type: engine-spec
-    path: "governance/engine_specs/ES-006-OBSERVER-ENGINE.md"
-    description: "Event detection, perception"
+    path: governance/engine_specs/ES-006-OBSERVER-ENGINE.md
+    description: "Engine specification for the Observer Engine. Defines perception, monitoring, and observation capabilities."
     status: draft
-    authority: "ENG-OBS, CONST-II §3"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ES-007
-    name: "Learning Engine Specification"
+    name: "ES-007: Learning Engine Spec"
     type: engine-spec
-    path: "governance/engine_specs/ES-007-LEARNING-ENGINE.md"
-    description: "Experience consolidation, pattern improvement"
+    path: governance/engine_specs/ES-007-LEARNING-ENGINE.md
+    description: "Engine specification for the Learning Engine. Defines learning, pattern discovery, and adaptation."
     status: draft
-    authority: "ENG-LRN, CONST-II §3.6"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ES-008
-    name: "Doctor Engine Specification"
+    name: "ES-008: Doctor Engine Spec"
     type: engine-spec
-    path: "governance/engine_specs/ES-008-DOCTOR-ENGINE.md"
-    description: "System health diagnostics"
+    path: governance/engine_specs/ES-008-DOCTOR-ENGINE.md
+    description: "Engine specification for the Doctor Engine. Defines validation, self-diagnosis, and system health."
     status: draft
-    authority: "CONST-II §3 (supplementary)"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ES-009
-    name: "Context Fusion Engine Specification"
+    name: "ES-009: Context Fusion Engine Spec"
     type: engine-spec
-    path: "governance/engine_specs/ES-009-CONTEXT-FUSION-ENGINE.md"
-    description: "Context assembly and fusion"
+    path: governance/engine_specs/ES-009-CONTEXT-FUSION-ENGINE.md
+    description: "Engine specification for the Context Fusion Engine. Defines multi-source context assembly."
     status: draft
-    authority: "CONST-II §3 (supplementary)"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ES-010
-    name: "Identity Engine Specification"
+    name: "ES-010: Identity Engine Spec"
     type: engine-spec
-    path: "governance/engine_specs/ES-010-IDENTITY-ENGINE.md"
-    description: "Identity management, resolution"
+    path: governance/engine_specs/ES-010-IDENTITY-ENGINE.md
+    description: "Engine specification for the Identity Engine. Defines identity, authentication, and authorization."
     status: draft
-    authority: "CONST-II §4"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
-  # ── CORE RUNTIMES ─────────────────────────────────────────────────────────
+  # ============================================================================
+  # RUNTIMES
+  # ============================================================================
   - id: RUNTIME-KRNL
     name: "Kernel Runtime"
     type: runtime
-    path: "core/kernel/"
-    description: "Identity, object primitives, relationships, state, types"
+    path: core/kernel/
+    description: "Core kernel runtime — system bootstrap, service lifecycle, inter-process communication, and foundational OS services."
     status: active
-    authority: "CONST-II §5.4"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: RUNTIME-COG
     name: "Cognitive Runtime"
     type: runtime
-    path: "core/cognitive_runtime/"
-    description: "10-engine orchestration within cognitive layer"
+    path: core/cognitive_runtime/
+    description: "Cognitive Runtime — perception, observation, and cognitive processing orchestration."
     status: active
-    authority: "CONST-II §3.1, §5.2"
+    authority: "CANON-COG (Cognitive Runtime Canon)"
 
   - id: RUNTIME-EXEC
     name: "Execution Runtime"
     type: runtime
-    path: "core/execution_runtime/"
-    description: "Commitments, tasks, workflows"
+    path: core/execution_runtime/
+    description: "Execution Runtime — plan execution, action dispatch, workflow orchestration."
     status: active
-    authority: "CONST-II §7"
+    authority: "CANON-EXEC (Execution Runtime Canon)"
 
-  - id: RUNTIME-INTEG
-    name: "Integration Runtime"
+  - id: RUNTIME-PLN
+    name: "Planning Runtime"
     type: runtime
-    path: "core/integration_runtime/"
-    description: "External connectors, adapters"
+    path: core/planning_runtime/
+    description: "Planning Runtime — goal decomposition, plan generation, task scheduling."
     status: active
-    authority: "CONST-II §5.2"
+    authority: "CANON-PLN (Planning Runtime Canon)"
 
   - id: RUNTIME-MEM
     name: "Memory Knowledge Runtime"
     type: runtime
-    path: "core/memory_knowledge_runtime/"
-    description: "Memory and knowledge store orchestration"
+    path: core/memory_knowledge_runtime/
+    description: "Memory Knowledge Runtime — knowledge storage, memory management, semantic retrieval."
     status: active
-    authority: "CONST-II §3.1(2,3)"
-
-  - id: RUNTIME-PLAN
-    name: "Planning Runtime"
-    type: runtime
-    path: "core/planning_runtime/"
-    description: "Planning pipeline orchestration"
-    status: active
-    authority: "CONST-II §3.1(6)"
+    authority: "CANON-MEM (Memory Knowledge Runtime Canon)"
 
   - id: RUNTIME-AUTO
     name: "Automation Event Runtime"
     type: runtime
-    path: "core/automation_runtime/"
-    description: "Event-driven automation pipeline"
+    path: core/automation_runtime/
+    description: "Automation Event Runtime — event-driven automation, triggers, and reactive workflows."
     status: active
-    authority: "CONST-II §7"
+    authority: "CANON-AUTO (Automation Event Runtime Canon)"
+
+  - id: RUNTIME-INT
+    name: "Integration Runtime"
+    type: runtime
+    path: core/integration_runtime/
+    description: "Integration Runtime — external system connectors, protocol adapters, data transformation."
+    status: active
+    authority: "CANON-INT (Integration Runtime Canon)"
 
   - id: RUNTIME-WS
     name: "Workspace Runtime"
     type: runtime
-    path: "core/workspace_runtime/"
-    description: "Workspace model and orchestration"
+    path: core/workspace_runtime/
+    description: "Workspace Runtime — workspace lifecycle management, session orchestration, user workspace state."
     status: active
-    authority: "CONST-II §5.2"
+    authority: "CANON-UX-19 (Workspace Runtime UX Canon)"
 
-  - id: RUNTIME-PROJ
-    name: "Projection Runtime"
+  - id: RUNTIME-PRJ
+    name: "Projection Engine"
     type: runtime
-    path: "core/projection/"
-    description: "Simulation/projection engine"
+    path: core/projection/
+    description: "Projection Engine — data projection, view computation, and cache management."
     status: active
-    authority: "CONST-II §3.7"
-
-  - id: RUNTIME-PIPE
-    name: "Runtime Pipeline"
-    type: runtime
-    path: "core/runtime_pipeline/"
-    description: "Canonical stages pipeline, orchestrator"
-    status: active
-    authority: "CONST-II §5.2"
-
-  - id: RUNTIME-EVID
-    name: "Evidence Runtime"
-    type: runtime
-    path: "core/evidence/"
-    description: "Evidence chain management"
-    status: active
-    authority: "CONST-II §2.3"
-
-  - id: RUNTIME-EVENT
-    name: "Event Runtime"
-    type: runtime
-    path: "core/event/"
-    description: "Event bus, event processing"
-    status: active
-    authority: "CONST-II §5.5"
-
-  - id: RUNTIME-ID
-    name: "Identity Runtime"
-    type: runtime
-    path: "core/identity/"
-    description: "Identity engine, identity store"
-    status: active
-    authority: "CONST-II §4"
-
-  - id: RUNTIME-INTEL
-    name: "Intelligence Runtime"
-    type: runtime
-    path: "core/intelligence/"
-    description: "Perception, reasoning, planning, decision, learning, reflection"
-    status: active
-    authority: "CONST-II §3"
-
-  - id: RUNTIME-REG
-    name: "Registry Runtime"
-    type: runtime
-    path: "core/registry/"
-    description: "Engine and module registry"
-    status: active
-    authority: "CONST-II §5.3"
-
-  - id: RUNTIME-REL
-    name: "Relationship Runtime"
-    type: runtime
-    path: "core/relationship/"
-    description: "Relationship engine"
-    status: active
-    authority: "CONST-II §6.6"
+    authority: "CANON-PRJ (Projection Engine Canon)"
 
   - id: RUNTIME-TL
     name: "Timeline Runtime"
     type: runtime
-    path: "core/timeline/"
-    description: "Timeline engine, temporal tracking"
+    path: core/timeline/
+    description: "Timeline Runtime — temporal sequencing, event ordering, and time-based computations."
     status: active
-    authority: "CONST-II §2.4"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
-  - id: RUNTIME-AUDIT
-    name: "Audit Runtime"
-    type: runtime
-    path: "core/audit/"
-    description: "Audit trail management"
-    status: active
-    authority: "CONST-II §7.5"
-
-  - id: RUNTIME-SEARCH
-    name: "Search Runtime"
-    type: runtime
-    path: "core/search/"
-    description: "Universal search"
-    status: active
-    authority: "CONST-II §3 (supplementary)"
-
-  - id: RUNTIME-STORAGE
-    name: "Storage Runtime"
-    type: runtime
-    path: "core/storage/"
-    description: "Object and event store"
-    status: active
-    authority: "CONST-II §5.2"
-
-  - id: RUNTIME-VALID
-    name: "Validation Runtime"
-    type: runtime
-    path: "core/validation/"
-    description: "Schema validation, constraint checking"
-    status: active
-    authority: "CONST-II §5.3"
-
-  - id: RUNTIME-OS
-    name: "OS Bootstrap"
-    type: runtime
-    path: "core/os.py"
-    description: "System bootstrap and runtime registration"
-    status: active
-    authority: "CONST-II §5"
-
-  # ── ADRs ──────────────────────────────────────────────────────────────────
+  # ============================================================================
+  # ARCHITECTURE DECISION RECORDS (ADRs)
+  # ============================================================================
   - id: ADR-001
-    name: "Event Bus Standard"
+    name: "ADR-001: Event Bus Standard"
     type: adr
-    path: "governance/adr/ADR-001-EVENT-BUS-STANDARD.md"
-    description: "Event bus interface, message format, delivery guarantees"
-    status: proposed
-    authority: "CONST-II §5.5"
+    path: governance/adr/ADR-001-EVENT-BUS-STANDARD.md
+    description: "Architecture Decision Record — Event Bus communication standard. Defines the event-driven messaging backbone."
+    status: ratified
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ADR-002
-    name: "Knowledge Store Transition"
+    name: "ADR-002: Knowledge Store Transition"
     type: adr
-    path: "governance/adr/ADR-002-KNOWLEDGE-STORE-TRANSITION.md"
-    description: "Knowledge layer migration to IKS"
-    status: proposed
-    authority: "CONST-II §3.1(3)"
+    path: governance/adr/ADR-002-KNOWLEDGE-STORE-TRANSITION.md
+    description: "Architecture Decision Record — Knowledge Store transition from relational to hybrid graph/document store."
+    status: ratified
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ADR-003
-    name: "Credential Store Standard"
+    name: "ADR-003: Credential Store Standard"
     type: adr
-    path: "governance/adr/ADR-003-CREDENTIAL-STORE-STANDARD.md"
-    description: "Credential storage, encryption, access patterns"
-    status: proposed
-    authority: "CONST-II §7.2"
+    path: governance/adr/ADR-003-CREDENTIAL-STORE-STANDARD.md
+    description: "Architecture Decision Record — Credential store standard for secure secrets management."
+    status: ratified
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ADR-004
-    name: "Universal Object Contract"
+    name: "ADR-004: Universal Object Contract"
     type: adr
-    path: "architecture/adr/ADR-004-UNIVERSAL-OBJECT-CONTRACT.md"
-    description: "Object protocol, lifecycle, mandatory sections"
-    status: draft
-    authority: "CONST-II §6.4"
+    path: architecture/adr/ADR-004-UNIVERSAL-OBJECT-CONTRACT.md
+    description: "Architecture Decision Record — Universal Object Contract. Defines the foundational object model and contract system."
+    status: ratified
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ADR-005
-    name: "SHUNYA Universal Identity"
+    name: "ADR-005: SHUNYA Universal Identity"
     type: adr
-    path: "architecture/adr/ADR-005-SHUNYA-UNIVERSAL-IDENTITY.md"
-    description: "Identity model, resolution, lifecycle"
-    status: draft
-    authority: "CONST-II §4"
+    path: architecture/adr/ADR-005-SHUNYA-UNIVERSAL-IDENTITY.md
+    description: "Architecture Decision Record — Universal Identity model for the SHUNYA system."
+    status: ratified
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ADR-006
-    name: "Space Architecture"
+    name: "ADR-006: Space Architecture"
     type: adr
-    path: "architecture/adr/ADR-006-SPACE-ARCHITECTURE.md"
-    description: "Workspace/space model, composition"
-    status: draft
-    authority: "CONST-II §5.2"
+    path: architecture/adr/ADR-006-SPACE-ARCHITECTURE.md
+    description: "Architecture Decision Record — Space Architecture. Defines workspace and spatial organization."
+    status: ratified
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: ADR-007
-    name: "Relationship Contract"
+    name: "ADR-007: Relationship Contract"
     type: adr
-    path: "architecture/adr/ADR-007-RELATIONSHIP-CONTRACT.md"
-    description: "Relationship types, lifecycle, constraints"
-    status: draft
-    authority: "CONST-II §6.6"
-
-  # ── DESIGN CANONS ─────────────────────────────────────────────────────────
-  - id: CANON-00
-    name: "Universal Ontology"
-    type: canon
-    path: "docs/canon/00_universal_ontology.md"
-    description: "Universal entity types, relationships, categories"
+    path: architecture/adr/ADR-007-RELATIONSHIP-CONTRACT.md
+    description: "Architecture Decision Record — Relationship Contract. Defines entity relationship model and contract semantics."
     status: ratified
-    authority: "CONST-II §6.6"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
+
+  # ============================================================================
+  # CANONICAL DOCUMENTS (Foundation)
+  # ============================================================================
+  - id: CANON-00
+    name: "Canon 00 — Universal Ontology"
+    type: canon
+    path: docs/canon/00_universal_ontology.md
+    description: "Foundation canons — first principles ontology: Entity, Identity, Object, Relationship, State, Event, Observation, Evidence, Decision, Action, Outcome, Knowledge, Memory, Context, Workspace."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-01
-    name: "SHUNYA Vision"
+    name: "Canon 01 — SHUNYA Vision"
     type: canon
-    path: "docs/canon/01_shunya_vision.md"
-    description: "Product vision, mission, principles"
-    status: ratified
-    authority: "CONST-I Principle I"
+    path: docs/canon/01_shunya_vision.md
+    description: "The unchanging 'why' — vision, first principles, compounding intelligence loop, domain independence."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-02
-    name: "SHUNYA Constitution"
+    name: "Canon 02 — SHUNYA Constitution"
     type: canon
-    path: "docs/canon/02_shunya_constitution.md"
-    description: "Constitutional summary for implementers"
-    status: ratified
-    authority: "CONST-II"
+    path: docs/canon/02_shunya_constitution.md
+    description: "Binding principles — 12 articles, human rights, system obligations, prohibited behaviors."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-03
-    name: "Business Canon"
+    name: "Canon 03 — Business Canon"
     type: canon
-    path: "docs/canon/03_business_canon.md"
-    description: "Business-agnostic principles"
-    status: ratified
-    authority: "CONST-II §1.3"
+    path: docs/canon/03_business_canon.md
+    description: "Business model and commercial principles governing SHUNYA operations."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-04
-    name: "Universal Object Protocol"
+    name: "Canon 04 — Universal Object Protocol"
     type: canon
-    path: "docs/canon/04_universal_object_protocol.md"
-    description: "Object protocol specification"
-    status: ratified
-    authority: "CONST-II §6.4"
+    path: docs/canon/04_universal_object_protocol.md
+    description: "Universal Object Protocol — the contract system for all SHUNYA objects."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-05
-    name: "Runtime Canon"
+    name: "Canon 05 — Runtime Canon"
     type: canon
-    path: "docs/canon/05_runtime_canon.md"
-    description: "Runtime architecture, pipeline stages"
-    status: ratified
-    authority: "CONST-II §5.2"
+    path: docs/canon/05_runtime_canon.md
+    description: "Runtime architecture — runtime lifecycle, service boundaries, communication patterns."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-06
-    name: "Data Canon"
+    name: "Canon 06 — Data Canon"
     type: canon
-    path: "docs/canon/06_data_canon.md"
-    description: "Data model, storage, immutability"
-    status: ratified
-    authority: "CONST-II §2.4"
+    path: docs/canon/06_data_canon.md
+    description: "Data governance — storage, retention, privacy, and data sovereignty principles."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-07
-    name: "AI Canon"
+    name: "Canon 07 — AI Canon"
     type: canon
-    path: "docs/canon/07_ai_canon.md"
-    description: "AI behavior, explainability, confidence"
-    status: ratified
-    authority: "CONST-II §3"
+    path: docs/canon/07_ai_canon.md
+    description: "AI behavior and ethics — AI rights, transparency, accountability, and safety principles."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-08
-    name: "Experience Canon"
+    name: "Canon 08 — Experience Canon"
     type: canon
-    path: "docs/canon/08_experience_canon.md"
-    description: "User experience principles"
-    status: ratified
-    authority: "CONST-II §1"
+    path: docs/canon/08_experience_canon.md
+    description: "Experience architecture — interaction philosophy, accessibility, and user experience principles."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-09
-    name: "Repository Canon"
+    name: "Canon 09 — Repository Canon"
     type: canon
-    path: "docs/canon/09_repository_canon.md"
-    description: "Repository structure, naming, conventions"
-    status: ratified
-    authority: "CONST-V §8"
+    path: docs/canon/09_repository_canon.md
+    description: "Repository structure and code organization — module layout, naming, and dependency rules."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-10
-    name: "Migration Canon"
+    name: "Canon 10 — Migration Canon"
     type: canon
-    path: "docs/canon/10_migration_canon.md"
-    description: "Migration strategy, cutover patterns"
-    status: ratified
-    authority: "CONST-II §8"
+    path: docs/canon/10_migration_canon.md
+    description: "Migration strategy — data migration, schema evolution, and backward compatibility."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-11
-    name: "Engineering Canon"
+    name: "Canon 11 — Engineering Canon"
     type: canon
-    path: "docs/canon/11_engineering_canon.md"
-    description: "Engineering standards, testing, CI/CD"
-    status: ratified
-    authority: "CONST-V §7"
+    path: docs/canon/11_engineering_canon.md
+    description: "Engineering practices — testing, CI/CD, quality standards, and development workflow."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-12
-    name: "Launch Roadmap"
+    name: "Canon 12 — Launch Roadmap"
     type: canon
-    path: "docs/canon/12_launch_roadmap.md"
-    description: "Product launch timeline and milestones"
-    status: ratified
-    authority: "CONST-I Principle XII"
+    path: docs/canon/12_launch_roadmap.md
+    description: "Launch roadmap — release phases, milestones, and go-to-market strategy."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
-  # ── RUNTIME CANONS ────────────────────────────────────────────────────────
+  # ============================================================================
+  # RUNTIME CANONS
+  # ============================================================================
   - id: CANON-COG
     name: "Cognitive Runtime Canon"
-    type: runtime-canon
-    path: "docs/canon/COGNITIVE_RUNTIME_CANON.md"
-    description: "Cognitive layer architecture"
-    status: ratified
-    authority: "CONST-II §3"
+    type: canon
+    path: docs/canon/COGNITIVE_RUNTIME_CANON.md
+    description: "Cognitive Runtime canonical specification — perception, observation, and cognitive processing."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-EXEC
     name: "Execution Runtime Canon"
-    type: runtime-canon
-    path: "docs/canon/EXECUTION_RUNTIME_CANON.md"
-    description: "Execution layer architecture"
-    status: ratified
-    authority: "CONST-II §7"
+    type: canon
+    path: docs/canon/EXECUTION_RUNTIME_CANON.md
+    description: "Execution Runtime canonical specification — plan execution, action dispatch, workflow orchestration."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
-  - id: CANON-INTEG
-    name: "Integration Runtime Canon"
-    type: runtime-canon
-    path: "docs/canon/INTEGRATION_RUNTIME_CANON.md"
-    description: "Integration layer architecture"
-    status: ratified
-    authority: "CONST-II §5.2"
+  - id: CANON-PLN
+    name: "Planning Runtime Canon"
+    type: canon
+    path: docs/canon/PLANNING_RUNTIME_CANON.md
+    description: "Planning Runtime canonical specification — goal decomposition, plan generation, task scheduling."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-MEM
     name: "Memory Knowledge Runtime Canon"
-    type: runtime-canon
-    path: "docs/canon/MEMORY_KNOWLEDGE_RUNTIME_CANON.md"
-    description: "Memory/knowledge layer architecture"
-    status: ratified
-    authority: "CONST-II §3.1(2,3)"
-
-  - id: CANON-PLAN
-    name: "Planning Runtime Canon"
-    type: runtime-canon
-    path: "docs/canon/PLANNING_RUNTIME_CANON.md"
-    description: "Planning layer architecture"
-    status: ratified
-    authority: "CONST-II §3.1(6)"
-
-  - id: CANON-AUTO
-    name: "Automation Event Runtime Canon"
-    type: runtime-canon
-    path: "docs/canon/AUTOMATION_EVENT_RUNTIME_CANON.md"
-    description: "Automation/event layer architecture"
-    status: ratified
-    authority: "CONST-II §7"
-
-  - id: CANON-PROJ
-    name: "Projection Engine Canon"
-    type: runtime-canon
-    path: "docs/canon/PROJECTION_ENGINE_CANON.md"
-    description: "Projection/simulation engine architecture"
-    status: ratified
-    authority: "CONST-II §3.7"
+    type: canon
+    path: docs/canon/MEMORY_KNOWLEDGE_RUNTIME_CANON.md
+    description: "Memory Knowledge Runtime canonical specification — knowledge storage, memory management."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
   - id: CANON-INTEL
     name: "Intelligence Runtime Canon"
-    type: runtime-canon
-    path: "docs/canon/INTELLIGENCE_RUNTIME_CANON.md"
-    description: "Intelligence layer architecture"
-    status: ratified
-    authority: "CONST-II §3"
+    type: canon
+    path: docs/canon/INTELLIGENCE_RUNTIME_CANON.md
+    description: "Intelligence Runtime canonical specification — reasoning, decision-making, and intelligence architecture."
+    status: frozen
+    authority: "SHUNYA Constitutional Program"
 
-  # ── UX CANONS ─────────────────────────────────────────────────────────────
+  # ============================================================================
+  # UX CANONS (Experience Design)
+  # ============================================================================
   - id: CANON-UX-01
-    name: "Experience Philosophy"
+    name: "UX Canon 01 — Experience Philosophy"
     type: ux-canon
-    path: "design/experience/01_experience_philosophy.md"
-    description: "Foundational experience principles"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/01_experience_philosophy.md
+    description: "What SHUNYA feels like — calm computing, executive workspace, object-first, AI-first, zero-noise, progressive disclosure, attention preservation."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-02
-    name: "Information Architecture"
+    name: "UX Canon 02 — Information Architecture"
     type: ux-canon
-    path: "design/experience/02_information_architecture.md"
-    description: "Information architecture, content model"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/02_information_architecture.md
+    description: "Global hierarchy, workspace topology, navigation model, search architecture, object-centric organization."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-03
-    name: "Workspace Model"
+    name: "UX Canon 03 — Workspace Model"
     type: ux-canon
-    path: "design/experience/03_workspace_model.md"
-    description: "Workspace as a first-class concept"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/03_workspace_model.md
+    description: "14 canonical workspaces with purpose, visible information, interaction rules, AI behavior, expandable regions."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-04
-    name: "Navigation Canon"
+    name: "UX Canon 04 — Navigation Canon"
     type: ux-canon
-    path: "design/experience/04_navigation_canon.md"
-    description: "Navigation patterns and principles"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/04_navigation_canon.md
+    description: "Global/secondary/context navigation, breadcrumbs, keyboard, command palette, search, history, forward/back."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-05
-    name: "Object Workspace"
+    name: "UX Canon 05 — Object Workspace"
     type: ux-canon
-    path: "design/experience/05_object_workspace.md"
-    description: "Object-focused workspace interaction"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/05_object_workspace.md
+    description: "Universal object workspace architecture — every object follows the same layout, sections, and interactions."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-06
-    name: "AI Collaboration"
+    name: "UX Canon 06 — AI Collaboration"
     type: ux-canon
-    path: "design/experience/06_ai_collaboration.md"
-    description: "Human-AI collaboration patterns"
-    status: ratified
-    authority: "CANON-08, CANON-07"
+    path: design/experience/06_ai_collaboration.md
+    description: "AI resident model, presence modes, suggestion system, conversation, memory, transparency, proactivity boundaries."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-07
-    name: "Component System"
+    name: "UX Canon 07 — Component System"
     type: ux-canon
-    path: "design/experience/07_component_system.md"
-    description: "UI component architecture"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/07_component_system.md
+    description: "Complete reusable component library — surfaces, sections, data, interaction, navigation, feedback, layout."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-08
-    name: "Motion System"
+    name: "UX Canon 08 — Motion System"
     type: ux-canon
-    path: "design/experience/08_motion_system.md"
-    description: "Motion and animation principles"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/08_motion_system.md
+    description: "Animation language, timing, easing, transitions, microinteractions, loading, reduced-motion accessibility."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-09
-    name: "Design System"
+    name: "UX Canon 09 — Design System"
     type: ux-canon
-    path: "design/experience/09_design_system.md"
-    description: "Design system foundations"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/09_design_system.md
+    description: "Design tokens — color, spacing, typography, grid, elevation, radius, shadows, dark/light mode."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-10
-    name: "Mobile Canon"
+    name: "UX Canon 10 — Mobile Canon"
     type: ux-canon
-    path: "design/experience/10_mobile_canon.md"
-    description: "Mobile interaction principles"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/10_mobile_canon.md
+    description: "Portrait-first experience, tablet behavior, responsive rules, touch interactions, bottom navigation."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-11
-    name: "Accessibility"
+    name: "UX Canon 11 — Accessibility"
     type: ux-canon
-    path: "design/experience/11_accessibility.md"
-    description: "Accessibility standards and practices"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/11_accessibility.md
+    description: "Keyboard operation, ARIA, focus management, contrast, screen readers, reduced motion, zoom, i18n."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-12
-    name: "Frontend Engineering"
+    name: "UX Canon 12 — Frontend Engineering"
     type: ux-canon
-    path: "design/experience/12_frontend_engineering.md"
-    description: "Frontend engineering standards"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/12_frontend_engineering.md
+    description: "React architecture, component organization, state management, performance, rendering, animation, testing."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-13
-    name: "Presence Canon"
+    name: "UX Canon 13 — Presence Canon"
     type: ux-canon
-    path: "design/experience/13_presence_canon.md"
-    description: "Presence and awareness patterns"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/13_presence_canon.md
+    description: "Presence model — user presence, AI presence, system presence indicators and interaction semantics."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-14
-    name: "Human Principles"
+    name: "UX Canon 14 — Human Principles"
     type: ux-canon
-    path: "design/experience/14_human_principles.md"
-    description: "Human-centered design principles"
-    status: ratified
-    authority: "CANON-08, CONST-I Principle I"
+    path: design/experience/14_human_principles.md
+    description: "Human-centered design principles — dignity, autonomy, trust, and respect in every interaction."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-15
-    name: "Interaction Language"
+    name: "UX Canon 15 — Interaction Language"
     type: ux-canon
-    path: "design/experience/15_interaction_language.md"
-    description: "Interaction vocabulary and patterns"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/15_interaction_language.md
+    description: "Complete interaction language — gestures, commands, feedback patterns, and communication protocols."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-16
-    name: "Design System Foundation"
+    name: "UX Canon 16 — Design System Foundation"
     type: ux-canon
-    path: "design/experience/16_design_system_foundation.md"
-    description: "Design token and foundation system"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/16_design_system_foundation.md
+    description: "Design system foundation — visual language primitives, theming, and design token architecture."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-17
-    name: "Interaction Pattern Library"
+    name: "UX Canon 17 — Interaction Pattern Library"
     type: ux-canon
-    path: "design/experience/17_interaction_pattern_library.md"
-    description: "Reusable interaction patterns"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/17_interaction_pattern_library.md
+    description: "Interaction pattern library — reusable patterns for common user tasks and workflows."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-18
-    name: "Frontend Foundation"
+    name: "UX Canon 18 — Frontend Foundation"
     type: ux-canon
-    path: "design/experience/18_frontend_foundation.md"
-    description: "Frontend runtime foundation"
-    status: ratified
-    authority: "CANON-08"
+    path: design/experience/18_frontend_foundation.md
+    description: "Frontend foundation — engineering setup, build pipeline, development environment, and deployment."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: CANON-UX-19
-    name: "Workspace Runtime"
+    name: "UX Canon 19 — Workspace Runtime"
     type: ux-canon
-    path: "docs/experience/19_workspace_runtime.md"
-    description: "Workspace runtime UX specification"
-    status: ratified
-    authority: "CANON-08"
+    path: docs/experience/19_workspace_runtime.md
+    description: "Workspace Runtime UX — workspace lifecycle, session orchestration, and user workspace experience."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
-  # ── DNA ARCHITECTURE ──────────────────────────────────────────────────────
+  # ============================================================================
+  # DNA ARCHITECTURE
+  # ============================================================================
   - id: DNA-01
-    name: "Device-Native Architecture"
+    name: "DNA-01: Device-Native Architecture"
     type: dna-architecture
-    path: "architecture/dna-01-device-native-architecture.md"
-    description: "Device-native architecture foundation"
-    status: ratified
-    authority: "CONST-II §5.2"
+    path: architecture/dna-01-device-native-architecture.md
+    description: "Device-native architecture — the canonical DNA architecture specification for device-native runtime behavior."
+    status: candidate-for-founder-review
+    authority: "SHUNYA Constitutional Program"
 
   - id: DNA-01.2
-    name: "Runtime Context"
+    name: "DNA-01.2: Runtime Context"
     type: dna-architecture
-    path: "architecture/dna-01.2-runtime-context.md"
-    description: "Runtime context specification"
-    status: ratified
-    authority: "DNA-01"
+    path: architecture/dna-01.2-runtime-context.md
+    description: "DNA runtime context — device-specific runtime environment and execution context."
+    status: candidate-for-founder-review
+    authority: "DNA-01 (Device-Native Architecture)"
 
   - id: DNA-01.3
-    name: "Device Matrix"
+    name: "DNA-01.3: Device Matrix"
     type: dna-architecture
-    path: "architecture/dna-01.3-device-matrix.md"
-    description: "Device breakpoint matrix"
-    status: ratified
-    authority: "DNA-01"
+    path: architecture/dna-01.3-device-matrix.md
+    description: "DNA device matrix — device classification, capability profiles, and adaptation rules."
+    status: candidate-for-founder-review
+    authority: "DNA-01 (Device-Native Architecture)"
 
   - id: DNA-01.4
-    name: "Component Adaptation Matrix"
+    name: "DNA-01.4: Component Adaptation Matrix"
     type: dna-architecture
-    path: "architecture/dna-01.4-component-adaptation-matrix.md"
-    description: "Component adaptation per device"
-    status: ratified
-    authority: "DNA-01"
+    path: architecture/dna-01.4-component-adaptation-matrix.md
+    description: "DNA component adaptation matrix — component adaptation rules across device types."
+    status: candidate-for-founder-review
+    authority: "DNA-01 (Device-Native Architecture)"
 
   - id: DNA-01.5
-    name: "Typography Matrix"
+    name: "DNA-01.5: Typography Matrix"
     type: dna-architecture
-    path: "architecture/dna-01.5-typography-matrix.md"
-    description: "Typography scaling per device"
-    status: ratified
-    authority: "DNA-01"
+    path: architecture/dna-01.5-typography-matrix.md
+    description: "DNA typography matrix — device-specific typography scaling and adaptation rules."
+    status: candidate-for-founder-review
+    authority: "DNA-01 (Device-Native Architecture)"
 
   - id: DNA-01.6
-    name: "Layout Matrix"
+    name: "DNA-01.6: Layout Matrix"
     type: dna-architecture
-    path: "architecture/dna-01.6-layout-matrix.md"
-    description: "Layout grid per device"
-    status: ratified
-    authority: "DNA-01"
+    path: architecture/dna-01.6-layout-matrix.md
+    description: "DNA layout matrix — device-specific layout grid, spacing, and composition rules."
+    status: candidate-for-founder-review
+    authority: "DNA-01 (Device-Native Architecture)"
 
   - id: DNA-01.7
-    name: "Motion and Transition Spec"
+    name: "DNA-01.7: Motion and Transition Spec"
     type: dna-architecture
-    path: "architecture/dna-01.7-motion-and-transition-spec.md"
-    description: "Motion and transition specifications"
-    status: ratified
-    authority: "DNA-01"
+    path: architecture/dna-01.7-motion-and-transition-spec.md
+    description: "DNA motion and transition specification — device-appropriate animation and transition behavior."
+    status: candidate-for-founder-review
+    authority: "DNA-01 (Device-Native Architecture)"
 
   - id: DNA-01.8
-    name: "Homepage Narrative Flow"
+    name: "DNA-01.8: Homepage Narrative Flow"
     type: dna-architecture
-    path: "architecture/dna-01.8-homepage-narrative-flow.md"
-    description: "Homepage narrative and flow"
-    status: ratified
-    authority: "DNA-01"
+    path: architecture/dna-01.8-homepage-narrative-flow.md
+    description: "DNA homepage narrative flow — device-native homepage storytelling and information flow."
+    status: candidate-for-founder-review
+    authority: "DNA-01 (Device-Native Architecture)"
 
   - id: DNA-01.9
-    name: "Implementation Roadmap"
+    name: "DNA-01.9: Implementation Roadmap"
     type: dna-architecture
-    path: "architecture/dna-01.9-implementation-roadmap.md"
-    description: "DNA implementation roadmap"
-    status: ratified
-    authority: "DNA-01"
+    path: architecture/dna-01.9-implementation-roadmap.md
+    description: "DNA implementation roadmap — phased rollout and implementation plan for device-native architecture."
+    status: candidate-for-founder-review
+    authority: "DNA-01 (Device-Native Architecture)"
 
-  # ── KEY ARCHITECTURE DOCUMENTS ────────────────────────────────────────────
+  # ============================================================================
+  # ARCHITECTURE DOCUMENTS
+  # ============================================================================
   - id: ARCH-ADAPT
     name: "Adaptive Intelligence Runtime"
     type: architecture-doc
-    path: "architecture/ADAPTIVE_INTELLIGENCE_RUNTIME.md"
-    description: "Adaptive intelligence runtime architecture"
+    path: architecture/ADAPTIVE_INTELLIGENCE_RUNTIME.md
+    description: "Adaptive Intelligence Runtime architecture — Phase 8C. Constitutional architecture for adaptive intelligence."
     status: draft
-    authority: "CONST-II §3"
+    authority: "SHUNYA Constitutional Program"
 
-  - id: ARCH-BASELINE
-    name: "Architecture Baseline 1.0 Complete"
-    type: architecture-doc
-    path: "architecture/ARCHITECTURE_BASELINE_1_0_COMPLETE.md"
-    description: "Complete architecture baseline"
-    status: frozen
-    authority: "CONST-II §5"
-
-  - id: ARCH-COGWS
+  - id: ARCH-COG
     name: "Cognitive Workspace Runtime"
     type: architecture-doc
-    path: "architecture/COGNITIVE_WORKSPACE_RUNTIME.md"
-    description: "Cognitive workspace runtime spec"
+    path: architecture/COGNITIVE_WORKSPACE_RUNTIME.md
+    description: "Cognitive Workspace Runtime architecture — Phase 8B. Constitutional architecture for cognitive workspaces."
     status: draft
-    authority: "CONST-II §3, §5.2"
-
-  - id: ARCH-FOUNDER
-    name: "Founder Workspace Specification"
-    type: architecture-doc
-    path: "architecture/FOUNDER_WORKSPACE_SPECIFICATION.md"
-    description: "Founder workspace requirements"
-    status: draft
-    authority: "CONST-II §1"
-
-  - id: ARCH-DEC
-    name: "Decision Intelligence Architecture"
-    type: architecture-doc
-    path: "architecture/DECISION_INTELLIGENCE_ARCHITECTURE.md"
-    description: "Decision intelligence architecture"
-    status: draft
-    authority: "CONST-II §3"
+    authority: "SHUNYA Constitutional Program"
 
   - id: ARCH-EXEC
     name: "Execution Intelligence Architecture"
     type: architecture-doc
-    path: "architecture/EXECUTION_INTELLIGENCE_ARCHITECTURE.md"
-    description: "Execution intelligence architecture"
+    path: architecture/EXECUTION_INTELLIGENCE_ARCHITECTURE.md
+    description: "Execution Intelligence Architecture — Phase 10. Implementation architecture for execution intelligence."
     status: draft
-    authority: "CONST-II §7"
+    authority: "SHUNYA Constitutional Program"
 
-  - id: ARCH-UKG
-    name: "Universal Knowledge Graph Architecture"
+  - id: ARCH-DEC
+    name: "Decision Intelligence Architecture"
     type: architecture-doc
-    path: "architecture/UNIVERSAL_KNOWLEDGE_GRAPH_ARCHITECTURE.md"
-    description: "Universal knowledge graph design"
+    path: architecture/DECISION_INTELLIGENCE_ARCHITECTURE.md
+    description: "Decision Intelligence Architecture — Phase 12. Implementation architecture for decision intelligence."
     status: draft
-    authority: "CONST-II §3.1(3)"
+    authority: "SHUNYA Constitutional Program"
+
+  - id: ARCH-PERCEP
+    name: "Universal Perception Architecture"
+    type: architecture-doc
+    path: architecture/UNIVERSAL_PERCEPTION_ARCHITECTURE.md
+    description: "Universal Perception Architecture — Phase 11. Implementation architecture for perception systems."
+    status: draft
+    authority: "SHUNYA Constitutional Program"
 
   - id: ARCH-ONT
     name: "Universal Ontology"
     type: architecture-doc
-    path: "architecture/UNIVERSAL_ONTOLOGY.md"
-    description: "Universal ontology specification"
+    path: architecture/UNIVERSAL_ONTOLOGY.md
+    description: "Universal Ontology — Phase 8D. Constitutional architecture defining the canonical language and ontology."
     status: draft
-    authority: "CONST-II §6.6"
+    authority: "SHUNYA Constitutional Program"
 
-  - id: ARCH-GKF
-    name: "Governed Knowledge Framework"
+  - id: ARCH-FOUNDER
+    name: "Founder Workspace Specification"
     type: architecture-doc
-    path: "architecture/GKF-000-GOVERNED-KNOWLEDGE-FRAMEWORK.md"
-    description: "Governed knowledge framework"
+    path: architecture/FOUNDER_WORKSPACE_SPECIFICATION.md
+    description: "Founder Workspace Architecture Specification — Phase 8. Defines the founder workspace experience."
     status: draft
-    authority: "CONST-II §3.1(3), §9"
+    authority: "SHUNYA Constitutional Program"
 
-  - id: ARCH-EES
-    name: "Engineering Execution System"
+  - id: ARCH-GOV
+    name: "Architecture Governance Framework"
     type: architecture-doc
-    path: "architecture/ENGINEERING_EXECUTION_SYSTEM.md"
-    description: "Engineering execution system"
-    status: draft
-    authority: "CONST-V"
+    path: architecture/ARCHITECTURE_GOVERNANCE_FRAMEWORK.md
+    description: "Architecture Governance Framework — Phase 14. Ratified governance architecture framework."
+    status: ratified
+    authority: "Governance Freeze 01"
 
   - id: ARCH-IMP
     name: "Implementation Master Plan"
     type: architecture-doc
-    path: "architecture/IMPLEMENTATION_MASTER_PLAN.md"
-    description: "Implementation master plan"
+    path: architecture/IMPLEMENTATION_MASTER_PLAN.md
+    description: "Implementation Master Plan — Phase 15. Engineering planning and implementation roadmap."
     status: draft
-    authority: "CONST-V"
+    authority: "SHUNYA Constitutional Program"
 
-  # ── GOVERNANCE DOCUMENTS ──────────────────────────────────────────────────
-  - id: GOV-ENG
-    name: "Engineering Constitution"
-    type: governance-doc
-    path: "governance/SHUNYA_ENGINEERING_CONSTITUTION.md"
-    description: "Engineering governance principles"
-    status: ratified
-    authority: "CONST-II §9, CONST-V"
-
-  - id: GOV-MODEL
-    name: "Governance Model"
-    type: governance-doc
-    path: "governance/SHUNYA_GOVERNANCE_MODEL.md"
-    description: "Governance model specification"
-    status: ratified
-    authority: "CONST-II §9"
-
-  - id: GOV-FREEZE-01
-    name: "Governance Freeze 01 Report"
-    type: governance-doc
-    path: "governance/GOVERNANCE_FREEZE_01_REPORT.md"
-    description: "Governance freeze report"
-    status: ratified
-    authority: "CONST-II §9, CONST-I Principle VIII"
-
-  - id: GOV-FREEZE-01-RAT
-    name: "Governance Freeze 01 Ratification Package"
-    type: governance-doc
-    path: "governance/GOVERNANCE_FREEZE_01_RATIFICATION_PACKAGE.md"
-    description: "GF-01 ratification package"
-    status: ratified
-    authority: "GOV-FREEZE-01"
-
-  - id: GOV-FREEZE-01-XREF
-    name: "Governance Freeze 01 Cross-Reference Report"
-    type: governance-doc
-    path: "governance/GOVERNANCE_FREEZE_01_XREF_REPORT.md"
-    description: "GF-01 cross-reference report"
-    status: ratified
-    authority: "GOV-FREEZE-01"
-
-  - id: GOV-FREEZE-01-CR
-    name: "Governance Freeze 01 Conflict Resolution"
-    type: governance-doc
-    path: "governance/GOVERNANCE_FREEZE_01_CONFLICT_RESOLUTION.md"
-    description: "GF-01 conflict resolution"
-    status: ratified
-    authority: "GOV-FREEZE-01"
-
-  - id: GOV-CHANGELOG
-    name: "Governance Changelog"
-    type: governance-doc
-    path: "governance/GOVERNANCE_CHANGELOG.md"
-    description: "Governance changelog"
-    status: active
-    authority: "GOV-MODEL"
-
-  - id: GOV-AMENDMENT
-    name: "Constitutional Amendment Procedure"
-    type: governance-doc
-    path: "governance/constitutional-amendment-procedure.md"
-    description: "CAP procedure"
-    status: candidate-for-founder-review
-    authority: "CONST-IV Art. IV"
-
-  - id: GOV-COMPLIANCE
-    name: "Constitutional Compliance Checklist"
-    type: governance-doc
-    path: "governance/constitutional-compliance-checklist.md"
-    description: "Compliance checklist"
-    status: candidate-for-founder-review
-    authority: "CONST-IV"
-
-  - id: GOV-TRACE
-    name: "Constitutional Traceability Matrix"
-    type: governance-doc
-    path: "governance/constitutional-traceability-matrix.md"
-    description: "Traceability matrix"
-    status: candidate-for-founder-review
-    authority: "CONST-IV"
-
-  - id: GOV-RATIFICATION
-    name: "Founder Ratification Package"
-    type: governance-doc
-    path: "governance/founder-ratification-package.md"
-    description: "Founder ratification package"
-    status: candidate-for-founder-review
-    authority: "CONST-II Preamble"
-
-  # ── PHASES ────────────────────────────────────────────────────────────────
+  # ============================================================================
+  # PHASES
+  # ============================================================================
   - id: PHASE-A
-    name: "Phase A — Foundation Infrastructure"
+    name: "Phase A — Foundation"
     type: phase
-    path: "PHASE_A_IMPLEMENTATION_REPORT.md"
-    description: "Foundation infrastructure implementation"
+    path: PHASE_A_IMPLEMENTATION_REPORT.md
+    description: "Phase A implementation report — foundational system architecture and initial setup."
     status: completed
-    authority: "SHUNYA_IMPLEMENTATION_PROGRAM.md"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-B
-    name: "Phase B — Reasoning Engine"
+    name: "Phase B — Core Infrastructure"
     type: phase
-    path: "PHASE_B_IMPLEMENTATION_REPORT.md"
-    description: "Reasoning engine implementation"
+    path: PHASE_B_IMPLEMENTATION_REPORT.md
+    description: "Phase B implementation report — core infrastructure, data models, and base services."
     status: completed
-    authority: "ES-003"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-C
-    name: "Phase C — Observer Engine"
+    name: "Phase C — Canonical Architecture"
     type: phase
-    path: "PHASE_C_IMPLEMENTATION_REPORT.md"
-    description: "Observer engine implementation"
+    path: PHASE_C_IMPLEMENTATION_REPORT.md
+    description: "Phase C implementation report — canonical architecture, ontology, and constitutional framework."
     status: completed
-    authority: "ES-006"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-D
-    name: "Phase D — Evaluator Engine"
+    name: "Phase D — Identity and Security"
     type: phase
-    path: "PHASE_D_IMPLEMENTATION_REPORT.md"
-    description: "Evaluator engine implementation"
+    path: PHASE_D_IMPLEMENTATION_REPORT.md
+    description: "Phase D implementation report — identity system, authentication, and security infrastructure."
     status: completed
-    authority: "ES-002 (Knowledge)"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-E
-    name: "Phase E — Knowledge Engine"
+    name: "Phase E — Intelligence Engines"
     type: phase
-    path: "PHASE_E_IMPLEMENTATION_REPORT.md"
-    description: "Knowledge engine implementation"
+    path: PHASE_E_IMPLEMENTATION_REPORT.md
+    description: "Phase E implementation report — intelligence engines, reasoning, and cognitive capabilities."
     status: completed
-    authority: "ES-002"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-F
-    name: "Phase F — Executive Engine"
+    name: "Phase F — Execution Runtime"
     type: phase
-    path: "PHASE_F_IMPLEMENTATION_REPORT.md"
-    description: "Executive engine implementation"
+    path: PHASE_F_IMPLEMENTATION_REPORT.md
+    description: "Phase F implementation report — execution runtime, action dispatch, and workflow orchestration."
     status: completed
-    authority: "ES-005"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-G
-    name: "Phase G — Learner Engine"
+    name: "Phase G — Integration Runtime"
     type: phase
-    path: "PHASE_G_COMPLETION_REPORT.md"
-    description: "Learner engine implementation"
+    path: PHASE_G_COMPLETION_REPORT.md
+    description: "Phase G completion report — integration runtime, connectors, and external system integration."
     status: completed
-    authority: "ES-007"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-H
-    name: "Phase H — Memory Engine"
+    name: "Phase H — Memory Knowledge Runtime"
     type: phase
-    path: "PHASE_H_COMPLETION_REPORT.md"
-    description: "Memory engine implementation"
+    path: PHASE_H_COMPLETION_REPORT.md
+    description: "Phase H completion report — memory knowledge runtime, knowledge storage, and semantic retrieval."
     status: completed
-    authority: "ES-007"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-I
-    name: "Phase I — Planner Engine"
+    name: "Phase I — Planning Runtime"
     type: phase
-    path: "PHASE_I_COMPLETION_REPORT.md"
-    description: "Planner engine implementation"
+    path: PHASE_I_IMPLEMENTATION_PLAN.md
+    description: "Phase I implementation plan — planning runtime, goal decomposition, and task scheduling."
     status: completed
-    authority: "ES-004"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-J
     name: "Phase J — Automation Event Runtime"
     type: phase
-    path: "PHASE_J_COMPLETION_REPORT.md"
-    description: "Automation/event runtime implementation"
+    path: PHASE_J_IMPLEMENTATION_PLAN.md
+    description: "Phase J implementation plan — automation event runtime, event-driven workflows, and triggers."
     status: completed
-    authority: "CONST-II §7"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-K
     name: "Phase K — Projection Engine"
     type: phase
-    path: "PHASE_K_COMPLETION_REPORT.md"
-    description: "Projection/simulation engine implementation"
+    path: PHASE_K_IMPLEMENTATION_PLAN.md
+    description: "Phase K implementation plan — projection engine, data views, and cache management."
     status: completed
-    authority: "CONST-II §3.7"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-L
     name: "Phase L — Convergence"
     type: phase
-    path: "PHASE_L_COMPLETION_REPORT.md"
-    description: "System convergence implementation"
+    path: PHASE_L_IMPLEMENTATION_PLAN.md
+    description: "Phase L implementation plan — system convergence, consolidation, and integration."
     status: completed
-    authority: "SHUNYA_IMPLEMENTATION_PROGRAM.md"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-M
-    name: "Phase M — Platform"
+    name: "Phase M — Workspace Runtime"
     type: phase
-    path: "PHASE_M_COMPLETION_REPORT.md"
-    description: "Platform completion"
+    path: PHASE_M_IMPLEMENTATION_PLAN.md
+    description: "Phase M implementation plan — workspace runtime, session orchestration, and workspace lifecycle."
     status: completed
-    authority: "SHUNYA_IMPLEMENTATION_PROGRAM.md"
+    authority: "SHUNYA Implementation Program"
 
   - id: PHASE-N
-    name: "Phase N — Platform"
+    name: "Phase N — Next Plan"
     type: phase
-    path: "PHASE_N_IMPLEMENTATION_PLAN.md"
-    description: "Platform implementation plan"
-    status: in-progress
-    authority: "SHUNYA_IMPLEMENTATION_PROGRAM.md"
+    path: PHASE_N_IMPLEMENTATION_PLAN.md
+    description: "Phase N implementation plan — next-generation features, AI-native workflows, and platform evolution."
+    status: draft
+    authority: "SHUNYA Implementation Program"
 
-  # ── DESIGN ────────────────────────────────────────────────────────────────
-  - id: DSGN-VDB
-    name: "Visual Design Bible"
-    type: design
-    path: "design/visual-design-bible/"
-    description: "5-volume visual design specification"
+  # ============================================================================
+  # GOVERNANCE DOCUMENTS
+  # ============================================================================
+  - id: GOV-ENG
+    name: "SHUNYA Engineering Constitution"
+    type: governance-doc
+    path: governance/SHUNYA_ENGINEERING_CONSTITUTION.md
+    description: "Engineering constitution — ratified under Governance Freeze 01. Governs all engineering practices and standards."
     status: ratified
-    authority: "CANON-08, CANON-UX-09"
+    authority: "SHUNYA Constitution (CONST-I)"
+
+  - id: GOV-TRACE
+    name: "Constitutional Traceability Matrix"
+    type: governance-doc
+    path: governance/constitutional-traceability-matrix.md
+    description: "Constitutional Traceability Matrix (DNA-CTM-01). Maps every implementation domain to constitutional principles."
+    status: active
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
+
+  - id: GOV-RATIFY
+    name: "Founder Ratification Package"
+    type: governance-doc
+    path: governance/founder-ratification-package.md
+    description: "Founder Ratification Package for DNA-01 v2.1. Prepared for Founder review and ratification."
+    status: candidate-for-founder-review
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
+
+  - id: GOV-COMPLIANCE
+    name: "Constitutional Compliance Checklist"
+    type: governance-doc
+    path: governance/constitutional-compliance-checklist.md
+    description: "Constitutional Compliance Checklist (DNA-CC-01). Scope includes every implementation, execution mode, and feature acceptance."
+    status: active
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
+
+  - id: GOV-AMEND
+    name: "Constitutional Amendment Procedure"
+    type: governance-doc
+    path: governance/constitutional-amendment-procedure.md
+    description: "Constitutional Amendment Procedure (DNA-CAP-01). Defines the process for amending constitutional guarantees."
+    status: active
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
+
+  - id: GOV-ARCHIVE
+    name: "Governance Archive Index"
+    type: governance-doc
+    path: governance/archive-index.md
+    description: "Archive index for governance documents — tracks historical versions and superseded documents."
+    status: active
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
+
+  - id: GOV-FREEZE-CONFLICT
+    name: "Governance Freeze 01 — Conflict Resolution"
+    type: governance-doc
+    path: governance/GOVERNANCE_FREEZE_01_CONFLICT_RESOLUTION.md
+    description: "Constitutional conflict resolution procedure under Governance Freeze 01."
+    status: draft
+    authority: "Governance Freeze 01"
+
+  - id: GOV-FREEZE-XREF
+    name: "Governance Freeze 01 — Cross-Reference Report"
+    type: governance-doc
+    path: governance/GOVERNANCE_FREEZE_01_XREF_REPORT.md
+    description: "Cross-reference validation report for Governance Freeze 01."
+    status: ratified
+    authority: "Governance Freeze 01"
+
+  - id: GOV-CHANGELOG
+    name: "Governance Changelog"
+    type: governance-doc
+    path: governance/GOVERNANCE_CHANGELOG.md
+    description: "Governance changelog — tracks all changes to governance documents and policies."
+    status: active
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
+
+  # ============================================================================
+  # DESIGN DOCUMENTS
+  # ============================================================================
+  - id: DSGN-VDB
+    name: "Visual Design Bible v1.0"
+    type: design
+    path: design/visual-design-bible/1-visual-design-bible.md
+    description: "Complete visual constitution — philosophy, layout, typography, colour, light, icons, illustration, motion, components, identity, and templates."
+    status: frozen
+    authority: "SHUNYA Design Program"
 
   - id: DSGN-LN
     name: "Living Notebook"
     type: design
-    path: "design/living-notebook.md"
-    description: "Living design notebook"
-    status: active
-    authority: "CANON-08"
+    path: design/living-notebook.md
+    description: "Living design notebook — ongoing design decisions, explorations, and evolving design artifacts."
+    status: draft
+    authority: "SHUNYA Design Program"
 
-  # ── FRONTEND DOCUMENTS ────────────────────────────────────────────────────
+  # ============================================================================
+  # FRONTEND DOCUMENTS
+  # ============================================================================
   - id: FE-COMP
-    name: "Component Specification"
+    name: "Frontend Component Specification"
     type: frontend-doc
-    path: "docs/frontend/COMPONENT_SPECIFICATION.md"
-    description: "Frontend component specification"
-    status: ratified
-    authority: "CANON-UX-07"
+    path: docs/frontend/COMPONENT_SPECIFICATION.md
+    description: "Frontend component specification — complete component API, props, and behavior documentation."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: FE-DS
-    name: "Design System"
+    name: "Frontend Design System"
     type: frontend-doc
-    path: "docs/frontend/DESIGN_SYSTEM.md"
-    description: "Frontend design system"
-    status: ratified
-    authority: "CANON-UX-09"
+    path: docs/frontend/DESIGN_SYSTEM.md
+    description: "Frontend design system — token implementation, CSS architecture, and theme system."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: FE-DESKTOP
     name: "Desktop Interaction Model"
     type: frontend-doc
-    path: "docs/frontend/DESKTOP_INTERACTION_MODEL.md"
-    description: "Desktop interaction patterns"
-    status: ratified
-    authority: "CANON-UX-04"
+    path: docs/frontend/DESKTOP_INTERACTION_MODEL.md
+    description: "Desktop interaction model — keyboard, mouse, and window management interaction patterns."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
+
+  - id: FE-IA
+    name: "Frontend Information Architecture"
+    type: frontend-doc
+    path: docs/frontend/INFORMATION_ARCHITECTURE.md
+    description: "Frontend information architecture — page hierarchy, routing, and content organization."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
   - id: FE-MOBILE
     name: "Mobile Interaction Model"
     type: frontend-doc
-    path: "docs/frontend/MOBILE_INTERACTION_MODEL.md"
-    description: "Mobile interaction patterns"
-    status: ratified
-    authority: "CANON-UX-10"
+    path: docs/frontend/MOBILE_INTERACTION_MODEL.md
+    description: "Mobile interaction model — touch gestures, responsive layout, and mobile-specific patterns."
+    status: frozen
+    authority: "SHUNYA Experience Canon"
 
-  - id: FE-IA
-    name: "Information Architecture"
-    type: frontend-doc
-    path: "docs/frontend/INFORMATION_ARCHITECTURE.md"
-    description: "Frontend information architecture"
-    status: ratified
-    authority: "CANON-UX-02"
-
-  # ── KNOWLEDGE ─────────────────────────────────────────────────────────────
+  # ============================================================================
+  # KNOWLEDGE DOCUMENTS
+  # ============================================================================
   - id: KNOW-VAULT
-    name: "SHUNYA Knowledge Vault"
+    name: "Knowledge Vault"
     type: knowledge-doc
-    path: "knowledge/README.md"
-    description: "Permanent knowledge vault for foundational material"
-    status: active
-    authority: "CONST-I Principle IX"
+    path: knowledge/README.md
+    description: "Knowledge vault — curated knowledge base and reference documentation for the SHUNYA system."
+    status: initialized
+    authority: "SHUNYA Knowledge Program"
 
   - id: KNOW-AI-ROADMAP
-    name: "Intelligence Core Roadmap"
+    name: "AI Core Roadmap"
     type: knowledge-doc
-    path: "knowledge/ai/INTELLIGENCE_CORE_ROADMAP.md"
-    description: "AI/ML intelligence core roadmap"
-    status: candidate-for-founder-review
-    authority: "CONST-II §3"
+    path: knowledge/ai/INTELLIGENCE_CORE_ROADMAP.md
+    description: "Intelligence Core Roadmap — AI capability roadmap, model evolution, and intelligence milestones."
+    status: draft
+    authority: "SHUNYA Knowledge Program"
 
-  # ── GIT BRANCHES ──────────────────────────────────────────────────────────
+  # ============================================================================
+  # GIT BRANCHES
+  # ============================================================================
   - id: GIT-main
-    name: "master/main branch"
+    name: "main"
     type: git-branch
-    path: "."
-    description: "Main development branch"
+    path: ""
+    description: "Main branch — primary integration branch for the SHUNYA OS repository."
     status: active
-    authority: "GOV-ENG"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
+
+  - id: GIT-master
+    name: "master"
+    type: git-branch
+    path: ""
+    description: "Master branch — legacy primary branch, historically the main development line."
+    status: active
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: GIT-docs
-    name: "docs branch"
+    name: "docs"
     type: git-branch
-    path: "."
-    description: "Documentation updates"
+    path: ""
+    description: "Documentation branch — dedicated branch for documentation updates and canonical document work."
     status: active
-    authority: "GOV-ENG"
+    authority: "SHUNYA Engineering Constitution (CONST-II)"
 
   - id: GIT-alpha-001a
     name: "feature/alpha-001a-gmail-oauth"
     type: git-branch
-    path: "."
-    description: "Gmail OAuth integration"
+    path: ""
+    description: "Alpha feature branch — Gmail OAuth integration for email connectivity."
     status: active
-    authority: "GOV-ENG"
+    authority: "SHUNYA Implementation Program"
 
   - id: GIT-alpha-001b
     name: "feature/alpha-001b-gmail-sync"
     type: git-branch
-    path: "."
-    description: "Gmail sync integration"
+    path: ""
+    description: "Alpha feature branch — Gmail sync engine for bidirectional email synchronization."
     status: active
-    authority: "GOV-ENG"
+    authority: "SHUNYA Implementation Program"
 
   - id: GIT-alpha-001c
     name: "feature/alpha-001c-document-import"
     type: git-branch
-    path: "."
-    description: "Document import integration"
+    path: ""
+    description: "Alpha feature branch — document import pipeline for file ingestion and processing."
     status: active
-    authority: "GOV-ENG"
+    authority: "SHUNYA Implementation Program"
 
   - id: GIT-alpha-001j
     name: "feature/alpha-001j-workflow"
     type: git-branch
-    path: "."
-    description: "Workflow integration"
+    path: ""
+    description: "Alpha feature branch — workflow engine for automated business processes."
     status: active
-    authority: "GOV-ENG"
+    authority: "SHUNYA Implementation Program"
 
   - id: GIT-alpha-002a
     name: "feature/alpha-002a-universal-crm"
     type: git-branch
-    path: "."
-    description: "Universal CRM integration"
+    path: ""
+    description: "Alpha feature branch — universal CRM module for customer relationship management."
     status: active
-    authority: "GOV-ENG"
+    authority: "SHUNYA Implementation Program"
 
   - id: GIT-alpha-003a
     name: "feature/alpha-003a-dashboard"
     type: git-branch
-    path: "."
-    description: "Dashboard integration"
+    path: ""
+    description: "Alpha feature branch — dashboard module for analytics and system monitoring."
     status: active
-    authority: "GOV-ENG"
+    authority: "SHUNYA Implementation Program"

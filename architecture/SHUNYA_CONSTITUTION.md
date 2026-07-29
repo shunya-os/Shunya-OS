@@ -1,6 +1,10 @@
 # SHUNYA Constitution
 
 > **Human First. Always.**
+>
+> **Status: SUPERSEDED**
+> **Superseded By: [`../docs/canon/02_shunya_constitution.md`](../docs/canon/02_shunya_constitution.md) (Canonical v1.0)**
+> **This document is preserved for historical reference. It is no longer authoritative.**
 
 ---
 
