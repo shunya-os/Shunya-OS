@@ -37,8 +37,49 @@ frontend/*.log
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
+# Compiled JS from TypeScript sources
+frontend/src/**/*.js
+
+# Screenshots
+frontend/screenshots/
+frontend/verify-screenshots/
+
 # Environment / data
 .env
+.env.audit
+infrastructure/environments/
+
+# Generated reports (root-level)
+/ARCHITECTURE_REVIEW_REPORT.md
+/CERTIFICATION_RECOMMENDATION.md
+/CLOSURE_AUDIT_REPORT.md
+/CLOSURE_PACKAGE.md
+/CONSTITUTIONAL_COMPLIANCE_REPORT.md
+/DATABASE_BACKUP_REPORT.md
+/DATABASE_RUNTIME_DECISION.md
+/DATA_PROTECTION_REPORT.md
+/FOUNDER_PROTECTION_REPORT.md
+/FREEZE_NOTICE.md
+/GENESIS_PREPARATION_REPORT.md
+/GENESIS_RESET_REPORT.md
+/GENESIS_VERIFICATION_REPORT.md
+/SECURITY_ASSESSMENT.md
+/TECHNICAL_DEBT_REGISTER.md
+
+# Hermes agent working plans
+.hermes/plans/
+
+# Generated static site
+public_site/
+
+# Database backups & local instances
+backups/
+instance/
+
+# Uploaded media
+media/
+
+# Coverage, logs, audit, invoices
 .coverage
 logs/
 audit/
