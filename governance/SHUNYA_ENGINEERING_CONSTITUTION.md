@@ -1,8 +1,8 @@
 # SHUNYA Engineering Constitution
 
 **Version:** 1.0
-**Status:** Active
-**Authority:** Derived from the SHUNYA Constitution (SHUNYA_ARCHITECTURE.md v2.0)
+**Status:** Ratified — Governance Freeze 01
+**Authority:** Derived from the SHUNYA Constitution (docs/canon/02_shunya_constitution.md)
 
 ---
 
@@ -13,22 +13,30 @@ This Engineering Constitution derives engineering-specific principles from the S
 **Authority Hierarchy:**
 
 ```
-Constitution          — SHUNYA Constitution (SHUNYA_ARCHITECTURE.md)
+SHUNYA Constitution   — docs/canon/02_shunya_constitution.md (supreme authority)
     ↓
-Architecture          — Locked technical architecture
+Vision                — docs/canon/01_shunya_vision.md (the "why")
     ↓
-Engineering Constitution — This document. Engineering principles derived from the Constitution.
+Canonical Documents   — 00–12 in docs/canon/ (the "what")
     ↓
-ADRs                  — Architecture Decision Records
+OS Constitution       — docs/canon/OS_CONSTITUTION.md (OS unification)
     ↓
-Engine Specifications — Detailed design documents
+Governance Model      — governance/SHUNYA_GOVERNANCE_MODEL.md (roles, decisions)
     ↓
-Implementation        — Code and configuration
+Engineering Constitution — This document. Engineering principles derived from all above.
     ↓
-Verification          — Proof of conformance
+Architecture Governance — architecture/ARCHITECTURE_GOVERNANCE_FRAMEWORK.md
+    ↓
+ADRs                    — Architecture Decision Records
+    ↓
+Engine Specifications   — Detailed design documents
+    ↓
+Implementation          — Code and configuration
+    ↓
+Verification            — Proof of conformance
 ```
 
-The SHUNYA Constitution (SHUNYA_ARCHITECTURE.md) is the highest authority. The Architecture is the authoritative technical realization of the Constitution. Where this document conflicts with the Constitution, the Constitution governs.
+The SHUNYA Constitution (`docs/canon/02_shunya_constitution.md`) is the highest authority. All downstream documents derive from it. Where this document conflicts with the Constitution, the Constitution governs. Conflict resolution follows §8 of the Governance Model.
 
 ---
 

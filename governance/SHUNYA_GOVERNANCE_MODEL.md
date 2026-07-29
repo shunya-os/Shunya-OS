@@ -228,10 +228,62 @@ For production-blocking issues where the standard flow would cause unacceptable 
 
 ## 7. Cross-References
 
-- **SHUNYA Constitution:** [`SHUNYA_ARCHITECTURE.md`](/SHUNYA_ARCHITECTURE.md) — The locked architecture
+- **SHUNYA Constitution:** [`../docs/canon/02_shunya_constitution.md`](../docs/canon/02_shunya_constitution.md) — The SHUNYA Constitution (binding, supreme authority)
+- **OS Constitution:** [`../docs/canon/OS_CONSTITUTION.md`](../docs/canon/OS_CONSTITUTION.md) — OS-level architectural unification constitution
 - **Engineering Constitution:** [`SHUNYA_ENGINEERING_CONSTITUTION.md`](./SHUNYA_ENGINEERING_CONSTITUTION.md) — Engineering-specific principles
 - **Governance Changelog:** [`GOVERNANCE_CHANGELOG.md`](./GOVERNANCE_CHANGELOG.md) — Permanent audit trail
+- **Conflict Resolution:** [`GOVERNANCE_FREEZE_01_CONFLICT_RESOLUTION.md`](./GOVERNANCE_FREEZE_01_CONFLICT_RESOLUTION.md) — §8 Constitutional Conflict Resolution
 - **ADR Process:** [`adr/ADR_TEMPLATE.md`](./adr/ADR_TEMPLATE.md) — Architecture Decision Record template
 - **Engine Spec Process:** [`engine_specs/ENGINE_SPEC_TEMPLATE.md`](./engine_specs/ENGINE_SPEC_TEMPLATE.md) — Engine specification template
 - **Approval Process:** [`approvals/`](./approvals/) — Approval templates and records
 - **Verification Process:** [`verification/VERIFICATION_CHECKLIST.md`](./verification/VERIFICATION_CHECKLIST.md) — Verification checklists
+
+---
+
+## 8. Constitutional Conflict Resolution
+
+*See [`GOVERNANCE_FREEZE_01_CONFLICT_RESOLUTION.md`](./GOVERNANCE_FREEZE_01_CONFLICT_RESOLUTION.md) for the full conflict resolution framework.*
+
+### 8.1 Purpose
+
+This section defines how conflicts between constitutional documents are resolved. It ensures that when two governing documents provide contradictory guidance, there is a deterministic resolution path.
+
+### 8.2 Core Principles
+
+1. **Resolve by satisfying both constitutions whenever possible.**
+2. **The Product Constitution governs user experience, interaction philosophy, and behavioural intent.**
+3. **The Technical Constitution governs implementation behaviour, runtime adaptation, and device-native architecture.**
+4. **If a conflict changes a constitutional guarantee, implementation must pause and proceed through CAP-01 before continuing.**
+
+### 8.3 Conflict Resolution Process
+
+```
+Step 1: Identify Conflict
+Step 2: Classify Severity — Critical / Major / Minor
+Step 3: Can both be satisfied? → YES: Adopt & record ADR
+Step 4: Apply Domain Priority — Product > Technical > OS
+Step 5: CRITICAL → Pause implementation → CAP-01
+        MAJOR/MINOR → Chief Constitutional Architect resolves
+Step 6: Record in ADR. Update Governance Changelog.
+```
+
+### 8.4 Constitutional Guarantee Protection
+
+No conflict resolution may weaken:
+- Article 1 (Human First)
+- Article 2 (Human Agency)
+- Article 3 (Permission Before Action)
+- Article 4 (Privacy by Intention)
+- Article 9 (Calm Before Complexity)
+
+Any conflict affecting these automatically triggers CAP-01.
+
+### 8.5 Conflict Resolution Classification
+
+| Category | Resolution Authority |
+|----------|---------------------|
+| Product vs. Technical | Product Constitution governs |
+| Technical vs. OS Architecture | OS Constitution governs |
+| Constitution vs. Governance | SHUNYA Constitution governs |
+| Version conflict | Latest ratified version governs |
+| Cross-document duplicate | Authoritative owner governs |

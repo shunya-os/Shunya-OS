@@ -2,12 +2,14 @@
 
 **File naming:** `ADR-NNN-title-with-hyphens.md`
 
+**Numbering sequence:** ADR-008 and beyond (ADR-001 through ADR-007 exist)
+
 ---
 
 ```markdown
 # ADR-NNN: Title
 
-**Class:** Engineering | Architectural/Constitutional
+**Class:** Engineering | Architectural/Constitutional | Product/Experience
 **Status:** Proposed | Accepted | Superseded | Rejected
 **Date:** YYYY-MM-DD
 **Author:** Name
@@ -17,6 +19,12 @@
 **Approval Authority:**
 - If Engineering: Chief Software Architect
 - If Architectural/Constitutional: Chief Constitutional Architect
+- If Product/Experience: Founder
+
+**Related Constitutional Directives:**
+- SHUNYA Constitution (02) — Article references
+- Product Constitution (14) — Section references
+- Technical Constitution — Section references
 
 ---
 
@@ -28,15 +36,17 @@ What is the current state of the architecture?
 
 What constraints or principles apply?
 
-Cite evidence — code inspection, test results, document references.
+Cite evidence — code paths, route names, test results, document references with line numbers.
 
 ---
 
-## Decision
+## Evidence Reviewed
 
-What is the decision?
+List every piece of evidence that informed this decision:
 
-Which option was chosen and why?
+| Evidence | Source | What It Proves |
+|----------|--------|----------------|
+| (file path, line ref) | Code inspection / test run / document | (finding) |
 
 ---
 
@@ -46,11 +56,47 @@ Which option was chosen and why?
 
 - **Pros:**
 - **Cons:**
+- **Evidence for:**
 
 ### Option 2: (name)
 
 - **Pros:**
 - **Cons:**
+- **Evidence for:**
+
+---
+
+## Decision
+
+Which option was chosen and why?
+
+---
+
+## Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| (what could go wrong) | High/Medium/Low | High/Medium/Low | (how to prevent/recover) |
+
+---
+
+## Migration Plan
+
+Step-by-step migration from current state to target state:
+
+1.
+2.
+3.
+
+---
+
+## Rollback Plan
+
+How to revert this decision if it proves wrong:
+
+1.
+2.
+3.
 
 ---
 
@@ -75,11 +121,11 @@ Which option was chosen and why?
 
 ### Constitutional Principles Affected
 
-List the constitutional principles from SHUNYA_ARCHITECTURE.md that this decision touches.
+List the constitutional principles this decision touches. Cite document and section.
 
 ### Engineering Constitution Articles Affected
 
-List the articles from SHUNYA_ENGINEERING_CONSTITUTION.md that this decision touches.
+List the articles from engineering constitution this decision touches.
 
 ---
 
@@ -91,13 +137,14 @@ How will compliance with this decision be verified?
 - [ ] Tests added for affected layers
 - [ ] Architecture documents updated
 - [ ] Cross-references validated
+- [ ] Capability registry updated
+- [ ] Capability lineage updated
 
 ---
 
 ## References
 
-- [SHUNYA_ARCHITECTURE.md](/SHUNYA_ARCHITECTURE.md) — section reference
-- [SHUNYA_ENGINEERING_CONSTITUTION.md](/governance/SHUNYA_ENGINEERING_CONSTITUTION.md) — article reference
 - [Source file](link) — relevant code
 - [Test file](link) — relevant tests
-```
+- [Capability registry](link) — canonical entry
+- [Audit report](link) — source evidence
