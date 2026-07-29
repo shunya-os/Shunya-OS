@@ -173,7 +173,7 @@ class TestShunyaOS:
         os.bootstrap()
         h = os.health_check()
         assert h["bootstrapped"] is True
-        assert h["runtime_count"] == 10  # 10 mock runtimes
+        assert h["runtime_count"] == 9  # 9 real runtimes (knowledge_graph + memory consolidated)
 
     def test_process_intent_with_bootstrap(self) -> None:
         os = ShunyaOS()
@@ -193,7 +193,7 @@ class TestShunyaOS:
         os.bootstrap()
         h = os.health_check()
         assert h["status"] == "healthy"
-        assert h["pipeline"]["runtime_count"] == 10
+        assert h["pipeline"]["runtime_count"] == 9
 
     def test_shutdown(self) -> None:
         os = ShunyaOS()
@@ -244,4 +244,4 @@ class TestShunyaOS:
         os.bootstrap()
         rt = os.runtimes
         assert "kernel" in rt
-        assert len(rt) == 10
+        assert len(rt) == 9
