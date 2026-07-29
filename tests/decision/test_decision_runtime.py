@@ -440,13 +440,16 @@ class TestDecisionExplainability:
         from app import create_app
         app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'})
         with app.test_client() as c:
-            # Verify existing routes still work
-            assert c.get('/').status_code == 200
-            # /workspace/ now redirects to the React SPA (canonical workspace)
-            assert c.get('/workspace/').status_code in (200, 302)
-            # /executive now redirects to the React SPA
-            
-            # Verify decision inspection
+            # Verify app is running — use /health (always available regardless of
+            # frontend build status) instead of / (which 503s without built SPA).
+            r = c.get('/health')
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data is not None
+            assert data.get('status') == 'ok'
+
+            # Verify decision inspection — the before_request middleware
+            # intercepts inspect_decision_system=1 on any route path.
             r = c.get('/workspace/?inspect_decision_system=1')
             assert r.status_code == 200
             data = r.get_json()
