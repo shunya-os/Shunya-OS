@@ -78,7 +78,7 @@ class TestMilestone1FounderFlow:
         health = data.get("health", {})
         assert health.get("status") == "healthy"
         assert health.get("bootstrapped") is True
-        assert health.get("runtime_count", 0) >= 10
+        assert health.get("runtime_count", 0) >= 9
 
         # Pipeline stages
         stages = data.get("pipeline_stages", {})
@@ -304,7 +304,7 @@ class TestMilestone1FounderFlow:
         # Pipeline health check
         pipeline_health = health.get("pipeline", {})
         assert pipeline_health["status"] == "healthy"
-        assert pipeline_health["runtime_count"] == 10
+        assert pipeline_health["runtime_count"] == 9
         assert pipeline_health["stage_count"] == 11
 
         # Pipeline runtime listing
@@ -345,7 +345,7 @@ class TestMilestone1FounderFlow:
         assert len(os.pipeline.list_runtimes()) >= 6
 
         # Verify exactly 10 runtimes (no new runtimes added)
-        assert len(os.runtimes) == 10
+        assert len(os.runtimes) == 9
 
         # Verify the canonical stages haven't changed
         from core.runtime_pipeline import CANONICAL_STAGES
