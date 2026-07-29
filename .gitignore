@@ -40,6 +40,13 @@ frontend/next-env.d.ts
 # Compiled JS from TypeScript sources
 frontend/src/**/*.js
 
+# WIP later-milestone frontend components (not Phase 1)
+frontend/src/components/conversation/conversation-workspace.tsx
+frontend/src/components/public/homepage.tsx
+frontend/src/components/workspace/context-panel.tsx
+frontend/src/components/workspace/home-workspace.tsx
+frontend/src/components/workspace/workspace-shell.tsx
+
 # Screenshots
 frontend/screenshots/
 frontend/verify-screenshots/
