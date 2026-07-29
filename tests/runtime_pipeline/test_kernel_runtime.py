@@ -323,6 +323,6 @@ class TestOSKernelIntegration:
         os = ShunyaOS()
         os.bootstrap()
         h = os.health_check()
-        # 1 real kernel + 9 mocks = 10
-        assert h["runtime_count"] == 10
-        assert h["pipeline"]["runtime_count"] == 10
+        # 9 real runtimes (kernel + identity + 7 adapters)
+        assert h["runtime_count"] == 9
+        assert h["pipeline"]["runtime_count"] == 9

@@ -94,32 +94,49 @@ class ShunyaOS:
         self._runtimes["identity"] = self._identity_runtime
         self._pipeline.register(self._identity_runtime)
 
-        self._register_mock("knowledge_graph", [
-            PipelineStage.KNOWLEDGE_GRAPH_UPDATE,
-        ])
-        self._register_mock("memory", [
-            PipelineStage.MEMORY_UPDATE,
-        ])
-        self._register_mock("planning", [
-            PipelineStage.PLANNING_UPDATE,
-        ])
-        self._register_mock("reasoning", [
-            PipelineStage.REASONING_UPDATE,
-        ])
-        self._register_mock("execution", [
-            PipelineStage.EXECUTION_UPDATE,
-        ])
-        self._register_mock("automation", [
-            PipelineStage.AUTOMATION_EVALUATION,
-        ])
+        from core.runtime_pipeline.adapters import (
+            AutomationRuntimeAdapter,
+            CognitiveRuntimeAdapter,
+            ExecutionRuntimeAdapter,
+            MemoryKnowledgeRuntimeAdapter,
+            PlanningRuntimeAdapter,
+            WorkspaceRuntimeAdapter,
+        )
+
+        # Memory & Knowledge — replaces knowledge_graph and memory mocks
+        self._memory_knowledge_runtime = MemoryKnowledgeRuntimeAdapter()
+        self._runtimes["memory_knowledge"] = self._memory_knowledge_runtime
+        self._pipeline.register(self._memory_knowledge_runtime)
+
+        # Planning — replaces planning mock
+        self._planning_runtime = PlanningRuntimeAdapter()
+        self._runtimes["planning"] = self._planning_runtime
+        self._pipeline.register(self._planning_runtime)
+
+        # Cognitive (8 intelligence engines) — replaces reasoning mock
+        self._cognitive_runtime = CognitiveRuntimeAdapter()
+        self._runtimes["cognitive"] = self._cognitive_runtime
+        self._pipeline.register(self._cognitive_runtime)
+
+        # Execution — replaces execution mock
+        self._execution_runtime = ExecutionRuntimeAdapter()
+        self._runtimes["execution"] = self._execution_runtime
+        self._pipeline.register(self._execution_runtime)
+
+        # Automation — replaces automation mock
+        self._automation_runtime = AutomationRuntimeAdapter()
+        self._runtimes["automation"] = self._automation_runtime
+        self._pipeline.register(self._automation_runtime)
+
         from core.runtime_pipeline.projection_adapter import ProjectionRuntimeAdapter
         self._projection_runtime = ProjectionRuntimeAdapter()
         self._runtimes["projection"] = self._projection_runtime
         self._pipeline.register(self._projection_runtime)
 
-        self._register_mock("workspace", [
-            PipelineStage.WORKSPACE_UPDATE,
-        ])
+        # Workspace — replaces workspace mock
+        self._workspace_runtime = WorkspaceRuntimeAdapter()
+        self._runtimes["workspace"] = self._workspace_runtime
+        self._pipeline.register(self._workspace_runtime)
 
         self._bootstrapped = True
 

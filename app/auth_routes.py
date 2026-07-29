@@ -16,7 +16,7 @@ auth = AuthLayer()
 
 # Paths that don't require authentication
 PUBLIC_PATHS = {"/health", "/login", "/logout", "/telegram/webhook",
-                "/api/login", "/media", "/static"}
+                "/api/login", "/media", "/static", "/genesis"}
 
 
 def login_required(view):

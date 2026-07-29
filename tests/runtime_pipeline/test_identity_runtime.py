@@ -326,10 +326,10 @@ class TestOSKernelIntegration:
         assert hasattr(identity_rt, "_engine")
 
     def test_two_real_runtimes_count(self) -> None:
-        """Kernel + identity = 2 real, 8 mocks = 10 total."""
+        """Kernel + identity = 2 real, 7 adapters = 9 total."""
         os = ShunyaOS()
         os.bootstrap()
         h = os.health_check()
-        assert h["runtime_count"] == 10
+        assert h["runtime_count"] == 9
         pipeline_h = h["pipeline"]
-        assert pipeline_h["runtime_count"] == 10
+        assert pipeline_h["runtime_count"] == 9

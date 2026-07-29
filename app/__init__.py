@@ -297,6 +297,8 @@ def create_app(config_override: dict | None = None):
     from app.authz.models import (  # noqa: F401
         Role, OrgMemberRole,
     )
+    # Genesis Protection — Audit Log
+    from app.genesis_protection import AuditLog  # noqa: F401
 
     # Canonical consolidated models (from FOR-1/2)
     from app.models import (  # noqa: F401
@@ -484,6 +486,10 @@ def create_app(config_override: dict | None = None):
     with app.app_context():
         load_space_data()
     register_space_middleware(app)
+
+    # ---- Genesis Protection — Auditing & Safeguards (Preparation) ----
+    from app.genesis_routes import genesis_bp
+    app.register_blueprint(genesis_bp)
 
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
