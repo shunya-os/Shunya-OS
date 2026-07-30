@@ -78,7 +78,7 @@ export const api = {
   /** Create an organization. */
   createOrg: (name: string, businessType: string) =>
     req<{ success: boolean; org_id?: string; org_name?: string; error?: string }>('/orgs', {
-      method: 'POST', body: JSON.stringify({ name, business_type: businessType }),
+      method: 'POST', body: JSON.stringify({ company_name: name, business_type: businessType }),
     }),
 
   /** Ask the intelligence engine a question. */
