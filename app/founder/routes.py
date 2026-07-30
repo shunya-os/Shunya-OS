@@ -147,8 +147,21 @@ def api_founder_signin():
     if not email or not password:
         return jsonify({"success": False, "error": "Email and password are required."}), 400
 
+    # Auto-create account on first login (founder becomes User #1)
+    from app.auth import TeamMember, UserRole
+    existing = TeamMember.query.filter_by(email=email).first()
+    if not existing:
+        tm = TeamMember(
+            name=name or email.split("@")[0],
+            email=email,
+            role=UserRole.ADMIN.value if email == "admin@shunyaos.com" else UserRole.ADMIN.value,
+            is_active=True,
+        )
+        tm.set_password(password)
+        db.session.add(tm)
+        db.session.commit()
+
     # PHASE 1: Check if a TeamMember account exists for this email
-    from app.auth import TeamMember
     tm = TeamMember.query.filter_by(email=email, is_active=True).first()
     
     if tm:
@@ -187,6 +200,16 @@ def api_founder_signin():
                 return jsonify(response)
         except Exception as e:
             pass
+
+        # User authenticated but no org membership exists yet
+        session["user_id"] = tm.id
+        session.modified = True
+        return jsonify({
+            "success": True,
+            "redirect": url_for("workspace.workspace_home"),
+            "name": tm.name,
+            "identity_id": "",
+        })
     
     # PHASE 2: New user registration — gated flow
     # Unregistered emails are NOT auto-created.

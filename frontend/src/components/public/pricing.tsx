@@ -131,7 +131,7 @@ export function PricingSection() {
     <section className="hp-pricing-section" id="pricing" aria-label="Pricing">
       <FadeInSection className="hp-pricing-intro-scene">
         <div className="hp-pricing-intro">
-          <h2 className="hp-pricing-heading">Choose your path</h2>
+          <h2 className="hp-pricing-heading">Plans that fit your business</h2>
           <p className="hp-pricing-sub">
             Every business is different. Start where you are, scale when you're ready.
           </p>

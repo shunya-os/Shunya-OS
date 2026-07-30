@@ -6,13 +6,19 @@
 
 const BASE = '/api/v1';
 
-async function req<T>(path: string, opts?: RequestInit): Promise<T> {
+async function req<T>(path: string, opts?: RequestInit, noThrow404 = false): Promise<T> {
   const r = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...opts?.headers },
     credentials: 'include',
     ...opts,
   });
-  if (!r.ok) throw new Error(`API ${r.status}: ${r.statusText}`);
+  if (!r.ok) {
+    // For auth endpoints, 404 is a valid business response, not a network error
+    if (noThrow404 && r.status === 404) {
+      return r.json() as Promise<T>;
+    }
+    throw new Error(`API ${r.status}: ${r.statusText}`);
+  }
   return r.json();
 }
 
@@ -20,7 +26,7 @@ export const api = {
   signin: (email: string, password: string) =>
     req<{ success: boolean; name?: string; identity_id?: string; redirect?: string; error?: string }>('/founder/signin', {
       method: 'POST', body: JSON.stringify({ email, password }),
-    }),
+    }, true /* noThrow404 — 404 means account not found, not network error */),
 
   /** Generic query — discover available capabilities. */
   query: <T = any>(path: string, opts?: RequestInit) => req<T>(path, opts),
