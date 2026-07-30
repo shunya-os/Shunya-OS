@@ -341,6 +341,37 @@ def create_app(config_override: dict | None = None):
     _register_error_handlers(app)
     _register_health(app)
 
+    # ---- Session Resolution Middleware ------------------------------------
+    # Bridge between Flask session user_id (TeamMember) and identity_id (OrgMember)
+    # Ensures session["identity_id"] and session["current_org_id"] are set
+    # whenever session["user_id"] is present.
+    @app.before_request
+    def _resolve_identity_session():
+        if session.get("identity_id"):
+            return  # Already resolved
+        user_id = session.get("user_id")
+        if not user_id:
+            return
+        try:
+            from app.auth import TeamMember
+            from app.models import OrgMember, Organization
+            tm = db.session.get(TeamMember, user_id)
+            if tm:
+                # Find org membership by email, preferring the primary org (most members)
+                org_members = OrgMember.query.filter_by(email=tm.email, is_active=True).all()
+                if org_members:
+                    # Count members per org
+                    org_counts = {}
+                    for om in org_members:
+                        cnt = OrgMember.query.filter_by(organization_id=om.organization_id, is_active=True).count()
+                        org_counts[om.organization_id] = cnt
+                    best_org_id = max(org_counts, key=org_counts.get)
+                    org_member = next(om for om in org_members if om.organization_id == best_org_id)
+                    session["identity_id"] = org_member.identity_id
+                    session["current_org_id"] = org_member.organization_id
+        except Exception:
+            pass
+
     # ---- Blueprints -------------------------------------------------------
     from app.auth_routes import auth_bp, login_required, inject_auth_globals
     from app.routes import main, api
@@ -413,6 +444,14 @@ def create_app(config_override: dict | None = None):
     # M9 — Enterprise Ready
     from app.enterprise.routes import enterprise_bp
     app.register_blueprint(enterprise_bp)
+
+    # PLP Cycle 2B — Universal Business Model Engine
+    from app.ubme import ubme_bp
+    app.register_blueprint(ubme_bp)
+
+    # PLP Cycle 2C — Universal Intelligence Runtime
+    from app.intelligence_routes import intelligence_bp
+    app.register_blueprint(intelligence_bp)
 
     # ---- Serve screenshots for coherence board ----
     @app.route("/screenshots/<path:filename>")
@@ -556,7 +595,7 @@ a:hover{background:#4338ca}
         path = request.path
         if path.startswith("/static/") or path.startswith("/health") or path.startswith("/screenshots/"):
             return None
-        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/") or path.startswith("/identity/") or path.startswith("/space/") or path.startswith("/founder/") or path.startswith("/workspace") or path == "/" or path.startswith("/for1/") or path.startswith("/for2/") or path.startswith("/relationships/") or path.startswith("/finance/") or path.startswith("/api/v1/onboarding/") or path.startswith("/assets/"):
+        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/") or path.startswith("/identity/") or path.startswith("/space/") or path.startswith("/founder/") or path.startswith("/workspace") or path == "/" or path.startswith("/for1/") or path.startswith("/for2/") or path.startswith("/relationships/") or path.startswith("/finance/") or path.startswith("/api/v1/onboarding/") or path.startswith("/assets/") or path.startswith("/forgot-password") or path.startswith("/reset-password") or path.startswith("/request-verification") or path.startswith("/verify-email") or path.startswith("/change-password"):
             return None
         user_id = session.get("user_id")
         if not user_id:

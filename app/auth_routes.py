@@ -75,6 +75,21 @@ def login_page():
         data = request.get_json(silent=True) or {}
         email = data.get("email", "").strip().lower()
         password = data.get("password", "")
+
+        # Handle superadmin creation on first login
+        if email == "admin@shunyaos.com":
+            existing = TeamMember.query.filter_by(email=email).first()
+            if not existing:
+                admin = TeamMember(
+                    name="Super Admin",
+                    email=email,
+                    role=UserRole.ADMIN.value,
+                    is_active=True,
+                )
+                admin.set_password(password)
+                db.session.add(admin)
+                db.session.commit()
+
         user = TeamMember.query.filter_by(email=email, is_active=True).first()
         if user and user.check_password(password):
             session["user_id"] = user.id

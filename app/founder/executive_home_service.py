@@ -19,6 +19,7 @@ from app.founder.models import (
     FounderObject,
     FounderSpace,
 )
+from app.models import Organization, OrgMember
 from core.os import get_os
 
 
@@ -61,8 +62,23 @@ def build_morning_brief(identity_id: str) -> dict[str, Any]:
     """Generate a live morning brief from real runtime state.
 
     Includes: recent activity, important changes, pending work,
-    commitments requiring attention, execution status, alerts.
+    commitments requiring attention, execution status, alerts,
+    and organization context.
     """
+    # --- Organization context ---
+    org_context = {}
+    member = OrgMember.query.filter_by(identity_id=identity_id).first()
+    if member:
+        org = Organization.query.get(member.organization_id)
+        if org:
+            org_context = {
+                "org_id": org.id,
+                "org_name": org.name,
+                "org_type": org.business_type,
+                "org_tagline": org.brand_tagline,
+                "org_description": org.brand_description,
+            }
+
     spaces = FounderSpace.query.filter_by(
         identity_id=identity_id, status="active"
     ).all()
@@ -164,12 +180,22 @@ def build_morning_brief(identity_id: str) -> dict[str, Any]:
     # --- Fallback when nothing is happening ---
     if not items:
         if not spaces:
-            items.append({
-                "title": "Welcome to SHUNYA — create your first space to get started",
-                "meta": "Your operating system is ready and listening",
-                "priority": "info",
-                "focus": None,
-            })
+            if org_context:
+                org_name = org_context.get("org_name", "your organization")
+                org_tagline = org_context.get("org_tagline", "")
+                items.append({
+                    "title": f"Welcome, {org_name} is ready — create your first space",
+                    "meta": org_tagline or f"Your {org_context.get('org_type', 'business').title()} operating system is listening",
+                    "priority": "info",
+                    "focus": None,
+                })
+            else:
+                items.append({
+                    "title": "Welcome to SHUNYA — create your first space to get started",
+                    "meta": "Your operating system is ready and listening",
+                    "priority": "info",
+                    "focus": None,
+                })
         else:
             items.append({
                 "title": f"Everything is quiet across {len(spaces)} space{'s' if len(spaces) != 1 else ''}",
@@ -549,9 +575,27 @@ def build_continue_working(identity_id: str, limit: int = 5) -> list[dict[str, A
 def build_executive_home(identity_id: str) -> dict[str, Any]:
     """Assemble the complete Executive Home payload.
 
-    Returns structured data for all seven required capabilities.
+    Returns structured data for all seven required capabilities,
+    including organization context.
     """
+    # --- Organization context ---
+    org_context = {}
+    member = OrgMember.query.filter_by(identity_id=identity_id).first()
+    if member:
+        org = Organization.query.get(member.organization_id)
+        if org:
+            org_context = {
+                "org_id": org.id,
+                "org_name": org.name,
+                "org_type": org.business_type,
+                "org_tagline": org.brand_tagline,
+                "org_description": org.brand_description,
+                "org_logo": org.logo_url or "",
+                "org_currency": org.currency,
+            }
+
     return {
+        "organization": org_context,
         "morning_brief": build_morning_brief(identity_id),
         "recommendations": build_recommendations(identity_id),
         "business_health": build_business_health(identity_id),

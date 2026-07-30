@@ -147,22 +147,54 @@ def api_founder_signin():
     if not email or not password:
         return jsonify({"success": False, "error": "Email and password are required."}), 400
 
-    # Delegate to OS pipeline
-    result = sign_in(email=email, password=password, name=name)
-
-    if result["success"]:
-        identity_id = result.get("identity_id")
-        if identity_id:
-            session["identity_id"] = identity_id
-            session["user_id"] = identity_id
-
-        return jsonify({
-            "success": True,
-            "redirect": url_for("founder.workspace"),
-            "name": name or email.split("@")[0],
-        })
-
-    return jsonify({"success": False, "error": "Sign in failed"}), 401
+    # PHASE 1: Check if a TeamMember account exists for this email
+    from app.auth import TeamMember
+    tm = TeamMember.query.filter_by(email=email, is_active=True).first()
+    
+    if tm:
+        # Existing user — MUST validate password
+        if not tm.check_password(password):
+            return jsonify({"success": False, "error": "Invalid email or password"}), 401
+        # Authenticated via TeamMember — use their identity
+        try:
+            from app.models import OrgMember, Organization
+            from sqlalchemy import func
+            # Find OrgMember, preferring the one in the largest org
+            org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
+            if org_members:
+                # Count members per org to find the primary org
+                org_counts = {}
+                for om in org_members:
+                    cnt = OrgMember.query.filter_by(organization_id=om.organization_id, is_active=True).count()
+                    org_counts[om.organization_id] = cnt
+                # Pick the org with most members
+                best_org_id = max(org_counts, key=org_counts.get)
+                org_member = next(om for om in org_members if om.organization_id == best_org_id)
+                identity_id = org_member.identity_id
+                session["identity_id"] = identity_id
+                session["user_id"] = tm.id
+                session["current_org_id"] = org_member.organization_id
+                
+                # Refresh session
+                session.modified = True
+                
+                response = {
+                    "success": True,
+                    "redirect": url_for("for2.for2_home"),
+                    "name": tm.name,
+                    "identity_id": identity_id,
+                }
+                return jsonify(response)
+        except Exception as e:
+            pass
+    
+    # PHASE 2: New user registration — gated flow
+    # Unregistered emails are NOT auto-created.
+    # Return a clear error directing them to registration.
+    return jsonify({
+        "success": False, 
+        "error": "Account not found. Please check your email or contact your organization administrator to get an invitation."
+    }), 404
 
 
 # ---------------------------------------------------------------------------

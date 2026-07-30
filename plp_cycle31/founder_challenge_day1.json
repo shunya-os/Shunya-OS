@@ -1,0 +1,75 @@
+{
+  "simulation": "8-Hour Founder Challenge \u2014 Day 1",
+  "tasks": [
+    {
+      "task": "Signs in as Mr. ABC, founder of XYZ Company",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Sees organization: XYZ Company \u2014 owner role",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Reviews 7 departments in morning briefing",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Sees all 19 team members",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Creates lead: TechNova Inc. \u2014 Cloud Migration ($150,000)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Follows up on GreenLeaf Corp ($85,000)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Invoice created for GreenLeaf Corp ($100,300)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Approves invoice \u2014 sends to GreenLeaf Corp",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Creates Q3 Strategic Initiatives with 5 tasks assigned to team",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Creates strategic planning document with notes",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Searches knowledge base \u2014 finds 1 document(s)",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Reviews analytics: 19 members, 7 departments, 3 leads, 2 invoices, 6 tasks",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Logs out for the day",
+      "status": "PASS",
+      "detail": ""
+    },
+    {
+      "task": "Returns next day \u2014 logs back in, org context preserved",
+      "status": "PASS",
+      "detail": ""
+    }
+  ]
+}

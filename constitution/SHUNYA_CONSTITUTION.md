@@ -21,6 +21,8 @@
 | VII | Execution | VII — Discipline of Execution |
 | VIII | Evolution | VIII — Primacy of Governance, XII — Endurance of Design |
 | IX | Governance | VIII — Primacy of Governance, XII — Endurance of Design |
+| **X** | **Experience Completion** | **I — Primacy of Human Purpose, VII — Discipline of Execution, VIII — Primacy of Governance** |
+| **XI** | **Inference Orchestration** | **III — Necessity of Intelligence, VII — Discipline of Execution, VIII — Primacy of Governance** |
 
 ---
 
@@ -658,6 +660,198 @@ The Governance Engine SHALL produce regular health reports containing:
 
 ---
 
+## Article X — Experience Completion
+
+**Authority:** I — Primacy of Human Purpose; VII — Discipline of Execution; VIII — Primacy of Governance
+
+### §10.1 The Experience Completion Canon
+
+A feature is not considered complete until all four dimensions are satisfied:
+
+**1. Functional Completion** — The capability works correctly. Every operation produces the correct result. All error conditions are handled. The feature satisfies its specification.
+
+**2. Operational Completion** — Production configuration, persistence, monitoring, and recovery are validated. The feature survives restart, survives load, and produces observable health signals. No in-memory-only state remains for production-critical paths.
+
+**3. Experience Completion** — The UI, UX, responsiveness, accessibility, copy, feedback states, and onboarding are polished and consistent. Every screen handles: skeleton loading, empty state, error state, success confirmation, and content state. The feature feels like part of a single coherent product, not an independent form. Keyboard navigation works. Reduced motion is respected. Mobile viewports are accommodated.
+
+**4. Founder Validation** — The complete end-to-end journey is successfully executed from a clean environment without developer intervention. A founder with no prior knowledge can discover the feature, understand its purpose, complete their goal, and recover from any error state without reading documentation.
+
+### §10.2 The Four-Dimension Gate
+
+No feature MAY be merged, deployed, or presented to any founder unless all four dimensions are satisfied. A feature that passes only functional and operational testing is not complete — it is a work-in-progress.
+
+The four dimensions SHALL be assessed in order. A feature that fails dimension 1 (Functional) SHALL NOT proceed to dimension 2 (Operational). A feature that fails dimension 3 (Experience) SHALL NOT proceed to dimension 4 (Founder Validation).
+
+### §10.3 The Experience Inventory
+
+Every SHUNYA surface SHALL maintain an experience inventory documenting:
+- All states each component can be in (skeleton, loading, empty, error, content, success)
+- Keyboard navigation paths for each workflow
+- Touch targets and responsive behaviour at each breakpoint
+- Loading, transition, and animation timing
+- Error message inventory with recovery paths
+- Empty state copy for every data-dependent component
+
+### §10.4 The Founder Walkthrough
+
+Before any release, a complete Founder Walkthrough SHALL be executed:
+1. Start from a clean environment (no session, no cookies, no data)
+2. Visit the public homepage
+3. Create an identity
+4. Complete onboarding
+5. Perform the primary workflow
+6. Log out
+7. Return and resume
+8. Verify all data is preserved
+
+No step SHALL require developer intervention, documentation, or support. Any failure at any step is a release blocker.
+
+### §10.5 Polish Before Features
+
+Before adding any new capability, every existing feature SHALL be audited for experience completion. A polished incomplete feature is worth more than three unfinished features. Friction, visual inconsistency, missing states, broken keyboard navigation, and unresponsive layouts SHALL be fixed before any new feature work begins.
+
+### §10.6 Guarantee
+
+| # | Guarantee | Protected By |
+|---|-----------|-------------|
+| G-18 | Four-dimension completion before release | Volume I, Principles I, VII, VIII |
+| G-19 | Founder walkthrough before release | Volume I, Principles I, VII |
+| G-20 | Polish before features | Volume I, Principle VII |
+
+---
+
+## Article XI — Inference Orchestration
+
+**Authority:** III — Necessity of Intelligence; VII — Discipline of Execution; VIII — Primacy of Governance
+
+### §11.1 Universal Inference Orchestrator
+
+SHUNYA SHALL maintain a single canonical InferenceOrchestrator through which every AI inference request flows. No workflow, feature, or business logic MAY depend directly on a specific model, provider, or inference engine. All AI requests SHALL pass through:
+
+```
+Human Request → Capability Classifier → Inference Policy Engine → Provider Selector → Model Selector → Execution → Observation Recorder → Response
+```
+
+### §11.2 Provider Registry
+
+SHUNYA SHALL maintain a dynamic provider registry. Every provider SHALL declare:
+
+- Provider ID and display name
+- Available models with metadata
+- Context window size per model
+- Supported modalities (text, code, vision, speech, embeddings, etc.)
+- Maximum output tokens
+- Rate limits (RPM, TPM, RPD)
+- Health status and average latency
+- Estimated quality score
+- Estimated cost per token
+- Current availability and failure state
+
+The registry SHALL be runtime-discoverable. No provider, model, or capability SHALL be hardcoded in business logic.
+
+### §11.3 Model Registry
+
+Every model SHALL expose capability metadata rather than being referenced by hardcoded name. Capability attributes SHALL include:
+
+- reasoning — logical inference and analysis
+- coding — code generation and understanding
+- conversation — natural dialogue
+- vision — image understanding
+- speech — audio processing
+- embeddings — vector representations
+- OCR — text extraction from images
+- translation — language translation
+- summarization — text condensation
+- extraction — structured data extraction
+
+The policy engine SHALL select models by capability, not by name.
+
+### §11.4 Inference Policy Engine
+
+SHUNYA SHALL implement configurable routing policies. Examples:
+
+- Conversation → smallest acceptable model
+- Coding → strongest coding model
+- Travel planning → balanced reasoning model
+- Document extraction → extraction-optimized model
+- Voice → speech model
+
+Policies SHALL be configurable without application code changes. No routing decision SHALL be hardcoded.
+
+### §11.5 Quota Awareness
+
+SHUNYA SHALL track quota usage at three levels: requests/minute, requests/day, tokens/minute, tokens/day, and context window usage. The system SHALL begin graceful migration before hard limits are reached:
+
+- 75% → Prefer alternative provider
+- 90% → Warm standby provider
+- 100% → Automatic switch to alternative
+
+No failed request SHALL occur solely because one free-tier quota was exhausted when another compatible route exists.
+
+### §11.6 Automatic Failover
+
+SHUNYA SHALL support failover at three levels:
+
+1. **Model failover** — within the same provider (e.g., Groq Llama → Groq GPT-OSS)
+2. **Provider failover** — between providers (e.g., Groq → OpenRouter → Local)
+3. **Infrastructure failover** — between deployment modes (e.g., Remote → Local → Offline deterministic)
+
+No conversation SHALL be interrupted during failover. The system SHALL transparently retry on the next available route.
+
+### §11.7 Context Management
+
+SHUNYA SHALL NEVER switch models solely because a context window is full. Instead, the system SHALL:
+
+1. Summarize older conversation turns
+2. Compress context to essential information
+3. Store long-term memory in the memory engine
+4. Retrieve only relevant context for the current query
+
+Models SHALL only be switched for: capability requirements, quota limits, health status, latency targets, or policy directives.
+
+### §11.8 Learning Router
+
+SHUNYA SHALL continuously record inference telemetry:
+
+- Latency per provider/model
+- User acceptance rate
+- Retry count and success rate
+- Failure count and type
+- Cost per request
+- Token usage
+
+The router SHALL improve routing recommendations over time without changing business logic.
+
+### §11.9 Founder Observability
+
+SHUNYA SHALL provide an Intelligence Dashboard showing:
+
+- Current provider and model
+- Routing reason for each decision
+- Quota usage and remaining capacity
+- Provider health status
+- Failover history
+- Latency and token usage trends
+- Full inference history
+
+The founder SHALL be able to understand every routing decision.
+
+### §11.10 Provider Independence
+
+SHUNYA SHALL NEVER encode provider-specific assumptions (quota limits, model names, pricing, API formats) in business logic. All provider-specific configuration SHALL live in the provider registry, loadable from configuration files or environment variables.
+
+### §11.11 Guarantees
+
+| # | Guarantee | Protected By |
+|---|-----------|-------------|
+| G-21 | All inference through canonical orchestrator | Volume I, Principles III, VII |
+| G-22 | Capability-based model selection, not hardcoded names | Volume I, Principles III, VII |
+| G-23 | No provider-specific assumptions in business logic | Volume I, Principles VII, VIII |
+| G-24 | Automatic failover without conversation interruption | Volume I, Principle VII |
+| G-25 | Transparent routing decisions to founder | Volume I, Principle III |
+
+---
+
 ## Appendix A: Constitutional Guarantees Index
 
 These guarantees are protected from weakening by any governance decision, policy change, or amendment that does not itself follow the full constitutional amendment process.
@@ -694,9 +888,10 @@ These guarantees are protected from weakening by any governance decision, policy
 | Article VI (Representation) | Volume I, Principles VI, XI | Authority derivation |
 | Article VII (Execution) | Volume I, Principle VII | Authority derivation |
 | Article VIII (Evolution) | Volume I, Principles VIII, XII | Authority derivation |
-| Article IX (Governance) | Volume I, Principles VIII, XII | Authority derivation |
-| §2.3 (Evidentiary Chain) | Volume III, §§11, 15 | Definition reference |
-| §2.4 (Timeline Primacy) | Volume III, §30 | Definition reference |
+|| Article X (Experience Completion) | Volume I, Principles I, VII, VIII | Authority derivation |
+|| **Article XI (Inference Orchestration)** | **Volume I, Principles III, VII, VIII** | **Authority derivation** |
+|| §2.3 (Evidentiary Chain) | Volume III, §§11, 15 | Definition reference |
+|| §2.4 (Timeline Primacy) | Volume III, §30 | Definition reference |
 | §3.1 (Cognitive Architecture) | Volume III, §§19–27 | Definition reference |
 | **§3.7 (Simulation Engine)** | **Volume III, §31** | **Definition reference** |
 | §4.1 (Identity Invariant) | Volume III, §4 | Definition reference |

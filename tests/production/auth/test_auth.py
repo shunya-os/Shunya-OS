@@ -14,17 +14,15 @@ def _db(app):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def _clear_auth_state():
-    """Clear module-level auth state between tests."""
-    from app.production.auth import password_reset_routes
-    from app.production.auth import email_verification_routes
-    from app.production.auth import mfa_routes
-    from app.production.auth import session_routes
-    password_reset_routes._reset_tokens.clear()
-    email_verification_routes._verification_tokens.clear()
-    mfa_routes._mfa_state.clear()
-    session_routes._session_versions.clear()
-    session_routes._devices.clear()
+def _clear_auth_state(app):
+    """Clear auth state between tests — cleans DB-backed token tables."""
+    with app.app_context():
+        from app import db
+        from app.auth import EmailVerificationToken, InvitationToken, PasswordResetToken
+        db.session.query(PasswordResetToken).delete()
+        db.session.query(EmailVerificationToken).delete()
+        db.session.query(InvitationToken).delete()
+        db.session.commit()
     yield
 
 

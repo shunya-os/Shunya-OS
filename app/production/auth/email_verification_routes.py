@@ -1,19 +1,18 @@
 """SHUNYA — Email Verification (Milestone X, D2.3).
 
 Email verification workflow for new user registrations.
-Uses in-memory verification store — no model changes needed.
+Uses persistent EmailVerificationToken model.
 """
 
 import secrets
 from datetime import datetime, timedelta
-from flask import request, jsonify
-from werkzeug.exceptions import NotFound, BadRequest
+
+from flask import jsonify, request
+from werkzeug.exceptions import BadRequest, NotFound
+
 from app import db
-from app.auth import TeamMember
+from app.auth import EmailVerificationToken, TeamMember
 from app.auth_routes import auth_bp
-
-
-_verification_tokens: dict = {}
 
 
 def _generate_token() -> str:
@@ -36,22 +35,25 @@ def request_verification():
         })
 
     # Check if already verified
-    user_id = user.id
-    for entry in _verification_tokens.values():
-        if entry["user_id"] == user_id and entry["verified"]:
-            return jsonify({
-                "success": True,
-                "message": "Email is already verified.",
-            })
+    existing = EmailVerificationToken.query.filter_by(
+        user_id=user.id, verified=True
+    ).first()
+    if existing:
+        return jsonify({
+            "success": True,
+            "message": "Email is already verified.",
+        })
 
     token = _generate_token()
-    _verification_tokens[token] = {
-        "user_id": user_id,
-        "email": email,
-        "expires_at": datetime.utcnow() + timedelta(hours=24),
-        "verified": False,
-        "created_at": datetime.utcnow(),
-    }
+    ver = EmailVerificationToken(
+        token=token,
+        user_id=user.id,
+        email=email,
+        expires_at=datetime.utcnow() + timedelta(hours=24),
+        verified=False,
+    )
+    db.session.add(ver)
+    db.session.commit()
 
     return jsonify({
         "success": True,
@@ -63,20 +65,22 @@ def request_verification():
 @auth_bp.route("/verify-email/<token>", methods=["GET"])
 def verify_email(token: str):
     """Verify email address using a token."""
-    entry = _verification_tokens.get(token)
-    if not entry:
+    ver = EmailVerificationToken.query.filter_by(token=token).first()
+    if not ver:
         raise NotFound("Invalid or expired verification token")
-    if entry["verified"]:
+    if ver.verified:
         raise NotFound("Token has already been used")
-    if datetime.utcnow() > entry["expires_at"]:
-        _verification_tokens.pop(token, None)
+    if datetime.utcnow() > ver.expires_at:
+        db.session.delete(ver)
+        db.session.commit()
         raise NotFound("Verification token has expired")
 
-    user = db.session.get(TeamMember, entry["user_id"])
+    user = db.session.get(TeamMember, ver.user_id)
     if not user:
         raise NotFound("User not found")
 
-    entry["verified"] = True
+    ver.verified = True
+    db.session.commit()
 
     return jsonify({
         "success": True,

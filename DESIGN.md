@@ -108,7 +108,7 @@ Derived from shadcn/ui neutral palette with SHUNYA OS brand accent.
 ┌─────────────────────────────────────────────────────────┐
 │  Code           Customer   Destination   Status  Action  │
 │ ═══════════════════════════════════════════════════════ │
-│  PC10072601     Rajat      Bali         🟡 new    View  │
+│  PC10072601     Nishesh      Bali         🟡 new    View  │
 │  PC10072602     Arshlin    Sri Lanka    🟢 conv.  View  │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -129,7 +129,7 @@ Derived from shadcn/ui neutral palette with SHUNYA OS brand accent.
 ┌────────────────────────────────┐
 │  Customer Name                 │
 │  ┌──────────────────────────┐  │
-│  │ Rajat                     │  │
+│  │ Nishesh                     │  │
 │  └──────────────────────────┘  │
 │                                │
 │  Destination  [▼ Select...]    │
@@ -235,7 +235,7 @@ All buttons: `rounded-lg font-medium text-sm px-4 py-2.5 transition-colors durat
 │  │ Telegram│ │ [in_progress▼]│               │
 │  ├─────────┤ ├──────────────┤               │
 │  │ Cust    │ │ Destination  │               │
-│  │ Rajat   │ │ Bali         │               │
+│  │ Nishesh   │ │ Bali         │               │
 │  └─────────┘ └──────────────┘               │
 ├─────────────────────────────────────────────┤
 │  Revenue Card      │  Quick Actions         │

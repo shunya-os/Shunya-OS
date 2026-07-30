@@ -4,16 +4,24 @@ import { WorkspaceBar } from './components/workspace/workspace-bar';
 import { WorkspaceContainer } from './components/workspace/workspace-container';
 import { SearchBar } from './components/search/universal-search';
 import { LoginPage } from './components/auth/login-page';
+import { ForgotPassword } from './components/auth/forgot-password';
+import { ResetPassword } from './components/auth/reset-password';
+import { Signup } from './components/auth/signup';
+import { InvitationAccept } from './components/auth/invitation-accept';
+import { VerifyEmail } from './components/auth/verify-email';
 import { HomePage, homepageStyles } from './components/public/homepage';
 import { registerAllRuntimes } from './runtimes/registration';
 import { orchestrator } from './runtimes/orchestrator';
 import { ModuleRegistry } from './runtimes/module-registry';
 import { SessionManager } from './api/session';
+import { api } from './api/client';
+import { OnboardingFlow, isOnboardingComplete } from './components/onboarding/onboarding-flow';
+import { authStyles } from './components/auth/auth-styles';
 import { useWorkspaceHydration } from './hooks/workspace-hooks';
 import { useWorkspaceStore } from './runtimes/workspace/store';
 import { bus } from './runtimes/event-bus';
 
-type Phase = 'public' | 'login' | 'booting' | 'ready';
+type Phase = 'public' | 'login' | 'onboarding' | 'booting' | 'ready';
 
 let bootstrapped = false;
 let loggingInitialized = false;
@@ -71,6 +79,74 @@ function initBrowserHistory() {
       }
     }
   });
+}
+
+// ── Invitation Page Wrapper ──
+function InvitationPage({ token, onBackToLogin }: { token: string; onBackToLogin: () => void }) {
+  const [invite, setInvite] = useState<{ email?: string; orgName?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await api.getInvitation(token);
+        if (cancelled) return;
+        if (resp.success) {
+          setInvite({ email: resp.email, orgName: resp.orgName });
+        } else {
+          setError(resp.error ?? 'Invalid or expired invitation.');
+        }
+      } catch {
+        if (!cancelled) setError('Could not connect. Check that the server is running.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) {
+    return (
+      <TokenProvider>
+        <div className="sh-auth"><div className="sh-auth-card"><p className="sh-auth-info">Loading invitation…</p></div><style>{authStyles}</style></div>
+      </TokenProvider>
+    );
+  }
+
+  if (error) {
+    return (
+      <TokenProvider>
+        <div className="sh-auth">
+          <div className="sh-auth-card sh-auth-fade-in">
+            <div className="sh-auth-header">
+              <div className="sh-auth-zero">शून्य</div>
+              <div className="sh-auth-sub">SHUNYA</div>
+            </div>
+            <div className="sh-auth-error" role="alert">{error}</div>
+            <button className="sh-auth-btn" onClick={onBackToLogin}>Back to Sign In</button>
+          </div>
+          <style>{authStyles}</style>
+        </div>
+      </TokenProvider>
+    );
+  }
+
+  return (
+    <TokenProvider>
+      <InvitationAccept
+        token={token}
+        orgName={invite?.orgName}
+        invitationEmail={invite?.email}
+        onBackToLogin={onBackToLogin}
+        onSubmit={async (t, name, password) => {
+          const resp = await api.acceptInvitation(t, name, password);
+          return { success: resp.success, error: resp.error };
+        }}
+      />
+    </TokenProvider>
+  );
 }
 
 function AppShell() {
@@ -148,25 +224,149 @@ function AppShell() {
     // If user has a session and navigates directly to /, go to workspace
     const saved = SessionManager.load();
     if (window.location.pathname.startsWith('/auth/')) {
+      // Auth routes handled by AuthRouter below — phase stays 'public' until
+      // the route is determined, but we ensure the auth page renders.
       setPhase('login');
       return;
     }
     if (saved) {
-      bootstrap();
+      // If onboarding is complete, bootstrap directly; otherwise show onboarding
+      if (isOnboardingComplete()) {
+        bootstrap();
+      } else {
+        setPhase('onboarding');
+      }
     }
     // Otherwise stay on public homepage
   }, []);
+
+  // ── Auth Router ──
+  function AuthRouter() {
+    const path = window.location.pathname;
+
+    // Extract token from query params (used by reset-password, verify-email, invitation)
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token') || '';
+
+    const goToLogin = () => {
+      window.history.pushState({}, '', '/auth/login');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    };
+
+    if (path === '/auth/login' || path === '/auth/') {
+      return (
+        <TokenProvider>
+          <LoginPage onLogin={(s) => {
+            SessionManager.save(s);
+            if (isOnboardingComplete()) {
+              bootstrap();
+            } else {
+              setPhase('onboarding');
+            }
+          }} />
+        </TokenProvider>
+      );
+    }
+
+    if (path === '/auth/forgot-password') {
+      return (
+        <TokenProvider>
+          <ForgotPassword
+            onBackToLogin={goToLogin}
+            onSubmit={async (email) => {
+              const resp = await api.forgotPassword(email);
+              return { success: resp.success, error: resp.error };
+            }}
+          />
+        </TokenProvider>
+      );
+    }
+
+    if (path === '/auth/reset-password') {
+      return (
+        <TokenProvider>
+          <ResetPassword
+            token={token}
+            onBackToLogin={goToLogin}
+            onSubmit={async (t, password) => {
+              const resp = await api.resetPassword(t, password);
+              return { success: resp.success, error: resp.error };
+            }}
+          />
+        </TokenProvider>
+      );
+    }
+
+    if (path === '/auth/signup') {
+      return (
+        <TokenProvider>
+          <Signup
+            onBackToLogin={goToLogin}
+            onSubmit={async (name, email, password) => {
+              const resp = await api.signup(email, password, name);
+              return { success: resp.success, error: resp.error };
+            }}
+          />
+        </TokenProvider>
+      );
+    }
+
+    if (path === '/auth/invitation') {
+      return (
+        <TokenProvider>
+          <InvitationPage
+            token={token}
+            onBackToLogin={goToLogin}
+          />
+        </TokenProvider>
+      );
+    }
+
+    if (path === '/auth/verify-email') {
+      return (
+        <TokenProvider>
+          <VerifyEmail
+            token={token}
+            onBackToLogin={goToLogin}
+            onSubmit={async (t) => {
+              const resp = await api.verifyEmail(t);
+              return { success: resp.success, error: resp.error };
+            }}
+          />
+        </TokenProvider>
+      );
+    }
+
+    // Fallback: unknown /auth/ path → redirect to login
+    return (
+      <TokenProvider>
+        <LoginPage onLogin={(s) => {
+          SessionManager.save(s);
+          if (isOnboardingComplete()) {
+            bootstrap();
+          } else {
+            setPhase('onboarding');
+          }
+        }} />
+      </TokenProvider>
+    );
+  }
 
   // ── Public Homepage ──
   if (phase === 'public') {
     return <HomePage onEnterApp={handleEnterApp} />;
   }
 
-  // ── Login ──
+  // ── Login / Auth Pages ──
   if (phase === 'login') {
+    return <AuthRouter />;
+  }
+
+  // ── Onboarding ──
+  if (phase === 'onboarding') {
     return (
       <TokenProvider>
-        <LoginPage onLogin={(s) => { SessionManager.save(s); bootstrap(); }} />
+        <OnboardingFlow onComplete={bootstrap} />
       </TokenProvider>
     );
   }

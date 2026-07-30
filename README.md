@@ -1,6 +1,6 @@
 # Shunya Business OS — Market Ready Product
 
-**To Rajat:** This is not a feature list. This is a product.
+**To Nishesh:** This is not a feature list. This is a product.
 One that any business in any industry can adopt, and every employee enjoys opening every morning.
 
 ---
@@ -87,7 +87,7 @@ When someone gets promoted:
     "Hard work, great client feedback, and 40% higher conversion rate."
     
     👏 Team reactions
-    💬 Message from Rajat: "Well deserved, Amit!"
+    💬 Message from Nishesh: "Well deserved, Amit!"
 ```
 
 **Hierarchy can be created and modified by the admin at any time.** New roles, new levels, new teams. The AI adapts the org chart.
@@ -199,7 +199,7 @@ The intelligence is free. The scale is paid. Shunya's core mission is to make wo
 
 ---
 
-## Rajat's Question
+## Nishesh's Question
 
 > "Will this make me say 'well done partner, let's take it to market'?"
 

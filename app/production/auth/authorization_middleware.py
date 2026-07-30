@@ -9,15 +9,14 @@ No authorization logic in the frontend — all enforcement is server-side.
 from __future__ import annotations
 
 import functools
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any
 
-from flask import g, request, jsonify
-from werkzeug.exceptions import Forbidden
+from flask import g, jsonify, request
 
-from app.auth import TeamMember, UserRole as AuthUserRole
 from app import db
-
+from app.auth import TeamMember
 
 # =========================================================================
 # Permission Definitions
@@ -43,7 +42,7 @@ Resource = str  # e.g. "org", "workspace", "user", "invitation"
 
 # Default permission map: role -> resource -> allowed actions
 # Inheritance: admin includes manager, manager includes agent
-_PERMISSION_MAP: Dict[str, Dict[str, Set[str]]] = {
+_PERMISSION_MAP: dict[str, dict[str, set[str]]] = {
     "admin": {
         "org": {"create", "read", "update", "delete", "admin"},
         "workspace": {"create", "read", "update", "delete", "list"},
@@ -67,12 +66,12 @@ _PERMISSION_MAP: Dict[str, Dict[str, Set[str]]] = {
 }
 
 
-def get_permitted_actions(role: str, resource: str) -> Set[str]:
+def get_permitted_actions(role: str, resource: str) -> set[str]:
     """Get permitted actions for a role on a resource.
 
     Includes inherited permissions from parent roles.
     """
-    actions: Set[str] = set()
+    actions: set[str] = set()
 
     # Role hierarchy (admin > manager > agent)
     roles_to_check = []
@@ -111,7 +110,7 @@ def require_permission(resource: str, action: str):
     def decorator(view: Callable) -> Callable:
         @functools.wraps(view)
         def wrapped_view(*args: Any, **kwargs: Any) -> Any:
-            user: Optional[TeamMember] = getattr(g, "user", None)
+            user: TeamMember | None = getattr(g, "user", None)
             if not user:
                 return jsonify({"error": "Authentication required"}), 401
 
@@ -166,7 +165,8 @@ def evaluate_governance(action_type: str, context: dict) -> dict:
     try:
         from app.shunya.governance_engine import GovernanceEngine
         from app.shunya.governance_engine.models import (
-            GovernanceInput, ActionType,
+            ActionType,
+            GovernanceInput,
         )
 
         # Map string to ActionType enum
@@ -214,7 +214,7 @@ def require_governance(action_type: str):
     def decorator(view: Callable) -> Callable:
         @functools.wraps(view)
         def wrapped_view(*args: Any, **kwargs: Any) -> Any:
-            user: Optional[TeamMember] = getattr(g, "user", None)
+            user: TeamMember | None = getattr(g, "user", None)
             if not user:
                 return jsonify({"error": "Authentication required"}), 401
 

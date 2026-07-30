@@ -21,7 +21,7 @@ import { CompositionEngine } from '../../runtimes/composition/engine';
 import { ModuleRegistry } from '../../runtimes/module-registry';
 import { Panel } from '../executive/index';
 import { WorkspaceShell } from './workspace-shell';
-import { HomeWorkspace } from './home-workspace';
+import { ExecutiveHome } from '../executive-home/executive-home';
 import { bus } from '../../runtimes/event-bus';
 
 function WorkspaceErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
@@ -131,17 +131,17 @@ export function WorkspaceContainer() {
   function renderContent() {
     // While booting, render the Home workspace with skeleton loading
     if (health.total > 0 && !runtimesReady) {
-      return <HomeWorkspace loading={true} />;
+      return <ExecutiveHome loading={true} />;
     }
 
     // Empty state — no modules, no active workspace
     if (!ModuleRegistry.hasModules && !active) {
-      return <HomeWorkspace />;
+      return <ExecutiveHome />;
     }
 
-    // No active workspace — show Home workspace
+    // No active workspace — show Executive Home
     if (!active) {
-      return <HomeWorkspace />;
+      return <ExecutiveHome />;
     }
 
     // Error state (from local fetch or workspace status)
@@ -171,7 +171,7 @@ export function WorkspaceContainer() {
       try {
         composed = CompositionEngine.compose(workspaceType, width, runtimeStates);
       } catch {
-        return <HomeWorkspace />;
+        return <ExecutiveHome />;
       }
 
       return (
@@ -197,7 +197,7 @@ export function WorkspaceContainer() {
     }
 
     // Fallback: no object data, no active workspace
-    return <HomeWorkspace />;
+    return <ExecutiveHome />;
   }
 
   return (

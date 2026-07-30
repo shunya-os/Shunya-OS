@@ -6,7 +6,6 @@ with automatic fallback. This is the ONLY module that talks to LLM APIs.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from typing import Any
@@ -22,6 +21,7 @@ class LLMProvider:
     """Abstract LLM provider. Subclasses implement specific backends."""
 
     name: str = "abstract"
+    model: str = "abstract"
 
     def complete(self, messages: list[dict[str, str]],
                  temperature: float = 0.7,
@@ -135,6 +135,34 @@ class OpenRouterProvider(OpenAIProvider):
             base_url="https://openrouter.ai/api/v1",
             model=model or os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
         )
+
+    def is_available(self) -> bool:
+        """Check only OPENROUTER_API_KEY, not the inherited OPENAI_API_KEY fallback."""
+        return bool(os.getenv("OPENROUTER_API_KEY", ""))
+
+
+# ---------------------------------------------------------------------------
+# Groq provider (free tier, OpenAI-compatible)
+# ---------------------------------------------------------------------------
+
+class GroqProvider(OpenAIProvider):
+    """Groq provides free Llama 3 inference via OpenAI-compatible API.
+
+    Uses GROQ_API_KEY env var. Base URL points to api.groq.com.
+    """
+
+    name = "groq"
+
+    def __init__(self, api_key: str | None = None,
+                 model: str = "llama-3.1-8b-instant"):
+        super().__init__(
+            api_key=api_key or os.getenv("GROQ_API_KEY", ""),
+            base_url="https://api.groq.com/openai/v1",
+            model=model or os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
+        )
+
+    def is_available(self) -> bool:
+        return bool(os.getenv("GROQ_API_KEY", ""))
 
 
 # ---------------------------------------------------------------------------
@@ -308,28 +336,30 @@ _PROVIDERS: list[LLMProvider] = []
 def resolve_provider() -> LLMProvider:
     """Resolve the best available LLM provider with fallback chain.
 
-    Priority: OpenRouter → OpenAI → Anthropic → Local (always available).
+    Priority: OpenRouter → Groq → OpenAI → Anthropic → Local (always available).
+    Stores the full chain of available providers so _try_chain() can fail over.
     """
     if _PROVIDERS:
         return _PROVIDERS[0]
 
     chain = [
         OpenRouterProvider(),
+        GroqProvider(),
         OpenAIProvider(),
         AnthropicProvider(),
         LocalProvider(),
     ]
 
+    _PROVIDERS.clear()
     for provider in chain:
         if provider.is_available():
-            logger.info(f"AI provider resolved: {provider.name} ({provider.model})")
             _PROVIDERS.append(provider)
-            return provider
 
-    # LocalProvider always returns True for is_available
-    _PROVIDERS.append(LocalProvider())
-    logger.info("AI provider: local fallback")
-    return _PROVIDERS[-1]
+    if not _PROVIDERS:
+        _PROVIDERS.append(LocalProvider())
+
+    logger.info(f"AI provider resolved: {_PROVIDERS[0].name} ({_PROVIDERS[0].model})")
+    return _PROVIDERS[0]
 
 
 def get_provider() -> LLMProvider:
@@ -337,6 +367,35 @@ def get_provider() -> LLMProvider:
     if not _PROVIDERS:
         return resolve_provider()
     return _PROVIDERS[0]
+
+
+def _try_chain() -> LLMProvider | None:
+    """Dynamic failover — pop the current (failed) provider and try the next.
+
+    Iterates through the remaining chain until one is available. Call this
+    when the cached provider's complete() returns finish_reason='error'.
+
+    Returns:
+        The next working provider, or None if the chain is exhausted.
+    """
+    if _PROVIDERS:
+        failed = _PROVIDERS.pop(0)
+        logger.warning(f"Provider {failed.name} failed, failing over...")
+
+    while _PROVIDERS:
+        candidate = _PROVIDERS[0]
+        if candidate.is_available():
+            logger.info(
+                f"Failing over to provider: {candidate.name} ({candidate.model})"
+            )
+            return candidate
+        _PROVIDERS.pop(0)
+        logger.warning(
+            f"Provider {candidate.name} not available, skipping..."
+        )
+
+    logger.error("Provider chain exhausted — no available providers remain")
+    return None
 
 
 def reset_provider() -> None:

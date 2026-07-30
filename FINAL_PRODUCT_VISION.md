@@ -7,7 +7,7 @@
 
 ## 1. User Personas & Their Complete Workflows
 
-### Persona 1: The Founder/Owner (Rajat)
+### Persona 1: The Founder/Owner (Nishesh)
 
 **Daily mindset:** "What happened today? Is my team performing? Where's the money going?"
 
@@ -23,7 +23,7 @@
 
 **The Founder's perfect opening screen:**
 ```
-🧠 Shunya: "Good morning, Rajat! ☀️"
+🧠 Shunya: "Good morning, Nishesh! ☀️"
            "SHUNYA Travel: 2 deals closed yesterday, ₹4.5L revenue"
            "SHUNYA Events: 1 wedding booked, ₹2.8L"
            "3 team members need your approval"
@@ -143,7 +143,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│ [🏝️ SHUNYA OS]                     [🧠 AI]   [🔔 3]  [👤 Rajat] │
+│ [🏝️ SHUNYA OS]                     [🧠 AI]   [🔔 3]  [👤 Nishesh] │
 ├─────────────────────────────────────────────────────────────────────┤
 │  📊  📋   🗺️   💰   🧾   📅   👥   📈   📦   ⚙️                │
 │  Home Leads Trips  $  Invs  Cal  Team Rpts Media Settings          │
@@ -152,7 +152,7 @@
 │  ┌─────────────────────────────────────────────────────────────┐   │
 │  │ 🧠 AI Assistant — Always here, always listening              │   │
 │  │                                                              │   │
-│  │ "Good afternoon, Rajat! ☀️"                                 │   │
+│  │ "Good afternoon, Nishesh! ☀️"                                 │   │
 │  │                                                              │   │
 │  │ "Your travel team closed 2 deals today. ₹4.5L revenue.      │   │
 │  │  Riya just celebrated her 10th deal this month! 🎉           │   │

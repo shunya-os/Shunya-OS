@@ -26,7 +26,7 @@ When an employee logs in:
 ```
 [COMPANY LOGO — Animated, centered]
 
-"Good morning, Rajat! ☀️"
+"Good morning, Nishesh! ☀️"
 "It's 9:42 AM. Your team closed 2 leads yesterday.
  You have 3 pending tasks. Let's make today count."
 

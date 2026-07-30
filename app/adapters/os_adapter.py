@@ -153,10 +153,15 @@ def get_pipeline_trace(intent_id: str) -> dict[str, Any] | None:
 
 
 def get_executive_home(identity_id: str) -> dict[str, Any]:
-    """Assemble Executive Home dashboard data from the OS pipeline.
+    """Assemble Executive Home data from the OS pipeline.
 
-    Returns pipeline health, recent traces, object counts, identity counts,
-    and a daily brief. All data comes from real runtimes via the OS.
+    Returns:
+      - health: pipeline health summary
+      - priorities: dynamically generated priorities from runtime state
+      - recent_activity: chronological timeline of events
+      - active_commitments: current commitments from the runtime
+      - object_summary: counts and type breakdown
+      - generated_at: timestamp
     """
     os = get_os()
     health = os.health_check()
@@ -167,60 +172,178 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
     for name, runtime in runtimes.items():
         try:
             h = runtime.health_check()
-            runtime_summary[name] = {
-                "status": h.get("status", "unknown"),
-            }
-            if "object_count" in h:
-                runtime_summary[name]["object_count"] = h["object_count"]
-            if "identity_count" in h:
-                runtime_summary[name]["identity_count"] = h["identity_count"]
-            if "supported_intents" in h:
-                runtime_summary[name]["supported_intents"] = h["supported_intents"]
-            if "supported_projections" in h:
-                runtime_summary[name]["supported_projections"] = h["supported_projections"]
-            if "runtime_count" in h:
-                runtime_summary[name]["runtime_count"] = h["runtime_count"]
+            runtime_summary[name] = {"status": h.get("status", "unknown")}
+            for key in ("object_count", "identity_count", "supported_intents",
+                        "supported_projections", "runtime_count"):
+                if key in h:
+                    runtime_summary[name][key] = h[key]
         except Exception:
             runtime_summary[name] = {"status": "error"}
 
-    # Get projection traces if available
-    projection_traces = []
-    proj_runtime = runtimes.get("projection")
-    if proj_runtime and hasattr(proj_runtime, "get_traces"):
-        try:
-            projection_traces = proj_runtime.get_traces(limit=10)
-        except Exception:
-            pass
+    # ── Recent Activity Timeline ─────────────────────────────────
+    recent_activity = []
+    try:
+        from app.founder.models import FounderObject, FounderConversation, FounderMessage
+        from app import db
+        from sqlalchemy import text
 
-    # Count pipeline stages
-    pipeline_stages = {
-        "total": 11,
-        "with_real_runtime": 0,
-        "with_mock_runtime": 0,
-    }
-    stage_map = os.pipeline.list_runtimes()
-    for stage, runtimes_for_stage in stage_map.items():
-        for r_name in runtimes_for_stage:
-            if r_name in ("kernel", "identity", "projection"):
-                pipeline_stages["with_real_runtime"] += 1
-            else:
-                pipeline_stages["with_mock_runtime"] += 1
+        # Query recent objects as activity events
+        objects = FounderObject.query.filter_by(
+            status="active"
+        ).order_by(
+            FounderObject.updated_at.desc()
+        ).limit(20).all()
+
+        for obj in objects:
+            recent_activity.append({
+                "type": "object_updated",
+                "title": f"Object modified: {obj.name}",
+                "description": f"{obj.object_type} was updated",
+                "object_type": obj.object_type,
+                "object_id": obj.object_id,
+                "timestamp": obj.updated_at.isoformat() if obj.updated_at else "",
+                "actor": obj.created_by or "system",
+            })
+
+        # Query recent conversations
+        convs = FounderConversation.query.filter_by(
+            status="active"
+        ).order_by(
+            FounderConversation.updated_at.desc()
+        ).limit(10).all()
+
+        for conv in convs:
+            recent_activity.append({
+                "type": "conversation",
+                "title": f"Conversation: {conv.title}",
+                "description": f"Active conversation on {conv.object_id}",
+                "object_type": "conversation",
+                "object_id": conv.conv_id,
+                "timestamp": conv.updated_at.isoformat() if conv.updated_at else "",
+                "actor": conv.identity_id or "system",
+            })
+
+        # Sort all activity by timestamp descending
+        recent_activity.sort(
+            key=lambda x: x.get("timestamp", ""),
+            reverse=True,
+        )
+        recent_activity = recent_activity[:20]
+
+    except Exception:
+        recent_activity = []
+
+    # ── Active Commitments ───────────────────────────────────────
+    active_commitments = []
+    try:
+        from app.founder.models import FounderObject
+        objects = FounderObject.query.filter_by(
+            status="active"
+        ).order_by(
+            FounderObject.updated_at.desc()
+        ).limit(10).all()
+
+        for obj in objects:
+            active_commitments.append({
+                "id": obj.object_id,
+                "title": obj.name,
+                "type": obj.object_type,
+                "status": "active",
+                "owner": obj.created_by or "",
+                "due_date": None,
+                "progress": 0,
+                "related_objects": [],
+            })
+    except Exception:
+        pass
+
+    # ── Object Summary ──────────────────────────────────────────
+    object_summary = {"total": 0, "by_type": {}, "at_risk": 0}
+    try:
+        from app.founder.models import FounderObject
+        all_objects = FounderObject.query.filter_by(status="active").all()
+        object_summary["total"] = len(all_objects)
+        for obj in all_objects:
+            t = obj.object_type or "Unknown"
+            object_summary["by_type"][t] = object_summary["by_type"].get(t, 0) + 1
+    except Exception:
+        pass
+
+    # ── Priorities (dynamically generated from runtime state) ────
+    priorities = []
+    now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+
+    # Priority 1: At-risk objects
+    if object_summary.get("at_risk", 0) > 0:
+        priorities.append({
+            "id": "at_risk_objects",
+            "title": f"{object_summary['at_risk']} object(s) at risk",
+            "reason": "Objects marked at-risk require immediate attention",
+            "affected_objects": object_summary.get("at_risk", 0),
+            "urgency": "high",
+            "recommended_action": "Review and update at-risk objects",
+        })
+
+    # Priority 2: Pipeline health
+    health_status = health.get("status", "unknown")
+    if health_status not in ("ok", "healthy"):
+        priorities.append({
+            "id": "pipeline_health",
+            "title": "System pipeline health check",
+            "reason": f"Pipeline status: {health_status}",
+            "affected_objects": 0,
+            "urgency": "high" if health_status == "error" else "medium",
+            "recommended_action": "Inspect pipeline health and runtime status",
+        })
+
+    # Priority 3: Recent activity
+    if recent_activity:
+        priorities.append({
+            "id": "recent_activity",
+            "title": f"{len(recent_activity)} recent events",
+            "reason": "System has been active since your last visit",
+            "affected_objects": len(recent_activity),
+            "urgency": "medium",
+            "recommended_action": "Review recent activity timeline",
+        })
+
+    # Priority 4: Active commitments
+    if active_commitments:
+        priorities.append({
+            "id": "active_commitments",
+            "title": f"{len(active_commitments)} active commitment(s)",
+            "reason": "These commitments require your attention or follow-up",
+            "affected_objects": len(active_commitments),
+            "urgency": "medium",
+            "recommended_action": "Review and update commitment status",
+        })
+
+    # Priority 5: Empty state guidance
+    if object_summary["total"] == 0:
+        priorities.append({
+            "id": "getting_started",
+            "title": "Welcome to SHUNYA",
+            "reason": "Your organization has no business objects yet",
+            "affected_objects": 0,
+            "urgency": "low",
+            "recommended_action": "Create your first business object to begin",
+        })
 
     return {
         "success": True,
         "data": {
             "health": {
-                "status": health.get("status", "unknown"),
+                "status": health_status,
                 "bootstrapped": health.get("bootstrapped", False),
                 "runtime_count": health.get("runtime_count", 0),
                 "pipeline": health.get("pipeline", {}),
             },
-            "pipeline_stages": pipeline_stages,
+            "priorities": priorities,
+            "recent_activity": recent_activity,
+            "active_commitments": active_commitments,
+            "object_summary": object_summary,
             "runtimes": runtime_summary,
-            "recent_projection_traces": projection_traces,
-            "generated_at": __import__("datetime").datetime.now(
-                __import__("datetime").timezone.utc
-            ).isoformat(),
+            "generated_at": now.isoformat(),
         },
     }
 

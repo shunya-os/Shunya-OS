@@ -29,7 +29,7 @@ They think:
 ```
                     ┌─────────────────────────┐
                     │     SUPER ADMIN          │
-                    │  (Rajat / Owner)         │
+                    │  (Nishesh / Owner)         │
                     │  Sees ALL brands,        │
                     │  cross-brand analytics,  │
                     │  global settings         │
@@ -73,7 +73,7 @@ When any user logs in at any time:
 │                                                            │
 │  [Animated AI Avatar — changes expression based on context]│
 │                                                            │
-│  "Good morning Rajat! ☀️"                                  │
+│  "Good morning Nishesh! ☀️"                                  │
 │  "Your travel team closed 2 deals yesterday.               │
 │   You have 3 pending approvals.                            │
 │   And Riya requested a new feature."                       │

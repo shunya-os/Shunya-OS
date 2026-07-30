@@ -1,0 +1,429 @@
+{
+  "health_check": {
+    "status": "healthy",
+    "sessions": 0,
+    "memory": 0
+  },
+  "tests": [
+    {
+      "test": "Org Name",
+      "query": "What is the name of my organization?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What is the name of my organization?",
+      "latency_ms": 0.6,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Dept List",
+      "query": "What departments do we have?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What departments do we have?",
+      "latency_ms": 0.2,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Members",
+      "query": "Who are our team members?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Who are our team members?",
+      "latency_ms": 0.2,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Key People",
+      "query": "Who are the directors?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Who are the directors?",
+      "latency_ms": 0.2,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Founder Info",
+      "query": "Who is the founder of XYZ Company?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Who is the founder of XYZ Company?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Who Am I",
+      "query": "Who am I?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Who am I?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "My Role",
+      "query": "What is my role in the organization?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What is my role in the organization?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "My Permissions",
+      "query": "What can I do in this system?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What can I do in this system?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Turn 1",
+      "query": "What are our open tasks?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What are our open tasks?",
+      "latency_ms": 0.3,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Turn 2",
+      "query": "Can you tell me more about the first one?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Can you tell me more about the first one?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Turn 3",
+      "query": "What about the second one?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What about the second one?",
+      "latency_ms": 0.2,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Context Check",
+      "query": "What were we just talking about?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What were we just talking about?",
+      "latency_ms": 0.2,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Explain Data",
+      "query": "Can you explain our sales data?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Can you explain our sales data?",
+      "latency_ms": 0.2,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Trend Analysis",
+      "query": "What are our business trends?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What are our business trends?",
+      "latency_ms": 0.2,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Suggest Action",
+      "query": "What should I do next?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What should I do next?",
+      "latency_ms": 0.2,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Recommend",
+      "query": "Can you recommend some actions for the Sales team?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Can you recommend some actions for the Sales team?",
+      "latency_ms": 0.2,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "General Q",
+      "query": "What is a professional services firm?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What is a professional services firm?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Business Q",
+      "query": "How can we improve our sales process?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 How can we improve our sales process?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Summary",
+      "query": "Summarize what we've discussed so far.",
+      "intent_category": "unknown",
+      "strategy": "defer",
+      "confidence": 0.0,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Summarize what we've discussed so far.",
+      "latency_ms": 0.2,
+      "actions": [
+        "Ask for clarification"
+      ],
+      "requires_clarification": true
+    },
+    {
+      "test": "Plan",
+      "query": "Create a plan for launching a new product",
+      "intent_category": "command",
+      "strategy": "defer",
+      "confidence": 0.8,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Create a plan for launching a new product\n\nI can help you with that. Would you like me to proceed?",
+      "latency_ms": 0.1,
+      "actions": [
+        "Execute requested action: Create a plan for launching a new product"
+      ],
+      "requires_clarification": false
+    },
+    {
+      "test": "Task List",
+      "query": "List the steps for onboarding a new client",
+      "intent_category": "command",
+      "strategy": "defer",
+      "confidence": 0.8,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 List the steps for onboarding a new client\n\nI can help you with that. Would you like me to proceed?",
+      "latency_ms": 0.2,
+      "actions": [
+        "Execute requested action: List the steps for onboarding a new client"
+      ],
+      "requires_clarification": false
+    },
+    {
+      "test": "Generate Doc",
+      "query": "Generate a meeting agenda for our weekly sales review",
+      "intent_category": "unknown",
+      "strategy": "defer",
+      "confidence": 0.0,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Generate a meeting agenda for our weekly sales review",
+      "latency_ms": 0.2,
+      "actions": [
+        "Ask for clarification"
+      ],
+      "requires_clarification": true
+    },
+    {
+      "test": "Write Email",
+      "query": "Draft an email to the team about quarterly goals",
+      "intent_category": "command",
+      "strategy": "defer",
+      "confidence": 0.75,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Draft an email to the team about quarterly goals\n\nI can help you with that. Would you like me to proceed?",
+      "latency_ms": 0.2,
+      "actions": [
+        "Execute requested action: Draft an email to the team about quarterly goals"
+      ],
+      "requires_clarification": false
+    },
+    {
+      "test": "Industry News",
+      "query": "What are the latest trends in professional services?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What are the latest trends in professional services?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Competitor Intel",
+      "query": "Who are our competitors in the professional services space?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Who are our competitors in the professional services space?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Regulations",
+      "query": "What regulations apply to professional services firms?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What regulations apply to professional services firms?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "General Knowledge",
+      "query": "What is the difference between a manager and a director?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What is the difference between a manager and a director?",
+      "latency_ms": 0.1,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Source Distinction",
+      "query": "Explain how you distinguish between organizational knowledge, internet knowledge, reasoning, and assumptions",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.7,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 Explain how you distinguish between organizational knowledge, internet knowledge, reasoning, and assumptions",
+      "latency_ms": 0.3,
+      "actions": [],
+      "requires_clarification": false
+    },
+    {
+      "test": "Post-Nav Q",
+      "query": "What leads are in my pipeline?",
+      "intent_category": "question",
+      "strategy": "defer",
+      "confidence": 0.85,
+      "evidence_sources": [
+        "memory"
+      ],
+      "content_preview": "Based on the available information (from memory):\n\n\u2022 What leads are in my pipeline?",
+      "latency_ms": 0.2,
+      "actions": [],
+      "requires_clarification": false
+    }
+  ],
+  "summary": {
+    "total": 29,
+    "with_confidence": 27
+  }
+}

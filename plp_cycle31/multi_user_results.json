@@ -1,0 +1,181 @@
+{
+  "simulation": "Multi-User Collaboration",
+  "employees": [
+    {
+      "email": "david@xyzcompany.com",
+      "password": "director123",
+      "auth": true,
+      "role": "admin",
+      "expected_role": "admin",
+      "member_count": 19,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_2b33249fba835940"
+    },
+    {
+      "email": "olivia@xyzcompany.com",
+      "password": "director123",
+      "auth": true,
+      "role": "admin",
+      "expected_role": "admin",
+      "member_count": 19,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_d3b1efb2a28e1964"
+    },
+    {
+      "email": "felicia@xyzcompany.com",
+      "password": "director123",
+      "auth": true,
+      "role": "admin",
+      "expected_role": "admin",
+      "member_count": 19,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_9ced6ca5e1428b63"
+    },
+    {
+      "email": "henry@xyzcompany.com",
+      "password": "director123",
+      "auth": true,
+      "role": "admin",
+      "expected_role": "admin",
+      "member_count": 19,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_c2c5189f4f22594b"
+    },
+    {
+      "email": "maya@xyzcompany.com",
+      "password": "manager123",
+      "auth": true,
+      "role": "manager",
+      "expected_role": "manager",
+      "member_count": 3,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_9cf31c82bc29c867"
+    },
+    {
+      "email": "nathan@xyzcompany.com",
+      "password": "manager123",
+      "auth": true,
+      "role": "manager",
+      "expected_role": "manager",
+      "member_count": 3,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_e2c1b8880c0f81d3"
+    },
+    {
+      "email": "fiona@xyzcompany.com",
+      "password": "manager123",
+      "auth": true,
+      "role": "manager",
+      "expected_role": "manager",
+      "member_count": 3,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_f61ef8ffff8728d7"
+    },
+    {
+      "email": "hannah@xyzcompany.com",
+      "password": "manager123",
+      "auth": true,
+      "role": "manager",
+      "expected_role": "manager",
+      "member_count": 3,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_cff3d43af73b1593"
+    },
+    {
+      "email": "marcus@xyzcompany.com",
+      "password": "manager123",
+      "auth": true,
+      "role": "manager",
+      "expected_role": "manager",
+      "member_count": 3,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_e9616001bded6a81"
+    },
+    {
+      "email": "sam@xyzcompany.com",
+      "password": "manager123",
+      "auth": true,
+      "role": "manager",
+      "expected_role": "manager",
+      "member_count": 3,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_832b5a937a1e2599"
+    },
+    {
+      "email": "sarah@xyzcompany.com",
+      "password": "staff123",
+      "auth": true,
+      "role": "member",
+      "expected_role": "member",
+      "member_count": 1,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_aa59004677a4422a"
+    },
+    {
+      "email": "tom@xyzcompany.com",
+      "password": "staff123",
+      "auth": true,
+      "role": "member",
+      "expected_role": "member",
+      "member_count": 1,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_b1d8447b962d8338"
+    },
+    {
+      "email": "uma@xyzcompany.com",
+      "password": "staff123",
+      "auth": true,
+      "role": "member",
+      "expected_role": "member",
+      "member_count": 1,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_7e68fe42aca6d764"
+    },
+    {
+      "email": "rachel@xyzcompany.com",
+      "password": "staff123",
+      "auth": true,
+      "role": "member",
+      "expected_role": "member",
+      "member_count": 1,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_d6634a65c1c6a8b8"
+    },
+    {
+      "email": "mike@xyzcompany.com",
+      "password": "staff123",
+      "auth": true,
+      "role": "member",
+      "expected_role": "member",
+      "member_count": 1,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_9c9fa320607c7de1"
+    },
+    {
+      "email": "sonia@xyzcompany.com",
+      "password": "staff123",
+      "auth": true,
+      "role": "member",
+      "expected_role": "member",
+      "member_count": 1,
+      "dept_count": 7,
+      "org_access": true,
+      "uid": "sid_4cba37a032d29d51"
+    }
+  ]
+}
