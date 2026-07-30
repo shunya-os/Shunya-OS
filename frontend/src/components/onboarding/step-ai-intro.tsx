@@ -1,0 +1,180 @@
+/**
+ * Step 3: AI Introduction — Explore SHUNYA's AI capabilities.
+ *
+ * States: idle → demo_loading → demo_success / demo_error.
+ * Shows explanation text, a sample message, and a quick demo input
+ * where the user can type a test question and see a response.
+ */
+
+import { useState, useRef, useEffect } from 'react';
+import { api } from '../../api/client';
+import { onboardingStyles } from './onboarding-styles';
+
+interface Props {
+  onNext: () => void;
+  onBack: () => void;
+}
+
+type DemoPhase = 'idle' | 'loading' | 'success' | 'error';
+
+const SAMPLE_QUESTION = 'Ask me anything about your business—like "What are my top priorities?"';
+
+export function StepAiIntro({ onNext, onBack }: Props) {
+  const [demoPhase, setDemoPhase] = useState<DemoPhase>('idle');
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleAsk = async () => {
+    if (!question.trim()) return;
+    setDemoPhase('loading');
+    setErrorMsg('');
+    setAnswer('');
+
+    try {
+      const resp = await api.askIntelligence(question.trim());
+      if (resp.success && resp.answer) {
+        setAnswer(resp.answer);
+        setDemoPhase('success');
+      } else {
+        setDemoPhase('error');
+        setErrorMsg(resp.error ?? 'No response from AI. Please try again.');
+      }
+    } catch {
+      setDemoPhase('error');
+      setErrorMsg('Could not reach the AI service. The server may not be running.');
+    }
+  };
+
+  const handleContinue = () => {
+    onNext();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey && demoPhase !== 'loading') {
+      e.preventDefault();
+      if (question.trim()) {
+        handleAsk();
+      } else {
+        handleContinue();
+      }
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onBack();
+    }
+  };
+
+  const handleRetry = () => {
+    setDemoPhase('idle');
+    setErrorMsg('');
+    setAnswer('');
+  };
+
+  return (
+    <div className="sh-onboarding" onKeyDown={handleKeyDown}>
+      <div className="sh-onboarding-content">
+        <div className="sh-onboarding-card sh-onb-fade-in">
+          <div className="sh-onboarding-title">Meet Your AI</div>
+          <div className="sh-onboarding-subtitle">
+            SHUNYA's intelligence engine helps you manage your business—answering questions,
+            generating insights, and automating tasks. It learns from your organization's data
+            to provide relevant, contextual responses.
+          </div>
+
+          {/* Sample message */}
+          <div className="sh-onboarding-ai-message">
+            <div className="sh-onboarding-ai-label">SHUNYA AI</div>
+            {SAMPLE_QUESTION}
+          </div>
+
+          {/* Demo input */}
+          <div className="sh-onboarding-field" style={{ width: '100%' }}>
+            <label htmlFor="ai-demo-input">Try it yourself</label>
+            <textarea
+              id="ai-demo-input"
+              className="sh-onboarding-textarea"
+              value={question}
+              onChange={e => setQuestion(e.target.value)}
+              placeholder="Type a question about your business..."
+              disabled={demoPhase === 'loading'}
+              ref={inputRef}
+              tabIndex={0}
+              rows={3}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (question.trim()) handleAsk();
+                }
+              }}
+            />
+          </div>
+
+          {/* AI response */}
+          {demoPhase === 'success' && answer && (
+            <div className="sh-onboarding-ai-message">
+              <div className="sh-onboarding-ai-label">SHUNYA AI Response</div>
+              {answer}
+            </div>
+          )}
+
+          {demoPhase === 'error' && (
+            <div className="sh-onboarding-error" role="alert">
+              {errorMsg}
+              <div style={{ marginTop: 8 }}>
+                <button
+                  className="sh-onboarding-btn-secondary"
+                  onClick={handleRetry}
+                  style={{ padding: '6px 12px', fontSize: '0.8rem', width: 'auto' }}
+                  tabIndex={0}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="sh-onboarding-btn-row">
+            {question.trim() && demoPhase !== 'loading' ? (
+              <button
+                className="sh-onboarding-btn"
+                onClick={handleAsk}
+                tabIndex={0}
+              >
+                Ask
+              </button>
+            ) : null}
+            {demoPhase === 'loading' && (
+              <button className="sh-onboarding-btn" disabled>
+                <span className="sh-onboarding-spinner" />Thinking…
+              </button>
+            )}
+            <button
+              className="sh-onboarding-btn"
+              onClick={handleContinue}
+              tabIndex={0}
+              style={demoPhase === 'success' || !question.trim() ? {} : { display: 'none' }}
+            >
+              {demoPhase === 'success' || !question.trim() ? 'Continue' : 'Skip ›'}
+            </button>
+          </div>
+
+          <button
+            className="sh-onboarding-btn-secondary"
+            onClick={onBack}
+            disabled={demoPhase === 'loading'}
+            tabIndex={0}
+          >
+            Back
+          </button>
+        </div>
+      </div>
+      <style>{onboardingStyles}</style>
+    </div>
+  );
+}

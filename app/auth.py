@@ -6,15 +6,14 @@ Roles: Admin, Manager, Agent.
 Every request passes through permission check before accessing any resource.
 """
 
-import os
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
-from typing import Optional
+
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
 
 from app import db
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Index
 
 
 class UserRole(str, Enum):
@@ -65,12 +64,12 @@ class AuthLayer:
     def __init__(self):
         self._exempt_paths = {"/health", "/login", "/api/login"}
 
-    def verify_token(self, token: str) -> Optional[TeamMember]:
+    def verify_token(self, token: str) -> TeamMember | None:
         if not token:
             return None
         return TeamMember.query.filter_by(api_token=token, is_active=True).first()
 
-    def verify_session(self, session_token: str) -> Optional[TeamMember]:
+    def verify_session(self, session_token: str) -> TeamMember | None:
         return self.verify_token(session_token)
 
     def check_permission(self, user: TeamMember, resource: str, action: str = "read") -> bool:
@@ -85,3 +84,54 @@ class AuthLayer:
             res_actions = allowed.get(resource, [])
             return action in res_actions
         return False
+
+
+class PasswordResetToken(db.Model):
+    """Persistent password reset tokens — survives gunicorn multi-worker restarts."""
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True)
+    token = Column(String(128), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, db.ForeignKey("team_members.id"), nullable=False)
+    email = Column(String(255), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = db.relationship("TeamMember", backref="reset_tokens", lazy="select")
+
+
+class EmailVerificationToken(db.Model):
+    """Persistent email verification tokens."""
+    __tablename__ = "email_verification_tokens"
+
+    id = Column(Integer, primary_key=True)
+    token = Column(String(128), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, db.ForeignKey("team_members.id"), nullable=False)
+    email = Column(String(255), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    verified = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = db.relationship("TeamMember", backref="verification_tokens", lazy="select")
+
+
+class InvitationToken(db.Model):
+    """Persistent invitation tokens for organization onboarding."""
+    __tablename__ = "invitation_tokens"
+
+    id = Column(Integer, primary_key=True)
+    token = Column(String(128), unique=True, nullable=False, index=True)
+    org_id = Column(Integer, db.ForeignKey("tenants.id"), nullable=False)
+    email = Column(String(255), nullable=False)
+    role = Column(String(30), nullable=False)
+    name = Column(String(255), default="")
+    expires_at = Column(DateTime, nullable=False)
+    accepted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    org = db.relationship("Tenant", backref="invitations", lazy="select")
+
+    @property
+    def status(self) -> str:
+        return "accepted" if self.accepted_at else "pending"

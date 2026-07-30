@@ -2,7 +2,7 @@
 
 **Version:** 2.0 — Locked  
 **Date:** July 10, 2026  
-**Author:** Rajat / AI@shunyaos.com
+**Author:** Nishesh / AI@shunyaos.com
 
 ---
 

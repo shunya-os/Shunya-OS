@@ -1,21 +1,18 @@
 """SHUNYA — Password Reset (Milestone X, D2.2).
 
-Email-based password reset with secure tokens.
+Email-based password reset with persistent tokens.
+Now uses DB-backed PasswordResetToken model instead of in-memory store.
 """
 
 import secrets
 from datetime import datetime, timedelta
 
-from flask import request, jsonify
-from werkzeug.exceptions import NotFound, BadRequest
+from flask import jsonify, request
+from werkzeug.exceptions import BadRequest, NotFound
 
 from app import db
-from app.auth import TeamMember
-from app.auth_routes import login_required, auth_bp
-
-
-# In-memory token store for now
-_reset_tokens: dict = {}  # token -> {user_id, email, expires_at, used}
+from app.auth import PasswordResetToken, TeamMember
+from app.auth_routes import auth_bp
 
 
 def _generate_token() -> str:
@@ -24,7 +21,7 @@ def _generate_token() -> str:
 
 @auth_bp.route("/forgot-password", methods=["POST"])
 def forgot_password():
-    """Request a password reset email."""
+    """Request a password reset email. Creates a persistent token."""
     data = request.get_json(silent=True) or {}
     email = data.get("email", "").strip().lower()
 
@@ -40,20 +37,19 @@ def forgot_password():
         })
 
     token = _generate_token()
-    _reset_tokens[token] = {
-        "user_id": user.id,
-        "email": email,
-        "expires_at": datetime.utcnow() + timedelta(hours=1),
-        "used": False,
-        "created_at": datetime.utcnow(),
-    }
+    reset = PasswordResetToken(
+        token=token,
+        user_id=user.id,
+        email=email,
+        expires_at=datetime.utcnow() + timedelta(hours=1),
+        used=False,
+    )
+    db.session.add(reset)
+    db.session.commit()
 
-    # In production, send email here
-    # For now, return the token in the response for testing
     return jsonify({
         "success": True,
         "message": "If the email exists, a reset link has been sent.",
-        # TODO: Remove this in production — only for development/testing
         "_reset_token": token,
     })
 
@@ -61,36 +57,38 @@ def forgot_password():
 @auth_bp.route("/reset-password/<token>", methods=["GET"])
 def verify_reset_token(token: str):
     """Verify a password reset token."""
-    entry = _reset_tokens.get(token)
-    if not entry:
+    reset = PasswordResetToken.query.filter_by(token=token).first()
+    if not reset:
         raise NotFound("Invalid or expired reset token")
 
-    if entry["used"]:
+    if reset.used:
         raise NotFound("Reset token has already been used")
 
-    if datetime.utcnow() > entry["expires_at"]:
-        _reset_tokens.pop(token, None)
+    if datetime.utcnow() > reset.expires_at:
+        db.session.delete(reset)
+        db.session.commit()
         raise NotFound("Reset token has expired")
 
     return jsonify({
         "success": True,
         "message": "Token is valid",
-        "data": {"email": entry["email"]},
+        "data": {"email": reset.email},
     })
 
 
 @auth_bp.route("/reset-password/<token>", methods=["POST"])
 def reset_password(token: str):
     """Reset password using a valid token."""
-    entry = _reset_tokens.get(token)
-    if not entry:
+    reset = PasswordResetToken.query.filter_by(token=token).first()
+    if not reset:
         raise NotFound("Invalid or expired reset token")
 
-    if entry["used"]:
+    if reset.used:
         raise NotFound("Reset token has already been used")
 
-    if datetime.utcnow() > entry["expires_at"]:
-        _reset_tokens.pop(token, None)
+    if datetime.utcnow() > reset.expires_at:
+        db.session.delete(reset)
+        db.session.commit()
         raise NotFound("Reset token has expired")
 
     data = request.get_json(silent=True) or {}
@@ -99,16 +97,17 @@ def reset_password(token: str):
     if not password or len(password) < 6:
         raise BadRequest("'password' must be at least 6 characters")
 
-    user = db.session.get(TeamMember, entry["user_id"])
+    user = db.session.get(TeamMember, reset.user_id)
     if not user:
         raise NotFound("User not found")
 
     user.set_password(password)
-    entry["used"] = True
+    reset.used = True
     db.session.commit()
 
     # Clean up used token
-    _reset_tokens.pop(token, None)
+    db.session.delete(reset)
+    db.session.commit()
 
     return jsonify({
         "success": True,

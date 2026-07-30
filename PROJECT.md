@@ -196,7 +196,7 @@ Focus: Phase 1 hardening
 
 | Role | Name |
 |------|------|
-| Owner | Rajat |
+| Owner | Nishesh |
 | Team | Chaya |
 | AI Identity | AI@shunyaos.com |
 | Bot Account | trips-ui (GitHub) |

@@ -277,7 +277,7 @@ Determines governance tier (based on action type + user role)
 - Approvals are AI-suggested, human-decided
 - Approver sees full context: who, what, when, why
 - Decisions are logged and learnable
-- "Rajat always approves proposals below ₹2L" → AI learns → Auto-tier expands
+- "Nishesh always approves proposals below ₹2L" → AI learns → Auto-tier expands
 
 ---
 
@@ -731,7 +731,7 @@ Every interaction (query, command, action, feedback)
 │  What can we learn?          │
 │  - Facts: "Bali visa on      │
 │    arrival for Indians"      │
-│  - Preferences: "Rajat       │
+│  - Preferences: "Nishesh       │
 │    prefers 3-night minimum"  │
 │  - Patterns: "This client    │
 │    said no to adventure"     │
@@ -1125,7 +1125,7 @@ Every auth method removed is a barrier lowered:
 
 ## 27.4 The Super Admin (Platform Owner)
 
-*Rajat. Wants the platform to grow, be valuable, and win.*
+*Nishesh. Wants the platform to grow, be valuable, and win.*
 
 - Sees across all tenants without seeing their data
 - Knows which features are used, which are ignored

@@ -3,16 +3,16 @@
 Pluggable multi-factor authentication with TOTP support.
 """
 
-import secrets
-import hashlib
 import base64
+import hashlib
+import secrets
 from datetime import datetime
-from flask import request, jsonify, session
-from werkzeug.exceptions import NotFound, BadRequest
-from app.auth_routes import login_required, auth_bp
-from app import db
-from app.auth import TeamMember
 
+from flask import jsonify, request, session
+from werkzeug.exceptions import BadRequest
+
+from app.auth import TeamMember
+from app.auth_routes import auth_bp, login_required
 
 # In-memory MFA state per user
 _mfa_state: dict = {}  # user_id -> {secret, enabled, recovery_codes}
@@ -39,7 +39,9 @@ def _generate_recovery_codes(count: int = 10) -> list:
 
 def _validate_totp(secret: str, code: str) -> bool:
     """Simple TOTP validation — for production use pyotp library."""
-    import hashlib, hmac, struct, time
+    import hmac
+    import struct
+    import time
     try:
         int(code)
     except ValueError:

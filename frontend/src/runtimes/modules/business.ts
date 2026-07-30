@@ -127,9 +127,29 @@ const module: ShunyaModule = {
           propsResolver: (s: any) => ({ name: s.name ?? 'Unknown', type: s.object_type ?? 'object', status: s.status ?? 'active', id: s.object_id ?? '' }) },
         { componentId: 'insight-card', dependsOn: ['object'], label: 'Details',
           propsResolver: (s: any) => {
-            let body = 'No additional data';
-            try { const d = JSON.parse(s.content ?? '{}'); body = JSON.stringify(d, null, 2).slice(0, 300); } catch {}
-            return { title: 'Object Data', body, confidence: 'medium', type: 'observation' };
+            const lines: string[] = [];
+            if (s.content) lines.push(s.content);
+            if (s.created_at) lines.push(`Created: ${new Date(s.created_at).toLocaleDateString()}`);
+            if (s.updated_at) lines.push(`Updated: ${new Date(s.updated_at).toLocaleDateString()}`);
+            const body = lines.length > 0 ? lines.join('\n') : 'No additional data';
+            return { title: `${s.object_type ?? 'Object'} Data`, body, confidence: 'medium', type: 'observation' };
+          }},
+        { componentId: 'insight-card', dependsOn: ['object'], label: 'Properties',
+          propsResolver: (s: any) => {
+            const fields = [
+              ['Name', s.name],
+              ['Type', s.object_type],
+              ['Status', s.status],
+              ['Space', s.space_id],
+              ['Created', s.created_at ? new Date(s.created_at).toLocaleString() : ''],
+              ['Updated', s.updated_at ? new Date(s.updated_at).toLocaleString() : ''],
+            ].filter(([,v]) => v);
+            return {
+              title: 'Properties',
+              body: fields.map(([l, v]) => `${l}: ${v}`).join('\n'),
+              confidence: 'high',
+              type: 'summary',
+            };
           }},
       ],
     });

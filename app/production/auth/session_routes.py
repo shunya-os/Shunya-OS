@@ -5,12 +5,11 @@ Force-logout all sessions for a user.
 
 import secrets
 from datetime import datetime
-from flask import request, jsonify, session
-from werkzeug.exceptions import NotFound, BadRequest
-from app.auth_routes import login_required, auth_bp
-from app import db
-from app.auth import TeamMember
 
+from flask import jsonify, request, session
+from werkzeug.exceptions import NotFound
+
+from app.auth_routes import auth_bp, login_required
 
 # In-memory session version tracking
 _session_versions: dict = {}  # user_id -> version number
@@ -83,7 +82,7 @@ def track_device():
 
     Call from before_request when user is authenticated.
     """
-    from flask import g, request
+    from flask import g
     user_id = getattr(g, "user", None)
     if not user_id:
         return

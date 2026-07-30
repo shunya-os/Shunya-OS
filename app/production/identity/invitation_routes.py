@@ -1,25 +1,20 @@
 """SHUNYA — Invitation System (Milestone X, D1.4).
 
 Email-based invitation workflow for adding users to organizations.
+Uses persistent InvitationToken model.
 """
 
 import secrets
 from datetime import datetime, timedelta
 
-from flask import request, jsonify
-from werkzeug.exceptions import NotFound, BadRequest
+from flask import jsonify, request
+from werkzeug.exceptions import BadRequest, NotFound
 
 from app import db
+from app.auth import InvitationToken, TeamMember, UserRole
 from app.auth_routes import login_required
-from app.auth import TeamMember, UserRole
-from app.tenant import Tenant
 from app.production.identity import identity_bp
-
-# ---------------------------------------------------------------------------
-# Invitation Model (in-memory for now; migrate to SQLAlchemy when needed)
-# ---------------------------------------------------------------------------
-
-_invitations: dict = {}  # token -> Invitation dict
+from app.tenant import Tenant
 
 
 def _generate_token() -> str:
@@ -49,18 +44,18 @@ def _require_json() -> dict:
     return data
 
 
-def _invitation_to_dict(inv: dict) -> dict:
+def _invitation_to_dict(inv: InvitationToken) -> dict:
     return {
-        "id": inv["id"],
-        "org_id": inv["org_id"],
-        "email": inv["email"],
-        "role": inv["role"],
-        "token": inv["token"],
-        "expires_at": inv["expires_at"].isoformat(),
-        "accepted_at": inv.get("accepted_at").isoformat()
-            if inv.get("accepted_at") else None,
-        "status": "accepted" if inv.get("accepted_at") else "pending",
-        "created_at": inv["created_at"].isoformat(),
+        "id": inv.id,
+        "org_id": inv.org_id,
+        "email": inv.email,
+        "role": inv.role,
+        "token": inv.token,
+        "expires_at": inv.expires_at.isoformat(),
+        "accepted_at": inv.accepted_at.isoformat()
+            if inv.accepted_at else None,
+        "status": inv.status,
+        "created_at": inv.created_at.isoformat(),
     }
 
 
@@ -74,13 +69,12 @@ def _invitation_to_dict(inv: dict) -> dict:
 def list_invitations(org_id: int):
     """List pending invitations for an organization."""
     _get_org_or_404(org_id)
-    org_invites = [
-        inv for inv in _invitations.values()
-        if inv["org_id"] == org_id
-    ]
+    invites = InvitationToken.query.filter_by(org_id=org_id).order_by(
+        InvitationToken.created_at.desc()
+    ).all()
     return jsonify({
         "success": True,
-        "data": [_invitation_to_dict(inv) for inv in org_invites],
+        "data": [_invitation_to_dict(inv) for inv in invites],
     })
 
 
@@ -104,22 +98,15 @@ def create_invitation(org_id: int):
         raise BadRequest(f"User with email '{email}' already exists")
 
     token = _generate_token()
-    now = datetime.utcnow()
-
-    # Get next ID
-    inv_id = max([inv["id"] for inv in _invitations.values()], default=0) + 1
-
-    invitation = {
-        "id": inv_id,
-        "org_id": org_id,
-        "email": email,
-        "role": role,
-        "token": token,
-        "expires_at": now + timedelta(hours=48),
-        "accepted_at": None,
-        "created_at": now,
-    }
-    _invitations[token] = invitation
+    invitation = InvitationToken(
+        token=token,
+        org_id=org_id,
+        email=email,
+        role=role,
+        expires_at=datetime.utcnow() + timedelta(hours=48),
+    )
+    db.session.add(invitation)
+    db.session.commit()
 
     return jsonify({
         "success": True,
@@ -128,17 +115,16 @@ def create_invitation(org_id: int):
 
 
 @identity_bp.route("/invitations/<token>", methods=["GET"])
-@login_required
 def get_invitation(token: str):
     """Get invitation details by token."""
-    inv = _invitations.get(token)
+    inv = InvitationToken.query.filter_by(token=token).first()
     if not inv:
         raise NotFound("Invitation not found or expired")
 
-    if inv.get("accepted_at"):
+    if inv.accepted_at:
         raise NotFound("Invitation has already been accepted")
 
-    if datetime.utcnow() > inv["expires_at"]:
+    if datetime.utcnow() > inv.expires_at:
         raise NotFound("Invitation has expired")
 
     return jsonify({
@@ -150,14 +136,14 @@ def get_invitation(token: str):
 @identity_bp.route("/invitations/<token>/accept", methods=["POST"])
 def accept_invitation(token: str):
     """Accept an invitation and create the user account."""
-    inv = _invitations.get(token)
+    inv = InvitationToken.query.filter_by(token=token).first()
     if not inv:
         raise NotFound("Invitation not found or expired")
 
-    if inv.get("accepted_at"):
+    if inv.accepted_at:
         raise NotFound("Invitation has already been accepted")
 
-    if datetime.utcnow() > inv["expires_at"]:
+    if datetime.utcnow() > inv.expires_at:
         raise NotFound("Invitation has expired")
 
     data = _require_json()
@@ -170,14 +156,14 @@ def accept_invitation(token: str):
         raise BadRequest("'password' must be at least 6 characters")
 
     # Check still no duplicate
-    existing = TeamMember.query.filter_by(email=inv["email"]).first()
+    existing = TeamMember.query.filter_by(email=inv.email).first()
     if existing:
-        raise BadRequest(f"User with email '{inv['email']}' already exists")
+        raise BadRequest(f"User with email '{inv.email}' already exists")
 
     user = TeamMember(
         name=name,
-        email=inv["email"],
-        role=inv["role"],
+        email=inv.email,
+        role=inv.role,
         is_active=True,
     )
     user.set_password(password)
@@ -187,7 +173,8 @@ def accept_invitation(token: str):
     db.session.commit()
 
     # Mark invitation as accepted
-    inv["accepted_at"] = datetime.utcnow()
+    inv.accepted_at = datetime.utcnow()
+    db.session.commit()
 
     return jsonify({
         "success": True,
@@ -205,13 +192,14 @@ def accept_invitation(token: str):
 def revoke_invitation(org_id: int, inv_id: int):
     """Revoke a pending invitation."""
     _get_org_or_404(org_id)
-    for token, inv in list(_invitations.items()):
-        if inv["id"] == inv_id and inv["org_id"] == org_id:
-            if inv.get("accepted_at"):
-                raise BadRequest("Cannot revoke an accepted invitation")
-            del _invitations[token]
-            return jsonify({
-                "success": True,
-                "data": {"id": inv_id, "status": "revoked"},
-            })
-    raise NotFound("Invitation not found")
+    inv = db.session.get(InvitationToken, inv_id)
+    if not inv or inv.org_id != org_id:
+        raise NotFound("Invitation not found")
+    if inv.accepted_at:
+        raise BadRequest("Cannot revoke an accepted invitation")
+    db.session.delete(inv)
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "data": {"id": inv_id, "status": "revoked"},
+    })

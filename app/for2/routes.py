@@ -208,10 +208,13 @@ def api_list_organizations():
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>", methods=["GET"])
 def api_get_organization(org_id: int):
-    """Get organization details."""
+    """Get organization details — requires membership."""
     auth = _require_identity()
     if auth:
         return auth
+    caller, err, code = _check_role(org_id, _get_current_identity(), "viewer")
+    if err:
+        return err, code
     org = db.session.get(Organization, org_id)
     if not org:
         return jsonify({"error": "Organization not found"}), 404
@@ -261,11 +264,31 @@ def api_switch_organization(org_id: int):
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>/members", methods=["GET"])
 def api_list_members(org_id: int):
-    """List all active members of an organization."""
+    """List members of an organization — filtered by role."""
     auth = _require_identity()
     if auth:
         return auth
-    members = OrgMember.query.filter_by(organization_id=org_id, is_active=True).all()
+    uid = _get_current_identity()
+    caller, err, code = _check_role(org_id, uid, "member")
+    if err:
+        return err, code
+    
+    # Role-based filtering
+    role_hierarchy = {"viewer": 0, "member": 1, "manager": 2, "admin": 3, "owner": 4}
+    caller_role_level = role_hierarchy.get(caller.role, 0)
+    
+    if caller_role_level >= 3:  # admin/owner — see all
+        members = OrgMember.query.filter_by(organization_id=org_id, is_active=True).all()
+    elif caller_role_level >= 2:  # manager — see their department
+        if caller.department_id:
+            members = OrgMember.query.filter_by(
+                organization_id=org_id, department_id=caller.department_id, is_active=True
+            ).all()
+        else:
+            members = [caller]
+    else:  # member/viewer — see only themselves
+        members = [caller]
+    
     mlist = []
     for m in members:
         d = m.to_dict()
@@ -358,10 +381,13 @@ def api_update_member(org_id: int, member_id: int):
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>/invitations", methods=["GET"])
 def api_list_invitations(org_id: int):
-    """List pending invitations."""
+    """List pending invitations — admin only."""
     auth = _require_identity()
     if auth:
         return auth
+    member, err, code = _check_role(org_id, _get_current_identity(), "admin")
+    if err:
+        return err, code
     invitations = OrgInvitation.query.filter_by(organization_id=org_id).order_by(
         OrgInvitation.created_at.desc()
     ).all()
@@ -400,7 +426,13 @@ def api_create_department(org_id: int):
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>/departments", methods=["GET"])
 def api_list_departments(org_id: int):
-    """List departments in an organization."""
+    """List departments in an organization — requires membership."""
+    auth = _require_identity()
+    if auth:
+        return auth
+    caller, err, code = _check_role(org_id, _get_current_identity(), "viewer")
+    if err:
+        return err, code
     depts = Department.query.filter_by(organization_id=org_id, is_active=True).all()
     return jsonify({"departments": [d.to_dict() for d in depts]})
 

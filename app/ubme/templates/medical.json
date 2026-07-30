@@ -1,0 +1,943 @@
+{
+  "id": "medical",
+  "name": "Medical Clinic",
+  "description": "Complete medical clinic business module — manage patients, appointments, prescriptions, and billing",
+  "icon": "🏥",
+  "industry": "healthcare",
+  "module": {
+    "key": "medical",
+    "name": "Medical Clinic",
+    "description": "Complete medical clinic business management",
+    "icon": "🏥",
+    "color": "#ec4899",
+    "navigation": [
+      {
+        "label": "Patients",
+        "object_type": "patient",
+        "icon": "👤"
+      },
+      {
+        "label": "Appointments",
+        "object_type": "appointment",
+        "icon": "📅"
+      },
+      {
+        "label": "Prescriptions",
+        "object_type": "prescription",
+        "icon": "💊"
+      },
+      {
+        "label": "Medical Records",
+        "object_type": "medical_record",
+        "icon": "📋"
+      },
+      {
+        "label": "Doctors",
+        "object_type": "doctor",
+        "icon": "👨‍⚕️"
+      },
+      {
+        "label": "Bills",
+        "object_type": "bill",
+        "icon": "🧾"
+      }
+    ],
+    "object_types": [
+      {
+        "key": "patient",
+        "name": "Patient",
+        "plural_name": "Patients",
+        "description": "A patient registered at the medical clinic",
+        "icon": "👤",
+        "color": "#ec4899",
+        "category": "clinical",
+        "fields": [
+          {
+            "key": "name",
+            "label": "Patient Name",
+            "field_type": "text",
+            "required": true,
+            "searchable": true,
+            "display_in_list": true,
+            "order": 1
+          },
+          {
+            "key": "email",
+            "label": "Email",
+            "field_type": "email",
+            "searchable": true,
+            "display_in_list": true,
+            "order": 2
+          },
+          {
+            "key": "phone",
+            "label": "Phone",
+            "field_type": "phone",
+            "display_in_list": true,
+            "order": 3
+          },
+          {
+            "key": "date_of_birth",
+            "label": "Date of Birth",
+            "field_type": "date",
+            "order": 4
+          },
+          {
+            "key": "gender",
+            "label": "Gender",
+            "field_type": "select",
+            "options": [
+              "Male",
+              "Female",
+              "Other"
+            ],
+            "order": 5
+          },
+          {
+            "key": "blood_group",
+            "label": "Blood Group",
+            "field_type": "select",
+            "options": [
+              "A+",
+              "A-",
+              "B+",
+              "B-",
+              "AB+",
+              "AB-",
+              "O+",
+              "O-"
+            ],
+            "order": 6
+          },
+          {
+            "key": "address",
+            "label": "Address",
+            "field_type": "address",
+            "order": 7
+          },
+          {
+            "key": "emergency_contact",
+            "label": "Emergency Contact",
+            "field_type": "phone",
+            "order": 8
+          },
+          {
+            "key": "allergies",
+            "label": "Allergies",
+            "field_type": "long_text",
+            "order": 9
+          },
+          {
+            "key": "medical_history",
+            "label": "Medical History",
+            "field_type": "long_text",
+            "order": 10
+          },
+          {
+            "key": "status",
+            "label": "Status",
+            "field_type": "select",
+            "options": [
+              "active",
+              "inactive",
+              "new",
+              "archived"
+            ],
+            "default": "active",
+            "display_in_list": true,
+            "order": 11
+          }
+        ],
+        "lifecycle": [
+          "new",
+          "active",
+          "inactive",
+          "archived"
+        ],
+        "default_view": "list",
+        "ai_semantics": {
+          "description": "A person receiving medical care at the clinic",
+          "common_intents": [
+            "register patient",
+            "view medical history",
+            "schedule appointment"
+          ],
+          "business_terminology": {
+            "patient": "patient",
+            "client": "patient",
+            "visitor": "patient"
+          }
+        },
+        "actions": [
+          {
+            "key": "view_profile",
+            "label": "View Profile",
+            "icon": "👤"
+          },
+          {
+            "key": "schedule_appointment",
+            "label": "Schedule Appointment",
+            "icon": "📅"
+          },
+          {
+            "key": "view_records",
+            "label": "View Records",
+            "icon": "📋"
+          },
+          {
+            "key": "create_prescription",
+            "label": "Create Prescription",
+            "icon": "💊"
+          }
+        ]
+      },
+      {
+        "key": "doctor",
+        "name": "Doctor",
+        "plural_name": "Doctors",
+        "description": "A medical practitioner registered at the clinic",
+        "icon": "👨‍⚕️",
+        "color": "#8b5cf6",
+        "category": "clinical",
+        "fields": [
+          {
+            "key": "name",
+            "label": "Doctor Name",
+            "field_type": "text",
+            "required": true,
+            "searchable": true,
+            "display_in_list": true,
+            "order": 1
+          },
+          {
+            "key": "specialization",
+            "label": "Specialization",
+            "field_type": "select",
+            "options": [
+              "General Medicine",
+              "Pediatrics",
+              "Cardiology",
+              "Orthopedics",
+              "Dermatology",
+              "Neurology",
+              "Gynecology",
+              "ENT",
+              "Ophthalmology",
+              "Psychiatry"
+            ],
+            "display_in_list": true,
+            "order": 2
+          },
+          {
+            "key": "email",
+            "label": "Email",
+            "field_type": "email",
+            "order": 3
+          },
+          {
+            "key": "phone",
+            "label": "Phone",
+            "field_type": "phone",
+            "display_in_list": true,
+            "order": 4
+          },
+          {
+            "key": "license_number",
+            "label": "License Number",
+            "field_type": "text",
+            "searchable": true,
+            "order": 5
+          },
+          {
+            "key": "consultation_fee",
+            "label": "Consultation Fee",
+            "field_type": "currency",
+            "order": 6
+          },
+          {
+            "key": "available_days",
+            "label": "Available Days",
+            "field_type": "collection",
+            "order": 7
+          },
+          {
+            "key": "status",
+            "label": "Status",
+            "field_type": "select",
+            "options": [
+              "active",
+              "on_leave",
+              "inactive"
+            ],
+            "default": "active",
+            "display_in_list": true,
+            "order": 8
+          }
+        ],
+        "default_view": "list",
+        "ai_semantics": {
+          "description": "A medical doctor who treats patients at the clinic",
+          "common_intents": [
+            "find doctor",
+            "check availability",
+            "view schedule"
+          ],
+          "business_terminology": {
+            "physician": "doctor",
+            "specialist": "doctor",
+            "practitioner": "doctor"
+          }
+        },
+        "actions": [
+          {
+            "key": "view_schedule",
+            "label": "View Schedule",
+            "icon": "📅"
+          },
+          {
+            "key": "set_availability",
+            "label": "Set Availability",
+            "icon": "⚙️"
+          }
+        ]
+      },
+      {
+        "key": "appointment",
+        "name": "Appointment",
+        "plural_name": "Appointments",
+        "description": "A scheduled medical appointment",
+        "icon": "📅",
+        "color": "#f59e0b",
+        "category": "clinical",
+        "fields": [
+          {
+            "key": "name",
+            "label": "Appointment Title",
+            "field_type": "text",
+            "required": true,
+            "searchable": true,
+            "display_in_list": true,
+            "order": 1
+          },
+          {
+            "key": "patient_id",
+            "label": "Patient",
+            "field_type": "relationship",
+            "relationship_type": "one_to_many",
+            "target_object_type": "patient",
+            "display_in_list": true,
+            "order": 2
+          },
+          {
+            "key": "doctor_id",
+            "label": "Doctor",
+            "field_type": "relationship",
+            "relationship_type": "one_to_many",
+            "target_object_type": "doctor",
+            "display_in_list": true,
+            "order": 3
+          },
+          {
+            "key": "appointment_date",
+            "label": "Appointment Date",
+            "field_type": "datetime",
+            "display_in_list": true,
+            "order": 4
+          },
+          {
+            "key": "duration_minutes",
+            "label": "Duration (min)",
+            "field_type": "integer",
+            "default": 30,
+            "order": 5
+          },
+          {
+            "key": "reason",
+            "label": "Reason for Visit",
+            "field_type": "long_text",
+            "order": 6
+          },
+          {
+            "key": "status",
+            "label": "Status",
+            "field_type": "select",
+            "options": [
+              "scheduled",
+              "checked_in",
+              "in_progress",
+              "completed",
+              "cancelled",
+              "no_show"
+            ],
+            "default": "scheduled",
+            "display_in_list": true,
+            "order": 7
+          },
+          {
+            "key": "notes",
+            "label": "Doctor Notes",
+            "field_type": "long_text",
+            "order": 8
+          }
+        ],
+        "lifecycle": [
+          "scheduled",
+          "checked_in",
+          "in_progress",
+          "completed",
+          "cancelled",
+          "no_show"
+        ],
+        "calendar_field": "appointment_date",
+        "default_view": "calendar",
+        "ai_semantics": {
+          "description": "A scheduled appointment between a patient and doctor",
+          "common_intents": [
+            "book appointment",
+            "schedule visit",
+            "reschedule",
+            "cancel appointment"
+          ],
+          "business_terminology": {
+            "visit": "appointment",
+            "consultation": "appointment",
+            "checkup": "appointment"
+          }
+        },
+        "actions": [
+          {
+            "key": "check_in",
+            "label": "Check In Patient",
+            "icon": "✅",
+            "requires_confirmation": true
+          },
+          {
+            "key": "start_consultation",
+            "label": "Start Consultation",
+            "icon": "🏥"
+          },
+          {
+            "key": "complete",
+            "label": "Complete",
+            "icon": "✅",
+            "requires_confirmation": true
+          },
+          {
+            "key": "cancel",
+            "label": "Cancel Appointment",
+            "icon": "❌",
+            "requires_confirmation": true
+          },
+          {
+            "key": "mark_no_show",
+            "label": "Mark No Show",
+            "icon": "🚫",
+            "requires_confirmation": true
+          }
+        ]
+      },
+      {
+        "key": "prescription",
+        "name": "Prescription",
+        "plural_name": "Prescriptions",
+        "description": "A medical prescription issued by a doctor",
+        "icon": "💊",
+        "color": "#10b981",
+        "category": "clinical",
+        "fields": [
+          {
+            "key": "name",
+            "label": "Prescription ID",
+            "field_type": "text",
+            "required": true,
+            "searchable": true,
+            "display_in_list": true,
+            "order": 1
+          },
+          {
+            "key": "patient_id",
+            "label": "Patient",
+            "field_type": "relationship",
+            "relationship_type": "one_to_many",
+            "target_object_type": "patient",
+            "display_in_list": true,
+            "order": 2
+          },
+          {
+            "key": "doctor_id",
+            "label": "Doctor",
+            "field_type": "relationship",
+            "relationship_type": "one_to_many",
+            "target_object_type": "doctor",
+            "order": 3
+          },
+          {
+            "key": "appointment_id",
+            "label": "Appointment",
+            "field_type": "relationship",
+            "relationship_type": "one_to_one",
+            "target_object_type": "appointment",
+            "order": 4
+          },
+          {
+            "key": "issue_date",
+            "label": "Issue Date",
+            "field_type": "date",
+            "display_in_list": true,
+            "order": 5
+          },
+          {
+            "key": "valid_until",
+            "label": "Valid Until",
+            "field_type": "date",
+            "order": 6
+          },
+          {
+            "key": "medications",
+            "label": "Prescribed Medications",
+            "field_type": "json",
+            "order": 7
+          },
+          {
+            "key": "diagnosis",
+            "label": "Diagnosis",
+            "field_type": "long_text",
+            "order": 8
+          },
+          {
+            "key": "instructions",
+            "label": "Special Instructions",
+            "field_type": "long_text",
+            "order": 9
+          },
+          {
+            "key": "status",
+            "label": "Status",
+            "field_type": "select",
+            "options": [
+              "active",
+              "filled",
+              "expired",
+              "cancelled"
+            ],
+            "default": "active",
+            "display_in_list": true,
+            "order": 10
+          }
+        ],
+        "calendar_field": "issue_date",
+        "default_view": "list",
+        "ai_semantics": {
+          "description": "A medical prescription with prescribed medications and instructions",
+          "common_intents": [
+            "issue prescription",
+            "view medications",
+            "refill prescription"
+          ],
+          "business_terminology": {
+            "prescription": "prescription",
+            "Rx": "prescription",
+            "medication order": "prescription"
+          }
+        },
+        "actions": [
+          {
+            "key": "print",
+            "label": "Print Prescription",
+            "icon": "🖨️"
+          },
+          {
+            "key": "fill",
+            "label": "Mark as Filled",
+            "icon": "✅"
+          },
+          {
+            "key": "void",
+            "label": "Void",
+            "icon": "❌",
+            "requires_confirmation": true
+          }
+        ]
+      },
+      {
+        "key": "medical_record",
+        "name": "Medical Record",
+        "plural_name": "Medical Records",
+        "description": "Electronic health record for a patient's medical history",
+        "icon": "📋",
+        "color": "#3b82f6",
+        "category": "clinical",
+        "fields": [
+          {
+            "key": "name",
+            "label": "Record Title",
+            "field_type": "text",
+            "required": true,
+            "searchable": true,
+            "display_in_list": true,
+            "order": 1
+          },
+          {
+            "key": "patient_id",
+            "label": "Patient",
+            "field_type": "relationship",
+            "relationship_type": "one_to_many",
+            "target_object_type": "patient",
+            "display_in_list": true,
+            "order": 2
+          },
+          {
+            "key": "doctor_id",
+            "label": "Doctor",
+            "field_type": "relationship",
+            "relationship_type": "one_to_many",
+            "target_object_type": "doctor",
+            "order": 3
+          },
+          {
+            "key": "record_date",
+            "label": "Record Date",
+            "field_type": "date",
+            "display_in_list": true,
+            "order": 4
+          },
+          {
+            "key": "record_type",
+            "label": "Record Type",
+            "field_type": "select",
+            "options": [
+              "consultation",
+              "lab_report",
+              "imaging",
+              "vaccination",
+              "surgery",
+              "discharge_summary",
+              "other"
+            ],
+            "display_in_list": true,
+            "order": 5
+          },
+          {
+            "key": "diagnosis",
+            "label": "Diagnosis",
+            "field_type": "long_text",
+            "order": 6
+          },
+          {
+            "key": "findings",
+            "label": "Clinical Findings",
+            "field_type": "long_text",
+            "order": 7
+          },
+          {
+            "key": "attachments",
+            "label": "Attachments",
+            "field_type": "attachment",
+            "order": 8
+          },
+          {
+            "key": "is_confidential",
+            "label": "Confidential",
+            "field_type": "boolean",
+            "default": false,
+            "order": 9
+          },
+          {
+            "key": "status",
+            "label": "Status",
+            "field_type": "select",
+            "options": [
+              "draft",
+              "final",
+              "amended"
+            ],
+            "default": "draft",
+            "display_in_list": true,
+            "order": 10
+          }
+        ],
+        "calendar_field": "record_date",
+        "default_view": "timeline",
+        "ai_semantics": {
+          "description": "An electronic health record documenting a patient's medical history",
+          "common_intents": [
+            "add medical record",
+            "view patient history",
+            "access lab results"
+          ],
+          "business_terminology": {
+            "EHR": "medical_record",
+            "health record": "medical_record",
+            "clinical note": "medical_record",
+            "chart": "medical_record"
+          }
+        },
+        "actions": [
+          {
+            "key": "upload_attachment",
+            "label": "Upload Attachment",
+            "icon": "📎"
+          },
+          {
+            "key": "edit",
+            "label": "Edit Record",
+            "icon": "✏️"
+          },
+          {
+            "key": "lock",
+            "label": "Lock (Finalize)",
+            "icon": "🔒",
+            "requires_confirmation": true
+          }
+        ]
+      },
+      {
+        "key": "bill",
+        "name": "Bill",
+        "plural_name": "Bills",
+        "description": "Medical bill or invoice for services rendered",
+        "icon": "🧾",
+        "color": "#ef4444",
+        "category": "financial",
+        "fields": [
+          {
+            "key": "name",
+            "label": "Bill Number",
+            "field_type": "text",
+            "required": true,
+            "searchable": true,
+            "display_in_list": true,
+            "order": 1
+          },
+          {
+            "key": "patient_id",
+            "label": "Patient",
+            "field_type": "relationship",
+            "relationship_type": "one_to_many",
+            "target_object_type": "patient",
+            "display_in_list": true,
+            "order": 2
+          },
+          {
+            "key": "appointment_id",
+            "label": "Appointment",
+            "field_type": "relationship",
+            "relationship_type": "one_to_one",
+            "target_object_type": "appointment",
+            "order": 3
+          },
+          {
+            "key": "total_amount",
+            "label": "Total Amount",
+            "field_type": "currency",
+            "display_in_list": true,
+            "order": 4
+          },
+          {
+            "key": "insurance_claim",
+            "label": "Insurance Claim",
+            "field_type": "boolean",
+            "default": false,
+            "order": 5
+          },
+          {
+            "key": "due_date",
+            "label": "Due Date",
+            "field_type": "date",
+            "display_in_list": true,
+            "order": 6
+          },
+          {
+            "key": "status",
+            "label": "Status",
+            "field_type": "select",
+            "options": [
+              "draft",
+              "sent",
+              "paid",
+              "overdue",
+              "cancelled"
+            ],
+            "default": "draft",
+            "display_in_list": true,
+            "order": 7
+          },
+          {
+            "key": "items",
+            "label": "Line Items",
+            "field_type": "json",
+            "order": 8
+          },
+          {
+            "key": "notes",
+            "label": "Notes",
+            "field_type": "long_text",
+            "order": 9
+          }
+        ],
+        "calendar_field": "due_date",
+        "default_view": "list",
+        "ai_semantics": {
+          "description": "Medical bill for healthcare services rendered to a patient",
+          "common_intents": [
+            "generate bill",
+            "check payment status",
+            "process insurance"
+          ],
+          "business_terminology": {
+            "invoice": "bill",
+            "medical bill": "bill",
+            "charge": "bill"
+          }
+        },
+        "actions": [
+          {
+            "key": "send",
+            "label": "Send Bill",
+            "icon": "📧",
+            "requires_confirmation": true
+          },
+          {
+            "key": "mark_paid",
+            "label": "Mark as Paid",
+            "icon": "✅",
+            "requires_confirmation": true
+          },
+          {
+            "key": "process_insurance",
+            "label": "Process Insurance",
+            "icon": "🏛️"
+          },
+          {
+            "key": "generate_receipt",
+            "label": "Generate Receipt",
+            "icon": "🧾"
+          }
+        ]
+      }
+    ],
+    "views": [],
+    "workflows": [
+      {
+        "key": "appointment_lifecycle",
+        "name": "Appointment Lifecycle",
+        "object_type": "appointment",
+        "states": [
+          {
+            "key": "scheduled",
+            "label": "Scheduled",
+            "state_type": "initial"
+          },
+          {
+            "key": "checked_in",
+            "label": "Checked In",
+            "state_type": "intermediate"
+          },
+          {
+            "key": "in_progress",
+            "label": "In Progress",
+            "state_type": "intermediate"
+          },
+          {
+            "key": "completed",
+            "label": "Completed",
+            "state_type": "final"
+          },
+          {
+            "key": "cancelled",
+            "label": "Cancelled",
+            "state_type": "final"
+          },
+          {
+            "key": "no_show",
+            "label": "No Show",
+            "state_type": "final"
+          }
+        ],
+        "transitions": [
+          {
+            "from_state": "scheduled",
+            "to_state": "checked_in",
+            "label": "Check In Patient"
+          },
+          {
+            "from_state": "checked_in",
+            "to_state": "in_progress",
+            "label": "Start Consultation"
+          },
+          {
+            "from_state": "in_progress",
+            "to_state": "completed",
+            "label": "Complete Visit"
+          },
+          {
+            "from_state": "scheduled",
+            "to_state": "cancelled",
+            "label": "Cancel",
+            "requires_approval": false
+          },
+          {
+            "from_state": "scheduled",
+            "to_state": "no_show",
+            "label": "Mark No Show"
+          },
+          {
+            "from_state": "checked_in",
+            "to_state": "cancelled",
+            "label": "Cancel",
+            "requires_approval": true
+          }
+        ],
+        "default_state": "scheduled"
+      }
+    ],
+    "dashboard_cards": [
+      {
+        "key": "total_patients",
+        "label": "Total Patients",
+        "card_type": "count",
+        "object_type": "patient",
+        "icon": "👤"
+      },
+      {
+        "key": "today_appointments",
+        "label": "Today's Appointments",
+        "card_type": "count",
+        "object_type": "appointment",
+        "filter_criteria": "status == 'scheduled'",
+        "icon": "📅"
+      },
+      {
+        "key": "doctors_available",
+        "label": "Doctors Available",
+        "card_type": "count",
+        "object_type": "doctor",
+        "filter_criteria": "status == 'active'",
+        "icon": "👨‍⚕️"
+      },
+      {
+        "key": "revenue_today",
+        "label": "Revenue Today",
+        "card_type": "sum",
+        "object_type": "bill",
+        "field": "total_amount",
+        "icon": "💰"
+      },
+      {
+        "key": "recent_patients",
+        "label": "Recent Patients",
+        "card_type": "recent",
+        "object_type": "patient",
+        "icon": "👤"
+      },
+      {
+        "key": "unpaid_bills",
+        "label": "Unpaid Bills",
+        "card_type": "alert",
+        "object_type": "bill",
+        "filter_criteria": "status == 'sent'",
+        "icon": "🚨"
+      }
+    ]
+  }
+}
