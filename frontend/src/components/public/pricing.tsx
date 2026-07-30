@@ -15,8 +15,8 @@ const TIERS = [
     price: 'Free',
     period: 'forever',
     features: [
-      'Up to 3 active objects',
-      '5 relationships per object',
+      'Up to 3 active projects',
+      '5 contacts per project',
       'Basic memory & context',
       'Email support',
       'Community access',
@@ -32,7 +32,7 @@ const TIERS = [
     price: '₹5,999',
     period: '/month',
     features: [
-      'Unlimited active objects',
+      'Unlimited active projects',
       'Unlimited relationships',
       'Full memory & context retention',
       'AI proposal generation',
