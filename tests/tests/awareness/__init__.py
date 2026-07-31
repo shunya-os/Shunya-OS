@@ -1,0 +1,1 @@
+"""Awareness Engine tests (Phase N+3)."""

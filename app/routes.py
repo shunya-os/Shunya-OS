@@ -85,6 +85,11 @@ def index():
 # The SPA itself renders login/register content via React Router.
 @main.route("/auth/login")
 @main.route("/auth/register")
+@main.route("/auth/signup")
+@main.route("/auth/forgot-password")
+@main.route("/auth/reset-password")
+@main.route("/auth/invitation")
+@main.route("/auth/verify-email")
 def auth_spa_shell():
     return _serve_spa_shell()
 

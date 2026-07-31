@@ -154,6 +154,8 @@ def create_org():
     return jsonify({
         "success": True,
         "data": _org_to_dict(org),
+        "org_id": org.id,
+        "org_name": org.company_name,
     }), 201
 
 
