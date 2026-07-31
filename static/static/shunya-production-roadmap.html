@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SHUNYA 1.0 — Production Execution Roadmap</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: #e2e8f0;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .header { margin-bottom: 2rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot { width: 12px; height: 12px; background: #34d399; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; color: white; }
+    .subtitle { color: #94a3b8; font-size: 0.875rem; margin-left: 1.75rem; }
+    h2 { font-size: 1.2rem; font-weight: 600; margin: 2rem 0 1rem; color: #fbbf24; border-bottom: 1px solid #1e293b; padding-bottom: 0.5rem; }
+    h3 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: #34d399; }
+    h4 { font-size: 0.9rem; font-weight: 600; margin: 1rem 0 0.5rem; color: #22d3ee; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0 2rem; font-size: 0.8rem; }
+    th { background: rgba(30,41,59,0.8); color: #94a3b8; text-align: left; padding: 0.5rem; border: 1px solid #1e293b; font-weight: 600; }
+    td { padding: 0.5rem; border: 1px solid #1e293b; vertical-align: top; }
+    tr:hover { background: rgba(30,41,59,0.3); }
+    pre { background: rgba(15,23,42,0.8); padding: 1rem; border-radius: 0.5rem; border: 1px solid #1e293b; overflow-x: auto; font-size: 0.75rem; margin: 1rem 0; }
+    code { font-family: 'JetBrains Mono', monospace; color: #22d3ee; }
+    .tag { display: inline-block; padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-size: 0.65rem; font-weight: 600; }
+    .tag-essential { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid #f87171; }
+    .tag-required { background: rgba(251,191,36,0.2); color: #fbbf24; border: 1px solid #fbbf24; }
+    .tag-canwait { background: rgba(52,211,153,0.2); color: #34d399; border: 1px solid #34d399; }
+    .tag-long { background: rgba(148,163,184,0.2); color: #94a3b8; border: 1px solid #94a3b8; }
+    .tag-done { background: rgba(52,211,153,0.15); color: #34d399; }
+    .tag-partial { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .tag-missing { background: rgba(239,68,68,0.15); color: #f87171; }
+    .gap { background: rgba(239,68,68,0.05); border-left: 3px solid #f87171; }
+    .section-box { background: rgba(15,23,42,0.5); border: 1px solid #1e293b; border-radius: 0.75rem; padding: 1.25rem; margin: 1rem 0; }
+    .phase { background: rgba(15,23,42,0.5); border: 1px solid #1e293b; border-radius: 0.75rem; padding: 1.25rem; margin: 1.5rem 0; }
+    .phase h3 { margin-top: 0; }
+    .phase .meta { color: #94a3b8; font-size: 0.75rem; margin: 0.5rem 0; }
+    .phase .outcome { background: rgba(52,211,153,0.05); border-left: 3px solid #34d399; padding: 0.75rem; margin: 0.75rem 0; border-radius: 0 0.25rem 0.25rem 0; }
+    .phase .tasks { list-style: none; padding: 0; }
+    .phase .tasks li { padding: 0.25rem 0; padding-left: 1rem; position: relative; font-size: 0.85rem; }
+    .phase .tasks li::before { content: '→'; position: absolute; left: 0; color: #64748b; }
+    .founder-journey { background: rgba(52,211,153,0.03); border: 1px solid #34d399; border-radius: 0.75rem; padding: 1.25rem; margin: 1rem 0; }
+    .founder-journey h3 { color: #34d399; }
+    .founder-journey li { padding: 0.4rem 0; font-size: 0.85rem; }
+    .risk { border-left: 3px solid; padding: 0.5rem 0.75rem; margin: 0.5rem 0; font-size: 0.8rem; }
+    .risk-high { border-color: #f87171; background: rgba(239,68,68,0.05); }
+    .risk-med { border-color: #fbbf24; background: rgba(251,191,36,0.05); }
+    .risk-low { border-color: #34d399; background: rgba(52,211,153,0.05); }
+    .footer { text-align: center; margin-top: 3rem; color: #475569; font-size: 0.75rem; padding: 1rem; border-top: 1px solid #1e293b; }
+    .legend { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; font-size: 0.75rem; }
+    .graph { background: rgba(15,23,42,0.5); border: 1px solid #1e293b; border-radius: 0.75rem; padding: 1rem; margin: 1rem 0; overflow-x: auto; }
+    .graph pre { margin: 0; background: transparent; border: none; padding: 0; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <div class="header-row">
+    <div class="pulse-dot"></div>
+    <h1>SHUNYA 1.0 — Production Execution Roadmap</h1>
+  </div>
+  <p class="subtitle">Directive 04 · Canonical Architecture Baseline v1.0 Frozen · Build execution only</p>
+</div>
+
+<div class="legend">
+  <span class="tag tag-essential">Essential Before First Customer</span>
+  <span class="tag tag-required">Required Before Public Launch</span>
+  <span class="tag tag-canwait">Can Wait Until V1.x</span>
+  <span class="tag tag-long">Long-term Evolution</span>
+  <span class="tag tag-done">Implemented</span>
+  <span class="tag tag-partial">Partial</span>
+  <span class="tag tag-missing">Missing</span>
+</div>
+
+<!-- ========================================================================
+     1. CAPABILITY INVENTORY
+     ======================================================================== -->
+<h2>1. Capability Inventory</h2>
+
+<h3>1.1 Foundation</h3>
+<table>
+<tr><th>Capability</th><th>Purpose</th><th>Dependencies</th><th>Status</th><th>Effort</th><th>Priority</th></tr>
+<tr>
+  <td>Identity &amp; Authentication</td>
+  <td>User registration, login, session management, role-based access</td>
+  <td>PostgreSQL</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Multi-Tenancy</td>
+  <td>Organization isolation, tenant-scoped data, workspace per tenant</td>
+  <td>Identity</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>2 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Universal Object Protocol</td>
+  <td>Every object conforms to a canonical contract (identity, metadata, timeline, relationships, lifecycle, audit)</td>
+  <td>Identity, Timeline</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>2 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Entity System (JSONB)</td>
+  <td>Generic entity storage driven by ontology — any business type without schema changes</td>
+  <td>Identity, Multi-Tenancy</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>4 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Timeline Engine</td>
+  <td>Universal append-only event stream for all objects</td>
+  <td>—</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Event Bus</td>
+  <td>Typed event pub/sub for cross-module communication</td>
+  <td>—</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+</table>
+
+<h3>1.2 AI Runtime</h3>
+<table>
+<tr><th>Capability</th><th>Purpose</th><th>Dependencies</th><th>Status</th><th>Effort</th><th>Priority</th></tr>
+<tr>
+  <td>Perception Engine</td>
+  <td>Capture and classify incoming signals (events, messages, observations)</td>
+  <td>Event Bus</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Context Assembly Engine</td>
+  <td>Assemble relevant context from Memory, Knowledge, and Timeline</td>
+  <td>Memory, Knowledge, Timeline</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Reasoning Engine</td>
+  <td>7 reasoning types — deductive, inductive, analogical, etc.</td>
+  <td>Context Assembly</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Planning Engine</td>
+  <td>Generate action sequences from objectives</td>
+  <td>Reasoning</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Decision Engine</td>
+  <td>Decision lifecycle: propose → evaluate → approve → execute → monitor</td>
+  <td>Planning, Governance</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Reflection Engine</td>
+  <td>Evaluate outcomes, detect errors, suggest improvements</td>
+  <td>Decision</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Learning Engine</td>
+  <td>Extract patterns from outcomes, consolidate into Knowledge</td>
+  <td>Reflection, Knowledge</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Confidence Engine</td>
+  <td>Compute and track confidence scores across all engine outputs</td>
+  <td>All engines</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Cognitive Runtime Orchestration</td>
+  <td>Wire all 8 intelligence engines into a sequential 8-stage pipeline</td>
+  <td>All 8 intelligence engines</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td><span class="tag tag-essential">1 week</span></td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>OS Pipeline Integration</td>
+  <td>Wire real runtimes into the OS kernel pipeline (replace mocks)</td>
+  <td>Cognitive Runtime, Execution Runtime, Planning Runtime</td>
+  <td><span class="tag tag-missing">missing</span></td>
+  <td><span class="tag tag-essential">2 weeks</span></td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>LLM Provider Abstraction</td>
+  <td>Provider-independent AI calls through a single abstraction layer</td>
+  <td>—</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>2 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+</table>
+
+<h3>1.3 Knowledge &amp; Memory</h3>
+<table>
+<tr><th>Capability</th><th>Purpose</th><th>Dependencies</th><th>Status</th><th>Effort</th><th>Priority</th></tr>
+<tr>
+  <td>Knowledge Store (IKS)</td>
+  <td>Immutable versioned fact store</td>
+  <td>—</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Knowledge Graph</td>
+  <td>Node/edge graph for entity relationships</td>
+  <td>IKS</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Memory Store</td>
+  <td>Episodic experience storage with decay</td>
+  <td>Timeline</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Search (full-text + semantic)</td>
+  <td>Unified search across all entity types and evidence</td>
+  <td>IKS, Timeline</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>3 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Evidence Engine</td>
+  <td>Immutable evidence records with provenance chains</td>
+  <td>Timeline</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+</table>
+
+<h3>1.4 Workspaces &amp; UX</h3>
+<table>
+<tr><th>Capability</th><th>Purpose</th><th>Dependencies</th><th>Status</th><th>Effort</th><th>Priority</th></tr>
+<tr>
+  <td>Login / Registration UI</td>
+  <td>Founder can sign up, log in, recover password</td>
+  <td>Identity</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Executive Home</td>
+  <td>Dashboard with metrics, milestones, AI summary</td>
+  <td>Workspace Runtime</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>3 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Object Workspace</td>
+  <td>Detail view for any entity type — identity, timeline, AI analysis</td>
+  <td>Entity System, Search</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>3 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Conversation Workspace</td>
+  <td>Threaded conversations with AI assistant, linked to objects</td>
+  <td>AI Runtime, Entity System</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>4 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Commitment Tracker</td>
+  <td>Progress bars, confidence meters, blockers, next actions</td>
+  <td>Decision Engine, Planning</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>3 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Universal Search (⌘K)</td>
+  <td>Keyboard-driven omnibox search across all objects</td>
+  <td>Search</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>2 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Workspace Runtime (core)</td>
+  <td>Session container management, stateful user workspaces</td>
+  <td>Identity</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+</table>
+
+<h3>1.5 Communication &amp; Collaboration</h3>
+<table>
+<tr><th>Capability</th><th>Purpose</th><th>Dependencies</th><th>Status</th><th>Effort</th><th>Priority</th></tr>
+<tr>
+  <td>Email Integration (IMAP/SMTP)</td>
+  <td>Connect existing email, sync inbox, send from SHUNYA</td>
+  <td>Integration Runtime</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>2 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Calendar Integration</td>
+  <td>Calendar sync, event creation from commitments</td>
+  <td>Integration Runtime</td>
+  <td><span class="tag tag-missing">missing</span></td>
+  <td>2 weeks</td>
+  <td><span class="tag tag-required">required</span></td>
+</tr>
+<tr>
+  <td>Notifications (in-app + email)</td>
+  <td>Real-time notification for mentions, updates, milestones</td>
+  <td>Event Bus, Workspace</td>
+  <td><span class="tag tag-missing">missing</span></td>
+  <td>2 weeks</td>
+  <td><span class="tag tag-required">required</span></td>
+</tr>
+</table>
+
+<h3>1.6 CRM &amp; Business Capabilities</h3>
+<table>
+<tr><th>Capability</th><th>Purpose</th><th>Dependencies</th><th>Status</th><th>Effort</th><th>Priority</th></tr>
+<tr>
+  <td>Entity List (Table/Kanban/Calendar)</td>
+  <td>Generic list view for any entity type with customizable layouts</td>
+  <td>Entity System</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>3 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Entity Detail + Form</td>
+  <td>Dynamic detail/form views driven by JSONB schema</td>
+  <td>Entity System</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>2 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Pipeline (Kanban)</td>
+  <td>Drag-and-drop pipeline for any entity type with status-driven workflows</td>
+  <td>Entity System</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>2 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Automation (Rules Engine)</td>
+  <td>If-this-then-that rules triggered by entity lifecycle events</td>
+  <td>Event Bus, Automation Runtime</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>4 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+</table>
+
+<h3>1.7 Identity &amp; Governance</h3>
+<table>
+<tr><th>Capability</th><th>Purpose</th><th>Dependencies</th><th>Status</th><th>Effort</th><th>Priority</th></tr>
+<tr>
+  <td>Governance Engine</td>
+  <td>Policy enforcement on all operations — constitutional compliance</td>
+  <td>All engines</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Authorization (RBAC)</td>
+  <td>Role-based access control per tenant, per entity type</td>
+  <td>Identity, Governance</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>2 weeks</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Audit Trail</td>
+  <td>Immutable append-only log of all system actions</td>
+  <td>Timeline, Governance</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Credential Store</td>
+  <td>Secure storage and resolution of external service credentials</td>
+  <td>Identity</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+</table>
+
+<h3>1.8 Deployment &amp; Infrastructure</h3>
+<table>
+<tr><th>Capability</th><th>Purpose</th><th>Dependencies</th><th>Status</th><th>Effort</th><th>Priority</th></tr>
+<tr>
+  <td>Docker Deployment</td>
+  <td>Containers for web, Postgres, nginx</td>
+  <td>—</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>CI/CD Pipeline</td>
+  <td>Automated tests on push, deploy on merge to main</td>
+  <td>Test Suite</td>
+  <td><span class="tag tag-missing">missing</span></td>
+  <td>1 week</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Health Checks &amp; Monitoring</td>
+  <td>OS-level health endpoint, probing, alerting</td>
+  <td>OS Kernel</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>1 week</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>Backup &amp; Recovery</td>
+  <td>Database backup rotation, restore procedure</td>
+  <td>PostgreSQL</td>
+  <td><span class="tag tag-missing">missing</span></td>
+  <td>1 week</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+<tr>
+  <td>SSL/TLS</td>
+  <td>HTTPS via Let's Encrypt</td>
+  <td>—</td>
+  <td><span class="tag tag-done">done</span></td>
+  <td>—</td>
+  <td><span class="tag tag-essential">essential</span></td>
+</tr>
+</table>
+
+<h3>1.9 Observability (V1.x)</h3>
+<table>
+<tr><th>Capability</th><th>Purpose</th><th>Dependencies</th><th>Status</th><th>Effort</th><th>Priority</th></tr>
+<tr>
+  <td>Structured Logging</td>
+  <td>JSON-formatted logs with request IDs, trace IDs</td>
+  <td>—</td>
+  <td><span class="tag tag-partial">partial</span></td>
+  <td>—</td>
+  <td><span class="tag tag-canwait">V1.x</span></td>
+</tr>
+<tr>
+  <td>Metrics Dashboard</td>
+  <td>System metrics: latency, error rates, throughput</td>
+  <td>—</td>
+  <td><span class="tag tag-missing">missing</span></td>
+  <td>—</td>
+  <td><span class="tag tag-canwait">V1.x</span></td>
+</tr>
+<tr>
+  <td>APM (Application Performance Monitoring)</td>
+  <td>Distributed tracing, slow query detection</td>
+  <td>—</td>
+  <td><span class="tag tag-missing">missing</span></td>
+  <td>—</td>
+  <td><span class="tag tag-canwait">V1.x</span></td>
+</tr>
+</table>
+
+<h3>1.10 Long-term (V1.x+)</h3>
+<table>
+<tr><th>Capability</th><th>Effort</th><th>Priority</th></tr>
+<tr><td>Mobile App (React Native / PWA)</td><td>8-12 weeks</td><td><span class="tag tag-long">long-term</span></td></tr>
+<tr><td>Client Portal</td><td>4-6 weeks</td><td><span class="tag tag-long">long-term</span></td></tr>
+<tr><td>Multi-Brand / Parent Account</td><td>4 weeks</td><td><span class="tag tag-long">long-term</span></td></tr>
+<tr><td>Payment Ecosystem</td><td>8-12 weeks</td><td><span class="tag tag-long">long-term</span></td></tr>
+<tr><td>Supplier Ecosystem</td><td>6-8 weeks</td><td><span class="tag tag-long">long-term</span></td></tr>
+<tr><td>Internationalization (i18n)</td><td>6 weeks</td><td><span class="tag tag-long">long-term</span></td></tr>
+<tr><td>Voice + 37 Languages</td><td>12-16 weeks</td><td><span class="tag tag-long">long-term</span></td></tr>
+<tr><td>Module Builder</td><td>8-12 weeks</td><td><span class="tag tag-long">long-term</span></td></tr>
+<tr><td>Offline / PWA</td><td>6 weeks</td><td><span class="tag tag-long">long-term</span></td></tr>
+<tr><td>Universal Data Ingestion</td><td>8 weeks</td><td><span class="tag tag-long">long-term</span></td></tr>
+</table>
+
+<!-- ========================================================================
+     2. DEPENDENCY GRAPH
+     ======================================================================== -->
+<h2>2. Dependency Graph</h2>
+
+<div class="graph">
+<pre>
+┌─────────────────────────────────────────────────────────────────────┐
+│                     CRITICAL PATH                                    │
+│                                                                     │
+│  Foundation ────────────────────────────────────────────────        │
+│  ├── Identity ─── Multi-Tenancy ─── Object Protocol                │
+│  ├── Event Bus ─── Timeline ─── Evidence                           │
+│  │                                                                  │
+│  Pipeline Integration ───────────────────────────────────────       │
+│  ├── Wire Cognitive Runtime into OS Pipeline  ◄── CRITICAL         │
+│  ├── Wire Execution Runtime into OS Pipeline                       │
+│  ├── Wire Planning Runtime into OS Pipeline                        │
+│  │                                                                  │
+│  Entity System ──────────────────────────────────────────────       │
+│  ├── JSONB Entity Definitions ─── Generic CRUD                     │
+│  ├── Pipeline Views ─── Entity Detail                               │
+│  │                                                                  │
+│  AI Integration ─────────────────────────────────────────────       │
+│  ├── LLM Provider Layer ─── AI Copilot                             │
+│  ├── Conversation Workspace ─── AI Insights                         │
+│  │                                                                  │
+│  UX Surface ────────────────────────────────────────────────        │
+│  ├── Executive Home ─── Commitment Tracker                          │
+│  ├── Universal Search ─── Object Navigation                         │
+│  └── Notifications ─── Collaboration                                │
+└─────────────────────────────────────────────────────────────────────┘
+
+PARALLEL WORKSTREAMS (can be built simultaneously):
+
+┌─ Workstream A: Pipeline ─────────────────────────────────────┐
+│  Cognitive Runtime wiring    │  Execution Runtime wiring      │
+│  OS pipeline mock replacement│  Planning Runtime wiring       │
+└──────────────────────────────────────────────────────────────┘
+
+┌─ Workstream B: Entity System ────────────────────────────────┐
+│  Entity definitions CRUD     │  Generic list/detail/form     │
+│  Pipeline/Kanban views       │  Entity search indexing       │
+└──────────────────────────────────────────────────────────────┘
+
+┌─ Workstream C: AI Surface ───────────────────────────────────┐
+│  LLM provider abstraction    │  AI Copilot component         │
+│  Conversation workspace      │  AI-powered search/insights   │
+└──────────────────────────────────────────────────────────────┘
+
+┌─ Workstream D: Integrations ─────────────────────────────────┐
+│  Email connector             │  Calendar connector           │
+│  Notifications system        │  Data import pipeline         │
+└──────────────────────────────────────────────────────────────┘
+
+┌─ Workstream E: Infrastructure ───────────────────────────────┐
+│  CI/CD pipeline              │  Backup & recovery            │
+│  Monitoring & alerting       │  Heath check hardening        │
+└──────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<!-- ========================================================================
+     3. BUILD PHASES
+     ======================================================================== -->
+<h2>3. Build Phases</h2>
+
+<p>Each phase produces a user-visible milestone. No phase produces only infrastructure — every phase ends with something a founder can touch.</p>
+
+<div class="phase">
+  <h3>Phase 1: Pipeline Activation <span class="tag tag-essential">essential</span></h3>
+  <div class="meta">2 weeks · Workstream A · 2 engineers</div>
+  <div class="outcome">
+    <strong>What a founder can do after this phase:</strong><br>
+    Sign up, log in, see Executive Home with real data. AI can observe their actions and begin building context.
+  </div>
+  <ul class="tasks">
+    <li>Wire Cognitive Runtime (8 intelligence engines) into OS pipeline</li>
+    <li>Wire Execution Runtime into OS pipeline</li>
+    <li>Wire Planning Runtime into OS pipeline</li>
+    <li>Replace all 8 mock runtimes with real implementations</li>
+    <li>Verify pipeline end-to-end: intent → pipeline → intelligence → execution → workspace update</li>
+    <li>Acceptance: `process_intent()` flows through all 11 stages with real engines, not mocks</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Phase 2: Entity System Launch <span class="tag tag-essential">essential</span></h3>
+  <div class="meta">3 weeks · Workstream B · 1 engineer</div>
+  <div class="outcome">
+    <strong>What a founder can do after this phase:</strong><br>
+    Create any business object (lead, contact, deal, invoice) without schema changes. See them in table, kanban, or calendar views.
+  </div>
+  <ul class="tasks">
+    <li>Build entity_definitions CRUD (JSONB schema per tenant)</li>
+    <li>Build entities CRUD (generic data storage)</li>
+    <li>Build entity_list view with configurable columns</li>
+    <li>Build entity_detail view with dynamic schema rendering</li>
+    <li>Build entity_form auto-generated from schema</li>
+    <li>Build kanban pipeline view for any entity type</li>
+    <li>Add search indexing for entity data fields</li>
+    <li>Acceptance: Admin can define a &quot;Patient&quot; type with 20 custom fields and start creating patients</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Phase 3: AI Copilot <span class="tag tag-essential">essential</span></h3>
+  <div class="meta">3 weeks · Workstream C · 1 engineer</div>
+  <div class="outcome">
+    <strong>What a founder can do after this phase:</strong><br>
+    Ask SHUNYA questions about their business in natural language. Get AI-generated summaries of entities, conversations, and commitments.
+  </div>
+  <ul class="tasks">
+    <li>Build LLM provider abstraction layer (provider-agnostic)</li>
+    <li>Build AI Copilot component — persistent chat sidebar</li>
+    <li>Connect Copilot to Cognitive Runtime for context-aware answers</li>
+    <li>Build AI-summary generation for any entity</li>
+    <li>Build conversation workspace with linked objects</li>
+    <li>Acceptance: Founder asks &quot;What's the status of the Smith deal?&quot; and gets a real AI-generated response from their data</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Phase 4: Executive Home &amp; Commitments <span class="tag tag-essential">essential</span></h3>
+  <div class="meta">2 weeks · Workstream A+B combined · 1-2 engineers</div>
+  <div class="outcome">
+    <strong>What a founder can do after this phase:</strong><br>
+    See their entire business at a glance — key metrics, open commitments, next actions, AI-generated daily brief.
+  </div>
+  <ul class="tasks">
+    <li>Build Executive Home dashboard with real metrics</li>
+    <li>Build Commitment Tracker with progress bars and confidence meters</li>
+    <li>Build AI daily brief component</li>
+    <li>Connect commitments to Decision Engine</li>
+    <li>Build next-action recommendations from Planning Engine</li>
+    <li>Acceptance: Founder can log in, see 3 metrics, 5 commitments, and an AI brief that references their actual data</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Phase 5: Integrations &amp; Notifications <span class="tag tag-required">required</span></h3>
+  <div class="meta">3 weeks · Workstream D · 1 engineer</div>
+  <div class="outcome">
+    <strong>What a founder can do after this phase:</strong><br>
+    Connect their email and calendar. Receive notifications when things change. Import existing data from other tools.
+  </div>
+  <ul class="tasks">
+    <li>Build email connector (IMAP sync, SMTP send)</li>
+    <li>Build calendar connector</li>
+    <li>Build in-app notification system</li>
+    <li>Build email notification dispatch</li>
+    <li>Build data import pipeline (CSV, contacts)</li>
+    <li>Acceptance: Founder connects Gmail, sees emails linked to entities, gets notified of entity updates</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Phase 6: Automation &amp; Workflows <span class="tag tag-required">required</span></h3>
+  <div class="meta">3 weeks · Workstream A+B · 1 engineer</div>
+  <div class="outcome">
+    <strong>What a founder can do after this phase:</strong><br>
+    Create &quot;when X happens, do Y&quot; rules. Delegate work automatically. Track SLA breaches.
+  </div>
+  <ul class="tasks">
+    <li>Wire Automation Runtime into OS pipeline</li>
+    <li>Build rule engine UI (when/if → then/do)</li>
+    <li>Build workflow templates library</li>
+    <li>Connect automation to Decision Engine for governance approval</li>
+    <li>Acceptance: Founder creates &quot;when lead status = booked, send welcome email and create task&quot; — it fires automatically</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Phase 7: Founders Complete <span class="tag tag-essential">essential</span></h3>
+  <div class="meta">2 weeks · All workstreams · 2 engineers</div>
+  <div class="outcome">
+    <strong>What a founder can do after this phase:</strong><br>
+    Everything the founder needs to run their business: manage customers, track deals, communicate with team, get AI insights, automate workflows — all in one OS.
+  </div>
+  <ul class="tasks">
+    <li>Universal Search (⌘K) finalized</li>
+    <li>Keyboard navigation audit (tab, escape, enter everywhere)</li>
+    <li>Object relationship navigation (click through linked objects)</li>
+    <li>Empty states everywhere — no lorem ipsum, no fake data</li>
+    <li>CI/CD pipeline operational</li>
+    <li>Backup &amp; recovery verified</li>
+    <li>End-to-end founder journey test passes</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h3>Phase 8: Private Beta Launch <span class="tag tag-required">required</span></h3>
+  <div class="meta">1 week · All · 2 engineers</div>
+  <div class="outcome">
+    <strong>What a founder can do after this phase:</strong><br>
+    SHUNYA is live at shunyaos.com. A first customer can sign up and run their business.
+  </div>
+  <ul class="tasks">
+    <li>Security review (auth, data isolation, credential storage)</li>
+    <li>Load testing (50 concurrent users)</li>
+    <li>Error monitoring (Sentry or equivalent)</li>
+    <li>Onboarding flow — first-run experience for new founders</li>
+    <li>Launch checklist sign-off</li>
+  </ul>
+</div>
+
+<div class="phase" style="border-color: #94a3b8;">
+  <h3>Phase 9+: V1.x <span class="tag tag-long">long-term</span></h3>
+  <div class="meta">Ongoing</div>
+  <div class="outcome">
+    Mobile app, Client Portal, Payments, i18n, Voice, Module Builder, advanced analytics.
+  </div>
+</div>
+
+<!-- ========================================================================
+     4. PRODUCTION READINESS MATRIX
+     ======================================================================== -->
+<h2>4. Production Readiness Matrix</h2>
+
+<h3>4.1 Essential Before First Customer</h3>
+<table>
+<tr><th>Capability</th><th>Reason</th></tr>
+<tr><td>Identity &amp; Authentication</td><td>Founder cannot use the system without signing in</td></tr>
+<tr><td>Multi-Tenancy</td><td>Without tenant isolation, every customer sees everyone else's data</td></tr>
+<tr><td>OS Pipeline Integration</td><td>Without real runtimes, the pipeline silently no-ops — user actions do nothing</td></tr>
+<tr><td>Entity System (JSONB)</td><td>Without generic entities, every business type requires schema changes</td></tr>
+<tr><td>Entity List/Detail/Form</td><td>Founder cannot see, create, or edit business records</td></tr>
+<tr><td>Executive Home</td><td>Founder has no dashboard to understand their business state</td></tr>
+<tr><td>AI Copilot</td><td>Core differentiator — without AI, SHUNYA is a generic CRM</td></tr>
+<tr><td>Conversation Workspace</td><td>Founder cannot communicate with team or AI in context</td></tr>
+<tr><td>Universal Search</td><td>Founder cannot find anything</td></tr>
+<tr><td>Audit Trail</td><td>No record of who did what — compliance risk</td></tr>
+<tr><td>Pipeline (Kanban)</td><td>Founder cannot visualize deal/sales/service workflows</td></tr>
+<tr><td>Authorization (RBAC)</td><td>No access control — any user can see everything</td></tr>
+<tr><td>Commitment Tracker</td><td>No way to track promises, deadlines, progress</td></tr>
+<tr><td>Automation (Rules)</td><td>Manual operations only — no leverage</td></tr>
+<tr><td>CI/CD Pipeline</td><td>Cannot ship fixes reliably</td></tr>
+<tr><td>Backup &amp; Recovery</td><td>Data loss risk is unacceptable</td></tr>
+<tr><td>SSL/TLS</td><td>✅ Already done</td></tr>
+</table>
+
+<h3>4.2 Required Before Public Launch</h3>
+<table>
+<tr><th>Capability</th><th>Reason</th></tr>
+<tr><td>Email Integration</td><td>Founder's email is their primary communication channel — must connect</td></tr>
+<tr><td>Calendar Integration</td><td>Scheduling is foundational to business operations</td></tr>
+<tr><td>Notifications (in-app + email)</td><td>Without notifications, the founder must constantly refresh to see changes</td></tr>
+<tr><td>Onboarding Flow</td><td>First-run experience determines adoption — must guide the founder</td></tr>
+<tr><td>Load Testing (50 concurrent)</td><td>Must not fall over when the first customer uses it daily</td></tr>
+<tr><td>Error Monitoring</td><td>Must know when things break</td></tr>
+</table>
+
+<h3>4.3 Can Wait Until V1.x</h3>
+<table>
+<tr><th>Capability</th><th>Reason</th></tr>
+<tr><td>Mobile App</td><td>Desktop-first launch is sufficient for initial customers</td></tr>
+<tr><td>Client Portal</td><td>Nice-to-have — not needed for the founder alone</td></tr>
+<tr><td>Structured Logging / Metrics / APM</td><td>Manual debugging sufficient for first customer</td></tr>
+<tr><td>Advanced Analytics</td><td>Executive Home + AI insights cover initial needs</td></tr>
+</table>
+
+<h3>4.4 Long-term Evolution</h3>
+<table>
+<tr><th>Capability</th><th>Reason</th></tr>
+<tr><td>Payments Ecosystem</td><td>Requires regulatory compliance — scope separate</td></tr>
+<tr><td>Voice + 37 Languages</td><td>Requires significant infrastructure — post-launch</td></tr>
+<tr><td>Module Builder</td><td>Self-extending platform — core must be stable first</td></tr>
+<tr><td>Supplier Ecosystem</td><td>Network effects — requires user base</td></tr>
+</table>
+
+<!-- ========================================================================
+     5. RISK REGISTER
+     ======================================================================== -->
+<h2>5. Risk Register</h2>
+
+<div class="risk risk-high">
+  <strong>Technical Risk: Pipeline wiring breaks existing functionality.</strong><br>
+  Replacing mock runtimes with real ones mid-system may introduce regressions. Mitigation: run full test suite after each runtime wire. Use feature flags to toggle mock vs real. Do one runtime at a time.
+</div>
+
+<div class="risk risk-high">
+  <strong>Technical Risk: LLM provider latency or outage blocks the AI Copilot.</strong><br>
+  If the AI provider is slow or down, the Copilot becomes useless. Mitigation: the AI Canon already requires graceful degradation — non-AI features must work when AI is unavailable. Verify this guarantee holds.
+</div>
+
+<div class="risk risk-med">
+  <strong>Architectural Risk: Entity System (JSONB) query performance at scale.</strong><br>
+  JSONB queries on `data` fields can be slow with millions of rows. Mitigation: index frequently-queried fields with GIN indexes. Consider extracted columns for high-traffic entity types. Test with 1M entities before launch.
+</div>
+
+<div class="risk risk-med">
+  <strong>Scalability Risk: Single Postgres instance.</strong><br>
+  All data in one Postgres instance. Mitigation: connection pooling (PGBouncer), read replicas for analytics queries. Monitor connection counts.
+</div>
+
+<div class="risk risk-med">
+  <strong>Operational Risk: No CI/CD means manual deploys.</strong><br>
+  Human error in deployment. Mitigation: Phase 8 builds CI/CD. Until then, script deployment with makefile and verify healthcheck after deploy.
+</div>
+
+<div class="risk risk-med">
+  <strong>Security Risk: Tenant data isolation bugs.</strong><br>
+  A bug in tenant-scoped queries could leak data between organizations. Mitigation: integration tests that verify cross-tenant isolation. Hardcoded tenant_id check on every query. Review all SQL queries for tenant scoping before launch.
+</div>
+
+<div class="risk risk-low">
+  <strong>Deployment Risk: Let's Encrypt certificate expiration.</strong><br>
+  Auto-renewal already configured in docker-compose. Verify renewal automation works.
+</div>
+
+<div class="risk risk-low">
+  <strong>Security Risk: `datetime.utcnow()` deprecation (820 warnings).</strong><br>
+  Cosmetic — no runtime impact. Fix incrementally post-launch.
+</div>
+
+<!-- ========================================================================
+     6. FOUNDER JOURNEY VALIDATION
+     ======================================================================== -->
+<h2>6. Founder Journey Validation</h2>
+
+<div class="founder-journey">
+<h3>Complete Journey: A Founder Using SHUNYA</h3>
+
+<ol>
+  <li><strong>Signs up</strong> — Visits shunyaos.com, creates account ✅ Phase 1</li>
+  <li><strong>Creates a company</strong> — Onboarding flow, tenant creation ✅ Phase 1 (partial — needs onboarding polish in Phase 8)</li>
+  <li><strong>Configures entity types</strong> — Defines "Lead", "Deal", "Invoice" with custom fields ✅ Phase 2</li>
+  <li><strong>Imports data</strong> — Uploads CSV of existing contacts/customers ✅ Phase 5</li>
+  <li><strong>Connects email and calendar</strong> — IMAP/OAuth sync ✅ Phase 5</li>
+  <li><strong>Sees Executive Home</strong> — Dashboard with metrics, commitments, AI brief ✅ Phase 4</li>
+  <li><strong>Manages customers</strong> — Entity list, detail, kanban pipeline ✅ Phase 2</li>
+  <li><strong>Interacts with AI</strong> — Asks questions, gets insights, creates tasks via conversation ✅ Phase 3</li>
+  <li><strong>Delegates work</strong> — Creates commitments, assigns to team members, automation fires ✅ Phase 6</li>
+  <li><strong>Tracks commitments</strong> — Progress bars, confidence meters, blockers list ✅ Phase 4</li>
+  <li><strong>Receives notifications</strong> — Email/in-app alerts for entity changes, mentions ✅ Phase 5</li>
+  <li><strong>Reviews insights</strong> — AI-generated daily brief, trend detection, anomaly flagging ✅ Phase 3+4</li>
+</ol>
+
+<h3>Gaps Identified</h3>
+<table>
+<tr><th>#</th><th>Gap</th><th>Severity</th><th>Resolution</th></tr>
+<tr><td>1</td><td>No onboarding flow — first-run experience is blank</td><td><span class="tag tag-essential">HIGH</span></td><td>Phase 8 — guided first-run wizard</td></tr>
+<tr><td>2</td><td>Email integration login UI not built</td><td><span class="tag tag-required">MED</span></td><td>Phase 5 — OAuth/IMAP setup screen</td></tr>
+<tr><td>3</td><td>No data import UI (CSV upload)</td><td><span class="tag tag-required">MED</span></td><td>Phase 5 — CSV column mapper</td></tr>
+<tr><td>4</td><td>Team member management not wired</td><td><span class="tag tag-required">MED</span></td><td>Phase 6 — invite flow</td></tr>
+<tr><td>5</td><td>No commitment delegation UI</td><td><span class="tag tag-required">MED</span></td><td>Phase 4 — assignee picker</td></tr>
+<tr><td>6</td><td>No keyboard navigation audit</td><td><span class="tag tag-canwait">LOW</span></td><td>Phase 7 — tab/enter/escape audit</td></tr>
+</table>
+
+<p><strong>Verdict:</strong> All critical gaps are addressed by Phases 1-6. No additional capabilities are required beyond those already planned. The journey is achievable after Phase 7 — approximately <strong>18 weeks</strong> of execution across 5 parallel workstreams.</p>
+</div>
+
+<!-- ========================================================================
+     7. FINAL DELIVERABLE
+     ======================================================================== -->
+<h2>7. Execution Roadmap</h2>
+
+<h3>Summary</h3>
+<table>
+<tr><th>#</th><th>Phase</th><th>Duration</th><th>Workstream</th><th>Founder Milestone</th><th>Dependencies</th></tr>
+<tr><td>1</td><td>Pipeline Activation</td><td>2 wks</td><td>A</td><td>Sign up, pipeline processes real intents</td><td>Identity (done), Cognitive Runtime (done)</td></tr>
+<tr><td>2</td><td>Entity System</td><td>3 wks</td><td>B</td><td>Create any business object, see in list/kanban</td><td>Phase 1 (for pipeline auth)</td></tr>
+<tr><td>3</td><td>AI Copilot</td><td>3 wks</td><td>C</td><td>Ask questions, get AI insights</td><td>Phase 1 (for context pipeline)</td></tr>
+<tr><td>4</td><td>Executive Home &amp; Commitments</td><td>2 wks</td><td>A+B</td><td>Dashboard, metrics, AI brief, commitments</td><td>Phase 1, Phase 2</td></tr>
+<tr><td>5</td><td>Integrations &amp; Notifications</td><td>3 wks</td><td>D</td><td>Connect email/calendar, get notifications</td><td>Phase 1</td></tr>
+<tr><td>6</td><td>Automation &amp; Workflows</td><td>3 wks</td><td>A+B</td><td>If-this-then-that rules, delegation</td><td>Phase 1, Phase 4</td></tr>
+<tr><td>7</td><td>Founder Complete</td><td>2 wks</td><td>All</td><td>⌘K search, polish, CI/CD, backup</td><td>All previous phases</td></tr>
+<tr><td>8</td><td>Private Beta Launch</td><td>1 wk</td><td>All</td><td>Live at shunyaos.com, first customer</td><td>Phase 7</td></tr>
+<tr><td colspan="2"><strong>Total (Phases 1-8)</strong></td><td><strong>19 weeks</strong></td><td>5 parallel workstreams</td><td></td><td></td></tr>
+</table>
+
+<h3>Parallel Workstreams</h3>
+<table>
+<tr><th>Workstream</th><th>Phases</th><th>Focus</th><th>Engineers</th></tr>
+<tr><td><strong>A:</strong> Pipeline &amp; Runtime</td><td>1, 4, 6, 7</td><td>Wire real engines, replace mocks, orchestration</td><td>1</td></tr>
+<tr><td><strong>B:</strong> Entity &amp; UI</td><td>2, 4, 6, 7</td><td>JSONB entity system, generic CRUD, kanban</td><td>1</td></tr>
+<tr><td><strong>C:</strong> AI Copilot</td><td>3, 7</td><td>LLM abstraction, conversation UI, insights</td><td>1</td></tr>
+<tr><td><strong>D:</strong> Integrations</td><td>5, 7</td><td>Email, calendar, notifications, data import</td><td>1</td></tr>
+<tr><td><strong>E:</strong> Infrastructure</td><td>7, 8</td><td>CI/CD, backup, monitoring, launch checklist</td><td>~0.5</td></tr>
+</table>
+
+<h3>Acceptance Criteria Summary</h3>
+<table>
+<tr><th>Phase</th><th>Acceptance Test</th><th>Evidence Required</th></tr>
+<tr><td>1</td><td>`process_intent()` flows through all 11 pipeline stages using real engines</td><td>Pipeline trace shows real engine IDs, not "MockRuntime"</td></tr>
+<tr><td>2</td><td>Admin defines a custom entity type, creates 5 records, sees them in kanban</td><td>Browser screenshot of list + detail + kanban views</td></tr>
+<tr><td>3</td><td>Founder asks a business question, AI answers from their data</td><td>Screenshot of conversation with accurate AI response</td></tr>
+<tr><td>4</td><td>Login → see 3 real metrics, 5 commitments, AI brief referencing actual data</td><td>Browser screenshot + AI brief content verification</td></tr>
+<tr><td>5</td><td>Connect Gmail, see emails linked to entities, receive notification</td><td>Screenshot of email in context + notification</td></tr>
+<tr><td>6</td><td>Create "when lead status=booked, send email" rule, trigger it, verify email sent</td><td>Automation log + email received</td></tr>
+<tr><td>7</td><td>⌘K search finds any entity, keyboard nav works, CI/CD green, backup verified</td><td>Full founder journey walkthrough video</td></tr>
+<tr><td>8</td><td>New user signs up, completes onboarding, runs business for 1 hour without issues</td><td>Founder acceptance documented + test output</td></tr>
+</table>
+
+<h3>Estimated Readiness After Each Phase</h3>
+<table>
+<tr><th>Week</th><th>Phase</th><th>State</th><th>Can a founder…</th></tr>
+<tr><td>0</td><td>—</td><td>Current: all AI engines built, but pipeline is 80% mock</td><td>Sign up and log in, but AI does nothing</td></tr>
+<tr><td>2</td><td>1</td><td>Pipeline real</td><td>Sign up, see profile, AI begins observing</td></tr>
+<tr><td>5</td><td>2</td><td>Entity system live</td><td>Create and manage any business object</td></tr>
+<tr><td>8</td><td>3</td><td>AI Copilot functional</td><td>Ask questions, get insights, chat with AI</td></tr>
+<tr><td>10</td><td>4</td><td>Executive Home live</td><td>See dashboard, commitments, AI brief</td></tr>
+<tr><td>13</td><td>5</td><td>Email/Calendar connected</td><td>Work from email inside SHUNYA</td></tr>
+<tr><td>16</td><td>6</td><td>Automation active</td><td>Automate repetitive workflows</td></tr>
+<tr><td>18</td><td>7</td><td>Founder Complete</td><td>Full journey end-to-end</td></tr>
+<tr><td>19</td><td>8</td><td>Private Beta</td><td>First customer runs their business</td></tr>
+</table>
+
+<!-- ========================================================================
+     FOOTER
+     ======================================================================== -->
+<div class="footer">
+  SHUNYA 1.0 · Production Execution Roadmap · Canonical Architecture Baseline v1.0 Frozen<br>
+  Directive 04 · 2026-07-28 · No architecture was modified
+</div>
+
+</div>
+</body>
+</html>

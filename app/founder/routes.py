@@ -154,6 +154,13 @@ def api_founder_signin():
         identity_id = result.get("identity_id")
         if identity_id:
             session["identity_id"] = identity_id
+        # Look up the TeamMember by email for the integer user_id
+        # (login_required decorator expects an int PK, not a string sid_xxx)
+        from app.auth import TeamMember
+        member = TeamMember.query.filter_by(email=email, is_active=True).first()
+        if member:
+            session["user_id"] = member.id
+        else:
             session["user_id"] = identity_id
 
         return jsonify({

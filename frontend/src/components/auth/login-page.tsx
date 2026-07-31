@@ -38,7 +38,7 @@ export function LoginPage({ onLogin }: Props) {
     try {
       const resp = await api.signin(email.trim().toLowerCase(), password);
       if (resp.success) {
-        const session: Session = { identityId: '', email: email.trim().toLowerCase() };
+        const session: Session = { identityId: resp.identity_id || '', email: email.trim().toLowerCase() };
         SessionManager.save(session);
         onLogin(session);
       } else {

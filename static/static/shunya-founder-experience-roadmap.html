@@ -1,0 +1,2450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SHUNYA Founder Experience Roadmap v1.0</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: #e2e8f0;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .header { margin-bottom: 2rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot { width: 12px; height: 12px; background: #34d399; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; color: white; margin-top: 1.5rem; }
+    .subtitle { color: #94a3b8; font-size: 0.875rem; margin-left: 1.75rem; }
+    .status-badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.7rem; font-weight: 600; background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid #34d399; }
+    .status-governing { background: rgba(251,191,36,0.15); color: #fbbf24; border-color: #fbbf24; }
+    /* Markdown rendered content */
+    .content h1 { font-size: 1.5rem; font-weight: 700; color: white; margin: 2rem 0 1rem; border-bottom: 1px solid #1e293b; padding-bottom: 0.5rem; }
+    .content h2 { font-size: 1.2rem; font-weight: 600; margin: 2rem 0 1rem; color: #fbbf24; border-bottom: 1px solid #1e293b; padding-bottom: 0.5rem; }
+    .content h3 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: #34d399; }
+    .content h4 { font-size: 0.9rem; font-weight: 600; margin: 1rem 0 0.5rem; color: #22d3ee; }
+    .content p { margin: 0.75rem 0; line-height: 1.6; font-size: 0.85rem; }
+    .content ul, .content ol { margin: 0.5rem 0 0.5rem 1.5rem; font-size: 0.85rem; line-height: 1.6; }
+    .content li { margin: 0.3rem 0; }
+    .content table { width: 100%; border-collapse: collapse; margin: 1rem 0 2rem; font-size: 0.8rem; }
+    .content th { background: rgba(30,41,59,0.8); color: #94a3b8; text-align: left; padding: 0.5rem; border: 1px solid #1e293b; font-weight: 600; }
+    .content td { padding: 0.5rem; border: 1px solid #1e293b; vertical-align: top; }
+    .content tr:hover { background: rgba(30,41,59,0.3); }
+    .content pre { background: rgba(15,23,42,0.8); padding: 1rem; border-radius: 0.5rem; border: 1px solid #1e293b; overflow-x: auto; font-size: 0.75rem; margin: 1rem 0; }
+    .content code { font-family: 'JetBrains Mono', monospace; color: #22d3ee; font-size: 0.8rem; }
+    .content blockquote { border-left: 3px solid #34d399; background: rgba(52,211,153,0.05); padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 0.25rem 0.25rem 0; }
+    .content blockquote p { margin: 0; }
+    .content strong { color: #fbbf24; }
+    .content em { color: #22d3ee; }
+    .content hr { border: none; border-top: 1px solid #1e293b; margin: 2rem 0; }
+    /* TOC sidebar */
+    .layout { display: flex; gap: 2rem; }
+    .sidebar { width: 260px; flex-shrink: 0; position: sticky; top: 2rem; align-self: flex-start; max-height: calc(100vh - 4rem); overflow-y: auto; }
+    .sidebar-inner { background: rgba(15,23,42,0.5); border: 1px solid #1e293b; border-radius: 0.75rem; padding: 1rem; }
+    .sidebar h3 { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+    .toc-link { display: block; font-size: 0.7rem; color: #94a3b8; text-decoration: none; padding: 0.15rem 0; line-height: 1.5; }
+    .toc-link:hover { color: #34d399; }
+    .main { flex: 1; min-width: 0; }
+    .footer { text-align: center; margin-top: 3rem; color: #475569; font-size: 0.75rem; padding: 1rem; border-top: 1px solid #1e293b; }
+    .roadmap-bar { display: flex; gap: 0.25rem; margin: 1.5rem 0; flex-wrap: wrap; }
+    .roadmap-phase { padding: 0.4rem 0.6rem; border-radius: 0.25rem; font-size: 0.65rem; font-weight: 600; text-align: center; flex: 1; min-width: 70px; }
+    .phase-m1 { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid #f87171; }
+    .phase-m2 { background: rgba(251,191,36,0.2); color: #fbbf24; border: 1px solid #fbbf24; }
+    .phase-m3 { background: rgba(52,211,153,0.2); color: #34d399; border: 1px solid #34d399; }
+    .phase-m4 { background: rgba(56,189,248,0.2); color: #38bdf8; border: 1px solid #38bdf8; }
+    .phase-m5 { background: rgba(168,85,247,0.2); color: #a855f7; border: 1px solid #a855f7; }
+    .phase-m6 { background: rgba(236,72,153,0.2); color: #ec4899; border: 1px solid #ec4899; }
+    .phase-m7 { background: rgba(34,211,238,0.2); color: #22d3ee; border: 1px solid #22d3ee; }
+    .phase-m8 { background: rgba(250,204,21,0.2); color: #facc15; border: 1px solid #facc15; }
+    .phase-m9 { background: rgba(248,113,113,0.2); color: #f87171; border: 1px solid #f87171; }
+    .phase-m10 { background: rgba(52,211,153,0.2); color: #34d399; border: 1px solid #34d399; }
+    @media (max-width: 768px) { .sidebar { display: none; } .layout { display: block; } }
+    /* Scrollbar styling */
+    .sidebar-inner::-webkit-scrollbar { width: 4px; }
+    .sidebar-inner::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-inner::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-row">
+      <div class="pulse-dot"></div>
+      <h1>SHUNYA Founder Experience Roadmap v1.0</h1>
+    </div>
+    <p class="subtitle">
+      <span class="status-badge status-governing">GOVERNING</span>
+      &nbsp;Directive 04A &middot; Constitutional Baseline v1.0 Frozen &middot; 2026-07-28
+    </p>
+  </div>
+
+  <div class="roadmap-bar">
+    <div class="roadmap-phase phase-m1">M1<br>OS Alive</div>
+    <div class="roadmap-phase phase-m2">M2<br>Exec Home</div>
+    <div class="roadmap-phase phase-m3">M3<br>Knows Biz</div>
+    <div class="roadmap-phase phase-m4">M4<br>Entities</div>
+    <div class="roadmap-phase phase-m5">M5<br>Copilot</div>
+    <div class="roadmap-phase phase-m6">M6<br>Connected</div>
+    <div class="roadmap-phase phase-m7">M7<br>Automation</div>
+    <div class="roadmap-phase phase-m8">M8<br>Intelligence</div>
+    <div class="roadmap-phase phase-m9">M9<br>Enterprise</div>
+    <div class="roadmap-phase phase-m10">M10<br>Launch</div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-inner">
+        <h3>On This Page</h3>
+        <a href="#shunya-founder-experience-roadmap-v10" class="toc-link">SHUNYA Founder Experience Roadmap v1.0</a><br>
+  <a href="#table-of-contents" class="toc-link">Table of Contents</a><br>
+  <a href="#1-executive-summary" class="toc-link">1. Executive Summary</a><br>
+    <a href="#11-current-reality" class="toc-link">1.1 Current Reality</a><br>
+    <a href="#12-transformation-principle" class="toc-link">1.2 Transformation Principle</a><br>
+    <a href="#13-roadmap-at-a-glance" class="toc-link">1.3 Roadmap at a Glance</a><br>
+  <a href="#2-guiding-principle" class="toc-link">2. Guiding Principle</a><br>
+  <a href="#3-founder-experience-journey--the-story-of-shunya" class="toc-link">3. Founder Experience Journey — The Story of SHUNYA</a><br>
+    <a href="#week-0-before-the-roadmap" class="toc-link">Week 0: Before the Roadmap</a><br>
+    <a href="#milestone-1-the-os-comes-alive-weeks-1-4" class="toc-link">Milestone 1: The OS Comes Alive (Weeks 1-4)</a><br>
+    <a href="#milestone-2-executive-home--the-founders-primary-surface-weeks-4-7" class="toc-link">Milestone 2: Executive Home — The Founder's Primary Surface (Weeks 4-7)</a><br>
+    <a href="#milestone-3-shunya-knows-your-business-weeks-7-11" class="toc-link">Milestone 3: SHUNYA Knows Your Business (Weeks 7-11)</a><br>
+    <a href="#milestone-4-create-any-business-object-weeks-11-15" class="toc-link">Milestone 4: Create Any Business Object (Weeks 11-15)</a><br>
+    <a href="#milestone-5-ai-copilot--talk-to-your-os-weeks-15-18" class="toc-link">Milestone 5: AI Copilot — Talk to Your OS (Weeks 15-18)</a><br>
+    <a href="#milestone-6-connected-business-weeks-18-22" class="toc-link">Milestone 6: Connected Business (Weeks 18-22)</a><br>
+    <a href="#milestone-7-automation--shunya-works-for-you-weeks-22-26" class="toc-link">Milestone 7: Automation — SHUNYA Works for You (Weeks 22-26)</a><br>
+    <a href="#milestone-8-executive-intelligence-weeks-26-30" class="toc-link">Milestone 8: Executive Intelligence (Weeks 26-30)</a><br>
+    <a href="#milestone-9-enterprise-ready-weeks-30-34" class="toc-link">Milestone 9: Enterprise Ready (Weeks 30-34)</a><br>
+    <a href="#milestone-10-production-launch-weeks-34-37" class="toc-link">Milestone 10: Production Launch (Weeks 34-37)</a><br>
+  <a href="#4-final-milestone-sequence" class="toc-link">4. Final Milestone Sequence</a><br>
+    <a href="#41-the-ten-milestones" class="toc-link">4.1 The Ten Milestones</a><br>
+    <a href="#42-why-this-sequence" class="toc-link">4.2 Why This Sequence</a><br>
+    <a href="#43-rationale-for-merges-and-moves" class="toc-link">4.3 Rationale for Merges and Moves</a><br>
+  <a href="#5-milestone-deep-dive" class="toc-link">5. Milestone Deep-Dive</a><br>
+    <a href="#milestone-1-the-os-comes-alive" class="toc-link">Milestone 1: The OS Comes Alive</a><br>
+    <a href="#milestone-2-executive-home--the-founders-primary-surface" class="toc-link">Milestone 2: Executive Home — The Founder's Primary Surface</a><br>
+    <a href="#milestone-3-shunya-knows-your-business" class="toc-link">Milestone 3: SHUNYA Knows Your Business</a><br>
+    <a href="#milestone-4-create-any-business-object" class="toc-link">Milestone 4: Create Any Business Object</a><br>
+    <a href="#milestone-5-ai-copilot--talk-to-your-os" class="toc-link">Milestone 5: AI Copilot — Talk to Your OS</a><br>
+    <a href="#milestone-6-connected-business" class="toc-link">Milestone 6: Connected Business</a><br>
+    <a href="#milestone-7-automation--shunya-works-for-you" class="toc-link">Milestone 7: Automation — SHUNYA Works for You</a><br>
+    <a href="#milestone-8-executive-intelligence" class="toc-link">Milestone 8: Executive Intelligence</a><br>
+    <a href="#milestone-9-enterprise-ready" class="toc-link">Milestone 9: Enterprise Ready</a><br>
+    <a href="#milestone-10-production-launch" class="toc-link">Milestone 10: Production Launch</a><br>
+  <a href="#6-internal-engineering-work-by-milestone" class="toc-link">6. Internal Engineering Work by Milestone</a><br>
+    <a href="#milestone-1-the-os-comes-alive" class="toc-link">Milestone 1: The OS Comes Alive</a><br>
+    <a href="#milestone-2-executive-home" class="toc-link">Milestone 2: Executive Home</a><br>
+    <a href="#milestone-3-shunya-knows-your-business" class="toc-link">Milestone 3: SHUNYA Knows Your Business</a><br>
+    <a href="#milestone-4-create-any-business-object" class="toc-link">Milestone 4: Create Any Business Object</a><br>
+    <a href="#milestone-5-ai-copilot" class="toc-link">Milestone 5: AI Copilot</a><br>
+    <a href="#milestone-6-connected-business" class="toc-link">Milestone 6: Connected Business</a><br>
+    <a href="#milestone-7-automation" class="toc-link">Milestone 7: Automation</a><br>
+    <a href="#milestone-8-executive-intelligence" class="toc-link">Milestone 8: Executive Intelligence</a><br>
+    <a href="#milestone-9-enterprise-ready" class="toc-link">Milestone 9: Enterprise Ready</a><br>
+    <a href="#milestone-10-production-launch" class="toc-link">Milestone 10: Production Launch</a><br>
+  <a href="#7-dependency-graph" class="toc-link">7. Dependency Graph</a><br>
+    <a href="#71-milestone-dependencies" class="toc-link">7.1 Milestone Dependencies</a><br>
+    <a href="#72-critical-path" class="toc-link">7.2 Critical Path</a><br>
+    <a href="#73-parallel-workstreams" class="toc-link">7.3 Parallel Workstreams</a><br>
+    <a href="#74-capability-evolution" class="toc-link">7.4 Capability Evolution</a><br>
+  <a href="#8-acceptance-criteria--demonstration-scenarios" class="toc-link">8. Acceptance Criteria & Demonstration Scenarios</a><br>
+    <a href="#81-summary-table" class="toc-link">8.1 Summary Table</a><br>
+    <a href="#82-founder-acceptance-protocol" class="toc-link">8.2 Founder Acceptance Protocol</a><br>
+  <a href="#9-production-readiness-stages" class="toc-link">9. Production Readiness Stages</a><br>
+    <a href="#91-stage-definitions" class="toc-link">9.1 Stage Definitions</a><br>
+    <a href="#92-stage-readiness-matrix" class="toc-link">9.2 Stage Readiness Matrix</a><br>
+    <a href="#93-estimated-timeline-to-each-stage" class="toc-link">9.3 Estimated Timeline to Each Stage</a><br>
+  <a href="#10-business-understanding-milestone--a-note" class="toc-link">10. Business Understanding Milestone — A Note</a><br>
+    <a href="#101-evaluation" class="toc-link">10.1 Evaluation</a><br>
+    <a href="#102-rationale" class="toc-link">10.2 Rationale</a><br>
+    <a href="#103-what-it-unifies" class="toc-link">10.3 What It Unifies</a><br>
+  <a href="#11-executive-home-placement--rationale" class="toc-link">11. Executive Home Placement — Rationale</a><br>
+    <a href="#111-recommendation" class="toc-link">11.1 Recommendation</a><br>
+    <a href="#112-reasoning" class="toc-link">11.2 Reasoning</a><br>
+    <a href="#113-what-gets-built-first-m2-vs-later-m4-m5-m8" class="toc-link">11.3 What Gets Built First (M2) vs. Later (M4, M5, M8)</a><br>
+  <a href="#12-applicable-roadmap-governance-rules" class="toc-link">12. Applicable Roadmap Governance Rules</a><br>
+    <a href="#121-how-to-use-this-roadmap" class="toc-link">12.1 How to Use This Roadmap</a><br>
+    <a href="#122-change-rules" class="toc-link">12.2 Change Rules</a><br>
+    <a href="#123-completion-verification" class="toc-link">12.3 Completion Verification</a><br>
+    <a href="#124-relationship-to-other-documents" class="toc-link">12.4 Relationship to Other Documents</a><br>
+      </div>
+    </div>
+    <div class="main">
+      <div class="content">
+        <h1 id="shunya-founder-experience-roadmap-v10">SHUNYA Founder Experience Roadmap v1.0</h1>
+<blockquote>
+<p><strong>Status: GOVERNING — This roadmap is the definitive execution plan for SHUNYA 1.0.</strong>
+<strong>Date: 2026-07-28</strong>
+<strong>Supersedes: MASTER_EXECUTION_ROADMAP_v1.0.md, shunya-production-roadmap.html, DNA-01.9-implementation-roadmap.md, 12_launch_roadmap.md</strong>
+<strong>Authority: Directive 04A — Founder Experience Roadmap (Final Refinement)</strong>
+<strong>Baseline: Constitutional Baseline v1.0 Frozen. Canonical Architecture Frozen. No architectural changes introduced.</strong></p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-executive-summary">Executive Summary</a></li>
+<li><a href="#2-guiding-principle">Guiding Principle</a></li>
+<li><a href="#3-founder-experience-journey">Founder Experience Journey — The Story of SHUNYA</a></li>
+<li><a href="#4-final-milestone-sequence">Final Milestone Sequence</a></li>
+<li><a href="#5-milestone-deep-dive">Milestone Deep-Dive</a></li>
+<li><a href="#6-internal-engineering-work-by-milestone">Internal Engineering Work by Milestone</a></li>
+<li><a href="#7-dependency-graph">Dependency Graph</a></li>
+<li><a href="#8-acceptance-criteria--demonstration-scenarios">Acceptance Criteria &amp; Demonstration Scenarios</a></li>
+<li><a href="#9-production-readiness-stages">Production Readiness Stages</a></li>
+<li><a href="#10-business-understanding-milestone--a-note">Business Understanding Milestone — A Note</a></li>
+<li><a href="#11-executive-home-placement--rationale">Executive Home Placement — Rationale</a></li>
+<li><a href="#12-applicable-roadmap-governance-rules">Applicable Roadmap Governance Rules</a></li>
+</ol>
+<hr />
+<h2 id="1-executive-summary">1. Executive Summary</h2>
+<h3 id="11-current-reality">1.1 Current Reality</h3>
+<p>SHUNYA has all 8 intelligence engines built (Perception, Context Assembly, Reasoning, Planning, Decision, Reflection, Learning, Confidence). The Universal Object Protocol exists. The canonical pipeline is architected. The AI runtime runs, but the OS pipeline remains 80% mock — real engines exist but are not wired. The frontend shows beautiful demo data. The system works when observed in isolation but cannot yet be given to a founder as a daily tool.</p>
+<p><strong>What a founder experiences today:</strong> Sign up, log in, see a workspace with no real data, see no meaningful AI responses, see no connection to their actual business. SHUNYA is a collection of impressive technology that does nothing useful together.</p>
+<p><strong>What a founder must experience at 1.0:</strong> An AI Operating System that knows their business, answers their questions, creates and manages their objects, connects their tools, automates their workflows, learns from outcomes, and becomes more valuable every day.</p>
+<h3 id="12-transformation-principle">1.2 Transformation Principle</h3>
+<p>This roadmap is the journey from technology to product. Every milestone is defined by a single question:</p>
+<blockquote>
+<p><strong>What can the founder accomplish after this milestone that was impossible before?</strong></p>
+</blockquote>
+<p>Infrastructure appears only as the implementation required to achieve the experience. No milestone delivers only infrastructure.</p>
+<h3 id="13-roadmap-at-a-glance">1.3 Roadmap at a Glance</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Milestone</th>
+<th>Founder Capability</th>
+<th style="text-align: center;">Est. Duration</th>
+<th>Foundational Work</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>The OS Comes Alive</strong></td>
+<td>Sign in and see the operating system process their actions through the canonical pipeline</td>
+<td style="text-align: center;">3-4 weeks</td>
+<td>Wire kernel, identity, projection into pipeline; Flask routes through OS</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Executive Home — The Founder&rsquo;s Primary Surface</strong></td>
+<td>See their entire business at a glance — real metrics, commitments, AI daily brief</td>
+<td style="text-align: center;">2-3 weeks</td>
+<td>Executive Home dashboard, commitment tracker, AI brief component</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>SHUNYA Knows Your Business</strong></td>
+<td>SHUNYA understands people, customers, relationships, conversations, documents</td>
+<td style="text-align: center;">3-4 weeks</td>
+<td>Wire memory/knowledge graph, planning runtime; business context assembly</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Create Any Business Object</strong></td>
+<td>Define any entity type, create records, see them in list/kanban/calendar</td>
+<td style="text-align: center;">3-4 weeks</td>
+<td>JSONB entity system, generic CRUD, list/detail/form/kanban views</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>AI Copilot — Talk to Your OS</strong></td>
+<td>Ask questions about their business in natural language, get real AI answers</td>
+<td style="text-align: center;">2-3 weeks</td>
+<td>LLM provider layer, AI Copilot component, conversation workspace</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Connected Business</strong></td>
+<td>Connect email and calendar, receive notifications, import existing data</td>
+<td style="text-align: center;">3-4 weeks</td>
+<td>Integration runtime, email/calendar connectors, notification system</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Automation — SHUNYA Works for You</strong></td>
+<td>Create &ldquo;when X happens, do Y&rdquo; rules, delegate work automatically</td>
+<td style="text-align: center;">3-4 weeks</td>
+<td>Wire execution runtime, automation runtime, rule engine UI</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Executive Intelligence</strong></td>
+<td>SHUNYA reasons, explains its reasoning, learns from outcomes, improves over time</td>
+<td style="text-align: center;">3-4 weeks</td>
+<td>Wire reasoning runtime, learning loop, explainability traces</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Enterprise Ready</strong></td>
+<td>Multi-tenant isolation, role-based access, immutable audit trail</td>
+<td style="text-align: center;">3-4 weeks</td>
+<td>Tenant isolation, RBAC enforcement, immutable audit</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>Production Launch</strong></td>
+<td>Polished onboarding, first customer runs their business on SHUNYA</td>
+<td style="text-align: center;">2-3 weeks</td>
+<td>Onboarding flow, security audit, CI/CD, monitoring, launch checklist</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Total estimated duration: 27-38 weeks (6-9 months) with 5 parallel workstreams.</strong></p>
+<hr />
+<h2 id="2-guiding-principle">2. Guiding Principle</h2>
+<p>This roadmap no longer answers:</p>
+<blockquote>
+<p>&ldquo;What should engineers build next?&rdquo;</p>
+</blockquote>
+<p>It answers:</p>
+<blockquote>
+<p><strong>&ldquo;What can the founder accomplish after each milestone that was impossible before?&rdquo;</strong></p>
+</blockquote>
+<p>Every milestone must satisfy the <strong>User-Visible Value Test</strong>:</p>
+<ol>
+<li><strong>Produces a visible improvement</strong> — The founder immediately sees something changed</li>
+<li><strong>Produces a demonstrable capability</strong> — A concrete new thing the founder can do</li>
+<li><strong>Can be shown in a product demo</strong> — A 5-minute demonstration proves it</li>
+<li><strong>Can be tested by a founder without reading documentation</strong> — Intuitive, discoverable</li>
+<li><strong>Builds naturally upon the previous milestone</strong> — No gaps in the journey</li>
+</ol>
+<p>If a phase produces only infrastructure, it is merged into the nearest milestone that delivers visible value.</p>
+<hr />
+<h2 id="3-founder-experience-journey-the-story-of-shunya">3. Founder Experience Journey — The Story of SHUNYA</h2>
+<p>This is the evolution of SHUNYA from the founder&rsquo;s perspective. It reads like the maturation of a living operating system.</p>
+<h3 id="week-0-before-the-roadmap">Week 0: Before the Roadmap</h3>
+<p>The founder signs up and sees a workspace. It looks professional. There are panels, navigation, a place for objects. But nothing has data. The AI responds with canned answers. It feels like a demo — because it is.</p>
+<p><strong>The founder cannot yet:</strong> Use SHUNYA for anything real.</p>
+<hr />
+<h3 id="milestone-1-the-os-comes-alive-weeks-1-4">Milestone 1: The OS Comes Alive (Weeks 1-4)</h3>
+<p><strong>What the founder sees:</strong> The login screen, the workspace — it looks the same as before. But now, when they create a space or an object, something different happens. There&rsquo;s a subtle indicator in the interface showing pipeline activity. Actions feel responsive because the canonical pipeline is processing every intent in real time.</p>
+<p><strong>What the founder can do:</strong>
+- Sign in and see a workspace that acknowledges their existence
+- Create and name a space
+- Create objects within that space
+- Open and view objects
+- See a pipeline trace showing exactly how their action was processed
+- Know that SHUNYA&rsquo;s operating system is alive and processing their actions</p>
+<p><strong>What SHUNYA understands:</strong>
+- Who the founder is (identity resolved)
+- What objects exist and their types
+- Which spaces contain which objects
+- That actions have been taken and recorded</p>
+<p><strong>What the AI can now accomplish:</strong>
+- The OS pipeline processes real intents through real runtimes
+- No mock data — every action creates real state
+- The projection engine renders real OS data into workspace views</p>
+<p><strong>Why this milestone matters:</strong> Before this, SHUNYA was a demo. After this, SHUNYA is a running OS. Every subsequent capability depends on this foundation. The founder can trust that the system processes their actions, not just displays mock responses.</p>
+<hr />
+<h3 id="milestone-2-executive-home-the-founders-primary-surface-weeks-4-7">Milestone 2: Executive Home — The Founder&rsquo;s Primary Surface (Weeks 4-7)</h3>
+<p><strong>What the founder sees:</strong> Upon logging in, they no longer land on a generic workspace. They land on <strong>Executive Home</strong> — a dashboard that shows:
+- A greeting with their name and organization
+- Key metrics: spaces count, objects count, recent activity
+- Open commitments and their status
+- An AI-generated daily brief (even if brief) summarizing what happened
+- Quick actions: create object, search, start conversation</p>
+<p><strong>What the founder can do:</strong>
+- Log in and immediately understand the state of their business on SHUNYA
+- See what&rsquo;s changed since their last login
+- Click through to any object or space from the dashboard
+- See commitments that need their attention
+- Understand at a glance how SHUNYA is being used</p>
+<p><strong>What SHUNYA understands:</strong>
+- What the founder considers important (commitments, frequent actions)
+- The cadence of activity
+- What needs attention and what doesn&rsquo;t</p>
+<p><strong>What the AI can now accomplish:</strong>
+- Generate a daily brief from pipeline activity
+- Identify commitments from actions
+- Surface what changed since last login</p>
+<p><strong>Why this milestone matters:</strong> Executive Home becomes the founder&rsquo;s daily home. It transforms SHUNYA from &ldquo;a tool I open when I need something&rdquo; to &ldquo;the place I start my day.&rdquo; The daily brief creates a relationship — SHUNYA begins to feel attentive.</p>
+<hr />
+<h3 id="milestone-3-shunya-knows-your-business-weeks-7-11">Milestone 3: SHUNYA Knows Your Business (Weeks 7-11)</h3>
+<p><strong>What the founder sees:</strong> SHUNYA starts to feel like it knows who they work with. When they open an object, related people, companies, and past interactions appear in a context panel. The knowledge graph is visible — the founder can explore relationships between objects. Conversations are remembered. When the founder mentions &ldquo;the Smith deal,&rdquo; SHUNYA knows what they&rsquo;re talking about.</p>
+<p><strong>What the founder can do:</strong>
+- See who their business connects to (people, customers, suppliers, partners)
+- Explore the relationship graph between objects
+- See past conversations, emails, and documents linked to each object
+- Have SHUNYA surface related information they might have forgotten
+- Create commitments and see them tracked in context</p>
+<p><strong>What SHUNYA understands:</strong>
+- <strong>People</strong> — who the founder works with, their roles, their connections
+- <strong>Customers</strong> — the founder&rsquo;s customer base, relationships, history
+- <strong>Suppliers / partners</strong> — external relationships
+- <strong>Organizations</strong> — companies, teams, departments
+- <strong>Relationships</strong> — who knows whom, what depends on what
+- <strong>Conversations</strong> — what was discussed, decisions made, commitments created
+- <strong>Documents</strong> — knowledge stored, references shared
+- <strong>Emails and meetings</strong> — external communications in business context
+- <strong>Commitments</strong> — promises made, deadlines, next actions
+- <strong>Timelines</strong> — when things happened, sequences, dependencies</p>
+<p><strong>What the AI can now accomplish:</strong>
+- Answer &ldquo;What do I know about this person?&rdquo; with actual context
+- Surface related objects the founder might need
+- Maintain coherent context across sessions
+- Track commitments and their relationships to objects</p>
+<p><strong>Why this milestone matters:</strong> An AI Operating System that doesn&rsquo;t understand the founder&rsquo;s business is a generic tool. This milestone gives SHUNYA <strong>context</strong> — the difference between &ldquo;a search engine for your data&rdquo; and &ldquo;an OS that understands your world.&rdquo; It enables everything that follows: AI responses that reference real people and real deals, automation that acts on real relationships, reasoning that considers real constraints.</p>
+<hr />
+<h3 id="milestone-4-create-any-business-object-weeks-11-15">Milestone 4: Create Any Business Object (Weeks 11-15)</h3>
+<p><strong>What the founder sees:</strong> A new &ldquo;Entity Types&rdquo; section in settings. Here, the founder can define any type of business object — Lead, Deal, Project, Invoice, Task, Client, Patient, Case, whatever their business uses. Each type can have custom fields with different types (text, number, date, select, relation). Once defined, they can create records of that type, see them in list, kanban, or calendar views, and click through to detail views with forms.</p>
+<p><strong>What the founder can do:</strong>
+- Define a new entity type without writing code or requesting a schema change
+- Create records of any defined type
+- View records in a configurable list with sortable columns
+- View records in a kanban pipeline organized by status
+- View records on a calendar if they have date fields
+- Open a detail view with auto-generated form
+- Relate objects to each other
+- Search across all entity types</p>
+<p><strong>What SHUNYA understands:</strong>
+- The founder&rsquo;s information model — what kinds of things they track
+- How each entity type relates to people, organizations, and other entities
+- The pipeline state of each object (status, stage, lifecycle)</p>
+<p><strong>What the AI can now accomplish:</strong>
+- Answer questions about specific entities with real field data
+- Create new entities from natural language requests
+- Navigate entity relationships</p>
+<p><strong>Why this milestone matters:</strong> This is where SHUNYA becomes useful for the founder&rsquo;s actual work. Before this, the founder could only interact with a fixed schema. After this, SHUNYA adapts to their business model — not the other way around. The entity system is the data foundation for every AI interaction.</p>
+<hr />
+<h3 id="milestone-5-ai-copilot-talk-to-your-os-weeks-15-18">Milestone 5: AI Copilot — Talk to Your OS (Weeks 15-18)</h3>
+<p><strong>What the founder sees:</strong> A persistent chat sidebar that follows them across the workspace. They can ask questions in natural language:
+- &ldquo;What&rsquo;s the status of the Smith deal?&rdquo;
+- &ldquo;Show me all leads that haven&rsquo;t been contacted this week&rdquo;
+- &ldquo;Summarize my meeting with Acme Corp&rdquo;
+- &ldquo;What commitments do I have due this week?&rdquo;
+- &ldquo;Create a new task for onboarding the Johnson account&rdquo;</p>
+<p>SHUNYA responds with accurate information from their actual data. Responses are grounded, explainable, and actionable.</p>
+<p><strong>What the founder can do:</strong>
+- Ask questions about any entity, relationship, or commitment
+- Get AI-generated summaries of objects, conversations, or dashboards
+- Create objects, commitments, and tasks via conversation
+- Navigate the system through natural language
+- Have SHUNYA proactively suggest actions based on context</p>
+<p><strong>What SHUNYA understands:</strong>
+- How to map natural language to pipeline intents
+- Which data to retrieve for which question types
+- How to generate accurate, grounded responses
+- When to ask for clarification vs. when to answer</p>
+<p><strong>What the AI can now accomplish:</strong>
+- Respond to arbitrary business questions from real data
+- Generate contextual summaries
+- Execute intents from natural language (create, update, search)
+- Provide explainable responses with data provenance</p>
+<p><strong>Why this milestone matters:</strong> The Copilot makes SHUNYA accessible through natural language — the most intuitive interface. It transforms SHUNYA from &ldquo;a tool you click through&rdquo; to &ldquo;a tool you talk to.&rdquo; It&rsquo;s the core differentiator that distinguishes an AI OS from a conventional CRM or ERP.</p>
+<hr />
+<h3 id="milestone-6-connected-business-weeks-18-22">Milestone 6: Connected Business (Weeks 18-22)</h3>
+<p><strong>What the founder sees:</strong> A new &ldquo;Integrations&rdquo; section in settings. They can connect their email (Gmail, Outlook) and calendar. Emails automatically link to relevant objects (people, deals, projects). Calendar events appear in context. Notifications arrive in-app and by email when something changes — a commitment status updates, an entity is shared with them, an automation fires.</p>
+<p><strong>What the founder can do:</strong>
+- Connect their email account via OAuth
+- See emails linked to the objects they reference (people, deals, customers)
+- Send emails from SHUNYA with context attached
+- Connect their calendar and see events in context
+- Receive notifications about important changes
+- Import existing data via CSV with a column-mapping wizard</p>
+<p><strong>What SHUNYA understands:</strong>
+- External communication patterns — who emails whom, how often, about what
+- Calendar commitments — meetings, deadlines, events
+- How external data maps to internal entities</p>
+<p><strong>What the AI can now accomplish:</strong>
+- Answer &ldquo;What did they say in the last email about this deal?&rdquo; with real email content
+- Suggest email responses based on conversation history
+- Create calendar events from commitments
+- Detect when an important email arrives and surface it</p>
+<p><strong>Why this milestone matters:</strong> A founder&rsquo;s business lives in their email and calendar. If SHUNYA doesn&rsquo;t connect to these, it&rsquo;s an island. This milestone makes SHUNYA the center of the founder&rsquo;s daily operations rather than yet another app to check.</p>
+<hr />
+<h3 id="milestone-7-automation-shunya-works-for-you-weeks-22-26">Milestone 7: Automation — SHUNYA Works for You (Weeks 22-26)</h3>
+<p><strong>What the founder sees:</strong> A new &ldquo;Automation&rdquo; section where they can create rules:
+- &ldquo;When a lead status changes to &lsquo;Qualified,&rsquo; notify the sales team&rdquo;
+- &ldquo;When an invoice is overdue by 7 days, send a reminder email&rdquo;
+- &ldquo;When a customer reaches 10 support tickets, escalate to senior team&rdquo;
+- &ldquo;Every Monday at 9am, create a weekly summary task&rdquo;</p>
+<p>Rules fire automatically. The founder receives notifications when automation executes. A log shows every rule trigger and its outcome.</p>
+<p><strong>What the founder can do:</strong>
+- Create if-this-then-that rules without code
+- Choose from workflow templates
+- See automation history and outcomes
+- Pause, modify, or delete rules
+- Delegate repetitive work to SHUNYA</p>
+<p><strong>What SHUNYA understands:</strong>
+- Trigger conditions across entity lifecycle events
+- Action sequences and their dependencies
+- Which actions require human approval vs. auto-execute
+- SLA breaches and escalation conditions</p>
+<p><strong>What the AI can now accomplish:</strong>
+- Execute multi-step workflows autonomously
+- Evaluate trigger conditions in real time
+- Coordinate across entities, people, and external systems
+- Report on automation outcomes</p>
+<p><strong>Why this milestone matters:</strong> Automation multiplies the founder&rsquo;s leverage. Before this, every action was manual. After this, routine work happens automatically. This is where SHUNYA transitions from &ldquo;a tool that helps you work&rdquo; to &ldquo;a system that works for you.&rdquo;</p>
+<hr />
+<h3 id="milestone-8-executive-intelligence-weeks-26-30">Milestone 8: Executive Intelligence (Weeks 26-30)</h3>
+<p><strong>What the founder sees:</strong> SHUNYA&rsquo;s responses are now visibly smarter. It doesn&rsquo;t just retrieve data — it reasons about it. Every AI response includes an <strong>explainability trace</strong> showing how SHUNYA arrived at its conclusion. The system learns from outcomes: if the founder corrects SHUNYA, it remembers and improves. Confidence scores show how sure SHUNYA is about each response or suggestion.</p>
+<p><strong>What the founder can do:</strong>
+- Ask &ldquo;Why does SHUNYA think this deal is at risk?&rdquo; and get a reasoned analysis
+- See explainability traces for every AI action
+- Correct SHUNYA&rsquo;s understanding and see it improve
+- View confidence scores for predictions and recommendations
+- Trust that SHUNYA&rsquo;s reasoning is transparent and verifiable</p>
+<p><strong>What SHUNYA understands:</strong>
+- Risk patterns — which deals, customers, or projects need attention
+- Outcome correlation — what actions lead to what results
+- Confidence calibration — when to be certain and when to express uncertainty
+- Learning from feedback — corrections improve future performance</p>
+<p><strong>What the AI can now accomplish:</strong>
+- Perform reasoning across multiple data sources and relationships
+- Generate explainable conclusions with confidence scores
+- Learn from outcomes and improve predictions
+- Provide traceable, auditable reasoning chains
+- Detect anomalies and patterns the founder might miss</p>
+<p><strong>Why this milestone matters:</strong> Before this, SHUNYA could retrieve and organize information. After this, SHUNYA can think, explain, and learn. This is the difference between an AI that&rsquo;s a tool and an AI that&rsquo;s a partner. The founder can trust SHUNYA with increasingly complex decisions because every conclusion is transparent and improvable.</p>
+<hr />
+<h3 id="milestone-9-enterprise-ready-weeks-30-34">Milestone 9: Enterprise Ready (Weeks 30-34)</h3>
+<p><strong>What the founder sees:</strong> New sections for team management, roles, and audit. The founder can invite team members, assign roles (Admin, Member, Viewer, Custom), and see an immutable audit log of every action taken in the system. Every action has a complete trace: who did what, when, and through which pipeline stages.</p>
+<p><strong>What the founder can do:</strong>
+- Invite team members to their organization
+- Assign roles and permissions per entity type
+- View the immutable audit trail
+- Verify tenant isolation (their data is their data)
+- Trust that SHUNYA meets enterprise compliance requirements</p>
+<p><strong>What SHUNYA understands:</strong>
+- Organizational hierarchy — who has access to what
+- Permission boundaries — which actions each role can perform
+- Audit obligations — every action recorded immutably
+- Tenant boundaries — absolute isolation between organizations</p>
+<p><strong>What the AI can now accomplish:</strong>
+- Enforce permissions at every pipeline stage
+- Produce immutable audit records for every action
+- Operate in multi-tenant environments without data leakage
+- Support enterprise compliance and governance requirements</p>
+<p><strong>Why this milestone matters:</strong> Without enterprise readiness, SHUNYA is a single-player tool. With it, SHUNYA becomes an organizational OS. The founder can now bring their team into the system, trust that data is secure, and meet compliance requirements for regulated industries.</p>
+<hr />
+<h3 id="milestone-10-production-launch-weeks-34-37">Milestone 10: Production Launch (Weeks 34-37)</h3>
+<p><strong>What the founder sees:</strong> A polished, production-quality experience. Onboarding guides them from sign-up to first meaningful action in under 5 minutes. Error messages are human-readable. The system is fast, reliable, and monitored. SHUNYA is live at shunyaos.com and the first customer can sign up and run their business.</p>
+<p><strong>What the founder can do:</strong>
+- Complete onboarding in under 5 minutes
+- Invite their first customer to use SHUNYA
+- Trust that the system is secure, backed up, and monitored
+- Report issues through proper channels
+- Expect SLAs on uptime and performance</p>
+<p><strong>What SHUNYA understands:</strong>
+- First-run experience — it knows when a founder is new and guides them accordingly
+- System health — it monitors itself and alerts when something is wrong
+- Incident response — it knows how to fail gracefully and recover</p>
+<p><strong>What the AI can now accomplish:</strong>
+- Guide new founders through their first actions
+- Detect and report system health issues
+- Degrade gracefully when subsystems are unavailable
+- Provide human-readable error messages with recovery steps</p>
+<p><strong>Why this milestone matters:</strong> Everything before this built capability. This milestone makes SHUNYA a product. A founder can point someone at shunyaos.com and say &ldquo;try this.&rdquo; The system is polished enough that the first experience is delightful, not confusing.</p>
+<hr />
+<h2 id="4-final-milestone-sequence">4. Final Milestone Sequence</h2>
+<h3 id="41-the-ten-milestones">4.1 The Ten Milestones</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">M1</span><span class="o">:</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">OS</span><span class="w"> </span><span class="n">Comes</span><span class="w"> </span><span class="n">Alive</span><span class="w">       </span><span class="err">◄──</span><span class="w"> </span><span class="n">Foundation</span><span class="o">.</span><span class="w"> </span><span class="n">Pipeline</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">real</span><span class="o">.</span><span class="w"> </span><span class="n">Processing</span><span class="w"> </span><span class="n">actions</span><span class="o">.</span>
+<span class="n">M2</span><span class="o">:</span><span class="w"> </span><span class="n">Executive</span><span class="w"> </span><span class="n">Home</span><span class="w">           </span><span class="err">◄──</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">daily</span><span class="w"> </span><span class="n">surface</span><span class="o">.</span><span class="w"> </span><span class="n">Dashboard</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">real</span><span class="w"> </span><span class="n">data</span><span class="o">.</span>
+<span class="n">M3</span><span class="o">:</span><span class="w"> </span><span class="n">SHUNYA</span><span class="w"> </span><span class="n">Knows</span><span class="w"> </span><span class="n">Your</span><span class="w"> </span><span class="n">Biz</span><span class="w">    </span><span class="err">◄──</span><span class="w"> </span><span class="n">Business</span><span class="w"> </span><span class="n">context</span><span class="o">.</span><span class="w"> </span><span class="n">People</span><span class="o">,</span><span class="w"> </span><span class="n">relationships</span><span class="o">,</span><span class="w"> </span><span class="n">knowledge</span><span class="o">.</span>
+<span class="n">M4</span><span class="o">:</span><span class="w"> </span><span class="n">Create</span><span class="w"> </span><span class="n">Any</span><span class="w"> </span><span class="n">Object</span><span class="w">        </span><span class="err">◄──</span><span class="w"> </span><span class="n">Entity</span><span class="w"> </span><span class="n">system</span><span class="o">.</span><span class="w"> </span><span class="n">Define</span><span class="w"> </span><span class="n">and</span><span class="w"> </span><span class="n">manage</span><span class="w"> </span><span class="n">any</span><span class="w"> </span><span class="n">record</span><span class="o">.</span>
+<span class="n">M5</span><span class="o">:</span><span class="w"> </span><span class="n">AI</span><span class="w"> </span><span class="n">Copilot</span><span class="w">               </span><span class="err">◄──</span><span class="w"> </span><span class="n">Natural</span><span class="w"> </span><span class="n">language</span><span class="o">.</span><span class="w"> </span><span class="n">Ask</span><span class="w"> </span><span class="n">questions</span><span class="o">,</span><span class="w"> </span><span class="kd">get</span><span class="w"> </span><span class="n">real</span><span class="w"> </span><span class="n">answers</span><span class="o">.</span>
+<span class="n">M6</span><span class="o">:</span><span class="w"> </span><span class="n">Connected</span><span class="w"> </span><span class="n">Business</span><span class="w">       </span><span class="err">◄──</span><span class="w"> </span><span class="n">Email</span><span class="o">,</span><span class="w"> </span><span class="n">calendar</span><span class="o">,</span><span class="w"> </span><span class="n">notifications</span><span class="o">,</span><span class="w"> </span><span class="k">import</span><span class="o">.</span>
+<span class="n">M7</span><span class="o">:</span><span class="w"> </span><span class="n">Automation</span><span class="w">               </span><span class="err">◄──</span><span class="w"> </span><span class="n">Rules</span><span class="o">,</span><span class="w"> </span><span class="n">workflows</span><span class="o">,</span><span class="w"> </span><span class="n">delegation</span><span class="o">.</span>
+<span class="n">M8</span><span class="o">:</span><span class="w"> </span><span class="n">Executive</span><span class="w"> </span><span class="n">Intelligence</span><span class="w">   </span><span class="err">◄──</span><span class="w"> </span><span class="n">Reasoning</span><span class="o">,</span><span class="w"> </span><span class="n">learning</span><span class="o">,</span><span class="w"> </span><span class="n">explainability</span><span class="o">.</span>
+<span class="n">M9</span><span class="o">:</span><span class="w"> </span><span class="n">Enterprise</span><span class="w"> </span><span class="n">Ready</span><span class="w">         </span><span class="err">◄──</span><span class="w"> </span><span class="n">Multi</span><span class="o">-</span><span class="n">tenant</span><span class="o">,</span><span class="w"> </span><span class="n">RBAC</span><span class="o">,</span><span class="w"> </span><span class="n">audit</span><span class="o">,</span><span class="w"> </span><span class="n">compliance</span><span class="o">.</span>
+<span class="n">M10</span><span class="o">:</span><span class="w"> </span><span class="n">Production</span><span class="w"> </span><span class="n">Launch</span><span class="w">       </span><span class="err">◄──</span><span class="w"> </span><span class="n">Onboarding</span><span class="o">,</span><span class="w"> </span><span class="n">polish</span><span class="o">,</span><span class="w"> </span><span class="n">beta</span><span class="o">,</span><span class="w"> </span><span class="kd">public</span><span class="w"> </span><span class="n">launch</span><span class="o">.</span>
+</code></pre></div>
+
+<h3 id="42-why-this-sequence">4.2 Why This Sequence</h3>
+<p>The sequence is optimized for <strong>founder value accumulation</strong>, not engineering convenience:</p>
+<ol>
+<li><strong>OS Comes Alive first</strong> because nothing else works without a real pipeline. But it&rsquo;s only 3-4 weeks — the founder sees progress quickly.</li>
+<li><strong>Executive Home second</strong> because the founder needs a primary surface. Every subsequent milestone feeds data into this surface.</li>
+<li><strong>Business Understanding third</strong> because it provides context for everything that follows. AI Copilot is useless without business context. Automation is dangerous without understanding relationships.</li>
+<li><strong>Entity System fourth</strong> because the founder needs to input their data. Business understanding gives the OS framework; entity system gives the OS data.</li>
+<li><strong>AI Copilot fifth</strong> because now it has both context and data to work with.</li>
+<li><strong>Connected Business sixth</strong> because external integration requires understanding of internal objects and relationships.</li>
+<li><strong>Automation seventh</strong> because it requires execution runtime, entity understanding, and integration capabilities.</li>
+<li><strong>Executive Intelligence eighth</strong> because it requires all data, reasoning, and execution capabilities to learn from.</li>
+<li><strong>Enterprise Ready ninth</strong> because it&rsquo;s an overlay on all capabilities — doesn&rsquo;t add new founder features, enables organizational use.</li>
+<li><strong>Production Launch last</strong> because it&rsquo;s polish and scale on top of complete capabilities.</li>
+</ol>
+<h3 id="43-rationale-for-merges-and-moves">4.3 Rationale for Merges and Moves</h3>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Merged:</strong> Pipeline Activation + OS Foundation (from L-01 through L-04)</td>
+<td>Pipeline wiring is invisible to the founder. It becomes visible only when actions process through it. Merging all pipeline wiring into one milestone creates a clean &ldquo;the OS is alive&rdquo; moment.</td>
+</tr>
+<tr>
+<td><strong>Moved earlier:</strong> Executive Home (was Phase 4 @ week 10, now M2 @ week 4-7)</td>
+<td>The founder needs a primary daily surface from the beginning. Waiting 10 weeks for a dashboard means 10 weeks with no orientation. A basic Executive Home can be built as soon as the pipeline is real.</td>
+</tr>
+<tr>
+<td><strong>Created:</strong> SHUNYA Knows Your Business (was distributed across M-01, M-02, O-01)</td>
+<td>Business understanding is the single most important AI capability for a founder. Scattering it across milestones dilutes its impact. A dedicated milestone creates a clear &ldquo;before and after&rdquo; moment.</td>
+</tr>
+<tr>
+<td><strong>Reordered:</strong> Entity System after Business Understanding (was Phase 2 @ week 2, now M4)</td>
+<td>Entity system without business context produces isolated objects. Business understanding first gives entities meaning — relationships, people, conversations. The entity system fills in the data.</td>
+</tr>
+<tr>
+<td><strong>Merged:</strong> Executive Intelligence + Learning + Explainability (was O-01 through O-04)</td>
+<td>Reasoning, learning, and explainability are three facets of the same capability. A founder doesn&rsquo;t care about the engineering distinction. They care that SHUNYA is smart, transparent, and improving.</td>
+</tr>
+<tr>
+<td><strong>Merged:</strong> Enterprise + Infrastructure + Security (was P, Q, R)</td>
+<td>These are all &ldquo;production readiness&rdquo; from the founder&rsquo;s perspective. Splitting them into three milestones would show no founder-visible progress for 6+ weeks.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-milestone-deep-dive">5. Milestone Deep-Dive</h2>
+<h3 id="milestone-1-the-os-comes-alive">Milestone 1: The OS Comes Alive</h3>
+<p><strong>Founder Outcome:</strong>
+SHUNYA processes the founder&rsquo;s actions through a real operating system pipeline. Every create, read, update, delete flows through the canonical 11-stage pipeline with real runtimes. The workspace reflects actual OS state.</p>
+<p><strong>AI Outcome:</strong>
+The canonical pipeline processes intents through real Kernel, Identity, and Projection runtimes. The Observation stage begins recording founder actions. The context for future AI interactions starts accumulating.</p>
+<p><strong>Technical Outcome:</strong>
+- Kernel Runtime wired into pipeline (replaces MockRuntime for intent_resolution, object_resolution)
+- Identity Runtime wired (replaces MockRuntime for identity_resolution)
+- Flask routes converted to call <code>os.process_intent()</code> instead of direct model operations
+- Projection Runtime wired (replaces MockRuntime for projection_assembly)
+- Pipeline trace operational and queryable</p>
+<p><strong>Internal Foundation:</strong>
+- <code>app/adapters/kernel_adapter.py</code>, <code>app/adapters/identity_adapter.py</code>, <code>app/adapters/projection_adapter.py</code>
+- Pipeline context propagation through all 11 stages (most stages still no-op)
+- Flask founder route conversion</p>
+<p><strong>Demonstration Scenario (5 minutes):</strong>
+1. Start SHUNYA application
+2. Navigate to login page
+3. Sign in with founder credentials
+4. Create a new space
+5. Create an object inside the space
+6. Open the object
+7. View the pipeline health endpoint showing all stages with <code>status: "completed"</code> for the real runtimes</p>
+<p><strong>Exit Criteria:</strong>
+- [ ] <code>process_intent()</code> flows through pipeline with real Kernel, Identity, Projection runtimes
+- [ ] Pipeline trace shows intent_resolution, identity_resolution, object_resolution, projection_assembly as &ldquo;completed&rdquo; with real engine IDs
+- [ ] Creating an object in the UI creates a UniversalObject in the kernel registry
+- [ ] All existing tests pass (zero regressions)
+- [ ] Pipeline health endpoint returns runtime status for all 11 stages</p>
+<hr />
+<h3 id="milestone-2-executive-home-the-founders-primary-surface">Milestone 2: Executive Home — The Founder&rsquo;s Primary Surface</h3>
+<p><strong>Founder Outcome:</strong>
+Upon signing in, the founder lands on a dashboard showing their business state — metrics, recent activity, commitments, AI daily brief. This becomes the default surface from which they navigate all of SHUNYA.</p>
+<p><strong>AI Outcome:</strong>
+The AI can generate a daily brief from pipeline activity. It can identify commitments from actions. It understands what changed since last login.</p>
+<p><strong>Technical Outcome:</strong>
+- Executive Home dashboard component rendering real pipeline data
+- Commitment Tracker with progress visualization
+- AI daily brief component (basic — uses pipeline data, not yet full LLM)
+- Quick action buttons (create object, search, start conversation)</p>
+<p><strong>Internal Foundation:</strong>
+- Dashboard data aggregation from pipeline context
+- Commitment extraction from pipeline intents
+- Activity timeline component</p>
+<p><strong>Demonstration Scenario (5 minutes):</strong>
+1. Sign in to SHUNYA
+2. Land on Executive Home dashboard
+3. See personal greeting with name and organization
+4. See metrics: spaces count, objects count, recent activity
+5. See open commitments and their status
+6. See AI daily brief referencing actual actions taken
+7. Click through to an object from the dashboard</p>
+<p><strong>Exit Criteria:</strong>
+- [ ] Executive Home is the default post-login surface
+- [ ] Dashboard shows 3+ real metrics from pipeline data
+- [ ] Commitment Tracker shows 2+ real commitments
+- [ ] AI daily brief references specific user actions (not generic text)
+- [ ] All objects on dashboard are clickable and navigate to correct detail views
+- [ ] All existing tests pass (zero regressions)</p>
+<hr />
+<h3 id="milestone-3-shunya-knows-your-business">Milestone 3: SHUNYA Knows Your Business</h3>
+<p><strong>Founder Outcome:</strong>
+SHUNYA demonstrates understanding of the founder&rsquo;s business context — people, their relationships, conversations, commitments, knowledge. Opening an object shows related people, past interactions, and relevant documents. Exploring relationships through the knowledge graph reveals connections the founder might not have noticed.</p>
+<p><strong>AI Outcome:</strong>
+Memory Knowledge Runtime and Planning Runtime wired into the pipeline. Business context is assembled from knowledge graph, memory, and timeline. The system maintains coherent context across sessions and objects.</p>
+<p><strong>Technical Outcome:</strong>
+- Memory/Knowledge Graph Runtime wired into pipeline (replaces MockRuntime for knowledge_graph_update, memory_update)
+- Planning Runtime wired (replaces MockRuntime for planning_update)
+- Context panel showing relationships, past interactions, documents
+- Knowledge graph exploration UI
+- Commitment-to-object linking</p>
+<p><strong>Internal Foundation:</strong>
+- <code>app/adapters/memory_adapter.py</code>, <code>app/adapters/planning_adapter.py</code>
+- Knowledge graph update from pipeline events
+- Memory layer selection (which memory layer to write for which intent type)
+- Planning update from commitment creation</p>
+<p><strong>Demonstration Scenario (5 minutes):</strong>
+1. Sign in to Executive Home
+2. Create a person object (&ldquo;Jane Smith — Acme Corp&rdquo;)
+3. Create a deal object and link it to Jane
+4. Create a conversation with Jane
+5. Create a commitment in that conversation
+6. Open the deal object — see Jane linked, conversation linked, commitment visible
+7. Explore the knowledge graph — see Jane → Deal → Commitment relationship
+8. Note that SHUNYA now &ldquo;knows&rdquo; who Jane is, what the deal is, and what was promised</p>
+<p><strong>Exit Criteria:</strong>
+- [ ] Pipeline trace shows knowledge_graph_update and memory_update as &ldquo;completed&rdquo; with real runtime output
+- [ ] Creating an object and linking it updates the knowledge graph
+- [ ] Opening an object shows linked people, conversations, commitments
+- [ ] Knowledge graph exploration UI is functional
+- [ ] Creating a commitment triggers plan creation in the planning runtime
+- [ ] All existing tests pass (zero regressions)</p>
+<hr />
+<h3 id="milestone-4-create-any-business-object">Milestone 4: Create Any Business Object</h3>
+<p><strong>Founder Outcome:</strong>
+The founder can define any business entity type (Lead, Deal, Invoice, Task, Patient, Case, etc.) with custom fields, then create, view, and manage records of that type in list, kanban, or calendar views — all without writing code or requesting schema changes.</p>
+<p><strong>AI Outcome:</strong>
+The entity system stores and retrieves objects through the pipeline. AI can search, filter, and relate entities. Entity definition is a first-class pipeline intent.</p>
+<p><strong>Technical Outcome:</strong>
+- Entity type definition CRUD (JSONB schema per tenant)
+- Entity CRUD with generic storage
+- Entity list view with configurable columns
+- Entity detail view with dynamic schema rendering
+- Entity form auto-generated from schema
+- Kanban pipeline view for any entity type
+- Calendar view for entities with date fields
+- Search indexing for entity data fields</p>
+<p><strong>Internal Foundation:</strong>
+- JSONB storage schema and migrations
+- Dynamic form rendering engine
+- Generic column configuration system
+- Pipeline integration for entity intents</p>
+<p><strong>Demonstration Scenario (5 minutes):</strong>
+1. Navigate to Entity Types
+2. Define a new type: &ldquo;Client&rdquo; with fields (name, email, phone, status, value)
+3. Create 3 Client records
+4. View them in list view with sortable columns
+5. Switch to kanban view grouped by status
+6. Open a client detail view — auto-generated form shows all fields
+7. Search for a client by name
+8. Edit a client record</p>
+<p><strong>Exit Criteria:</strong>
+- [ ] Admin can define a custom entity type with 5+ field types
+- [ ] Creating records of a custom type stores and retrieves correctly
+- [ ] List, detail, form, kanban views render for any entity type
+- [ ] Search finds entities across all types
+- [ ] Entity operations flow through the pipeline
+- [ ] All existing tests pass (zero regressions)</p>
+<hr />
+<h3 id="milestone-5-ai-copilot-talk-to-your-os">Milestone 5: AI Copilot — Talk to Your OS</h3>
+<p><strong>Founder Outcome:</strong>
+A persistent chat sidebar where the founder can ask natural language questions and get accurate, grounded answers from their actual data. The Copilot can also create objects, commitments, and tasks via conversation.</p>
+<p><strong>AI Outcome:</strong>
+LLM provider abstraction layer operational. The AI Copilot receives pipeline context and generates responses grounded in real data. Conversation workspace stores interactions linked to objects.</p>
+<p><strong>Technical Outcome:</strong>
+- LLM provider abstraction layer (provider-agnostic)
+- AI Copilot component — persistent chat sidebar
+- Copilot connected to pipeline context for context-aware answers
+- AI summary generation for any entity
+- Conversation workspace with linked objects</p>
+<p><strong>Internal Foundation:</strong>
+- Provider abstraction (supports OpenAI, Anthropic, local) with fallback
+- Context window assembly from pipeline state
+- Prompt template management per intent type
+- Streaming response handling</p>
+<p><strong>Demonstration Scenario (5 minutes):</strong>
+1. Create 5 entity records across 2 types
+2. Open the AI Copilot sidebar
+3. Ask: &ldquo;What&rsquo;s the status of all my active clients?&rdquo;
+4. Receive an accurate AI-generated summary from actual data
+5. Ask: &ldquo;Create a new task to follow up with Acme Corp next week&rdquo;
+6. Verify the task was created in the system
+7. Ask: &ldquo;Who is my highest-value client?&rdquo;
+8. Receive a reasoned answer with specific data reference</p>
+<p><strong>Exit Criteria:</strong>
+- [ ] AI Copilot responds from real data (not hardcoded/demo responses)
+- [ ] Natural language questions map to correct pipeline intents
+- [ ] AI can create objects from conversation
+- [ ] Conversation history is linked to referenced objects
+- [ ] Entity summary generation works for any entity type
+- [ ] Graceful degradation when AI provider is unavailable
+- [ ] All existing tests pass (zero regressions)</p>
+<hr />
+<h3 id="milestone-6-connected-business">Milestone 6: Connected Business</h3>
+<p><strong>Founder Outcome:</strong>
+The founder connects their email (Gmail/Outlook) and calendar to SHUNYA. Emails and events are automatically linked to relevant objects. Notifications keep them informed of important changes. They can import existing data from other tools.</p>
+<p><strong>AI Outcome:</strong>
+Integration Runtime wired into pipeline. External data (emails, calendar events) flows through the pipeline and updates knowledge graph, memory, and entity relationships. Integration traces are logged.</p>
+<p><strong>Technical Outcome:</strong>
+- Email connector (IMAP sync, SMTP send)
+- Calendar connector (read/write)
+- In-app notification system
+- Email notification dispatch
+- Data import pipeline (CSV, contacts)
+- Integration settings UI</p>
+<p><strong>Internal Foundation:</strong>
+- <code>app/adapters/integration_adapter.py</code>
+- OAuth flow for email/calendar providers
+- Email-to-entity linking heuristics
+- Notification dispatch engine
+- CSV column mapper</p>
+<p><strong>Demonstration Scenario (5 minutes):</strong>
+1. Navigate to Integrations settings
+2. Connect Gmail account via OAuth
+3. See emails synced, linked to relevant entities (people, deals)
+4. Open an entity — see linked emails in context
+5. Connect calendar — see events in context
+6. Create a notification rule
+7. Trigger the notification by changing an entity
+8. Receive notification in-app and by email</p>
+<p><strong>Exit Criteria:</strong>
+- [ ] Email sync works (IMAP) — inbox appears in SHUNYA
+- [ ] Emails are linked to known entities (people, organizations, deals)
+- [ ] Calendar sync works — events appear in context
+- [ ] In-app notifications fire on entity changes
+- [ ] Email notifications are delivered
+- [ ] CSV import works with column mapping
+- [ ] Pipeline trace shows integration_update as &ldquo;completed&rdquo;
+- [ ] All existing tests pass (zero regressions)</p>
+<hr />
+<h3 id="milestone-7-automation-shunya-works-for-you">Milestone 7: Automation — SHUNYA Works for You</h3>
+<p><strong>Founder Outcome:</strong>
+The founder can create &ldquo;when X happens, do Y&rdquo; rules that fire automatically. Repetitive work — status change notifications, welcome emails, SLA breach alerts, weekly summaries — happens without manual intervention.</p>
+<p><strong>AI Outcome:</strong>
+Execution Runtime and Automation Runtime wired into pipeline. Automation rules evaluate triggers and execute actions through the pipeline. Execution state is tracked end-to-end.</p>
+<p><strong>Technical Outcome:</strong>
+- Execution Runtime wired (replaces MockRuntime for execution_update)
+- Automation Runtime wired (replaces MockRuntime for automation_evaluation)
+- Rule engine UI (when/if → then/do)
+- Workflow templates library
+- Automation history and logs</p>
+<p><strong>Internal Foundation:</strong>
+- <code>app/adapters/execution_adapter.py</code>, <code>app/adapters/automation_adapter.py</code>
+- Execution lifecycle (12 states, DAG scheduler, batch, rollback)
+- Trigger evaluation engine
+- Action dispatch to pipeline intents
+- Automation governance (approval gates)</p>
+<p><strong>Demonstration Scenario (5 minutes):</strong>
+1. Navigate to Automation
+2. Create rule: &ldquo;When lead status changes to &lsquo;Booked&rsquo;, send welcome email and create onboarding task&rdquo;
+3. Change a lead&rsquo;s status to &ldquo;Booked&rdquo;
+4. Verify:
+   - Welcome email was sent (check integration log)
+   - Onboarding task was created
+   - Automation log shows rule fired with status &ldquo;completed&rdquo;
+5. View automation history showing all rule executions
+6. Pause the rule — verify it no longer fires</p>
+<p><strong>Exit Criteria:</strong>
+- [ ] Pipeline trace shows execution_update and automation_evaluation as &ldquo;completed&rdquo;
+- [ ] Creating a rule and triggering it executes all actions
+- [ ] Rule evaluation is real-time (not batch/polling)
+- [ ] Automation history is queryable by rule, object, and time
+- [ ] Rules can trigger across entities (lead update → email → task creation)
+- [ ] All existing tests pass (zero regressions)</p>
+<hr />
+<h3 id="milestone-8-executive-intelligence">Milestone 8: Executive Intelligence</h3>
+<p><strong>Founder Outcome:</strong>
+SHUNYA now reasons about the founder&rsquo;s business, not just retrieves data. It explains its thinking with traceable evidence. It learns from outcomes — corrections improve future performance. Confidence scores help the founder gauge reliability.</p>
+<p><strong>AI Outcome:</strong>
+Reasoning Runtime wired with real LLM inference. Learning loop closes: observation → decision → outcome → learning. Explainability traces render for every action. Confidence engine integrated.</p>
+<p><strong>Technical Outcome:</strong>
+- Reasoning Runtime wired (replaces MockRuntime for reasoning_update)
+- LLM inference provider operational (via abstraction layer from M5)
+- Learning from outcomes — knowledge graph updates from execution results
+- Explainability traces — every action traceable: intent → workspace
+- Confidence scores on AI responses
+- Anomaly detection from pattern analysis</p>
+<p><strong>Internal Foundation:</strong>
+- <code>app/adapters/reasoning_adapter.py</code>
+- Prompt engineering per reasoning type (7 reasoning types)
+- Learning adapter — outcome processing into knowledge updates
+- Trace persistence and query API
+- Trace viewer UI component</p>
+<p><strong>Demonstration Scenario (5 minutes):</strong>
+1. Create a deal with $50k value, status &ldquo;Negotiation&rdquo;, linked to a client
+2. Ask the AI Copilot: &ldquo;Is this deal at risk?&rdquo;
+3. SHUNYA provides a reasoned analysis referencing:
+   - Deal value, stage, age
+   - Recent communications with the client
+   - Similar past deals that succeeded/failed
+   - Confidence score on the assessment
+4. Click &ldquo;Show reasoning&rdquo; — view the complete trace:
+   - Intent → Identity → Knowledge → Memory → Reasoning → Response
+5. Correct a detail in the analysis
+6. Ask a similar question — SHUNYA incorporates the correction
+7. View learning progress: &ldquo;Learned from 3 interactions today&rdquo;</p>
+<p><strong>Exit Criteria:</strong>
+- [ ] Pipeline trace shows reasoning_update as &ldquo;completed&rdquo; with real inference
+- [ ] AI responses include confidence scores
+- [ ] Explainability traces are viewable and human-readable
+- [ ] Correcting AI responses improves future responses
+- [ ] Learning feedback loop is operational (observe → decide → act → learn)
+- [ ] Anomaly detection surfaces deviations from patterns
+- [ ] All existing tests pass (zero regressions)</p>
+<hr />
+<h3 id="milestone-9-enterprise-ready">Milestone 9: Enterprise Ready</h3>
+<p><strong>Founder Outcome:</strong>
+The founder can invite team members, assign roles, and trust that data is isolated and auditable. SHUNYA meets enterprise compliance requirements. Every action is recorded in an immutable audit trail.</p>
+<p><strong>AI Outcome:</strong>
+Tenant isolation enforced at every pipeline stage. RBAC gates every action. Audit runtime records every pipeline execution immutably.</p>
+<p><strong>Technical Outcome:</strong>
+- Tenant isolation in all runtimes
+- RBAC enforcement (role/permission resolution per action)
+- Immutable audit trail (every pipeline execution recorded)
+- Invite and team management UI
+- Audit query API and viewer
+- Performance optimization pass</p>
+<p><strong>Internal Foundation:</strong>
+- Tenant context propagation through all pipeline stages
+- Permission resolution adapter
+- Audit runtime wiring
+- Audit storage (immutable append-only)
+- Performance benchmarking and optimization</p>
+<p><strong>Demonstration Scenario (5 minutes):</strong>
+1. Invite a team member with &ldquo;Viewer&rdquo; role
+2. Sign in as the viewer
+3. Verify viewer can view objects but cannot edit or delete
+4. Try a destructive action — verify rejection with authorization trace
+5. Sign in as admin — view the audit trail
+6. Verify every action (create, edit, delete, permission change) is recorded immutably
+7. Verify viewer cannot see admin&rsquo;s personal objects (tenant isolation)</p>
+<p><strong>Exit Criteria:</strong>
+- [ ] Organization A cannot access Organization B&rsquo;s data through any pipeline stage
+- [ ] RBAC enforcement: unauthorized actions are rejected with explainable trace
+- [ ] Audit trail contains every pipeline execution with intent, actor, object, timestamp
+- [ ] Audit trail is immutable (no deletion or modification)
+- [ ] Team management UI functional
+- [ ] All existing tests pass (zero regressions)</p>
+<hr />
+<h3 id="milestone-10-production-launch">Milestone 10: Production Launch</h3>
+<p><strong>Founder Outcome:</strong>
+SHUNYA is a polished production product. A new founder can sign up and complete their first meaningful action in under 5 minutes. The system is fast, secure, monitored, and backed up. SHUNYA is live at shunyaos.com.</p>
+<p><strong>AI Outcome:</strong>
+First-run onboarding flows through the pipeline. Error messages are generated contextually. System health monitoring alerts the team when subsystems degrade.</p>
+<p><strong>Technical Outcome:</strong>
+- Onboarding flow (sign-up → first object in &lt; 5 minutes)
+- Error recovery UI (human-readable errors with recovery actions)
+- Security audit (OWASP Top 10, dependency scan)
+- CI/CD pipeline operational
+- Backup &amp; recovery verified
+- Monitoring and alerting (health checks, error tracking, performance)
+- Load testing (50 concurrent users)
+- Error monitoring (Sentry or equivalent)
+- Launch checklist complete</p>
+<p><strong>Internal Foundation:</strong>
+- Onboarding wizard with guided steps
+- Sample data seeding for first-run experience
+- Security remediation from audit findings
+- Deployment pipeline automation
+- Backup rotation and restore testing</p>
+<p><strong>Demonstration Scenario (5 minutes):</strong>
+1. Sign out and create a new account
+2. Complete onboarding:
+   - Enter organization name
+   - Define a first entity type
+   - Create first entity record
+   - View Executive Home with real data
+   - Ask AI Copilot a question and get a real answer
+3. Verify total time from sign-up to first meaningful action: &lt; 5 minutes
+4. Verify error recovery: attempt an invalid action → see human-readable error
+5. Verify system health dashboard shows green</p>
+<p><strong>Exit Criteria:</strong>
+- [ ] New founder creates first object within 5 minutes of sign-up
+- [ ] Every pipeline error produces human-readable error with recovery action
+- [ ] Security audit: zero critical or high findings
+- [ ] CI/CD pipeline: automated tests on push, deploy on merge to main
+- [ ] Backup &amp; recovery verified (RTO &lt; 1 hour, RPO &lt; 5 minutes)
+- [ ] Load test: 50 concurrent users with &lt; 1% error rate
+- [ ] Monitoring and alerting functional
+- [ ] All existing tests pass (zero regressions)
+- [ ] Founder confirms: &ldquo;SHUNYA is ready for its first customer&rdquo;</p>
+<hr />
+<h2 id="6-internal-engineering-work-by-milestone">6. Internal Engineering Work by Milestone</h2>
+<p>Every milestone has Internal Foundation work (invisible to the founder) and Founder Capability work (visible to the founder). This section documents the internal work so it is explicit rather than hidden.</p>
+<h3 id="milestone-1-the-os-comes-alive_1">Milestone 1: The OS Comes Alive</h3>
+<table>
+<thead>
+<tr>
+<th>Internal Foundation</th>
+<th>Founder Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>app/adapters/kernel_adapter.py</code></td>
+<td>Pipeline health indicator in UI</td>
+</tr>
+<tr>
+<td><code>app/adapters/identity_adapter.py</code></td>
+<td>Workspace reflects real OS state</td>
+</tr>
+<tr>
+<td>Flask route conversion to <code>os.process_intent()</code></td>
+<td>Pipeline trace viewer</td>
+</tr>
+<tr>
+<td>Pipeline context propagation</td>
+<td></td>
+</tr>
+<tr>
+<td><code>app/adapters/projection_adapter.py</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="milestone-2-executive-home">Milestone 2: Executive Home</h3>
+<table>
+<thead>
+<tr>
+<th>Internal Foundation</th>
+<th>Founder Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dashboard data aggregation from pipeline</td>
+<td>Executive Home dashboard</td>
+</tr>
+<tr>
+<td>Commitment extraction from pipeline intents</td>
+<td>Commitment Tracker</td>
+</tr>
+<tr>
+<td>Activity timeline component</td>
+<td>AI daily brief</td>
+</tr>
+</tbody>
+</table>
+<h3 id="milestone-3-shunya-knows-your-business_1">Milestone 3: SHUNYA Knows Your Business</h3>
+<table>
+<thead>
+<tr>
+<th>Internal Foundation</th>
+<th>Founder Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>app/adapters/memory_adapter.py</code></td>
+<td>Context panel with relationships</td>
+</tr>
+<tr>
+<td><code>app/adapters/planning_adapter.py</code></td>
+<td>Knowledge graph exploration UI</td>
+</tr>
+<tr>
+<td>Knowledge graph update from pipeline events</td>
+<td>Commitment-to-object linking</td>
+</tr>
+<tr>
+<td>Memory layer selection logic</td>
+<td></td>
+</tr>
+<tr>
+<td>Planning update from commitment creation</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="milestone-4-create-any-business-object_1">Milestone 4: Create Any Business Object</h3>
+<table>
+<thead>
+<tr>
+<th>Internal Foundation</th>
+<th>Founder Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JSONB storage schema and migrations</td>
+<td>Entity type definition UI</td>
+</tr>
+<tr>
+<td>Dynamic form rendering engine</td>
+<td>Entity CRUD UI</td>
+</tr>
+<tr>
+<td>Generic column configuration system</td>
+<td>List, detail, form, kanban, calendar views</td>
+</tr>
+<tr>
+<td>Pipeline integration for entity intents</td>
+<td>Search across entity types</td>
+</tr>
+</tbody>
+</table>
+<h3 id="milestone-5-ai-copilot">Milestone 5: AI Copilot</h3>
+<table>
+<thead>
+<tr>
+<th>Internal Foundation</th>
+<th>Founder Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LLM provider abstraction layer</td>
+<td>AI Copilot chat sidebar</td>
+</tr>
+<tr>
+<td>Context window assembly from pipeline state</td>
+<td>Entity summary generation</td>
+</tr>
+<tr>
+<td>Prompt template management</td>
+<td>Conversation workspace</td>
+</tr>
+<tr>
+<td>Streaming response handling</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="milestone-6-connected-business_1">Milestone 6: Connected Business</h3>
+<table>
+<thead>
+<tr>
+<th>Internal Foundation</th>
+<th>Founder Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>app/adapters/integration_adapter.py</code></td>
+<td>Email connector UI</td>
+</tr>
+<tr>
+<td>OAuth flow for email/calendar</td>
+<td>Calendar connector UI</td>
+</tr>
+<tr>
+<td>Email-to-entity linking heuristics</td>
+<td>Notification preferences</td>
+</tr>
+<tr>
+<td>Notification dispatch engine</td>
+<td>Integration settings UI</td>
+</tr>
+<tr>
+<td>CSV column mapper</td>
+<td>Data import wizard</td>
+</tr>
+</tbody>
+</table>
+<h3 id="milestone-7-automation">Milestone 7: Automation</h3>
+<table>
+<thead>
+<tr>
+<th>Internal Foundation</th>
+<th>Founder Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>app/adapters/execution_adapter.py</code></td>
+<td>Rule engine UI (when/if → then/do)</td>
+</tr>
+<tr>
+<td><code>app/adapters/automation_adapter.py</code></td>
+<td>Workflow templates library</td>
+</tr>
+<tr>
+<td>Execution lifecycle (12 states, DAG scheduler)</td>
+<td>Automation history UI</td>
+</tr>
+<tr>
+<td>Trigger evaluation engine</td>
+<td>Rule pause/modify/delete</td>
+</tr>
+<tr>
+<td>Action dispatch to pipeline intents</td>
+<td></td>
+</tr>
+<tr>
+<td>Automation governance (approval gates)</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="milestone-8-executive-intelligence_1">Milestone 8: Executive Intelligence</h3>
+<table>
+<thead>
+<tr>
+<th>Internal Foundation</th>
+<th>Founder Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>app/adapters/reasoning_adapter.py</code></td>
+<td>Reasoned AI analysis</td>
+</tr>
+<tr>
+<td>Prompt engineering per reasoning type</td>
+<td>Explainability trace viewer</td>
+</tr>
+<tr>
+<td>Learning adapter — outcome processing</td>
+<td>Confidence scores on responses</td>
+</tr>
+<tr>
+<td>Trace persistence and query API</td>
+<td>Anomaly detection surfacing</td>
+</tr>
+<tr>
+<td>Trace viewer UI component</td>
+<td>Learning progress indicator</td>
+</tr>
+</tbody>
+</table>
+<h3 id="milestone-9-enterprise-ready_1">Milestone 9: Enterprise Ready</h3>
+<table>
+<thead>
+<tr>
+<th>Internal Foundation</th>
+<th>Founder Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tenant context propagation through pipeline</td>
+<td>Team invite UI</td>
+</tr>
+<tr>
+<td>Permission resolution adapter</td>
+<td>Role assignment UI</td>
+</tr>
+<tr>
+<td>Audit runtime wiring</td>
+<td>Audit trail viewer</td>
+</tr>
+<tr>
+<td>Audit storage (immutable append-only)</td>
+<td></td>
+</tr>
+<tr>
+<td>Performance benchmarking and optimization</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="milestone-10-production-launch_1">Milestone 10: Production Launch</h3>
+<table>
+<thead>
+<tr>
+<th>Internal Foundation</th>
+<th>Founder Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Security remediation from audit findings</td>
+<td>Onboarding wizard</td>
+</tr>
+<tr>
+<td>Deployment pipeline automation</td>
+<td>Human-readable error messages</td>
+</tr>
+<tr>
+<td>Backup rotation and restore testing</td>
+<td>System health dashboard</td>
+</tr>
+<tr>
+<td>Monitoring and alerting configuration</td>
+<td>Launch checklist</td>
+</tr>
+<tr>
+<td>Load testing infrastructure</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-dependency-graph">7. Dependency Graph</h2>
+<h3 id="71-milestone-dependencies">7.1 Milestone Dependencies</h3>
+<div class="codehilite"><pre><span></span><code><span class="n">M1</span><span class="o">:</span><span class="w"> </span><span class="n">OS</span><span class="w"> </span><span class="n">Comes</span><span class="w"> </span><span class="n">Alive</span>
+<span class="w"> </span><span class="err">│</span>
+<span class="w"> </span><span class="err">├──►</span><span class="w"> </span><span class="n">M2</span><span class="o">:</span><span class="w"> </span><span class="n">Executive</span><span class="w"> </span><span class="n">Home</span><span class="w"> </span><span class="err">───►</span><span class="w"> </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M1</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">real</span><span class="w"> </span><span class="n">pipeline</span><span class="w"> </span><span class="n">data</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span>
+<span class="w"> </span><span class="err">├──►</span><span class="w"> </span><span class="n">M3</span><span class="o">:</span><span class="w"> </span><span class="n">Business</span><span class="w"> </span><span class="n">Understanding</span><span class="w"> </span><span class="err">───►</span><span class="w"> </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M1</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">pipeline</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                                </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M2</span><span class="w"> </span><span class="o">(</span><span class="n">Executive</span><span class="w"> </span><span class="n">Home</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">surface</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span>
+<span class="w"> </span><span class="err">├──►</span><span class="w"> </span><span class="n">M4</span><span class="o">:</span><span class="w"> </span><span class="n">Entity</span><span class="w"> </span><span class="n">System</span><span class="w"> </span><span class="err">───►</span><span class="w"> </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M1</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">pipeline</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                        </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M3</span><span class="w"> </span><span class="o">(</span><span class="n">entities</span><span class="w"> </span><span class="n">need</span><span class="w"> </span><span class="n">business</span><span class="w"> </span><span class="n">context</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span>
+<span class="w"> </span><span class="err">├──►</span><span class="w"> </span><span class="n">M5</span><span class="o">:</span><span class="w"> </span><span class="n">AI</span><span class="w"> </span><span class="n">Copilot</span><span class="w"> </span><span class="err">───►</span><span class="w"> </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M1</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">pipeline</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                     </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M3</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">business</span><span class="w"> </span><span class="n">context</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                     </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M4</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="n">data</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span>
+<span class="w"> </span><span class="err">├──►</span><span class="w"> </span><span class="n">M6</span><span class="o">:</span><span class="w"> </span><span class="n">Connected</span><span class="w"> </span><span class="n">Business</span><span class="w"> </span><span class="err">───►</span><span class="w"> </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M1</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">pipeline</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                            </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M3</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="n">recognition</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                            </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M4</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">entities</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">link</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span>
+<span class="w"> </span><span class="err">├──►</span><span class="w"> </span><span class="n">M7</span><span class="o">:</span><span class="w"> </span><span class="n">Automation</span><span class="w"> </span><span class="err">───►</span><span class="w"> </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M1</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">pipeline</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                     </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M3</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">business</span><span class="w"> </span><span class="n">context</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                     </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M4</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="n">triggers</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                     </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M6</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">integration</span><span class="w"> </span><span class="n">actions</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span>
+<span class="w"> </span><span class="err">├──►</span><span class="w"> </span><span class="n">M8</span><span class="o">:</span><span class="w"> </span><span class="n">Executive</span><span class="w"> </span><span class="n">Intelligence</span><span class="w"> </span><span class="err">───►</span><span class="w"> </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M1</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">pipeline</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                                 </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M3</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">business</span><span class="w"> </span><span class="n">context</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                                 </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M4</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">entity</span><span class="w"> </span><span class="n">data</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                                 </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M5</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">LLM</span><span class="w"> </span><span class="n">provider</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                                 </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M7</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">execution</span><span class="w"> </span><span class="n">outcomes</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span>
+<span class="w"> </span><span class="err">├──►</span><span class="w"> </span><span class="n">M9</span><span class="o">:</span><span class="w"> </span><span class="n">Enterprise</span><span class="w"> </span><span class="n">Ready</span><span class="w"> </span><span class="err">───►</span><span class="w"> </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M1</span><span class="w"> </span><span class="o">(</span><span class="n">needs</span><span class="w"> </span><span class="n">pipeline</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                           </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M2</span><span class="w"> </span><span class="o">(</span><span class="n">Executive</span><span class="w"> </span><span class="n">Home</span><span class="w"> </span><span class="n">surface</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span><span class="w">                           </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">M4</span><span class="w"> </span><span class="o">(</span><span class="n">entities</span><span class="w"> </span><span class="n">need</span><span class="w"> </span><span class="n">isolation</span><span class="o">)</span>
+<span class="w"> </span><span class="err">│</span>
+<span class="w"> </span><span class="err">└──►</span><span class="w"> </span><span class="n">M10</span><span class="o">:</span><span class="w"> </span><span class="n">Production</span><span class="w"> </span><span class="n">Launch</span><span class="w"> </span><span class="err">───►</span><span class="w"> </span><span class="n">depends</span><span class="w"> </span><span class="n">on</span><span class="w"> </span><span class="n">all</span><span class="w"> </span><span class="n">M1</span><span class="o">-</span><span class="n">M9</span>
+</code></pre></div>
+
+<h3 id="72-critical-path">7.2 Critical Path</h3>
+<div class="codehilite"><pre><span></span><code>M1 → M2 → M3 → M4 → M5 → M8 → M10
+</code></pre></div>
+
+<p>This is the minimum path to Version 1.0. It is 7 milestones long. All other milestones (M6, M7, M9) can be parallelized or deferred relative to their dependency positions.</p>
+<p><strong>Critical path timeline:</strong> M1 (3-4) + M2 (2-3) + M3 (3-4) + M4 (3-4) + M5 (2-3) + M8 (3-4) + M10 (2-3) = <strong>18-25 weeks</strong> to v1.0 minimum.</p>
+<h3 id="73-parallel-workstreams">7.3 Parallel Workstreams</h3>
+<div class="codehilite"><pre><span></span><code>Stream A (Core Pipeline):      M1 ──► M2 ──► M3 ──► M4 ──► M5 ──► M8 ──► M10
+Stream B (Connected Business):                                              ──► M6 ──►
+Stream C (Automation):                                                            ──► M7
+Stream D (Enterprise):                                                                  ──► M9
+Stream E (Infrastructure):                                                                    ──► M10 (shared)
+</code></pre></div>
+
+<p>Stream A is the critical path. Streams B, C, and D can begin once their respective dependencies in Stream A are met and can run in parallel with later Stream A milestones.</p>
+<h3 id="74-capability-evolution">7.4 Capability Evolution</h3>
+<p>Each milestone advances capabilities through 6 states:</p>
+<div class="codehilite"><pre><span></span><code>Designed → Implemented → Integrated → Operational → Founder Validated → Production Ready
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th style="text-align: center;">Current State</th>
+<th style="text-align: center;">M1</th>
+<th style="text-align: center;">M2</th>
+<th style="text-align: center;">M3</th>
+<th style="text-align: center;">M4</th>
+<th style="text-align: center;">M5</th>
+<th style="text-align: center;">M6</th>
+<th style="text-align: center;">M7</th>
+<th style="text-align: center;">M8</th>
+<th style="text-align: center;">M9</th>
+<th style="text-align: center;">M10</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Canonical Pipeline</td>
+<td style="text-align: center;">Designed</td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Kernel Runtime</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Identity Runtime</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Projection Runtime</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Executive Home</td>
+<td style="text-align: center;">Designed</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Commitment Tracker</td>
+<td style="text-align: center;">Designed</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Knowledge Graph Runtime</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Memory Runtime</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Planning Runtime</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Entity System (JSONB)</td>
+<td style="text-align: center;">Partial</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Entity List/Detail/Form</td>
+<td style="text-align: center;">Partial</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>LLM Provider Layer</td>
+<td style="text-align: center;">Partial</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>AI Copilot</td>
+<td style="text-align: center;">Partial</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Conversation Workspace</td>
+<td style="text-align: center;">Partial</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Integration Runtime</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Email Connector</td>
+<td style="text-align: center;">Partial</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Calendar Connector</td>
+<td style="text-align: center;">Missing</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Notifications</td>
+<td style="text-align: center;">Missing</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Execution Runtime</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Automation Runtime</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Reasoning Runtime</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Learning</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Explainability</td>
+<td style="text-align: center;">Integrated</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Multi-Tenancy</td>
+<td style="text-align: center;">Partial</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>RBAC</td>
+<td style="text-align: center;">Implemented</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Audit Trail</td>
+<td style="text-align: center;">Partial</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Onboarding</td>
+<td style="text-align: center;">Missing</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+</tr>
+<tr>
+<td>Error Recovery</td>
+<td style="text-align: center;">Missing</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+</tr>
+<tr>
+<td>CI/CD Pipeline</td>
+<td style="text-align: center;">Missing</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+</tr>
+<tr>
+<td>Backup &amp; Recovery</td>
+<td style="text-align: center;">Missing</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+</tr>
+<tr>
+<td>Monitoring</td>
+<td style="text-align: center;">Partial</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+</tr>
+<tr>
+<td>Security Hardening</td>
+<td style="text-align: center;">Partial</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"><strong>P Ready</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-acceptance-criteria-demonstration-scenarios">8. Acceptance Criteria &amp; Demonstration Scenarios</h2>
+<h3 id="81-summary-table">8.1 Summary Table</h3>
+<table>
+<thead>
+<tr>
+<th>Milestone</th>
+<th>Acceptance Test</th>
+<th>Evidence Required</th>
+<th style="text-align: center;">Demo Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M1: OS Comes Alive</td>
+<td><code>process_intent()</code> flows through 4+ real runtimes</td>
+<td>Pipeline trace shows real engine IDs</td>
+<td style="text-align: center;">5 min</td>
+</tr>
+<tr>
+<td>M2: Executive Home</td>
+<td>Login → see 3+ real metrics, 2+ commitments, AI brief</td>
+<td>Browser screenshot</td>
+<td style="text-align: center;">3 min</td>
+</tr>
+<tr>
+<td>M3: Knows Your Business</td>
+<td>Create linked objects → see relationships in context</td>
+<td>Screenshot of context panel + knowledge graph</td>
+<td style="text-align: center;">5 min</td>
+</tr>
+<tr>
+<td>M4: Entity System</td>
+<td>Define custom type → create 3 records → see in kanban</td>
+<td>Browser walkthrough</td>
+<td style="text-align: center;">4 min</td>
+</tr>
+<tr>
+<td>M5: AI Copilot</td>
+<td>Ask question → get accurate answer from real data</td>
+<td>Conversation screenshot</td>
+<td style="text-align: center;">3 min</td>
+</tr>
+<tr>
+<td>M6: Connected Business</td>
+<td>Connect email → see linked entities → receive notification</td>
+<td>Screenshot of email in context</td>
+<td style="text-align: center;">5 min</td>
+</tr>
+<tr>
+<td>M7: Automation</td>
+<td>Create rule → trigger it → verify all actions executed</td>
+<td>Automation log + proof of actions</td>
+<td style="text-align: center;">4 min</td>
+</tr>
+<tr>
+<td>M8: Executive Intelligence</td>
+<td>Ask &ldquo;why&rdquo; → get reasoned analysis with trace</td>
+<td>Explainability trace + confidence scores</td>
+<td style="text-align: center;">5 min</td>
+</tr>
+<tr>
+<td>M9: Enterprise Ready</td>
+<td>Cross-tenant isolation + RBAC rejection + audit trail</td>
+<td>Test output + audit query result</td>
+<td style="text-align: center;">5 min</td>
+</tr>
+<tr>
+<td>M10: Production Launch</td>
+<td>New user → first object in &lt; 5 min → error recovery</td>
+<td>Timed walkthrough</td>
+<td style="text-align: center;">5 min</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82-founder-acceptance-protocol">8.2 Founder Acceptance Protocol</h3>
+<p>Every milestone completes as <strong>Candidate for Founder Review</strong>, not &ldquo;Complete.&rdquo; The founder must observe and accept each milestone before the next begins.</p>
+<p><strong>Gates (from Founder Acceptance Protocol):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Description</th>
+<th>Who Verifies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Compiled</td>
+<td>Code exists, builds pass</td>
+<td>CI/CD</td>
+</tr>
+<tr>
+<td>Tested</td>
+<td>All tests pass at &gt;90% coverage</td>
+<td>CI/CD</td>
+</tr>
+<tr>
+<td>Observed</td>
+<td>Demo scenario runs end-to-end</td>
+<td>Engineer</td>
+</tr>
+<tr>
+<td>Demonstrated</td>
+<td>Founder watches the demo</td>
+<td>Founder</td>
+</tr>
+<tr>
+<td><strong>Accepted</strong></td>
+<td>Founder confirms milestone complete</td>
+<td>Founder</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-production-readiness-stages">9. Production Readiness Stages</h2>
+<h3 id="91-stage-definitions">9.1 Stage Definitions</h3>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Definition</th>
+<th>Minimum Capability Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Alpha</strong></td>
+<td>Internal-only testing. SHUNYA is usable by the founder and core team. Data is not persistent (may be reset). Pipeline is real but AI responses may be preliminary.</td>
+<td>M1 + M2 + M3 + M4</td>
+</tr>
+<tr>
+<td><strong>Founder Daily Driver</strong></td>
+<td>The founder can use SHUNYA as their primary business system. Data is persistent. Core workflows work end-to-end. The founder should feel comfortable migrating real work to SHUNYA.</td>
+<td>M5 + M6 (AI Copilot + Email/Calendar)</td>
+</tr>
+<tr>
+<td><strong>Private Beta</strong></td>
+<td>First external customers can sign up and use SHUNYA. Invitation-only. Feedback collected. Rapid iteration. No public marketing yet.</td>
+<td>M7 + M8 (Automation + Executive Intelligence)</td>
+</tr>
+<tr>
+<td><strong>Public Beta</strong></td>
+<td>Open sign-up. SHUNYA is publicly listed and available to any business. Focus on reliability, performance, and onboarding. Limited support (email + docs).</td>
+<td>M9 (Enterprise Ready — multi-tenant, RBAC, audit)</td>
+</tr>
+<tr>
+<td><strong>Version 1.0</strong></td>
+<td>SHUNYA is a production product. Public launch complete. Paid plans available. Support, SLAs, and compliance documentation in place.</td>
+<td>M10 (Production Launch — onboarding, security, CI/CD, monitoring, backup)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="92-stage-readiness-matrix">9.2 Stage Readiness Matrix</h3>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th style="text-align: center;">Alpha</th>
+<th style="text-align: center;">Founder Daily Driver</th>
+<th style="text-align: center;">Private Beta</th>
+<th style="text-align: center;">Public Beta</th>
+<th style="text-align: center;">v1.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pipeline operational</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Executive Home</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Business understanding</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Entity system</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>AI Copilot</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Email/Calendar integration</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Automation</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Executive Intelligence</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Multi-tenant isolation</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>RBAC</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Audit trail</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Onboarding flow</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Error recovery</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>CI/CD pipeline</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Backup &amp; recovery</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Monitoring &amp; alerting</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Security audit (zero critical)</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Load testing (50 concurrent)</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Compliance docs</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Launch marketing</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+</tbody>
+</table>
+<h3 id="93-estimated-timeline-to-each-stage">9.3 Estimated Timeline to Each Stage</h3>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Milestones Complete</th>
+<th style="text-align: center;">Est. Weeks from Start</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Alpha</strong></td>
+<td>M1 + M2 + M3 + M4</td>
+<td style="text-align: center;">11-15 weeks</td>
+</tr>
+<tr>
+<td><strong>Founder Daily Driver</strong></td>
+<td>M5 + M6</td>
+<td style="text-align: center;">18-22 weeks</td>
+</tr>
+<tr>
+<td><strong>Private Beta</strong></td>
+<td>M7 + M8</td>
+<td style="text-align: center;">26-30 weeks</td>
+</tr>
+<tr>
+<td><strong>Public Beta</strong></td>
+<td>M9</td>
+<td style="text-align: center;">30-34 weeks</td>
+</tr>
+<tr>
+<td><strong>Version 1.0</strong></td>
+<td>M10</td>
+<td style="text-align: center;">34-37 weeks</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="10-business-understanding-milestone-a-note">10. Business Understanding Milestone — A Note</h2>
+<h3 id="101-evaluation">10.1 Evaluation</h3>
+<p>Directive 04A Section 5 asked:</p>
+<blockquote>
+<p>Does the roadmap require a dedicated milestone focused on SHUNYA developing a coherent understanding of the business?</p>
+</blockquote>
+<p><strong>Result: Yes — Milestone 3 (SHUNYA Knows Your Business) is that milestone.</strong></p>
+<h3 id="102-rationale">10.2 Rationale</h3>
+<p>The existing roadmaps scatter business understanding across:
+- Memory/Knowledge Graph wiring (M-01)
+- Planning wiring (M-02)<br />
+- Integration runtime wiring (N-03)
+- Reasoning runtime wiring (O-01)
+- Learning from outcomes (O-03)</p>
+<p>This scattering means SHUNYA never has a &ldquo;moment&rdquo; where it demonstrates business understanding. The capability accumulates invisibly. The founder never feels &ldquo;SHUNYA now knows my business.&rdquo;</p>
+<p>A <strong>dedicated Business Understanding milestone</strong> creates:
+1. <strong>A clear before/after moment</strong> — The founder can point to &ldquo;before this milestone, SHUNYA didn&rsquo;t know who Jane was&rdquo; vs. &ldquo;after this milestone, SHUNYA knows Jane is my client at Acme Corp with a $50k deal and a commitment to close by Friday.&rdquo;
+2. <strong>A unified set of capabilities</strong> — Knowledge graph, memory, planning, and identity converge around a single purpose: understanding the founder&rsquo;s business. They are not three separate engineering tasks.
+3. <strong>Correct sequencing</strong> — Business understanding must come before AI Copilot. An AI that doesn&rsquo;t understand the business can only give generic answers. Placing it after Executive Home but before Entity System and AI Copilot ensures every AI interaction from M5 onward is grounded in real business context.
+4. <strong>Founder-visible progress</strong> — The milestone produces an observable change: the context panel shows relationships, conversations are remembered, commitments are tracked in context. The founder can verify that SHUNYA &ldquo;gets it.&rdquo;</p>
+<h3 id="103-what-it-unifies">10.3 What It Unifies</h3>
+<p>The Business Understanding milestone gathers:</p>
+<table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Components</th>
+<th style="text-align: center;">Current State</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>People</strong></td>
+<td>Identity resolution, role tracking, relationship edges</td>
+<td style="text-align: center;">Implemented but not wired</td>
+</tr>
+<tr>
+<td><strong>Customers</strong></td>
+<td>Entity recognition from knowledge graph</td>
+<td style="text-align: center;">Implemented but not wired</td>
+</tr>
+<tr>
+<td><strong>Suppliers / partners</strong></td>
+<td>Organization identity and relationship tracking</td>
+<td style="text-align: center;">Partial</td>
+</tr>
+<tr>
+<td><strong>Relationships</strong></td>
+<td>Knowledge graph edge traversal, hop depth</td>
+<td style="text-align: center;">Implemented but not wired</td>
+</tr>
+<tr>
+<td><strong>Conversations</strong></td>
+<td>Memory storage with object linking</td>
+<td style="text-align: center;">Implemented but not wired</td>
+</tr>
+<tr>
+<td><strong>Documents</strong></td>
+<td>Knowledge store references</td>
+<td style="text-align: center;">Implemented but not wired</td>
+</tr>
+<tr>
+<td><strong>Emails and meetings</strong></td>
+<td>External communication integration</td>
+<td style="text-align: center;">M6 (Connected Business)</td>
+</tr>
+<tr>
+<td><strong>Commitments</strong></td>
+<td>Planning runtime commitment creation and tracking</td>
+<td style="text-align: center;">Implemented but not wired</td>
+</tr>
+<tr>
+<td><strong>Timelines</strong></td>
+<td>Sequence tracking, dependency detection</td>
+<td style="text-align: center;">Partial</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Emails and meetings</strong> are intentionally deferred to M6 (Connected Business). The Business Understanding milestone provides the framework and internal data. External data integration is a separate capability that depends on this framework being in place.</p>
+<hr />
+<h2 id="11-executive-home-placement-rationale">11. Executive Home Placement — Rationale</h2>
+<h3 id="111-recommendation">11.1 Recommendation</h3>
+<p><strong>Executive Home moves from Phase 4 (week 10 under prior roadmap) to Milestone 2 (weeks 4-7).</strong></p>
+<h3 id="112-reasoning">11.2 Reasoning</h3>
+<p><strong>1. The founder needs a daily surface from day one.</strong></p>
+<p>Under the prior roadmap, the founder would sign in after M1 (Pipeline Activation) and see a generic workspace with no dashboard, no metrics, no orientation. They&rsquo;d have to navigate to find anything. This undermines the &ldquo;operating system&rdquo; feel — an OS without a desktop is just a kernel.</p>
+<p><strong>2. Executive Home is the surface that all subsequent milestones feed into.</strong></p>
+<p>Every milestone produces data that should appear on Executive Home:
+- M3 (Business Understanding) → relationship context in the dashboard
+- M4 (Entity System) → entity metrics and quick-create
+- M5 (AI Copilot) → AI brief and chat surface
+- M6 (Connected Business) → notification preview
+- M7 (Automation) → automation status and history
+- M8 (Executive Intelligence) → confidence scores and learning progress</p>
+<p>If Executive Home arrives late, each milestone&rsquo;s output has no natural home. The founder must navigate to individual tools to see results.</p>
+<p><strong>3. A basic Executive Home is achievable in 2-3 weeks after M1.</strong></p>
+<p>The initial version needs only:
+- Pipeline health indicator (from M1)
+- Recent activity list (from pipeline trace)
+- Quick action buttons (navigation shortcuts)
+- Basic AI brief (template-driven, from pipeline data)</p>
+<p>This is not a heavy lift. It does not require M4 (Entity System) or M5 (AI Copilot) — those enhance Executive Home later.</p>
+<p><strong>4. User psychology matters.</strong></p>
+<p>The first 10 seconds after login determine whether the founder feels oriented or lost. Executive Home provides orientation: &ldquo;Here&rsquo;s your business state. Here&rsquo;s what changed. Here&rsquo;s what needs attention.&rdquo; Without it, every login feels like arriving in an empty room.</p>
+<p><strong>5. Implementation convenience is not the deciding factor.</strong></p>
+<p>The prior roadmap placed Executive Home at Phase 4 because it was convenient to build it after the Entity System (more data to display) and AI Copilot (more sophisticated briefs). But from the founder&rsquo;s perspective, waiting 10 weeks for a dashboard is unacceptable. A simpler dashboard delivered earlier is better than a sophisticated dashboard delivered later. Executive Home can be iteratively enhanced.</p>
+<h3 id="113-what-gets-built-first-m2-vs-later-m4-m5-m8">11.3 What Gets Built First (M2) vs. Later (M4, M5, M8)</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th style="text-align: center;">M2 (Week 4-7)</th>
+<th style="text-align: center;">Enhanced by M4</th>
+<th style="text-align: center;">Enhanced by M5</th>
+<th style="text-align: center;">Enhanced by M8</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pipeline health</td>
+<td style="text-align: center;">✅ Basic</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Recent activity</td>
+<td style="text-align: center;">✅ From pipeline</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Quick actions</td>
+<td style="text-align: center;">✅ Navigate</td>
+<td style="text-align: center;">✅ Create entity</td>
+<td style="text-align: center;">✅ AI create</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Metrics</td>
+<td style="text-align: center;">✅ Counts</td>
+<td style="text-align: center;">✅ Entity metrics</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Commitments</td>
+<td style="text-align: center;">✅ Basic</td>
+<td style="text-align: center;">✅ Per entity</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>AI daily brief</td>
+<td style="text-align: center;">✅ Template-driven</td>
+<td style="text-align: center;">✅ Entity-rich</td>
+<td style="text-align: center;">✅ LLM-generated</td>
+<td style="text-align: center;">✅ With reasoning</td>
+</tr>
+<tr>
+<td>AI Copilot surface</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅ Chat panel</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td>Confidence scores</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td>Learning progress</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✅</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="12-applicable-roadmap-governance-rules">12. Applicable Roadmap Governance Rules</h2>
+<h3 id="121-how-to-use-this-roadmap">12.1 How to Use This Roadmap</h3>
+<ol>
+<li><strong>Every sprint begins with</strong> selecting the next available milestone from the roadmap.</li>
+<li><strong>Every milestone must satisfy all exit criteria</strong> before the next milestone in its dependency chain begins.</li>
+<li><strong>Parallel workstreams</strong> may be worked on simultaneously if their dependency chains do not overlap.</li>
+<li><strong>Completed milestones</strong> are marked &ldquo;Accepted&rdquo; in the capability matrix (Section 7.4).</li>
+<li><strong>Roadmap changes</strong> require a documented CAP (Change Approval Proposal) and must preserve dependency integrity.</li>
+</ol>
+<h3 id="122-change-rules">12.2 Change Rules</h3>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Adding a milestone</strong></td>
+<td>Must be inserted after all dependencies are met. Must not break existing dependency chains. Requires CAP + Founder approval.</td>
+</tr>
+<tr>
+<td><strong>Splitting a milestone</strong></td>
+<td>The new milestones must collectively satisfy the original acceptance criteria.</td>
+</tr>
+<tr>
+<td><strong>Merging milestones</strong></td>
+<td>Dependencies of both originals must be met. The merged milestone must satisfy all original acceptance criteria.</td>
+</tr>
+<tr>
+<td><strong>Reordering</strong></td>
+<td>Dependency order must be preserved. Non-dependent milestones may be reordered freely.</td>
+</tr>
+<tr>
+<td><strong>Changing priority</strong></td>
+<td>Priority changes do not affect dependency ordering. They affect scheduling order among non-dependent milestones.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="123-completion-verification">12.3 Completion Verification</h3>
+<p>Every milestone, when completed, must have:</p>
+<ul>
+<li>[ ] All exit criteria satisfied</li>
+<li>[ ] All internal foundation work documented</li>
+<li>[ ] Demonstration scenario executed and witnessed</li>
+<li>[ ] Capability matrix updated</li>
+<li>[ ] Founder acceptance obtained (Candidate for Founder Review)</li>
+<li>[ ] No regression in existing tests</li>
+</ul>
+<h3 id="124-relationship-to-other-documents">12.4 Relationship to Other Documents</h3>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Relationship</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SHUNYA Constitution (02)</strong></td>
+<td>Every milestone includes Constitutional compliance. Article 9 (Calm Before Complexity) is preserved.</td>
+</tr>
+<tr>
+<td><strong>OS Constitution</strong></td>
+<td>The pipeline invariants and architecture are unchanged. Milestones wire existing runtimes, not redesign.</td>
+</tr>
+<tr>
+<td><strong>Universal Object Protocol (04)</strong></td>
+<td>Protocol implementation is foundational to M1 and refined through M4.</td>
+</tr>
+<tr>
+<td><strong>Runtime Canon (05)</strong></td>
+<td>Runtime wiring follows the Canon sequence. No new runtimes created.</td>
+</tr>
+<tr>
+<td><strong>AI Canon (07)</strong></td>
+<td>AI capabilities mature across M3, M5, M8. No new AI architecture.</td>
+</tr>
+<tr>
+<td><strong>Experience Canon (08)</strong></td>
+<td>Experience principles are preserved. Executive Home aligns with Object-First and Workspace-First principles.</td>
+</tr>
+<tr>
+<td><strong>DNA-01 (Device-Native Architecture)</strong></td>
+<td>Device-native adaptation is a parallel workstream. Not modified by this roadmap.</td>
+</tr>
+<tr>
+<td><strong>Capability Matrix</strong></td>
+<td>Single source of truth for progress tracking. Updated after every milestone.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<blockquote>
+<p><strong>End of SHUNYA Founder Experience Roadmap v1.0</strong></p>
+<p>This roadmap is the definitive execution plan for SHUNYA 1.0.
+No further planning directives are required.
+All subsequent directives shall result in working product increments.</p>
+<p><strong><a href="INDEX.md">Return to INDEX</a></strong></p>
+</blockquote>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    SHUNYA Founder Experience Roadmap v1.0 &middot; Governing Document &middot; Directive 04A<br>
+    No architecture was modified. No constitutional amendments introduced.
+  </div>
+</div>
+</body>
+</html>
