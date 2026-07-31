@@ -18,6 +18,7 @@ from typing import Optional
 
 from app import db
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Float, ForeignKey
+from sqlalchemy.dialects.postgresql import JSONB, JSON
 
 
 class TenantTheme(db.Model):
@@ -59,6 +60,15 @@ class Tenant(db.Model):
     company_name = Column(String(255), nullable=False)
     slug = Column(String(120), unique=True, nullable=False, index=True)
     business_type = Column(String(60), default="other")  # travel, hospital, school, retail, other, multi_brand
+    business_category = Column(String(60), default="")  # Z-03A: granular category
+    company_email = Column(String(255), default="")
+    website = Column(String(500), default="")
+    phone = Column(String(30), default="")
+    industry = Column(String(120), default="")
+    country = Column(String(60), default="")
+    timezone = Column(String(60), default="UTC")
+    currency = Column(String(10), default="USD")
+    preferences = Column(JSON, default={})  # Z-03A: extensible config
     parent_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)  # For multi-brand
     subdomain = Column(String(120), unique=True)
     domain = Column(String(255))
@@ -74,6 +84,14 @@ class Tenant(db.Model):
             "company_name": self.company_name,
             "slug": self.slug,
             "business_type": self.business_type,
+            "business_category": self.business_category or "",
+            "company_email": self.company_email or "",
+            "website": self.website or "",
+            "phone": self.phone or "",
+            "industry": self.industry or "",
+            "country": self.country or "",
+            "timezone": self.timezone or "UTC",
+            "currency": self.currency or "USD",
             "parent_id": self.parent_id,
             "subdomain": self.subdomain,
             "domain": self.domain,

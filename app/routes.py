@@ -84,6 +84,8 @@ def index():
 # 404 when the React SPA handles client-side routing for auth pages.
 # The SPA itself renders login/register content via React Router.
 @main.route("/auth/login")
+@main.route("/auth/")
+@main.route("/auth")
 @main.route("/auth/register")
 @main.route("/auth/signup")
 @main.route("/auth/forgot-password")

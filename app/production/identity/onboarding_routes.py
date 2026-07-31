@@ -82,6 +82,84 @@ def update_onboarding_step(step: str):
     })
 
 
+@identity_bp.route("/onboarding/complete", methods=["POST"])
+@login_required
+def mark_onboarding_complete():
+    """Mark the current user's onboarding as permanently complete
+    and auto-create foundational business objects."""
+    from flask import g
+    from app.founder.models import FounderObject, FounderSpace
+    import uuid
+
+    user = g.user
+    user.onboarding_completed = True
+
+    # Auto-create foundational objects (Article XII)
+    identity_id = str(user.id)
+    space = FounderSpace.query.filter_by(identity_id=identity_id).first()
+    if space:
+        FOUNDATIONAL_OBJECTS = [
+            ("Customer", "customer"),
+            ("Supplier", "supplier"),
+            ("Lead", "lead"),
+            ("Opportunity", "opportunity"),
+            ("Proposal", "proposal"),
+            ("Invoice", "invoice"),
+            ("Payment", "payment"),
+            ("Task", "task"),
+            ("Meeting", "meeting"),
+            ("Document", "document"),
+            ("Note", "note"),
+            ("Reminder", "reminder"),
+            ("Commitment", "commitment"),
+            ("Product", "product"),
+            ("Service", "service"),
+            ("Project", "project"),
+            ("Knowledge", "knowledge"),
+            ("Calendar Event", "calendar_event"),
+            ("Relationship", "relationship"),
+            ("Memory", "memory"),
+            ("Email", "email"),
+            ("WhatsApp", "whatsapp"),
+            ("Conversation", "conversation"),
+            ("Company", "company"),
+            ("Employee", "employee"),
+            ("Quote", "quote"),
+        ]
+        for obj_name, obj_type in FOUNDATIONAL_OBJECTS:
+            existing = FounderObject.query.filter_by(
+                space_id=space.space_id, object_type=obj_type
+            ).first()
+            if not existing:
+                obj = FounderObject(
+                    object_id=f"obj_{uuid.uuid4().hex[:16]}",
+                    space_id=space.space_id,
+                    name=obj_name,
+                    object_type=obj_type,
+                    content="",
+                    status="active",
+                    created_by=identity_id[:12],
+                )
+                db.session.add(obj)
+
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "data": {"onboarding_completed": True, "objects_created": 26},
+    })
+
+
+@identity_bp.route("/onboarding/check", methods=["GET"])
+@login_required
+def check_onboarding_complete():
+    """Check if the current user has completed onboarding."""
+    from flask import g
+    return jsonify({
+        "success": True,
+        "data": {"onboarding_completed": bool(g.user.onboarding_completed)},
+    })
+
+
 @identity_bp.route("/onboarding/reset", methods=["POST"])
 @login_required
 def reset_onboarding():

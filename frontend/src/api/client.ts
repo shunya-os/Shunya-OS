@@ -81,6 +81,29 @@ export const api = {
       method: 'POST', body: JSON.stringify({ company_name: name, business_type: businessType }),
     }),
 
+  /** Create an organization with extended fields (Z-03A). */
+  createOrgExtended: (fields: {
+    company_name: string;
+    business_type?: string;
+    business_category?: string;
+    company_email?: string;
+    website?: string;
+    phone?: string;
+    industry?: string;
+    country?: string;
+    timezone?: string;
+    currency?: string;
+  }) =>
+    req<{ success: boolean; org_id?: string; org_name?: string; error?: string }>('/orgs', {
+      method: 'POST', body: JSON.stringify(fields),
+    }),
+
+  /** Check AI / runtime health for onboarding. */
+  checkAIHealth: () =>
+    req<{ success: boolean; healthy?: boolean; error?: string }>('/founder/executive-home', {
+      method: 'GET',
+    }),
+
   /** Ask the intelligence engine a question. */
   askIntelligence: (question: string) =>
     req<{ success: boolean; answer?: string; error?: string }>('/intelligence/ask', {
