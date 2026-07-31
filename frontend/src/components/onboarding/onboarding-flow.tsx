@@ -1,20 +1,22 @@
 /**
- * OnboardingFlow — Main onboarding orchestration component.
+ * OnboardingFlow — Main onboarding orchestration component (Z-03A).
  *
- * Steps: Welcome → Organization Setup → AI Introduction → First Object → Complete
+ * Steps: Identity → Organization → Team → AI Introduction → First Object → Import → Complete
  *
  * Features:
- * - Step indicator at top (Step 1 of 5 style)
+ * - Step indicator at top
  * - sessionStorage progress persistence (survives page refresh)
  * - Back navigation between steps
  * - Keyboard navigation (Tab, Enter, Escape)
  * - API error handling with retry options
- * - Sets completion flag after finishing
+ * - Sets completion flag in localStorage after finishing
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { StepWelcome } from './step-welcome';
+import { StepIdentity, type IdentityChoice } from './step-identity';
 import { StepOrganization } from './step-organization';
+import { StepTeam } from './step-team';
+import { StepImport } from './step-import';
 import { StepAiIntro } from './step-ai-intro';
 import { StepFirstObject } from './step-first-object';
 import { StepComplete } from './step-complete';
@@ -23,13 +25,14 @@ interface Props {
   onComplete: () => void;
 }
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 7;
 const STORAGE_STEP_KEY = 'shunya_onboarding_step';
 const STORAGE_COMPLETE_KEY = 'shunya_onboarding_complete';
 const STORAGE_ORG_KEY = 'shunya_onboarding_org';
 const STORAGE_OBJECT_KEY = 'shunya_onboarding_object';
+const STORAGE_IDENTITY_KEY = 'shunya_onboarding_identity';
 
-const STEP_LABELS = ['Welcome', 'Organization', 'AI', 'First Object', 'Complete'];
+const STEP_LABELS = ['Identity', 'Organization', 'Team', 'AI', 'First Object', 'Import', 'Complete'];
 
 // ── Helpers ──
 
@@ -70,6 +73,16 @@ function loadObjectInfo(): { objectId: string; objectType: string; objectName: s
   } catch { return null; }
 }
 
+function saveIdentityChoice(choice: IdentityChoice) {
+  try { sessionStorage.setItem(STORAGE_IDENTITY_KEY, choice); } catch { /* noop */ }
+}
+
+function loadIdentityChoice(): IdentityChoice | null {
+  try {
+    return sessionStorage.getItem(STORAGE_IDENTITY_KEY) as IdentityChoice | null;
+  } catch { return null; }
+}
+
 export function setOnboardingComplete() {
   try { localStorage.setItem(STORAGE_COMPLETE_KEY, 'true'); } catch { /* noop */ }
 }
@@ -87,6 +100,7 @@ export function clearOnboardingProgress() {
     sessionStorage.removeItem(STORAGE_STEP_KEY);
     sessionStorage.removeItem(STORAGE_ORG_KEY);
     sessionStorage.removeItem(STORAGE_OBJECT_KEY);
+    sessionStorage.removeItem(STORAGE_IDENTITY_KEY);
     localStorage.removeItem(STORAGE_COMPLETE_KEY);
   } catch { /* noop */ }
 }
@@ -95,6 +109,7 @@ export function clearOnboardingProgress() {
 
 export function OnboardingFlow({ onComplete }: Props) {
   const [step, setStep] = useState<number>(() => loadSavedStep());
+  const [identityChoice, setIdentityChoice] = useState<IdentityChoice | null>(() => loadIdentityChoice());
   const [orgInfo, setOrgInfo] = useState<{ orgId: string; orgName: string } | null>(() => loadOrgInfo());
   const [objectInfo, setObjectInfo] = useState<{ objectId: string; objectType: string; objectName: string } | null>(() => loadObjectInfo());
 
@@ -113,6 +128,11 @@ export function OnboardingFlow({ onComplete }: Props) {
     if (objectInfo) saveObjectInfo(objectInfo);
   }, [objectInfo]);
 
+  // Persist identity choice
+  useEffect(() => {
+    if (identityChoice) saveIdentityChoice(identityChoice);
+  }, [identityChoice]);
+
   const handleNext = useCallback(() => {
     if (step < TOTAL_STEPS - 1) {
       setStep(prev => prev + 1);
@@ -125,14 +145,24 @@ export function OnboardingFlow({ onComplete }: Props) {
     }
   }, [step]);
 
+  const handleIdentityChosen = useCallback((choice: IdentityChoice) => {
+    setIdentityChoice(choice);
+    // If business, go to org step (step 1). If join or personal, skip to AI (step 3)
+    if (choice === 'business') {
+      setStep(1); // Organization step
+    } else {
+      setStep(3); // Skip to AI intro
+    }
+  }, []);
+
   const handleOrgCreated = useCallback((info: { orgId: string; orgName: string }) => {
     setOrgInfo(info);
-    handleNext();
+    handleNext(); // Go to Team step
   }, [handleNext]);
 
   const handleObjectCreated = useCallback((info: { objectId: string; objectType: string; objectName: string }) => {
     setObjectInfo(info);
-    handleNext();
+    handleNext(); // Go to Import step
   }, [handleNext]);
 
   const handleComplete = useCallback(() => {
@@ -142,6 +172,7 @@ export function OnboardingFlow({ onComplete }: Props) {
       sessionStorage.removeItem(STORAGE_STEP_KEY);
       sessionStorage.removeItem(STORAGE_ORG_KEY);
       sessionStorage.removeItem(STORAGE_OBJECT_KEY);
+      sessionStorage.removeItem(STORAGE_IDENTITY_KEY);
     } catch { /* noop */ }
     onComplete();
   }, [onComplete]);
@@ -151,7 +182,7 @@ export function OnboardingFlow({ onComplete }: Props) {
   const renderStep = () => {
     switch (step) {
       case 0:
-        return <StepWelcome onNext={handleNext} />;
+        return <StepIdentity onNext={handleIdentityChosen} />;
       case 1:
         return (
           <StepOrganization
@@ -161,28 +192,42 @@ export function OnboardingFlow({ onComplete }: Props) {
         );
       case 2:
         return (
-          <StepAiIntro
+          <StepTeam
             onNext={handleNext}
             onBack={handleBack}
           />
         );
       case 3:
         return (
-          <StepFirstObject
-            onNext={handleObjectCreated}
+          <StepAiIntro
+            onNext={handleNext}
             onBack={handleBack}
           />
         );
       case 4:
         return (
+          <StepFirstObject
+            onNext={handleObjectCreated}
+            onBack={handleBack}
+          />
+        );
+      case 5:
+        return (
+          <StepImport
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+      case 6:
+        return (
           <StepComplete
-            orgInfo={orgInfo}
+            orgInfo={identityChoice === 'business' ? orgInfo : null}
             objectInfo={objectInfo}
             onComplete={handleComplete}
           />
         );
       default:
-        return <StepWelcome onNext={handleNext} />;
+        return <StepIdentity onNext={handleIdentityChosen} />;
     }
   };
 

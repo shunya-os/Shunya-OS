@@ -1,9 +1,9 @@
 /**
- * Step 3: AI Introduction — Explore SHUNYA's AI capabilities.
+ * Step: AI Introduction (Z-03A Article XI).
  *
- * States: idle → demo_loading → demo_success / demo_error.
- * Shows explanation text, a sample message, and a quick demo input
- * where the user can type a test question and see a response.
+ * Checks AI availability via API call. If AI is healthy, shows the existing
+ * intro with a test prompt. If AI is unavailable, shows explanation + Skip button.
+ * Always allows skipping.
  */
 
 import { useState, useRef, useEffect } from 'react';
@@ -16,19 +16,47 @@ interface Props {
 }
 
 type DemoPhase = 'idle' | 'loading' | 'success' | 'error';
+type AIHealth = 'checking' | 'healthy' | 'unavailable' | 'error';
 
 const SAMPLE_QUESTION = 'Ask me anything about your business—like "What are my top priorities?"';
 
 export function StepAiIntro({ onNext, onBack }: Props) {
+  const [aiHealth, setAiHealth] = useState<AIHealth>('checking');
+  const [healthMsg, setHealthMsg] = useState('');
   const [demoPhase, setDemoPhase] = useState<DemoPhase>('idle');
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Check AI health on mount
   useEffect(() => {
-    inputRef.current?.focus();
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await api.checkAIHealth();
+        if (cancelled) return;
+        if (resp.success) {
+          setAiHealth('healthy');
+        } else {
+          setAiHealth('unavailable');
+          setHealthMsg(resp.error ?? 'AI service is not responding.');
+        }
+      } catch {
+        if (!cancelled) {
+          setAiHealth('unavailable');
+          setHealthMsg('AI service is not available right now. You can enable it later from settings.');
+        }
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (aiHealth === 'healthy') {
+      inputRef.current?.focus();
+    }
+  }, [aiHealth]);
 
   const handleAsk = async () => {
     if (!question.trim()) return;
@@ -56,7 +84,7 @@ export function StepAiIntro({ onNext, onBack }: Props) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && demoPhase !== 'loading') {
+    if (e.key === 'Enter' && !e.shiftKey && demoPhase !== 'loading' && aiHealth === 'healthy') {
       e.preventDefault();
       if (question.trim()) {
         handleAsk();
@@ -81,97 +109,137 @@ export function StepAiIntro({ onNext, onBack }: Props) {
       <div className="sh-onboarding-content">
         <div className="sh-onboarding-card sh-onb-fade-in">
           <div className="sh-onboarding-title">Meet Your AI</div>
-          <div className="sh-onboarding-subtitle">
-            SHUNYA's intelligence engine helps you manage your business—answering questions,
-            generating insights, and automating tasks. It learns from your organization's data
-            to provide relevant, contextual responses.
-          </div>
 
-          {/* Sample message */}
-          <div className="sh-onboarding-ai-message">
-            <div className="sh-onboarding-ai-label">SHUNYA AI</div>
-            {SAMPLE_QUESTION}
-          </div>
-
-          {/* Demo input */}
-          <div className="sh-onboarding-field" style={{ width: '100%' }}>
-            <label htmlFor="ai-demo-input">Try it yourself</label>
-            <textarea
-              id="ai-demo-input"
-              className="sh-onboarding-textarea"
-              value={question}
-              onChange={e => setQuestion(e.target.value)}
-              placeholder="Type a question about your business..."
-              disabled={demoPhase === 'loading'}
-              ref={inputRef}
-              tabIndex={0}
-              rows={3}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  if (question.trim()) handleAsk();
-                }
-              }}
-            />
-          </div>
-
-          {/* AI response */}
-          {demoPhase === 'success' && answer && (
-            <div className="sh-onboarding-ai-message">
-              <div className="sh-onboarding-ai-label">SHUNYA AI Response</div>
-              {answer}
+          {/* ── AI Health Check ── */}
+          {aiHealth === 'checking' && (
+            <div className="sh-onboarding-info" style={{ width: '100%', textAlign: 'center' }}>
+              <span className="sh-onboarding-spinner" />
+              <span style={{ marginLeft: 8 }}>Checking AI availability…</span>
             </div>
           )}
 
-          {demoPhase === 'error' && (
-            <div className="sh-onboarding-error" role="alert">
-              {errorMsg}
-              <div style={{ marginTop: 8 }}>
-                <button
-                  className="sh-onboarding-btn-secondary"
-                  onClick={handleRetry}
-                  style={{ padding: '6px 12px', fontSize: '0.8rem', width: 'auto' }}
-                  tabIndex={0}
-                >
-                  Retry
-                </button>
+          {/* ── AI Unavailable ── */}
+          {aiHealth === 'unavailable' && (
+            <>
+              <div className="sh-onboarding-subtitle">
+                SHUNYA's intelligence engine helps you manage your business.
               </div>
-            </div>
-          )}
-
-          <div className="sh-onboarding-btn-row">
-            {question.trim() && demoPhase !== 'loading' ? (
+              <div className="sh-onboarding-error" role="alert" style={{ width: '100%' }}>
+                <div style={{ fontWeight: 500, marginBottom: 4 }}>AI is not available right now</div>
+                <div>{healthMsg}</div>
+                <div style={{ fontSize: '0.75rem', marginTop: 6, opacity: 0.8 }}>
+                  You can enable AI later from your workspace settings.
+                </div>
+              </div>
               <button
                 className="sh-onboarding-btn"
-                onClick={handleAsk}
+                onClick={handleContinue}
+                autoFocus
                 tabIndex={0}
               >
-                Ask
+                Skip ›
               </button>
-            ) : null}
-            {demoPhase === 'loading' && (
-              <button className="sh-onboarding-btn" disabled>
-                <span className="sh-onboarding-spinner" />Thinking…
-              </button>
-            )}
-            <button
-              className="sh-onboarding-btn"
-              onClick={handleContinue}
-              tabIndex={0}
-              style={demoPhase === 'success' || !question.trim() ? {} : { display: 'none' }}
-            >
-              {demoPhase === 'success' || !question.trim() ? 'Continue' : 'Skip ›'}
-            </button>
-          </div>
+            </>
+          )}
 
-          <button
-            className="sh-onboarding-btn-secondary"
-            onClick={onBack}
-            disabled={demoPhase === 'loading'}
-            tabIndex={0}
-          >
-            Back
-          </button>
+          {/* ── AI Healthy — Show Intro ── */}
+          {aiHealth === 'healthy' && (
+            <>
+              <div className="sh-onboarding-subtitle">
+                SHUNYA's intelligence engine helps you manage your business—answering questions,
+                generating insights, and automating tasks. It learns from your organization's data
+                to provide relevant, contextual responses.
+              </div>
+
+              {/* Sample message */}
+              <div className="sh-onboarding-ai-message">
+                <div className="sh-onboarding-ai-label">SHUNYA AI</div>
+                {SAMPLE_QUESTION}
+              </div>
+
+              {/* Demo input */}
+              <div className="sh-onboarding-field" style={{ width: '100%' }}>
+                <label htmlFor="ai-demo-input">Try it yourself</label>
+                <textarea
+                  id="ai-demo-input"
+                  className="sh-onboarding-textarea"
+                  value={question}
+                  onChange={e => setQuestion(e.target.value)}
+                  placeholder="Type a question about your business..."
+                  disabled={demoPhase === 'loading'}
+                  ref={inputRef}
+                  tabIndex={0}
+                  rows={3}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (question.trim()) handleAsk();
+                    }
+                  }}
+                />
+              </div>
+
+              {/* AI response */}
+              {demoPhase === 'success' && answer && (
+                <div className="sh-onboarding-ai-message">
+                  <div className="sh-onboarding-ai-label">SHUNYA AI Response</div>
+                  {answer}
+                </div>
+              )}
+
+              {demoPhase === 'error' && (
+                <div className="sh-onboarding-error" role="alert">
+                  {errorMsg}
+                  <div style={{ marginTop: 8 }}>
+                    <button
+                      className="sh-onboarding-btn-secondary"
+                      onClick={handleRetry}
+                      style={{ padding: '6px 12px', fontSize: '0.8rem', width: 'auto' }}
+                      tabIndex={0}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="sh-onboarding-btn-row">
+                {question.trim() && demoPhase !== 'loading' ? (
+                  <button
+                    className="sh-onboarding-btn"
+                    onClick={handleAsk}
+                    tabIndex={0}
+                  >
+                    Ask
+                  </button>
+                ) : null}
+                {demoPhase === 'loading' && (
+                  <button className="sh-onboarding-btn" disabled>
+                    <span className="sh-onboarding-spinner" />Thinking…
+                  </button>
+                )}
+                <button
+                  className="sh-onboarding-btn"
+                  onClick={handleContinue}
+                  tabIndex={0}
+                  style={demoPhase === 'success' || !question.trim() ? {} : { display: 'none' }}
+                >
+                  {demoPhase === 'success' || !question.trim() ? 'Continue' : 'Skip ›'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {aiHealth !== 'checking' && (
+            <button
+              className="sh-onboarding-btn-secondary"
+              onClick={onBack}
+              disabled={demoPhase === 'loading'}
+              tabIndex={0}
+            >
+              Back
+            </button>
+          )}
         </div>
       </div>
       <style>{onboardingStyles}</style>

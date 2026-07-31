@@ -1,9 +1,8 @@
 /**
- * Step 2: Organization Setup — Create the founder's organization.
+ * Step 2: Enhanced Organization Setup (Z-03A Articles VII-VIII).
  *
- * States: form → loading → error / success (auto-advance).
- * Form with company name, business type dropdown.
- * Creates org via POST /api/v1/orgs.
+ * Collects meaningful company info during org creation.
+ * Business category influences SHUNYA's suggested objects, dashboards, AI prompts.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -16,14 +15,36 @@ interface Props {
   onBack: () => void;
 }
 
-const BUSINESS_TYPES = [
-  'Technology',
-  'Consulting',
-  'Healthcare',
-  'Finance',
-  'Real Estate',
-  'Education',
+const BUSINESS_CATEGORIES = [
+  'Travel Company', 'Restaurant', 'Manufacturer', 'Hospital', 'Law Firm',
+  'Agency', 'Retail', 'Education', 'Construction', 'Real Estate',
+  'Consultant', 'Hotel', 'Distributor', 'Service Business', 'Other',
+];
+
+const INDUSTRIES = [
+  'Technology', 'Healthcare', 'Finance', 'Legal', 'Real Estate',
+  'Hospitality', 'Manufacturing', 'Retail', 'Education', 'Construction',
+  'Consulting', 'Transportation', 'Energy', 'Agriculture', 'Media',
+  'Telecommunications', 'Other',
+];
+
+const COUNTRIES = [
+  'United States', 'Canada', 'United Kingdom', 'India', 'Germany',
+  'France', 'Australia', 'Brazil', 'Japan', 'Singapore',
+  'United Arab Emirates', 'Netherlands', 'Spain', 'Italy', 'Mexico',
   'Other',
+];
+
+const TIMEZONES = [
+  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+  'America/Toronto', 'America/Sao_Paulo', 'America/Mexico_City',
+  'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Madrid',
+  'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo',
+  'Australia/Sydney', 'Pacific/Auckland', 'UTC',
+];
+
+const CURRENCIES = [
+  'USD', 'EUR', 'GBP', 'INR', 'AED', 'CAD', 'AUD', 'SGD', 'JPY', 'BRL', 'MXN', 'Other',
 ];
 
 type Phase = 'form' | 'loading' | 'error' | 'success';
@@ -31,7 +52,14 @@ type Phase = 'form' | 'loading' | 'error' | 'success';
 export function StepOrganization({ onNext, onBack }: Props) {
   const [phase, setPhase] = useState<Phase>('form');
   const [companyName, setCompanyName] = useState('');
-  const [businessType, setBusinessType] = useState('Technology');
+  const [companyEmail, setCompanyEmail] = useState('');
+  const [website, setWebsite] = useState('');
+  const [phone, setPhone] = useState('');
+  const [industry, setIndustry] = useState('Technology');
+  const [businessCategory, setBusinessCategory] = useState('Other');
+  const [country, setCountry] = useState('United States');
+  const [timezone, setTimezone] = useState('America/New_York');
+  const [currency, setCurrency] = useState('USD');
   const [errorMsg, setErrorMsg] = useState('');
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -50,7 +78,18 @@ export function StepOrganization({ onNext, onBack }: Props) {
     setErrorMsg('');
 
     try {
-      const resp = await api.createOrg(companyName.trim(), businessType);
+      const resp = await api.createOrgExtended({
+        company_name: companyName.trim(),
+        business_type: businessCategory,
+        business_category: businessCategory,
+        company_email: companyEmail.trim(),
+        website: website.trim(),
+        phone: phone.trim(),
+        industry: industry,
+        country: country,
+        timezone: timezone,
+        currency: currency,
+      });
       if (resp.success && resp.org_id) {
         // Update session with org info
         const session = SessionManager.load();
@@ -105,7 +144,7 @@ export function StepOrganization({ onNext, onBack }: Props) {
             <>
               <form className="sh-onboarding-form" onSubmit={handleSubmit} role="main" aria-label="Organization setup">
                 <div className="sh-onboarding-field">
-                  <label htmlFor="org-name">Company Name</label>
+                  <label htmlFor="org-name">Company Name *</label>
                   <input
                     id="org-name"
                     type="text"
@@ -121,15 +160,117 @@ export function StepOrganization({ onNext, onBack }: Props) {
                 </div>
 
                 <div className="sh-onboarding-field">
-                  <label htmlFor="org-type">Business Type</label>
+                  <label htmlFor="org-email">Company Email</label>
+                  <input
+                    id="org-email"
+                    type="email"
+                    value={companyEmail}
+                    onChange={e => setCompanyEmail(e.target.value)}
+                    placeholder="admin@mycompany.com"
+                    disabled={phase === 'loading'}
+                    autoComplete="email"
+                    tabIndex={0}
+                  />
+                </div>
+
+                <div className="sh-onboarding-row">
+                  <div className="sh-onboarding-field" style={{ flex: 1 }}>
+                    <label htmlFor="org-website">Website</label>
+                    <input
+                      id="org-website"
+                      type="text"
+                      value={website}
+                      onChange={e => setWebsite(e.target.value)}
+                      placeholder="https://mycompany.com"
+                      disabled={phase === 'loading'}
+                      tabIndex={0}
+                    />
+                  </div>
+                  <div className="sh-onboarding-field" style={{ flex: 1 }}>
+                    <label htmlFor="org-phone">Phone</label>
+                    <input
+                      id="org-phone"
+                      type="tel"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="+1 555-0123"
+                      disabled={phase === 'loading'}
+                      tabIndex={0}
+                    />
+                  </div>
+                </div>
+
+                <div className="sh-onboarding-field">
+                  <label htmlFor="org-category">Business Category</label>
                   <select
-                    id="org-type"
-                    value={businessType}
-                    onChange={e => setBusinessType(e.target.value)}
+                    id="org-category"
+                    value={businessCategory}
+                    onChange={e => setBusinessCategory(e.target.value)}
                     disabled={phase === 'loading'}
                     tabIndex={0}
                   >
-                    {BUSINESS_TYPES.map(t => (
+                    {BUSINESS_CATEGORIES.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sh-onboarding-field">
+                  <label htmlFor="org-industry">Industry</label>
+                  <select
+                    id="org-industry"
+                    value={industry}
+                    onChange={e => setIndustry(e.target.value)}
+                    disabled={phase === 'loading'}
+                    tabIndex={0}
+                  >
+                    {INDUSTRIES.map(i => (
+                      <option key={i} value={i}>{i}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sh-onboarding-row">
+                  <div className="sh-onboarding-field" style={{ flex: 1 }}>
+                    <label htmlFor="org-country">Country</label>
+                    <select
+                      id="org-country"
+                      value={country}
+                      onChange={e => setCountry(e.target.value)}
+                      disabled={phase === 'loading'}
+                      tabIndex={0}
+                    >
+                      {COUNTRIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sh-onboarding-field" style={{ flex: 1 }}>
+                    <label htmlFor="org-currency">Currency</label>
+                    <select
+                      id="org-currency"
+                      value={currency}
+                      onChange={e => setCurrency(e.target.value)}
+                      disabled={phase === 'loading'}
+                      tabIndex={0}
+                    >
+                      {CURRENCIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="sh-onboarding-field">
+                  <label htmlFor="org-timezone">Time Zone</label>
+                  <select
+                    id="org-timezone"
+                    value={timezone}
+                    onChange={e => setTimezone(e.target.value)}
+                    disabled={phase === 'loading'}
+                    tabIndex={0}
+                  >
+                    {TIMEZONES.map(t => (
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
@@ -167,9 +308,16 @@ export function StepOrganization({ onNext, onBack }: Props) {
           )}
         </div>
       </div>
-      <style>{onboardingStyles}</style>
+      <style>{`
+        ${onboardingStyles}
+
+        .sh-onboarding-row {
+          display: flex; gap: 12px; width: 100%;
+        }
+        @media (max-width: 480px) {
+          .sh-onboarding-row { flex-direction: column; gap: 16px; }
+        }
+      `}</style>
     </div>
   );
 }
-
-export { BUSINESS_TYPES };

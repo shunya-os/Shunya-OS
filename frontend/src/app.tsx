@@ -3,13 +3,11 @@ import { TokenProvider } from './tokens/token-provider';
 import { WorkspaceBar } from './components/workspace/workspace-bar';
 import { WorkspaceContainer } from './components/workspace/workspace-container';
 import { SearchBar } from './components/search/universal-search';
-import { LoginPage } from './components/auth/login-page';
-import { ForgotPassword } from './components/auth/forgot-password';
+import { UnifiedAuth } from './components/auth/unified-auth';
 import { ResetPassword } from './components/auth/reset-password';
-import { Signup } from './components/auth/signup';
 import { InvitationAccept } from './components/auth/invitation-accept';
 import { VerifyEmail } from './components/auth/verify-email';
-import { HomePage, homepageStyles } from './components/public/homepage';
+import { HomePage } from './components/public/homepage';
 import { registerAllRuntimes } from './runtimes/registration';
 import { orchestrator } from './runtimes/orchestrator';
 import { ModuleRegistry } from './runtimes/module-registry';
@@ -110,7 +108,7 @@ function InvitationPage({ token, onBackToLogin }: { token: string; onBackToLogin
   if (loading) {
     return (
       <TokenProvider>
-        <div className="sh-auth"><div className="sh-auth-card"><p className="sh-auth-info">Loading invitation…</p></div><style>{authStyles}</style></div>
+        <div className="sh-auth"><div className="sh-auth-card"><p className="sh-auth-info">Loading invitation…</p></div></div>
       </TokenProvider>
     );
   }
@@ -176,16 +174,6 @@ function AppShell() {
     return unsub;
   }, []);
 
-  // Inject homepage styles early
-  useEffect(() => {
-    const el = document.createElement('style');
-    el.textContent = homepageStyles;
-    el.id = 'shunya-homepage-styles';
-    if (!document.getElementById('shunya-homepage-styles')) {
-      document.head.appendChild(el);
-    }
-  }, []);
-
   const bootstrap = async () => {
     if (bootstrapped) return;
     bootstrapped = true;
@@ -223,9 +211,8 @@ function AppShell() {
   useEffect(() => {
     // If user has a session and navigates directly to /, go to workspace
     const saved = SessionManager.load();
-    if (window.location.pathname.startsWith('/auth/')) {
-      // Auth routes handled by AuthRouter below — phase stays 'public' until
-      // the route is determined, but we ensure the auth page renders.
+    if (window.location.pathname === '/auth/') {
+      // Unified auth route
       setPhase('login');
       return;
     }
@@ -240,7 +227,7 @@ function AppShell() {
     // Otherwise stay on public homepage
   }, []);
 
-  // ── Auth Router ──
+  // ── Unified Auth Router ──
   function AuthRouter() {
     const path = window.location.pathname;
 
@@ -249,37 +236,47 @@ function AppShell() {
     const token = params.get('token') || '';
 
     const goToLogin = () => {
-      window.history.pushState({}, '', '/auth/login');
+      window.history.pushState({}, '', '/auth/');
       window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
-    if (path === '/auth/login' || path === '/auth/') {
+    // Unified auth page at /auth/ — handles signin, signup, forgot password
+    if (path === '/auth/' || path === '/auth') {
       return (
         <TokenProvider>
-          <LoginPage onLogin={(s) => {
-            SessionManager.save(s);
-            if (isOnboardingComplete()) {
-              bootstrap();
-            } else {
-              setPhase('onboarding');
-            }
-          }} />
-        </TokenProvider>
-      );
-    }
-
-    if (path === '/auth/forgot-password') {
-      return (
-        <TokenProvider>
-          <ForgotPassword
-            onBackToLogin={goToLogin}
-            onSubmit={async (email) => {
+          <UnifiedAuth
+            onSubmit={async (name, email, password, mode) => {
+              if (mode === 'signin') {
+                const resp = await api.signin(email, password);
+                if (resp.success) {
+                  SessionManager.save({ identityId: resp.identity_id || '', email });
+                  if (isOnboardingComplete()) {
+                    bootstrap();
+                  } else {
+                    setPhase('onboarding');
+                  }
+                }
+                return { success: resp.success, error: resp.error };
+              } else {
+                const resp = await api.signup(email, password, name || '');
+                return { success: resp.success, error: resp.error };
+              }
+            }}
+            onForgotPassword={async (email) => {
               const resp = await api.forgotPassword(email);
               return { success: resp.success, error: resp.error };
             }}
           />
         </TokenProvider>
       );
+    }
+
+    // Legacy redirects for backward compatibility
+    if (path === '/auth/login' || path === '/auth/signup' || path === '/auth/forgot-password') {
+      // Redirect to unified auth
+      window.history.replaceState({}, '', '/auth/');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      return null;
     }
 
     if (path === '/auth/reset-password') {
@@ -290,20 +287,6 @@ function AppShell() {
             onBackToLogin={goToLogin}
             onSubmit={async (t, password) => {
               const resp = await api.resetPassword(t, password);
-              return { success: resp.success, error: resp.error };
-            }}
-          />
-        </TokenProvider>
-      );
-    }
-
-    if (path === '/auth/signup') {
-      return (
-        <TokenProvider>
-          <Signup
-            onBackToLogin={goToLogin}
-            onSubmit={async (name, email, password) => {
-              const resp = await api.signup(email, password, name);
               return { success: resp.success, error: resp.error };
             }}
           />
@@ -337,19 +320,10 @@ function AppShell() {
       );
     }
 
-    // Fallback: unknown /auth/ path → redirect to login
-    return (
-      <TokenProvider>
-        <LoginPage onLogin={(s) => {
-          SessionManager.save(s);
-          if (isOnboardingComplete()) {
-            bootstrap();
-          } else {
-            setPhase('onboarding');
-          }
-        }} />
-      </TokenProvider>
-    );
+    // Fallback: unknown /auth/ path → redirect to unified auth
+    window.history.replaceState({}, '', '/auth/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    return null;
   }
 
   // ── Public Homepage ──
