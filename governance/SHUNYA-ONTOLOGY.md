@@ -6,12 +6,15 @@
 
 ---
 
-## Constitutional Entry Point
+## Scope
 
-**The canonical constitutional entry point is `CONSTITUTION.md` at the repository root.**
+This document contains the SHUNYA Living Object Ontology — the canonical
+semantic map of every Living Object, Universal Capability relationship,
+and identity model.
 
-Every engineer, AI agent, and contributor shall read `CONSTITUTION.md` first.
-This ontology document is a supporting reference, not the primary entry point.
+**Constitutional governance lives in separate documents under
+`governance/constitutions/`. The canonical constitutional entry point is
+`CONSTITUTION.md` at the repository root.**
 
 ---
 
@@ -55,8 +58,8 @@ Every Living Object shall permanently possess:
 
 | UCP | Name | Status | Living Objects | Platform Runtimes |
 |-----|------|--------|----------------|-------------------|
-| UCP-00 | Universal Capability Constitution | FROZEN | — | — |
-| UCP-01 | Journey Semantics | FROZEN | — | JourneySemantics (internal primitive) |
+| UCP-00 | Universal Capability Governance | FROZEN | — | — |
+| UCP-01 | Journey Intelligence | FROZEN | — | JourneySemantics (internal) |
 | UCP-02 | Relationship Intelligence | FROZEN | RelationshipProfile | RelationshipEngine, ExecutionRuntime |
 | UCP-03 | Financial Intelligence | FROZEN | FinancialProfile | ExecutionRuntime |
 | UCP-04 | Knowledge Intelligence | FROZEN | Knowledge, KnowledgeProfile | ExecutionRuntime |
@@ -75,15 +78,15 @@ Every Living Object shall permanently possess:
 
 | Runtime | Module | Status |
 |---------|--------|--------|
-| Living Object Composer | core/kernel | FROZEN |
-| Universal Workspace | core/workspace_runtime | FROZEN |
-| Reality Runtime | core/event | FROZEN |
-| Cognition Runtime | core/cognitive_runtime | FROZEN |
+| Living Object Composer | `core/kernel` | FROZEN |
+| Universal Workspace | `core/workspace_runtime` | FROZEN |
+| Reality Runtime | `core/event` | FROZEN |
+| Cognition Runtime | `core/cognitive_runtime` | FROZEN |
 | Communication Runtime | (via UCP-02 CommunicationRecord) | FROZEN |
 | Document Intelligence | (via UCP-04 Knowledge) | FROZEN |
 | Creative Intelligence | (via UCP-02 SharedCreativeAsset) | FROZEN |
-| Universal Execution Runtime | core/execution_runtime | FROZEN |
-| Relationship Engine | core/relationship | FROZEN |
+| Universal Execution Runtime | `core/execution_runtime` | FROZEN |
+| Relationship Engine | `core/relationship` | FROZEN |
 
 ---
 
@@ -92,6 +95,8 @@ Every Living Object shall permanently possess:
 Every relationship between Living Objects shall use canonical identifiers only.
 Human-readable names, titles and labels are presentation metadata.
 Production code shall never depend upon presentation labels.
+
+---
 
 ## Composition Rule
 
@@ -103,50 +108,14 @@ Future UCPs shall compose only from:
 No new runtime. No new orchestration mechanism. No new persistence model.
 No new identity model. No duplicate lifecycle engines.
 
-## Architecture Freeze Rule (ADOPTED 2026-08-06)
-
-No future implementation may introduce a new Runtime, Universal Capability,
-Living Object, or Internal Primitive unless it can be formally demonstrated
-that the required behavior cannot be expressed through composition of the
-existing architecture.
-
-Convenience is never sufficient justification.
-Novelty is never sufficient justification.
-Composition is always preferred over invention.
-
-## Security Preservation Constitution (SEC-00 — PERMANENT)
-
-Every infrastructure repair, deployment, migration, or production change
-shall preserve or improve the existing enterprise-grade security posture.
-
-Under no circumstance may a repair reduce security in order to restore
-functionality.
-
-During every recovery, the following shall be verified and preserved:
-
-• TLS 1.2/1.3 with strong cipher suites • HSTS • Secure HTTP headers (CSP,
-  X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy)
-• Secure cookies (HttpOnly, Secure, SameSite) • CSRF protection • XSS protection
-• SQL injection protection • Rate limiting • Authentication and authorization
-• RBAC / permissions • Secret management • Environment variable isolation
-• Database security • File upload validation • Audit logging
-• Encryption at rest (where configured) • Encryption in transit
-• Session management • API security • CORS policy • Reverse proxy hardening
-• Firewall configuration • SSH hardening • Automatic security updates
-• Fail2Ban or equivalent intrusion protection • Backup integrity
-• Disaster recovery capability
-
-If any existing protection from the legacy deployment is missing in the new
-deployment, it shall be restored before declaring production readiness.
-
-No convenience workaround is permitted if it weakens security.
-
-Every production change shall conclude with a Security Regression Check
-confirming that the security posture is unchanged or improved.
-
-Security is constitutional and shall not be traded for speed.
+---
 
 ## Ontology Rule
 
 This ontology shall be continuously maintained.
 Every accepted UCP shall update the ontology.
+
+---
+
+*For constitutional governance, see `CONSTITUTION.md` at the repository root
+or `governance/constitutions/` for individual constitutional documents.*

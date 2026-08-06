@@ -14,18 +14,22 @@ target — it is a frozen foundation. Every future implementation shall
 optimize for User Value, Reliability, Intelligence, Execution, Performance,
 Security, and Scale.
 
+The architecture exists to serve users, not itself.
+Every future improvement shall increase real-world usefulness while preserving
+constitutional integrity.
+
 ---
 
 ## Constitutional Documents
 
 | Document | Location | Purpose |
 |----------|----------|---------|
-| **Living Object Constitution** | `governance/SHUNYA-ONTOLOGY.md` | Every Living Object has Identity, Time, Space, Reality, Evidence. Canonical Identity Rule. Composition Rule. |
-| **UCP-00 — Universal Capability Governance** | `UNIVERSAL_CAPABILITY_CONSTITUTION.md` | Universal Capability framework. No UCP models a single industry. Industries emerge through composition. |
-| **Architecture Freeze Rule** | `governance/SHUNYA-ONTOLOGY.md` | No new Runtime, UCP, Living Object, or Internal Primitive unless behavior cannot be expressed through composition. Convenience and novelty are never sufficient. |
-| **SEC-00 — Security Preservation Constitution** | `governance/SHUNYA-ONTOLOGY.md` | Every production change must preserve or improve enterprise-grade security. No convenience workaround at the expense of security. Security Regression Check required. |
-| **PRODUCT-00 — Productization Constitution** | `governance/verification/PRODUCT-00-COMPLETION-REPORT.md` | The Architecture Freeze. Every feature composes from frozen architecture. No new Runtimes, UCPs, Living Objects, or Internal Primitives. |
-| **PROD-99 — Production Constitution & Launch Governance** | *(this document)* | Launch pipeline, engineering rules, founder-first priority, provider ecosystem, quality standards. |
+| **ARCH-00 — Architecture Freeze** | `governance/constitutions/ARCH-00.md` | No new Runtime, UCP, Living Object, or Internal Primitive unless behavior cannot be expressed through composition. |
+| **UCP-00 — Universal Capability Governance** | `governance/constitutions/UCP-00.md` | Universal Capability framework. UCP inventory. Journey Intelligence (UCP-01) definition. |
+| **SEC-00 — Security Preservation Constitution** | `governance/constitutions/SEC-00.md` | Every production change must preserve or improve enterprise-grade security. |
+| **PRODUCT-00 — Productization Constitution** | `governance/constitutions/PRODUCT-00.md` | Product streams, engineering rules, architecture freeze enforcement. |
+| **PROD-99 — Production Constitution & Launch Governance** | `governance/constitutions/PROD-99.md` | Release pipeline, founder-first, provider ecosystem, quality standard, success metric. |
+| **Living Object Ontology** | `governance/SHUNYA-ONTOLOGY.md` | Living Objects, Universal Capability semantics, relationships, identity model. |
 
 ---
 
@@ -42,8 +46,8 @@ Security, and Scale.
 │  UCP-08  UCP-09  UCP-10  UCP-11                        │
 │  Init.   Ops.    Health  Learning                       │
 ├─────────────────────────────────────────────────────────┤
-│            UCP-01 Journey Semantics                     │
-│          (internal — not user-visible)                  │
+│            UCP-01 Journey Intelligence                   │
+│  (Implementation: Journey Semantics — internal detail)   │
 ├─────────────────────────────────────────────────────────┤
 │          Platform Runtimes (9 frozen)                   │
 │   Workspace · Reality · Cognition · Communication       │
@@ -65,8 +69,8 @@ industry. All 12 UCPs are permanently frozen.
 
 | # | Name | Status | Module |
 |---|------|--------|--------|
-| 00 | Universal Capability Governance | ✅ FROZEN | `governance/` |
-| 01 | Journey Semantics | ✅ FROZEN | `core/journey_semantics/` |
+| 00 | Universal Capability Governance | ✅ FROZEN | `governance/constitutions/` |
+| 01 | **Journey Intelligence** | ✅ FROZEN | `core/journey_semantics/` (internal) |
 | 02 | Relationship Intelligence | ✅ FROZEN | `core/relationship_intelligence/` |
 | 03 | Financial Intelligence | ✅ FROZEN | `core/financial_intelligence/` |
 | 04 | Knowledge Intelligence | ✅ FROZEN | `core/knowledge_intelligence/` |
@@ -78,6 +82,16 @@ industry. All 12 UCPs are permanently frozen.
 | 10 | Health Intelligence | ✅ FROZEN | `core/health_intelligence/` |
 | 11 | Learning Intelligence | ✅ FROZEN | `core/learning_intelligence/` |
 | 12 | Universal Personal OS | ✅ FROZEN | `core/personal_os/` |
+
+### UCP-01: Journey Intelligence
+
+Journey Intelligence is the foundational Universal Capability.
+
+Its implementation is realized through the internal Journey Semantics
+foundation introduced during PROGRAMME-03A.
+
+Journey Semantics is an implementation detail.
+Journey Intelligence is the constitutional capability.
 
 ---
 
