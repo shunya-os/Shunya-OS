@@ -32,7 +32,10 @@ export function DashboardGenerator({ moduleKey }: DashboardGeneratorProps) {
   if (loading) return <div className="ubme-loading">Loading dashboard...</div>;
 
   return (
-    <div className="ubme-dashboard" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+    <div
+      className="ubme-dashboard"
+      style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}
+    >
       {cards.map((card) => (
         <DashboardCardView key={card.key} card={card} />
       ))}
@@ -45,7 +48,11 @@ export function DashboardGenerator({ moduleKey }: DashboardGeneratorProps) {
         </div>
       )}
 
-      {error && <div className="ubme-error" style={{ gridColumn: '1 / -1' }}>{error}</div>}
+      {error && (
+        <div className="ubme-error" style={{ gridColumn: '1 / -1' }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 }
@@ -55,12 +62,21 @@ function DashboardCardView({ card }: { card: DashboardCard }) {
     <div
       className="ubme-dashboard-card"
       style={{
-        background: '#1e293b', border: '1px solid #334155', borderRadius: '0.75rem',
-        padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem',
+        background: '#1e293b',
+        border: '1px solid #334155',
+        borderRadius: '0.75rem',
+        padding: '1.25rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem',
         transition: 'border-color 0.2s',
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#6366f1'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#334155'; }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = '#6366f1';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = '#334155';
+      }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{ fontSize: '1.5rem' }}>{card.icon || '📊'}</span>
@@ -69,9 +85,7 @@ function DashboardCardView({ card }: { card: DashboardCard }) {
         </span>
       </div>
 
-      <div style={{ flex: 1 }}>
-        {renderCardValue(card)}
-      </div>
+      <div style={{ flex: 1 }}>{renderCardValue(card)}</div>
     </div>
   );
 }
@@ -81,14 +95,14 @@ function renderCardValue(card: DashboardCard): React.ReactNode {
     case 'count':
       return (
         <div style={{ fontSize: '2rem', fontWeight: 700, color: '#fff' }}>
-          {typeof card.value === 'number' ? card.value.toLocaleString() : card.value ?? 0}
+          {typeof card.value === 'number' ? card.value.toLocaleString() : (card.value ?? 0)}
         </div>
       );
 
     case 'sum':
       return (
         <div style={{ fontSize: '1.5rem', fontWeight: 600, color: '#10b981' }}>
-          {typeof card.value === 'number' ? `$${card.value.toLocaleString()}` : card.value ?? '$0'}
+          {typeof card.value === 'number' ? `$${card.value.toLocaleString()}` : (card.value ?? '$0')}
         </div>
       );
 
@@ -110,14 +124,16 @@ function renderCardValue(card: DashboardCard): React.ReactNode {
             <div
               key={item.id}
               style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '0.25rem 0', borderBottom: '1px solid #1e293b', fontSize: '0.8rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.25rem 0',
+                borderBottom: '1px solid #1e293b',
+                fontSize: '0.8rem',
               }}
             >
               <span style={{ color: '#e2e8f0' }}>{item.name || item.id}</span>
-              {item.status && (
-                <span className={`ubme-status status-${item.status}`}>{item.status}</span>
-              )}
+              {item.status && <span className={`ubme-status status-${item.status}`}>{item.status}</span>}
             </div>
           ))}
           {(!Array.isArray(card.value) || card.value.length === 0) && (

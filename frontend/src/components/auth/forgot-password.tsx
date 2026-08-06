@@ -73,15 +73,15 @@ export function ForgotPassword({ onBackToLogin, onSubmit }: Props) {
         {/* ── Success ── */}
         {phase === 'success' && (
           <>
-            <div className="sh-auth-success">
-              Reset link sent! Check your email inbox.
-            </div>
-            <div className="sh-auth-info">
-              Didn't receive it? Check your spam folder or try again.
-            </div>
+            <div className="sh-auth-success">Reset link sent! Check your email inbox.</div>
+            <div className="sh-auth-info">Didn't receive it? Check your spam folder or try again.</div>
             <button
               className="sh-auth-btn"
-              onClick={() => { setPhase('form'); setEmail(''); setErrorMsg(''); }}
+              onClick={() => {
+                setPhase('form');
+                setEmail('');
+                setErrorMsg('');
+              }}
               type="button"
             >
               Send another
@@ -97,9 +97,7 @@ export function ForgotPassword({ onBackToLogin, onSubmit }: Props) {
         {/* ── Success already shown above; form for 'form' | 'loading' | 'error' ── */}
         {(phase === 'form' || phase === 'loading' || phase === 'error') && (
           <>
-            <div className="sh-auth-info">
-              Enter your email and we'll send you a reset link.
-            </div>
+            <div className="sh-auth-info">Enter your email and we'll send you a reset link.</div>
 
             <form className="sh-auth-form" onSubmit={handleSubmit} role="main" aria-label="Forgot password">
               <div className="sh-auth-field">
@@ -108,7 +106,7 @@ export function ForgotPassword({ onBackToLogin, onSubmit }: Props) {
                   id="forgot-email"
                   type="email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
                   autoFocus
                   disabled={phase === 'loading'}
@@ -122,13 +120,12 @@ export function ForgotPassword({ onBackToLogin, onSubmit }: Props) {
                 </div>
               )}
 
-              <button
-                type="submit"
-                className="sh-auth-btn"
-                disabled={phase === 'loading' || !email.trim()}
-              >
+              <button type="submit" className="sh-auth-btn" disabled={phase === 'loading' || !email.trim()}>
                 {phase === 'loading' ? (
-                  <><span className="sh-auth-spinner" />Sending…</>
+                  <>
+                    <span className="sh-auth-spinner" />
+                    Sending…
+                  </>
                 ) : (
                   'Send Reset Link'
                 )}

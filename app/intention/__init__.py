@@ -1,0 +1,1 @@
+"""Intention Engine package — runtime signal ranking for the OS starting point."""

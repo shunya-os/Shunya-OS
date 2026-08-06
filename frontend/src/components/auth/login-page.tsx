@@ -27,7 +27,11 @@ export function LoginPage({ onLogin }: Props) {
     const t1 = setTimeout(() => setShowSub(true), 1200);
     const t2 = setTimeout(() => setShowTagline(true), 2400);
     const t3 = setTimeout(() => setPhase('form'), 4000);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
   }, [phase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,26 +79,41 @@ export function LoginPage({ onLogin }: Props) {
           <form className="sh-login-form" onSubmit={handleSubmit} role="main" aria-label="Sign in">
             <div className="sh-login-field">
               <label htmlFor="email">Email</label>
-              <input id="email" type="email" value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@company.com" autoFocus
-                disabled={phase === 'loading'} />
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                autoFocus
+                disabled={phase === 'loading'}
+              />
             </div>
             <div className="sh-login-field">
               <label htmlFor="password">Password</label>
-              <input id="password" type="password" value={password}
-                onChange={e => setPassword(e.target.value)}
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
-                disabled={phase === 'loading'} />
+                disabled={phase === 'loading'}
+              />
             </div>
-            {phase === 'error' && <div className="sh-login-error" role="alert">{errorMsg}</div>}
-            <button type="submit" className="sh-login-btn" disabled={phase === 'loading' || !email.trim() || !password.trim()}>
+            {phase === 'error' && (
+              <div className="sh-login-error" role="alert">
+                {errorMsg}
+              </div>
+            )}
+            <button
+              type="submit"
+              className="sh-login-btn"
+              disabled={phase === 'loading' || !email.trim() || !password.trim()}
+            >
               {phase === 'loading' ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
-          <div className="sh-login-footer">
-            SHUNYA — One Operating System
-          </div>
+          <div className="sh-login-footer">SHUNYA — One Operating System</div>
         </div>
       )}
 

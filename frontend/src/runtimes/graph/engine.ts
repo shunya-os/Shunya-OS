@@ -59,14 +59,22 @@ export interface ObjectIdentity {
 // ── Graph Types ────────────────────────────────────────────────
 
 export type RelationshipType =
-  | 'manages' | 'managed_by'
-  | 'owns' | 'owned_by'
-  | 'relates_to' | 'related_from'
-  | 'references' | 'referenced_by'
-  | 'depends_on' | 'depended_by'
-  | 'follows' | 'precedes'
-  | 'generates' | 'generated_by'
-  | 'attached_to' | 'attachment_of'
+  | 'manages'
+  | 'managed_by'
+  | 'owns'
+  | 'owned_by'
+  | 'relates_to'
+  | 'related_from'
+  | 'references'
+  | 'referenced_by'
+  | 'depends_on'
+  | 'depended_by'
+  | 'follows'
+  | 'precedes'
+  | 'generates'
+  | 'generated_by'
+  | 'attached_to'
+  | 'attachment_of'
   | 'inferred'
   | 'unknown';
 
@@ -77,7 +85,7 @@ export interface Edge {
   toId: string;
   toType: string;
   type: RelationshipType;
-  confidence: number;         // 0-1, 1 = explicit, <1 = inferred
+  confidence: number; // 0-1, 1 = explicit, <1 = inferred
   source: 'system' | 'human' | 'ai' | 'import';
   metadata?: Record<string, unknown>;
   createdAt: number;
@@ -85,7 +93,7 @@ export interface Edge {
 
 interface GraphNode {
   identity: ObjectIdentity;
-  edges: Map<string, Edge[]>;  // targetId → edges
+  edges: Map<string, Edge[]>; // targetId → edges
   loadedAt: number;
   ttl: number;
 }
@@ -179,7 +187,7 @@ export const ObjectGraphRuntime = {
   /** Check if two objects are connected. */
   areConnected(idA: string, idB: string): boolean {
     const edges = this.getEdges(idA);
-    return edges.some(e => e.toId === idB || e.fromId === idB);
+    return edges.some((e) => e.toId === idB || e.fromId === idB);
   },
 
   // ── Graph Loading ─────────────────────────────────────────────
@@ -210,7 +218,14 @@ export const ObjectGraphRuntime = {
     }
 
     nodes.set(nodeKey(id), {
-      identity: identityCache.get(id) ?? { id, type: objectType, name: id, status: 'unknown', createdAt: 0, updatedAt: 0 },
+      identity: identityCache.get(id) ?? {
+        id,
+        type: objectType,
+        name: id,
+        status: 'unknown',
+        createdAt: 0,
+        updatedAt: 0,
+      },
       edges: edgeMap,
       loadedAt: Date.now(),
       ttl: ttlFor(priority),
@@ -234,9 +249,15 @@ export const ObjectGraphRuntime = {
   link(fromId: string, toId: string, type: RelationshipType, metadata?: Record<string, unknown>): Edge {
     const edge: Edge = {
       id: crypto.randomUUID(),
-      fromId, fromType: identityCache.get(fromId)?.type ?? 'unknown',
-      toId, toType: identityCache.get(toId)?.type ?? 'unknown',
-      type, confidence: 1, source: 'system', metadata, createdAt: Date.now(),
+      fromId,
+      fromType: identityCache.get(fromId)?.type ?? 'unknown',
+      toId,
+      toType: identityCache.get(toId)?.type ?? 'unknown',
+      type,
+      confidence: 1,
+      source: 'system',
+      metadata,
+      createdAt: Date.now(),
     };
 
     for (const id of [fromId, toId]) {
@@ -281,7 +302,7 @@ export const ObjectGraphRuntime = {
         }
       }
       results.push(hop);
-      currentIds = hop.map(h => h.identity.id);
+      currentIds = hop.map((h) => h.identity.id);
     }
 
     return results;

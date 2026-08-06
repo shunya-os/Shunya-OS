@@ -33,12 +33,17 @@ export function useRuntimes(): RuntimeInstance[] {
 /** Check if all runtimes are ready. */
 export function useRuntimesReady(): boolean {
   const all = useRuntimes();
-  return all.length > 0 && all.every(r => r.status === 'ready');
+  return all.length > 0 && all.every((r) => r.status === 'ready');
 }
 
 /** Aggregate health summary. */
 export function useRuntimeHealth(): { total: number; ready: number; failed: number } {
   useSyncExternalStore(subscribeToOrchestrator, getSnapshot);
-  const h = orchestrator.getAggregatedHealth();
-  return { total: h.total, ready: h.ready, failed: h.failed };
+  try {
+    const h = orchestrator.getAggregatedHealth();
+    if (!h) return { total: 0, ready: 0, failed: 0 };
+    return { total: h.total ?? 0, ready: h.ready ?? 0, failed: h.failed ?? 0 };
+  } catch {
+    return { total: 0, ready: 0, failed: 0 };
+  }
 }

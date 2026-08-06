@@ -47,20 +47,20 @@ export function StepTeam({ onNext, onBack }: Props) {
       });
       const data = await resp.json();
       if (resp.ok && data.success) {
-        setInvitedEmails(prev => [...prev, inviteEmail.trim().toLowerCase()]);
+        setInvitedEmails((prev) => [...prev, inviteEmail.trim().toLowerCase()]);
         setInviteEmail('');
         setInvitePhase('sent');
         setTimeout(() => setInvitePhase('idle'), 2000);
       } else {
         // Even if the API fails, don't block — just show the invite as queued
-        setInvitedEmails(prev => [...prev, inviteEmail.trim().toLowerCase()]);
+        setInvitedEmails((prev) => [...prev, inviteEmail.trim().toLowerCase()]);
         setInviteEmail('');
         setInvitePhase('sent');
         setTimeout(() => setInvitePhase('idle'), 2000);
       }
     } catch {
       // Network error — still accept the email locally
-      setInvitedEmails(prev => [...prev, inviteEmail.trim().toLowerCase()]);
+      setInvitedEmails((prev) => [...prev, inviteEmail.trim().toLowerCase()]);
       setInviteEmail('');
       setInvitePhase('sent');
       setTimeout(() => setInvitePhase('idle'), 2000);
@@ -99,13 +99,13 @@ export function StepTeam({ onNext, onBack }: Props) {
                 id="team-invite-email"
                 type="email"
                 value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
+                onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="colleague@company.com"
                 disabled={invitePhase === 'sending'}
                 ref={emailRef}
                 tabIndex={0}
                 style={{ flex: 1 }}
-                onKeyDown={e => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     handleSendInvite();
@@ -120,7 +120,10 @@ export function StepTeam({ onNext, onBack }: Props) {
                 style={{ width: 'auto', whiteSpace: 'nowrap', padding: '10px 16px' }}
               >
                 {invitePhase === 'sending' ? (
-                  <><span className="sh-onboarding-spinner" />Sending</>
+                  <>
+                    <span className="sh-onboarding-spinner" />
+                    Sending
+                  </>
                 ) : (
                   'Send Invite'
                 )}
@@ -133,7 +136,7 @@ export function StepTeam({ onNext, onBack }: Props) {
             <div className="sh-onboarding-success" style={{ width: '100%' }}>
               {invitedEmails.length} team member{invitedEmails.length !== 1 ? 's' : ''} invited:
               <div style={{ fontSize: '0.8rem', marginTop: 4 }}>
-                {invitedEmails.map(em => (
+                {invitedEmails.map((em) => (
                   <div key={em}>{em}</div>
                 ))}
               </div>
@@ -153,11 +156,7 @@ export function StepTeam({ onNext, onBack }: Props) {
 
           {/* Action buttons */}
           <div className="sh-onboarding-btn-row">
-            <button
-              className="sh-onboarding-btn"
-              onClick={onNext}
-              tabIndex={0}
-            >
+            <button className="sh-onboarding-btn" onClick={onNext} tabIndex={0}>
               {invitedEmails.length > 0 ? 'Continue ›' : 'Skip for now ›'}
             </button>
           </div>

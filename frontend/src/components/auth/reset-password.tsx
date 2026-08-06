@@ -85,9 +85,7 @@ export function ResetPassword({ token, onBackToLogin, onSubmit }: Props) {
         {/* ── Success ── */}
         {phase === 'success' && (
           <>
-            <div className="sh-auth-success">
-              Password reset successfully!
-            </div>
+            <div className="sh-auth-success">Password reset successfully!</div>
             <button className="sh-auth-btn" onClick={onBackToLogin} type="button" autoFocus>
               Sign in with new password
             </button>
@@ -97,9 +95,7 @@ export function ResetPassword({ token, onBackToLogin, onSubmit }: Props) {
         {/* ── Form ── */}
         {(phase === 'form' || phase === 'loading' || phase === 'error') && (
           <>
-            <div className="sh-auth-info">
-              Enter your new password.
-            </div>
+            <div className="sh-auth-info">Enter your new password.</div>
 
             <form className="sh-auth-form" onSubmit={handleSubmit} role="main" aria-label="Reset password">
               <div className="sh-auth-field">
@@ -108,7 +104,7 @@ export function ResetPassword({ token, onBackToLogin, onSubmit }: Props) {
                   id="reset-password"
                   type="password"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
                   autoFocus
                   disabled={phase === 'loading'}
@@ -122,7 +118,7 @@ export function ResetPassword({ token, onBackToLogin, onSubmit }: Props) {
                   id="reset-confirm"
                   type="password"
                   value={confirm}
-                  onChange={e => setConfirm(e.target.value)}
+                  onChange={(e) => setConfirm(e.target.value)}
                   placeholder="Re-enter password"
                   disabled={phase === 'loading'}
                 />
@@ -140,7 +136,10 @@ export function ResetPassword({ token, onBackToLogin, onSubmit }: Props) {
                 disabled={phase === 'loading' || !password.trim() || !confirm.trim()}
               >
                 {phase === 'loading' ? (
-                  <><span className="sh-auth-spinner" />Resetting…</>
+                  <>
+                    <span className="sh-auth-spinner" />
+                    Resetting…
+                  </>
                 ) : (
                   'Reset Password'
                 )}

@@ -51,7 +51,7 @@ export type SyncPolicy = 'local' | 'optimistic' | 'remote';
 export interface StateRegistration {
   runtimeId: string;
   version: number;
-  schema: Record<string, string>;  // key → type description
+  schema: Record<string, string>; // key → type description
   persistence: PersistencePolicy;
   sync: SyncPolicy;
   snapshot: boolean;
@@ -82,7 +82,10 @@ class StateFabric {
   private slots = new Map<string, Slot>();
   private snapshots: Snapshot[] = [];
   private maxSnapshots = 1000;
-  private transactions: Map<string, { slot: Slot; previous: Record<string, unknown>; previousVersion: number }[]> | null = null;
+  private transactions: Map<
+    string,
+    { slot: Slot; previous: Record<string, unknown>; previousVersion: number }[]
+  > | null = null;
 
   // ── Registry ─────────────────────────────────────────────────
 
@@ -158,7 +161,7 @@ class StateFabric {
     }
 
     // Notify subscribers
-    slot.subscribers.forEach(cb => cb(slot.current, slot.version));
+    slot.subscribers.forEach((cb) => cb(slot.current, slot.version));
 
     bus.emit({ type: 'RuntimeStateChanged' as any, source: runtimeId, error: '' } as any);
 
@@ -218,7 +221,7 @@ class StateFabric {
       const removed = this.snapshots.shift()!;
       const rslot = this.slots.get(removed.runtimeId);
       if (rslot) {
-        rslot.snapshots = rslot.snapshots.filter(s => s.id !== removed.id);
+        rslot.snapshots = rslot.snapshots.filter((s) => s.id !== removed.id);
       }
     }
   }
@@ -235,14 +238,14 @@ class StateFabric {
 
   /** Restore a snapshot (development only). */
   restoreSnapshot(snapshotId: string): boolean {
-    const snap = this.snapshots.find(s => s.id === snapshotId);
+    const snap = this.snapshots.find((s) => s.id === snapshotId);
     if (!snap) return false;
     const slot = this.slots.get(snap.runtimeId);
     if (!slot) return false;
 
     slot.current = { ...snap.state };
     slot.version = snap.version;
-    slot.subscribers.forEach(cb => cb(slot.current, slot.version));
+    slot.subscribers.forEach((cb) => cb(slot.current, slot.version));
 
     bus.emit({ type: 'RuntimeSnapshotRestored' as any, source: snap.runtimeId, error: '' } as any);
     return true;
@@ -281,11 +284,19 @@ class StateFabric {
   }
 
   private persistLocal(runtimeId: string, state: Record<string, unknown>): void {
-    try { localStorage.setItem(this.storageKey(runtimeId), JSON.stringify(state)); } catch { /* quota */ }
+    try {
+      localStorage.setItem(this.storageKey(runtimeId), JSON.stringify(state));
+    } catch {
+      /* quota */
+    }
   }
 
   private persistSession(runtimeId: string, state: Record<string, unknown>): void {
-    try { sessionStorage.setItem(this.storageKey(runtimeId), JSON.stringify(state)); } catch { /* quota */ }
+    try {
+      sessionStorage.setItem(this.storageKey(runtimeId), JSON.stringify(state));
+    } catch {
+      /* quota */
+    }
   }
 
   private rehydrate(runtimeId: string): void {
@@ -298,7 +309,9 @@ class StateFabric {
         const saved = JSON.parse(raw);
         Object.assign(slot.current, saved);
       }
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
   }
 
   /** Invalidate persisted state for a runtime. */
@@ -307,7 +320,9 @@ class StateFabric {
     try {
       localStorage.removeItem(this.storageKey(runtimeId));
       sessionStorage.removeItem(this.storageKey(runtimeId));
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
     bus.emit({ type: 'RuntimeStateInvalidated' as any, source: runtimeId, error: '' } as any);
   }
 
@@ -315,7 +330,7 @@ class StateFabric {
 
   /** Get registry info for all registered runtimes. */
   getRegistry(): { runtimeId: string; version: number; persistence: PersistencePolicy; snapshotEnabled: boolean }[] {
-    return Array.from(this.slots.values()).map(s => ({
+    return Array.from(this.slots.values()).map((s) => ({
       runtimeId: s.registration.runtimeId,
       version: s.version,
       persistence: s.registration.persistence,

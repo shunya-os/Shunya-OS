@@ -95,7 +95,7 @@ const DEFAULT_PREFS: ExperiencePreferences = {
     'Cmd+K': 'command_palette',
     'Cmd+1': 'workspace_1',
     'Cmd+2': 'workspace_2',
-    'Escape': 'close_panel',
+    Escape: 'close_panel',
     'Ctrl+Enter': 'confirm',
   },
 };
@@ -117,8 +117,7 @@ class ExperienceEngine {
   }
 
   private setupNotificationListeners(): void {
-    const events = ['CommitmentBlocked', 'CommitmentAtRisk', 'CommitmentCompleted',
-      'ObjectError', 'IntelligenceError'];
+    const events = ['CommitmentBlocked', 'CommitmentAtRisk', 'CommitmentCompleted', 'ObjectError', 'IntelligenceError'];
     for (const evt of events) {
       (bus as any).on?.(evt, () => {
         // Runtime events trigger notification generation
@@ -130,14 +129,22 @@ class ExperienceEngine {
   // ── Context Navigation ───────────────────────────────────────
 
   /** Navigate to a new context. Preserves history for back-navigation. */
-  navigate(type: ExecutiveContext['type'], label: string, opts?: { objectType?: string; objectId?: string; workspaceId?: string }): void {
+  navigate(
+    type: ExecutiveContext['type'],
+    label: string,
+    opts?: { objectType?: string; objectId?: string; workspaceId?: string },
+  ): void {
     const previous = this.context;
     if (previous) this.contextHistory.push(previous);
     if (this.contextHistory.length > 50) this.contextHistory.shift();
 
     this.context = {
-      type, label, timestamp: Date.now(),
-      objectType: opts?.objectType, objectId: opts?.objectId, workspaceId: opts?.workspaceId,
+      type,
+      label,
+      timestamp: Date.now(),
+      objectType: opts?.objectType,
+      objectId: opts?.objectId,
+      workspaceId: opts?.workspaceId,
     };
 
     this.notifyListeners();
@@ -199,12 +206,12 @@ class ExperienceEngine {
 
   /** Get all available commands. */
   getCommands(): Command[] {
-    return Array.from(this.commands.values()).filter(c => c.available());
+    return Array.from(this.commands.values()).filter((c) => c.available());
   }
 
   /** Get commands by category. */
   getCommandsByCategory(category: string): Command[] {
-    return this.getCommands().filter(c => c.category === category);
+    return this.getCommands().filter((c) => c.category === category);
   }
 
   /** Execute a command by ID. Returns true if executed. */
@@ -225,45 +232,70 @@ class ExperienceEngine {
 
   registerDefaultCommands(): void {
     this.registerCommand({
-      id: 'open-home', label: 'Open Home Workspace', description: 'Switch to the home workspace',
-      category: 'navigation', shortcut: 'Cmd+1',
+      id: 'open-home',
+      label: 'Open Home Workspace',
+      description: 'Switch to the home workspace',
+      category: 'navigation',
+      shortcut: 'Cmd+1',
       execute: async () => this.navigate('home', 'Home Workspace'),
       available: () => true,
     });
     this.registerCommand({
-      id: 'open-search', label: 'Search', description: 'Search all objects and conversations',
-      category: 'navigation', shortcut: 'Cmd+K',
-      execute: async () => { /* triggers command palette UI */ },
+      id: 'open-search',
+      label: 'Search',
+      description: 'Search all objects and conversations',
+      category: 'navigation',
+      shortcut: 'Cmd+K',
+      execute: async () => {
+        /* triggers command palette UI */
+      },
       available: () => true,
     });
     this.registerCommand({
-      id: 'go-back', label: 'Go Back', description: 'Return to the previous context',
-      category: 'navigation', shortcut: 'Cmd+[',
+      id: 'go-back',
+      label: 'Go Back',
+      description: 'Return to the previous context',
+      category: 'navigation',
+      shortcut: 'Cmd+[',
       execute: async () => this.goBack(),
       available: () => this.contextHistory.length > 0,
     });
     this.registerCommand({
-      id: 'create-commitment', label: 'Create Commitment', description: 'Start a new business execution',
+      id: 'create-commitment',
+      label: 'Create Commitment',
+      description: 'Start a new business execution',
       category: 'creation',
-      execute: async () => { /* dispatches to CommitmentRuntime.create */ },
+      execute: async () => {
+        /* dispatches to CommitmentRuntime.create */
+      },
       available: () => orchestrator.get('commitment-runtime')?.status === 'ready',
     });
     this.registerCommand({
-      id: 'create-conversation', label: 'New Conversation', description: 'Start a new business conversation',
+      id: 'create-conversation',
+      label: 'New Conversation',
+      description: 'Start a new business conversation',
       category: 'creation',
-      execute: async () => { /* dispatches to ConversationRuntime.create */ },
+      execute: async () => {
+        /* dispatches to ConversationRuntime.create */
+      },
       available: () => orchestrator.get('conversation-runtime')?.status === 'ready',
     });
     this.registerCommand({
-      id: 'inspect-timeline', label: 'Inspect Timeline', description: 'View the event stream for the active context',
+      id: 'inspect-timeline',
+      label: 'Inspect Timeline',
+      description: 'View the event stream for the active context',
       category: 'insight',
       execute: async () => this.navigate('timeline', 'Timeline'),
       available: () => true,
     });
     this.registerCommand({
-      id: 'run-ai-insight', label: 'AI Insights', description: 'Request AI analysis for the current context',
+      id: 'run-ai-insight',
+      label: 'AI Insights',
+      description: 'Request AI analysis for the current context',
       category: 'insight',
-      execute: async () => { /* dispatches to IntelligenceRuntime */ },
+      execute: async () => {
+        /* dispatches to IntelligenceRuntime */
+      },
       available: () => orchestrator.get('intelligence-runtime')?.status === 'ready',
     });
   }
@@ -271,10 +303,22 @@ class ExperienceEngine {
   // ── Notifications ────────────────────────────────────────────
 
   /** Create a notification. */
-  notify(priority: Notification['priority'], title: string, body: string, source: string, action?: Notification['action']): void {
+  notify(
+    priority: Notification['priority'],
+    title: string,
+    body: string,
+    source: string,
+    action?: Notification['action'],
+  ): void {
     const notification: Notification = {
       id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      priority, title, body, source, timestamp: Date.now(), dismissed: false, action,
+      priority,
+      title,
+      body,
+      source,
+      timestamp: Date.now(),
+      dismissed: false,
+      action,
     };
     this.notifications.unshift(notification);
     if (this.notifications.length > 100) this.notifications.pop();
@@ -284,7 +328,7 @@ class ExperienceEngine {
 
   /** Dismiss a notification. */
   dismiss(id: string): void {
-    const n = this.notifications.find(n => n.id === id);
+    const n = this.notifications.find((n) => n.id === id);
     if (n) n.dismissed = true;
     this.notifyListeners();
   }
@@ -293,14 +337,15 @@ class ExperienceEngine {
   getActiveNotifications(): Notification[] {
     const priorityOrder: Record<string, number> = { critical: 0, important: 1, informational: 2 };
     return this.notifications
-      .filter(n => !n.dismissed)
+      .filter((n) => !n.dismissed)
       .sort((a, b) => (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2))
       .slice(0, 20);
   }
 
   /** Get count of critical + important notifications. */
   getAttentionCount(): number {
-    return this.notifications.filter(n => !n.dismissed && (n.priority === 'critical' || n.priority === 'important')).length;
+    return this.notifications.filter((n) => !n.dismissed && (n.priority === 'critical' || n.priority === 'important'))
+      .length;
   }
 
   // ── Attention Management ─────────────────────────────────────
@@ -358,7 +403,7 @@ class ExperienceEngine {
   }
 
   private notifyListeners(): void {
-    this.listeners.forEach(cb => cb());
+    this.listeners.forEach((cb) => cb());
   }
 
   // ── State ────────────────────────────────────────────────────

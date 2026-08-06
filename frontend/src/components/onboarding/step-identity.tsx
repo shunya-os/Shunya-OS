@@ -30,13 +30,13 @@ const OPTIONS: { value: IdentityChoice; icon: string; title: string; desc: strin
     value: 'join',
     icon: '🤝',
     title: 'Join an Existing Company',
-    desc: 'I was invited to join a team. I\'ll use an invitation to get in.',
+    desc: "I was invited to join a team. I'll use an invitation to get in.",
   },
   {
     value: 'personal',
     icon: '🧑‍💻',
     title: 'Personal Workspace',
-    desc: 'I\'m using SHUNYA for myself — no company organization needed.',
+    desc: "I'm using SHUNYA for myself — no company organization needed.",
   },
 ];
 
@@ -65,7 +65,7 @@ export function StepIdentity({ onNext }: Props) {
           </div>
 
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {OPTIONS.map(opt => (
+            {OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 className={`sh-identity-option ${selected === opt.value ? 'selected' : ''}`}

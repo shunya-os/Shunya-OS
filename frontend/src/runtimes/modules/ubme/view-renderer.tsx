@@ -27,10 +27,7 @@ export function ViewRenderer({ objectType, moduleKey: _moduleKey, initialView }:
   async function loadData() {
     setLoading(true);
     try {
-      const [insts, vws] = await Promise.all([
-        listObjects(objectType.key),
-        getViews(objectType.key),
-      ]);
+      const [insts, vws] = await Promise.all([listObjects(objectType.key), getViews(objectType.key)]);
       setInstances(insts);
       setViews(vws);
     } catch (err) {
@@ -43,10 +40,8 @@ export function ViewRenderer({ objectType, moduleKey: _moduleKey, initialView }:
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
-      (inst.name?.toLowerCase().includes(q)) ||
-      Object.values(inst.data || {}).some((v) =>
-        String(v).toLowerCase().includes(q)
-      )
+      inst.name?.toLowerCase().includes(q) ||
+      Object.values(inst.data || {}).some((v) => String(v).toLowerCase().includes(q))
     );
   });
 
@@ -69,12 +64,7 @@ export function ViewRenderer({ objectType, moduleKey: _moduleKey, initialView }:
         </div>
         <div className="ubme-detail-fields">
           {fields.map((field) => (
-            <FieldRenderer
-              key={field.key}
-              field={field}
-              value={selectedInstance.data?.[field.key]}
-              readOnly
-            />
+            <FieldRenderer key={field.key} field={field} value={selectedInstance.data?.[field.key]} readOnly />
           ))}
         </div>
       </div>
@@ -86,7 +76,10 @@ export function ViewRenderer({ objectType, moduleKey: _moduleKey, initialView }:
     return (
       <CreateForm
         objectType={objectType}
-        onCreated={() => { setShowCreateForm(false); loadData(); }}
+        onCreated={() => {
+          setShowCreateForm(false);
+          loadData();
+        }}
         onCancel={() => setShowCreateForm(false)}
       />
     );
@@ -172,7 +165,11 @@ function renderView(
   }
 }
 
-function ListView({ instances, fields, onSelect }: {
+function ListView({
+  instances,
+  fields,
+  onSelect,
+}: {
   instances: ObjectInstance[];
   fields: FieldDef[];
   onSelect: (inst: ObjectInstance) => void;
@@ -198,7 +195,11 @@ function ListView({ instances, fields, onSelect }: {
   );
 }
 
-function TableView({ instances, fields, onSelect }: {
+function TableView({
+  instances,
+  fields,
+  onSelect,
+}: {
   instances: ObjectInstance[];
   fields: FieldDef[];
   onSelect: (inst: ObjectInstance) => void;
@@ -221,7 +222,9 @@ function TableView({ instances, fields, onSelect }: {
             {fields.slice(0, 6).map((f) => (
               <td key={f.key}>{formatValue(f, inst.data?.[f.key])}</td>
             ))}
-            <td><span className={`ubme-status status-${inst.status}`}>{inst.status}</span></td>
+            <td>
+              <span className={`ubme-status status-${inst.status}`}>{inst.status}</span>
+            </td>
           </tr>
         ))}
       </tbody>
@@ -229,7 +232,11 @@ function TableView({ instances, fields, onSelect }: {
   );
 }
 
-function KanbanView({ instances, fields, onSelect }: {
+function KanbanView({
+  instances,
+  fields,
+  onSelect,
+}: {
   instances: ObjectInstance[];
   fields: FieldDef[];
   onSelect: (inst: ObjectInstance) => void;
@@ -255,14 +262,14 @@ function KanbanView({ instances, fields, onSelect }: {
           {columns[col].map((inst) => (
             <div key={inst.id} className="ubme-kanban-card" onClick={() => onSelect(inst)}>
               <div className="ubme-kanban-card-title">{inst.name}</div>
-              {fields.slice(0, 3).map((f) => (
-                f.key !== 'status' && (
-                  <div key={f.key} className="ubme-kanban-card-field">
-                    <span className="ubme-kanban-card-label">{f.label}:</span>
-                    {' '}{formatValue(f, inst.data?.[f.key])}
-                  </div>
-                )
-              ))}
+              {fields.slice(0, 3).map(
+                (f) =>
+                  f.key !== 'status' && (
+                    <div key={f.key} className="ubme-kanban-card-field">
+                      <span className="ubme-kanban-card-label">{f.label}:</span> {formatValue(f, inst.data?.[f.key])}
+                    </div>
+                  ),
+              )}
             </div>
           ))}
         </div>
@@ -273,7 +280,11 @@ function KanbanView({ instances, fields, onSelect }: {
 
 // ── Create Form ──
 
-function CreateForm({ objectType, onCreated, onCancel }: {
+function CreateForm({
+  objectType,
+  onCreated,
+  onCancel,
+}: {
   objectType: ObjectTypeDef;
   onCreated: () => void;
   onCancel: () => void;

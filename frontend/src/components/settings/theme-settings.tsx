@@ -82,26 +82,17 @@ async function uploadLogo(orgId: number, file: File): Promise<string> {
 
 // ── Color Picker Component ──────────────────────────────────
 
-function ColorField({ label, value, onChange }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="ts-field">
       <label className="ts-label">{label}</label>
       <div className="ts-color-row">
-        <input
-          type="color"
-          className="ts-color-picker"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-        />
+        <input type="color" className="ts-color-picker" value={value} onChange={(e) => onChange(e.target.value)} />
         <input
           type="text"
           className="ts-color-text"
           value={value}
-          onChange={e => onChange(e.target.value)}
+          onChange={(e) => onChange(e.target.value)}
           placeholder="#000000"
         />
       </div>
@@ -112,14 +103,14 @@ function ColorField({ label, value, onChange }: {
 // ── Preset Color Themes ─────────────────────────────────────
 
 const PRESET_THEMES: { name: string; primary: string; accent: string; bg: string; sidebar: string }[] = [
-  { name: 'Default Blue',     primary: '#2563eb', accent: '#7c3aed', bg: '#f8fafc', sidebar: '#0f172a' },
-  { name: 'Midnight',         primary: '#1e3a5f', accent: '#2563eb', bg: '#0f172a', sidebar: '#020617' },
-  { name: 'Emerald',          primary: '#059669', accent: '#34d399', bg: '#f0fdf4', sidebar: '#064e3b' },
-  { name: 'Ruby Red',         primary: '#dc2626', accent: '#f87171', bg: '#fef2f2', sidebar: '#450a0a' },
-  { name: 'Amber Glow',       primary: '#f59e0b', accent: '#fbbf24', bg: '#fffbeb', sidebar: '#451a03' },
-  { name: 'Dark Purple',      primary: '#7c3aed', accent: '#a78bfa', bg: '#0f172a', sidebar: '#1e1b4b' },
-  { name: 'Teal Ocean',       primary: '#0d9488', accent: '#2dd4bf', bg: '#f0fdfa', sidebar: '#042f2e' },
-  { name: 'Petal Pink',       primary: '#ec4899', accent: '#f472b6', bg: '#fdf2f8', sidebar: '#500724' },
+  { name: 'Default Blue', primary: '#2563eb', accent: '#7c3aed', bg: '#f8fafc', sidebar: '#0f172a' },
+  { name: 'Midnight', primary: '#1e3a5f', accent: '#2563eb', bg: '#0f172a', sidebar: '#020617' },
+  { name: 'Emerald', primary: '#059669', accent: '#34d399', bg: '#f0fdf4', sidebar: '#064e3b' },
+  { name: 'Ruby Red', primary: '#dc2626', accent: '#f87171', bg: '#fef2f2', sidebar: '#450a0a' },
+  { name: 'Amber Glow', primary: '#f59e0b', accent: '#fbbf24', bg: '#fffbeb', sidebar: '#451a03' },
+  { name: 'Dark Purple', primary: '#7c3aed', accent: '#a78bfa', bg: '#0f172a', sidebar: '#1e1b4b' },
+  { name: 'Teal Ocean', primary: '#0d9488', accent: '#2dd4bf', bg: '#f0fdfa', sidebar: '#042f2e' },
+  { name: 'Petal Pink', primary: '#ec4899', accent: '#f472b6', bg: '#fdf2f8', sidebar: '#500724' },
 ];
 
 // ── Font Options ────────────────────────────────────────────
@@ -147,11 +138,11 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
     }
     setLoading(true);
     fetchTheme(orgId)
-      .then(data => {
+      .then((data) => {
         setTheme(data);
         setLoading(false);
       })
-      .catch(err => {
+      .catch((err) => {
         setError(err.message);
         setLoading(false);
       });
@@ -211,7 +202,7 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
     }
   };
 
-  const handlePreset = (preset: typeof PRESET_THEMES[0]) => {
+  const handlePreset = (preset: (typeof PRESET_THEMES)[0]) => {
     if (!theme) return;
     setTheme({
       ...theme,
@@ -226,10 +217,12 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
 
   return (
     <div className="ts-overlay" onClick={onClose}>
-      <div className="ts-modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="Theme settings">
+      <div className="ts-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Theme settings">
         <div className="ts-header">
           <h2 className="ts-title">Theme Settings</h2>
-          <button className="ts-close" onClick={onClose} aria-label="Close settings">&times;</button>
+          <button className="ts-close" onClick={onClose} aria-label="Close settings">
+            &times;
+          </button>
         </div>
 
         {loading ? (
@@ -251,19 +244,25 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
                 onClick={() => setActiveTab('colors')}
                 role="tab"
                 aria-selected={activeTab === 'colors'}
-              >Colors</button>
+              >
+                Colors
+              </button>
               <button
                 className={`ts-tab ${activeTab === 'logo' ? 'ts-tab-active' : ''}`}
                 onClick={() => setActiveTab('logo')}
                 role="tab"
                 aria-selected={activeTab === 'logo'}
-              >Logo</button>
+              >
+                Logo
+              </button>
               <button
                 className={`ts-tab ${activeTab === 'text' ? 'ts-tab-active' : ''}`}
                 onClick={() => setActiveTab('text')}
                 role="tab"
                 aria-selected={activeTab === 'text'}
-              >Text</button>
+              >
+                Text
+              </button>
             </div>
 
             {/* Colors tab */}
@@ -272,13 +271,8 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
                 <div className="ts-presets">
                   <div className="ts-section-label">Quick Themes</div>
                   <div className="ts-preset-grid">
-                    {PRESET_THEMES.map(p => (
-                      <button
-                        key={p.name}
-                        className="ts-preset-btn"
-                        onClick={() => handlePreset(p)}
-                        title={p.name}
-                      >
+                    {PRESET_THEMES.map((p) => (
+                      <button key={p.name} className="ts-preset-btn" onClick={() => handlePreset(p)} title={p.name}>
                         <div className="ts-preset-swatches">
                           <span className="ts-swatch" style={{ background: p.primary }} />
                           <span className="ts-swatch" style={{ background: p.accent }} />
@@ -292,10 +286,26 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
                 </div>
 
                 <div className="ts-fields">
-                  <ColorField label="Primary Color" value={theme.primary_color} onChange={v => updateField('primary_color', v)} />
-                  <ColorField label="Accent Color" value={theme.accent_color} onChange={v => updateField('accent_color', v)} />
-                  <ColorField label="Background Color" value={theme.bg_color} onChange={v => updateField('bg_color', v)} />
-                  <ColorField label="Sidebar Background" value={theme.sidebar_bg} onChange={v => updateField('sidebar_bg', v)} />
+                  <ColorField
+                    label="Primary Color"
+                    value={theme.primary_color}
+                    onChange={(v) => updateField('primary_color', v)}
+                  />
+                  <ColorField
+                    label="Accent Color"
+                    value={theme.accent_color}
+                    onChange={(v) => updateField('accent_color', v)}
+                  />
+                  <ColorField
+                    label="Background Color"
+                    value={theme.bg_color}
+                    onChange={(v) => updateField('bg_color', v)}
+                  />
+                  <ColorField
+                    label="Sidebar Background"
+                    value={theme.sidebar_bg}
+                    onChange={(v) => updateField('sidebar_bg', v)}
+                  />
                 </div>
               </div>
             )}
@@ -322,11 +332,7 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
                   )}
                 </div>
                 <div className="ts-upload-row">
-                  <button
-                    className="ts-upload-btn"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={saving}
-                  >
+                  <button className="ts-upload-btn" onClick={() => fileInputRef.current?.click()} disabled={saving}>
                     {saving ? 'Uploading…' : 'Choose Logo'}
                   </button>
                   <input
@@ -341,7 +347,7 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
                 <div className="ts-field">
                   <label className="ts-label">Logo Style</label>
                   <div className="ts-style-options">
-                    {['contain', 'cover', 'circle'].map(style => (
+                    {['contain', 'cover', 'circle'].map((style) => (
                       <button
                         key={style}
                         className={`ts-style-btn ${theme.logo_style === style ? 'ts-style-active' : ''}`}
@@ -363,10 +369,12 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
                   <select
                     className="ts-select"
                     value={theme.font_family}
-                    onChange={e => updateField('font_family', e.target.value)}
+                    onChange={(e) => updateField('font_family', e.target.value)}
                   >
-                    {FONT_OPTIONS.map(f => (
-                      <option key={f} value={f === 'System UI' ? 'system-ui' : f}>{f}</option>
+                    {FONT_OPTIONS.map((f) => (
+                      <option key={f} value={f === 'System UI' ? 'system-ui' : f}>
+                        {f}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -376,7 +384,7 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
                     type="text"
                     className="ts-input"
                     value={theme.welcome_message}
-                    onChange={e => updateField('welcome_message', e.target.value)}
+                    onChange={(e) => updateField('welcome_message', e.target.value)}
                     placeholder="Welcome to your workspace"
                   />
                 </div>
@@ -386,7 +394,7 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
                     type="text"
                     className="ts-input"
                     value={theme.company_motto}
-                    onChange={e => updateField('company_motto', e.target.value)}
+                    onChange={(e) => updateField('company_motto', e.target.value)}
                     placeholder="Your company motto"
                   />
                 </div>
@@ -395,7 +403,7 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
                   <textarea
                     className="ts-textarea"
                     value={theme.custom_css}
-                    onChange={e => updateField('custom_css', e.target.value)}
+                    onChange={(e) => updateField('custom_css', e.target.value)}
                     placeholder="/* Custom CSS overrides */"
                     rows={4}
                   />
@@ -407,11 +415,7 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
             <div className="ts-actions">
               {error && <div className="ts-error">{error}</div>}
               {successMsg && <div className="ts-success">{successMsg}</div>}
-              <button
-                className="ts-save-btn"
-                onClick={handleSave}
-                disabled={saving}
-              >
+              <button className="ts-save-btn" onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving…' : 'Save Theme'}
               </button>
             </div>
@@ -429,82 +433,82 @@ const styles = `
 .ts-overlay { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
 
 /* Modal */
-.ts-modal { background: var(--shunya-surface-2, #1a1a26); border: 1px solid var(--shunya-surface-1, #333); border-radius: var(--shunya-radius-lg, 12px); width: min(520px, 90vw); max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.ts-modal { background: var(--sh-surface, #1a1a26); border: 1px solid var(--sh-border, #333); border-radius: var(--sh-radius-lg, 12px); width: min(520px, 90vw); max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
 
-.ts-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--shunya-surface-1, #22222e); }
-.ts-title { font-size: var(--shunya-font-size-lg, 18px); font-weight: 600; color: var(--shunya-text, #e0e0e0); margin: 0; }
-.ts-close { background: transparent; border: none; font-size: 24px; color: var(--shunya-text-secondary, #888); cursor: pointer; padding: 0 4px; line-height: 1; }
-.ts-close:hover { color: var(--shunya-text, #e0e0e0); }
+.ts-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--sh-border, #22222e); }
+.ts-title { font-size: var(--sh-text-lg, 18px); font-weight: 600; color: var(--sh-text, #e0e0e0); margin: 0; }
+.ts-close { background: transparent; border: none; font-size: 24px; color: var(--sh-text-secondary, #888); cursor: pointer; padding: 0 4px; line-height: 1; }
+.ts-close:hover { color: var(--sh-text, #e0e0e0); }
 
 /* Loading */
-.ts-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 48px 20px; color: var(--shunya-text-secondary, #888); }
-.ts-spinner { width: 20px; height: 20px; border: 2px solid var(--shunya-surface-1, #333); border-top-color: var(--shunya-color-primary, #555); border-radius: 50%; animation: ts-spin 0.6s linear infinite; }
+.ts-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 48px 20px; color: var(--sh-text-secondary, #888); }
+.ts-spinner { width: 20px; height: 20px; border: 2px solid var(--sh-border, #333); border-top-color: var(--sh-purple, #555); border-radius: 50%; animation: ts-spin 0.6s linear infinite; }
 @keyframes ts-spin { to { transform: rotate(360deg); } }
 
 /* Error state */
 .ts-error-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 48px 20px; text-align: center; }
 .ts-error-icon { font-size: 32px; }
-.ts-error-msg { font-size: var(--shunya-font-size-sm, 14px); color: var(--shunya-color-danger, #f55); }
+.ts-error-msg { font-size: var(--sh-text-sm, 14px); color: var(--sh-danger, #f55); }
 
 /* Tabs */
-.ts-tabs { display: flex; border-bottom: 1px solid var(--shunya-surface-1, #22222e); padding: 0 20px; }
-.ts-tab { padding: 10px 16px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--shunya-text-secondary, #888); font-size: var(--shunya-font-size-sm, 14px); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
-.ts-tab:hover { color: var(--shunya-text, #e0e0e0); }
-.ts-tab-active { color: var(--shunya-color-primary, #555); border-bottom-color: var(--shunya-color-primary, #555); }
+.ts-tabs { display: flex; border-bottom: 1px solid var(--sh-border, #22222e); padding: 0 20px; }
+.ts-tab { padding: 10px 16px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--sh-text-secondary, #888); font-size: var(--sh-text-sm, 14px); cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+.ts-tab:hover { color: var(--sh-text, #e0e0e0); }
+.ts-tab-active { color: var(--sh-purple, #555); border-bottom-color: var(--sh-purple, #555); }
 
 /* Tab content */
 .ts-tab-content { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
 
 /* Fields */
 .ts-field { display: flex; flex-direction: column; gap: 6px; }
-.ts-label { font-size: var(--shunya-font-size-xs, 12px); color: var(--shunya-text-secondary, #888); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; }
-.ts-input, .ts-select, .ts-textarea { padding: 8px 12px; background: var(--shunya-surface-3, #12121e); border: 1px solid var(--shunya-surface-1, #2a2a3a); border-radius: var(--shunya-radius-sm, 6px); color: var(--shunya-text, #e0e0e0); font-size: var(--shunya-font-size-sm, 14px); font-family: inherit; }
-.ts-input:focus, .ts-select:focus, .ts-textarea:focus { outline: none; border-color: var(--shunya-color-primary, #555); }
+.ts-label { font-size: var(--sh-text-xs, 12px); color: var(--sh-text-secondary, #888); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; }
+.ts-input, .ts-select, .ts-textarea { padding: 8px 12px; background: var(--sh-surface-subtle, #12121e); border: 1px solid var(--sh-border, #2a2a3a); border-radius: var(--sh-radius-sm, 6px); color: var(--sh-text, #e0e0e0); font-size: var(--sh-text-sm, 14px); font-family: inherit; }
+.ts-input:focus, .ts-select:focus, .ts-textarea:focus { outline: none; border-color: var(--sh-purple, #555); }
 .ts-textarea { resize: vertical; min-height: 80px; font-family: monospace; }
 .ts-select { cursor: pointer; }
 .ts-select option { background: #1a1a26; }
 
 /* Color field */
 .ts-color-row { display: flex; align-items: center; gap: 8px; }
-.ts-color-picker { width: 40px; height: 36px; padding: 2px; border: 1px solid var(--shunya-surface-1, #2a2a3a); border-radius: var(--shunya-radius-sm, 6px); cursor: pointer; background: transparent; }
-.ts-color-text { flex: 1; padding: 8px 12px; background: var(--shunya-surface-3, #12121e); border: 1px solid var(--shunya-surface-1, #2a2a3a); border-radius: var(--shunya-radius-sm, 6px); color: var(--shunya-text, #e0e0e0); font-size: var(--shunya-font-size-sm, 14px); font-family: monospace; }
-.ts-color-text:focus { outline: none; border-color: var(--shunya-color-primary, #555); }
+.ts-color-picker { width: 40px; height: 36px; padding: 2px; border: 1px solid var(--sh-border, #2a2a3a); border-radius: var(--sh-radius-sm, 6px); cursor: pointer; background: transparent; }
+.ts-color-text { flex: 1; padding: 8px 12px; background: var(--sh-surface-subtle, #12121e); border: 1px solid var(--sh-border, #2a2a3a); border-radius: var(--sh-radius-sm, 6px); color: var(--sh-text, #e0e0e0); font-size: var(--sh-text-sm, 14px); font-family: monospace; }
+.ts-color-text:focus { outline: none; border-color: var(--sh-purple, #555); }
 
 /* Presets */
-.ts-section-label { font-size: var(--shunya-font-size-xs, 12px); color: var(--shunya-text-secondary, #888); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; margin-bottom: 8px; }
+.ts-section-label { font-size: var(--sh-text-xs, 12px); color: var(--sh-text-secondary, #888); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; margin-bottom: 8px; }
 .ts-preset-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.ts-preset-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; background: var(--shunya-surface-3, #12121e); border: 1px solid var(--shunya-surface-1, #2a2a3a); border-radius: var(--shunya-radius-sm, 6px); cursor: pointer; transition: border-color 0.15s; }
-.ts-preset-btn:hover { border-color: var(--shunya-color-primary, #555); }
+.ts-preset-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; background: var(--sh-surface-subtle, #12121e); border: 1px solid var(--sh-border, #2a2a3a); border-radius: var(--sh-radius-sm, 6px); cursor: pointer; transition: border-color 0.15s; }
+.ts-preset-btn:hover { border-color: var(--sh-purple, #555); }
 .ts-preset-swatches { display: flex; gap: 2px; }
 .ts-swatch { width: 16px; height: 12px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.08); }
-.ts-preset-name { font-size: 10px; color: var(--shunya-text-secondary, #888); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ts-preset-name { font-size: 10px; color: var(--sh-text-secondary, #888); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
 /* Logo */
-.ts-logo-preview { display: flex; align-items: center; justify-content: center; min-height: 120px; background: var(--shunya-surface-3, #12121e); border: 1px dashed var(--shunya-surface-1, #2a2a3a); border-radius: var(--shunya-radius-md, 8px); padding: 16px; }
+.ts-logo-preview { display: flex; align-items: center; justify-content: center; min-height: 120px; background: var(--sh-surface-subtle, #12121e); border: 1px dashed var(--sh-border, #2a2a3a); border-radius: var(--sh-radius-md, 8px); padding: 16px; }
 .ts-logo-img { max-width: 200px; max-height: 100px; }
 .ts-logo-contain { object-fit: contain; }
-.ts-logo-cover { object-fit: cover; width: 100%; height: 100px; border-radius: var(--shunya-radius-sm, 6px); }
+.ts-logo-cover { object-fit: cover; width: 100%; height: 100px; border-radius: var(--sh-radius-sm, 6px); }
 .ts-logo-circle { object-fit: cover; width: 100px; height: 100px; border-radius: 50%; }
-.ts-logo-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--shunya-text-secondary, #666); font-size: var(--shunya-font-size-sm, 14px); }
+.ts-logo-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--sh-text-secondary, #666); font-size: var(--sh-text-sm, 14px); }
 .ts-logo-placeholder-icon { font-size: 32px; }
 
 .ts-upload-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.ts-upload-btn { padding: 8px 16px; background: var(--shunya-color-primary, #555); color: #fff; border: none; border-radius: var(--shunya-radius-sm, 6px); font-size: var(--shunya-font-size-sm, 14px); cursor: pointer; }
+.ts-upload-btn { padding: 8px 16px; background: var(--sh-purple, #555); color: #fff; border: none; border-radius: var(--sh-radius-sm, 6px); font-size: var(--sh-text-sm, 14px); cursor: pointer; }
 .ts-upload-btn:hover { opacity: 0.85; }
 .ts-upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .ts-file-input { display: none; }
-.ts-upload-hint { font-size: var(--shunya-font-size-xs, 12px); color: var(--shunya-text-secondary, #666); }
+.ts-upload-hint { font-size: var(--sh-text-xs, 12px); color: var(--sh-text-secondary, #666); }
 
 .ts-style-options { display: flex; gap: 6px; }
-.ts-style-btn { padding: 6px 14px; background: var(--shunya-surface-3, #12121e); border: 1px solid var(--shunya-surface-1, #2a2a3a); border-radius: var(--shunya-radius-sm, 6px); color: var(--shunya-text, #e0e0e0); font-size: var(--shunya-font-size-xs, 12px); text-transform: capitalize; cursor: pointer; }
-.ts-style-btn:hover { border-color: var(--shunya-color-primary, #555); }
-.ts-style-active { border-color: var(--shunya-color-primary, #555); background: rgba(85,85,85,0.15); }
+.ts-style-btn { padding: 6px 14px; background: var(--sh-surface-subtle, #12121e); border: 1px solid var(--sh-border, #2a2a3a); border-radius: var(--sh-radius-sm, 6px); color: var(--sh-text, #e0e0e0); font-size: var(--sh-text-xs, 12px); text-transform: capitalize; cursor: pointer; }
+.ts-style-btn:hover { border-color: var(--sh-purple, #555); }
+.ts-style-active { border-color: var(--sh-purple, #555); background: rgba(85,85,85,0.15); }
 
 /* Actions */
-.ts-actions { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--shunya-surface-1, #22222e); }
-.ts-error { font-size: var(--shunya-font-size-xs, 12px); color: var(--shunya-color-danger, #f55); flex: 1; }
-.ts-success { font-size: var(--shunya-font-size-xs, 12px); color: var(--shunya-color-success, #4caf50); flex: 1; }
-.ts-save-btn { margin-left: auto; padding: 8px 20px; background: var(--shunya-color-primary, #555); color: #fff; border: none; border-radius: var(--shunya-radius-sm, 6px); font-size: var(--shunya-font-size-sm, 14px); font-weight: 500; cursor: pointer; }
+.ts-actions { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--sh-border, #22222e); }
+.ts-error { font-size: var(--sh-text-xs, 12px); color: var(--sh-danger, #f55); flex: 1; }
+.ts-success { font-size: var(--sh-text-xs, 12px); color: var(--sh-success, #4caf50); flex: 1; }
+.ts-save-btn { margin-left: auto; padding: 8px 20px; background: var(--sh-purple, #555); color: #fff; border: none; border-radius: var(--sh-radius-sm, 6px); font-size: var(--sh-text-sm, 14px); font-weight: 500; cursor: pointer; }
 .ts-save-btn:hover { opacity: 0.85; }
 .ts-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .ts-fields { display: flex; flex-direction: column; gap: 12px; }

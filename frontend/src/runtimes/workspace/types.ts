@@ -17,8 +17,21 @@
  *   save status ✓
  */
 
-export type WorkspaceStatus = 'creating' | 'loading' | 'hydrating' | 'active' | 'suspended' | 'archived' | 'error' | 'closing';
-export type WorkspaceType = 'object' | 'home' | 'conversation' | 'approval' | 'search' | 'document' | 'comparison' | 'commitment';
+export type WorkspaceStatus =
+  'creating' | 'loading' | 'hydrating' | 'active' | 'suspended' | 'archived' | 'error' | 'closing';
+export type WorkspaceType =
+  | 'object'
+  | 'home'
+  | 'conversation'
+  | 'approval'
+  | 'search'
+  | 'document'
+  | 'comparison'
+  | 'commitment'
+  | 'calendar'
+  | 'proposals'
+  | 'music'
+  | 'email';
 
 export interface WorkspaceIdentity {
   id: string;

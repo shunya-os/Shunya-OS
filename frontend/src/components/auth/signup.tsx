@@ -17,7 +17,11 @@ interface Props {
 
 type Phase = 'form' | 'loading' | 'success' | 'error';
 
-async function defaultSignup(name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> {
+async function defaultSignup(
+  name: string,
+  email: string,
+  password: string,
+): Promise<{ success: boolean; error?: string }> {
   const resp = await fetch('/api/v1/auth/signup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -90,9 +94,7 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
         {/* ── Success ── */}
         {phase === 'success' && (
           <>
-            <div className="sh-auth-success">
-              Account created! Check your email to verify your address.
-            </div>
+            <div className="sh-auth-success">Account created! Check your email to verify your address.</div>
             <button className="sh-auth-btn" onClick={onBackToLogin} type="button" autoFocus>
               Sign in
             </button>
@@ -109,7 +111,7 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
                   id="signup-name"
                   type="text"
                   value={name}
-                  onChange={e => setName(e.target.value)}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="Your name"
                   autoFocus
                   disabled={phase === 'loading'}
@@ -123,7 +125,7 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
                   id="signup-email"
                   type="email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
                   disabled={phase === 'loading'}
                   autoComplete="email"
@@ -136,7 +138,7 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
                   id="signup-password"
                   type="password"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
                   disabled={phase === 'loading'}
                   autoComplete="new-password"
@@ -149,7 +151,7 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
                   id="signup-confirm"
                   type="password"
                   value={confirm}
-                  onChange={e => setConfirm(e.target.value)}
+                  onChange={(e) => setConfirm(e.target.value)}
                   placeholder="Re-enter password"
                   disabled={phase === 'loading'}
                   autoComplete="new-password"
@@ -165,16 +167,13 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
               <button
                 type="submit"
                 className="sh-auth-btn"
-                disabled={
-                  phase === 'loading' ||
-                  !name.trim() ||
-                  !email.trim() ||
-                  !password.trim() ||
-                  !confirm.trim()
-                }
+                disabled={phase === 'loading' || !name.trim() || !email.trim() || !password.trim() || !confirm.trim()}
               >
                 {phase === 'loading' ? (
-                  <><span className="sh-auth-spinner" />Creating account…</>
+                  <>
+                    <span className="sh-auth-spinner" />
+                    Creating account…
+                  </>
                 ) : (
                   'Create Account'
                 )}

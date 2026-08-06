@@ -78,6 +78,8 @@ def app():
         from app.enterprise.models import (  # noqa: F401
             AuditRecord, EnterpriseRole, EnterpriseTeamMember,
         )
+        # Enterprise Security — CRUD Audit Log
+        from app.security.audit import AuditLog  # noqa: F401
         db.create_all()
         yield application
         db.drop_all()
