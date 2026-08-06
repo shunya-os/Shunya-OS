@@ -13,6 +13,65 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - run: pip install -r requirements.txt
-      - run: python -m pytest -q
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+      - name: Verify all modules compile
+        run: |
+          python -c "
+          import py_compile, glob, sys
+          files = glob.glob('core/**/*.py', recursive=True) + glob.glob('governance/verification/*.py', recursive=True)
+          errors = 0
+          for f in files:
+              try:
+                  py_compile.compile(f, doraise=True)
+              except py_compile.PyCompileError as e:
+                  print(f'FAIL: {f}: {e}')
+                  errors += 1
+          if errors:
+              sys.exit(1)
+          print(f'All {len(files)} files compile OK')
+          "
+      - name: Run verification tests
+        run: |
+          PYTHONPATH=$PWD python -m pytest \
+            core/relationship_intelligence/verify_ucp02.py \
+            core/financial_intelligence/verify_ucp03.py \
+            core/financial_intelligence/verify_ucp03a.py \
+            core/knowledge_intelligence/verify_ucp04.py \
+            core/decision_intelligence/verify_ucp05.py \
+            core/agreement_intelligence/verify_ucp06.py \
+            core/asset_intelligence/verify_ucp07.py \
+            core/initiative_intelligence/verify_ucp08.py \
+            core/operations_intelligence/verify_ucp09.py \
+            core/health_intelligence/verify_ucp10.py \
+            core/learning_intelligence/verify_ucp11.py \
+            core/personal_os/verify_ucp12.py \
+            governance/verification/verify_stream_c.py \
+            governance/verification/verify_stream_d.py \
+            governance/verification/verify_stream_e.py \
+            governance/verification/verify_stream_f.py \
+            governance/verification/verify_stream_g.py \
+            governance/verification/verify_stream_h.py \
+            -v --tb=short -q
+      - name: Verify provider adapters import
+        run: |
+          PYTHONPATH=$PWD python -c "
+          from adapters import DOCUMENT_ADAPTERS, IMAGE_ADAPTERS, INFRA_ADAPTERS
+          print(f'Adapters: doc={len(DOCUMENT_ADAPTERS)}, img={len(IMAGE_ADAPTERS)}, infra={len(INFRA_ADAPTERS)}')
+          from adapters.document.libreoffice import LibreOfficeAdapter
+          from adapters.image.comfyui import ComfyUIAdapter
+          from adapters.speech.whisper import WhisperAdapter
+          from adapters.search.searxng import SearXNGAdapter
+          from adapters.storage.minio import MinIOAdapter
+          from adapters.infra.redis import RedisCacheAdapter
+          from core.personal_os import PersonalOSOrchestrator
+          os = PersonalOSOrchestrator()
+          r = os.initialize()
+          assert len(r['available']) >= 9
+          print(f'Personal OS: {len(r[\"available\"])} UCPs composed')
+          print('CI verification passed')
+          "

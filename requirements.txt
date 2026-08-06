@@ -34,3 +34,4 @@ weasyprint>=62.0
 
 # Web Search & AI Analysis
 ddgs>=9.0
+Pillow>=10.0
