@@ -15,6 +15,14 @@ class DocumentAdapter(ABC):
     @abstractmethod
     def create_document(self, title: str, content: str, fmt: str = "odt") -> str: ...
     @abstractmethod
+    def edit_document(
+        self,
+        path: str,
+        new_content: str | None = None,
+        insert_at: str | int | None = None,
+        **kwargs: Any,
+    ) -> str: ...
+    @abstractmethod
     def convert(self, source_path: str, target_fmt: str) -> str: ...
     @abstractmethod
     def extract_text(self, path: str) -> str: ...
@@ -48,6 +56,60 @@ class BrowserAdapter(ABC):
     def screenshot(self, url: str) -> str: ...
     @abstractmethod
     def execute(self, url: str, script: str) -> Any: ...
+
+
+class EmailSenderAdapter(ABC):
+    """Outbound email sending via SMTP."""
+    @abstractmethod
+    def send_email(
+        self,
+        to: list[str],
+        subject: str,
+        body: str,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
+        from_addr: str | None = None,
+        html: bool = False,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]: ...
+
+
+class EmailReaderAdapter(ABC):
+    """Inbound email reading via IMAP."""
+    @abstractmethod
+    def read_emails(
+        self,
+        folder: str = "INBOX",
+        limit: int = 10,
+        since: str | None = None,
+        search_criteria: str | None = None,
+        mark_seen: bool = True,
+    ) -> list[dict[str, Any]]: ...
+    @abstractmethod
+    def list_folders(self) -> list[dict[str, Any]]: ...
+
+
+class CalendarAdapter(ABC):
+    """Calendar event management via CalDAV."""
+    @abstractmethod
+    def create_event(
+        self,
+        summary: str,
+        dtstart: str,
+        dtend: str,
+        description: str = "",
+        location: str = "",
+        timezone: str = "UTC",
+        attendees: list[str] | None = None,
+        recurrence: str | None = None,
+    ) -> dict[str, Any]: ...
+    @abstractmethod
+    def get_events(
+        self,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]: ...
 
 
 class SearchAdapter(ABC):
@@ -160,12 +222,22 @@ from adapters.infra.grafana import GrafanaAdapter  # noqa: F402
 from adapters.infra.posthog import PostHogAdapter  # noqa: F402
 # Automation
 from adapters.automation.playwright import PlaywrightAdapter  # noqa: F402
+# Communication
+from adapters.communication.smtp import SMTPAdapter  # noqa: F402
+from adapters.communication.imap import IMAPAdapter  # noqa: F402
+from adapters.communication.caldav import CalDAVAdapter  # noqa: F402
 # Search
 from adapters.search.searxng import SearXNGAdapter  # noqa: F402
 from adapters.search.opensearch import OpenSearchAdapter  # noqa: F402
 from adapters.search.pgvector import PGVectorAdapter  # noqa: F402
 # Storage
 from adapters.storage.minio import MinIOAdapter  # noqa: F402
+
+COMMUNICATION_ADAPTERS: dict[str, type] = {
+    "smtp": SMTPAdapter,
+    "imap": IMAPAdapter,
+    "caldav": CalDAVAdapter,
+}
 
 INFRA_ADAPTERS: dict[str, type] = {
     "redis": RedisCacheAdapter,
@@ -188,6 +260,9 @@ __all__ = [
     "SpeechRecognitionAdapter",
     "SpeechSynthesisAdapter",
     "BrowserAdapter",
+    "EmailSenderAdapter",
+    "EmailReaderAdapter",
+    "CalendarAdapter",
     "SearchAdapter",
     "StorageAdapter",
     "VectorSearchAdapter",
@@ -205,6 +280,10 @@ __all__ = [
     "KokoroAdapter",
     # Concrete adapters (infra / automation / search / storage)
     "PlaywrightAdapter",
+    # Concrete adapters (communication)
+    "SMTPAdapter",
+    "IMAPAdapter",
+    "CalDAVAdapter",
     "SearXNGAdapter",
     "OpenSearchAdapter",
     "PGVectorAdapter",
@@ -219,5 +298,6 @@ __all__ = [
     "IMAGE_ADAPTERS",
     "SPEECH_RECOGNITION_ADAPTERS",
     "SPEECH_SYNTHESIS_ADAPTERS",
+    "COMMUNICATION_ADAPTERS",
     "INFRA_ADAPTERS",
 ]
