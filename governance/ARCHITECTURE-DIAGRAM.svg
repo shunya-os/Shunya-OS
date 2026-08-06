@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" font-family="system-ui, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#58a6ff"/>
+      <stop offset="100%" stop-color="#3fb950"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="700" fill="url(#bg)" rx="8"/>
+
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" fill="#e6edf3" font-size="16" font-weight="bold">SHUNYA Architecture</text>
+  <text x="450" y="46" text-anchor="middle" fill="#8b949e" font-size="11">Universal Capability Framework — Architecture Freeze</text>
+
+  <!-- Layer 1: Platform Runtimes -->
+  <text x="20" y="72" fill="#58a6ff" font-size="11" font-weight="bold">PLATFORM RUNTIMES</text>
+  <rect x="20" y="78" width="860" height="52" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="4"/>
+  <text x="35" y="96" fill="#8b949e" font-size="9">Living Object Composer</text>
+  <text x="195" y="96" fill="#8b949e" font-size="9">Reality Runtime</text>
+  <text x="330" y="96" fill="#8b949e" font-size="9">Cognition Runtime</text>
+  <text x="470" y="96" fill="#8b949e" font-size="9">Communication Runtime</text>
+  <text x="620" y="96" fill="#8b949e" font-size="9">Execution Runtime</text>
+  <text x="35" y="116" fill="#8b949e" font-size="9">Workspace Runtime</text>
+  <text x="195" y="116" fill="#8b949e" font-size="9">Document Intelligence</text>
+  <text x="330" y="116" fill="#8b949e" font-size="9">Creative Intelligence</text>
+  <text x="470" y="116" fill="#8b949e" font-size="9">Relationship Engine</text>
+
+  <!-- Layer 2: Journey Semantics -->
+  <text x="20" y="152" fill="#d29922" font-size="11" font-weight="bold">INTERNAL PRIMITIVE</text>
+  <rect x="20" y="158" width="860" height="28" fill="#0d1117" stroke="#d29922" stroke-width="1" stroke-dasharray="4,3" rx="4"/>
+  <text x="450" y="176" text-anchor="middle" fill="#d29922" font-size="10">UCP-01 — Journey Semantics (internal, not user-visible)</text>
+
+  <!-- Layer 3: Universal Capabilities -->
+  <text x="20" y="208" fill="#3fb950" font-size="11" font-weight="bold">UNIVERSAL CAPABILITIES</text>
+  <rect x="20" y="214" width="860" height="140" fill="#0d1117" stroke="#30363d" stroke-width="1" rx="4"/>
+
+  <!-- Row 1: UCP-02 through UCP-07 -->
+  <rect x="30" y="222" width="130" height="42" fill="#161b22" stroke="#3fb950" stroke-width="1" rx="4"/>
+  <text x="95" y="240" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="bold">UCP-02</text>
+  <text x="95" y="254" text-anchor="middle" fill="#8b949e" font-size="8">Relationship</text>
+
+  <rect x="170" y="222" width="130" height="42" fill="#161b22" stroke="#3fb950" stroke-width="1" rx="4"/>
+  <text x="235" y="240" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="bold">UCP-03</text>
+  <text x="235" y="254" text-anchor="middle" fill="#8b949e" font-size="8">Financial</text>
+
+  <rect x="310" y="222" width="130" height="42" fill="#161b22" stroke="#3fb950" stroke-width="1" rx="4"/>
+  <text x="375" y="240" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="bold">UCP-04</text>
+  <text x="375" y="254" text-anchor="middle" fill="#8b949e" font-size="8">Knowledge</text>
+
+  <rect x="450" y="222" width="130" height="42" fill="#161b22" stroke="#3fb950" stroke-width="1" rx="4"/>
+  <text x="515" y="240" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="bold">UCP-05</text>
+  <text x="515" y="254" text-anchor="middle" fill="#8b949e" font-size="8">Decision</text>
+
+  <rect x="590" y="222" width="130" height="42" fill="#161b22" stroke="#3fb950" stroke-width="1" rx="4"/>
+  <text x="655" y="240" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="bold">UCP-06</text>
+  <text x="655" y="254" text-anchor="middle" fill="#8b949e" font-size="8">Agreement</text>
+
+  <rect x="730" y="222" width="130" height="42" fill="#161b22" stroke="#3fb950" stroke-width="1" rx="4"/>
+  <text x="795" y="240" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="bold">UCP-07</text>
+  <text x="795" y="254" text-anchor="middle" fill="#8b949e" font-size="8">Asset</text>
+
+  <!-- Row 2: UCP-08 through UCP-11 -->
+  <rect x="30" y="272" width="130" height="42" fill="#161b22" stroke="#3fb950" stroke-width="1" rx="4"/>
+  <text x="95" y="290" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="bold">UCP-08</text>
+  <text x="95" y="304" text-anchor="middle" fill="#8b949e" font-size="8">Initiative</text>
+
+  <rect x="170" y="272" width="130" height="42" fill="#161b22" stroke="#3fb950" stroke-width="1" rx="4"/>
+  <text x="235" y="290" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="bold">UCP-09</text>
+  <text x="235" y="304" text-anchor="middle" fill="#8b949e" font-size="8">Operations</text>
+
+  <rect x="310" y="272" width="130" height="42" fill="#161b22" stroke="#3fb950" stroke-width="1" rx="4"/>
+  <text x="375" y="290" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="bold">UCP-10</text>
+  <text x="375" y="304" text-anchor="middle" fill="#8b949e" font-size="8">Health</text>
+
+  <rect x="450" y="272" width="130" height="42" fill="#161b22" stroke="#3fb950" stroke-width="1" rx="4"/>
+  <text x="515" y="290" text-anchor="middle" fill="#3fb950" font-size="9" font-weight="bold">UCP-11</text>
+  <text x="515" y="304" text-anchor="middle" fill="#8b949e" font-size="8">Learning</text>
+
+  <!-- Layer 4: UCP-12 Personal OS -->
+  <text x="20" y="376" fill="#58a6ff" font-size="11" font-weight="bold">ORCHESTRATION</text>
+  <rect x="20" y="382" width="860" height="42" fill="#161b22" stroke="#58a6ff" stroke-width="2" rx="4"/>
+  <text x="450" y="400" text-anchor="middle" fill="#58a6ff" font-size="10" font-weight="bold">UCP-12 — Universal Personal Operating System</text>
+  <text x="450" y="416" text-anchor="middle" fill="#8b949e" font-size="8">Attention · Memory · Context · Workspace · Identity · Execution · Providers</text>
+
+  <!-- Layer 5: Product Streams -->
+  <text x="20" y="446" fill="#f0883e" font-size="11" font-weight="bold">PRODUCT STREAMS</text>
+  <rect x="20" y="452" width="860" height="52" fill="#0d1117" stroke="#f0883e" stroke-width="1" rx="4"/>
+  <text x="35" y="470" fill="#f0883e" font-size="9">A: Workspace</text>
+  <text x="155" y="470" fill="#f0883e" font-size="9">B: Providers</text>
+  <text x="275" y="470" fill="#f0883e" font-size="9">C: Execution</text>
+  <text x="395" y="470" fill="#f0883e" font-size="9">D: Identity</text>
+  <text x="515" y="470" fill="#f0883e" font-size="9">E: Experience</text>
+  <text x="635" y="470" fill="#f0883e" font-size="9">F: Enterprise</text>
+  <text x="35" y="490" fill="#8b949e" font-size="8">G: Performance</text>
+  <text x="155" y="490" fill="#8b949e" font-size="8">H: Launch Readiness</text>
+
+  <!-- Provider Adapters -->
+  <text x="20" y="526" fill="#bc8cff" font-size="11" font-weight="bold">PROVIDER ADAPTERS</text>
+  <rect x="20" y="532" width="860" height="52" fill="#0d1117" stroke="#bc8cff" stroke-width="1" stroke-dasharray="4,3" rx="4"/>
+  <text x="35" y="550" fill="#bc8cff" font-size="8">LibreOffice</text>
+  <text x="125" y="550" fill="#bc8cff" font-size="8">OnlyOffice</text>
+  <text x="215" y="550" fill="#bc8cff" font-size="8">ComfyUI</text>
+  <text x="295" y="550" fill="#bc8cff" font-size="8">FLUX</text>
+  <text x="365" y="550" fill="#bc8cff" font-size="8">Whisper</text>
+  <text x="445" y="550" fill="#bc8cff" font-size="8">Piper</text>
+  <text x="515" y="550" fill="#bc8cff" font-size="8">Kokoro</text>
+  <text x="595" y="550" fill="#bc8cff" font-size="8">Playwright</text>
+  <text x="675" y="550" fill="#bc8cff" font-size="8">SearXNG</text>
+  <text x="755" y="550" fill="#bc8cff" font-size="8">MinIO</text>
+  <text x="35" y="570" fill="#8b949e" font-size="8">OpenSearch  pgvector  Redis  RabbitMQ  Grafana  Prometheus  PostHog</text>
+
+  <!-- Architecture Freeze Banner -->
+  <rect x="280" y="600" width="340" height="28" fill="#0d1117" stroke="#f85149" stroke-width="1" rx="14"/>
+  <text x="450" y="619" text-anchor="middle" fill="#f85149" font-size="10" font-weight="bold">⚡ ARCHITECTURE FREEZE — Composition Only</text>
+
+  <!-- Legend -->
+  <text x="20" y="650" fill="#8b949e" font-size="9">131 tests · 17 provider adapters · 10 frozen UCPs · 8 product streams · 9 platform runtimes</text>
+  <text x="20" y="665" fill="#8b949e" font-size="9">Repository: github.com/shunya-os/Shunya-OS  ·  Tag: founder-ready-pre-alpha</text>
+</svg>

@@ -47,7 +47,7 @@ Every Living Object shall permanently possess:
 | UCP | Name | Status | Living Objects | Platform Runtimes |
 |-----|------|--------|----------------|-------------------|
 | UCP-00 | Universal Capability Constitution | FROZEN | — | — |
-| UCP-01 | (reserved) | — | — | — |
+| UCP-01 | Journey Semantics | FROZEN | — | JourneySemantics (internal primitive) |
 | UCP-02 | Relationship Intelligence | FROZEN | RelationshipProfile | RelationshipEngine, ExecutionRuntime |
 | UCP-03 | Financial Intelligence | FROZEN | FinancialProfile | ExecutionRuntime |
 | UCP-04 | Knowledge Intelligence | FROZEN | Knowledge, KnowledgeProfile | ExecutionRuntime |
@@ -55,9 +55,10 @@ Every Living Object shall permanently possess:
 | UCP-06 | Agreement Intelligence | FROZEN | Agreement, AgreementProfile | ExecutionRuntime |
 | UCP-07 | Asset Intelligence | FROZEN | Asset, AssetProfile | ExecutionRuntime |
 | UCP-08 | Initiative Intelligence | FROZEN | Initiative, InitiativeProfile | ExecutionRuntime |
-| UCP-09 | Operations Intelligence | ✅ BUILD | Process, Workflow, SOP, Resource, CapacityPlan, Queue, ServiceLevel, ContinuousImprovement | ExecutionRuntime |
-| UCP-10 | Health Intelligence | ✅ BUILD | HealthProfile, HealthMetric, WellnessActivity, MedicalRecord, MentalWellbeing | ExecutionRuntime |
-| UCP-11 | Learning Intelligence | ✅ BUILD | LearningProfile, Skill, Competency, Certification, LearningPath, Mentorship | ExecutionRuntime |
+| UCP-09 | Operations Intelligence | FROZEN | Process, Workflow, SOP, Resource, CapacityPlan, Queue, ServiceLevel, ContinuousImprovement | ExecutionRuntime |
+| UCP-10 | Health Intelligence | FROZEN | HealthProfile, HealthMetric, WellnessActivity, MedicalRecord, MentalWellbeing | ExecutionRuntime |
+| UCP-11 | Learning Intelligence | FROZEN | LearningProfile, Skill, Competency, Certification, LearningPath, Mentorship | ExecutionRuntime |
+| UCP-12 | Universal Personal OS | FROZEN | LivingContextSnapshot, AttentionSignal, ExecutableRecommendation, MemoryRecord | PersonalOSOrchestrator, WorkspaceRuntime, ExecutionEngine, IdentityEngine, ExperienceEngine, EnterpriseEngine, PerformanceEngine |
 
 ---
 
