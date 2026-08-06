@@ -1,1 +1,0 @@
-"""Organizational Intelligence tests (Milestone I)."""

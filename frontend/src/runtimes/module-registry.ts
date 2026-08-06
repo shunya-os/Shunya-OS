@@ -89,7 +89,9 @@ export const ModuleRegistry = {
       try {
         const d = await mod.discover();
         Object.assign(data, d);
-      } catch { /* module unavailable */ }
+      } catch {
+        /* module unavailable */
+      }
     }
     return data;
   },
@@ -97,18 +99,26 @@ export const ModuleRegistry = {
   /** Register all loaded modules with the platform. */
   async registerAll(data: Record<string, any>): Promise<void> {
     for (const mod of loaded.values()) {
-      try { await mod.register(data); } catch (err) { console.warn(`[ModuleRegistry] register ${mod.id}:`, err); }
+      try {
+        await mod.register(data);
+      } catch (err) {
+        console.warn(`[ModuleRegistry] register ${mod.id}:`, err);
+      }
     }
   },
 
   /** Search across all loaded modules. */
-  async searchAll(query: string): Promise<{ id: string; type: string; title: string; subtitle: string; status?: string }[]> {
+  async searchAll(
+    query: string,
+  ): Promise<{ id: string; type: string; title: string; subtitle: string; status?: string }[]> {
     const results: { id: string; type: string; title: string; subtitle: string; status?: string }[] = [];
     for (const mod of loaded.values()) {
       try {
         const hits = await mod.search(query);
         results.push(...hits);
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
     return results;
   },
@@ -119,7 +129,9 @@ export const ModuleRegistry = {
       try {
         const answer = await mod.ask(question);
         if (answer) return answer;
-      } catch { /* skip */ }
+      } catch {
+        /* skip */
+      }
     }
     return null;
   },

@@ -36,13 +36,7 @@ async function defaultAcceptInvitation(
   return { success: true };
 }
 
-export function InvitationAccept({
-  token,
-  orgName,
-  invitationEmail,
-  onBackToLogin,
-  onSubmit,
-}: Props) {
+export function InvitationAccept({ token, orgName, invitationEmail, onBackToLogin, onSubmit }: Props) {
   const [phase, setPhase] = useState<Phase>('form');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -116,11 +110,14 @@ export function InvitationAccept({
             <div className="sh-auth-info">
               {orgName
                 ? `You've been invited to join ${orgName}. Set up your account to get started.`
-                : 'You\'ve been invited to join an organization. Set up your account to get started.'}
+                : "You've been invited to join an organization. Set up your account to get started."}
             </div>
 
             {invitationEmail && (
-              <div className="sh-auth-info" style={{ border: '1px solid #2a2a3a', borderRadius: 6, padding: '6px 12px' }}>
+              <div
+                className="sh-auth-info"
+                style={{ border: '1px solid #2a2a3a', borderRadius: 6, padding: '6px 12px' }}
+              >
                 📧 {invitationEmail}
               </div>
             )}
@@ -132,7 +129,7 @@ export function InvitationAccept({
                   id="invite-name"
                   type="text"
                   value={name}
-                  onChange={e => setName(e.target.value)}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="Your name"
                   autoFocus
                   disabled={phase === 'loading'}
@@ -146,7 +143,7 @@ export function InvitationAccept({
                   id="invite-password"
                   type="password"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
                   disabled={phase === 'loading'}
                   autoComplete="new-password"
@@ -159,7 +156,7 @@ export function InvitationAccept({
                   id="invite-confirm"
                   type="password"
                   value={confirm}
-                  onChange={e => setConfirm(e.target.value)}
+                  onChange={(e) => setConfirm(e.target.value)}
                   placeholder="Re-enter password"
                   disabled={phase === 'loading'}
                   autoComplete="new-password"
@@ -178,7 +175,10 @@ export function InvitationAccept({
                 disabled={phase === 'loading' || !name.trim() || !password.trim() || !confirm.trim()}
               >
                 {phase === 'loading' ? (
-                  <><span className="sh-auth-spinner" />Setting up account…</>
+                  <>
+                    <span className="sh-auth-spinner" />
+                    Setting up account…
+                  </>
                 ) : (
                   'Accept Invitation'
                 )}

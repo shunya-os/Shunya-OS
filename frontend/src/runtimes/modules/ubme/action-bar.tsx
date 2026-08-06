@@ -81,14 +81,23 @@ export function ActionBar({ typeKey }: ActionBarProps) {
       {confirming && (
         <div
           style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
           }}
         >
           <div
             style={{
-              background: '#1e293b', border: '1px solid #334155', borderRadius: '0.75rem',
-              padding: '1.5rem', maxWidth: '400px', width: '90%',
+              background: '#1e293b',
+              border: '1px solid #334155',
+              borderRadius: '0.75rem',
+              padding: '1.5rem',
+              maxWidth: '400px',
+              width: '90%',
             }}
           >
             <h4 style={{ margin: '0 0 0.75rem', color: '#fff' }}>

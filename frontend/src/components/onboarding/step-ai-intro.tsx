@@ -49,7 +49,9 @@ export function StepAiIntro({ onNext, onBack }: Props) {
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -121,9 +123,7 @@ export function StepAiIntro({ onNext, onBack }: Props) {
           {/* ── AI Unavailable ── */}
           {aiHealth === 'unavailable' && (
             <>
-              <div className="sh-onboarding-subtitle">
-                SHUNYA's intelligence engine helps you manage your business.
-              </div>
+              <div className="sh-onboarding-subtitle">SHUNYA's intelligence engine helps you manage your business.</div>
               <div className="sh-onboarding-error" role="alert" style={{ width: '100%' }}>
                 <div style={{ fontWeight: 500, marginBottom: 4 }}>AI is not available right now</div>
                 <div>{healthMsg}</div>
@@ -131,12 +131,7 @@ export function StepAiIntro({ onNext, onBack }: Props) {
                   You can enable AI later from your workspace settings.
                 </div>
               </div>
-              <button
-                className="sh-onboarding-btn"
-                onClick={handleContinue}
-                autoFocus
-                tabIndex={0}
-              >
+              <button className="sh-onboarding-btn" onClick={handleContinue} autoFocus tabIndex={0}>
                 Skip ›
               </button>
             </>
@@ -146,9 +141,8 @@ export function StepAiIntro({ onNext, onBack }: Props) {
           {aiHealth === 'healthy' && (
             <>
               <div className="sh-onboarding-subtitle">
-                SHUNYA's intelligence engine helps you manage your business—answering questions,
-                generating insights, and automating tasks. It learns from your organization's data
-                to provide relevant, contextual responses.
+                SHUNYA's intelligence engine helps you manage your business—answering questions, generating insights,
+                and automating tasks. It learns from your organization's data to provide relevant, contextual responses.
               </div>
 
               {/* Sample message */}
@@ -164,13 +158,13 @@ export function StepAiIntro({ onNext, onBack }: Props) {
                   id="ai-demo-input"
                   className="sh-onboarding-textarea"
                   value={question}
-                  onChange={e => setQuestion(e.target.value)}
+                  onChange={(e) => setQuestion(e.target.value)}
                   placeholder="Type a question about your business..."
                   disabled={demoPhase === 'loading'}
                   ref={inputRef}
                   tabIndex={0}
                   rows={3}
-                  onKeyDown={e => {
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       if (question.trim()) handleAsk();
@@ -205,17 +199,14 @@ export function StepAiIntro({ onNext, onBack }: Props) {
 
               <div className="sh-onboarding-btn-row">
                 {question.trim() && demoPhase !== 'loading' ? (
-                  <button
-                    className="sh-onboarding-btn"
-                    onClick={handleAsk}
-                    tabIndex={0}
-                  >
+                  <button className="sh-onboarding-btn" onClick={handleAsk} tabIndex={0}>
                     Ask
                   </button>
                 ) : null}
                 {demoPhase === 'loading' && (
                   <button className="sh-onboarding-btn" disabled>
-                    <span className="sh-onboarding-spinner" />Thinking…
+                    <span className="sh-onboarding-spinner" />
+                    Thinking…
                   </button>
                 )}
                 <button

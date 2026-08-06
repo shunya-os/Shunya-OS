@@ -10,9 +10,16 @@ interface ObjectWorkspaceProps {
 }
 
 type TabId =
-  | 'overview' | 'timeline' | 'activity' | 'relationships'
-  | 'documents' | 'conversations' | 'ai' | 'history'
-  | 'attachments' | 'tasks';
+  | 'overview'
+  | 'timeline'
+  | 'activity'
+  | 'relationships'
+  | 'documents'
+  | 'conversations'
+  | 'ai'
+  | 'history'
+  | 'attachments'
+  | 'tasks';
 
 interface TabDef {
   id: TabId;
@@ -79,10 +86,16 @@ export function ObjectWorkspace({ objectType, objectId }: ObjectWorkspaceProps) 
   return (
     <div className="ubme-object-workspace" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
-      <div style={{
-        padding: '1rem 1.5rem', borderBottom: '1px solid #334155',
-        display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap',
-      }}>
+      <div
+        style={{
+          padding: '1rem 1.5rem',
+          borderBottom: '1px solid #334155',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          flexWrap: 'wrap',
+        }}
+      >
         <span style={{ fontSize: '1.5rem' }}>{objectType.icon || '📦'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#fff' }}>{object.name}</h2>
@@ -95,7 +108,15 @@ export function ObjectWorkspace({ objectType, objectId }: ObjectWorkspaceProps) 
       </div>
 
       {/* Tabs */}
-      <div className="ubme-module-tabs" style={{ padding: '0.75rem 1.5rem 0', borderBottom: '1px solid #334155', overflowX: 'auto', flexWrap: 'nowrap' }}>
+      <div
+        className="ubme-module-tabs"
+        style={{
+          padding: '0.75rem 1.5rem 0',
+          borderBottom: '1px solid #334155',
+          overflowX: 'auto',
+          flexWrap: 'nowrap',
+        }}
+      >
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -110,14 +131,10 @@ export function ObjectWorkspace({ objectType, objectId }: ObjectWorkspaceProps) 
 
       {/* Tab Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
-        {activeTab === 'overview' && (
-          <OverviewTab object={object} fields={fields} />
-        )}
+        {activeTab === 'overview' && <OverviewTab object={object} fields={fields} />}
         {activeTab === 'timeline' && <GenericTab icon="⏱️" label="Timeline" />}
         {activeTab === 'activity' && <GenericTab icon="📊" label="Activity" />}
-        {activeTab === 'relationships' && (
-          <RelationshipsTab object={object} relationships={relationships} />
-        )}
+        {activeTab === 'relationships' && <RelationshipsTab object={object} relationships={relationships} />}
         {activeTab === 'documents' && <GenericTab icon="📄" label="Documents" />}
         {activeTab === 'conversations' && <GenericTab icon="💬" label="Conversations" />}
         {activeTab === 'ai' && <GenericTab icon="🤖" label="AI Insights" />}
@@ -138,9 +155,7 @@ function OverviewTab({ object, fields }: { object: ObjectInstance; fields: Field
         {fields.map((field) => (
           <div key={field.key} className="ubme-field ubme-field-readonly">
             <label className="ubme-field-label">{field.label}</label>
-            <div className="ubme-field-value">
-              {formatFieldValue(field, object.data?.[field.key])}
-            </div>
+            <div className="ubme-field-value">{formatFieldValue(field, object.data?.[field.key])}</div>
           </div>
         ))}
 
@@ -167,17 +182,26 @@ function OverviewTab({ object, fields }: { object: ObjectInstance; fields: Field
 function RelationshipsTab({ relationships }: { object: ObjectInstance; relationships: Record<string, any>[] }) {
   if (!relationships || relationships.length === 0) {
     return (
-      <GenericEmptyState icon="🔗" title="No relationships" message="This object type has no relationships configured." />
+      <GenericEmptyState
+        icon="🔗"
+        title="No relationships"
+        message="This object type has no relationships configured."
+      />
     );
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '800px' }}>
       {relationships.map((rel, idx) => (
-        <div key={idx} style={{
-          background: '#1e293b', border: '1px solid #334155', borderRadius: '0.75rem',
-          padding: '1rem',
-        }}>
+        <div
+          key={idx}
+          style={{
+            background: '#1e293b',
+            border: '1px solid #334155',
+            borderRadius: '0.75rem',
+            padding: '1rem',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <span>🔗</span>
             <strong style={{ color: '#e2e8f0', fontSize: '0.9rem' }}>
@@ -233,13 +257,37 @@ function formatFieldValue(field: FieldDef, value: any): React.ReactNode {
     case 'datetime':
       return new Date(value).toLocaleString();
     case 'email':
-      return <a href={`mailto:${value}`} style={{ color: '#6366f1' }}>{value}</a>;
+      return (
+        <a href={`mailto:${value}`} style={{ color: '#6366f1' }}>
+          {value}
+        </a>
+      );
     case 'phone':
-      return <a href={`tel:${value}`} style={{ color: '#6366f1' }}>{value}</a>;
+      return (
+        <a href={`tel:${value}`} style={{ color: '#6366f1' }}>
+          {value}
+        </a>
+      );
     case 'url':
-      return <a href={value} target="_blank" rel="noopener noreferrer" style={{ color: '#6366f1' }}>{value}</a>;
+      return (
+        <a href={value} target="_blank" rel="noopener noreferrer" style={{ color: '#6366f1' }}>
+          {value}
+        </a>
+      );
     case 'json':
-      return <pre style={{ background: '#0f172a', padding: '0.75rem', borderRadius: '0.5rem', overflow: 'auto', fontSize: '0.8rem' }}>{JSON.stringify(value, null, 2)}</pre>;
+      return (
+        <pre
+          style={{
+            background: '#0f172a',
+            padding: '0.75rem',
+            borderRadius: '0.5rem',
+            overflow: 'auto',
+            fontSize: '0.8rem',
+          }}
+        >
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      );
     case 'select':
     case 'text':
     case 'long_text':

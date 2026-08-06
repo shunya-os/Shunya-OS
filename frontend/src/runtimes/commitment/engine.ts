@@ -52,9 +52,17 @@ import { stateFabric } from '../state-fabric';
 // ── Types ──────────────────────────────────────────────────────
 
 export type CommitmentStatus =
-  | 'draft' | 'proposed' | 'accepted' | 'planned' | 'active'
-  | 'waiting' | 'blocked' | 'at_risk'
-  | 'completed' | 'cancelled' | 'archived';
+  | 'draft'
+  | 'proposed'
+  | 'accepted'
+  | 'planned'
+  | 'active'
+  | 'waiting'
+  | 'blocked'
+  | 'at_risk'
+  | 'completed'
+  | 'cancelled'
+  | 'archived';
 
 export interface CommitmentEntity {
   id: string;
@@ -62,8 +70,8 @@ export interface CommitmentEntity {
   description: string;
   objective: string;
   status: CommitmentStatus;
-  progress: number;          // 0-1, derived
-  confidence: number;        // 0-1, explainable
+  progress: number; // 0-1, derived
+  confidence: number; // 0-1, explainable
   priority: 'critical' | 'high' | 'medium' | 'low';
   owner: string;
   participants: string[];
@@ -97,7 +105,9 @@ export function canTransition(from: CommitmentStatus, to: CommitmentStatus): boo
   return VALID_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
-function newId(): string { return `cmt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
+function newId(): string {
+  return `cmt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 // ── Progress Strategies ───────────────────────────────────────
 
@@ -138,9 +148,17 @@ function calcConfidence(commitment: CommitmentEntity): number {
 
   // Status-based (up to 0.25)
   const statusConfidence: Record<CommitmentStatus, number> = {
-    draft: 0.1, proposed: 0.2, accepted: 0.35, planned: 0.5,
-    active: 0.65, waiting: 0.4, blocked: 0.2, at_risk: 0.35,
-    completed: 1, cancelled: 0, archived: 1,
+    draft: 0.1,
+    proposed: 0.2,
+    accepted: 0.35,
+    planned: 0.5,
+    active: 0.65,
+    waiting: 0.4,
+    blocked: 0.2,
+    at_risk: 0.35,
+    completed: 1,
+    cancelled: 0,
+    archived: 1,
   };
   score += statusConfidence[commitment.status] * 0.25;
   factors.push(`status: ${(statusConfidence[commitment.status] * 0.25).toFixed(2)}`);
@@ -170,13 +188,17 @@ const commitments = new Map<string, CommitmentEntity>();
 let lastActivity = Date.now();
 
 function snap(commitment: CommitmentEntity): void {
-  stateFabric.write('commitment-runtime', {
-    [commitment.id]: {
-      status: commitment.status,
-      progress: commitment.progress,
-      confidence: commitment.confidence,
+  stateFabric.write(
+    'commitment-runtime',
+    {
+      [commitment.id]: {
+        status: commitment.status,
+        progress: commitment.progress,
+        confidence: commitment.confidence,
+      },
     },
-  }, `commitment_${commitment.status}`);
+    `commitment_${commitment.status}`,
+  );
 }
 
 // ── Runtime ───────────────────────────────────────────────────
@@ -185,9 +207,13 @@ export const CommitmentRuntime = {
   // ── CRUD ──────────────────────────────────────────────────────
 
   create(opts: {
-    title: string; description?: string; objective?: string;
-    priority?: CommitmentEntity['priority']; owner?: string;
-    deadline?: number; outcome?: string;
+    title: string;
+    description?: string;
+    objective?: string;
+    priority?: CommitmentEntity['priority'];
+    owner?: string;
+    deadline?: number;
+    outcome?: string;
   }): CommitmentEntity {
     const entity: CommitmentEntity = {
       id: newId(),
@@ -225,7 +251,7 @@ export const CommitmentRuntime = {
   },
 
   getByStatus(status: CommitmentStatus): CommitmentEntity[] {
-    return this.getAll().filter(c => c.status === status);
+    return this.getAll().filter((c) => c.status === status);
   },
 
   // ── Transitions ──────────────────────────────────────────────
@@ -241,10 +267,14 @@ export const CommitmentRuntime = {
     lastActivity = Date.now();
     snap(c);
 
-    const eventType = ({
-      active: 'CommitmentActivated', blocked: 'CommitmentBlocked',
-      completed: 'CommitmentCompleted', cancelled: 'CommitmentCancelled',
-    } as Record<string, string>)[to];
+    const eventType = (
+      {
+        active: 'CommitmentActivated',
+        blocked: 'CommitmentBlocked',
+        completed: 'CommitmentCompleted',
+        cancelled: 'CommitmentCancelled',
+      } as Record<string, string>
+    )[to];
 
     if (eventType) {
       bus.emit({ type: eventType as any, commitmentId: id } as any);
@@ -268,7 +298,7 @@ export const CommitmentRuntime = {
   removeEvidence(commitmentId: string, evidenceId: string): void {
     const c = commitments.get(commitmentId);
     if (!c) return;
-    c.evidenceIds = c.evidenceIds.filter(e => e !== evidenceId);
+    c.evidenceIds = c.evidenceIds.filter((e) => e !== evidenceId);
     c.updatedAt = Date.now();
     c.progress = calcProgress(c);
     c.confidence = calcConfidence(c);
@@ -331,7 +361,7 @@ export const CommitmentRuntime = {
       if (visited.has(id)) return false;
       visited.add(id);
       const depCommitment = commitments.get(id);
-      return depCommitment?.dependencyCommitmentIds.some(d => hasCycle(d)) ?? false;
+      return depCommitment?.dependencyCommitmentIds.some((d) => hasCycle(d)) ?? false;
     }
     if (hasCycle(dependencyId)) return false;
 

@@ -106,7 +106,7 @@ class HumanContextItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
     person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, index=True)
-    relationship_id = db.Column(db.Integer, db.ForeignKey("relationships.id"), nullable=True)
+    relationship_id = db.Column(db.Integer, db.ForeignKey("rel_relationships.id"), nullable=True)
 
     context_category = db.Column(db.String(60), nullable=False, default="other")
     context_key = db.Column(db.String(255), nullable=False, index=True)
@@ -159,7 +159,7 @@ class ContextProposal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
     person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, index=True)
-    relationship_id = db.Column(db.Integer, db.ForeignKey("relationships.id"), nullable=True)
+    relationship_id = db.Column(db.Integer, db.ForeignKey("rel_relationships.id"), nullable=True)
 
     context_category = db.Column(db.String(60), nullable=False, default="other")
     context_key = db.Column(db.String(255), nullable=False)

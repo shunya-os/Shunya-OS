@@ -211,24 +211,28 @@ const module: ShunyaModule = {
       const nav = await api.getNavigation();
       data.navigation = nav;
       data.hasModules = Object.keys(nav).length > 0;
-    } catch { /* unavailable */ }
+    } catch {
+      /* unavailable */
+    }
 
     try {
       const types = await api.listTypes();
       data.types = types;
       data.hasTypes = Object.keys(types).length > 0;
-    } catch { /* unavailable */ }
+    } catch {
+      /* unavailable */
+    }
 
     return data;
   },
 
   register: async (data: Record<string, any>) => {
-    const nav = data.navigation as Record<string, any> ?? {};
+    const nav = (data.navigation as Record<string, any>) ?? {};
 
     // Register dynamic workspaces for each module
     for (const [modKey, modData] of Object.entries(nav)) {
       const info = modData as any;
-      for (const entry of (info.entries || [])) {
+      for (const entry of info.entries || []) {
         const otKey = entry.object_type;
         if (otKey) {
           WorkspaceRegistry.register({
@@ -258,7 +262,7 @@ const module: ShunyaModule = {
     // Register a universal object workspace for each object type
     for (const [modKey, modData] of Object.entries(nav)) {
       const info = modData as any;
-      for (const entry of (info.entries || [])) {
+      for (const entry of info.entries || []) {
         const otKey = entry.object_type;
         if (otKey) {
           WorkspaceRegistry.register({
@@ -281,7 +285,7 @@ const module: ShunyaModule = {
       const modules = await (await fetch('/api/ubme/modules', { credentials: 'include' })).json();
       const modList = modules.data || [];
       for (const mod of modList) {
-        for (const ot of (mod.object_types || [])) {
+        for (const ot of mod.object_types || []) {
           try {
             const instances = await (await fetch(`/api/ubme/data/${ot.key}`, { credentials: 'include' })).json();
             const items = instances.data || [];
@@ -297,10 +301,14 @@ const module: ShunyaModule = {
                 });
               }
             }
-          } catch { /* skip */ }
+          } catch {
+            /* skip */
+          }
         }
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
     return results;
   },
 
@@ -309,15 +317,15 @@ const module: ShunyaModule = {
     try {
       const modules = await (await fetch('/api/ubme/modules', { credentials: 'include' })).json();
       const modList = modules.data || [];
-      if (modList.length === 0) return null;  // Let other modules answer
+      if (modList.length === 0) return null; // Let other modules answer
       let answer = `Installed modules: ${modList.map((m: any) => m.name).join(', ')}.`;
       for (const mod of modList) {
-        const ots = (mod.object_types || []).map((ot: any) => `${ot.name} (${(mod.icon || '📦')})`).join(', ');
+        const ots = (mod.object_types || []).map((ot: any) => `${ot.name} (${mod.icon || '📦'})`).join(', ');
         if (ots) answer += ` ${mod.name} has: ${ots}.`;
       }
       return answer;
     } catch {
-      return null;  // Let other modules answer
+      return null; // Let other modules answer
     }
   },
 };

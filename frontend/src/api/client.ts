@@ -7,8 +7,21 @@
 const BASE = '/api/v1';
 
 async function req<T>(path: string, opts?: RequestInit): Promise<T> {
+  // Include identity_id from sessionStorage as a header for cookie-free auth
+  const extraHeaders: Record<string, string> = {};
+  try {
+    const raw = sessionStorage.getItem('shunya_session');
+    if (raw) {
+      const session = JSON.parse(raw);
+      if (session.identityId) {
+        extraHeaders['X-Identity-Id'] = session.identityId;
+      }
+    }
+  } catch {
+    /* sessionStorage unavailable */
+  }
   const r = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+    headers: { 'Content-Type': 'application/json', ...extraHeaders, ...opts?.headers },
     credentials: 'include',
     ...opts,
   });
@@ -22,9 +35,13 @@ async function req<T>(path: string, opts?: RequestInit): Promise<T> {
 
 export const api = {
   signin: (email: string, password: string) =>
-    req<{ success: boolean; name?: string; identity_id?: string; redirect?: string; error?: string }>('/founder/signin', {
-      method: 'POST', body: JSON.stringify({ email, password }),
-    }),
+    req<{ success: boolean; name?: string; identity_id?: string; redirect?: string; error?: string }>(
+      '/founder/signin',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      },
+    ),
 
   /** Generic query — discover available capabilities. */
   query: <T = any>(path: string, opts?: RequestInit) => req<T>(path, opts),
@@ -34,25 +51,29 @@ export const api = {
   /** Request a password reset email. */
   forgotPassword: (email: string) =>
     req<{ success: boolean; error?: string }>('/auth/forgot-password', {
-      method: 'POST', body: JSON.stringify({ email }),
+      method: 'POST',
+      body: JSON.stringify({ email }),
     }),
 
   /** Reset password using a reset token. */
   resetPassword: (token: string, password: string) =>
     req<{ success: boolean; error?: string }>('/auth/reset-password', {
-      method: 'POST', body: JSON.stringify({ token, password }),
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
     }),
 
   /** Request a verification email. */
   requestVerification: (email: string) =>
     req<{ success: boolean; error?: string }>('/auth/request-verification', {
-      method: 'POST', body: JSON.stringify({ email }),
+      method: 'POST',
+      body: JSON.stringify({ email }),
     }),
 
   /** Verify email with a token. */
   verifyEmail: (token: string) =>
     req<{ success: boolean; error?: string }>('/auth/verify-email', {
-      method: 'POST', body: JSON.stringify({ token }),
+      method: 'POST',
+      body: JSON.stringify({ token }),
     }),
 
   /** Get invitation details (name, email, org). */
@@ -64,13 +85,15 @@ export const api = {
   /** Accept an invitation — set name and password. */
   acceptInvitation: (token: string, name: string, password: string) =>
     req<{ success: boolean; identity_id?: string; error?: string }>('/auth/accept-invitation', {
-      method: 'POST', body: JSON.stringify({ token, name, password }),
+      method: 'POST',
+      body: JSON.stringify({ token, name, password }),
     }),
 
   /** Sign up with email, password, and name. */
   signup: (email: string, password: string, name: string) =>
     req<{ success: boolean; identity_id?: string; error?: string }>('/auth/signup', {
-      method: 'POST', body: JSON.stringify({ email, password, name }),
+      method: 'POST',
+      body: JSON.stringify({ email, password, name }),
     }),
 
   // ── Onboarding / Org ──
@@ -78,7 +101,8 @@ export const api = {
   /** Create an organization. */
   createOrg: (name: string, businessType: string) =>
     req<{ success: boolean; org_id?: string; org_name?: string; error?: string }>('/orgs', {
-      method: 'POST', body: JSON.stringify({ company_name: name, business_type: businessType }),
+      method: 'POST',
+      body: JSON.stringify({ company_name: name, business_type: businessType }),
     }),
 
   /** Create an organization with extended fields (Z-03A). */
@@ -95,7 +119,8 @@ export const api = {
     currency?: string;
   }) =>
     req<{ success: boolean; org_id?: string; org_name?: string; error?: string }>('/orgs', {
-      method: 'POST', body: JSON.stringify(fields),
+      method: 'POST',
+      body: JSON.stringify(fields),
     }),
 
   /** Check AI / runtime health for onboarding. */
@@ -107,12 +132,39 @@ export const api = {
   /** Ask the intelligence engine a question. */
   askIntelligence: (question: string) =>
     req<{ success: boolean; answer?: string; error?: string }>('/intelligence/ask', {
-      method: 'POST', body: JSON.stringify({ question }),
+      method: 'POST',
+      body: JSON.stringify({ question }),
     }),
 
   /** Create a business object. */
   createObject: (name: string, objectType: string) =>
-    req<{ success: boolean; object_id?: string; object_type?: string; error?: string }>('/objects', {
-      method: 'POST', body: JSON.stringify({ name, object_type: objectType }),
+    req<{ success: boolean; object_id?: string; object_type?: string; error?: string }>(
+      `/objects/${encodeURIComponent(objectType)}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ company_name: name }),
+      },
+    ),
+
+  // ── Z-03A: Onboarding Persistence & Auto-Objects ──
+
+  /** Auto-create foundational objects (Z-03A Article XII). */
+  autoCreateFoundationalObjects: (businessCategory?: string) =>
+    req<{
+      success: boolean;
+      data?: { message: string; count: number; objects: { object_id: string; name: string; object_type: string }[] };
+    }>('/founder/objects/auto-create', {
+      method: 'POST',
+      body: JSON.stringify({ business_category: businessCategory || 'Service Business' }),
+    }),
+
+  /** Check onboarding completion status (Z-03A Article XIV). */
+  checkOnboardingStatus: () =>
+    req<{ success: boolean; data?: { completed: boolean; identity_id: string } }>('/founder/onboarding/status'),
+
+  /** Mark onboarding as complete (DB-backed, survives restarts). */
+  completeOnboarding: () =>
+    req<{ success: boolean; data?: { completed: boolean } }>('/founder/onboarding/status', {
+      method: 'POST',
     }),
 };

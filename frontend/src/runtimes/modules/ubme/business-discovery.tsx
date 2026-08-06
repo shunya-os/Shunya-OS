@@ -79,11 +79,20 @@ export function BusinessDiscovery({ onInstalled }: { onInstalled?: (module: Modu
         <div className="ubme-discovery-examples">
           <p className="ubme-discovery-examples-label">Try:</p>
           <div className="ubme-discovery-example-chips">
-            {['I run a dental clinic', 'I manufacture furniture', "I'm starting a law firm", 'I own a retail store', 'I manage a restaurant'].map((ex) => (
+            {[
+              'I run a dental clinic',
+              'I manufacture furniture',
+              "I'm starting a law firm",
+              'I own a retail store',
+              'I manage a restaurant',
+            ].map((ex) => (
               <button
                 key={ex}
                 className="ubme-discovery-chip"
-                onClick={() => { setDescription(ex); setBusinessName(''); }}
+                onClick={() => {
+                  setDescription(ex);
+                  setBusinessName('');
+                }}
               >
                 {ex}
               </button>
@@ -111,11 +120,7 @@ export function BusinessDiscovery({ onInstalled }: { onInstalled?: (module: Modu
               placeholder="e.g. SmileCare Dental"
             />
           </div>
-          <button
-            className="ubme-btn-primary"
-            onClick={handleDiscover}
-            disabled={!description.trim()}
-          >
+          <button className="ubme-btn-primary" onClick={handleDiscover} disabled={!description.trim()}>
             🪄 Generate Business Module
           </button>
         </div>
@@ -204,7 +209,8 @@ export function BusinessDiscovery({ onInstalled }: { onInstalled?: (module: Modu
             <div className="ubme-discovery-ot-fields">
               {ot.fields?.slice(0, 6).map((f) => (
                 <span key={f.key} className="ubme-field-chip">
-                  {f.label}{f.required ? '*' : ''}
+                  {f.label}
+                  {f.required ? '*' : ''}
                 </span>
               ))}
               {(ot.fields?.length || 0) > 6 && (

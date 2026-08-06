@@ -37,37 +37,43 @@ export function VerifyEmail({ token, onBackToLogin, onSubmit }: Props) {
   useEffect(() => {
     let cancelled = false;
     const fn = onSubmit ?? defaultVerifyEmail;
-    fn(token).then(result => {
-      if (cancelled) return;
-      if (result.success) {
-        setPhase('success');
-      } else {
+    fn(token)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.success) {
+          setPhase('success');
+        } else {
+          setPhase('error');
+          setErrorMsg(result.error ?? 'Verification failed. The link may have expired.');
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
         setPhase('error');
-        setErrorMsg(result.error ?? 'Verification failed. The link may have expired.');
-      }
-    }).catch(() => {
-      if (cancelled) return;
-      setPhase('error');
-      setErrorMsg('Could not connect. Check that the server is running.');
-    });
-    return () => { cancelled = true; };
+        setErrorMsg('Could not connect. Check that the server is running.');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [token, onSubmit]);
 
   const handleRetry = () => {
     setPhase('verifying');
     setErrorMsg('');
     const fn = onSubmit ?? defaultVerifyEmail;
-    fn(token).then(result => {
-      if (result.success) {
-        setPhase('success');
-      } else {
+    fn(token)
+      .then((result) => {
+        if (result.success) {
+          setPhase('success');
+        } else {
+          setPhase('error');
+          setErrorMsg(result.error ?? 'Verification failed. The link may have expired.');
+        }
+      })
+      .catch(() => {
         setPhase('error');
-        setErrorMsg(result.error ?? 'Verification failed. The link may have expired.');
-      }
-    }).catch(() => {
-      setPhase('error');
-      setErrorMsg('Could not connect. Check that the server is running.');
-    });
+        setErrorMsg('Could not connect. Check that the server is running.');
+      });
   };
 
   return (
@@ -90,9 +96,7 @@ export function VerifyEmail({ token, onBackToLogin, onSubmit }: Props) {
         {/* ── Success ── */}
         {phase === 'success' && (
           <>
-            <div className="sh-auth-success">
-              Email verified successfully!
-            </div>
+            <div className="sh-auth-success">Email verified successfully!</div>
             <button className="sh-auth-btn" onClick={onBackToLogin} type="button" autoFocus>
               Sign in
             </button>

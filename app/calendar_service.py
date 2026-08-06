@@ -10,7 +10,10 @@ from datetime import datetime, date, timedelta
 from typing import Optional
 
 from app import db
-from app.models import Lead, ItineraryRef
+try:
+    from app.models import Lead, ItineraryRef
+except ImportError:
+    ItineraryRef = None
 
 
 # ---------------------------------------------------------------------------
@@ -177,26 +180,27 @@ class CalendarService:
                 })
 
         # --- ItineraryRefs ---
-        refs = ItineraryRef.query.filter(
-            ItineraryRef.start_date.isnot(None),
-            ItineraryRef.end_date.isnot(None),
-            ItineraryRef.start_date <= end_date,
-            ItineraryRef.end_date >= start_date,
-        ).all()
-        for ref in refs:
-            current = max(ref.start_date, start_date)
-            range_end = min(ref.end_date, end_date)
-            while current <= range_end:
-                events.append({
-                    "id": f"itinerary-{ref.id}",
-                    "title": f"{ref.guest_name or 'Guest'} — {ref.destination or 'Trip'}"[:60],
-                    "date": current.isoformat(),
-                    "type": "itinerary",
-                    "status": "converted",
-                    "url": f"/itineraries?ref_id={ref.id}",
-                    "color": self.COLOR_ITINERARY,
-                })
-                current += timedelta(days=1)
+        if ItineraryRef is not None:
+            refs = ItineraryRef.query.filter(
+                ItineraryRef.start_date.isnot(None),
+                ItineraryRef.end_date.isnot(None),
+                ItineraryRef.start_date <= end_date,
+                ItineraryRef.end_date >= start_date,
+            ).all()
+            for ref in refs:
+                current = max(ref.start_date, start_date)
+                range_end = min(ref.end_date, end_date)
+                while current <= range_end:
+                    events.append({
+                        "id": f"itinerary-{ref.id}",
+                        "title": f"{ref.guest_name or 'Guest'} — {ref.destination or 'Trip'}"[:60],
+                        "date": current.isoformat(),
+                        "type": "itinerary",
+                        "status": "converted",
+                        "url": f"/itineraries?ref_id={ref.id}",
+                        "color": self.COLOR_ITINERARY,
+                    })
+                    current += timedelta(days=1)
 
         # --- Tasks (if model exists) ---
         try:

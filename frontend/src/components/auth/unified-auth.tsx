@@ -13,11 +13,23 @@ type AuthMode = 'signin' | 'signup' | 'forgot';
 type Phase = 'form' | 'loading' | 'success' | 'error';
 
 interface Props {
-  onSubmit?: (name: string | undefined, email: string, password: string, mode: 'signin' | 'signup') => Promise<{ success: boolean; error?: string }>;
+  initialMode?: AuthMode;
+  onSubmit?: (
+    name: string | undefined,
+    email: string,
+    password: string,
+    mode: 'signin' | 'signup',
+  ) => Promise<{ success: boolean; error?: string }>;
   onForgotPassword?: (email: string) => Promise<{ success: boolean; error?: string }>;
 }
 
-function getValidationError(name: string | undefined, email: string, password: string, confirm: string, mode: AuthMode): string | null {
+function getValidationError(
+  name: string | undefined,
+  email: string,
+  password: string,
+  confirm: string,
+  mode: AuthMode,
+): string | null {
   if (!email.trim()) return 'Email is required.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Enter a valid email address.';
   if (mode === 'signup') {
@@ -29,8 +41,8 @@ function getValidationError(name: string | undefined, email: string, password: s
   return null;
 }
 
-export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
-  const [mode, setMode] = useState<AuthMode>('signin');
+export function UnifiedAuth({ initialMode, onSubmit, onForgotPassword }: Props) {
+  const [mode, setMode] = useState<AuthMode>(initialMode || 'signin');
   const [phase, setPhase] = useState<Phase>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -38,7 +50,7 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
   const [confirm, setConfirm] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [showForgot, setShowForgot] = useState(false);
+  const [showForgot, setShowForgot] = useState(initialMode === 'forgot');
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotPhase, setForgotPhase] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [forgotError, setForgotError] = useState('');
@@ -72,10 +84,11 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
       const fn = onSubmit;
       if (!fn) {
         // Default inline submission
-        const endpoint = mode === 'signin' ? '/api/v1/auth/signin' : '/api/v1/auth/signup';
-        const body = mode === 'signin'
-          ? JSON.stringify({ email: email.trim().toLowerCase(), password })
-          : JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password });
+        const endpoint = mode === 'signin' ? '/api/v1/founder/signin' : '/api/v1/founder/signup';
+        const body =
+          mode === 'signin'
+            ? JSON.stringify({ email: email.trim().toLowerCase(), password })
+            : JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password });
         const resp = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -97,7 +110,7 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
           mode === 'signup' ? name.trim() : undefined,
           email.trim().toLowerCase(),
           password,
-          mode
+          mode === 'signup' ? 'signup' : 'signin',
         );
         if (result.success) {
           setPhase('success');
@@ -208,7 +221,11 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                   </div>
                   <button
                     className="sh-auth-btn"
-                    onClick={() => { setShowForgot(false); setForgotPhase('idle'); }}
+                    onClick={() => {
+                      setShowForgot(false);
+                      setForgotPhase('idle');
+                      setMode('signin');
+                    }}
                     type="button"
                     tabIndex={0}
                   >
@@ -223,7 +240,7 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                       id="forgot-email"
                       type="email"
                       value={forgotEmail}
-                      onChange={e => setForgotEmail(e.target.value)}
+                      onChange={(e) => setForgotEmail(e.target.value)}
                       placeholder="you@company.com"
                       autoFocus
                       disabled={forgotPhase === 'loading'}
@@ -231,7 +248,9 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                     />
                   </div>
                   {forgotPhase === 'error' && (
-                    <div className="sh-auth-error" role="alert">{forgotError}</div>
+                    <div className="sh-auth-error" role="alert">
+                      {forgotError}
+                    </div>
                   )}
                   <button
                     type="submit"
@@ -240,14 +259,21 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                     tabIndex={0}
                   >
                     {forgotPhase === 'loading' ? (
-                      <><span className="sh-auth-spinner" />Sending…</>
+                      <>
+                        <span className="sh-auth-spinner" />
+                        Sending…
+                      </>
                     ) : (
                       'Send Reset Link'
                     )}
                   </button>
                   <button
                     className="sh-auth-btn-secondary"
-                    onClick={() => { setShowForgot(false); setForgotPhase('idle'); }}
+                    onClick={() => {
+                      setShowForgot(false);
+                      setForgotPhase('idle');
+                      setMode('signin');
+                    }}
                     type="button"
                     disabled={forgotPhase === 'loading'}
                     tabIndex={0}
@@ -266,8 +292,16 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
             {/* Success message for signup */}
             {phase === 'success' && mode === 'signup' && (
               <>
-                <div className="sh-auth-success" role="status">{successMsg}</div>
-                <button className="sh-auth-btn" onClick={() => handleModeSwitch('signin')} type="button" autoFocus tabIndex={0}>
+                <div className="sh-auth-success" role="status">
+                  {successMsg}
+                </div>
+                <button
+                  className="sh-auth-btn"
+                  onClick={() => handleModeSwitch('signin')}
+                  type="button"
+                  autoFocus
+                  tabIndex={0}
+                >
                   Sign in
                 </button>
               </>
@@ -275,7 +309,12 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
 
             {(phase !== 'success' || mode === 'signin') && (
               <>
-                <form className="sh-auth-form" onSubmit={handleSubmit} role="main" aria-label={mode === 'signin' ? 'Sign in' : 'Create account'}>
+                <form
+                  className="sh-auth-form"
+                  onSubmit={handleSubmit}
+                  role="main"
+                  aria-label={mode === 'signin' ? 'Sign in' : 'Create account'}
+                >
                   {mode === 'signup' && (
                     <div className="sh-auth-field">
                       <label htmlFor="ua-name">Full name</label>
@@ -283,7 +322,7 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                         id="ua-name"
                         type="text"
                         value={name}
-                        onChange={e => setName(e.target.value)}
+                        onChange={(e) => setName(e.target.value)}
                         placeholder="Your name"
                         disabled={phase === 'loading'}
                         autoComplete="name"
@@ -299,7 +338,7 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                       id="ua-email"
                       type="email"
                       value={email}
-                      onChange={e => setEmail(e.target.value)}
+                      onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@company.com"
                       disabled={phase === 'loading'}
                       autoComplete="email"
@@ -314,7 +353,7 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                       id="ua-password"
                       type="password"
                       value={password}
-                      onChange={e => setPassword(e.target.value)}
+                      onChange={(e) => setPassword(e.target.value)}
                       placeholder={mode === 'signup' ? 'At least 8 characters' : 'Enter your password'}
                       disabled={phase === 'loading'}
                       autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
@@ -329,7 +368,7 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                         id="ua-confirm"
                         type="password"
                         value={confirm}
-                        onChange={e => setConfirm(e.target.value)}
+                        onChange={(e) => setConfirm(e.target.value)}
                         placeholder="Re-enter password"
                         disabled={phase === 'loading'}
                         autoComplete="new-password"
@@ -339,7 +378,9 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                   )}
 
                   {phase === 'error' && (
-                    <div className="sh-auth-error" role="alert">{errorMsg}</div>
+                    <div className="sh-auth-error" role="alert">
+                      {errorMsg}
+                    </div>
                   )}
 
                   <button
@@ -354,9 +395,14 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                     tabIndex={0}
                   >
                     {phase === 'loading' ? (
-                      <><span className="sh-auth-spinner" />{mode === 'signin' ? 'Signing in…' : 'Creating account…'}</>
+                      <>
+                        <span className="sh-auth-spinner" />
+                        {mode === 'signin' ? 'Signing in…' : 'Creating account…'}
+                      </>
+                    ) : mode === 'signin' ? (
+                      'Sign In'
                     ) : (
-                      mode === 'signin' ? 'Sign In' : 'Create Account'
+                      'Create Account'
                     )}
                   </button>
                 </form>
@@ -373,7 +419,14 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                     type="button"
                     disabled={phase === 'loading'}
                     tabIndex={0}
-                    style={{ fontSize: '0.75rem', color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--sh-gold, #A4865F)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
                   >
                     Forgot password?
                   </button>
@@ -383,7 +436,10 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
                 <div className="sh-auth-divider">OR</div>
 
                 {/* Future: Magic Link / Social Auth */}
-                <div className="sh-auth-social" style={{ width: '100%', textAlign: 'center', fontSize: '0.75rem', color: '#555' }}>
+                <div
+                  className="sh-auth-social"
+                  style={{ width: '100%', textAlign: 'center', fontSize: '0.75rem', color: '#555' }}
+                >
                   Social login and Magic Link coming soon.
                 </div>
               </>
@@ -392,46 +448,7 @@ export function UnifiedAuth({ onSubmit, onForgotPassword }: Props) {
         )}
       </div>
 
-      <style>{`
-        ${authStyles}
-
-        /* ── Tab bar ── */
-        .sh-auth-tabs {
-          display: flex;
-          width: 100%;
-          border: 1px solid #2a2a3a;
-          border-radius: 6px;
-          overflow: hidden;
-        }
-        .sh-auth-tab {
-          flex: 1;
-          padding: 10px 14px;
-          background: transparent;
-          color: #666;
-          border: none;
-          font-size: 0.85rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-          font-family: inherit;
-        }
-        .sh-auth-tab.active {
-          background: #D4A84B;
-          color: #0a0a0f;
-        }
-        .sh-auth-tab:hover:not(.active):not(:disabled) {
-          color: #D4A84B;
-          background: rgba(212, 168, 75, 0.08);
-        }
-        .sh-auth-tab:disabled {
-          opacity: 0.3;
-          cursor: not-allowed;
-        }
-        .sh-auth-tab:focus-visible {
-          outline: 2px solid #D4A84B;
-          outline-offset: -2px;
-        }
-      `}</style>
+      <style>{authStyles}</style>
     </div>
   );
 }

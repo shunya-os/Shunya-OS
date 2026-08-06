@@ -74,6 +74,19 @@ export interface BaseProps {
   children?: React.ReactNode;
 }
 
+// ===== Workspace =====
+export interface WorkspaceType {
+  id: string;
+  name: string;
+  workspace_type: 'business' | 'personal' | 'custom';
+  icon: string;
+  color: string;
+  description: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // ===== Events =====
 export interface AppEvent {
   type: string;

@@ -1,0 +1,1 @@
+"""Search provider package — Free-first abstraction layer for internet search."""

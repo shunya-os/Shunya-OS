@@ -221,8 +221,72 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
             "generated_at": __import__("datetime").datetime.now(
                 __import__("datetime").timezone.utc
             ).isoformat(),
+            "priorities": _get_priorities(),
+            "recent_activity": _get_recent_activity(),
         },
     }
+
+
+def _get_priorities() -> list[dict]:
+    """Return priorities/nudges from sh_objects data."""
+    from sqlalchemy import text
+    priorities = []
+    try:
+        from app import db
+        # Overdue invoices
+        overdue = db.session.execute(text(
+            "SELECT data->>'customer_name' as name, data->>'amount' as amt "
+            "FROM sh_objects WHERE object_type='invoice' AND status='overdue' LIMIT 5"
+        )).fetchall()
+        for inv in overdue:
+            priorities.append({"id": f"inv-overdue-{inv.name}", "title": f"INV-{inv.name} is overdue",
+                               "reason": f"Payment of ${float(inv.amt or 0):.0f} is overdue.",
+                               "urgency": "high", "recommended_action": "Send payment reminder"})
+        # New leads
+        leads = db.session.execute(text(
+            "SELECT data->>'company_name' as name FROM sh_objects "
+            "WHERE object_type='customer' AND status='active' LIMIT 5"
+        )).fetchall()
+        for lead in leads:
+            priorities.append({"id": f"lead-new-{lead.name}", "title": f"New lead: {lead.name}",
+                               "reason": "Created recently — no activity yet",
+                               "urgency": "low", "recommended_action": "Review and qualify"})
+        # Active tasks
+        tasks = db.session.execute(text(
+            "SELECT name FROM sh_objects WHERE object_type='task' AND status='active' LIMIT 5"
+        )).fetchall()
+        for t in tasks:
+            priorities.append({"id": f"task-{t.name}", "title": f"Task: {t.name}",
+                               "reason": "Active task requiring attention",
+                               "urgency": "medium", "recommended_action": "Review and complete"})
+    except Exception:
+        pass
+    return priorities
+
+
+def _get_recent_activity() -> list[dict]:
+    """Return recent activity from sh_objects."""
+    from sqlalchemy import text
+    activity = []
+    try:
+        from app import db
+        rows = db.session.execute(text(
+            "SELECT object_type, name, updated_at FROM sh_objects "
+            "ORDER BY updated_at DESC NULLS LAST LIMIT 10"
+        )).fetchall()
+        for row in rows:
+            ts = row.updated_at.isoformat() if row.updated_at else ""
+            activity.append({
+                "type": f"{row.object_type}_updated",
+                "title": row.name,
+                "description": f"{row.object_type}: {row.name}",
+                "object_type": row.object_type,
+                "timestamp": ts,
+                "actor": "SHUNYA",
+            })
+    except Exception:
+        pass
+    return activity
 
 
 def get_identity_name(identity_id: str) -> str | None:

@@ -259,7 +259,7 @@ def api_signup():
     session["user_id"] = member.id
     session.modified = True
 
-    return jsonify({"success": True, "identity_id": str(member.id)}), 201
+    return jsonify({"success": True, "identity_id": str(member.id), "verified": member.verified}), 201
 
 
 # ---------------------------------------------------------------------------

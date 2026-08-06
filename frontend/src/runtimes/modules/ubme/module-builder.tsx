@@ -1,28 +1,82 @@
 /** Module Builder UI — create and manage business modules from the frontend. */
 
 import React, { useState, useEffect } from 'react';
-import type { ModuleDef, ObjectTypeDef, FieldDef, BusinessTemplate, WorkflowDef, WorkflowStateDef, WorkflowTransitionDef } from './types';
+import type {
+  ModuleDef,
+  ObjectTypeDef,
+  FieldDef,
+  BusinessTemplate,
+  WorkflowDef,
+  WorkflowStateDef,
+  WorkflowTransitionDef,
+} from './types';
 import * as api from './api';
 
 // ── Field type options ──
 
 const FIELD_TYPE_OPTIONS = [
-  'text', 'integer', 'long_text', 'rich_text', 'number', 'currency', 'percentage',
-  'boolean', 'date', 'datetime', 'duration', 'email', 'phone', 'url', 'address',
-  'location', 'select', 'json', 'relationship', 'collection', 'attachment', 'image',
+  'text',
+  'integer',
+  'long_text',
+  'rich_text',
+  'number',
+  'currency',
+  'percentage',
+  'boolean',
+  'date',
+  'datetime',
+  'duration',
+  'email',
+  'phone',
+  'url',
+  'address',
+  'location',
+  'select',
+  'json',
+  'relationship',
+  'collection',
+  'attachment',
+  'image',
 ];
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
-  text: 'Text', integer: 'Integer', long_text: 'Long Text', rich_text: 'Rich Text',
-  number: 'Number', currency: 'Currency', percentage: 'Percentage',
-  boolean: 'Boolean', date: 'Date', datetime: 'Date & Time', duration: 'Duration',
-  email: 'Email', phone: 'Phone', url: 'URL', address: 'Address',
-  location: 'Location', select: 'Select/Dropdown', json: 'JSON', relationship: 'Relationship',
-  collection: 'Collection', attachment: 'Attachment', image: 'Image',
+  text: 'Text',
+  integer: 'Integer',
+  long_text: 'Long Text',
+  rich_text: 'Rich Text',
+  number: 'Number',
+  currency: 'Currency',
+  percentage: 'Percentage',
+  boolean: 'Boolean',
+  date: 'Date',
+  datetime: 'Date & Time',
+  duration: 'Duration',
+  email: 'Email',
+  phone: 'Phone',
+  url: 'URL',
+  address: 'Address',
+  location: 'Location',
+  select: 'Select/Dropdown',
+  json: 'JSON',
+  relationship: 'Relationship',
+  collection: 'Collection',
+  attachment: 'Attachment',
+  image: 'Image',
 };
 
 const MODULE_ICONS = ['📦', '✈️', '🏥', '🏢', '🛒', '⚖️', '🎓', '🏨', '🏗️', '🏭', '💼', '📊', '🔧', '🎯', '💡'];
-const MODULE_COLORS = ['#6366f1', '#0ea5e9', '#ec4899', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#78716c'];
+const MODULE_COLORS = [
+  '#6366f1',
+  '#0ea5e9',
+  '#ec4899',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444',
+  '#8b5cf6',
+  '#14b8a6',
+  '#f97316',
+  '#78716c',
+];
 
 // ── Main Component ──
 
@@ -60,7 +114,9 @@ export function ModuleBuilder() {
       <div className="ubme-builder">
         <div className="ubme-builder-header">
           <h2>📦 Install Business Template</h2>
-          <button className="ubme-back-btn" onClick={() => setShowTemplatePicker(false)}>← Back</button>
+          <button className="ubme-back-btn" onClick={() => setShowTemplatePicker(false)}>
+            ← Back
+          </button>
         </div>
         <div className="ubme-template-grid">
           {templates.map((t) => (
@@ -108,7 +164,7 @@ export function ModuleBuilder() {
           setEditingObjectType(null);
         }}
         onCancel={() => setEditingObjectType(null)}
-        allObjectTypes={(activeModule.object_types || []).map(ot => ot.key)}
+        allObjectTypes={(activeModule.object_types || []).map((ot) => ot.key)}
       />
     );
   }
@@ -121,10 +177,15 @@ export function ModuleBuilder() {
           <div className="ubme-builder-title-row">
             <span style={{ fontSize: '1.5rem' }}>{activeModule.icon || '📦'}</span>
             <h2>{activeModule.name}</h2>
-            <button className="ubme-back-btn" onClick={async () => {
-              setActiveModule(null);
-              await loadData();
-            }}>← Back</button>
+            <button
+              className="ubme-back-btn"
+              onClick={async () => {
+                setActiveModule(null);
+                await loadData();
+              }}
+            >
+              ← Back
+            </button>
           </div>
           <input
             className="ubme-input"
@@ -156,21 +217,31 @@ export function ModuleBuilder() {
                   <strong>{ot.name}</strong>
                   <span className="ubme-badge">{ot.plural_name || ot.name + 's'}</span>
                   <span className="ubme-field-count">{ot.fields?.length || 0} fields</span>
-                  <button className="ubme-edit-btn" onClick={() => setEditingObjectType({ ...ot })}>✏️</button>
-                  <button className="ubme-delete-btn" onClick={async () => {
-                    if (!confirm(`Delete object type "${ot.name}"?`)) return;
-                    activeModule.object_types = (activeModule.object_types || []).filter((x) => x.key !== ot.key);
-                    await api.updateModule(activeModule.key, activeModule);
-                    setActiveModule({ ...activeModule });
-                  }}>🗑️</button>
+                  <button className="ubme-edit-btn" onClick={() => setEditingObjectType({ ...ot })}>
+                    ✏️
+                  </button>
+                  <button
+                    className="ubme-delete-btn"
+                    onClick={async () => {
+                      if (!confirm(`Delete object type "${ot.name}"?`)) return;
+                      activeModule.object_types = (activeModule.object_types || []).filter((x) => x.key !== ot.key);
+                      await api.updateModule(activeModule.key, activeModule);
+                      setActiveModule({ ...activeModule });
+                    }}
+                  >
+                    🗑️
+                  </button>
                 </div>
                 <div className="ubme-ot-fields">
                   {(ot.fields || []).slice(0, 5).map((f) => (
                     <span key={f.key} className="ubme-field-chip">
-                      {f.label} <span className="ubme-field-type">({FIELD_TYPE_LABELS[f.field_type] || f.field_type})</span>
+                      {f.label}{' '}
+                      <span className="ubme-field-type">({FIELD_TYPE_LABELS[f.field_type] || f.field_type})</span>
                     </span>
                   ))}
-                  {(ot.fields?.length || 0) > 5 && <span className="ubme-more-fields">+{(ot.fields?.length || 0) - 5} more</span>}
+                  {(ot.fields?.length || 0) > 5 && (
+                    <span className="ubme-more-fields">+{(ot.fields?.length || 0) - 5} more</span>
+                  )}
                 </div>
               </div>
             ))}
@@ -270,7 +341,10 @@ export function ModuleBuilder() {
 
 // ── New Module Form ──
 
-function NewModuleForm({ onCreated, onCancel }: {
+function NewModuleForm({
+  onCreated,
+  onCancel,
+}: {
   onCreated: (module: Partial<ModuleDef>) => void;
   onCancel: () => void;
 }) {
@@ -282,7 +356,10 @@ function NewModuleForm({ onCreated, onCancel }: {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!key || !name) { alert('Key and name are required'); return; }
+    if (!key || !name) {
+      alert('Key and name are required');
+      return;
+    }
     onCreated({ key, name, description, icon, color });
   }
 
@@ -291,31 +368,59 @@ function NewModuleForm({ onCreated, onCancel }: {
       <h3>Create New Module</h3>
       <div className="ubme-form-row">
         <label>Key</label>
-        <input className="ubme-input" value={key} onChange={(e) => setKey(e.target.value)} placeholder="e.g. my_business" required />
+        <input
+          className="ubme-input"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder="e.g. my_business"
+          required
+        />
       </div>
       <div className="ubme-form-row">
         <label>Name</label>
-        <input className="ubme-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. My Business" required />
+        <input
+          className="ubme-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. My Business"
+          required
+        />
       </div>
       <div className="ubme-form-row">
         <label>Description</label>
-        <textarea className="ubme-input ubme-textarea" value={description} onChange={(e) => setDescription(e.target.value)} />
+        <textarea
+          className="ubme-input ubme-textarea"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
       </div>
       <div className="ubme-form-row">
         <label>Icon</label>
         <select className="ubme-select" value={icon} onChange={(e) => setIcon(e.target.value)}>
-          {MODULE_ICONS.map((ic) => <option key={ic} value={ic}>{ic}</option>)}
+          {MODULE_ICONS.map((ic) => (
+            <option key={ic} value={ic}>
+              {ic}
+            </option>
+          ))}
         </select>
       </div>
       <div className="ubme-form-row">
         <label>Color</label>
         <select className="ubme-select" value={color} onChange={(e) => setColor(e.target.value)}>
-          {MODULE_COLORS.map((c) => <option key={c} value={c} style={{ background: c }}>{c}</option>)}
+          {MODULE_COLORS.map((c) => (
+            <option key={c} value={c} style={{ background: c }}>
+              {c}
+            </option>
+          ))}
         </select>
       </div>
       <div className="ubme-form-actions">
-        <button type="submit" className="ubme-btn-primary">Create Module</button>
-        <button type="button" className="ubme-btn-secondary" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="ubme-btn-primary">
+          Create Module
+        </button>
+        <button type="button" className="ubme-btn-secondary" onClick={onCancel}>
+          Cancel
+        </button>
       </div>
     </form>
   );
@@ -323,7 +428,12 @@ function NewModuleForm({ onCreated, onCancel }: {
 
 // ── Object Type Editor ──
 
-function ObjectTypeEditor({ objectType, onSave, onCancel, allObjectTypes }: {
+function ObjectTypeEditor({
+  objectType,
+  onSave,
+  onCancel,
+  allObjectTypes,
+}: {
   objectType: ObjectTypeDef;
   onSave: (ot: ObjectTypeDef) => Promise<void>;
   onCancel: () => void;
@@ -340,12 +450,15 @@ function ObjectTypeEditor({ objectType, onSave, onCancel, allObjectTypes }: {
     <div className="ubme-ot-editor">
       <div className="ubme-builder-header">
         <h2>
-          <span>{ot.icon || '📦'}</span>
-          {' '}{ot.name}
+          <span>{ot.icon || '📦'}</span> {ot.name}
         </h2>
         <div className="ubme-header-actions">
-          <button className="ubme-btn-primary" onClick={handleSave}>Save</button>
-          <button className="ubme-btn-secondary" onClick={onCancel}>Cancel</button>
+          <button className="ubme-btn-primary" onClick={handleSave}>
+            Save
+          </button>
+          <button className="ubme-btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
         </div>
       </div>
 
@@ -360,11 +473,19 @@ function ObjectTypeEditor({ objectType, onSave, onCancel, allObjectTypes }: {
         </div>
         <div className="ubme-form-row">
           <label>Plural Name</label>
-          <input className="ubme-input" value={ot.plural_name || ''} onChange={(e) => setOt({ ...ot, plural_name: e.target.value })} />
+          <input
+            className="ubme-input"
+            value={ot.plural_name || ''}
+            onChange={(e) => setOt({ ...ot, plural_name: e.target.value })}
+          />
         </div>
         <div className="ubme-form-row">
           <label>Description</label>
-          <textarea className="ubme-input ubme-textarea" value={ot.description || ''} onChange={(e) => setOt({ ...ot, description: e.target.value })} />
+          <textarea
+            className="ubme-input ubme-textarea"
+            value={ot.description || ''}
+            onChange={(e) => setOt({ ...ot, description: e.target.value })}
+          />
         </div>
       </div>
 
@@ -376,10 +497,17 @@ function ObjectTypeEditor({ objectType, onSave, onCancel, allObjectTypes }: {
           <span className="ubme-field-editor-type">{FIELD_TYPE_LABELS[field.field_type] || field.field_type}</span>
           {field.required && <span className="ubme-badge">required</span>}
           {field.display_in_list && <span className="ubme-badge">list</span>}
-          <button className="ubme-edit-btn" onClick={() => setEditingField({ ...field })}>✏️</button>
-          <button className="ubme-delete-btn" onClick={() => {
-            setOt({ ...ot, fields: (ot.fields || []).filter((f) => f.key !== field.key) });
-          }}>🗑️</button>
+          <button className="ubme-edit-btn" onClick={() => setEditingField({ ...field })}>
+            ✏️
+          </button>
+          <button
+            className="ubme-delete-btn"
+            onClick={() => {
+              setOt({ ...ot, fields: (ot.fields || []).filter((f) => f.key !== field.key) });
+            }}
+          >
+            🗑️
+          </button>
         </div>
       ))}
 
@@ -401,29 +529,51 @@ function ObjectTypeEditor({ objectType, onSave, onCancel, allObjectTypes }: {
         />
       )}
 
-      <button className="ubme-add-field-btn" onClick={() => {
-        setEditingField({
-          key: `field_${Date.now()}`,
-          label: 'New Field',
-          field_type: 'text',
-        });
-      }}>+ Add Field</button>
+      <button
+        className="ubme-add-field-btn"
+        onClick={() => {
+          setEditingField({
+            key: `field_${Date.now()}`,
+            label: 'New Field',
+            field_type: 'text',
+          });
+        }}
+      >
+        + Add Field
+      </button>
     </div>
   );
 }
 
 function getFieldIcon(type: string): string {
   const icons: Record<string, string> = {
-    text: 'Aa', integer: '123', long_text: '📝', rich_text: '🖋️',
-    number: '#', currency: '💰', percentage: '%',
-    boolean: '☑️', date: '📅', datetime: '📅',
-    email: '📧', phone: '📞', url: '🔗', address: '📍',
-    select: '📋', json: '{ }', relationship: '🔗',
+    text: 'Aa',
+    integer: '123',
+    long_text: '📝',
+    rich_text: '🖋️',
+    number: '#',
+    currency: '💰',
+    percentage: '%',
+    boolean: '☑️',
+    date: '📅',
+    datetime: '📅',
+    email: '📧',
+    phone: '📞',
+    url: '🔗',
+    address: '📍',
+    select: '📋',
+    json: '{ }',
+    relationship: '🔗',
   };
   return icons[type] || '📋';
 }
 
-function FieldEditor({ field, allObjectTypes, onSave, onCancel }: {
+function FieldEditor({
+  field,
+  allObjectTypes,
+  onSave,
+  onCancel,
+}: {
   field: FieldDef;
   allObjectTypes: string[];
   onSave: (f: FieldDef) => void;
@@ -446,47 +596,90 @@ function FieldEditor({ field, allObjectTypes, onSave, onCancel }: {
         </div>
         <div className="ubme-form-row">
           <label>Type</label>
-          <select className="ubme-select" value={f.field_type} onChange={(e) => setF({ ...f, field_type: e.target.value })}>
-            {FIELD_TYPE_OPTIONS.map((t) => <option key={t} value={t}>{FIELD_TYPE_LABELS[t] || t}</option>)}
+          <select
+            className="ubme-select"
+            value={f.field_type}
+            onChange={(e) => setF({ ...f, field_type: e.target.value })}
+          >
+            {FIELD_TYPE_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {FIELD_TYPE_LABELS[t] || t}
+              </option>
+            ))}
           </select>
         </div>
         {f.field_type === 'select' && (
           <div className="ubme-form-row">
             <label>Options (comma-separated)</label>
-            <input className="ubme-input" value={optionsStr} onChange={(e) => setOptionsStr(e.target.value)} placeholder="opt1, opt2, opt3" />
+            <input
+              className="ubme-input"
+              value={optionsStr}
+              onChange={(e) => setOptionsStr(e.target.value)}
+              placeholder="opt1, opt2, opt3"
+            />
           </div>
         )}
         {f.field_type === 'relationship' && (
           <div className="ubme-form-row">
             <label>Target Object Type</label>
-            <select className="ubme-select" value={f.target_object_type || ''} onChange={(e) => setF({ ...f, target_object_type: e.target.value })}>
+            <select
+              className="ubme-select"
+              value={f.target_object_type || ''}
+              onChange={(e) => setF({ ...f, target_object_type: e.target.value })}
+            >
               <option value="">Select...</option>
-              {allObjectTypes.map((t) => <option key={t} value={t}>{t}</option>)}
+              {allObjectTypes.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
             </select>
           </div>
         )}
         <div className="ubme-checkbox-row">
           <label>
-            <input type="checkbox" checked={f.required || false} onChange={(e) => setF({ ...f, required: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={f.required || false}
+              onChange={(e) => setF({ ...f, required: e.target.checked })}
+            />
             Required
           </label>
           <label>
-            <input type="checkbox" checked={f.display_in_list || false} onChange={(e) => setF({ ...f, display_in_list: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={f.display_in_list || false}
+              onChange={(e) => setF({ ...f, display_in_list: e.target.checked })}
+            />
             Show in List
           </label>
           <label>
-            <input type="checkbox" checked={f.searchable || false} onChange={(e) => setF({ ...f, searchable: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={f.searchable || false}
+              onChange={(e) => setF({ ...f, searchable: e.target.checked })}
+            />
             Searchable
           </label>
         </div>
         <div className="ubme-form-actions">
-          <button className="ubme-btn-primary" onClick={() => {
-            if (f.field_type === 'select' && optionsStr) {
-              f.options = optionsStr.split(',').map((s: string) => s.trim()).filter(Boolean);
-            }
-            onSave(f);
-          }}>Save Field</button>
-          <button className="ubme-btn-secondary" onClick={onCancel}>Cancel</button>
+          <button
+            className="ubme-btn-primary"
+            onClick={() => {
+              if (f.field_type === 'select' && optionsStr) {
+                f.options = optionsStr
+                  .split(',')
+                  .map((s: string) => s.trim())
+                  .filter(Boolean);
+              }
+              onSave(f);
+            }}
+          >
+            Save Field
+          </button>
+          <button className="ubme-btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -495,18 +688,17 @@ function FieldEditor({ field, allObjectTypes, onSave, onCancel }: {
 
 // ── Workflow Editor ──
 
-function WorkflowEditor({ module, onSave }: {
-  module: ModuleDef;
-  onSave: (wf: WorkflowDef) => void;
-}) {
-  const objectTypes = module.object_types?.map(ot => ot.key) || [];
+function WorkflowEditor({ module, onSave }: { module: ModuleDef; onSave: (wf: WorkflowDef) => void }) {
+  const objectTypes = module.object_types?.map((ot) => ot.key) || [];
   const existingWf = module.workflows?.[0];
   const [selectedType, setSelectedType] = useState(existingWf?.object_type || objectTypes[0] || '');
-  const [states, setStates] = useState<WorkflowStateDef[]>(existingWf?.states || [
-    { key: 'draft', label: 'Draft', state_type: 'initial' },
-    { key: 'active', label: 'Active', state_type: 'intermediate' },
-    { key: 'completed', label: 'Completed', state_type: 'final' },
-  ]);
+  const [states, setStates] = useState<WorkflowStateDef[]>(
+    existingWf?.states || [
+      { key: 'draft', label: 'Draft', state_type: 'initial' },
+      { key: 'active', label: 'Active', state_type: 'intermediate' },
+      { key: 'completed', label: 'Completed', state_type: 'final' },
+    ],
+  );
   const [transitions, setTransitions] = useState<WorkflowTransitionDef[]>(existingWf?.transitions || []);
 
   const wf: WorkflowDef = {
@@ -515,7 +707,7 @@ function WorkflowEditor({ module, onSave }: {
     object_type: selectedType,
     states,
     transitions,
-    default_state: states.find(s => s.state_type === 'initial')?.key || states[0]?.key || '',
+    default_state: states.find((s) => s.state_type === 'initial')?.key || states[0]?.key || '',
   };
 
   return (
@@ -524,79 +716,149 @@ function WorkflowEditor({ module, onSave }: {
       <div className="ubme-form-row">
         <label>For Object Type</label>
         <select className="ubme-select" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
-          {objectTypes.map((ot) => <option key={ot} value={ot}>{ot}</option>)}
+          {objectTypes.map((ot) => (
+            <option key={ot} value={ot}>
+              {ot}
+            </option>
+          ))}
         </select>
       </div>
 
       <h4>States</h4>
       {states.map((s, i) => (
         <div key={s.key} className="ubme-workflow-state-row">
-          <input className="ubme-input" style={{ width: '150px' }} value={s.key} onChange={(e) => {
-            const newStates = [...states];
-            newStates[i] = { ...s, key: e.target.value };
-            setStates(newStates);
-          }} />
-          <input className="ubme-input" style={{ width: '200px' }} value={s.label} onChange={(e) => {
-            const newStates = [...states];
-            newStates[i] = { ...s, label: e.target.value };
-            setStates(newStates);
-          }} />
-          <select className="ubme-select" style={{ width: '150px' }} value={s.state_type} onChange={(e) => {
-            const newStates = [...states];
-            newStates[i] = { ...s, state_type: e.target.value };
-            setStates(newStates);
-          }}>
+          <input
+            className="ubme-input"
+            style={{ width: '150px' }}
+            value={s.key}
+            onChange={(e) => {
+              const newStates = [...states];
+              newStates[i] = { ...s, key: e.target.value };
+              setStates(newStates);
+            }}
+          />
+          <input
+            className="ubme-input"
+            style={{ width: '200px' }}
+            value={s.label}
+            onChange={(e) => {
+              const newStates = [...states];
+              newStates[i] = { ...s, label: e.target.value };
+              setStates(newStates);
+            }}
+          />
+          <select
+            className="ubme-select"
+            style={{ width: '150px' }}
+            value={s.state_type}
+            onChange={(e) => {
+              const newStates = [...states];
+              newStates[i] = { ...s, state_type: e.target.value };
+              setStates(newStates);
+            }}
+          >
             <option value="initial">Initial</option>
             <option value="intermediate">Intermediate</option>
             <option value="final">Final</option>
           </select>
-          <button className="ubme-delete-btn" onClick={() => setStates(states.filter((_, j) => j !== i))}>🗑️</button>
+          <button className="ubme-delete-btn" onClick={() => setStates(states.filter((_, j) => j !== i))}>
+            🗑️
+          </button>
         </div>
       ))}
-      <button className="ubme-add-btn" onClick={() => {
-        setStates([...states, { key: `state_${states.length + 1}`, label: `State ${states.length + 1}`, state_type: 'intermediate' }]);
-      }}>+ Add State</button>
+      <button
+        className="ubme-add-btn"
+        onClick={() => {
+          setStates([
+            ...states,
+            { key: `state_${states.length + 1}`, label: `State ${states.length + 1}`, state_type: 'intermediate' },
+          ]);
+        }}
+      >
+        + Add State
+      </button>
 
       <h4 style={{ marginTop: '1rem' }}>Transitions</h4>
       {transitions.map((t, i) => (
         <div key={`t${i}`} className="ubme-workflow-transition-row">
-          <select className="ubme-select" style={{ width: '150px' }} value={t.from_state} onChange={(e) => {
-            const nt = [...transitions];
-            nt[i] = { ...t, from_state: e.target.value };
-            setTransitions(nt);
-          }}>
-            {states.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+          <select
+            className="ubme-select"
+            style={{ width: '150px' }}
+            value={t.from_state}
+            onChange={(e) => {
+              const nt = [...transitions];
+              nt[i] = { ...t, from_state: e.target.value };
+              setTransitions(nt);
+            }}
+          >
+            {states.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
           </select>
           <span>→</span>
-          <select className="ubme-select" style={{ width: '150px' }} value={t.to_state} onChange={(e) => {
-            const nt = [...transitions];
-            nt[i] = { ...t, to_state: e.target.value };
-            setTransitions(nt);
-          }}>
-            {states.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-          </select>
-          <input className="ubme-input" style={{ flex: 1 }} value={t.label} placeholder="Label" onChange={(e) => {
-            const nt = [...transitions];
-            nt[i] = { ...t, label: e.target.value };
-            setTransitions(nt);
-          }} />
-          <label className="ubme-checkbox-label">
-            <input type="checkbox" checked={t.requires_approval || false} onChange={(e) => {
+          <select
+            className="ubme-select"
+            style={{ width: '150px' }}
+            value={t.to_state}
+            onChange={(e) => {
               const nt = [...transitions];
-              nt[i] = { ...t, requires_approval: e.target.checked };
+              nt[i] = { ...t, to_state: e.target.value };
               setTransitions(nt);
-            }} /> Approval
+            }}
+          >
+            {states.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <input
+            className="ubme-input"
+            style={{ flex: 1 }}
+            value={t.label}
+            placeholder="Label"
+            onChange={(e) => {
+              const nt = [...transitions];
+              nt[i] = { ...t, label: e.target.value };
+              setTransitions(nt);
+            }}
+          />
+          <label className="ubme-checkbox-label">
+            <input
+              type="checkbox"
+              checked={t.requires_approval || false}
+              onChange={(e) => {
+                const nt = [...transitions];
+                nt[i] = { ...t, requires_approval: e.target.checked };
+                setTransitions(nt);
+              }}
+            />{' '}
+            Approval
           </label>
-          <button className="ubme-delete-btn" onClick={() => setTransitions(transitions.filter((_, j) => j !== i))}>🗑️</button>
+          <button className="ubme-delete-btn" onClick={() => setTransitions(transitions.filter((_, j) => j !== i))}>
+            🗑️
+          </button>
         </div>
       ))}
-      <button className="ubme-add-btn" onClick={() => {
-        if (states.length < 2) return;
-        setTransitions([...transitions, { from_state: states[0].key, to_state: states[1].key, label: 'Transition', requires_approval: false }]);
-      }}>+ Add Transition</button>
+      <button
+        className="ubme-add-btn"
+        onClick={() => {
+          if (states.length < 2) return;
+          setTransitions([
+            ...transitions,
+            { from_state: states[0].key, to_state: states[1].key, label: 'Transition', requires_approval: false },
+          ]);
+        }}
+      >
+        + Add Transition
+      </button>
 
       <div className="ubme-form-actions" style={{ marginTop: '1rem' }}>
-        <button className="ubme-btn-primary" onClick={() => onSave(wf)}>Save Workflow</button>
+        <button className="ubme-btn-primary" onClick={() => onSave(wf)}>
+          Save Workflow
+        </button>
       </div>
     </div>
   );

@@ -625,6 +625,52 @@ def api_insights():
     return jsonify({"success": True, "data": data})
 
 
+@founder_bp.route("/api/v1/founder/kpis", methods=["GET"])
+def api_founder_kpis():
+    """Return real KPI data from the database.
+
+    Revenue MTD, invoices overdue, active proposals, task completion.
+    """
+    if not _founder_required():
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from sqlalchemy import text
+    def _scalar(qry):
+        try:
+            return db.session.execute(text(qry)).scalar() or 0
+        except Exception:
+            return 0
+    revenue_mtd = _scalar(
+        "SELECT COALESCE(SUM((data->>'amount')::numeric), 0) FROM sh_objects "
+        "WHERE object_type='invoice' AND status='paid'"
+    )
+    invoices_overdue = _scalar(
+        "SELECT COUNT(*) FROM sh_objects WHERE object_type='invoice' AND status='overdue'"
+    )
+    active_proposals = _scalar(
+        "SELECT COUNT(*) FROM sh_objects WHERE object_type='proposal' AND status IN ('active','draft','sent')"
+    )
+    total_tasks = _scalar("SELECT COUNT(*) FROM sh_objects WHERE object_type='task'")
+    completed_tasks = _scalar("SELECT COUNT(*) FROM sh_objects WHERE object_type='task' AND status='completed'")
+    total_invoices = _scalar("SELECT COUNT(*) FROM sh_objects WHERE object_type='invoice'")
+    total_proposals = _scalar("SELECT COUNT(*) FROM sh_objects WHERE object_type='proposal'")
+    total_contacts = _scalar("SELECT COUNT(*) FROM sh_objects WHERE object_type='contact'")
+    task_completion = round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0, 1)
+    return jsonify({
+        "success": True,
+        "data": {
+            "revenue_mtd": float(revenue_mtd),
+            "invoices_overdue": invoices_overdue,
+            "active_proposals": active_proposals,
+            "task_completion": task_completion,
+            "total_invoices": total_invoices,
+            "total_proposals": total_proposals,
+            "total_contacts": total_contacts,
+            "total_tasks": total_tasks,
+            "completed_tasks": completed_tasks,
+        },
+    })
+
+
 @founder_bp.route("/api/v1/founder/timeline", methods=["GET"])
 def api_timeline():
     """Return executive timeline."""

@@ -16,36 +16,84 @@ interface Props {
 }
 
 const BUSINESS_CATEGORIES = [
-  'Travel Company', 'Restaurant', 'Manufacturer', 'Hospital', 'Law Firm',
-  'Agency', 'Retail', 'Education', 'Construction', 'Real Estate',
-  'Consultant', 'Hotel', 'Distributor', 'Service Business', 'Other',
+  'Travel Company',
+  'Restaurant',
+  'Manufacturer',
+  'Hospital',
+  'Law Firm',
+  'Agency',
+  'Retail',
+  'Education',
+  'Construction',
+  'Real Estate',
+  'Consultant',
+  'Hotel',
+  'Distributor',
+  'Service Business',
+  'Other',
 ];
 
 const INDUSTRIES = [
-  'Technology', 'Healthcare', 'Finance', 'Legal', 'Real Estate',
-  'Hospitality', 'Manufacturing', 'Retail', 'Education', 'Construction',
-  'Consulting', 'Transportation', 'Energy', 'Agriculture', 'Media',
-  'Telecommunications', 'Other',
+  'Technology',
+  'Healthcare',
+  'Finance',
+  'Legal',
+  'Real Estate',
+  'Hospitality',
+  'Manufacturing',
+  'Retail',
+  'Education',
+  'Construction',
+  'Consulting',
+  'Transportation',
+  'Energy',
+  'Agriculture',
+  'Media',
+  'Telecommunications',
+  'Other',
 ];
 
 const COUNTRIES = [
-  'United States', 'Canada', 'United Kingdom', 'India', 'Germany',
-  'France', 'Australia', 'Brazil', 'Japan', 'Singapore',
-  'United Arab Emirates', 'Netherlands', 'Spain', 'Italy', 'Mexico',
+  'United States',
+  'Canada',
+  'United Kingdom',
+  'India',
+  'Germany',
+  'France',
+  'Australia',
+  'Brazil',
+  'Japan',
+  'Singapore',
+  'United Arab Emirates',
+  'Netherlands',
+  'Spain',
+  'Italy',
+  'Mexico',
   'Other',
 ];
 
 const TIMEZONES = [
-  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
-  'America/Toronto', 'America/Sao_Paulo', 'America/Mexico_City',
-  'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Madrid',
-  'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo',
-  'Australia/Sydney', 'Pacific/Auckland', 'UTC',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+  'America/Sao_Paulo',
+  'America/Mexico_City',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Madrid',
+  'Asia/Kolkata',
+  'Asia/Dubai',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+  'UTC',
 ];
 
-const CURRENCIES = [
-  'USD', 'EUR', 'GBP', 'INR', 'AED', 'CAD', 'AUD', 'SGD', 'JPY', 'BRL', 'MXN', 'Other',
-];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'AED', 'CAD', 'AUD', 'SGD', 'JPY', 'BRL', 'MXN', 'Other'];
 
 type Phase = 'form' | 'loading' | 'error' | 'success';
 
@@ -134,11 +182,7 @@ export function StepOrganization({ onNext, onBack }: Props) {
             Tell us about your business so we can tailor SHUNYA to your needs.
           </div>
 
-          {phase === 'success' && (
-            <div className="sh-onboarding-success">
-              Organization created! Redirecting…
-            </div>
-          )}
+          {phase === 'success' && <div className="sh-onboarding-success">Organization created! Redirecting…</div>}
 
           {(phase === 'form' || phase === 'loading' || phase === 'error') && (
             <>
@@ -149,7 +193,7 @@ export function StepOrganization({ onNext, onBack }: Props) {
                     id="org-name"
                     type="text"
                     value={companyName}
-                    onChange={e => setCompanyName(e.target.value)}
+                    onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="e.g., Acme Corp"
                     autoFocus
                     disabled={phase === 'loading'}
@@ -165,7 +209,7 @@ export function StepOrganization({ onNext, onBack }: Props) {
                     id="org-email"
                     type="email"
                     value={companyEmail}
-                    onChange={e => setCompanyEmail(e.target.value)}
+                    onChange={(e) => setCompanyEmail(e.target.value)}
                     placeholder="admin@mycompany.com"
                     disabled={phase === 'loading'}
                     autoComplete="email"
@@ -180,7 +224,7 @@ export function StepOrganization({ onNext, onBack }: Props) {
                       id="org-website"
                       type="text"
                       value={website}
-                      onChange={e => setWebsite(e.target.value)}
+                      onChange={(e) => setWebsite(e.target.value)}
                       placeholder="https://mycompany.com"
                       disabled={phase === 'loading'}
                       tabIndex={0}
@@ -192,7 +236,7 @@ export function StepOrganization({ onNext, onBack }: Props) {
                       id="org-phone"
                       type="tel"
                       value={phone}
-                      onChange={e => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(e.target.value)}
                       placeholder="+1 555-0123"
                       disabled={phase === 'loading'}
                       tabIndex={0}
@@ -205,12 +249,14 @@ export function StepOrganization({ onNext, onBack }: Props) {
                   <select
                     id="org-category"
                     value={businessCategory}
-                    onChange={e => setBusinessCategory(e.target.value)}
+                    onChange={(e) => setBusinessCategory(e.target.value)}
                     disabled={phase === 'loading'}
                     tabIndex={0}
                   >
-                    {BUSINESS_CATEGORIES.map(c => (
-                      <option key={c} value={c}>{c}</option>
+                    {BUSINESS_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -220,12 +266,14 @@ export function StepOrganization({ onNext, onBack }: Props) {
                   <select
                     id="org-industry"
                     value={industry}
-                    onChange={e => setIndustry(e.target.value)}
+                    onChange={(e) => setIndustry(e.target.value)}
                     disabled={phase === 'loading'}
                     tabIndex={0}
                   >
-                    {INDUSTRIES.map(i => (
-                      <option key={i} value={i}>{i}</option>
+                    {INDUSTRIES.map((i) => (
+                      <option key={i} value={i}>
+                        {i}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -236,12 +284,14 @@ export function StepOrganization({ onNext, onBack }: Props) {
                     <select
                       id="org-country"
                       value={country}
-                      onChange={e => setCountry(e.target.value)}
+                      onChange={(e) => setCountry(e.target.value)}
                       disabled={phase === 'loading'}
                       tabIndex={0}
                     >
-                      {COUNTRIES.map(c => (
-                        <option key={c} value={c}>{c}</option>
+                      {COUNTRIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -250,12 +300,14 @@ export function StepOrganization({ onNext, onBack }: Props) {
                     <select
                       id="org-currency"
                       value={currency}
-                      onChange={e => setCurrency(e.target.value)}
+                      onChange={(e) => setCurrency(e.target.value)}
                       disabled={phase === 'loading'}
                       tabIndex={0}
                     >
-                      {CURRENCIES.map(c => (
-                        <option key={c} value={c}>{c}</option>
+                      {CURRENCIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -266,12 +318,14 @@ export function StepOrganization({ onNext, onBack }: Props) {
                   <select
                     id="org-timezone"
                     value={timezone}
-                    onChange={e => setTimezone(e.target.value)}
+                    onChange={(e) => setTimezone(e.target.value)}
                     disabled={phase === 'loading'}
                     tabIndex={0}
                   >
-                    {TIMEZONES.map(t => (
-                      <option key={t} value={t}>{t}</option>
+                    {TIMEZONES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -289,7 +343,10 @@ export function StepOrganization({ onNext, onBack }: Props) {
                   tabIndex={0}
                 >
                   {phase === 'loading' ? (
-                    <><span className="sh-onboarding-spinner" />Creating…</>
+                    <>
+                      <span className="sh-onboarding-spinner" />
+                      Creating…
+                    </>
                   ) : (
                     'Create Organization'
                   )}

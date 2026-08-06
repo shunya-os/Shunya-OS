@@ -70,7 +70,8 @@ export const TimelineRuntime = {
           title: e.title ?? e.description ?? 'Event',
           description: e.description,
           timestamp: new Date(e.timestamp ?? e.created_at ?? Date.now()).getTime(),
-          objectType, objectId,
+          objectType,
+          objectId,
           source: e.source ?? 'system',
           commitmentImpact: e.commitment_impact ?? e.commitmentImpact,
           commitmentId: e.commitment_id ?? e.commitmentId,
@@ -92,5 +93,7 @@ export const TimelineRuntime = {
   },
 
   /** Clear cache. */
-  clear(): void { cache.clear(); },
+  clear(): void {
+    cache.clear();
+  },
 };

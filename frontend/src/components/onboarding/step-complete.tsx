@@ -10,11 +10,10 @@ import { onboardingStyles } from './onboarding-styles';
 
 interface Props {
   orgInfo: { orgId: string; orgName: string } | null;
-  objectInfo: { objectId: string; objectType: string; objectName: string } | null;
   onComplete: () => void;
 }
 
-export function StepComplete({ orgInfo, objectInfo, onComplete }: Props) {
+export function StepComplete({ orgInfo, onComplete }: Props) {
   const [loading, setLoading] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
 
@@ -40,9 +39,7 @@ export function StepComplete({ orgInfo, objectInfo, onComplete }: Props) {
         <div className="sh-onboarding-card sh-onb-fade-in">
           <div className="sh-onboarding-zero">शून्य</div>
           <div className="sh-onboarding-title">You're All Set!</div>
-          <div className="sh-onboarding-subtitle">
-            Your SHUNYA environment is ready. Here's what we created:
-          </div>
+          <div className="sh-onboarding-subtitle">Your SHUNYA environment is ready. Here's what we created:</div>
 
           {/* Summary */}
           <div className="sh-onboarding-summary">
@@ -54,20 +51,11 @@ export function StepComplete({ orgInfo, objectInfo, onComplete }: Props) {
                 </div>
               </div>
             )}
-            {objectInfo && (
-              <div className="sh-onboarding-summary-item">
-                <div className="sh-onboarding-summary-icon green">📦</div>
-                <div className="sh-onboarding-summary-text">
-                  First object: <strong>{objectInfo.objectName}</strong>
-                  <span style={{ color: '#888' }}> ({objectInfo.objectType})</span>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="sh-onboarding-subtitle" style={{ fontSize: '0.8rem', color: '#666' }}>
-            You can always create more objects, invite team members, and configure your workspace
-            from the main dashboard.
+            You can always create more objects, invite team members, and configure your workspace from the main
+            dashboard.
           </div>
 
           <button
@@ -80,7 +68,10 @@ export function StepComplete({ orgInfo, objectInfo, onComplete }: Props) {
             aria-label="Enter SHUNYA workspace"
           >
             {loading ? (
-              <><span className="sh-onboarding-spinner" />Loading…</>
+              <>
+                <span className="sh-onboarding-spinner" />
+                Loading…
+              </>
             ) : (
               'Enter SHUNYA'
             )}

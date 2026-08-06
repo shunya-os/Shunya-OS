@@ -69,7 +69,8 @@ export const ObjectRuntime = {
         const resp = await fetch(`/api/v1/${type}s/${id}`);
         const data = await resp.json();
         const entry: ObjectEntry = {
-          id, type,
+          id,
+          type,
           identity: { name: data.name ?? data.title ?? id, status: data.status ?? 'active' },
           data,
           loadedAt: Date.now(),
@@ -100,8 +101,12 @@ export const ObjectRuntime = {
   },
 
   /** Clear entire cache. */
-  clear(): void { cache.clear(); },
+  clear(): void {
+    cache.clear();
+  },
 
   /** Get all cached keys (for debugging). */
-  keys(): string[] { return Array.from(cache.keys()); },
+  keys(): string[] {
+    return Array.from(cache.keys());
+  },
 };

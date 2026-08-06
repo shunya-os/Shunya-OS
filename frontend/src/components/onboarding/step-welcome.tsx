@@ -40,8 +40,8 @@ export function StepWelcome({ onNext }: Props) {
           <div className="sh-onboarding-zero">शून्य</div>
           <div className="sh-onboarding-title">Welcome to SHUNYA</div>
           <div className="sh-onboarding-subtitle">
-            Your business operating system. We'll help you get set up in just a few steps —
-            create your organization, explore AI capabilities, and build your first business object.
+            Your business operating system. We'll help you get set up in just a few steps — create your organization,
+            explore AI capabilities, and build your first business object.
           </div>
 
           <button
@@ -53,7 +53,10 @@ export function StepWelcome({ onNext }: Props) {
             aria-label="Get started with onboarding"
           >
             {loading ? (
-              <><span className="sh-onboarding-spinner" />Loading…</>
+              <>
+                <span className="sh-onboarding-spinner" />
+                Loading…
+              </>
             ) : (
               'Get Started'
             )}

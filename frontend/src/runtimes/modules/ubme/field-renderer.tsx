@@ -35,7 +35,7 @@ export function FieldRenderer({ field, value, onChange, readOnly }: FieldRendere
 
 function renderReadOnlyValue(type: string, value: any, _options?: string[]): React.ReactNode {
   if (value === null || value === undefined) return <span className="ubme-empty">—</span>;
-  
+
   switch (type) {
     case 'boolean':
       return value ? '✅ Yes' : '❌ No';
@@ -51,7 +51,11 @@ function renderReadOnlyValue(type: string, value: any, _options?: string[]): Rea
     case 'phone':
       return <a href={`tel:${value}`}>{value}</a>;
     case 'url':
-      return <a href={value} target="_blank" rel="noopener noreferrer">{value}</a>;
+      return (
+        <a href={value} target="_blank" rel="noopener noreferrer">
+          {value}
+        </a>
+      );
     case 'json':
       return <pre className="ubme-json">{JSON.stringify(value, null, 2)}</pre>;
     case 'select':
@@ -106,14 +110,7 @@ function renderInput(
       );
 
     case 'date':
-      return (
-        <input
-          type="date"
-          className="ubme-input"
-          value={value}
-          onChange={(e) => onChange?.(e.target.value)}
-        />
-      );
+      return <input type="date" className="ubme-input" value={value} onChange={(e) => onChange?.(e.target.value)} />;
 
     case 'datetime':
       return (
@@ -160,14 +157,12 @@ function renderInput(
 
     case 'select':
       return (
-        <select
-          className="ubme-select"
-          value={value}
-          onChange={(e) => onChange?.(e.target.value)}
-        >
+        <select className="ubme-select" value={value} onChange={(e) => onChange?.(e.target.value)}>
           <option value="">Select...</option>
           {(options || []).map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
           ))}
         </select>
       );
