@@ -69,6 +69,8 @@ class Lead(db.Model):
     assigned_to = db.Column(db.String(120))
     # PROD-23: link lead to its commitment
     commitment_id = db.Column(db.Integer, db.ForeignKey("commitments.id"), nullable=True)
+    # PROD-30: outcome of the lead execution
+    outcome = db.Column(db.String(120), nullable=True)
     # Person compatibility (Phase 1)
     person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=True)
     person = db.relationship("Person", backref="leads", lazy="select")
@@ -217,6 +219,8 @@ class Task(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
+    # PROD-27: link task to lead
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
     task_list_id = db.Column(db.Integer, db.ForeignKey("task_lists.id"), nullable=False)
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, default="")

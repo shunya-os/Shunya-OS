@@ -25,6 +25,8 @@ from app.graph.service import get_targets
 from app.commitments.models import Commitment
 from app.runtime.decision_engine import decide_next_from_commitment
 from app.commitments.service import apply_decision
+from app.runtime.decision_engine import decide_lead_task
+from app.models import Lead
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +118,13 @@ def run_cycle() -> dict:
     for c in commitments:
         decision = decide_next_from_commitment(c)
         apply_decision(c, decision)
+
+    # PROD-28/30: process leads — task creation + outcome
+    leads = Lead.query.all()
+    for lead in leads:
+        decision = decide_lead_task(lead)
+        if decision.get("type") == "update":
+            lead.outcome = "attempted"
 
     db.session.commit()
     return summary
