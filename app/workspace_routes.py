@@ -6,7 +6,7 @@ which is the canonical workspace runtime.
 import os
 from flask import Blueprint, send_from_directory
 
-workspace_bp = Blueprint("workspace", __name__, template_folder="../templates", url_prefix="/workspace")
+workspace_bp = Blueprint("workspace_routes", __name__, template_folder="../templates", url_prefix="/workspace")
 
 _FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
