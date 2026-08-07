@@ -13,6 +13,8 @@ class Observation(db.Model):
         nullable=False
     )
 
+    entity_id = db.Column(db.Integer, nullable=True, index=True)
+
     observed_value = db.Column(db.JSON, nullable=False)
     expected_value = db.Column(db.JSON, nullable=True)
 
@@ -24,6 +26,11 @@ class Observation(db.Model):
     )
 
     recorded_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    created_at = db.Column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc)
     )

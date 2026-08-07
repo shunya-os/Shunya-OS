@@ -442,6 +442,9 @@ def create_app(config_override: dict | None = None):
     # Execution Engine — PROD-06
     from app.execution_engine.routes import execution_bp
     app.register_blueprint(execution_bp)
+    # Entity API — PROD-49
+    from app.api.entity_routes import entity_bp
+    app.register_blueprint(entity_bp)
     # Intelligence Layer — PROD-07
     from app.intelligence.pattern_routes import pattern_bp
     app.register_blueprint(pattern_bp)
@@ -787,11 +790,12 @@ a:hover{background:#4338ca}
         # Load ontology for navigation
         from app.ontology import registry
         from app.tenant import Tenant
-        from app.communication.models import (
+        from app.communication.models import (  # noqa: F401
             CommunicationSource, CommunicationCapturePolicy, CommunicationCaptureScope,
             ExternalConversation, ExternalMessage, ExternalParticipant,
             ExternalAttachmentReference, SyncCursor,
         )
+        from app.communication.models import Message  # noqa: F401
         from app.privacy.models import (
             PrivacyPolicy, SensitivityPolicy, RetentionPolicy, MemoryEligibilityPolicy,
             SensitivityAssessment, PrivacyDecision, Restriction, ForgetRequest, PrivacyReviewItem,
