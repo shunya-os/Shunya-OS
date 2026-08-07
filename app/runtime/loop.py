@@ -28,6 +28,8 @@ from app.commitments.service import apply_decision
 from app.runtime.decision_engine import decide_lead_task
 from app.runtime.decision_engine import decide_lead_stage
 from app.runtime.decision_engine import decide_entity
+from app.communication.service import MessageService
+from app.output.generator import generate_output
 from app.core.entity import Entity
 from app.models import Lead
 
@@ -108,6 +110,15 @@ def run_cycle() -> dict:
             )
             summary["actions_taken"] += 1
             summary["signals_emitted"] += 1
+
+            # PROD-52: after state update — generate output and create message
+            output = generate_output(obj)
+            MessageService.create(
+                entity_id=obj.id,
+                content=str(output),
+                direction="outbound",
+                channel="system"
+            )
 
             # PROD-13: propagate to relational targets
             _propagate_to_targets(obj, summary)

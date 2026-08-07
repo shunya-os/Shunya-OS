@@ -228,3 +228,12 @@ def decide_entity(entity):
     if entity.state == "new":
         return {"type": "update", "payload": {"state": "in_progress"}}
     return {"type": "noop"}
+
+
+def explain_decision(entity, decision):
+    return {
+        "entity_id": entity.id,
+        "decision": decision,
+        "reason": "Derived from current state and context",
+        "state": entity.state
+    }
