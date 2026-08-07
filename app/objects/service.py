@@ -1,7 +1,6 @@
 from app import db
 from app.objects.models import Object
 
-
 class ObjectService:
 
     @staticmethod
