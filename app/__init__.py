@@ -321,6 +321,21 @@ def create_app(config_override: dict | None = None):
     # Enterprise Security — CRUD Audit Log
     from app.security.audit import AuditLog as SecurityAuditLog  # noqa: F401
 
+    # Execution Engine — PROD-04/06
+    from app.execution_engine.models import (  # noqa: F401
+        ExecutionInstance, ExecutionTask,
+    )
+    # Execution Truth — PROD-06 Phase 2
+    from app.execution_engine.truth import ExecutionTruth  # noqa: F401
+    # Signal System — PROD-06
+    from app.signals.models import Signal  # noqa: F401
+
+    # Intake System — PROD-04
+    from app.intake.models import IntakeSignal  # noqa: F401
+
+    # Canonical Object System — PROD-05
+    from app.objects.core import Object  # noqa: F401
+
     # Canonical consolidated models (from FOR-1/2)
     from app.models import (  # noqa: F401
         Organization, OrgMember, OrgInvitation, Department,
@@ -525,6 +540,10 @@ def create_app(config_override: dict | None = None):
     from app.execution.routes import execution_bp
     app.register_blueprint(execution_bp)
 
+    # Execution Engine — PROD-04/06 (continuous intelligence)
+    from app.execution_engine import routes as exec_engine
+    app.register_blueprint(exec_engine.execution_bp, url_prefix="/api/v1")
+
     # M7 — Automation
     from app.automation.routes import automation_bp
     app.register_blueprint(automation_bp)
@@ -533,13 +552,13 @@ def create_app(config_override: dict | None = None):
     from app.events.routes import events_bp
     app.register_blueprint(events_bp)
 
+    # Intake System — PROD-04
+    from app.intake.routes import intake_bp
+    app.register_blueprint(intake_bp)
+
     # M8 — Executive Intelligence
     from app.intelligence.routes import intelligence_bp
     app.register_blueprint(intelligence_bp)
-
-    # Communication — Email send (compose UI backend)
-    from app.communication.routes import communication_bp
-    app.register_blueprint(communication_bp)
 
     # M9 — Enterprise Ready
     from app.enterprise.routes import enterprise_bp
@@ -844,5 +863,14 @@ a:hover{background:#4338ca}
                 app.logger.info("Loaded %d persisted identities", cnt)
     except Exception as exc:
         app.logger.warning("Could not load persisted identities: %s", exc)
+
+    # ---- PROD-06: Continuous Intelligence Loop (auto-start) ----
+    if os.getenv("ENABLE_CONTINUOUS_LOOP", "").lower() in ("1", "true", "yes"):
+        try:
+            from app.runtime.loop import start_loop
+            start_loop()
+            app.logger.info("Continuous intelligence loop auto-started")
+        except Exception as exc:
+            app.logger.warning("Could not auto-start continuous loop: %s", exc)
 
     return app
