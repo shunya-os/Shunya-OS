@@ -137,7 +137,7 @@ class RecoveryOrchestrator:
     def _execute_action(self, action: dict, identity_id: str) -> dict:
         """Execute a single action using direct DB operations."""
         from app import db
-        from app.objects.models import ShunyaObject
+        from app.objects.legacy_models import ShunyaObject
         import uuid
         
         action_type = action.get("action", "unknown")
@@ -160,7 +160,7 @@ class RecoveryOrchestrator:
             return {"success": True, "data": {"object_id": obj.object_id, "name": obj.name, "id": obj.id}}
         
         if action_type == "update_object":
-            from app.objects.models import ShunyaObject
+            from app.objects.legacy_models import ShunyaObject
             obj_id = action.get("id")
             obj = ShunyaObject.query.filter_by(id=obj_id).first() if obj_id else None
             if obj:
@@ -220,7 +220,7 @@ def execute_action_direct(action: dict, identity_id: str) -> dict:
 
     if action_type == "create_object":
         from app import db
-        from app.objects.models import ShunyaObject
+        from app.objects.legacy_models import ShunyaObject
         import uuid
         data = action.get("data", {})
         name = data.get("name", data.get("title", ""))
@@ -236,7 +236,7 @@ def execute_action_direct(action: dict, identity_id: str) -> dict:
 
         # Try direct DB insert
         import uuid
-        from app.objects.models import ShunyaObject
+        from app.objects.legacy_models import ShunyaObject
         obj = ShunyaObject(
             object_id=uuid.uuid4().hex[:24],
             workspace_id="spc_business",

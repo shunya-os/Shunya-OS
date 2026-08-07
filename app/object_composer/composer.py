@@ -332,7 +332,7 @@ class LivingObjectComposer:
         Delegates to Object Runtime (app.objects.models). The Composer
         does not own lifecycle data — it imports configuration.
         """
-        from app.objects.models import get_stage_pipeline
+        from app.objects.legacy_models import get_stage_pipeline
         return get_stage_pipeline(obj_type.value)
 
     def _emit_reality_event(self, object_id: str, intent: ComposerIntent,
