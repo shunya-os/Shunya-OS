@@ -1,4 +1,4 @@
-"""Continuous execution loop — observes objects, determines next action, executes, persists.
+"""Continuous execution loop — observes objects and commitments, determines next action, executes, persists.
 
 Emits pure observation signals: state_changed after update, no_action on noop.
 Stateless, deterministic, no memory across cycles.
@@ -7,6 +7,10 @@ PROD-13: Relational execution graph propagation.
 After a successful update, the loop checks for outbound relations and
 propagates execution triggers to connected objects — one cycle, one chain.
 No recursion, no business logic.
+
+PROD-17: Autonomous execution loop — commitments.
+The same cycle processes all commitments: gap-aware decision from the
+latest observation, then applies it. Continuous processing, one cycle.
 """
 
 import time
@@ -18,6 +22,9 @@ from app.runtime.decision_engine import get_next_action
 from app.execution_engine.engine import execute_action
 from app.signals.service import emit_signal
 from app.graph.service import get_targets
+from app.commitments.models import Commitment
+from app.runtime.decision_engine import decide_next_from_commitment
+from app.commitments.service import apply_decision
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +110,12 @@ def run_cycle() -> dict:
         except Exception as e:
             logger.error("Loop error on object %d: %s", obj.id, e)
             summary["errors"].append({"object_id": obj.id, "error": str(e)})
+
+    # PROD-17: process all commitments — gap-aware decision → apply
+    commitments = Commitment.query.all()
+    for c in commitments:
+        decision = decide_next_from_commitment(c)
+        apply_decision(c, decision)
 
     db.session.commit()
     return summary
