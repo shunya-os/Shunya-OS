@@ -163,3 +163,30 @@ def decide_lead_task(lead):
             "payload": {"task": "Call customer"}
         }
     return {"type": "noop"}
+
+
+def decide_lead_stage(lead):
+    """Progress lead through lifecycle stages based on outcome."""
+    if not lead.outcome:
+        return {"type": "noop"}
+
+    if lead.outcome == "attempted":
+        if lead.stage == "new":
+            return {
+                "type": "update",
+                "payload": {"stage": "contacted"}
+            }
+
+        if lead.stage == "contacted":
+            return {
+                "type": "update",
+                "payload": {"stage": "quoted"}
+            }
+
+        if lead.stage == "quoted":
+            return {
+                "type": "update",
+                "payload": {"stage": "closed"}
+            }
+
+    return {"type": "noop"}

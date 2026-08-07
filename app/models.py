@@ -71,6 +71,8 @@ class Lead(db.Model):
     commitment_id = db.Column(db.Integer, db.ForeignKey("commitments.id"), nullable=True)
     # PROD-30: outcome of the lead execution
     outcome = db.Column(db.String(120), nullable=True)
+    # PROD-31: lead lifecycle stage
+    stage = db.Column(db.String(50), default="new")
     # Person compatibility (Phase 1)
     person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=True)
     person = db.relationship("Person", backref="leads", lazy="select")
