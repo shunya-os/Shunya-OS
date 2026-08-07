@@ -278,7 +278,7 @@ def get_object_type(type_key: str):
 # ---------------------------------------------------------------------------
 
 @objects_bp.route("/<obj_type>", methods=["POST"])
-def create_object(obj_type: str):
+def create_typed_object(obj_type: str):
     identity_id = _require_identity()
     if not identity_id:
         return _error("X-Identity-Id header required", 401)
@@ -336,7 +336,7 @@ def create_object(obj_type: str):
 
 
 @objects_bp.route("/<obj_type>", methods=["GET"])
-def list_objects(obj_type: str):
+def list_typed_objects(obj_type: str):
     identity_id = _require_identity()
     if not identity_id:
         return _error("X-Identity-Id header required", 401)

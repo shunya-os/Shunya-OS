@@ -8,7 +8,7 @@ from app.execution.runtime import get_runtime
 
 logger = logging.getLogger(__name__)
 
-execution_bp = Blueprint("execution", __name__, url_prefix="/api/v1/outcomes")
+execution_bp = Blueprint("execution_outcomes", __name__, url_prefix="/api/v1/outcomes")
 
 
 def _get_identity() -> str | None:
