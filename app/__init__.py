@@ -327,6 +327,15 @@ def create_app(config_override: dict | None = None):
     # Object System — PROD-05
     from app.objects.models import Object  # noqa: F401
 
+    # Execution Engine — PROD-06
+    from app.execution_engine.models import Execution  # noqa: F401
+
+    # Intelligence Layer — PROD-07
+    from app.intelligence.models import Pattern  # noqa: F401
+
+    # Signals System — PROD-08
+    from app.signals.models import Signal  # noqa: F401
+
     # Canonical consolidated models (from FOR-1/2)
     from app.models import (  # noqa: F401
         Organization, OrgMember, OrgInvitation, Department,
@@ -415,6 +424,12 @@ def create_app(config_override: dict | None = None):
     # Phase 0 — Foundation: Workspace + Universal Object API (registered before production_bp to avoid route conflicts)
     from app.objects.routes import objects_bp
     app.register_blueprint(objects_bp)
+    # Execution Engine — PROD-06
+    from app.execution_engine.routes import execution_bp
+    app.register_blueprint(execution_bp)
+    # Intelligence Layer — PROD-07
+    from app.intelligence.pattern_routes import pattern_bp
+    app.register_blueprint(pattern_bp)
     # EP-02 — Living Object Composer (single canonical creation endpoint)
     from app.object_composer.routes import composer_bp
     app.register_blueprint(composer_bp)
