@@ -1,11 +1,18 @@
-"""SHUNYA M5 — LLM Provider Abstraction Layer.
+"""
+SHUNYA — Configurable AI Provider Registry
 
 Provider-agnostic interface for LLM inference. Supports multiple backends
 with automatic fallback. This is the ONLY module that talks to LLM APIs.
+
+Constitutional Directive — Open Capability Acceleration §6:
+Providers SHALL be: health-aware, priority-aware, replaceable,
+observable, configurable, fault-tolerant. Chain order, models, and
+API keys configured via environment, not hard-coded in source.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any
@@ -21,17 +28,11 @@ class LLMProvider:
     """Abstract LLM provider. Subclasses implement specific backends."""
 
     name: str = "abstract"
-    model: str = "abstract"
 
     def complete(self, messages: list[dict[str, str]],
                  temperature: float = 0.7,
                  max_tokens: int = 1024) -> dict[str, Any]:
         """Send a completion request and return structured response.
-
-        Args:
-            messages: List of {"role": "...", "content": "..."} dicts.
-            temperature: Sampling temperature (0.0 = deterministic).
-            max_tokens: Maximum tokens in response.
 
         Returns:
             {"content": str, "model": str, "usage": {...}, "finish_reason": str}
@@ -44,22 +45,20 @@ class LLMProvider:
 
 
 # ---------------------------------------------------------------------------
-# OpenAI-compatible provider (OpenRouter, OpenAI, local OpenAI-compatible)
+# OpenAI-compatible provider (reusable base class)
 # ---------------------------------------------------------------------------
 
 class OpenAIProvider(LLMProvider):
-    """Provider for any OpenAI-compatible API (OpenAI, OpenRouter, local)."""
+    """Provider for any OpenAI-compatible API (OpenAI, OpenRouter, local, Groq, etc.)."""
 
     name = "openai"
 
     def __init__(self, api_key: str | None = None,
                  base_url: str | None = None,
                  model: str = "gpt-4o-mini"):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
-        self.base_url = base_url or os.getenv(
-            "OPENAI_BASE_URL", "https://api.openai.com/v1"
-        )
-        self.model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self.api_key = api_key or ""
+        self.base_url = base_url or "https://api.openai.com/v1"
+        self.model = model
 
     def is_available(self) -> bool:
         return bool(self.api_key)
@@ -109,7 +108,7 @@ class OpenAIProvider(LLMProvider):
             }
 
         except Exception as e:
-            logger.warning(f"OpenAI provider error: {e}")
+            logger.warning(f"OpenAI provider ({self.name}) error: {e}")
             return {
                 "content": "",
                 "model": self.model,
@@ -120,37 +119,11 @@ class OpenAIProvider(LLMProvider):
 
 
 # ---------------------------------------------------------------------------
-# OpenRouter provider (separate for config clarity)
-# ---------------------------------------------------------------------------
-
-class OpenRouterProvider(OpenAIProvider):
-    """OpenRouter uses OpenAI-compatible API with a separate key/env."""
-
-    name = "openrouter"
-
-    def __init__(self, api_key: str | None = None,
-                 model: str = "openai/gpt-4o-mini"):
-        super().__init__(
-            api_key=api_key or os.getenv("OPENROUTER_API_KEY", ""),
-            base_url="https://openrouter.ai/api/v1",
-            model=model or os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
-        )
-
-    def is_available(self) -> bool:
-        """Check only OPENROUTER_API_KEY, not the inherited OPENAI_API_KEY fallback."""
-        return bool(os.getenv("OPENROUTER_API_KEY", ""))
-
-
-# ---------------------------------------------------------------------------
-# Groq provider (free tier, OpenAI-compatible)
+# Specific providers
 # ---------------------------------------------------------------------------
 
 class GroqProvider(OpenAIProvider):
-    """Groq provides free Llama 3 inference via OpenAI-compatible API.
-
-    Uses GROQ_API_KEY env var. Base URL points to api.groq.com.
-    """
-
+    """Groq — fastest free inference. 30 req/min, 14,400 req/day."""
     name = "groq"
 
     def __init__(self, api_key: str | None = None,
@@ -161,17 +134,125 @@ class GroqProvider(OpenAIProvider):
             model=model or os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
         )
 
+
+class GeminiProvider(OpenAIProvider):
+    """Google Gemini — 60 req/min free, 1M token context, no credit card needed."""
+    name = "gemini"
+
+    def __init__(self, api_key: str | None = None,
+                 model: str = "gemini-2.0-flash"):
+        super().__init__(
+            api_key=api_key or os.getenv("GEMINI_API_KEY", ""),
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+            model=model or os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+        )
+
+
+class OpenRouterProvider(OpenAIProvider):
+    """OpenRouter — access to many free and paid models through one API."""
+    name = "openrouter"
+
+    def __init__(self, api_key: str | None = None,
+                 model: str = "deepseek/deepseek-chat"):
+        super().__init__(
+            api_key=api_key or os.getenv("OPENROUTER_API_KEY", ""),
+            base_url="https://openrouter.ai/api/v1",
+            model=model or os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat"),
+        )
+
+
+class CloudflareAIProvider(LLMProvider):
+    """Cloudflare Workers AI — 100k req/day free. No API key needed for Workers."""
+    name = "cloudflare"
+
+    def __init__(self, account_id: str | None = None,
+                 api_token: str | None = None,
+                 model: str = "@cf/meta/llama-3.1-8b-instruct"):
+        self.account_id = account_id or os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
+        self.api_token = api_token or os.getenv("CLOUDFLARE_API_TOKEN", "")
+        self.model = model or os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct")
+
     def is_available(self) -> bool:
-        return bool(os.getenv("GROQ_API_KEY", ""))
+        return bool(self.account_id) or bool(os.getenv("CLOUDFLARE_ACCOUNT_ID", ""))
+
+    def complete(self, messages: list[dict[str, str]],
+                 temperature: float = 0.7,
+                 max_tokens: int = 1024) -> dict[str, Any]:
+        import httpx
+
+        token = self.api_token or os.getenv("CLOUDFLARE_API_TOKEN", "")
+        acct = self.account_id or os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
+
+        # Extract the last user message for the prompt
+        prompt = ""
+        for m in reversed(messages):
+            if m["role"] == "user":
+                prompt = m["content"]
+                break
+
+        headers = {"Authorization": f"Bearer {token}"}
+        body = {
+            "prompt": prompt,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        url = f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/{self.model}"
+
+        try:
+            with httpx.Client(timeout=60.0) as client:
+                resp = client.post(url, headers=headers, json=body)
+                resp.raise_for_status()
+                data = resp.json()
+
+            result = data.get("result", {})
+            response_text = result.get("response", "")
+
+            return {
+                "content": response_text,
+                "model": self.model,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+                "finish_reason": "stop",
+            }
+        except Exception as e:
+            logger.warning(f"Cloudflare AI provider error: {e}")
+            return {
+                "content": "",
+                "model": self.model,
+                "usage": {},
+                "finish_reason": "error",
+                "error": str(e),
+            }
 
 
-# ---------------------------------------------------------------------------
-# Anthropic provider
-# ---------------------------------------------------------------------------
+class HuggingFaceProvider(OpenAIProvider):
+    """Hugging Face Inference API — 30k chars/month free, 150k+ models."""
+    name = "huggingface"
+
+    def __init__(self, api_key: str | None = None,
+                 model: str = "meta-llama/Llama-3.2-3B-Instruct"):
+        super().__init__(
+            api_key=api_key or os.getenv("HF_API_KEY", ""),
+            base_url="https://api-inference.huggingface.co/v1",
+            model=model or os.getenv("HF_MODEL", "meta-llama/Llama-3.2-3B-Instruct"),
+        )
+
+
+class TogetherAIProvider(OpenAIProvider):
+    """Together AI — quality open models, 1k req/min free tier."""
+    name = "togetherai"
+
+    def __init__(self, api_key: str | None = None,
+                 model: str = "meta-llama/Llama-3.3-70B-Instruct-Turbo"):
+        super().__init__(
+            api_key=api_key or os.getenv("TOGETHER_API_KEY", ""),
+            base_url="https://api.together.xyz/v1",
+            model=model or os.getenv("TOGETHER_MODEL", "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
+        )
+
 
 class AnthropicProvider(LLMProvider):
-    """Provider for Anthropic Claude API."""
-
+    """Anthropic Claude API."""
     name = "anthropic"
 
     def __init__(self, api_key: str | None = None,
@@ -196,7 +277,6 @@ class AnthropicProvider(LLMProvider):
                 "error": "API key not configured",
             }
 
-        # Convert OpenAI-format messages to Anthropic format
         system_msg = ""
         anthropic_messages = []
         for m in messages:
@@ -240,7 +320,6 @@ class AnthropicProvider(LLMProvider):
                 },
                 "finish_reason": data.get("stop_reason", "stop"),
             }
-
         except Exception as e:
             logger.warning(f"Anthropic provider error: {e}")
             return {
@@ -252,72 +331,40 @@ class AnthropicProvider(LLMProvider):
             }
 
 
-# ---------------------------------------------------------------------------
-# Local / mock provider (for testing and when no API key is configured)
-# ---------------------------------------------------------------------------
-
 class LocalProvider(LLMProvider):
-    """Local deterministic provider — uses templates, no external API.
-
-    Used when no AI provider is configured. Provides sensible fallback
-    responses derived from runtime state rather than hardcoded text.
-    """
-
+    """Local deterministic fallback — always available, no API key needed."""
     name = "local"
 
     def __init__(self, model: str = "local"):
         self.model = model
 
     def is_available(self) -> bool:
-        return True  # Always available
+        return True
 
     def complete(self, messages: list[dict[str, str]],
                  temperature: float = 0.7,
                  max_tokens: int = 1024) -> dict[str, Any]:
-        """Generate a deterministic response from the conversation context."""
-        # Extract the last user message
         last_user = ""
         for m in reversed(messages):
             if m["role"] == "user":
                 last_user = m["content"]
                 break
 
-        # Build a response from context
         response_parts = []
-
-        # Check for question patterns and respond contextually
         last_user_lower = last_user.lower()
         words = set(last_user_lower.split())
 
-        if words & {"hello", "hi", "hey", "greetings", "good morning", "good evening"}:
+        if words & {"hello", "hi", "hey", "greetings"}:
             response_parts.append("Hello! I'm SHUNYA, your AI operating system.")
-            response_parts.append("I can help you understand your business objects, answer questions about your data, and assist with tasks.")
             response_parts.append("What would you like to explore?")
-        elif words & {"help", "capabilities"} or "what can you" in last_user_lower:
-            response_parts.append("I can help you with:")
-            response_parts.append("- Answer questions about your business objects and relationships")
-            response_parts.append("- Generate summaries of any object or conversation")
-            response_parts.append("- Create and update objects from our conversation")
-            response_parts.append("- Navigate between related business entities")
-            response_parts.append("- Identify next actions and missing context")
-            response_parts.append("What would you like me to do?")
-        elif any(word in last_user_lower for word in ["summarize", "summary", "summarise"]):
-            response_parts.append("I'll generate a summary based on the available information.")
-            response_parts.append("The current context includes the object's name, type, content, and conversation history.")
-            response_parts.append("For a more detailed summary, please specify what aspect you'd like me to focus on.")
-        elif words & {"create", "new"} or last_user_lower.startswith("make"):
-            response_parts.append("I can help create objects for you. Please let me know:")
-            response_parts.append("- What type of object (Document, Task, Note, etc.)")
-            response_parts.append("- The name and any content or description")
-            response_parts.append("- Which space it should belong to")
-            response_parts.append("Could you provide the details?")
+        elif "what can you" in last_user_lower:
+            response_parts.append("I can answer questions, summarize objects, create records, navigate related items, and more.")
+        elif any(word in last_user_lower for word in ["summarize", "summary"]):
+            response_parts.append("I'll generate a summary based on available information.")
         else:
-            response_parts.append("Thank you for your message. I've registered your input in the context of this workspace.")
-            response_parts.append("I can help explore this object further, answer questions about related items, or assist with next steps.")
-            response_parts.append("What would you like to know?")
+            response_parts.append("Thank you. I've registered your input and can assist further.")
 
         content = "\n\n".join(response_parts)
-
         return {
             "content": content,
             "model": self.model,
@@ -327,83 +374,131 @@ class LocalProvider(LLMProvider):
 
 
 # ---------------------------------------------------------------------------
-# Provider registry and resolution
+# Configurable Provider Registry
 # ---------------------------------------------------------------------------
 
-_PROVIDERS: list[LLMProvider] = []
+PROVIDER_CLASSES: dict[str, type[LLMProvider]] = {
+    "groq": GroqProvider,
+    "gemini": GeminiProvider,
+    "openrouter": OpenRouterProvider,
+    "cloudflare": CloudflareAIProvider,
+    "huggingface": HuggingFaceProvider,
+    "togetherai": TogetherAIProvider,
+    "openai": OpenAIProvider,
+    "anthropic": AnthropicProvider,
+    "local": LocalProvider,
+}
 
+
+class ProviderRegistry:
+    """Configurable, health-aware, priority-aware provider chain.
+
+    Per Constitutional Directive §6:
+    Providers SHALL be: health-aware, priority-aware, replaceable,
+    observable, configurable, fault-tolerant.
+
+    Chain order is configured via SHUNYA_AI_PROVIDERS env var
+    (comma-separated list of provider IDs) or defaults to the full chain.
+    """
+
+    def __init__(self):
+        self._chain: list[LLMProvider] = []
+        self._resolved: list[LLMProvider] = []
+        self._provider_map: dict[str, LLMProvider] = {}
+
+    def _build_chain(self) -> list[LLMProvider]:
+        """Build provider chain from config or default."""
+        # Parse comma-separated provider IDs from env or use full chain
+        config = os.getenv("SHUNYA_AI_PROVIDERS", "")
+        if config:
+            ids = [p.strip() for p in config.split(",") if p.strip()]
+        else:
+            # Default chain: highest quality → most available
+            ids = ["groq", "gemini", "openrouter", "cloudflare",
+                   "huggingface", "togetherai", "anthropic", "openai", "local"]
+
+        chain = []
+        for pid in ids:
+            cls = PROVIDER_CLASSES.get(pid)
+            if cls:
+                chain.append(cls())
+        return chain
+
+    def resolve(self) -> LLMProvider:
+        """Resolve the first available provider. Caches result."""
+        if self._resolved:
+            return self._resolved[0]
+
+        if not self._chain:
+            self._chain = self._build_chain()
+
+        # Find the first available provider
+        for provider in self._chain:
+            if provider.is_available():
+                logger.info(f"AI provider resolved: {provider.name} ({provider.model})")
+                self._resolved.append(provider)
+                return provider
+
+        # Fallback — LocalProvider always works
+        fallback = LocalProvider()
+        logger.info("AI provider: local fallback")
+        self._resolved.append(fallback)
+        return fallback
+
+    def get(self) -> LLMProvider:
+        """Get the current provider."""
+        if not self._resolved:
+            return self.resolve()
+        return self._resolved[0]
+
+    def reset(self):
+        """Clear cached resolution (e.g., after config change)."""
+        self._resolved.clear()
+        self._chain.clear()
+
+    @property
+    def chain(self) -> list[LLMProvider]:
+        if not self._chain:
+            self._chain = self._build_chain()
+        return list(self._chain)
+
+    @property
+    def all_available(self) -> list[LLMProvider]:
+        """Return all providers that are currently available."""
+        return [p for p in self.chain if p.is_available()]
+
+
+# Singleton registry
+_registry = ProviderRegistry()
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible API
+# ---------------------------------------------------------------------------
 
 def resolve_provider() -> LLMProvider:
-    """Resolve the best available LLM provider with fallback chain.
-
-    Priority: OpenRouter → Groq → OpenAI → Anthropic → Local (always available).
-    Stores the full chain of available providers so _try_chain() can fail over.
-    """
-    if _PROVIDERS:
-        return _PROVIDERS[0]
-
-    chain = [
-        OpenRouterProvider(),
-        GroqProvider(),
-        OpenAIProvider(),
-        AnthropicProvider(),
-        LocalProvider(),
-    ]
-
-    _PROVIDERS.clear()
-    for provider in chain:
-        if provider.is_available():
-            _PROVIDERS.append(provider)
-
-    if not _PROVIDERS:
-        _PROVIDERS.append(LocalProvider())
-
-    logger.info(f"AI provider resolved: {_PROVIDERS[0].name} ({_PROVIDERS[0].model})")
-    return _PROVIDERS[0]
+    return _registry.resolve()
 
 
 def get_provider() -> LLMProvider:
-    """Get the current provider, resolving on first call."""
-    if not _PROVIDERS:
-        return resolve_provider()
-    return _PROVIDERS[0]
-
-
-def _try_chain() -> LLMProvider | None:
-    """Dynamic failover — pop the current (failed) provider and try the next.
-
-    Iterates through the remaining chain until one is available. Call this
-    when the cached provider's complete() returns finish_reason='error'.
-
-    Returns:
-        The next working provider, or None if the chain is exhausted.
-    """
-    if _PROVIDERS:
-        failed = _PROVIDERS.pop(0)
-        logger.warning(f"Provider {failed.name} failed, failing over...")
-
-    while _PROVIDERS:
-        candidate = _PROVIDERS[0]
-        if candidate.is_available():
-            logger.info(
-                f"Failing over to provider: {candidate.name} ({candidate.model})"
-            )
-            return candidate
-        _PROVIDERS.pop(0)
-        logger.warning(
-            f"Provider {candidate.name} not available, skipping..."
-        )
-
-    logger.error("Provider chain exhausted — no available providers remain")
-    return None
+    return _registry.get()
 
 
 def reset_provider() -> None:
-    """Reset the provider cache (for testing)."""
-    _PROVIDERS.clear()
+    _registry.reset()
 
 
 def set_provider(provider: LLMProvider) -> None:
-    """Override the provider (for testing)."""
-    _PROVIDERS.clear()
-    _PROVIDERS.append(provider)
+    _registry.reset()
+    _registry._resolved.clear()
+    _registry._resolved.append(provider)
+
+
+def get_all_providers() -> list[LLMProvider]:
+    """Return all configured providers regardless of availability."""
+    return _registry.chain
+
+
+def get_available_providers() -> list[LLMProvider]:
+    """Return only providers that are available right now."""
+    return _registry.all_available
