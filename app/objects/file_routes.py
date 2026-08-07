@@ -7,7 +7,7 @@ PATCH  /api/v1/files/<id>/rename — rename a file
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.objects.models import ShunyaObject
+from app.objects.legacy_models import ShunyaObject
 
 file_bp = Blueprint("files", __name__, url_prefix="/api/v1/files")
 

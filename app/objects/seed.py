@@ -13,7 +13,7 @@ Usage:
 import uuid
 from datetime import datetime, timedelta
 from app import db
-from app.objects.models import ShunyaObject
+from app.objects.legacy_models import ShunyaObject
 
 
 def _oid() -> str:
@@ -187,7 +187,7 @@ def seed_all_workspaces(identity_id: str) -> dict:
     Returns:
         dict with keys 'success' and 'results' (list of per-workspace results).
     """
-    from app.objects.models import Workspace
+    from app.objects.legacy_models import Workspace
 
     results = []
     workspaces = Workspace.query.filter(

@@ -238,7 +238,7 @@ def _register_health(app: Flask):
 
 def _seed_default_workspaces():
     """Seed 3 default workspaces if they don't already exist."""
-    from app.objects.models import Workspace
+    from app.objects.legacy_models import Workspace
     defaults = [
         {"id": "spc_business", "name": "Business", "workspace_type": "business", "icon": "🏢", "color": "#6C4AE2", "description": "Business operations workspace"},
         {"id": "spc_personal", "name": "Personal", "workspace_type": "personal", "icon": "👤", "color": "#10B981", "description": "Personal workspace"},
@@ -324,6 +324,9 @@ def create_app(config_override: dict | None = None):
     # Intake System — PROD-04
     from app.intake.models import IntakeSignal  # noqa: F401
 
+    # Object System — PROD-05
+    from app.objects.models import Object  # noqa: F401
+
     # Canonical consolidated models (from FOR-1/2)
     from app.models import (  # noqa: F401
         Organization, OrgMember, OrgInvitation, Department,
@@ -348,7 +351,7 @@ def create_app(config_override: dict | None = None):
     )
 
     # Phase 0 — Foundation: Workspace + Universal Object
-    from app.objects.models import Workspace, ShunyaObject  # noqa: F401
+    from app.objects.legacy_models import Workspace, ShunyaObject  # noqa: F401
 
     # Integration models — ContentGeneration, CachedMedia, etc.
     from app.integration.models import (  # noqa: F401

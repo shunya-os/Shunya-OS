@@ -51,7 +51,7 @@ from app.graph_universal.traversal import GraphQueryEngine
 from app.intelligence.observation import get_store as get_obs_store
 from app.intelligence.insight import get_compiler
 from app.awareness.engine import get_awareness_engine
-from app.objects.models import ShunyaObject, Workspace
+from app.objects.legacy_models import ShunyaObject, Workspace
 
 
 # ═════════════════════════════════════════════════════════════════════

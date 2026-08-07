@@ -15,7 +15,7 @@ from flask import Blueprint, jsonify, request, send_file
 from weasyprint import HTML
 
 from app import db
-from app.objects.models import ShunyaObject
+from app.objects.legacy_models import ShunyaObject
 
 logger = logging.getLogger(__name__)
 
