@@ -27,6 +27,8 @@ from app.runtime.decision_engine import decide_next_from_commitment
 from app.commitments.service import apply_decision
 from app.runtime.decision_engine import decide_lead_task
 from app.runtime.decision_engine import decide_lead_stage
+from app.runtime.decision_engine import decide_entity
+from app.core.entity import Entity
 from app.models import Lead
 
 logger = logging.getLogger(__name__)
@@ -129,9 +131,23 @@ def run_cycle() -> dict:
 
         # PROD-32-34: stage progression
         stage_dec = decide_lead_stage(lead)
-        if stage_dec.get("type") == "update":
+        # PROD-40: support multi-action list decisions
+        if isinstance(stage_dec, list):
+            for dec in stage_dec:
+                if dec.get("type") == "update":
+                    for k, v in dec.get("payload", {}).items():
+                        setattr(lead, k, v)
+        elif stage_dec.get("type") == "update":
             for k, v in stage_dec.get("payload", {}).items():
                 setattr(lead, k, v)
+
+    # PROD-45: process all Entities — generic state transitions
+    entities = Entity.query.all()
+    for e in entities:
+        ed = decide_entity(e)
+        if ed.get("type") == "update":
+            for k, v in ed.get("payload", {}).items():
+                setattr(e, k, v)
 
     db.session.commit()
     return summary
