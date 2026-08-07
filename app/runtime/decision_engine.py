@@ -26,6 +26,7 @@ Relations are pure structure: {type, target_id}. No business meaning.
 from app.objects.models import Object
 from app.commitments.models import Commitment
 from app.observations.models import Observation
+from app.models import Task
 
 
 def get_next_action(obj) -> dict:
@@ -150,4 +151,15 @@ def decide_next_from_commitment(commitment: Commitment):
             "payload": {"status": "failed"}
         }
 
+    return {"type": "noop"}
+
+
+def decide_lead_task(lead):
+    """If a lead has no tasks, return a task creation action."""
+    task_count = Task.query.filter_by(lead_id=lead.id).count()
+    if task_count == 0:
+        return {
+            "type": "update",
+            "payload": {"task": "Call customer"}
+        }
     return {"type": "noop"}
