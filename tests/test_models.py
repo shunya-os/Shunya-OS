@@ -5,8 +5,8 @@ def test_title_contains_identity(client):
     """Home page renders with Shunya OS product identity in the title."""
     r = client.get("/")
     assert r.status_code == 200
-    # base.html template renders <title>Shunya | Shunya OS</title>
-    assert b"Shunya OS" in r.data
+    # React SPA shell sets <title>SHUNYA — One Operating System for Your Business</title>
+    assert b"SHUNYA" in r.data
 
 
 def test_telegram_webhook_creates_space_free_code(client):

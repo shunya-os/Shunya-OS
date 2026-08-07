@@ -5,7 +5,7 @@ Covers: routes, services, pipeline, Telegram webhook.
 """
 import jinja2
 import pytest
-from app.models import Lead, Payment, Invoice, Supplier, ActivityLog
+from app.models import Lead, Supplier, ActivityLog
 from app.services import parse_inquiry_text, format_inquiry_reply
 
 
@@ -56,7 +56,7 @@ class TestDashboard:
         r = client.get("/")
         # TESTING=True bypasses auth middleware deterministically — always 200
         assert r.status_code == 200
-        assert b"Shunya" in r.data
+        assert b"SHUNYA" in r.data
 
 
 class TestLeads:

@@ -71,7 +71,8 @@ async function fetchInsights(objectType: string, objectId: string): Promise<Insi
       confidence: i.confidence ?? 'medium',
       source: i.source ?? 'ai',
       timestamp: new Date(i.timestamp ?? Date.now()).getTime(),
-      objectType, objectId,
+      objectType,
+      objectId,
       commitmentId: i.commitment_id ?? i.commitmentId,
     }));
   } catch {
@@ -101,10 +102,25 @@ export const IntelligenceRuntime = {
   },
 
   /** Generate an insight locally (for rule-based observations). */
-  observe(type: Insight['type'], title: string, body: string, confidence: Insight['confidence'],
-          objectType?: string, objectId?: string): Insight {
-    const insight: Insight = { id: crypto.randomUUID(), type, title, body, confidence,
-      source: 'system', timestamp: Date.now(), objectType, objectId };
+  observe(
+    type: Insight['type'],
+    title: string,
+    body: string,
+    confidence: Insight['confidence'],
+    objectType?: string,
+    objectId?: string,
+  ): Insight {
+    const insight: Insight = {
+      id: crypto.randomUUID(),
+      type,
+      title,
+      body,
+      confidence,
+      source: 'system',
+      timestamp: Date.now(),
+      objectType,
+      objectId,
+    };
     const key = contextKey(objectType, objectId);
     const existing = cache.get(key);
     if (existing) existing.insights.push(insight);
@@ -118,5 +134,7 @@ export const IntelligenceRuntime = {
   },
 
   /** Clear all cached insights. */
-  clear(): void { cache.clear(); },
+  clear(): void {
+    cache.clear();
+  },
 };

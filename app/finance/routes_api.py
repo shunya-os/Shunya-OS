@@ -1,5 +1,5 @@
 """FOR-2D: Finance Intelligence — API Routes."""
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 import json, os
 from flask import jsonify, request, session, send_file
@@ -77,7 +77,48 @@ def api_create_invoice():
         result = create_invoice_from_proposal(org_id, proposal_id, created_by=_identity())
         if "error" in result: return jsonify(result), 400
         return jsonify(result), 201
-    return jsonify({"error": "proposal_id required"}), 400
+    # Direct invoice creation (no proposal)
+    customer_name = data.get("customer_name", "").strip()
+    if not customer_name:
+        return jsonify({"error": "customer_name required"}), 400
+    amount = Decimal(str(data.get("amount", 0)))
+    if amount <= 0:
+        return jsonify({"error": "amount must be positive"}), 400
+    due_date_str = data.get("due_date")
+    if due_date_str:
+        try:
+            due_date = date.fromisoformat(due_date_str)
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid due_date format (use YYYY-MM-DD)"}), 400
+    else:
+        due_date = date.today() + timedelta(days=30)
+    description = data.get("description", "").strip()
+    # Find or create a simple relationship for this customer
+    from app.models import Relationship
+    rel = Relationship.query.filter_by(
+        organization_id=org_id, name=customer_name
+    ).first()
+    if not rel:
+        rel = Relationship(
+            organization_id=org_id, name=customer_name,
+            type="customer", status="active",
+        )
+        db.session.add(rel)
+        db.session.flush()
+    inv_count = Invoice.query.filter_by(organization_id=org_id).count() + 1
+    inv_number = f"INV-{date.today().strftime('%Y%m')}-{inv_count:04d}"
+    inv = Invoice(
+        organization_id=org_id, relationship_id=rel.id,
+        number=inv_number, type="sales", status="draft",
+        issue_date=date.today(), due_date=due_date,
+        currency=data.get("currency", "INR"),
+        subtotal=amount, total_amount=amount,
+        notes=description, created_by=_identity(),
+    )
+    db.session.add(inv)
+    db.session.flush()
+    db.session.commit()
+    return jsonify({"invoice": inv.to_dict()}), 201
 
 @finance_bp.route("/invoices", methods=["GET"])
 def api_list_invoices():
@@ -88,7 +129,15 @@ def api_list_invoices():
     status = request.args.get("status", "")
     q = Invoice.query.filter_by(organization_id=org_id)
     if status: q = q.filter_by(status=status)
-    return jsonify({"invoices": [inv.to_dict() for inv in q.order_by(Invoice.created_at.desc()).all()]})
+    invoices = []
+    for inv in q.order_by(Invoice.created_at.desc()).all():
+        d = inv.to_dict()
+        if inv.relationship_id:
+            from app.models import Relationship
+            rel = db.session.get(Relationship, inv.relationship_id)
+            d["relationship_name"] = rel.name if rel else None
+        invoices.append(d)
+    return jsonify({"invoices": invoices})
 
 @finance_bp.route("/invoices/<int:inv_id>", methods=["GET"])
 def api_get_invoice(inv_id):

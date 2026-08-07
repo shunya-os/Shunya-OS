@@ -32,6 +32,9 @@ class TeamMember(db.Model):
     password_hash = Column(String(128))
     api_token = Column(String(128), unique=True)
     is_active = Column(Boolean, default=True)
+    verified = Column(Boolean, default=False)
+    verify_token = Column(String(128), nullable=True)
+    onboarding_completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime)
 

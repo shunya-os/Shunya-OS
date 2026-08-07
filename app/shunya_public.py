@@ -310,3 +310,118 @@ def api_conversation_think():
         "suggest_identity": suggest_identity,
         "thought_count": len(conv),
     })
+
+# ── MX-01 Phase 1 Audit PDF ──
+import os as _os
+
+@shunya_bp.route("/audit/mx01-phase1")
+def serve_mx01_audit():
+    """Serve MX-01 Phase 1 Migration Audit PDF."""
+    pdf_path = _os.path.join(_os.path.dirname(__file__), "..", "audit", "MX-01_PHASE1_AUDIT.pdf")
+    if not _os.path.exists(pdf_path):
+        return jsonify({"success": False, "error": "Audit PDF not found"}), 404
+    from flask import send_file
+    return send_file(pdf_path, mimetype="application/pdf", as_attachment=False)
+
+@shunya_bp.route("/audit/mx01a")
+def serve_mx01a_audit():
+    """Serve MX-01A Dependency & Experience Audit PDF."""
+    pdf_path = _os.path.join(_os.path.dirname(__file__), "..", "audit", "MX-01A_DEPENDENCY_AUDIT.pdf")
+    if not _os.path.exists(pdf_path):
+        return jsonify({"success": False, "error": "MX-01A audit PDF not found"}), 404
+    from flask import send_file
+    return send_file(pdf_path, mimetype="application/pdf", as_attachment=False)
+
+@shunya_bp.route("/audit/lx06")
+def serve_lx06_report():
+    """Serve LX-06 Architectural Convergence Report PDF."""
+    pdf_path = _os.path.join(_os.path.dirname(__file__), "..", "audit", "LX-06_CONVERGENCE.pdf")
+    if not _os.path.exists(pdf_path):
+        return jsonify({"success": False, "error": "LX-06 report not found"}), 404
+    from flask import send_file
+    return send_file(pdf_path, mimetype="application/pdf", as_attachment=False)
+
+@shunya_bp.route("/audit/lx06/frontend")
+def serve_lx06_frontend_duplication_map():
+    """Serve LX-06 Frontend Duplication Map PDF."""
+    pdf_path = _os.path.join(_os.path.dirname(__file__), "..", "audit", "LX-06_FRONTEND_DUPLICATION_MAP.pdf")
+    if not _os.path.exists(pdf_path):
+        return jsonify({"success": False, "error": "LX-06 Frontend Duplication Map not found"}), 404
+    from flask import send_file
+    return send_file(pdf_path, mimetype="application/pdf", as_attachment=False)
+
+@shunya_bp.route("/audit/lx06/backend")
+def serve_lx06_backend_duplication_report():
+    """Serve LX-06 Backend Duplication Report PDF."""
+    pdf_path = _os.path.join(_os.path.dirname(__file__), "..", "audit", "LX-06_BACKEND_DUPLICATION_REPORT.pdf")
+    if not _os.path.exists(pdf_path):
+        return jsonify({"success": False, "error": "LX-06 Backend Duplication Report not found"}), 404
+    from flask import send_file
+    return send_file(pdf_path, mimetype="application/pdf", as_attachment=False)
+
+@shunya_bp.route("/audit/lx06a")
+def serve_lx06a_canonical_architecture():
+    """Serve LX-06A Canonical SHUNYA Architecture PDF."""
+    pdf_path = _os.path.join(_os.path.dirname(__file__), "..", "audit", "LX-06A_CANONICAL_ARCHITECTURE.pdf")
+    if not _os.path.exists(pdf_path):
+        return jsonify({"success": False, "error": "LX-06A Canonical Architecture not found"}), 404
+    from flask import send_file
+    return send_file(pdf_path, mimetype="application/pdf", as_attachment=False)
+
+@shunya_bp.route("/audit/pattern-language")
+def serve_pattern_language():
+    """Serve SHUNYA Pattern Language PDF."""
+    pdf_path = _os.path.join(_os.path.dirname(__file__), "..", "audit", "SHUNYA_PATTERN_LANGUAGE.pdf")
+    if not _os.path.exists(pdf_path):
+        return jsonify({"success": False, "error": "SHUNYA Pattern Language not found"}), 404
+    from flask import send_file
+    return send_file(pdf_path, mimetype="application/pdf", as_attachment=False)
+
+@shunya_bp.route("/audit/engineering-constitution")
+def serve_engineering_constitution():
+    """Serve SHUNYA Engineering Constitution PDF."""
+    pdf_path = _os.path.join(_os.path.dirname(__file__), "..", "audit", "ENGINEERING_CONSTITUTION.pdf")
+    if not _os.path.exists(pdf_path):
+        return jsonify({"success": False, "error": "SHUNYA Engineering Constitution not found"}), 404
+    from flask import send_file
+    return send_file(pdf_path, mimetype="application/pdf", as_attachment=False)
+
+# ---------------------------------------------------------------------------
+# Generic audit PDF serving — constitutional default for all reports.
+# URL convention: /audit/<slug>  where <slug> is the PDF filename (case-insensitive)
+# without the .pdf extension. e.g. /audit/cdr-001 → CDR-001.pdf
+# Specific routes above take precedence; this catches everything else.
+# ---------------------------------------------------------------------------
+
+@shunya_bp.route("/audit/cdr-001")
+def serve_cdr_001():
+    """Serve Constitutional Discovery Report CDR-001 PDF."""
+    pdf_path = _os.path.join(_os.path.dirname(__file__), "..", "audit", "CDR-001.pdf")
+    if not _os.path.exists(pdf_path):
+        return jsonify({"success": False, "error": "CDR-001 not found"}), 404
+    from flask import send_file
+    return send_file(pdf_path, mimetype="application/pdf", as_attachment=False)
+
+@shunya_bp.route("/audit/<path:slug>")
+def serve_audit_pdf(slug):
+    """Serve any PDF in the audit directory by filename slug (case-insensitive).
+
+    Converts the URL slug to a canonical PDF filename and serves it. This is the
+    constitutional default for all future reports so no new route is required.
+    """
+    audit_dir = _os.path.join(_os.path.dirname(__file__), "..", "audit")
+    # Normalize: strip extension if provided, then case-insensitive match
+    base = slug if slug.endswith(".pdf") else slug + ".pdf"
+    target = _os.path.join(audit_dir, _os.path.basename(base))
+    if not _os.path.exists(target):
+        # case-insensitive fallback
+        for f in _os.listdir(audit_dir):
+            if f.lower() == base.lower() and f.endswith(".pdf"):
+                target = _os.path.join(audit_dir, f)
+                break
+        else:
+            from flask import current_app
+            current_app.logger.warning("audit PDF not found: %s", slug)
+            return jsonify({"success": False, "error": "PDF not found"}), 404
+    from flask import send_file
+    return send_file(target, mimetype="application/pdf", as_attachment=False)

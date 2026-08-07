@@ -6,7 +6,7 @@ which is the canonical workspace runtime.
 import os
 from flask import Blueprint, send_from_directory
 
-workspace_bp = Blueprint("workspace", __name__, template_folder="../templates")
+workspace_bp = Blueprint("workspace_routes", __name__, template_folder="../templates", url_prefix="/workspace")
 
 _FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
@@ -14,7 +14,15 @@ _FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist
 def _serve_spa():
     idx = os.path.join(_FRONTEND_DIST, "index.html")
     if os.path.exists(idx):
-        return send_from_directory(_FRONTEND_DIST, "index.html")
+        from flask import make_response
+        with open(idx, "r", encoding="utf-8") as f:
+            html = f.read()
+        # Remove crossorigin from module scripts - no CORS headers needed
+        html = html.replace("crossorigin ", "")
+        resp = make_response(html)
+        resp.headers["Content-Type"] = "text/html; charset=utf-8"
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
     return "Frontend not built. Run `cd frontend && npm run build`", 503
 
 

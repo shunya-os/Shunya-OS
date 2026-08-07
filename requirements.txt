@@ -24,3 +24,14 @@ flake8>=6.0
 mypy>=1.8
 alembic>=1.12
 flask-cors
+
+# Integration APIs
+cloudinary>=1.36
+stripe>=7.0
+razorpay>=2.0
+cryptography>=41.0
+weasyprint>=62.0
+
+# Web Search & AI Analysis
+ddgs>=9.0
+Pillow>=10.0

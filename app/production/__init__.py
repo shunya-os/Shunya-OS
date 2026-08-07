@@ -20,4 +20,7 @@ from app.production.identity import identity_bp
 
 production_bp.register_blueprint(identity_bp)
 
+# Generic object creation (SPA onboarding) — registers on production_bp
+from app.production import objects  # noqa: F401, E402
+
 __all__ = ["production_bp"]

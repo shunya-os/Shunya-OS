@@ -2,7 +2,7 @@
 
 Persistence for reasoning traces, learning events, and anomaly records.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app import db
 from sqlalchemy import Index, Text
@@ -149,3 +149,18 @@ class AnomalyRecord(db.Model):
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+# =========================================================================
+# PROD-07 — Pattern Recognition
+# =========================================================================
+
+class Pattern(db.Model):
+    __tablename__ = "patterns"
+
+    id = db.Column(db.Integer, primary_key=True)
+    object_type = db.Column(db.String(100))
+    trigger_state = db.Column(db.JSON)
+    suggested_decision = db.Column(db.String(255))
+    confidence = db.Column(db.Float, default=0.0)
+
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

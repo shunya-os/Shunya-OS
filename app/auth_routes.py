@@ -6,6 +6,8 @@ team CRUD (superadmin only), and route protection middleware.
 """
 
 import functools
+import os
+import secrets
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g, jsonify
 from app import db
@@ -223,6 +225,84 @@ def inject_auth_globals():
         "is_manager": user and user.role == UserRole.MANAGER.value,
         "UserRole": UserRole,
     }
+
+
+# ---------------------------------------------------------------------------
+# Signup — Create a new TeamMember account (used by SPA signup flow)
+# ---------------------------------------------------------------------------
+
+
+@auth_bp.route("/api/v1/auth/signup", methods=["POST"])
+def api_signup():
+    """Create a new user account. Returns identity_id on success."""
+    data = request.get_json(silent=True) or {}
+    name = data.get("name", "").strip()
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+
+    if not name or not email or not password:
+        return jsonify({"success": False, "error": "Name, email, and password are required."}), 400
+
+    if TeamMember.query.filter_by(email=email).first():
+        return jsonify({"success": False, "error": "An account with this email already exists."}), 409
+
+    member = TeamMember(name=name, email=email, role=UserRole.ADMIN.value, is_active=True)
+    member.set_password(password)
+    # Generate verify token — auto-verify in dev mode
+    member.verify_token = secrets.token_hex(32)
+    if os.environ.get("FLASK_ENV") == "development" or os.environ.get("DEV_VERIFY") == "true":
+        member.verified = True
+        member.verify_token = None
+    db.session.add(member)
+    db.session.commit()
+
+    session["user_id"] = member.id
+    session.modified = True
+
+    return jsonify({"success": True, "identity_id": str(member.id), "verified": member.verified}), 201
+
+
+# ---------------------------------------------------------------------------
+# Email Verification Routes
+# ---------------------------------------------------------------------------
+
+
+@auth_bp.route("/api/v1/auth/request-verification", methods=["POST"])
+def api_request_verification():
+    """Request a new verification email."""
+    data = request.get_json(silent=True) or {}
+    email = data.get("email", "").strip().lower()
+    if not email:
+        return jsonify({"success": False, "error": "Email is required."}), 400
+    member = TeamMember.query.filter_by(email=email).first()
+    if not member:
+        return jsonify({"success": False, "error": "Account not found."}), 404
+    if member.verified:
+        return jsonify({"success": True, "message": "Email already verified."}), 200
+    member.verify_token = secrets.token_hex(32)
+    db.session.commit()
+    # In dev mode, print the verify URL
+    verify_url = f"/auth/verify-email?token={member.verify_token}"
+    if os.environ.get("FLASK_ENV") == "development" or os.environ.get("DEV_VERIFY") == "true":
+        print(f"[DEV] Verify URL: {verify_url}")
+    # In production, send email via mail service
+    return jsonify({"success": True, "message": "Verification email sent."}), 200
+
+
+@auth_bp.route("/api/v1/auth/verify-email", methods=["POST"])
+def api_verify_email():
+    """Verify email address with a token."""
+    data = request.get_json(silent=True) or {}
+    token = data.get("token", "").strip()
+    if not token:
+        return jsonify({"success": False, "error": "Verification token is required."}), 400
+    member = TeamMember.query.filter_by(verify_token=token).first()
+    if not member:
+        return jsonify({"success": False, "error": "Invalid or expired verification token."}), 400
+    member.verified = True
+    member.verify_token = None
+    db.session.commit()
+    return jsonify({"success": True, "message": "Email verified successfully."}), 200
 
 
 # ---------------------------------------------------------------------------
