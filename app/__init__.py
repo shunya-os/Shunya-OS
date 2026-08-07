@@ -345,6 +345,9 @@ def create_app(config_override: dict | None = None):
     # Observations — PROD-15
     from app.observations.models import Observation  # noqa: F401
 
+    # Generic Entity — PROD-41
+    from app.core.entity import Entity  # noqa: F401
+
     # Customer/Lead entities — PROD-21/22
     from app.customers.models import Customer  # noqa: F401
 

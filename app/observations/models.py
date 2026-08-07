@@ -16,6 +16,8 @@ class Observation(db.Model):
     observed_value = db.Column(db.JSON, nullable=False)
     expected_value = db.Column(db.JSON, nullable=True)
 
+    context = db.Column(db.JSON, nullable=True)
+
     status = db.Column(
         db.String(50),
         default="recorded"  # recorded → matched → deviated

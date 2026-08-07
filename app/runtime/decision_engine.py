@@ -29,6 +29,16 @@ from app.observations.models import Observation
 from app.models import Task
 
 
+def build_context(entity):
+    """Build a decision context dict for a lead/entity."""
+    return {
+        "state": getattr(entity, "stage", None),
+        "outcome": getattr(entity, "outcome", None),
+        "tasks": [],
+        "observations": []
+    }
+
+
 def get_next_action(obj) -> dict:
     """Decide the next action for an object based purely on its state.
 
@@ -166,27 +176,55 @@ def decide_lead_task(lead):
 
 
 def decide_lead_stage(lead):
-    """Progress lead through lifecycle stages based on outcome."""
-    if not lead.outcome:
+    """Progress lead through lifecycle stages based on outcome.
+
+    Uses build_context for unified context access.
+    """
+    context = build_context(lead)
+
+    # PROD-39: multi-step decision for quoted leads
+    if context["state"] == "quoted" and context["outcome"] != "closed":
+        return [
+            {"type": "update", "payload": {"task": "Follow up"}},
+            {"type": "update", "payload": {"priority": "high"}}
+        ]
+
+    # RULE: contacted with no tasks → create "Send quote"
+    if context["state"] == "contacted":
+        task_count = Task.query.filter_by(lead_id=lead.id).count()
+        if task_count == 0:
+            return {
+                "type": "update",
+                "payload": {"task": "Send quote"}
+            }
+
+    if not context["outcome"]:
         return {"type": "noop"}
 
-    if lead.outcome == "attempted":
-        if lead.stage == "new":
+    if context["outcome"] == "attempted":
+        if context["state"] == "new":
             return {
                 "type": "update",
                 "payload": {"stage": "contacted"}
             }
 
-        if lead.stage == "contacted":
+        if context["state"] == "contacted":
             return {
                 "type": "update",
                 "payload": {"stage": "quoted"}
             }
 
-        if lead.stage == "quoted":
+        if context["state"] == "quoted":
             return {
                 "type": "update",
                 "payload": {"stage": "closed"}
             }
 
+    return {"type": "noop"}
+
+
+def decide_entity(entity):
+    """Generic decision for an Entity based on its state."""
+    if entity.state == "new":
+        return {"type": "update", "payload": {"state": "in_progress"}}
     return {"type": "noop"}

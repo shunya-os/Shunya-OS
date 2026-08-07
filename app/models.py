@@ -69,6 +69,8 @@ class Lead(db.Model):
     assigned_to = db.Column(db.String(120))
     # PROD-23: link lead to its commitment
     commitment_id = db.Column(db.Integer, db.ForeignKey("commitments.id"), nullable=True)
+    # PROD-42: link lead to generic Entity
+    entity_id = db.Column(db.Integer, nullable=True)
     # PROD-30: outcome of the lead execution
     outcome = db.Column(db.String(120), nullable=True)
     # PROD-31: lead lifecycle stage
@@ -122,6 +124,38 @@ class Lead(db.Model):
         log = ActivityLog(lead_id=self.id, action=action, detail=detail, user=user)
         db.session.add(log)
         db.session.commit()
+
+
+# PROD-42: auto-create Entity when a Lead is created
+@db.event.listens_for(Lead, 'init')
+def _lead_auto_create_entity(target, args, kwargs):
+    """Auto-create a generic Entity for every new Lead."""
+    from app.core.entity import Entity
+    entity = Entity(type="lead", state=kwargs.get("stage", "new"), data={})
+    target._pending_entity = entity
+
+
+@db.event.listens_for(Lead, 'after_insert')
+def _lead_attach_entity(mapper, connection, target):
+    """Insert the pending Entity and link it to the Lead."""
+    entity = getattr(target, '_pending_entity', None)
+    if entity is not None:
+        from app.core.entity import Entity as EntityClass
+        # Insert entity via direct SQL
+        result = connection.execute(
+            EntityClass.__table__.insert().values(
+                type=entity.type,
+                state=entity.state,
+                data=entity.data
+            )
+        )
+        entity_id = result.inserted_primary_key[0]
+        # Update lead's entity_id
+        connection.execute(
+            target.__table__.update().where(
+                target.__table__.c.id == target.id
+            ).values(entity_id=entity_id)
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +257,8 @@ class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     # PROD-27: link task to lead
     lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    # PROD-43: link task to generic Entity
+    entity_id = db.Column(db.Integer, nullable=True)
     task_list_id = db.Column(db.Integer, db.ForeignKey("task_lists.id"), nullable=False)
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, default="")
