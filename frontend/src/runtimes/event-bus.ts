@@ -7,41 +7,49 @@
 
 export type RuntimeEvent =
   // ── Workspace Lifecycle ──────────────────────────────────
-  | { type: 'WorkspaceOpened';    workspaceId: string; objectType?: string; objectId?: string }
-  | { type: 'WorkspaceHydrated';  workspaceId: string }
+  | { type: 'WorkspaceOpened'; workspaceId: string; objectType?: string; objectId?: string }
+  | { type: 'WorkspaceHydrated'; workspaceId: string }
   | { type: 'WorkspaceSuspended'; workspaceId: string }
-  | { type: 'WorkspaceResumed';   workspaceId: string }
-  | { type: 'WorkspaceClosing';   workspaceId: string }
+  | { type: 'WorkspaceResumed'; workspaceId: string }
+  | { type: 'WorkspaceClosing'; workspaceId: string }
   | { type: 'WorkspaceDestroyed'; workspaceId: string }
-  | { type: 'WorkspaceChanged';   workspaceId: string; from: string; to: string }
-  | { type: 'WorkspaceError';     workspaceId: string; error: string }
+  | { type: 'WorkspaceChanged'; workspaceId: string; from: string; to: string }
+  | { type: 'WorkspaceError'; workspaceId: string; error: string }
   // ── Object Lifecycle ─────────────────────────────────────
-  | { type: 'ObjectRequested';    objectType: string; objectId: string; workspaceId: string }
-  | { type: 'ObjectLoaded';       objectType: string; objectId: string; data: unknown }
-  | { type: 'ObjectUpdated';      objectType: string; objectId: string; delta: Record<string, unknown> }
-  | { type: 'ObjectCached';       objectType: string; objectId: string }
-  | { type: 'ObjectError';        objectType: string; objectId: string; error: string }
+  | { type: 'ObjectRequested'; objectType: string; objectId: string; workspaceId: string }
+  | { type: 'ObjectLoaded'; objectType: string; objectId: string; data: unknown }
+  | { type: 'ObjectUpdated'; objectType: string; objectId: string; delta: Record<string, unknown> }
+  | { type: 'ObjectCached'; objectType: string; objectId: string }
+  | { type: 'ObjectError'; objectType: string; objectId: string; error: string }
   | { type: 'ObjectSaveRequested'; objectType: string; objectId: string; workspaceId: string }
-  | { type: 'ObjectSaved';        objectType: string; objectId: string; workspaceId: string }
-  | { type: 'ObjectSaveFailed';   objectType: string; objectId: string; workspaceId: string; error: string }
+  | { type: 'ObjectSaved'; objectType: string; objectId: string; workspaceId: string }
+  | { type: 'ObjectSaveFailed'; objectType: string; objectId: string; workspaceId: string; error: string }
   | { type: 'ObjectDirtyChanged'; objectType: string; objectId: string; dirty: boolean }
-  | { type: 'ObjectClosed';       objectType: string; objectId: string; workspaceId: string }
+  | { type: 'ObjectClosed'; objectType: string; objectId: string; workspaceId: string }
   // ── Timeline Lifecycle ───────────────────────────────────
-  | { type: 'TimelineRequested';  objectType: string; objectId: string; workspaceId: string }
-  | { type: 'TimelineLoaded';     objectType: string; objectId: string; events: unknown[] }
-  | { type: 'TimelineUpdated';    objectType: string; objectId: string; event: unknown }
+  | { type: 'TimelineRequested'; objectType: string; objectId: string; workspaceId: string }
+  | { type: 'TimelineLoaded'; objectType: string; objectId: string; events: unknown[] }
+  | { type: 'TimelineUpdated'; objectType: string; objectId: string; event: unknown }
   // ── Intelligence Lifecycle ───────────────────────────────
   | { type: 'IntelligenceRequested'; objectType: string; objectId: string; workspaceId: string }
-  | { type: 'IntelligenceLoaded';    objectType: string; objectId: string; insights: unknown[] }
-  | { type: 'IntelligenceError';     objectType: string; objectId: string; error: string }
+  | { type: 'IntelligenceLoaded'; objectType: string; objectId: string; insights: unknown[] }
+  | { type: 'IntelligenceError'; objectType: string; objectId: string; error: string }
   // ── Commitment Lifecycle ─────────────────────────────────
-  | { type: 'CommitmentCreated';   commitmentId: string }
+  | { type: 'CommitmentCreated'; commitmentId: string }
   | { type: 'CommitmentStateChanged'; commitmentId: string; from: string; to: string }
   | { type: 'CommitmentCompleted'; commitmentId: string }
   // ── Navigation ───────────────────────────────────────────
-  | { type: 'NavigationChanged';   workspaceId: string; url: string }
+  | { type: 'NavigationChanged'; workspaceId: string; url: string }
   // ── System ───────────────────────────────────────────────
-  | { type: 'SystemError';         source: string; error: string };
+  | { type: 'SystemError'; source: string; error: string }
+  // ── API Layer Events (migrated from api/event-bus.ts) ──
+  | { type: 'ai:insight'; payload: { title: string; description: string; type: string; confidence: number; evidence: string; source: string; action_label: string | null; action_payload: unknown } }
+  | { type: 'data:refresh'; url: string }
+  | { type: 'realtime:created'; items: Array<Record<string, unknown>> }
+  | { type: 'realtime:updated'; items: Array<Record<string, unknown>> }
+  | { type: 'notification'; kind: 'success' | 'error' | 'info'; message: string }
+  // ── SSE Runtime Events (Continuous Reality transport) ──
+  | { type: 'reality:snapshot'; data: Record<string, unknown> };
 
 type EventHandler = (event: RuntimeEvent) => void;
 
@@ -65,8 +73,8 @@ class EventBus {
   /** Publish an event. Synchronous — no microtask deferral. */
   emit(event: RuntimeEvent): void {
     const specific = this.handlers.get(event.type);
-    if (specific) specific.forEach(h => h(event));
-    this.wildcards.forEach(h => h(event));
+    if (specific) specific.forEach((h) => h(event));
+    this.wildcards.forEach((h) => h(event));
   }
 
   /** Clear all subscriptions (testing). */

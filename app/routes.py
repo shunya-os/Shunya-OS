@@ -8,11 +8,11 @@ All mutating operations log to ActivityLog for audit trail.
 import os
 import pdfkit
 from datetime import datetime, date
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, g
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, g, session
 from app import db
 from app.models import (
-    Lead, Payment, Supplier, Invoice, ItineraryRef, TaskList, Task, Document,
-    LeadStatus, PaymentType, InvoiceStatus, next_inquiry_code,
+    Lead, Supplier, TaskList, Task, Document,
+    LeadStatus, InvoiceStatus, next_inquiry_code,
 )
 from app.services import parse_inquiry_text, get_summary, _cached_or_new_code, format_inquiry_reply
 
@@ -51,6 +51,70 @@ def _log_activity(lead_id: int, action: str, detail: str = ""):
 
 
 # ---------------------------------------------------------------------------
+# API — Organization CRUD (Z-03A Articles VII-VIII)
+# ---------------------------------------------------------------------------
+
+
+@api.route("/orgs", methods=["POST"])
+def api_create_org():
+    """Create an organization (used by SPA onboarding flow)."""
+    data = request.get_json(silent=True) or {}
+    company_name = data.get("company_name", "").strip()
+    if not company_name:
+        return jsonify({"success": False, "error": "Company name is required."}), 400
+
+    from app.models import Organization, OrgMember
+    from app.founder.models import FounderSpace
+    import uuid
+
+    # Check auth
+    identity_id = session.get("identity_id")
+    if not identity_id:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    # Create the organization
+    slug = company_name.lower().replace(" ", "-")[:50]
+    org = Organization(
+        name=company_name,
+        slug=slug,
+        business_type=data.get("business_type", "Service Business"),
+        email=data.get("company_email", ""),
+        website=data.get("website", ""),
+        phone=data.get("phone", ""),
+        country=data.get("country", "United States"),
+        timezone=data.get("timezone", "America/New_York"),
+        currency=data.get("currency", "USD"),
+    )
+    db.session.add(org)
+    db.session.flush()
+
+    # Add founder as org member
+    member = OrgMember(
+        organization_id=org.id,
+        identity_id=identity_id,
+        role="owner",
+    )
+    db.session.add(member)
+
+    # Create a FounderSpace for this org
+    space = FounderSpace(
+        space_id=f"spc_{uuid.uuid4().hex[:16]}",
+        name=company_name,
+        space_type="organization",
+        identity_id=identity_id,
+        member_count=1,
+    )
+    db.session.add(space)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "org_id": str(org.id),
+        "org_name": org.name,
+    }), 201
+
+
+# ---------------------------------------------------------------------------
 # SPA helper
 # ---------------------------------------------------------------------------
 
@@ -65,7 +129,15 @@ def _serve_spa_shell():
     """
     idx = os.path.join(_FRONTEND_DIST, "index.html")
     if os.path.exists(idx):
-        return send_from_directory(_FRONTEND_DIST, "index.html")
+        from flask import make_response
+        with open(idx, "r", encoding="utf-8") as f:
+            html = f.read()
+        # Remove crossorigin from module scripts - no CORS headers needed
+        html = html.replace("crossorigin ", "")
+        resp = make_response(html)
+        resp.headers["Content-Type"] = "text/html; charset=utf-8"
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
     return "Frontend not built. Run `cd frontend && npm run build`", 503
 
 
@@ -84,8 +156,21 @@ def index():
 # 404 when the React SPA handles client-side routing for auth pages.
 # The SPA itself renders login/register content via React Router.
 @main.route("/auth/login")
+@main.route("/auth/")
+@main.route("/auth")
 @main.route("/auth/register")
+@main.route("/auth/signup")
+@main.route("/auth/forgot-password")
+@main.route("/auth/reset-password")
+@main.route("/auth/invitation")
+@main.route("/auth/verify-email")
 def auth_spa_shell():
+    return _serve_spa_shell()
+
+
+@main.route("/living")
+def living_spa_shell():
+    """Serve the SPA shell for the LX-01 Living Workspace."""
     return _serve_spa_shell()
 
     s = get_summary("today")
@@ -218,27 +303,8 @@ def calendar_events():
 
 @main.route("/leads")
 def leads_list():
-    q = request.args.get("q", "")
-    query = Lead.query
-    if q:
-        query = query.filter(
-            Lead.code.contains(q)
-            | Lead.destination.contains(q)
-            | Lead.customer_name.contains(q)
-            | Lead.phone.contains(q)
-        )
-    leads = query.order_by(Lead.created_at.desc()).limit(200).all()
-    # Check if pipeline view is requested
-    if request.args.get("view") == "pipeline":
-        from collections import defaultdict
-        pipeline_counts = defaultdict(int)
-        for l in leads:
-            pipeline_counts[l.status or "new"] += 1
-        pipeline_total = sum(l.budget or 0 for l in leads)
-        return render_template("pipeline.html", leads=leads,
-                               pipeline_counts=dict(pipeline_counts),
-                               pipeline_total={"value": f"₹{pipeline_total:,.0f}"})
-    return render_template("leads.html", leads=leads, q=q)
+    """Serving SPA — legacy leads list replaced by Universal Space workspace."""
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @main.route("/leads/new", methods=["GET", "POST"])
@@ -342,50 +408,196 @@ def api_lead_status(lead_id):
 
 
 # Creative AI — generate content on demand
-@api.route("/creative/generate", methods=["POST"])
-def creative_generate():
-    """Generate a creative asset from user input."""
+# ---------------------------------------------------------------------------
+# Outcome Engine API (Z-07 Article I-IV)
+# ---------------------------------------------------------------------------
+
+
+@api.route("/outcomes/execute", methods=["POST"])
+def api_execute_outcome():
+    """Execute an outcome by name or by natural language intent.
+    
+    Request:
+        {"name": "create_customer", "data": {...}}
+        or
+        {"intent": "Create a customer named Acme Corp", "data": {...}}
+    
+    Returns OutcomeResult with explanation.
+    """
     data = request.get_json(silent=True) or {}
-    user_input = data.get("input", "")
-    created_by = data.get("created_by", "AI Assistant")
-
-    if not user_input:
-        return jsonify({"error": "No input provided"}), 400
-
-    from app.creative import CreativeEngine
-    engine = CreativeEngine()
-
-    intent = engine.understand_intent(user_input)
-    copy_text = engine.generate_copy(intent)
-
-    # Try to generate an image
-    image_path = ""
-    image_url = ""
+    outcome_name = data.get("name", "")
+    intent = data.get("intent", "")
+    outcome_data = data.get("data", {})
+    
+    from app.outcome_engine import build_default_registry, OutcomeEngine, OutcomeContext
+    from app.production.objects import create_typed_object
+    
+    registry = build_default_registry()
+    engine = OutcomeEngine(registry)
+    
+    identity_id = session.get("identity_id", "anonymous")
+    import asyncio
+    
+    def _create_object(obj_type: str, obj_data: dict) -> dict:
+        """Create an object by calling the raw creation function directly."""
+        try:
+            from app.production.objects import _create_typed_object_raw
+            identity_id = session.get("identity_id", "anonymous")
+            return _create_typed_object_raw(obj_type, obj_data, identity_id)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    async def run():
+        ctx = OutcomeContext(
+            user_id=identity_id,
+            workspace_id=data.get("workspace_id", "default"),
+            identity_id=identity_id,
+            session_data={"data": outcome_data},
+            create_object_func=_create_object,
+        )
+        if outcome_name:
+            result = await engine.execute_by_name(outcome_name, ctx)
+        elif intent:
+            result = await engine.execute_by_intent(intent, ctx)
+        else:
+            return {"success": False, "error": "Provide 'name' or 'intent'"}
+        return {
+            "success": result.success,
+            "message": result.message,
+            "explanation": result.explain(),
+            "created": result.created,
+            "modified": result.modified,
+            "linked": result.linked,
+            "requires_approval": result.requires_approval,
+            "used": result.used,
+            "error": result.error,
+        }
+    
     try:
-        from hermes_tools import terminal
-        result = terminal(f"Generate image for: {intent['topic']}")
-        if result and result.get("output"):
-            image_url = result["output"].strip()
-    except Exception:
-        pass
-
-    asset = engine.save_asset(intent, copy_text, image_path=image_path,
-                               image_url=image_url, created_by=created_by)
-    response = engine.preview_response(asset)
-    return jsonify(response)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(run())
+        loop.close()
+        return jsonify(result), 200 if result.get("success") else 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-@api.route("/creative/<int:asset_id>/approve", methods=["POST"])
-def creative_approve(asset_id):
-    """Approve a creative asset (mark as ready to post)."""
-    from app.creative import CreativeAsset
-    asset = db.session.get(CreativeAsset, asset_id)
-    if not asset:
-        return jsonify({"error": "Asset not found"}), 404
-    asset.status = "approved"
-    asset.approved_by = g.user.name if hasattr(g, "user") and g.user else "admin"
-    db.session.commit()
-    return jsonify({"success": True, "message": f"✅ '{asset.title}' approved! Ready to post on {asset.platform}."})
+@api.route("/outcomes/workflows", methods=["GET"])
+def api_list_workflows():
+    """List all available business workflows (Z-11 Article III)."""
+    from app.outcome_engine import build_default_registry, OutcomeEngine, WorkflowEngine
+    registry = build_default_registry()
+    engine = OutcomeEngine(registry)
+    wf_engine = WorkflowEngine(engine)
+    workflows = wf_engine.list_workflows()
+    return jsonify({"success": True, "data": workflows, "total": len(workflows)})
+
+
+@api.route("/outcomes/workflows/execute", methods=["POST"])
+def api_execute_workflow():
+    """Execute a complete workflow by chaining outcomes.
+    
+    Request:
+        {"name": "process_sale", "data": {"company": "Acme Corp", ...}}
+    """
+    data = request.get_json(silent=True) or {}
+    workflow_name = data.get("name", "")
+    template_data = data.get("data", {})
+    
+    from app.outcome_engine import build_default_registry, OutcomeEngine, OutcomeContext, WorkflowEngine
+    from app.production.objects import _create_typed_object_raw
+    
+    registry = build_default_registry()
+    engine = OutcomeEngine(registry)
+    wf_engine = WorkflowEngine(engine)
+    
+    identity_id = session.get("identity_id", "anonymous")
+    
+    def _create_object(obj_type, obj_data):
+        try:
+            return _create_typed_object_raw(obj_type, obj_data, identity_id)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    import asyncio
+    try:
+        async def run():
+            ctx = OutcomeContext(
+                user_id=identity_id,
+                workspace_id="default",
+                identity_id=identity_id,
+                session_data={"data": template_data},
+                create_object_func=_create_object,
+            )
+            result = await wf_engine.execute_workflow(workflow_name, template_data, ctx)
+            return {
+                "success": result.success,
+                "message": result.message,
+                "explanation": result.explain(),
+                "created": result.created,
+                "used": result.used,
+                "error": result.error,
+            }
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(run())
+        loop.close()
+        return jsonify(result), 200 if result.get("success") else 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _outcome_fetch(method: str, path: str, body: dict = None) -> dict:
+    """Synchronous fetch function used by outcome engine handlers.
+    
+    Makes real HTTP requests against the local server."""
+    import json as _json
+    import urllib.request as _req
+    import urllib.error as _err
+    
+    base = "http://127.0.0.1:5001"
+    url = base + path
+    data = _json.dumps(body).encode() if body else None
+    req = _req.Request(url, data=data, method=method)
+    req.add_header("Content-Type", "application/json")
+    # Copy session cookie from current request
+    if request.cookies:
+        cookie_parts = []
+        for key, value in request.cookies.items():
+            cookie_parts.append(f"{key}={value}")
+        if cookie_parts:
+            req.add_header("Cookie", "; ".join(cookie_parts))
+    
+    try:
+        with _req.urlopen(req, timeout=10) as resp:
+            resp_body = resp.read().decode()
+            return _json.loads(resp_body)
+    except _err.HTTPError as e:
+        try:
+            return _json.loads(e.read().decode())
+        except Exception:
+            return {"success": False, "error": f"HTTP {e.code}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@api.route("/outcomes/list", methods=["GET"])
+def api_list_outcomes():
+    """List all available outcomes with categories, descriptions, example phrases."""
+    from app.outcome_engine import build_default_registry
+    registry = build_default_registry()
+    outcomes = []
+    for o in registry.all():
+        outcomes.append({
+            "name": o.name,
+            "category": o.category,
+            "description": o.description,
+            "example_phrases": o.example_phrases[:3],
+        })
+    return jsonify({"success": True, "data": outcomes, "total": len(outcomes)})
+
 
 
 @main.route("/leads/<int:lead_id>/edit", methods=["GET", "POST"])
@@ -1702,3 +1914,30 @@ def workspace_stats():
     """Get workspace runtime statistics."""
     api = WorkspaceAPI()
     return jsonify(api.stats())
+
+
+# ── Z-15: Legacy module routes → serve SPA instead of Jinja2 templates ──
+# These routes redirect legacy module pages to the SPA workspace.
+# The SPA handles navigation via its own router and command surface.
+
+SPA_INDEX = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist", "index.html")
+
+
+@main.route("/leads")
+@main.route("/leads/new")
+@main.route("/leads/<int:lead_id>")
+@main.route("/leads/<int:lead_id>/edit")
+@main.route("/invoices")
+@main.route("/payments")
+@main.route("/tasks")
+@main.route("/calendar")
+@main.route("/documents")
+@main.route("/documents/<int:doc_id>")
+@main.route("/reports")
+@main.route("/team")
+@main.route("/pipeline")
+@main.route("/settings")
+@main.route("/itineraries")
+def _legacy_spa_fallback(**kwargs):
+    """Serve the SPA for legacy routes — eliminates module switching."""
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")

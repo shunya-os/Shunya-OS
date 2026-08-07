@@ -93,3 +93,6 @@ audit/
 invoices/
 tasks/
 /reports/
+
+*storybook.log
+storybook-static

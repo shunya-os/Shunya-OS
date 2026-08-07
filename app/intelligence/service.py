@@ -354,3 +354,30 @@ def compute_confidence(context: dict[str, Any]) -> dict[str, Any]:
         "label": label,
         "factors": factors,
     }
+
+# =========================================================================
+# PROD-07 — Pattern Recognition Service
+# =========================================================================
+
+class IntelligenceService:
+
+    @staticmethod
+    def learn_from_execution(obj, decision: str, trigger_state: dict = None):
+        from app.intelligence.models import Pattern
+        pattern = Pattern(
+            object_type=obj.object_type,
+            trigger_state=trigger_state or obj.state,
+            suggested_decision=decision,
+            confidence=1.0
+        )
+        db.session.add(pattern)
+        db.session.commit()
+        return pattern
+
+    @staticmethod
+    def find_pattern(obj):
+        from app.intelligence.models import Pattern
+        return Pattern.query.filter_by(
+            object_type=obj.object_type,
+            trigger_state=obj.state
+        ).first()

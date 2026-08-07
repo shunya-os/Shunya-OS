@@ -81,6 +81,14 @@ def _org_to_dict(org: Tenant) -> dict:
         "company_name": org.company_name,
         "slug": org.slug,
         "business_type": org.business_type,
+        "business_category": org.business_category or "",
+        "company_email": org.company_email or "",
+        "website": org.website or "",
+        "phone": org.phone or "",
+        "industry": org.industry or "",
+        "country": org.country or "",
+        "timezone": org.timezone or "UTC",
+        "currency": org.currency or "USD",
         "is_active": org.is_active,
         "plan": org.plan,
         "max_team_members": org.max_team_members,
@@ -132,6 +140,14 @@ def create_org():
     data = _require_json()
     company_name = _require_field(data, "company_name", "Company name")
     business_type = data.get("business_type", "other").strip() or "other"
+    business_category = data.get("business_category", "").strip() or ""
+    company_email = data.get("company_email", "").strip() or ""
+    website = data.get("website", "").strip() or ""
+    phone = data.get("phone", "").strip() or ""
+    industry = data.get("industry", "").strip() or ""
+    country = data.get("country", "").strip() or ""
+    timezone = data.get("timezone", "").strip() or "UTC"
+    currency = data.get("currency", "").strip() or "USD"
 
     slug = _ensure_unique_slug(_generate_slug(company_name))
 
@@ -139,6 +155,14 @@ def create_org():
         company_name=company_name,
         slug=slug,
         business_type=business_type,
+        business_category=business_category,
+        company_email=company_email,
+        website=website,
+        phone=phone,
+        industry=industry,
+        country=country,
+        timezone=timezone,
+        currency=currency,
         is_active=True,
         plan=data.get("plan", "free"),
         max_team_members=data.get("max_team_members", 10),
@@ -154,6 +178,8 @@ def create_org():
     return jsonify({
         "success": True,
         "data": _org_to_dict(org),
+        "org_id": org.id,
+        "org_name": org.company_name,
     }), 201
 
 

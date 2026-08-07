@@ -46,14 +46,7 @@ import { bus } from './event-bus';
 
 // ── Types ──────────────────────────────────────────────────────
 
-export type RuntimeStatus =
-  | 'registered'
-  | 'initialising'
-  | 'ready'
-  | 'suspended'
-  | 'recovering'
-  | 'failed'
-  | 'stopped';
+export type RuntimeStatus = 'registered' | 'initialising' | 'ready' | 'suspended' | 'recovering' | 'failed' | 'stopped';
 
 export interface RuntimeHealth {
   status: RuntimeStatus;
@@ -193,9 +186,7 @@ class Orchestrator {
     }
 
     const totalMs = Date.now() - startTime;
-    console.log(
-      `[Orchestrator] Startup complete: ${succeeded.length} ready, ${failed.length} failed in ${totalMs}ms`
-    );
+    console.log(`[Orchestrator] Startup complete: ${succeeded.length} ready, ${failed.length} failed in ${totalMs}ms`);
 
     return { succeeded, failed };
   }
@@ -233,7 +224,7 @@ class Orchestrator {
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        if (attempt > 0) await new Promise(r => setTimeout(r, delays[attempt - 1]));
+        if (attempt > 0) await new Promise((r) => setTimeout(r, delays[attempt - 1]));
         if (instance.registration.recover) {
           await instance.registration.recover();
         }
@@ -278,7 +269,7 @@ class Orchestrator {
 
   /** Return runtime topology for dev console. */
   getTopology(): { id: string; status: RuntimeStatus; deps: string[]; eventsPublished: string[] }[] {
-    return Array.from(this.registry.values()).map(inst => ({
+    return Array.from(this.registry.values()).map((inst) => ({
       id: inst.registration.id,
       status: inst.status,
       deps: inst.registration.dependencies,
@@ -291,10 +282,10 @@ class Orchestrator {
     const all = this.getAll();
     return {
       total: all.length,
-      ready: all.filter(r => r.status === 'ready').length,
-      failed: all.filter(r => r.status === 'failed').length,
-      initialising: all.filter(r => r.status === 'initialising').length,
-      stopped: all.filter(r => r.status === 'stopped').length,
+      ready: all.filter((r) => r.status === 'ready').length,
+      failed: all.filter((r) => r.status === 'failed').length,
+      initialising: all.filter((r) => r.status === 'initialising').length,
+      stopped: all.filter((r) => r.status === 'stopped').length,
     };
   }
 

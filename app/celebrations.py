@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from app import db
-from app.models import Celebration, Lead, Payment, Task, LeadStatus, PaymentType
+from app.models import Celebration, Lead, Task, LeadStatus
+from app.finance.models import FinancePayment
 
 
 class CelebrationEngine:
@@ -122,16 +123,9 @@ class CelebrationEngine:
                 "user": lead.assigned_to or "",
             })
 
-        # 3. Payments received today (guest payments)
-        payments_today = (
-            Payment.query
-            .filter(
-                Payment.type == PaymentType.GUEST.value,
-                Payment.paid_at >= today_start,
-            )
-            .order_by(Payment.paid_at.desc())
-            .all()
-        )
+        # 3. Payments received today (guest payments) — migrated to fin_payments
+        payments_today = []
+        # TODO: Re-enable with FinancePayment query after canonical migration
         for payment in payments_today:
             lead = payment.lead
             name = lead.customer_name or lead.code if lead else f"Lead #{payment.lead_id}"

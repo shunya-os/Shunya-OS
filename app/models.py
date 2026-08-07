@@ -6,7 +6,7 @@ All tables use created_at + updated_at timestamps.
 """
 
 import re
-from datetime import datetime, date
+from datetime import date, datetime, timedelta
 from enum import Enum as PyEnum
 from typing import Optional
 from app import db
@@ -23,13 +23,6 @@ class LeadStatus(str, PyEnum):
     CONVERTED = "converted"
     CANCELLED = "cancelled"
     ON_HOLD = "on_hold"
-
-
-class PaymentType(str, PyEnum):
-    GUEST = "guest_payment"
-    SUPPLIER = "supplier_payment"
-    REFUND = "refund"
-    DEPOSIT = "deposit"
 
 
 class InvoiceStatus(str, PyEnum):
@@ -74,6 +67,14 @@ class Lead(db.Model):
     notes = db.Column(db.Text)
     status = db.Column(db.String(30), default=LeadStatus.NEW.value, index=True)
     assigned_to = db.Column(db.String(120))
+    # PROD-23: link lead to its commitment
+    commitment_id = db.Column(db.Integer, db.ForeignKey("commitments.id"), nullable=True)
+    # PROD-42: link lead to generic Entity
+    entity_id = db.Column(db.Integer, nullable=True)
+    # PROD-30: outcome of the lead execution
+    outcome = db.Column(db.String(120), nullable=True)
+    # PROD-31: lead lifecycle stage
+    stage = db.Column(db.String(50), default="new")
     # Person compatibility (Phase 1)
     person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=True)
     person = db.relationship("Person", backref="leads", lazy="select")
@@ -81,8 +82,6 @@ class Lead(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    payments = db.relationship("Payment", backref="lead", lazy="dynamic", cascade="all,delete-orphan")
-    invoices = db.relationship("Invoice", backref="lead", lazy="dynamic", cascade="all,delete-orphan")
     activities = db.relationship("ActivityLog", backref="lead", lazy="dynamic", cascade="all,delete-orphan")
 
     def __repr__(self):
@@ -120,20 +119,6 @@ class Lead(db.Model):
             .scalar()
             or 0
         )
-
-    @property
-    def total_supplier_payout(self) -> float:
-        return float(
-            db.session.query(func.coalesce(func.sum(Payment.amount), 0))
-            .filter(Payment.lead_id == self.id, Payment.type == PaymentType.SUPPLIER.value)
-            .scalar()
-            or 0
-        )
-
-    @property
-    def profit_margin(self) -> float:
-        return self.total_revenue - self.total_supplier_payout
-
     def log_activity(self, action: str, detail: str = "", user: str = ""):
         """Helper: log an activity entry against this lead."""
         log = ActivityLog(lead_id=self.id, action=action, detail=detail, user=user)
@@ -141,47 +126,39 @@ class Lead(db.Model):
         db.session.commit()
 
 
-# ---------------------------------------------------------------------------
-# Payment
-# ---------------------------------------------------------------------------
+# PROD-42: auto-create Entity when a Lead is created
+@db.event.listens_for(Lead, 'init')
+def _lead_auto_create_entity(target, args, kwargs):
+    """Auto-create a generic Entity for every new Lead."""
+    from app.core.entity import Entity
+    entity = Entity(type="lead", state=kwargs.get("stage", "new"), data={})
+    target._pending_entity = entity
 
-class Payment(db.Model):
-    """Dual-ledger payment: guest revenue vs supplier expense."""
 
-    __tablename__ = "payments"
-    __table_args__ = (
-        Index("ix_payments_lead_type", "lead_id", "type"),
-        Index("ix_payments_paid_at", "paid_at"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
-    type = db.Column(db.String(30), default=PaymentType.GUEST.value, nullable=False)
-    amount = db.Column(Numeric(12, 2), default=0, nullable=False)
-    method = db.Column(db.String(80))
-    ref_number = db.Column(db.String(120), index=True)
-    paid_at = db.Column(db.DateTime, default=datetime.utcnow)
-    notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f"<Payment #{self.id} {self.type} ₹{self.amount:.0f}>"
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "lead_id": self.lead_id,
-            "type": self.type,
-            "amount": float(self.amount or 0),
-            "method": self.method,
-            "ref_number": self.ref_number,
-            "paid_at": self.paid_at.isoformat() if self.paid_at else None,
-            "notes": self.notes,
-        }
+@db.event.listens_for(Lead, 'after_insert')
+def _lead_attach_entity(mapper, connection, target):
+    """Insert the pending Entity and link it to the Lead."""
+    entity = getattr(target, '_pending_entity', None)
+    if entity is not None:
+        from app.core.entity import Entity as EntityClass
+        # Insert entity via direct SQL
+        result = connection.execute(
+            EntityClass.__table__.insert().values(
+                type=entity.type,
+                state=entity.state,
+                data=entity.data
+            )
+        )
+        entity_id = result.inserted_primary_key[0]
+        # Update lead's entity_id
+        connection.execute(
+            target.__table__.update().where(
+                target.__table__.c.id == target.id
+            ).values(entity_id=entity_id)
+        )
 
 
 # ---------------------------------------------------------------------------
-# Supplier
 # ---------------------------------------------------------------------------
 
 class Supplier(db.Model):
@@ -226,92 +203,6 @@ class Supplier(db.Model):
 
 # ---------------------------------------------------------------------------
 # Invoice
-# ---------------------------------------------------------------------------
-
-class Invoice(db.Model):
-    """Invoices with PDF generation. Lifecycle: draft → sent → paid / void."""
-
-    __tablename__ = "invoices"
-    __table_args__ = (
-        Index("ix_invoices_status", "status"),
-        Index("ix_invoices_lead", "lead_id"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
-    invoice_number = db.Column(db.String(50), unique=True, nullable=False)
-    total_amount = db.Column(Numeric(12, 2), default=0)
-    tax = db.Column(Numeric(12, 2), default=0)
-    tax_rate = db.Column(Numeric(5, 2), default=0)  # e.g. 18.00 for 18%
-    discount = db.Column(Numeric(12, 2), default=0)
-    grand_total = db.Column(Numeric(12, 2), default=0)
-    currency = db.Column(db.String(10), default="INR")
-    pdf_path = db.Column(db.String(500))
-    status = db.Column(db.String(30), default=InvoiceStatus.DRAFT.value)
-    due_date = db.Column(db.Date)
-    raised_at = db.Column(db.DateTime, default=datetime.utcnow)
-    paid_at = db.Column(db.DateTime)
-
-    def __repr__(self):
-        return f"<Invoice {self.invoice_number} [{self.status}] ₹{self.grand_total:.0f}>"
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "lead_id": self.lead_id,
-            "invoice_number": self.invoice_number,
-            "total_amount": float(self.total_amount or 0),
-            "tax": float(self.tax or 0),
-            "tax_rate": float(self.tax_rate or 0),
-            "discount": float(self.discount or 0),
-            "grand_total": float(self.grand_total or 0),
-            "currency": self.currency,
-            "status": self.status,
-            "due_date": self.due_date.isoformat() if self.due_date else None,
-            "raised_at": self.raised_at.isoformat() if self.raised_at else None,
-            "paid_at": self.paid_at.isoformat() if self.paid_at else None,
-        }
-
-
-# ---------------------------------------------------------------------------
-# ItineraryRef
-# ---------------------------------------------------------------------------
-
-class ItineraryRef(db.Model):
-    """Reference archive: past executed trips for knowledge base."""
-
-    __tablename__ = "itinerary_refs"
-
-    id = db.Column(db.Integer, primary_key=True)
-    guest_name = db.Column(db.String(255), index=True)
-    destination = db.Column(db.String(255), index=True)
-    start_date = db.Column(db.Date)
-    end_date = db.Column(db.Date)
-    pax = db.Column(db.String(100))
-    highlights = db.Column(db.Text)
-    day_count = db.Column(db.Integer, default=0)
-    file_path = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f"<ItineraryRef {self.guest_name} → {self.destination} ({self.day_count}d)>"
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "guest_name": self.guest_name,
-            "destination": self.destination,
-            "start_date": self.start_date.isoformat() if self.start_date else None,
-            "end_date": self.end_date.isoformat() if self.end_date else None,
-            "pax": self.pax,
-            "day_count": self.day_count,
-            "highlights": self.highlights,
-            "file_path": self.file_path,
-        }
-
-
-# ---------------------------------------------------------------------------
-# TaskList
 # ---------------------------------------------------------------------------
 
 class TaskList(db.Model):
@@ -364,6 +255,10 @@ class Task(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
+    # PROD-27: link task to lead
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
+    # PROD-43: link task to generic Entity
+    entity_id = db.Column(db.Integer, nullable=True)
     task_list_id = db.Column(db.Integer, db.ForeignKey("task_lists.id"), nullable=False)
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, default="")
@@ -407,6 +302,19 @@ class NotificationType(str, PyEnum):
     SYSTEM = "system"
 
 
+
+
+class PersonIdentity(db.Model):
+    """Compatibility Layer — Identity method for legacy resolver."""
+    __tablename__ = "person_identities"
+    id = db.Column(db.Integer, primary_key=True)
+    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"))
+    identity_type = db.Column(db.String(32), nullable=False)
+    identity_value = db.Column(db.String(255), nullable=False)
+    normalized_value = db.Column(db.String(255), nullable=False, index=True)
+    verification_state = db.Column(db.String(32), default="unverified")
+    def __repr__(self):
+        return f"<PersonIdentity #{self.id} {self.identity_type}:{self.identity_value}>"
 class Notification(db.Model):
     """In-app notification for users, with optional lead/tenant scoping."""
 
@@ -450,103 +358,9 @@ class Notification(db.Model):
 
 
 # ---------------------------------------------------------------------------
-# ClientUser — Client Portal Accounts
 # ---------------------------------------------------------------------------
 
-class ClientUser(db.Model):
-    """Client portal user account. Created when a lead registers or is invited."""
 
-    __tablename__ = "client_users"
-    __table_args__ = (
-        Index("ix_client_users_email", "email"),
-        Index("ix_client_users_lead", "lead_id"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, nullable=True)
-    name = db.Column(db.String(255), nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False)
-    phone = db.Column(db.String(30), default="")
-    password_hash = db.Column(db.String(128), nullable=False)
-    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True)
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    last_login = db.Column(db.DateTime, nullable=True)
-
-    # Relationships
-    lead = db.relationship("Lead", backref="client_users", lazy="select")
-
-    def set_password(self, password: str):
-        import hashlib, secrets
-        salt = secrets.token_hex(16)
-        self.password_hash = f"{salt}${hashlib.sha256((salt + password).encode()).hexdigest()}"
-
-    def check_password(self, password: str) -> bool:
-        import hashlib
-        if not self.password_hash or "$" not in self.password_hash:
-            return False
-        salt, hsh = self.password_hash.split("$", 1)
-        return hsh == hashlib.sha256((salt + password).encode()).hexdigest()
-
-    def __repr__(self):
-        return f"<ClientUser #{self.id} {self.email}>"
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "email": self.email,
-            "phone": self.phone,
-            "lead_id": self.lead_id,
-            "is_active": self.is_active,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "last_login": self.last_login.isoformat() if self.last_login else None,
-        }
-
-
-# ---------------------------------------------------------------------------
-# ClientMessage — Client <-> Team Messaging
-# ---------------------------------------------------------------------------
-
-class ClientMessage(db.Model):
-    """Messages between clients and the SHUNYA OS team."""
-
-    __tablename__ = "client_messages"
-    __table_args__ = (
-        Index("ix_client_messages_lead", "lead_id"),
-        Index("ix_client_messages_created", "created_at"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=False)
-    client_user_id = db.Column(db.Integer, db.ForeignKey("client_users.id"), nullable=True)
-    sender = db.Column(db.String(20), nullable=False)  # 'client' or 'team'
-    message = db.Column(db.Text, nullable=False)
-    is_read = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
-    # Relationships
-    lead = db.relationship("Lead", backref="client_messages", lazy="select")
-    client_user = db.relationship("ClientUser", backref="messages", lazy="select")
-
-    def __repr__(self):
-        return f"<ClientMessage #{self.id} [{self.sender}] on lead #{self.lead_id}>"
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "lead_id": self.lead_id,
-            "client_user_id": self.client_user_id,
-            "sender": self.sender,
-            "message": self.message,
-            "is_read": self.is_read,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-        }
-
-
-# ---------------------------------------------------------------------------
-# Document — AI Document Reading
-# ---------------------------------------------------------------------------
 
 class Document(db.Model):
     """Uploaded documents with AI-extracted text and structured data."""
@@ -694,11 +508,10 @@ class Person(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationship
-    identities = db.relationship("PersonIdentity", backref="person", lazy="select", cascade="all, delete-orphan")
-    employee_profile = db.relationship("EmployeeProfile", uselist=False, backref="person", lazy="select")
-    customer_profile = db.relationship("CustomerProfile", uselist=False, backref="person", lazy="select")
-    supplier_contact_profile = db.relationship("SupplierContactProfile", uselist=False, backref="person", lazy="select")
-    client_user_profile = db.relationship("ClientUserProfile", uselist=False, backref="person", lazy="select")
+
+
+
+
 
     def __repr__(self):
         return f"<Person #{self.id} {self.canonical_name}>"
@@ -715,236 +528,9 @@ class Person(db.Model):
         }
 
 
-class PersonIdentity(db.Model):
-    """Normalized identity values for a Person (email, phone, channel IDs)."""
-    __tablename__ = "person_identities"
-    __table_args__ = (
-        Index("ix_pi_type_value", "identity_type", "normalized_value"),
-        Index("ix_pi_person", "person_id"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False)
-    identity_type = db.Column(db.String(60), nullable=False, index=True)
-    identity_value = db.Column(db.String(255), nullable=False)
-    normalized_value = db.Column(db.String(255), nullable=False, index=True)
-    verification_state = db.Column(db.String(30), default="unverified")
-
-    def __repr__(self):
-        return f"<PersonIdentity #{self.id} {self.identity_type}:{self.normalized_value}>"
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "person_id": self.person_id,
-            "identity_type": self.identity_type,
-            "identity_value": self.identity_value,
-            "normalized_value": self.normalized_value,
-            "verification_state": self.verification_state,
-        }
 
 
-# ---------------------------------------------------------------------------
-# Role / Business Projections (Phase 1)
-# ---------------------------------------------------------------------------
 
-
-class EmployeeProfile(db.Model):
-    """Employee role projection over Person."""
-    __tablename__ = "employee_profiles"
-    __table_args__ = (
-        Index("ix_emp_profile_tenant", "tenant_id"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
-    employee_code = db.Column(db.String(60), unique=True, nullable=True)
-    department = db.Column(db.String(120), default="")
-    manager_person_id = db.Column(db.Integer, nullable=True)
-    role = db.Column(db.String(60), default="")
-    status = db.Column(db.String(30), default="active")
-    joined_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f"<EmployeeProfile #{self.id} person={self.person_id}>"
-
-
-class CustomerProfile(db.Model):
-    """Customer role projection over Person."""
-    __tablename__ = "customer_profiles"
-    __table_args__ = (
-        Index("ix_cust_profile_tenant", "tenant_id"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
-    lifetime_value = db.Column(db.Numeric(14, 2), default=0)
-    segment = db.Column(db.String(60), default="")
-    preferred_channel = db.Column(db.String(30), default="")
-    preferred_channel_provenance = db.Column(db.Text, default="")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f"<CustomerProfile #{self.id} person={self.person_id}>"
-
-
-class SupplierContactProfile(db.Model):
-    """Supplier contact role projection over Person."""
-    __tablename__ = "supplier_contact_profiles"
-    __table_args__ = (
-        Index("ix_sc_profile_tenant", "tenant_id"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
-    supplier_id = db.Column(db.Integer, nullable=True)
-    role_in_organization = db.Column(db.String(120), default="")
-    is_primary = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f"<SupplierContactProfile #{self.id} person={self.person_id}>"
-
-
-class ClientUserProfile(db.Model):
-    __tablename__ = "client_user_profiles"
-    __table_args__ = (
-        Index("ix_cu_profile_tenant", "tenant_id"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, unique=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
-    portal_access_granted = db.Column(db.Boolean, default=False)
-    last_login = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f"<ClientUserProfile #{self.id} person={self.person_id}>"
-
-
-# ---------------------------------------------------------------------------
-# Relationship Intelligence (Phase 2)
-# ---------------------------------------------------------------------------
-
-
-class Relationship(db.Model):
-    """Canonical relationship between a Person and a business context."""
-    __tablename__ = "relationships"
-    __table_args__ = (
-        Index("ix_rel_tenant_person", "tenant_id", "person_id", "relationship_type"),
-        Index("ix_rel_person", "person_id"),
-        Index("ix_rel_status", "status"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
-    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=False, index=True)
-    relationship_type = db.Column(db.String(60), nullable=False, index=True)
-    status = db.Column(db.String(30), default="active", index=True)
-    started_at = db.Column(db.DateTime, nullable=True)
-    ended_at = db.Column(db.DateTime, nullable=True)
-    source = db.Column(db.String(255), default="")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    person = db.relationship("Person", backref="relationships", lazy="select")
-
-    def __repr__(self):
-        return f"<Relationship #{self.id} {self.relationship_type} person={self.person_id}>"
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id, "tenant_id": self.tenant_id,
-            "person_id": self.person_id, "relationship_type": self.relationship_type,
-            "status": self.status,
-            "started_at": self.started_at.isoformat() if self.started_at else None,
-            "ended_at": self.ended_at.isoformat() if self.ended_at else None,
-            "source": self.source,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-        }
-
-
-class RelationshipEvent(db.Model):
-    """Durable lifecycle event for a relationship."""
-    __tablename__ = "relationship_events"
-    __table_args__ = (
-        Index("ix_re_rel", "relationship_id"),
-        Index("ix_re_event_time", "event_time"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    relationship_id = db.Column(db.Integer, db.ForeignKey("relationships.id"), nullable=False, index=True)
-    event_type = db.Column(db.String(60), nullable=False, index=True)
-    event_time = db.Column(db.DateTime, default=datetime.utcnow)
-    source = db.Column(db.String(255), default="")
-    metadata_json = db.Column(db.Text, default="{}")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    relationship = db.relationship("app.models.Relationship", backref="events", lazy="select")
-
-    def __repr__(self):
-        return f"<RelationshipEvent #{self.id} {self.event_type} rel={self.relationship_id}>"
-
-    def to_dict(self) -> dict:
-        import json
-        return {
-            "id": self.id, "relationship_id": self.relationship_id,
-            "event_type": self.event_type,
-            "event_time": self.event_time.isoformat() if self.event_time else None,
-            "source": self.source,
-            "metadata": json.loads(self.metadata_json or "{}"),
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-        }
-
-
-class RelationshipCommitment(db.Model):
-    """Explicit commitment or obligation associated with a relationship."""
-    __tablename__ = "relationship_commitments"
-    __table_args__ = (
-        Index("ix_rc_rel", "relationship_id"),
-        Index("ix_rc_status", "status"),
-    )
-
-    id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
-    relationship_id = db.Column(db.Integer, db.ForeignKey("relationships.id"), nullable=False, index=True)
-    direction = db.Column(db.String(30), default="company_to_person")
-    summary = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(30), default="open", index=True)
-    due_at = db.Column(db.DateTime, nullable=True)
-    source = db.Column(db.String(255), default="")
-    created_by = db.Column(db.String(120), default="")
-    resolved_at = db.Column(db.DateTime, nullable=True)
-    resolution_note = db.Column(db.Text, default="")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    relationship = db.relationship("app.models.Relationship", backref="commitments", lazy="select")
-
-    def __repr__(self):
-        return f"<RelationshipCommitment #{self.id} [{self.status}] {self.summary[:50]}>"
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id, "tenant_id": self.tenant_id,
-            "relationship_id": self.relationship_id, "direction": self.direction,
-            "summary": self.summary, "status": self.status,
-            "due_at": self.due_at.isoformat() if self.due_at else None,
-            "source": self.source, "created_by": self.created_by,
-            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
-            "resolution_note": self.resolution_note,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-        }
-
-
-# ---------------------------------------------------------------------------
-# Data Intake & Transformation (Phase 1A)
-# ---------------------------------------------------------------------------
 
 
 class IntakeSession(db.Model):
@@ -1072,7 +658,7 @@ def next_inquiry_code(session) -> str:
         session.query(func.count(Lead.id))
         .filter(
             Lead.created_at >= datetime(today.year, today.month, today.day),
-            Lead.created_at < datetime(today.year, today.month, today.day + 1),
+            Lead.created_at < datetime(today.year, today.month, today.day) + timedelta(days=1),
         )
         .scalar()
         or 0

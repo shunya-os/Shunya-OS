@@ -3,7 +3,7 @@ SHUNYA — Communication Models (Phase 3)
 CommunicationSource, CapturePolicy, CaptureScope, ExternalConversation, ExternalMessage,
 ExternalParticipant, ExternalAttachmentReference, SyncCursor
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from app import db
 from sqlalchemy import Index, Text as SA_Text
 
@@ -277,3 +277,22 @@ class OAuthState(db.Model):
 
     def __repr__(self):
         return f"<OAuthState #{self.id} {self.provider}:{self.state[:16]}...>"
+
+
+class Message(db.Model):
+    __tablename__ = "messages"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    entity_id = db.Column(db.Integer, index=True, nullable=False)
+
+    direction = db.Column(db.String(20))  # inbound / outbound
+    channel = db.Column(db.String(50))    # whatsapp / email / system
+
+    content = db.Column(db.Text)
+
+    status = db.Column(db.String(50), default="pending")  # pending / sent / failed
+
+    metadata_json = db.Column(db.JSON, default={})
+
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

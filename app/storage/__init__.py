@@ -1,0 +1,1 @@
+"""Storage provider package — Free-first abstraction layer for file storage."""

@@ -63,7 +63,7 @@ class IdentityRuntime(RuntimeInterface):
         except Exception as exc:
             import logging
             logging.getLogger(__name__).warning(
-                "Failed to load persisted identities: %s", exc)  # Repository may not be available during early bootstrap
+                "Failed to load persisted identities: %s", exc)
 
     # ------------------------------------------------------------------
     # Pipeline stage handler
@@ -133,8 +133,10 @@ class IdentityRuntime(RuntimeInterface):
                         entity_type="human",
                         auth_methods=[{"method_type": "email", "identifier": email}],
                     )
-                except Exception:
-                    pass  # Persistence failure is non-fatal
+                except Exception as exc:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "Failed to persist identity for %s: %s", email, exc)
             return result
 
         # Strategy 5: No identity to resolve

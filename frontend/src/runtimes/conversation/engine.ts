@@ -59,10 +59,10 @@ export interface ConversationEntity {
   status: ConversationStatus;
   intent: string;
   participants: string[];
-  objectRefs: string[];         // Referenced object IDs (type:id)
-  commitmentRefs: string[];     // Referenced commitment IDs
-  memoryRefs: string[];         // Referenced permanent knowledge IDs
-  timelineRefs: string[];       // Timeline event IDs from this conversation
+  objectRefs: string[]; // Referenced object IDs (type:id)
+  commitmentRefs: string[]; // Referenced commitment IDs
+  memoryRefs: string[]; // Referenced permanent knowledge IDs
+  timelineRefs: string[]; // Timeline event IDs from this conversation
   createdAt: number;
   updatedAt: number;
 }
@@ -82,7 +82,9 @@ export function canTransition(from: ConversationStatus, to: ConversationStatus):
   return VALID_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
-function newId(): string { return `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
+function newId(): string {
+  return `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 // ── Registry ──────────────────────────────────────────────────
 
@@ -90,15 +92,19 @@ const conversations = new Map<string, ConversationEntity>();
 let lastActivity = Date.now();
 
 function snap(): void {
-  stateFabric.write('conversation-runtime', {
-    activeCount: getActive().length,
-    totalCount: conversations.size,
-    lastActivity,
-  }, 'state_change');
+  stateFabric.write(
+    'conversation-runtime',
+    {
+      activeCount: getActive().length,
+      totalCount: conversations.size,
+      lastActivity,
+    },
+    'state_change',
+  );
 }
 
 function getActive(): ConversationEntity[] {
-  return Array.from(conversations.values()).filter(c => !['resolved', 'archived'].includes(c.status));
+  return Array.from(conversations.values()).filter((c) => !['resolved', 'archived'].includes(c.status));
 }
 
 // ── Runtime ───────────────────────────────────────────────────
@@ -108,12 +114,17 @@ export const ConversationRuntime = {
 
   create(title: string, intent?: string): ConversationEntity {
     const conv: ConversationEntity = {
-      id: newId(), title,
+      id: newId(),
+      title,
       status: 'created',
       intent: intent ?? title,
-      participants: [], objectRefs: [], commitmentRefs: [],
-      memoryRefs: [], timelineRefs: [],
-      createdAt: Date.now(), updatedAt: Date.now(),
+      participants: [],
+      objectRefs: [],
+      commitmentRefs: [],
+      memoryRefs: [],
+      timelineRefs: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
     conversations.set(conv.id, conv);
     lastActivity = Date.now();
@@ -178,7 +189,7 @@ export const ConversationRuntime = {
   removeObjectRef(conversationId: string, objectId: string): void {
     const c = conversations.get(conversationId);
     if (!c) return;
-    c.objectRefs = c.objectRefs.filter(o => o !== objectId);
+    c.objectRefs = c.objectRefs.filter((o) => o !== objectId);
     c.updatedAt = Date.now();
     snap();
   },
@@ -195,7 +206,7 @@ export const ConversationRuntime = {
   removeCommitmentRef(conversationId: string, commitmentId: string): void {
     const c = conversations.get(conversationId);
     if (!c) return;
-    c.commitmentRefs = c.commitmentRefs.filter(m => m !== commitmentId);
+    c.commitmentRefs = c.commitmentRefs.filter((m) => m !== commitmentId);
     c.updatedAt = Date.now();
     snap();
   },
@@ -214,7 +225,7 @@ export const ConversationRuntime = {
   removeParticipant(conversationId: string, participantId: string): void {
     const c = conversations.get(conversationId);
     if (!c) return;
-    c.participants = c.participants.filter(p => p !== participantId);
+    c.participants = c.participants.filter((p) => p !== participantId);
     c.updatedAt = Date.now();
     snap();
     bus.emit({ type: 'ConversationParticipantRemoved' as any, source: conversationId, error: '' } as any);
@@ -223,15 +234,15 @@ export const ConversationRuntime = {
   // ── Query ────────────────────────────────────────────────────
 
   getByObjectRef(objectId: string): ConversationEntity[] {
-    return this.getAll().filter(c => c.objectRefs.includes(objectId));
+    return this.getAll().filter((c) => c.objectRefs.includes(objectId));
   },
 
   getByCommitmentRef(commitmentId: string): ConversationEntity[] {
-    return this.getAll().filter(c => c.commitmentRefs.includes(commitmentId));
+    return this.getAll().filter((c) => c.commitmentRefs.includes(commitmentId));
   },
 
   getByParticipant(participantId: string): ConversationEntity[] {
-    return this.getAll().filter(c => c.participants.includes(participantId));
+    return this.getAll().filter((c) => c.participants.includes(participantId));
   },
 
   getActive(): ConversationEntity[] {
