@@ -24,6 +24,8 @@ Relations are pure structure: {type, target_id}. No business meaning.
 """
 
 from app.objects.models import Object
+from app.commitments.models import Commitment
+from app.observations.models import Observation
 
 
 def get_next_action(obj) -> dict:
@@ -109,6 +111,43 @@ def get_next_action(obj) -> dict:
             "payload": {
                 "version": 2
             }
+        }
+
+    return {"type": "noop"}
+
+
+def decide_next_from_commitment(commitment: Commitment):
+    """
+    Decision based on latest observation.
+
+    Returns:
+        update_commitment with status=completed if latest observation
+        is matched; noop otherwise.
+    """
+    # fetch latest observation
+    obs = (
+        Observation.query
+        .filter_by(commitment_id=commitment.id)
+        .order_by(Observation.id.desc())
+        .first()
+    )
+
+    # no observation yet
+    if not obs:
+        return {"type": "noop"}
+
+    # if matched → complete commitment
+    if obs.status == "matched":
+        return {
+            "type": "update_commitment",
+            "payload": {"status": "completed"}
+        }
+
+    # if deviated → mark failure
+    if obs.status == "deviated":
+        return {
+            "type": "update_commitment",
+            "payload": {"status": "failed"}
         }
 
     return {"type": "noop"}
