@@ -345,6 +345,9 @@ def create_app(config_override: dict | None = None):
     # Observations — PROD-15
     from app.observations.models import Observation  # noqa: F401
 
+    # Customer/Lead entities — PROD-21/22
+    from app.customers.models import Customer  # noqa: F401
+
     # Canonical consolidated models (from FOR-1/2)
     from app.models import (  # noqa: F401
         Organization, OrgMember, OrgInvitation, Department,
@@ -671,6 +674,10 @@ def create_app(config_override: dict | None = None):
     # ---- Observations — PROD-15 ----
     from app.observations.routes import observations_bp
     app.register_blueprint(observations_bp)
+
+    # ---- Leads — PROD-24 ----
+    from app.leads.routes import leads_bp
+    app.register_blueprint(leads_bp)
 
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
