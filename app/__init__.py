@@ -339,6 +339,9 @@ def create_app(config_override: dict | None = None):
     # Execution Graph — PROD-13
     from app.graph.models import ObjectRelation  # noqa: F401
 
+    # Commitments — PROD-14
+    from app.commitments.models import Commitment  # noqa: F401
+
     # Canonical consolidated models (from FOR-1/2)
     from app.models import (  # noqa: F401
         Organization, OrgMember, OrgInvitation, Department,
@@ -657,6 +660,10 @@ def create_app(config_override: dict | None = None):
     # ---- Genesis Protection — Auditing & Safeguards (Preparation) ----
     from app.genesis_routes import genesis_bp
     app.register_blueprint(genesis_bp)
+
+    # ---- Commitments — PROD-14 ----
+    from app.commitments.routes import commitments_bp
+    app.register_blueprint(commitments_bp)
 
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
