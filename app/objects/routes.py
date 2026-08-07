@@ -4,7 +4,6 @@ from app.objects.models import Object
 
 objects_bp = Blueprint("objects", __name__, url_prefix="/api/v1/objects")
 
-
 @objects_bp.route("/", methods=["POST"])
 def create():
     data = request.json or {}
