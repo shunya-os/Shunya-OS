@@ -445,6 +445,9 @@ def create_app(config_override: dict | None = None):
     # Entity API — PROD-49
     from app.api.entity_routes import entity_bp
     app.register_blueprint(entity_bp)
+    # Webhook API — PROD-56
+    from app.api.webhook_routes import webhook_bp
+    app.register_blueprint(webhook_bp)
     # Intelligence Layer — PROD-07
     from app.intelligence.pattern_routes import pattern_bp
     app.register_blueprint(pattern_bp)
@@ -796,6 +799,7 @@ a:hover{background:#4338ca}
             ExternalAttachmentReference, SyncCursor,
         )
         from app.communication.models import Message  # noqa: F401
+        from app.communication.inbound import InboundEvent  # noqa: F401
         from app.privacy.models import (
             PrivacyPolicy, SensitivityPolicy, RetentionPolicy, MemoryEligibilityPolicy,
             SensitivityAssessment, PrivacyDecision, Restriction, ForgetRequest, PrivacyReviewItem,

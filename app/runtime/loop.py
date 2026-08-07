@@ -30,6 +30,8 @@ from app.runtime.decision_engine import decide_lead_stage
 from app.runtime.decision_engine import decide_entity
 from app.communication.service import MessageService
 from app.output.generator import generate_output
+from app.communication.processor import process_inbound
+from app.communication.delivery import deliver_messages
 from app.core.entity import Entity
 from app.models import Lead
 
@@ -152,6 +154,9 @@ def run_cycle() -> dict:
             for k, v in stage_dec.get("payload", {}).items():
                 setattr(lead, k, v)
 
+    # PROD-59: process inbound events before entity processing
+    process_inbound()
+
     # PROD-45: process all Entities — generic state transitions
     entities = Entity.query.all()
     for e in entities:
@@ -159,6 +164,9 @@ def run_cycle() -> dict:
         if ed.get("type") == "update":
             for k, v in ed.get("payload", {}).items():
                 setattr(e, k, v)
+
+    # PROD-59: deliver pending messages at end of cycle
+    deliver_messages()
 
     db.session.commit()
     return summary
