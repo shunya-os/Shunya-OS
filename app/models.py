@@ -67,6 +67,8 @@ class Lead(db.Model):
     notes = db.Column(db.Text)
     status = db.Column(db.String(30), default=LeadStatus.NEW.value, index=True)
     assigned_to = db.Column(db.String(120))
+    # PROD-23: link lead to its commitment
+    commitment_id = db.Column(db.Integer, db.ForeignKey("commitments.id"), nullable=True)
     # Person compatibility (Phase 1)
     person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=True)
     person = db.relationship("Person", backref="leads", lazy="select")
