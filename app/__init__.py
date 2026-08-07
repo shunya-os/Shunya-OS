@@ -336,6 +336,9 @@ def create_app(config_override: dict | None = None):
     # Signals System — PROD-08
     from app.signals.models import Signal  # noqa: F401
 
+    # Execution Graph — PROD-13
+    from app.graph.models import ObjectRelation  # noqa: F401
+
     # Canonical consolidated models (from FOR-1/2)
     from app.models import (  # noqa: F401
         Organization, OrgMember, OrgInvitation, Department,
