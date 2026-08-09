@@ -1,55 +1,47 @@
-import time
-import random
-from datetime import datetime, timedelta
-from app.communication.models import MessageProposal
+"""ACTIVATION-06/07: Safe send — the ONLY allowed message delivery path.
+
+Constitutional rule: Shunya proposes. Only human disposes.
+
+send_proposal() is the exclusive gateway for outbound messages.
+Direct provider.send() is forbidden — the hard guardrail in the
+provider layer blocks any call not triggered by a human decision.
+"""
+
+from datetime import datetime, timezone
+
 from app import db
-
-MIN_DELAY_SECONDS = 3
-MAX_DELAY_SECONDS = 8
-MAX_MESSAGES_PER_MINUTE = 5
-
-
-def can_send(to):
-    one_min_ago = datetime.utcnow() - timedelta(minutes=1)
-
-    recent = MessageProposal.query.filter(
-        MessageProposal.to == to,
-        MessageProposal.created_at >= one_min_ago
-    ).count()
-
-    if recent >= MAX_MESSAGES_PER_MINUTE:
-        return False
-
-    return True
-
-
-def human_delay():
-    delay = random.randint(MIN_DELAY_SECONDS, MAX_DELAY_SECONDS)
-    time.sleep(delay)
-
-
-def safe_send(provider, to, message):
-    if not to:
-        return {"status": "skipped", "reason": "no_recipient"}
-
-    if not can_send(to):
-        return {"status": "blocked", "reason": "rate_limit"}
-
-    human_delay()
-
-    result = provider.send(to, message)
-
-    log = MessageProposal(to=to, message=message)
-    db.session.add(log)
-
-    return result
+from app.communication.models import MessageProposal
 
 
 def send_proposal(provider, proposal):
+    """Send an approved proposal via the provider.
+
+    This is the ONLY allowed path for outbound messages.
+    Direct provider.send() is blocked by a hard guardrail.
+
+    Args:
+        provider: A CommunicationProvider instance.
+        proposal: MessageProposal with status='approved'.
+
+    Returns:
+        Result dict from the provider.
+    """
     if proposal.status != "approved":
         return {"status": "blocked", "reason": "not_approved"}
 
-    result = provider.send(proposal.to, proposal.message)
+    # Use human-edited message if available
+    final_message = proposal.edited_message if proposal.edited_message else proposal.message
+
+    # The hard guardrail is inside the provider — it checks is_human_triggered
+    # We pass metadata indicating this IS a human-triggered send
+    result = provider.send(
+        proposal.to,
+        final_message,
+        metadata={"is_human_triggered": True},
+    )
 
     proposal.status = "sent"
+    proposal.sent_at = datetime.now(timezone.utc)
+    db.session.commit()
+
     return result

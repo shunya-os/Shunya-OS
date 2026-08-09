@@ -311,4 +311,10 @@ class MessageProposal(db.Model):
     status = db.Column(db.String(32), default=lambda: "pending")
     # pending / approved / rejected / sent
 
+    # Human decision tracking (ACTIVATION-07)
+    approved_by = db.Column(db.String(64), nullable=True)
+    approved_at = db.Column(db.DateTime, nullable=True)
+    sent_at = db.Column(db.DateTime, nullable=True)
+    edited_message = db.Column(db.Text, nullable=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

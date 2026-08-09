@@ -8,3 +8,7 @@ def test_proposal_created(app):
         db.session.add(proposal)
         db.session.flush()
         assert proposal.status == "pending"
+        assert proposal.approved_by is None
+        assert proposal.approved_at is None
+        assert proposal.sent_at is None
+        assert proposal.edited_message is None
