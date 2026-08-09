@@ -252,6 +252,13 @@ def run_cycle() -> dict:
     except Exception:
         pass
 
+    # PHASE 2B: Cortex observer (read-only, no control)
+    try:
+        from app.intelligence.cortex_bridge import observe_execution_summary
+        observe_execution_summary(summary)
+    except Exception:
+        pass
+
     return summary
 
 
