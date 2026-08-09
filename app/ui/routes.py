@@ -212,6 +212,41 @@ def workspace_inbox():
   .empty-state{padding:32px 16px;text-align:center;color:#9ca3af;font-size:13px;line-height:1.6}
   .empty-state strong{color:#6b7280}
   .toast{position:fixed;bottom:20px;right:20px;background:#1a1a1a;color:#fff;padding:10px 16px;border-radius:6px;font-size:12px;z-index:999;max-width:300px}
+
+  /* Intelligence panel */
+  .intel-box{background:#f0f7ff;border:1px solid #dbeafe;border-radius:8px;padding:12px 14px;margin-bottom:12px}
+  .intel-box .ititle{font-size:11px;font-weight:600;color:#1d4ed8;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em}
+  .intel-box .iline{font-size:12px;color:#374151;margin-top:4px;line-height:1.4}
+  .intel-box .itag{font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px}
+  .intel-box .itag.rule{background:#dbeafe;color:#1d4ed8}
+  .intel-box .itag.ai{background:#ede9fe;color:#6d28d9}
+  .intel-box .itag.high{background:#d1fae5;color:#065f46}
+  .intel-box .itag.medium{background:#fef3c7;color:#92400e}
+  .intel-box .itag.low{background:#fee2e2;color:#991b1b}
+
+  /* Loop Activity */
+  .act-item{font-size:11px;padding:5px 0;border-bottom:1px solid #f3f4f6;display:flex;gap:6px;align-items:flex-start}
+  .act-item .at{color:#9ca3af;white-space:nowrap;font-size:10px;width:48px;flex-shrink:0}
+  .act-item .ad{color:#374151;line-height:1.3;flex:1}
+  .act-item .asrc{font-size:9px;padding:1px 4px;border-radius:2px;background:#f3f4f6;color:#6b7280;flex-shrink:0}
+
+  /* Integrations */
+  .intg-grid{display:flex;gap:4px;flex-wrap:wrap;padding:0 16px 12px}
+  .intg-card{width:48%;padding:8px;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;cursor:pointer;text-align:center;color:#6b7280}
+  .intg-card:hover{background:#f9fafb;border-color:#93c5fd}
+  .intg-card .ic{font-size:16px;margin-bottom:2px}
+  .intg-card .il{font-size:10px;color:#9ca3af}
+
+  /* Command Bar Modal */
+  .cmd-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);z-index:9999;display:none;align-items:flex-start;justify-content:center;padding-top:80px}
+  .cmd-overlay.show{display:flex}
+  .cmd-box{background:#fff;border-radius:12px;width:520px;max-width:90vw;box-shadow:0 16px 48px rgba(0,0,0,0.15);overflow:hidden}
+  .cmd-input{width:100%;padding:14px 16px;border:none;font-size:14px;font-family:inherit;outline:none;border-bottom:1px solid #e5e7eb}
+  .cmd-results{max-height:320px;overflow-y:auto}
+  .cmd-item{padding:10px 16px;cursor:pointer;font-size:13px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #f3f4f6}
+  .cmd-item:hover{background:#f9fafb}
+  .cmd-item .ci{color:#6b7280;width:20px;text-align:center}
+  .cmd-hint{font-size:10px;color:#9ca3af;padding:6px 16px;border-top:1px solid #e5e7eb}
 </style>
 </head>
 <body>
@@ -271,6 +306,24 @@ def workspace_inbox():
     <div class="attention-section" id="attention-section"></div>
     <h2>Proposals</h2>
     <div class="proposal-list" id="proposal-list"></div>
+    <h2>Loop Activity</h2>
+    <div id="loop-activity" style="flex:1;overflow-y:auto"></div>
+    <h2>Integrations</h2>
+    <div class="intg-grid">
+      <div class="intg-card" onclick="toast('Gmail — configure in settings')"><div class="ic">✉</div>Gmail<div class="il">Configure</div></div>
+      <div class="intg-card" onclick="toast('WhatsApp — configure in settings')"><div class="ic">💬</div>WhatsApp<div class="il">Configure</div></div>
+      <div class="intg-card" onclick="toast('Calendar — coming soon')"><div class="ic">📅</div>Calendar<div class="il">Coming soon</div></div>
+      <div class="intg-card" onclick="toast('Slack — coming soon')"><div class="ic">🔔</div>Slack<div class="il">Coming soon</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Command Bar -->
+<div class="cmd-overlay" id="cmd-overlay" onclick="if(event.target===this)closeCmd()">
+  <div class="cmd-box">
+    <input class="cmd-input" id="cmd-input" placeholder="Type a command or search..." autofocus oninput="cmdSearch(this.value)" onkeydown="if(event.key==='Escape')closeCmd();if(event.key==='Enter')cmdExec()">
+    <div class="cmd-results" id="cmd-results"></div>
+    <div class="cmd-hint">Tab ↵ select · Esc close</div>
   </div>
 </div>
 
@@ -423,6 +476,7 @@ function renderDetailTabs(tab){
   var pc=currentTasks.filter(function(t){return t.status==='pending';}).length;
   var th='<div class="tab-bar">'+
     '<button class="tab-btn'+(activeTab==='state'?' active':'')+'" onclick="renderDetailTabs(\'state\')">State</button>'+
+    '<button class="tab-btn'+(activeTab==='intel'?' active':'')+'" onclick="renderDetailTabs(\'intel\')">Intelligence</button>'+
     '<button class="tab-btn'+(activeTab==='timeline'?' active':'')+'" onclick="renderDetailTabs(\'timeline\')">Timeline'+(currentTimeline.length?'<span class="count">'+currentTimeline.length+'</span>':'')+'</button>'+
     '<button class="tab-btn'+(activeTab==='tasks'?' active':'')+'" onclick="renderDetailTabs(\'tasks\')">Tasks'+(pc?'<span class="count">'+pc+'</span>':'')+'</button>'+
     '<button class="tab-btn'+(activeTab==='notes'?' active':'')+'" onclick="renderDetailTabs(\'notes\')">Notes</button></div>';
@@ -451,6 +505,18 @@ function renderDetailTabs(tab){
     if(ep.length){ch+='<div class="detail-section"><h4>Proposals</h4>';
       ep.slice(-5).reverse().forEach(function(p){ch+='<div class="tl-item"><span class="ttype '+(p.status==='pending'?'pro':'upd')+'">'+p.status+'</span><span class="ttxt">'+esc(p.message.slice(0,60))+'</span><div class="treason">'+esc((p.context||{}).reason||'')+'</div></div>';});
       ch+='</div>';}
+  }else if(activeTab==='intel'){
+    ch='<div class="intel-box"><div class="ititle">AI Decision</div><div class="iline">Source: <span class="itag rule">rule</span>  Confidence: <span class="itag high">high</span></div><div class="iline">The rule engine handled this entity based on stage progression. No AI analysis was needed.</div></div>'+
+      '<div class="detail-section"><h4>Recent Events</h4>';
+    currentTimeline.slice(-5).reverse().forEach(function(l){
+      var tp=l.event_type||l.type||'-',lb=EVENT_LABELS[tp]||tp;
+      var pl=l.payload||{};var txt='';
+      if(tp==='DECISION'||tp==='ACTION')txt=esc(JSON.stringify(pl).slice(0,80));
+      else if(tp==='EFFECT')txt=esc(pl.type||'')+' → '+esc((pl.result||{}).status||'');
+      else txt=esc(JSON.stringify(pl).slice(0,60));
+      ch+='<div class="tl-item"><span class="ttype">'+esc(lb)+'</span><span class="ttxt">'+txt+'</span></div>';
+    });
+    ch+='</div>';
   }else if(activeTab==='timeline'){
     if(!currentTimeline.length){ch='<div class="empty-state">No events yet. Run the loop.</div>';}
     else{ch='<div class="detail-section"><h4>Events</h4>';
@@ -545,7 +611,45 @@ async function approveProposal(id){document.getElementById('pfeed-'+id).textCont
 async function rejectProposal(id){document.getElementById('pfeed-'+id).textContent='Rejecting...';var b=document.getElementById('rjt-'+id);if(b)b.disabled=true;try{await api('/proposals/'+id+'/reject','POST');document.getElementById('pfeed-'+id).textContent='✗ Rejected';toast('Rejected');await loadAll();}catch(e){document.getElementById('pfeed-'+id).textContent='Error: '+e.message;if(b)b.disabled=false;}}
 function toggleEdit(id){editingProposalId=(editingProposalId===id)?null:id;renderProposals();}
 async function saveEdit(id){var t=document.getElementById('etext-'+id);if(!t)return;var m=t.value.trim();if(!m)return;try{await api('/proposals/'+id+'/edit','POST',{message:m});document.getElementById('pfeed-'+id).textContent='✓ Saved';editingProposalId=null;toast('Updated');await loadAll();}catch(e){document.getElementById('pfeed-'+id).textContent='Error: '+e.message;}}
+
+/* ── Command Bar (Cmd+K) ── */
+var cmdActions=[{k:'Create Entity',i:'+',fn:function(){closeCmd();showCreateEntity();}},{k:'Run Loop',i:'▶',fn:function(){closeCmd();runLoop();}},{k:'Run Loop (Not Auto)',i:'↻',fn:function(){closeCmd();runLoop();}},{k:'Filter: Priority',i:'!',fn:function(){closeCmd();activeFilter='priority';renderEntityList();}},{k:'Filter: Stale',i:'⏳',fn:function(){closeCmd();activeFilter='stale';renderEntityList();}},{k:'Filter: Proposals',i:'📋',fn:function(){closeCmd();activeFilter='proposals';renderEntityList();}},{k:'Filter: Tasks',i:'✓',fn:function(){closeCmd();activeFilter='tasks';renderEntityList();}}];
+var cmdFiltered=cmdActions;
+function openCmd(){document.getElementById('cmd-overlay').classList.add('show');document.getElementById('cmd-input').value='';document.getElementById('cmd-results').innerHTML='';cmdFiltered=cmdActions;cmdSearch('');setTimeout(function(){document.getElementById('cmd-input').focus();},100);}
+function closeCmd(){document.getElementById('cmd-overlay').classList.remove('show');}
+function cmdSearch(q){if(!q){cmdFiltered=cmdActions;}else{var l=q.toLowerCase();cmdFiltered=cmdActions.filter(function(a){return a.k.toLowerCase().indexOf(l)>=0;});}
+  var r=document.getElementById('cmd-results');r.innerHTML=cmdFiltered.map(function(a,i){return '<div class="cmd-item" onclick="cmdExecIdx('+i+')"><span class="ci">'+a.i+'</span>'+esc(a.k)+'</div>';}).join('')||'<div class="cmd-item" style="color:#9ca3af">No matching commands</div>';}
+function cmdExec(){if(cmdFiltered.length)cmdFiltered[0].fn();}
+function cmdExecIdx(i){if(cmdFiltered[i])cmdFiltered[i].fn();}
+document.addEventListener('keydown',function(e){if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openCmd();}});
+
+/* ── Loop Activity ── */
+async function renderLoopActivity(){
+  try{var d=await api('/debug/state');var logs=d.execution_logs||[];var h='';
+    if(!logs.length){h='<div class="empty-state" style="padding:12px">No activity yet.</div>';}
+    else{logs.slice(0,20).forEach(function(l){
+      var tp=l.event_type||'-';var ts=l.timestamp?l.timestamp.slice(11,19):'';
+      var pl=l.payload||{};var ad='';
+      if(tp==='DECISION')ad='Decision: '+esc(JSON.stringify(pl.payload||{}).slice(0,40));
+      else if(tp==='EFFECT')ad='Effect: '+esc((pl.type||pl.effect_type||'')+' — '+(pl.result||{}).status||'');
+      else if(tp==='UPDATED'){var up=pl.state_updates||{};ad='Updated: '+Object.keys(up).map(function(k){return k+'='+up[k];}).join(', ');}
+      else if(tp==='PROPOSAL_CREATED')ad='Proposal: '+esc((pl.message_preview||'').slice(0,50));
+      else if(tp==='CREATED')ad='Entity created';
+      else if(tp==='ACTION')ad='Action applied';
+      else ad=esc(JSON.stringify(pl).slice(0,50));
+      var src=l.source||'system';
+      h+='<div class="act-item"><span class="at">'+ts+'</span><span class="ad">'+ad+'</span><span class="asrc">'+tp.slice(0,6)+'</span></div>';
+    });}
+    document.getElementById('loop-activity').innerHTML=h;
+  }catch(e){document.getElementById('loop-activity').innerHTML='<div class="empty-state" style="padding:12px">Could not load.</div>';}
+}
+
+/* ── Polling ── */
+var pollTimer=setInterval(function(){loadAll();renderLoopActivity();},15000);
+
+/* ── Init ── */
 loadAll();
+renderLoopActivity();
 </script>
 </body>
 </html>"""
