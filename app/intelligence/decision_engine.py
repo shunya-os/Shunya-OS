@@ -124,6 +124,24 @@ def compute_decisions() -> list:
         logger.debug("Decision engine: could not scan awareness: %s", e)
         return []
 
+    # PHASE 2C.4: Consistency assertion — log warning if signal count is suspicious
+    try:
+        from app.objects.models import Object
+        obj_count = Object.query.count()
+        if obj_count > 0 and len(signals) == 0:
+            logger.warning(
+                "STATE INCONSISTENCY: %d objects exist but 0 awareness signals. "
+                "Check DB connection isolation (SQLite in-memory?)",
+                obj_count,
+            )
+        elif obj_count == 0 and len(signals) > 0:
+            logger.warning(
+                "STATE INCONSISTENCY: 0 objects but %d awareness signals. Stale cache?",
+                len(signals),
+            )
+    except Exception:
+        pass
+
     decisions = []
     for signal in signals:
         try:

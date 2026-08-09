@@ -28,12 +28,12 @@ def api_awareness():
             if "timestamp" not in s:
                 s["timestamp"] = now
 
-        # Sort: high > medium > low, then newest first
+        # Sort: high > medium > low, then newest first (ISO strings compare correctly)
         severity_order = {"high": 0, "medium": 1, "low": 2}
         signals.sort(key=lambda s: (
             severity_order.get(s.get("severity", "low"), 9),
-            -(s.get("timestamp") or ""),
-        ))
+            s.get("timestamp", "") or "",
+        ), reverse=True)
 
         return jsonify({
             "signals": signals,
@@ -72,6 +72,60 @@ def api_evidence():
     except Exception as e:
         return jsonify({"records": [], "total": 0, "error": str(e)})
 
+
+@awareness_bp.route("/debug/state", methods=["GET"])
+def api_debug_state():
+    """Return system state counts and consistency verification.
+    
+    Returns:
+        total_objects, total_proposals, total_execution_logs,
+        total_awareness_signals, state_consistent flag.
+    """
+    try:
+        from app.objects.models import Object
+        from app.communication.models import MessageProposal
+        from app.execution_log.models import ExecutionLog
+        from app.intelligence.awareness import scan
+
+        obj_count = Object.query.count()
+        prop_count = MessageProposal.query.count()
+        log_count = ExecutionLog.query.count()
+
+        signals = scan()
+        sig_count = len(signals)
+
+        # Consistency verification
+        # Expected: awareness count should be close to idle entities + failed cycles
+        # Any large discrepancy indicates a session/connection issue
+        state_consistent = True
+        consistency_notes = []
+
+        if obj_count == 0 and sig_count > 0:
+            state_consistent = False
+            consistency_notes.append("signals exist without objects — stale cache")
+        if prop_count > 0 and sig_count == 0:
+            state_consistent = False
+            consistency_notes.append("proposals exist but no awareness signals — possible connection isolation")
+
+        return jsonify({
+            "total_objects": obj_count,
+            "total_proposals": prop_count,
+            "total_execution_logs": log_count,
+            "total_awareness_signals": sig_count,
+            "state_consistent": state_consistent,
+            "consistency_notes": consistency_notes,
+            "warning": "SQLite in-memory databases are per-connection. Use PostgreSQL for multi-connection consistency.",
+        })
+    except Exception as e:
+        return jsonify({
+            "total_objects": 0,
+            "total_proposals": 0,
+            "total_execution_logs": 0,
+            "total_awareness_signals": 0,
+            "state_consistent": False,
+            "consistency_notes": [str(e)],
+            "error": str(e),
+        })
 
 @awareness_bp.route("/decisions", methods=["GET"])
 def api_decisions():

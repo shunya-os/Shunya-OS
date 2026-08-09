@@ -17,6 +17,23 @@ os.environ["DISABLE_RATE_LIMIT"] = "true"
 
 
 def seed():
+    """Seed real data for awareness signal generation.
+    
+    WARNING: SQLite in-memory databases create a NEW database per connection.
+    Use a persistent database (PostgreSQL or file-based SQLite) for validation.
+    
+    Example:
+        DATABASE_URL=sqlite:///shunya_test.db python3 scripts/seed_data.py
+        DATABASE_URL=postgresql://user:pass@localhost/shunya python3 scripts/seed_data.py
+    """
+    import warnings
+    if os.environ.get("DATABASE_URL", "").startswith("sqlite:///:memory:"):
+        warnings.warn(
+            "SQLite in-memory database detected. Awareness/decision APIs will NOT "
+            "see seeded data due to connection isolation. Use a persistent database "
+            "(e.g., DATABASE_URL=sqlite:///shunya_test.db) for validation."
+        )
+    
     from app import create_app, db
 
     app = create_app()
