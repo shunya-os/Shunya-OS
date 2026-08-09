@@ -36,6 +36,7 @@ from app.communication.delivery import deliver_messages
 from app.core.entity import Entity
 from app.models import Lead
 from app.execution_log.models import log_execution
+from app.execution.effects import execute_effects
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 logger = logging.getLogger(__name__)
@@ -150,23 +151,10 @@ def _run_objects(summary: dict):
                     channel="system"
                 )
 
-                # ACTIVATION-01: Process effects from decision engine
+                # ACTIVATION-04: Execute effects via dedicated engine
                 effects = action.get("effects", [])
-                for effect in effects:
-                    try:
-                        etype = effect.get("type", "")
-                        if etype == "email":
-                            from app.communication.email import send_email
-                            send_email(effect.get("to"), effect.get("subject"), effect.get("body"))
-                        elif etype == "whatsapp":
-                            from app.communication.whatsapp import send_whatsapp
-                            send_whatsapp(effect.get("to"), effect.get("message"))
-                        elif etype == "log":
-                            from app.communication.logger import log_communication
-                            log_communication(effect.get("channel", "system"),
-                                              "system", effect.get("message", ""), obj.id)
-                    except Exception as eff_err:
-                        logger.error("Effect failed for %d: %s", obj.id, eff_err)
+                if effects:
+                    execute_effects(effects, obj.id)
 
                 # PROD-13: propagate to relational targets
                 _propagate_to_targets(obj, summary)
