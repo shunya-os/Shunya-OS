@@ -247,6 +247,21 @@ def workspace_inbox():
   .cmd-item:hover{background:#f9fafb}
   .cmd-item .ci{color:#6b7280;width:20px;text-align:center}
   .cmd-hint{font-size:10px;color:#9ca3af;padding:6px 16px;border-top:1px solid #e5e7eb}
+
+  /* Awareness cards */
+  .aw-card{border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:11px;line-height:1.4;border-left:3px solid}
+  .aw-card.aw-high{background:#fef2f2;border-left-color:#dc2626}
+  .aw-card.aw-med{background:#fffbeb;border-left-color:#d97706}
+  .aw-card.aw-low{background:#f9fafb;border-left-color:#9ca3af}
+  .aw-card .aw-sev{font-size:9px;font-weight:600;text-transform:uppercase;display:inline-block;padding:0 4px;border-radius:2px}
+  .aw-card .aw-sev.high{color:#dc2626}
+  .aw-card .aw-sev.med{color:#d97706}
+  .aw-card .aw-sev.low{color:#9ca3af}
+  .aw-card .aw-why{color:#6b7280;margin-top:2px;font-size:10px}
+  .aw-card .aw-act{color:#2563eb;margin-top:2px;font-size:10px;cursor:pointer;display:inline-block}
+  .aw-card .aw-act:hover{text-decoration:underline}
+  .aw-card .aw-ev{display:none;margin-top:4px;padding:4px 6px;background:#f3f4f6;border-radius:4px;font-size:9px;color:#6b7280;max-height:80px;overflow-y:auto}
+  .aw-card .aw-ev.show{display:block}
 </style>
 </head>
 <body>
@@ -302,6 +317,8 @@ def workspace_inbox():
   </div>
 
   <div class="right-panel">
+    <h2>System Awareness</h2>
+    <div id="awareness-panel" style="flex:1;overflow-y:auto;padding:0 12px"></div>
     <h2>Attention</h2>
     <div class="attention-section" id="attention-section"></div>
     <h2>Proposals</h2>
@@ -666,13 +683,36 @@ function askShunya() {
   }).catch(function(e){toast('Error: '+e.message);});
 }
 
+/* ── Awareness ── */
+async function renderAwareness(){
+  try{var d=await fetch('/api/intelligence/awareness');var r=await d.json();var sigs=r.signals||[];var h='';
+    if(!sigs.length){h='<div class="empty-state" style="padding:8px;font-size:10px">No signals — system is running smoothly.</div>';}
+    else{sigs.forEach(function(s,i){
+      var sev=s.severity||'low';var cls='aw-high';if(sev==='medium')cls='aw-med';else if(sev==='low')cls='aw-low';
+      h+='<div class="aw-card '+cls+'"><div class="aw-sev '+sev.slice(0,3)+'">'+sev+'</div>'+
+        '<div>'+esc(s.reason||s.type||'')+'</div>'+
+        '<div class="aw-why">'+esc(s.suggested_action||'')+'</div>'+
+        '<span class="aw-act" onclick="toggleAWE('+i+')">View Source</span>'+
+        '<div class="aw-ev" id="aw-ev-'+i+'"></div></div>';
+    });}
+    document.getElementById('awareness-panel').innerHTML=h;
+  }catch(e){document.getElementById('awareness-panel').innerHTML='<div class="empty-state" style="padding:8px;font-size:10px">Could not load awareness.</div>';}
+}
+function toggleAWE(i){var el=document.getElementById('aw-ev-'+i);if(!el)return;if(el.classList.contains('show')){el.classList.remove('show');return;}
+  el.classList.add('show');el.textContent='Loading...';
+  fetch('/api/intelligence/evidence?limit=5').then(function(r){return r.json();}).then(function(d){
+    var recs=d.records||[];if(!recs.length){el.textContent='No underlying evidence found.';return;}
+    el.innerHTML=recs.map(function(r){return '<div>['+esc(r.type||'?')+'] '+esc(JSON.stringify(r.data||{}).slice(0,100))+'</div>';}).join('');
+  }).catch(function(){el.textContent='Could not load evidence.';});}
+
 /* ── Polling ── */
-var pollTimer=setInterval(function(){loadAll();renderLoopActivity();renderIntegrations();},15000);
+var pollTimer=setInterval(function(){loadAll();renderLoopActivity();renderIntegrations();renderAwareness();},15000);
 
 /* ── Init ── */
 loadAll();
 renderLoopActivity();
-</script>
+renderIntegrations();
+renderAwareness();
 </body>
 </html>"""
 

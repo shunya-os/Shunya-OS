@@ -210,6 +210,65 @@ def api_health():
     return jsonify(health())
 
 
+# ── PHASE 2C.1: Awareness Surface ─────────────────────────────────────
+
+
+@intelligence_bp.route("/awareness", methods=["GET"])
+def api_awareness():
+    """Return awareness signals sorted by severity + recency.
+    
+    PHASE 2C.1: Read-only intelligence surface.
+    Each signal includes type, severity, entity_id, reason, suggested_action, timestamp.
+    """
+    try:
+        from app.intelligence.awareness import scan
+        signals = scan()
+
+        # Sort: high > medium > low, then newest first
+        severity_order = {"high": 0, "medium": 1, "low": 2}
+        signals.sort(key=lambda s: (severity_order.get(s["severity"], 9), -abs(hash(s.get("reason", "")))))
+
+        return jsonify({
+            "signals": signals,
+            "total": len(signals),
+            "priorities": {
+                "high": len([s for s in signals if s["severity"] == "high"]),
+                "medium": len([s for s in signals if s["severity"] == "medium"]),
+                "low": len([s for s in signals if s["severity"] == "low"]),
+            },
+        })
+    except Exception as e:
+        return jsonify({"signals": [], "total": 0, "priorities": {}, "error": str(e)})
+
+
+# ── PHASE 2A: Evidence Surface ────────────────────────────────────────
+
+
+@intelligence_bp.route("/evidence", methods=["GET"])
+def api_evidence():
+    """Return evidence logs for a given entity or type.
+    
+    Query params:
+        entity_id: int (optional)
+        type: str (execution_summary|proposal|ai|awareness_signal)
+        limit: int (default 20)
+    """
+    try:
+        entity_id = request.args.get("entity_id", type=int)
+        obs_type = request.args.get("type") or None
+        limit = request.args.get("limit", 20, type=int)
+
+        from app.cortex.state_log import query
+        records = query(
+            observation_type=obs_type,
+            entity_id=entity_id,
+            limit=limit,
+        )
+        return jsonify({"records": records, "total": len(records)})
+    except Exception as e:
+        return jsonify({"records": [], "total": 0, "error": str(e)})
+
+
 # ── Internal ─────────────────────────────────────────────────────────────
 
 
