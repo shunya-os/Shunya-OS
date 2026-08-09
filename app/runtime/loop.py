@@ -37,6 +37,7 @@ from app.core.entity import Entity
 from app.models import Lead
 from app.execution_log.models import log_execution
 from app.execution.effects import execute_effects
+from app.communication.registry import get_provider
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 logger = logging.getLogger(__name__)
@@ -155,6 +156,17 @@ def _run_objects(summary: dict):
                 effects = action.get("effects", [])
                 if effects:
                     execute_effects(effects, obj.id)
+
+                # ACTIVATION-05: Provider-agnostic communication
+                provider = get_provider()
+                phone = None
+                if hasattr(obj, "state") and obj.state:
+                    phone = obj.state.get("phone")
+                if phone:
+                    provider.send(
+                        to=phone,
+                        message="Shunya test message"
+                    )
 
                 # PROD-13: propagate to relational targets
                 _propagate_to_targets(obj, summary)
