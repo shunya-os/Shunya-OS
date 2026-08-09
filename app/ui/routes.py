@@ -685,22 +685,24 @@ function askShunya() {
 
 /* ── Awareness ── */
 async function renderAwareness(){
-  try{var d=await fetch('/api/intelligence/awareness');var r=await d.json();var sigs=r.signals||[];var h='';
-    if(!sigs.length){h='<div class="empty-state" style="padding:8px;font-size:10px">No signals — system is running smoothly.</div>';}
+  try{var d=await fetch('/api/v1/awareness');var r=await d.json();var sigs=r.signals||[];var h='';
+    if(!sigs.length){h='<div class="empty-state" style="padding:8px;font-size:10px">No signals detected yet (system may not have enough data).</div>';}
     else{sigs.forEach(function(s,i){
       var sev=s.severity||'low';var cls='aw-high';if(sev==='medium')cls='aw-med';else if(sev==='low')cls='aw-low';
       h+='<div class="aw-card '+cls+'"><div class="aw-sev '+sev.slice(0,3)+'">'+sev+'</div>'+
         '<div>'+esc(s.reason||s.type||'')+'</div>'+
         '<div class="aw-why">'+esc(s.suggested_action||'')+'</div>'+
-        '<span class="aw-act" onclick="toggleAWE('+i+')">View Source</span>'+
+        '<span class="aw-act" onclick="toggleAWE('+i+','+(s.entity_id||'')+',\''+esc(s.type||'')+'\')">View Source</span>'+
         '<div class="aw-ev" id="aw-ev-'+i+'"></div></div>';
     });}
     document.getElementById('awareness-panel').innerHTML=h;
   }catch(e){document.getElementById('awareness-panel').innerHTML='<div class="empty-state" style="padding:8px;font-size:10px">Could not load awareness.</div>';}
 }
-function toggleAWE(i){var el=document.getElementById('aw-ev-'+i);if(!el)return;if(el.classList.contains('show')){el.classList.remove('show');return;}
+function toggleAWE(i,entityId,obsType){
+  var el=document.getElementById('aw-ev-'+i);if(!el)return;if(el.classList.contains('show')){el.classList.remove('show');return;}
   el.classList.add('show');el.textContent='Loading...';
-  fetch('/api/intelligence/evidence?limit=5').then(function(r){return r.json();}).then(function(d){
+  var url='/api/v1/evidence?limit=5';if(entityId)url+='&entity_id='+entityId;if(obsType)url+='&type='+encodeURIComponent(obsType);
+  fetch(url).then(function(r){return r.json();}).then(function(d){
     var recs=d.records||[];if(!recs.length){el.textContent='No underlying evidence found.';return;}
     el.innerHTML=recs.map(function(r){return '<div>['+esc(r.type||'?')+'] '+esc(JSON.stringify(r.data||{}).slice(0,100))+'</div>';}).join('');
   }).catch(function(){el.textContent='Could not load evidence.';});}

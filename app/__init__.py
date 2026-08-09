@@ -649,6 +649,10 @@ def create_app(config_override: dict | None = None):
     from app.integration.routes_api import integration_bp as integrations_v2_bp
     app.register_blueprint(integrations_v2_bp)
 
+    # PHASE 2C.1: Awareness + Evidence + Decisions surface
+    from app.intelligence.awareness_api import awareness_bp
+    app.register_blueprint(awareness_bp)
+
     # Auto-connect configured integrations on boot
     try:
         from app.integration.providers.email_integration import EmailIntegration  # noqa: F401 — registers itself
