@@ -1,0 +1,156 @@
+{
+  "generated_at": "2026-08-09",
+  "classification_schema": {
+    "CORE": "Active, wired, essential to runtime",
+    "DORMANT_GOLD": "Unused but high-value intelligence/patterns",
+    "DUPLICATE": "Redundant systems that must merge",
+    "LEGACY": "Superseded, safe to archive"
+  },
+  "execution": {
+    "paths": [
+      "execution/",
+      "execution_engine/",
+      "execution_runtime/",
+      "execution_intelligence/"
+    ],
+    "classification": "DUPLICATE",
+    "canonical": "execution/ (effects, recovery, routes) + execution_engine/ (engine.py, service.py)",
+    "archive": [
+      "execution_runtime/",
+      "execution_intelligence/"
+    ],
+    "note": "4 parallel systems doing similar work. Consolidate into execution/ + execution_engine/"
+  },
+  "decision": {
+    "paths": [
+      "decision/",
+      "decision_runtime/"
+    ],
+    "classification": "DUPLICATE",
+    "canonical": "runtime/decision_engine.py",
+    "archive": [
+      "decision_runtime/"
+    ],
+    "note": "decision_engine.py in runtime/ is the active one. decision/ and decision_runtime/ are legacy"
+  },
+  "communication": {
+    "paths": [
+      "communication/",
+      "adapters/"
+    ],
+    "classification": "DUPLICATE",
+    "canonical": "communication/",
+    "archive": [
+      "adapters/email_adapter.py",
+      "adapters/whatsapp_adapter.py"
+    ],
+    "note": "communication/ has the real providers. adapters/ has stubs that duplicate"
+  },
+  "objects": {
+    "paths": [
+      "objects/",
+      "object_workspace/",
+      "object_composer/"
+    ],
+    "classification": "DUPLICATE",
+    "canonical": "objects/",
+    "archive": [
+      "object_workspace/",
+      "object_composer/"
+    ],
+    "note": "objects/ is the canonical Object model. Others are experiment"
+  },
+  "graph": {
+    "paths": [
+      "graph/",
+      "graph_universal/"
+    ],
+    "classification": "DUPLICATE",
+    "canonical": "graph/",
+    "archive": [
+      "graph_universal/"
+    ],
+    "note": "graph/ is more developed (9 files). graph_universal/ is redundant"
+  },
+  "intelligence": {
+    "paths": [
+      "intelligence/",
+      "ai/",
+      "llm/",
+      "inference/"
+    ],
+    "classification": "CORE",
+    "canonical": "intelligence/mixed_router.py + ai/provider.py",
+    "note": "MixedIntelligenceRouter + ProviderRegistry are the active pipeline"
+  },
+  "dormant_gold": {
+    "cortex": {
+      "path": "cortex/",
+      "files": 6,
+      "value": "attention, brief, health, state \u2014 UI-ready intelligence"
+    },
+    "evidence": {
+      "path": "evidence/",
+      "files": 6,
+      "value": "provenance tracking \u2014 trust layer"
+    },
+    "awareness": {
+      "path": "awareness/",
+      "files": 3,
+      "value": "business awareness engine"
+    },
+    "planning": {
+      "path": "planning/",
+      "files": 6,
+      "value": "action planning engine"
+    },
+    "shunya": {
+      "path": "shunya/",
+      "dirs": 14,
+      "files": 50,
+      "value": "complete OS sub-framework"
+    },
+    "kernel": {
+      "path": "kernel/",
+      "files": 10,
+      "value": "kernel abstractions"
+    },
+    "authz": {
+      "path": "authz/",
+      "files": 4,
+      "value": "role-based access control"
+    },
+    "automation": {
+      "path": "automation/",
+      "files": 4,
+      "value": "automation rules"
+    },
+    "onboarding": {
+      "path": "onboarding/",
+      "files": 3,
+      "value": "user onboarding flow"
+    }
+  },
+  "legacy": {
+    "Lead model": {
+      "file": "app/models.py",
+      "note": "Superseded by Object model, R2 removed from loop"
+    },
+    "Entity model": {
+      "file": "app/core/entity.py",
+      "note": "Superseded by Object model"
+    },
+    "ShunyaObject": {
+      "file": "app/objects/legacy_models.py",
+      "note": "32 references, fully legacy"
+    },
+    "OpenWA provider": {
+      "file": "app/communication/providers/openwa.py",
+      "note": "Mock, prints to stdout"
+    },
+    "social_routes": {
+      "file": "app/integration/routes.py",
+      "note": "Social media proxy routes, simulated"
+    }
+  }
+}

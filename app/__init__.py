@@ -482,12 +482,7 @@ def create_app(config_override: dict | None = None):
     # Intelligence Layer — PROD-07
     from app.intelligence.pattern_routes import pattern_bp
     app.register_blueprint(pattern_bp)
-    # EP-02 — Living Object Composer (single canonical creation endpoint)
-    from app.object_composer.routes import composer_bp
-    app.register_blueprint(composer_bp)
-    # EP-03 — Universal Living Object Workspace
-    from app.object_workspace.routes import workspace_bp
-    app.register_blueprint(workspace_bp)
+
     # EP-04 — Universal Communication Runtime
     from app.communication.routes import comm_bp
     app.register_blueprint(comm_bp)
@@ -497,9 +492,7 @@ def create_app(config_override: dict | None = None):
     # EP-06 — Universal Creative Runtime
     from app.creative_runtime.routes import creative_bp
     app.register_blueprint(creative_bp)
-    # EP-07 — Universal Execution Runtime
-    from app.execution_runtime.routes import exec_bp
-    app.register_blueprint(exec_bp)
+
     # DCP-01 — Universal Travel Intelligence
     from app.travel_intelligence.routes import travel_bp
     app.register_blueprint(travel_bp)
@@ -733,12 +726,6 @@ def create_app(config_override: dict | None = None):
     with app.app_context():
         load_orchestration_data()
     register_orchestration_middleware(app)
-
-    # ---- Universal Business Graph (Phase Z10) ----
-    from app.graph_universal.runtime import load_graph_data, register_graph_middleware
-    with app.app_context():
-        load_graph_data()
-    register_graph_middleware(app)
 
     # ---- Universal SHUNYA Space (Phase A1) ----
     from app.space.runtime import load_space_data, register_space_middleware

@@ -1,16 +1,14 @@
 """EmailProvider — real SMTP email delivery via CommunicationProvider interface.
 
-Implements CommunicationProvider._do_send() with actual SMTP relay.
+Implements CommunicationProvider._do_send() using email_core (canonical email module).
 When EMAIL_USER/PASSWORD are not configured, falls back to logging.
 """
 
 import logging
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 from app.communication.base import CommunicationProvider
+from app.communication.email_core import send as core_send
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +24,7 @@ class EmailProvider(CommunicationProvider):
         self.from_addr = os.environ.get("EMAIL_FROM", self.user or "shunya@localhost")
 
     def _do_send(self, to: str, message: str, metadata: dict = None) -> dict:
-        """Send email via SMTP. Falls back to log when credentials are missing.
+        """Send email via SMTP using email_core.
 
         Args:
             to: Recipient email address.
@@ -42,51 +40,22 @@ class EmailProvider(CommunicationProvider):
         subject = metadata.get("subject", "Update from SHUNYA")
         cc = metadata.get("cc")
 
-        # Check if we have credentials
-        if not self.user or not self.password:
-            logger.warning("EMAIL_USER/PASSWORD not set — logging email instead of sending")
-            msg = f"[EMAIL LOG] To: {to} | Subject: {subject} | Body: {message[:200]}"
-            logger.info(msg)
-            print(msg)
-            return {
-                "status": "logged",
-                "to": to,
-                "subject": subject,
-                "channel": "email",
-                "note": "no credentials configured",
-            }
+        # Override env vars with instance settings
+        import os as _os
+        orig = {}
+        for k, v in [("EMAIL_HOST", self.host), ("EMAIL_PORT", str(self.port)),
+                     ("EMAIL_USER", self.user), ("EMAIL_PASSWORD", self.password),
+                     ("EMAIL_FROM", self.from_addr)]:
+            orig[k] = _os.environ.get(k)
+            _os.environ[k] = v
 
-        # Send via real SMTP
         try:
-            msg = MIMEMultipart("alternative")
-            msg["From"] = self.from_addr
-            msg["To"] = to
-            msg["Subject"] = subject
-            if cc:
-                msg["Cc"] = ", ".join(cc)
-            msg.attach(MIMEText(message, "plain", "utf-8"))
-
-            recipients = [to] + (cc or [])
-            with smtplib.SMTP(self.host, self.port, timeout=15) as server:
-                server.starttls()
-                server.login(self.user, self.password)
-                server.sendmail(self.from_addr, recipients, msg.as_string())
-
-            logger.info("Email sent to %s: %s", to, subject)
-            print(f"[EMAIL SENT] To: {to} | Subject: {subject}")
-            return {
-                "status": "sent",
-                "to": to,
-                "subject": subject,
-                "channel": "email",
-            }
-
-        except Exception as e:
-            logger.error("Email send failed to %s: %s", to, e)
-            print(f"[EMAIL FAILED] To: {to} | Error: {e}")
-            return {
-                "status": "failed",
-                "to": to,
-                "error": str(e),
-                "channel": "email",
-            }
+            result = core_send(to, subject, message, cc=cc, is_human_triggered=True)
+            return result
+        finally:
+            # Restore original env vars
+            for k, v in orig.items():
+                if v is not None:
+                    _os.environ[k] = v
+                else:
+                    _os.environ.pop(k, None)
