@@ -2,8 +2,7 @@
 
 from datetime import datetime, timezone
 
-from flask import jsonify, request, send_from_directory
-import os
+from flask import jsonify, request
 
 from app import db
 from app.objects.models import Object
@@ -12,15 +11,6 @@ from app.runtime.loop import run_cycle
 from app.runtime.decision_engine import get_next_action
 from app.execution_engine.engine import execute_action
 from . import activation_bp
-
-
-_FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend", "app")
-
-
-@activation_bp.route("/")
-def activation_index():
-    """Serve the ACTIVATION-01 frontend."""
-    return send_from_directory(_FRONTEND_DIR, "index.html")
 
 
 def _serialize(obj):

@@ -551,12 +551,14 @@ def create_app(config_override: dict | None = None):
     from app.activation import activation_bp
     app.register_blueprint(activation_bp)
 
-    # SPA route — serves the SHUNYA operating system at root
+    # ACTIVATION-01 — UI at /x/, API at /api/v2/
+    _ACTIVATION_FRONTEND = os.path.join(os.path.dirname(__file__), "..", "frontend", "app")
+
     @app.route("/x/")
     @app.route("/x/<path:subpath>")
-    def genesis_experience(subpath=""):
-        # Redirect /x/ to / — the SPA now lives at root
-        return redirect(url_for("main.index"))
+    def activation_ui(subpath=""):
+        """Serve the ACTIVATION-01 frontend at /x/."""
+        return send_from_directory(_ACTIVATION_FRONTEND, "index.html")
 
     # FOR-1 — First Operational Release
     from app.for1 import for1_bp
