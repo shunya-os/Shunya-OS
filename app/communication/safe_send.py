@@ -1,7 +1,7 @@
 import time
 import random
 from datetime import datetime, timedelta
-from app.communication.models import MessageLog
+from app.communication.models import MessageProposal
 from app import db
 
 MIN_DELAY_SECONDS = 3
@@ -12,9 +12,9 @@ MAX_MESSAGES_PER_MINUTE = 5
 def can_send(to):
     one_min_ago = datetime.utcnow() - timedelta(minutes=1)
 
-    recent = MessageLog.query.filter(
-        MessageLog.to == to,
-        MessageLog.created_at >= one_min_ago
+    recent = MessageProposal.query.filter(
+        MessageProposal.to == to,
+        MessageProposal.created_at >= one_min_ago
     ).count()
 
     if recent >= MAX_MESSAGES_PER_MINUTE:
@@ -39,7 +39,17 @@ def safe_send(provider, to, message):
 
     result = provider.send(to, message)
 
-    log = MessageLog(to=to, message=message)
+    log = MessageProposal(to=to, message=message)
     db.session.add(log)
 
+    return result
+
+
+def send_proposal(provider, proposal):
+    if proposal.status != "approved":
+        return {"status": "blocked", "reason": "not_approved"}
+
+    result = provider.send(proposal.to, proposal.message)
+
+    proposal.status = "sent"
     return result

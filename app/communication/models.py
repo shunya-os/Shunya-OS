@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 from app import db
 from sqlalchemy import Index, Text as SA_Text
 
+# Resolve external relationship references
+from app.models import Person  # noqa: F401
+
 
 # ---------------------------------------------------------------------------
 # CommunicationSource
@@ -298,10 +301,14 @@ class Message(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
-class MessageLog(db.Model):
-    __tablename__ = "message_logs"
+class MessageProposal(db.Model):
+    __tablename__ = "message_proposals"
 
     id = db.Column(db.Integer, primary_key=True)
     to = db.Column(db.String(64), nullable=False)
     message = db.Column(db.Text, nullable=False)
+
+    status = db.Column(db.String(32), default=lambda: "pending")
+    # pending / approved / rejected / sent
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
