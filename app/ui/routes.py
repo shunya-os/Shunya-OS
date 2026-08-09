@@ -57,6 +57,10 @@ def workspace_inbox():
 
   .left-panel{width:260px;min-width:240px;background:#fff;border-right:1px solid #e5e7eb;display:flex;flex-direction:column}
   .left-panel h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;padding:14px 16px 6px}
+  .filter-bar{display:flex;gap:4px;padding:0 14px 8px;flex-wrap:wrap}
+  .filter-btn{font-size:10px;padding:3px 8px;border-radius:12px;border:1px solid #d4d4d4;background:#fff;cursor:pointer;color:#6b7280;font-family:inherit;transition:all 0.1s}
+  .filter-btn:hover{background:#f3f4f6}
+  .filter-btn.active{background:#2563eb;color:#fff;border-color:#2563eb}
   .entity-list{flex:1;overflow-y:auto}
   .entity-item{
     display:flex;align-items:center;gap:6px;padding:10px 14px;
@@ -210,6 +214,7 @@ def workspace_inbox():
 <div class="main">
   <div class="left-panel">
     <h2>Entities</h2>
+    <div class="filter-bar" id="filter-bar"></div>
     <div class="entity-list" id="entity-list"></div>
   </div>
 
@@ -248,6 +253,7 @@ var selectedEntityId = null, editingProposalId = null, editMode = false;
 var currentTimeline = [], currentTasks = [];
 var activeTab = 'state';
 var STALE_HOURS = 1;
+var activeFilter = 'all';
 
 var EVENT_LABELS = {'CREATED':'Created','UPDATED':'Updated','EFFECT':'Effect',
   'PROPOSAL_CREATED':'Proposal','NOTES_SAVED':'Notes','NOOP':'NoOp',
@@ -285,33 +291,55 @@ function renderAttention(){
     var s=getStage(e.state||{});if(s==='closed')return false;
     if(!e.updated_at)return false;return(new Date()-new Date(e.updated_at))/3600000>STALE_HOURS&&(s==='new'||s==='contacted');
   });
-  var badge=document.getElementById('entity-count');
+  var due=tasks.filter(function(t){return t.status==='pending'&&t.due_date&&new Date(t.due_date)<new Date();});
   var h='';
-  if(!pp.length&&!ot.length&&!se.length){
+  if(!pp.length&&!ot.length&&!se.length&&!due.length){
     h='<div class="att-item"><span class="att-icon green"></span><span class="att-text">All clear</span></div>';
   }else{
-    if(pp.length)h+='<div class="att-item"><span class="att-icon amber"></span><span class="att-text">Pending proposals</span><span class="att-count amber">'+pp.length+'</span></div>';
-    if(ot.length)h+='<div class="att-item"><span class="att-icon amber"></span><span class="att-text">Pending tasks</span><span class="att-count amber">'+ot.length+'</span></div>';
+    if(pp.length)h+='<div class="att-item"><span class="att-icon amber"></span><span class="att-text">Proposals to review</span><span class="att-count amber">'+pp.length+'</span></div>';
+    if(due.length)h+='<div class="att-item"><span class="att-icon red"></span><span class="att-text">Overdue tasks</span><span class="att-count red">'+due.length+'</span></div>';
+    else if(ot.length)h+='<div class="att-item"><span class="att-icon amber"></span><span class="att-text">Pending tasks</span><span class="att-count amber">'+ot.length+'</span></div>';
     if(se.length)h+='<div class="att-item"><span class="att-icon red"></span><span class="att-text">Stale leads</span><span class="att-count red">'+se.length+'</span></div>';
   }
   document.getElementById('attention-section').innerHTML=h;
 }
 
 function renderEntityList(){
+  renderFilters();
   var el=document.getElementById('entity-list');
   if(!entities.length){el.innerHTML='<div class="empty-state">No entities yet.<br>Click <strong>+ Create Entity</strong> above.</div>';return;}
   var epp={};proposals.filter(function(p){return p.status==='pending'&&p.entity;}).forEach(function(p){epp[p.entity.id]=(epp[p.entity.id]||0)+1;});
-  var sei={};entities.forEach(function(e){var s=getStage(e.state||{});if(s==='closed')return;if(!e.updated_at)return;if((new Date()-new Date(e.updated_at))/3600000>STALE_HOURS&&(s==='new'||s==='contacted'))sei[e.id]=true;});
-  var sorted=entities.slice().sort(function(a,b){return((epp[b.id]?2:0)+(sei[b.id]?1:0))-((epp[a.id]?2:0)+(sei[a.id]?1:0));});
+  var sei={},oei={};
+  entities.forEach(function(e){
+    var s=getStage(e.state||{});if(s==='closed')return;
+    if(!e.updated_at)return;
+    var hr=(new Date()-new Date(e.updated_at))/3600000;
+    if(hr>STALE_HOURS&&(s==='new'||s==='contacted'))sei[e.id]=true;
+    // Overdue: tasks past due
+    tasks.filter(function(t){return t.entity_id===e.id&&t.status==='pending'&&t.due_date&&new Date(t.due_date)<new Date();}).forEach(function(){oei[e.id]=true;});
+  });
+  var filtered=entities.slice();
+  if(activeFilter==='priority')filtered=filtered.filter(function(e){return epp[e.id]||sei[e.id]||oei[e.id];});
+  else if(activeFilter==='stale')filtered=filtered.filter(function(e){return sei[e.id];});
+  else if(activeFilter==='proposals')filtered=filtered.filter(function(e){return epp[e.id];});
+  else if(activeFilter==='tasks')filtered=filtered.filter(function(e){return oei[e.id];});
+  var sorted=filtered.slice().sort(function(a,b){return((epp[b.id]?2:0)+(sei[b.id]?1:0))-((epp[a.id]?2:0)+(sei[a.id]?1:0));});
   el.innerHTML=sorted.map(function(e){
-    var stage=getStage(e.state||{});var name=(e.state&&(e.state.name||e.state.description||''))||e.object_type||e.type||'#'+e.id;
+    var st=e.state||{};var stage=getStage(st);var name=st.name||st.description||e.object_type||e.type||'#'+e.id;
+    var owner=st.assigned_to||'';var val=st.deal_value?st.currency+' '+st.deal_value:'';
     var cls='entity-item'+(selectedEntityId===e.id?' selected':'');
-    if(epp[e.id])cls+=' urgent';else if(sei[e.id])cls+=' attention';
+    if(epp[e.id])cls+=' urgent';else if(sei[e.id]||oei[e.id])cls+=' attention';
     var b='';
-    if(epp[e.id])b='<span class="ebadge pending show">'+epp[e.id]+' prop</span>';
+    if(epp[e.id])b='<span class="ebadge pending show">prop</span>';
     else if(sei[e.id])b='<span class="ebadge stale show">stale</span>';
+    else if(oei[e.id])b='<span class="ebadge stale show">overdue</span>';
     return '<div class="'+cls+'" onclick="selectEntity('+e.id+')"><span class="eid">#'+e.id+'</span><span class="ename">'+esc(name)+'</span>'+b+'<span class="estag '+stage+'">'+stage+'</span></div>';
   }).join('');
+}
+function renderFilters(){
+  var fb=document.getElementById('filter-bar');
+  var filters=[{k:'all',l:'All'},{k:'priority',l:'Priority'},{k:'stale',l:'Stale'},{k:'proposals',l:'Proposals'},{k:'tasks',l:'Tasks'}];
+  fb.innerHTML=filters.map(function(f){return '<button class="filter-btn'+(activeFilter===f.k?' active':'')+'" onclick="activeFilter=\''+f.k+'\';renderEntityList()">'+f.l+'</button>';}).join('');
 }
 
 function selectEntity(id){
@@ -374,7 +402,13 @@ function renderDetailTabs(tab){
   }else if(activeTab==='tasks'){
     if(!currentTasks.length){ch='<div class="empty-state">No tasks. Run the loop.</div>';}
     else{ch='<div class="detail-section"><h4>Tasks</h4>';
-      currentTasks.forEach(function(t){var d=t.status==='completed';ch+='<div class="task-item"><span class="ttitle'+(d?' done':'')+'">'+esc(t.title)+'</span><span class="tstatus '+t.status+'">'+t.status+'</span>'+(t.status==='pending'?'<button class="tcomp" onclick="completeTask('+t.id+')">Done</button>':'')+'</div>';});
+      currentTasks.forEach(function(t){
+        var d=t.status==='completed';var pri=t.priority||'medium';
+        var due=t.due_date?new Date(t.due_date):null;var overdue=due&&due<new Date()&&t.status==='pending';
+        ch+='<div class="task-item"><span class="ttitle'+(d?' done':'')+'">'+esc(t.title)+'</span>'+
+          (t.due_date?'<span style="font-size:10px;color:'+(overdue?'#dc2626':'#9ca3af')+'">'+t.due_date.slice(0,10)+'</span>':'')+
+          '<span class="tstatus '+(t.status)+'">'+t.status+'</span>'+
+          (t.status==='pending'?'<button class="tcomp" onclick="completeTask('+t.id+')">Done</button>':'')+'</div>';});
       ch+='</div>';}
   }else if(activeTab==='notes'){
     ch='<div class="detail-section"><h4>Notes</h4><textarea class="notes-area" id="notes-text" placeholder="Add notes..."></textarea><button class="notes-save" onclick="saveNotes()">Save</button><div class="notes-status" id="notes-status">Saved</div></div>';
@@ -389,6 +423,11 @@ function renderEditForm(){
     '<div class="edit-field"><label>Name</label><input id="ef-name" value="'+esc(st.name||'')+'"></div>'+
     '<div class="edit-field"><label>Phone</label><input id="ef-phone" value="'+esc(st.phone||'')+'"></div>'+
     '<div class="edit-field"><label>Email</label><input id="ef-email" value="'+esc(st.email||'')+'"></div>'+
+    '<div class="edit-field"><label>Company</label><input id="ef-company" value="'+esc(st.company||'')+'" placeholder="Company name"></div>'+
+    '<div class="edit-field"><label>Contact Person</label><input id="ef-contact" value="'+esc(st.contact_person||'')+'" placeholder="Contact name"></div>'+
+    '<div class="edit-field"><label>Deal Value</label><input id="ef-value" value="'+esc(st.deal_value||'')+'" placeholder="0.00"></div>'+
+    '<div class="edit-field"><label>Currency</label><select id="ef-currency"><option value="USD"'+(st.currency==='USD'?' selected':'')+'>USD</option><option value="INR"'+(st.currency==='INR'?' selected':'')+'>INR</option><option value="EUR"'+(st.currency==='EUR'?' selected':'')+'>EUR</option></select></div>'+
+    '<div class="edit-field"><label>Assigned To</label><input id="ef-owner" value="'+esc(st.assigned_to||'')+'" placeholder="Owner name"></div>'+
     '<div class="edit-field"><label>Stage</label><select id="ef-stage">'+
     '<option value="new"'+(st.stage==='new'?' selected':'')+'>New</option>'+
     '<option value="contacted"'+(st.stage==='contacted'?' selected':'')+'>Contacted</option>'+
@@ -400,7 +439,7 @@ function renderEditForm(){
 function toggleEditMode(){editMode=!editMode;document.getElementById('btn-toggle-edit').textContent=editMode?'View':'Edit';if(editMode)renderEditForm();else renderDetail();}
 
 async function saveEntityEdit(){
-  var updates={name:document.getElementById('ef-name').value,phone:document.getElementById('ef-phone').value,email:document.getElementById('ef-email').value,stage:document.getElementById('ef-stage').value};
+  var updates={name:document.getElementById('ef-name').value,phone:document.getElementById('ef-phone').value,email:document.getElementById('ef-email').value,company:document.getElementById('ef-company').value,contact_person:document.getElementById('ef-contact').value,deal_value:document.getElementById('ef-value').value,currency:document.getElementById('ef-currency').value,assigned_to:document.getElementById('ef-owner').value,stage:document.getElementById('ef-stage').value};
   try{await api('/debug/entity/'+selectedEntityId,'PUT',{state:updates});toast('Updated');editMode=false;document.getElementById('btn-toggle-edit').textContent='Edit';await loadAll();selectEntity(selectedEntityId);}catch(e){toast('Error: '+e.message);}
 }
 async function saveNotes(){var t=document.getElementById('notes-text').value;try{await api('/debug/entity/'+selectedEntityId+'/notes','POST',{notes:t});var s=document.getElementById('notes-status');s.style.display='block';setTimeout(function(){s.style.display='none';},2000);}catch(e){toast('Error: '+e.message);}}
@@ -420,8 +459,15 @@ function renderProposals(){
 function selectEntityFromProposal(i){var p=proposals.find(function(x){return x.id===i;});if(p&&p.entity&&p.entity.id)selectEntity(p.entity.id);}
 
 function updatePipeline(){
-  var c={new:0,contacted:0,quoted:0,closed:0};entities.forEach(function(e){var s=getStage(e.state||{});if(c[s]!==undefined)c[s]++;});
-  for(var s in c){document.getElementById('count-'+s).textContent=c[s];var d=document.getElementById('pipe-'+s);d.className='dot'+(c[s]>0?(s==='new'||s==='contacted'?' warn':' has'):'');}
+  var c={new:0,contacted:0,quoted:0,closed:0},val={new:0,contacted:0,quoted:0,closed:0};
+  entities.forEach(function(e){
+    var s=getStage(e.state||{});if(c[s]!==undefined)c[s]++;
+    var st=e.state||{};if(st.deal_value){var v=parseFloat(st.deal_value)||0;if(val[s]!==undefined)val[s]+=v;}
+  });
+  for(var s in c){
+    document.getElementById('count-'+s).textContent=c[s]+(val[s]?' $'+val[s].toFixed(0):'');
+    var d=document.getElementById('pipe-'+s);d.className='dot'+(c[s]>0?(s==='new'||s==='contacted'?' warn':' has'):'');
+  }
 }
 
 async function runLoop(){var b=document.getElementById('btn-loop');b.disabled=true;b.textContent='Running...';try{var r=await api('/debug/run-cycle','POST');toast('Done: '+(r.summary?r.summary.actions_taken+' actions':'ok'));await loadAll();}catch(e){toast('Error: '+e.message);}b.disabled=false;b.textContent='Run Loop';}
