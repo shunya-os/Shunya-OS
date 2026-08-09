@@ -12,7 +12,7 @@ Task and log effects remain internal (no human approval needed).
 
 import json
 import logging
-from datetime import datetime, timezone
+from app.core.time import now
 
 from app import db
 from app.communication.models import MessageProposal
@@ -176,7 +176,7 @@ def execute_effect(effect: dict, entity_id: int = None) -> dict:
             "type": etype,
             "effect": effect,
             "result": result,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": now().isoformat(),
         },
     )
 

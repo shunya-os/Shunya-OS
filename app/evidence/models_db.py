@@ -1,27 +1,36 @@
-"""Evidence persistence model + enforcement.
+"""CANONICAL runtime Evidence model — THE single evidence layer.
 
-PHASE 3: Strict evidence linking. Every signal/decision MUST trace to source.
-DB-backed Evidence model with source_type, source_id, raw_reference.
+PHASE 3 FINAL: This is the ONLY runtime evidence model.
+The dataclass Evidence in models.py is the immutable domain concept;
+this SQLAlchemy model is the persisted runtime truth.
+
+source_type, source_id, raw_reference enable every signal to trace to source.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
-from app.core.db import db
+from app.core.db import get_session
+from app.core.db import db  # noqa: F401 — SQLAlchemy model needs the db instance
 from app.core.time import now
 
 logger = logging.getLogger(__name__)
 
 
-class Evidence(db.Model):
-    """DB-backed evidence record linking signals/decisions to their source."""
+class EvidenceRecord(db.Model):
+    """CANONICAL runtime evidence record linking signals/decisions to source.
+
+    source_type: email/pdf/contact/event/execution/ai/proposal
+    source_id: Reference to the source (thread id, object id, proposal id)
+    raw_reference: Raw snippet of the source
+    """
 
     __tablename__ = "evidence_records"
 
     id = db.Column(db.Integer, primary_key=True)
-    source_type = db.Column(db.String(50), nullable=False)  # email/pdf/contact/event/execution/ai/proposal
-    source_id = db.Column(db.String(100), nullable=False)   # e.g., email_thread_id, object_id, proposal_id
-    raw_reference = db.Column(db.JSON, default=dict)        # raw snippet/reference
+    source_type = db.Column(db.String(50), nullable=False)
+    source_id = db.Column(db.String(100), nullable=False)
+    raw_reference = db.Column(db.JSON, default=dict)
     created_at = db.Column(db.DateTime, default=now)
 
     def to_dict(self) -> dict:
@@ -38,36 +47,8 @@ def create_evidence(
     source_type: str,
     source_id: str,
     raw_reference: Optional[dict] = None,
-) -> Evidence:
+) -> EvidenceRecord:
     """Create and persist an evidence record.
-
-    Args:
-        source_type: email/pdf/contact/event/execution/ai/proposal
-        source_id: Reference to the source (thread id, object id, proposal id)
-        raw_reference: Raw snippet of the source
-
-    Returns:
-        The persisted Evidence record.
-    """
-    ev = Evidence(
-        source_type=source_type,
-        source_id=str(source_id),
-        raw_reference=raw_reference or {},
-    )
-    db.session.add(ev)
-    db.session.flush()
-    logger.info(
-        "Evidence created: type=%s source=%s id=%d",
-        source_type, source_id, ev.id,
-    )
-    return ev
-
-
-def require_evidence(source_type: str, source_id: str, raw_reference: Optional[dict] = None) -> Evidence:
-    """Create evidence AND enforce that a signal cannot exist without it.
-
-    HARD RULE: No awareness without evidence. No decision without evidence.
-    This is the single enforcement point for evidence linking.
 
     Args:
         source_type: email/pdf/contact/event/execution/ai/proposal
@@ -75,7 +56,24 @@ def require_evidence(source_type: str, source_id: str, raw_reference: Optional[d
         raw_reference: Raw snippet of the source
 
     Returns:
-        The created Evidence record.
+        The persisted EvidenceRecord.
+    """
+    ev = EvidenceRecord(
+        source_type=source_type,
+        source_id=str(source_id),
+        raw_reference=raw_reference or {},
+    )
+    get_session().add(ev)
+    get_session().flush()
+    logger.info("Evidence created: type=%s source=%s id=%d", source_type, source_id, ev.id)
+    return ev
+
+
+def require_evidence(source_type: str, source_id: str, raw_reference: Optional[dict] = None) -> EvidenceRecord:
+    """Create evidence AND enforce that a signal cannot exist without it.
+
+    HARD RULE: No awareness without evidence. No decision without evidence.
+    This is the single enforcement point.
 
     Raises:
         RuntimeError: If evidence creation fails (signal must not proceed).
@@ -90,19 +88,19 @@ def require_evidence(source_type: str, source_id: str, raw_reference: Optional[d
         ) from e
 
 
-def get_evidence(evidence_id: int) -> Optional[Evidence]:
+def get_evidence(evidence_id: int) -> Optional[EvidenceRecord]:
     """Fetch an evidence record by id."""
-    return db.session.get(Evidence, evidence_id)
+    return get_session().get(EvidenceRecord, evidence_id)
 
 
 def list_evidence(source_type: Optional[str] = None, limit: int = 50) -> list:
     """List evidence records, optionally filtered by source_type."""
-    q = Evidence.query.order_by(Evidence.id.desc())
+    q = EvidenceRecord.query.order_by(EvidenceRecord.id.desc())
     if source_type:
-        q = q.filter(Evidence.source_type == source_type)
+        q = q.filter(EvidenceRecord.source_type == source_type)
     return [e.to_dict() for e in q.limit(limit).all()]
 
 
 def count_evidence() -> int:
     """Total evidence records."""
-    return Evidence.query.count()
+    return EvidenceRecord.query.count()

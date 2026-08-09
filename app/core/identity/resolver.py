@@ -17,7 +17,7 @@ Normalization:
 import logging
 from typing import Optional
 
-from app.core.db import db
+from app.core.db import get_session
 from app.core.time import now
 
 logger = logging.getLogger(__name__)
@@ -141,8 +141,8 @@ def resolve_identity(
         state.update(metadata)
 
     obj = Object(type="person", state=state)
-    db.session.add(obj)
-    db.session.flush()
+    get_session().add(obj)
+    get_session().flush()
 
     logger.info("Identity created: %s -> Object #%d", name or email or phone, obj.id)
     return {

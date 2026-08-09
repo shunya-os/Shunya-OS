@@ -8,7 +8,7 @@ Endpoints:
     POST /proposals/{id}/edit     — human edits message before approval
 """
 
-from datetime import datetime, timezone
+from app.core.time import now
 
 from flask import Blueprint, jsonify, request
 
@@ -21,16 +21,42 @@ proposals_bp = Blueprint("proposals", __name__, url_prefix="/proposals")
 
 
 def _serialize(p):
+    """Serialize a proposal with enriched entity and context data."""
+    # Resolve entity info — prefer stored fields, fall back to DB lookup
+    entity = None
+    if p.entity_id:
+        try:
+            from app.objects.models import Object
+            obj = db.session.get(Object, p.entity_id)
+            if obj:
+                entity = {
+                    "id": obj.id,
+                    "name": p.entity_name or obj.type,
+                    "type": obj.type,
+                    "state": obj.state or {},
+                }
+        except Exception:
+            entity = {"id": p.entity_id, "name": p.entity_name, "type": p.entity_type, "state": {}}
+
     return {
         "id": p.id,
-        "to": p.to,
-        "message": p.message,
+        "type": "message",
+        "entity": entity,
+        "message": p.edited_message or p.message,
         "status": p.status,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+        "context": {
+            "reason": p.context_reason or "AI-generated proposal",
+            "priority": p.context_priority or "medium",
+            "source": p.context_source or "decision_engine",
+            "confidence": p.context_confidence or "high",
+        },
+        # Legacy flat fields for backward compat
+        "to": p.to,
         "approved_by": p.approved_by,
         "approved_at": p.approved_at.isoformat() if p.approved_at else None,
         "sent_at": p.sent_at.isoformat() if p.sent_at else None,
         "edited_message": p.edited_message,
-        "created_at": p.created_at.isoformat() if p.created_at else None,
     }
 
 
@@ -69,14 +95,14 @@ def approve_proposal(proposal_id):
     # Mark as approved
     p.status = "approved"
     p.approved_by = approved_by
-    p.approved_at = datetime.now(timezone.utc)
+    p.approved_at = now()
 
     # Send via the only allowed path: send_proposal()
     provider = get_provider()
     result = send_proposal(provider, p)
 
     # Mark sent with timestamp
-    p.sent_at = datetime.now(timezone.utc)
+    p.sent_at = now()
 
     db.session.commit()
 

@@ -10,7 +10,7 @@ SHUNYA organizes communication by Conversation.
 
 import uuid
 import logging
-from datetime import datetime, timezone
+from app.core.time import now
 from dataclasses import dataclass, field, asdict
 from typing import Any, Optional
 from enum import Enum
@@ -121,7 +121,7 @@ def create_conversation(title: str, participants: list[str] | None = None,
                         company_ids: list[str] | None = None,
                         project_ids: list[str] | None = None) -> Conversation:
     """Create a new Conversation Living Object."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = now().isoformat()
     return Conversation(
         conversation_id=f"conv_{uuid.uuid4().hex[:12]}",
         title=title,
@@ -138,7 +138,7 @@ def add_message(conversation: Conversation, channel: ChannelType,
                 direction: MessageDirection, sender: str, body: str,
                 subject: str = "", attachments: list[dict] | None = None) -> Message:
     """Attach a message to a conversation."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = now().isoformat()
     msg = Message(
         message_id=f"msg_{uuid.uuid4().hex[:12]}",
         conversation_id=conversation.conversation_id,

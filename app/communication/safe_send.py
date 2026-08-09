@@ -7,7 +7,7 @@ Direct provider.send() is forbidden — the hard guardrail in the
 provider layer blocks any call not triggered by a human decision.
 """
 
-from datetime import datetime, timezone
+from app.core.time import now
 
 from app import db
 from app.communication.models import MessageProposal
@@ -41,7 +41,7 @@ def send_proposal(provider, proposal):
     )
 
     proposal.status = "sent"
-    proposal.sent_at = datetime.now(timezone.utc)
+    proposal.sent_at = now()
     db.session.commit()
 
     return result

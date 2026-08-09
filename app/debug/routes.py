@@ -1,6 +1,6 @@
 """Debug control API — first human operating surface for SHUNYA runtime."""
 
-from datetime import datetime, timezone
+from app.core.time import now
 
 from flask import jsonify, request
 
@@ -185,7 +185,7 @@ def complete_task(task_id):
         return jsonify({"error": "Task not found"}), 404
 
     task.status = "completed"
-    task.completed_at = datetime.now(timezone.utc)
+    task.completed_at = now()
     db.session.commit()
 
     return jsonify({"task": _serialize(task)})

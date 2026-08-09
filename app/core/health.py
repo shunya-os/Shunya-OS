@@ -6,9 +6,13 @@ event processing lag, execution loop state.
 
 import logging
 import threading
-from datetime import datetime, timezone
+import time as _time
 
 from flask import Blueprint, jsonify
+from sqlalchemy import text
+
+from app.core.db import get_session
+from app.core.time import now
 
 health_bp = Blueprint("system_health", __name__, url_prefix="/system")
 
@@ -20,15 +24,13 @@ def system_health():
     """Return system health status with real metrics."""
     result = {
         "status": "ok",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now().isoformat(),
     }
 
     # DB connectivity + latency
     try:
-        from app.core.db import db
-        import time as _time
         t0 = _time.monotonic()
-        db.session.execute(db.text("SELECT 1"))
+        get_session().execute(text("SELECT 1"))
         db_latency_ms = round((_time.monotonic() - t0) * 1000, 2)
         result["db_connected"] = True
         result["db_latency_ms"] = db_latency_ms
@@ -43,7 +45,6 @@ def system_health():
         from app.integration.registry import registry
         ints = registry.list()
         result["integrations"] = {i["name"]: i["connected"] for i in ints}
-        # Token validity: connected integrations have valid tokens
         result["integration_token_valid"] = any(i["connected"] for i in ints)
     except Exception:
         result["integrations"] = {}
@@ -55,7 +56,7 @@ def system_health():
         last = ExecutionLog.query.order_by(ExecutionLog.id.desc()).first()
         if last and last.timestamp:
             result["last_event_processed"] = last.timestamp.isoformat()
-            lag_seconds = (datetime.now(timezone.utc) - last.timestamp).total_seconds()
+            lag_seconds = (now() - last.timestamp).total_seconds()
             result["event_processing_lag_s"] = round(max(0, lag_seconds), 1)
         else:
             result["last_event_processed"] = None
@@ -64,7 +65,7 @@ def system_health():
         result["last_event_processed"] = None
         result["event_processing_lag_s"] = None
 
-    # Event queue backlog (unprocessed inbound events)
+    # Event queue backlog
     try:
         from app.communication.models import InboundEvent
         backlog = InboundEvent.query.filter_by(processed=False).count()
@@ -79,7 +80,7 @@ def system_health():
     except Exception:
         result["execution_loop_active"] = False
 
-    # Last successful sync (from integration registry)
+    # Last successful sync
     try:
         from app.integration.registry import registry
         sync_times = [

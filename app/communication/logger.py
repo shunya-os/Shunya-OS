@@ -1,7 +1,7 @@
 """Communication logger — records all outbound intents."""
 
 import logging
-from datetime import datetime, timezone
+from app.core.time import now
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ def log_communication(channel: str, to: str, content: str, entity_id: int = None
         "to": to,
         "content": content[:500],
         "entity_id": entity_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now().isoformat(),
     }
     logger.info(f"[COMMS] {channel} -> {to}: {content[:100]}")
     print(f"[COMMS LOG] {entry}")
