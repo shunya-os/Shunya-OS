@@ -56,11 +56,40 @@ def cmd_run_cycle():
 def cmd_view_state():
     print("  Fetching state...")
     result = api("/debug/state")
-    for key in ("entities", "tasks", "observations"):
+    for key in ("entities", "tasks", "observations", "execution_logs"):
         items = result.get(key, [])
         print(f"\n  === {key.upper()} ({len(items)}) ===")
-        for item in items:
-            print(f"    #{item.get('id')}: {json.dumps(item, indent=4)}")
+        if key == "execution_logs":
+            for log in items[:10]:  # show first 10
+                print(f"    [{log.get('event_type')}] obj={log.get('object_id')} @ {log.get('timestamp')}")
+                if log.get("payload"):
+                    print(f"      payload: {json.dumps(log['payload'], default=str)[:120]}")
+        else:
+            for item in items:
+                print(f"    #{item.get('id')}: {json.dumps(item, indent=4)}")
+
+
+def cmd_view_timeline():
+    obj_id = input("  Entity ID: ").strip()
+    if not obj_id.isdigit():
+        print("  Invalid ID.")
+        return
+    result = api(f"/debug/execution/{obj_id}")
+    if "error" in result:
+        print(f"  {result['error']}")
+        return
+    obj = result.get("object", {})
+    print(f"\n  Entity #{obj.get('id')} — {obj.get('object_type')}")
+    print(f"  State: {json.dumps(obj.get('state', {}), default=str)}")
+    print(f"\n  Timeline ({len(result.get('timeline', []))} events):")
+    print("  " + "-" * 50)
+    for entry in result.get("timeline", []):
+        ts = entry.get("timestamp", "?")[11:19]  # HH:MM:SS
+        evt = entry.get("event_type", "?")
+        pl = json.dumps(entry.get("payload", {}), default=str)
+        print(f"  [{ts}] {evt}")
+        if pl and pl != "{}":
+            print(f"         {pl[:150]}")
 
 
 def main():
@@ -73,7 +102,8 @@ def main():
         "1": ("Create lead", cmd_create_lead),
         "2": ("Run cycle", cmd_run_cycle),
         "3": ("View state", cmd_view_state),
-        "4": ("Exit", None),
+        "4": ("View execution timeline", cmd_view_timeline),
+        "5": ("Exit", None),
     }
 
     while True:
@@ -82,7 +112,7 @@ def main():
             print(f"  [{key}] {label}")
         choice = input("\n  Select: ").strip()
 
-        if choice == "4":
+        if choice == "5":
             print("  Bye.")
             break
 

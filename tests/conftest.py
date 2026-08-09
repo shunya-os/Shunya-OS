@@ -80,6 +80,8 @@ def app():
         )
         # Enterprise Security — CRUD Audit Log
         from app.security.audit import AuditLog  # noqa: F401
+        # ACT-02 — Execution Log
+        from app.execution_log.models import ExecutionLog  # noqa: F401
         db.create_all()
         yield application
         db.drop_all()

@@ -35,6 +35,7 @@ from app.communication.processor import process_inbound
 from app.communication.delivery import deliver_messages
 from app.core.entity import Entity
 from app.models import Lead
+from app.execution_log.models import log_execution
 
 logger = logging.getLogger(__name__)
 
@@ -101,11 +102,16 @@ def run_cycle() -> dict:
             print(f"[ACT-01] Processing Entity: {obj.id} (type={obj.object_type})")
             print(f"[ACT-01] Decision: {json.dumps(action, default=str)}")
 
+            log_execution(obj.id, "ENTITY_SEEN", {"object_type": obj.object_type, "state": obj.state})
+
             if action["type"] == "noop":
                 emit_signal(obj.id, "no_action", {"state": obj.state})
                 summary["noops"] += 1
                 summary["signals_emitted"] += 1
+                log_execution(obj.id, "NOOP", {"state": obj.state})
                 continue
+
+            log_execution(obj.id, "DECISION", action)
 
             state_before = dict(obj.state or {})
             execute_action(obj, action)
@@ -115,6 +121,11 @@ def run_cycle() -> dict:
             )
             summary["actions_taken"] += 1
             summary["signals_emitted"] += 1
+            log_execution(obj.id, "ACTION", {
+                "action": action,
+                "state_before": state_before,
+                "state_after": obj.state,
+            })
 
             # PROD-52: after state update — generate output and create message
             output = generate_output(obj)
@@ -131,6 +142,7 @@ def run_cycle() -> dict:
         except Exception as e:
             logger.error("Loop error on object %d: %s", obj.id, e)
             summary["errors"].append({"object_id": obj.id, "error": str(e)})
+            log_execution(obj.id, "ERROR", {"error": str(e)})
 
     # PROD-17: process all commitments — gap-aware decision → apply
     commitments = Commitment.query.all()
