@@ -296,3 +296,12 @@ class Message(db.Model):
     metadata_json = db.Column(db.JSON, default={})
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class MessageLog(db.Model):
+    __tablename__ = "message_logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    to = db.Column(db.String(64), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
