@@ -653,6 +653,10 @@ def create_app(config_override: dict | None = None):
     from app.intelligence.awareness_api import awareness_bp
     app.register_blueprint(awareness_bp)
 
+    # PHASE 3: System health endpoint
+    from app.core.health import health_bp
+    app.register_blueprint(health_bp)
+
     # Auto-connect configured integrations on boot
     try:
         from app.integration.providers.email_integration import EmailIntegration  # noqa: F401 — registers itself
