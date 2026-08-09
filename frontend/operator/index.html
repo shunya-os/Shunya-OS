@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHUNYA Operator</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       background:#f8f8f8;color:#1a1a1a;padding:24px;max-width:960px;margin:0 auto}
+  h1{font-size:22px;font-weight:600;margin-bottom:8px}
+  h2{font-size:16px;font-weight:600;margin:16px 0 8px}
+  a{color:#2563eb;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .card{background:#fff;border-radius:8px;padding:16px;margin-bottom:12px;
+        border:1px solid #e5e7eb}
+  .entity-row{display:flex;justify-content:space-between;align-items:center;
+              padding:10px 0;border-bottom:1px solid #f3f4f6;cursor:pointer}
+  .entity-row:hover{background:#f9fafb}
+  .entity-id{font-weight:500;color:#6b7280;margin-right:8px}
+  .entity-type{background:#e5e7eb;border-radius:4px;padding:2px 8px;font-size:12px}
+  .tag{padding:2px 8px;border-radius:4px;font-size:12px;margin-left:6px}
+  .tag-green{background:#dcfce7;color:#166534}
+  .tag-yellow{background:#fef9c3;color:#854d0e}
+  .tag-gray{background:#f3f4f6;color:#6b7280}
+  pre{background:#f3f4f6;padding:12px;border-radius:6px;font-size:12px;
+      overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+  button{padding:8px 16px;border-radius:6px;border:1px solid #d4d4d4;
+         background:#fff;cursor:pointer;font-size:13px;margin-right:8px;margin-bottom:8px}
+  button:hover{background:#f3f4f6}
+  button.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+  button.primary:hover{background:#1d4ed8}
+  button.danger{color:#dc2626;border-color:#fca5a5}
+  button.danger:hover{background:#fef2f2}
+  .back{display:inline-block;margin-bottom:16px;font-size:14px;color:#6b7280}
+  .empty{padding:32px;text-align:center;color:#9ca3af}
+  .toast{position:fixed;bottom:24px;right:24px;background:#1a1a1a;color:#fff;
+         padding:12px 20px;border-radius:8px;font-size:13px;z-index:999}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const {useState, useEffect, useCallback, Fragment} = React;
+const API = '';
+
+function useAPI() {
+  const [toast, setToast] = useState(null);
+  const show = useCallback((msg) => {setToast(msg);setTimeout(()=>setToast(null),3000)},[]);
+  const get = useCallback(async(path)=>{const r=await fetch(API+path);return r.json()},[]);
+  const post = useCallback(async(path,body)=>{const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return r.json()},[]);
+  return {get,post,toast,show};
+}
+
+function Dashboard({get,show}) {
+  const [entities,setEntities]=useState([]); const [loading,setLoading]=useState(true);
+  useEffect(()=>{get('/operator/entities').then(d=>{setEntities(d.entities||[]);setLoading(false)})},[get]);
+  if(loading)return <div className="empty">Loading...</div>;
+  return (<div>
+    <h1>SHUNYA Operator</h1>
+    <p style={{color:'#6b7280',fontSize:14,marginBottom:16}}>{entities.length} entities</p>
+    {entities.length===0?<div className="empty">No entities. Create one via debug API.</div>:
+    entities.map(e=>(
+      <div key={e.id} className="entity-row" onClick={()=>window.location.hash='#/entity/'+e.id}>
+        <div><span className="entity-id">#{e.id}</span><span className="entity-type">{e.type}</span>
+          <span className={'tag '+(e.state?.status==='completed'?'tag-green':'tag-yellow')}>
+            {e.state?.status||'active'}
+          </span>
+        </div>
+        <div style={{fontSize:12,color:'#9ca3af'}}>{e.last_updated?.slice(0,10)}</div>
+      </div>
+    ))}
+  </div>);
+}
+
+function EntityDetail({get,post,show}) {
+  const id=window.location.hash.split('/').pop();
+  const [data,setData]=useState(null); const [loading,setLoading]=useState(true);
+  const [actionLoading,setActionLoading]=useState(null);
+
+  const load=useCallback(()=>{
+    setLoading(true);
+    get('/operator/entity/'+id).then(d=>{setData(d);setLoading(false)})
+  },[id,get]);
+
+  useEffect(()=>{load()},[load]);
+
+  const act=async(type,payload={})=>{
+    setActionLoading(type);
+    const r=await post('/operator/action',{entity_id:parseInt(id),action_type:type,payload});
+    setActionLoading(null);
+    if(r.success){show(type+' completed');load()}
+    else show(r.error||'Failed');
+  };
+
+  if(loading)return <div className="empty">Loading...</div>;
+  if(!data||!data.entity)return <div className="empty">Entity not found</div>;
+
+  const {entity,tasks,observations,outcomes}=data;
+  return (<div>
+    <a href="#/dashboard" className="back">&larr; Back to entities</a>
+    <div className="card">
+      <h2>Entity #{entity.id} <span className="entity-type">{entity.object_type}</span></h2>
+      <pre>{JSON.stringify(entity.state||{},null,2)}</pre>
+    </div>
+    <div style={{marginBottom:16}}>
+      <button className="primary" onClick={()=>act('run_decision')} disabled={actionLoading==='run_decision'}>
+        {actionLoading==='run_decision'?'...':'Run Decision'}
+      </button>
+      <button onClick={()=>{const t=prompt('Task title:','Follow up');if(t)act('create_task',{title:t})}} disabled={actionLoading==='create_task'}>
+        Create Task
+      </button>
+      <button className="danger" onClick={()=>act('mark_done')} disabled={actionLoading==='mark_done'}>
+        Mark Done
+      </button>
+      <button onClick={()=>act('run_cycle')} disabled={actionLoading==='run_cycle'}>
+        Run Full Cycle
+      </button>
+    </div>
+    {tasks&&tasks.length>0&&<div className="card"><h2>Tasks ({tasks.length})</h2>
+      {tasks.map(t=><div key={t.id} style={{padding:'6px 0',borderBottom:'1px solid #f3f4f6',fontSize:14}}>
+        <span className={'tag '+(t.status==='completed'?'tag-green':t.status==='pending'?'tag-yellow':'tag-gray')}>{t.status}</span>
+        {' '}{t.title}
+      </div>)}
+    </div>}
+    {observations&&observations.length>0&&<div className="card"><h2>Observations ({observations.length})</h2>
+      <pre>{JSON.stringify(observations,null,2)}</pre>
+    </div>}
+    {outcomes&&outcomes.length>0&&<div className="card"><h2>Outcomes ({outcomes.length})</h2>
+      <pre>{JSON.stringify(outcomes,null,2)}</pre>
+    </div>}
+  </div>);
+}
+
+function App() {
+  const {get,post,toast,show}=useAPI();
+  const [page,setPage]=useState('dashboard');
+  useEffect(()=>{
+    const h=()=>{
+      const hash=window.location.hash.slice(1)||'/dashboard';
+      setPage(hash);
+    };
+    window.addEventListener('hashchange',h);
+    h();
+    return ()=>window.removeEventListener('hashchange',h);
+  },[]);
+  return (<Fragment>
+    {page.startsWith('/entity/')?<EntityDetail get={get} post={post} show={show}/>:
+     <Dashboard get={get} show={show}/>}
+    {toast&&<div className="toast">{toast}</div>}
+  </Fragment>);
+}
+
+const root=ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>
