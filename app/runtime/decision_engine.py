@@ -131,37 +131,61 @@ def get_next_action(obj) -> dict:
     if obj.object_type == "lead":
         stage = state.get("stage", "new")
         status = state.get("status")
+        phone = state.get("phone", "")
+        email = state.get("email", "")
+        name = state.get("name", "Customer")
 
         if stage == "new" and status != "contacted":
             return {
                 "type": "update",
-                "payload": {"stage": "contacted", "task": "Contact customer"},
+                "payload": {"stage": "contacted", "task": f"Contact {name}"},
                 "effects": [
-                    {"type": "log", "channel": "system", "message": "Lead moved to contacted"}
+                    {"type": "log", "channel": "system", "message": f"Lead {name} moved to contacted"}
                 ],
             }
 
         if stage == "contacted":
             task_count = Task.query.filter_by(entity_id=obj.id).count()
             if task_count == 0:
+                effects = [
+                    {"type": "log", "channel": "system", "message": f"Quote sent to {name}"},
+                ]
+                if phone:
+                    effects.insert(0, {
+                        "type": "whatsapp", "to": phone,
+                        "message": f"Hi {name}, here is your quote! Let me know if you have questions.",
+                    })
+                if email:
+                    effects.insert(0 if not phone else 1, {
+                        "type": "email", "to": email,
+                        "subject": f"Your quote, {name}",
+                        "body": f"Dear {name},\n\nPlease find your quote attached.\n\nBest regards,\nSHUNYA",
+                    })
                 return {
                     "type": "update",
-                    "payload": {"task": "Send quote", "stage": "quoted"},
-                    "effects": [
-                        {"type": "whatsapp", "to": "customer", "message": "Here is your quote!"},
-                        {"type": "log", "channel": "system", "message": "Quote sent to lead"},
-                    ],
+                    "payload": {"task": f"Send quote to {name}", "stage": "quoted"},
+                    "effects": effects,
                 }
 
         if stage == "quoted" and status != "closed":
+            effects = [
+                {"type": "log", "channel": "system", "message": f"Follow-up sent to {name}"},
+            ]
+            if email:
+                effects.insert(0, {
+                    "type": "email", "to": email,
+                    "subject": f"Follow up, {name}",
+                    "body": f"Hi {name},\n\nJust checking in on your quote. Let me know if you need anything.\n\nBest,\nSHUNYA",
+                })
+            if phone:
+                effects.insert(0, {
+                    "type": "whatsapp", "to": phone,
+                    "message": f"Hi {name}, just following up on your quote. Let me know!",
+                })
             return {
                 "type": "update",
-                "payload": {"task": "Follow up", "status": "closed"},
-                "effects": [
-                    {"type": "email", "to": "customer", "subject": "Follow up",
-                     "body": "Checking in on your quote."},
-                    {"type": "log", "channel": "system", "message": "Follow-up sent"},
-                ],
+                "payload": {"task": f"Follow up with {name}", "status": "closed"},
+                "effects": effects,
             }
 
         if stage == "closed" or status == "closed":

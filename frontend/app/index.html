@@ -99,12 +99,23 @@ function App() {
     <div className="sidebar">
       <h1>SHUNYA</h1>
       <button className="primary" onClick={runLoop} style={{width:'100%',marginBottom:12}}>Run Intelligence</button>
-      <input type="text" placeholder="New entity..." id="newEntityInput" />
+      <input type="text" placeholder="Description..." id="newDesc" style={{marginBottom:4}} />
+      <input type="text" placeholder="Name" id="newName" style={{marginBottom:4}} />
+      <input type="text" placeholder="Phone" id="newPhone" style={{marginBottom:4}} />
+      <input type="text" placeholder="Email" id="newEmail" style={{marginBottom:8}} />
       <button onClick={async()=>{
-        const inp=document.getElementById('newEntityInput');
-        if(!inp.value)return;
-        await fetch(API+'/entities',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'lead',state:{description:inp.value,stage:'new'}})});
-        inp.value='';loadEntities();show('Entity created')
+        const d=document.getElementById('newDesc');
+        const n=document.getElementById('newName');
+        const p=document.getElementById('newPhone');
+        const e=document.getElementById('newEmail');
+        if(!d.value&&!n.value)return;
+        const state={description:d.value,stage:'new'};
+        if(n.value)state.name=n.value;
+        if(p.value)state.phone=p.value;
+        if(e.value)state.email=e.value;
+        await fetch(API+'/entities',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'lead',state})});
+        d.value='';n.value='';p.value='';e.value='';
+        loadEntities();show('Entity created')
       }} style={{width:'100%',marginBottom:12}}>Create Entity</button>
       {loading?<div className="empty">Loading...</div>:
        entities.length===0?<div className="empty">No entities</div>:
