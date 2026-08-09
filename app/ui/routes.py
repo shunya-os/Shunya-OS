@@ -23,7 +23,6 @@ def workspace_inbox():
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     background:#f5f5f5;color:#1a1a1a;height:100vh;display:flex;flex-direction:column
   }
-  /* ── Top bar ── */
   .topbar{
     display:flex;align-items:center;gap:16px;padding:10px 20px;
     background:#fff;border-bottom:1px solid #e5e7eb;flex-shrink:0
@@ -39,90 +38,115 @@ def workspace_inbox():
   .top-actions .primary{background:#2563eb;color:#fff;border-color:#2563eb}
   .top-actions .primary:hover{background:#1d4ed8}
 
-  /* ── Pipeline bar ── */
   .pipeline{
     display:flex;gap:0;padding:12px 20px;background:#fff;
-    border-bottom:1px solid #e5e7eb;flex-shrink:0;
-    overflow-x:auto
+    border-bottom:1px solid #e5e7eb;flex-shrink:0;overflow-x:auto
   }
-  .pipe-stage{
-    display:flex;align-items:center;gap:8px;flex-shrink:0
-  }
-  .pipe-stage .dot{
-    width:10px;height:10px;border-radius:50%;
-    background:#e5e7eb;flex-shrink:0
-  }
-  .pipe-stage .dot.active{background:#2563eb}
+  .pipe-stage{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .pipe-stage .dot{width:10px;height:10px;border-radius:50%;background:#e5e7eb;flex-shrink:0}
   .pipe-stage .dot.has{background:#22c55e}
   .pipe-label{font-size:11px;color:#6b7280;white-space:nowrap}
   .pipe-count{font-size:11px;font-weight:600;color:#374151}
   .pipe-arrow{color:#d4d4d4;font-size:12px;margin:0 6px}
 
-  /* ── Main layout ── */
   .main{display:flex;flex:1;overflow:hidden}
-  .left-panel{width:280px;min-width:260px;background:#fff;border-right:1px solid #e5e7eb;display:flex;flex-direction:column}
+  .left-panel{width:260px;min-width:240px;background:#fff;border-right:1px solid #e5e7eb;display:flex;flex-direction:column}
   .left-panel h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;padding:14px 16px 6px}
   .entity-list{flex:1;overflow-y:auto}
   .entity-item{
     display:flex;align-items:center;gap:8px;padding:10px 16px;
-    cursor:pointer;border-left:3px solid transparent;transition:all 0.1s;
-    border-bottom:1px solid #f3f4f6
+    cursor:pointer;border-left:3px solid transparent;
+    border-bottom:1px solid #f3f4f6;font-size:13px
   }
   .entity-item:hover{background:#f9fafb}
   .entity-item.selected{border-left-color:#2563eb;background:#eff6ff}
-  .entity-item .eid{font-size:10px;color:#9ca3af;font-weight:500;width:32px}
-  .entity-item .ename{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .entity-item .estag{
-    font-size:10px;padding:2px 6px;border-radius:4px;background:#f3f4f6;
-    color:#6b7280;white-space:nowrap
-  }
+  .entity-item .eid{font-size:10px;color:#9ca3af;font-weight:500;width:30px}
+  .entity-item .ename{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .entity-item .estag{font-size:10px;padding:2px 6px;border-radius:4px;background:#f3f4f6;color:#6b7280;white-space:nowrap}
   .entity-item .estag.new{background:#dbeafe;color:#1d4ed8}
   .entity-item .estag.contacted{background:#fef3c7;color:#92400e}
   .entity-item .estag.quoted{background:#d1fae5;color:#065f46}
   .entity-item .estag.closed{background:#e5e7eb;color:#374151}
 
-  .center-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .center-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
   .detail-header{
-    padding:16px 20px 12px;background:#fff;border-bottom:1px solid #e5e7eb;
-    flex-shrink:0
+    padding:14px 20px 10px;background:#fff;border-bottom:1px solid #e5e7eb;
+    flex-shrink:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap
   }
-  .detail-header h3{font-size:16px;font-weight:600;margin-bottom:2px}
-  .detail-header .meta{font-size:12px;color:#888}
-  .detail-body{flex:1;overflow-y:auto;padding:16px 20px}
-  .detail-section{margin-bottom:20px}
-  .detail-section h4{font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;letter-spacing:0.05em}
-  .state-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-  .state-grid .kv{font-size:12px;padding:4px 8px;background:#f9fafb;border-radius:4px}
-  .state-grid .kv .k{color:#6b7280}
-  .state-grid .kv .v{font-weight:500}
-  .timeline-item{
-    font-size:12px;padding:6px 0;border-bottom:1px solid #f3f4f6;
-    display:flex;gap:8px
-  }
-  .timeline-item .t{color:#9ca3af;white-space:nowrap}
-  .timeline-item .d{color:#374151}
+  .detail-header .info{flex:1;min-width:0}
+  .detail-header h3{font-size:15px;font-weight:600}
+  .detail-header .meta{font-size:11px;color:#888}
+  .detail-header .edit-btn{padding:4px 10px;border-radius:4px;border:1px solid #d4d4d4;background:#fff;cursor:pointer;font-size:11px;font-family:inherit}
+  .detail-header .edit-btn:hover{background:#f3f4f6}
 
-  .right-panel{width:360px;min-width:320px;background:#fff;border-left:1px solid #e5e7eb;display:flex;flex-direction:column}
+  .detail-body{flex:1;overflow-y:auto;padding:14px 20px}
+  .tab-bar{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid #e5e7eb}
+  .tab-btn{padding:6px 14px;font-size:12px;border:none;background:none;cursor:pointer;color:#6b7280;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab-btn.active{color:#2563eb;border-bottom-color:#2563eb;font-weight:500}
+  .tab-btn:hover:not(.active){color:#374151}
+
+  .detail-section{margin-bottom:16px}
+  .detail-section h4{font-size:11px;font-weight:600;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;letter-spacing:0.05em}
+
+  /* Edit form */
+  .edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .edit-field{display:flex;flex-direction:column;gap:3px}
+  .edit-field label{font-size:11px;color:#6b7280;font-weight:500}
+  .edit-field input,.edit-field select{
+    padding:6px 8px;border:1px solid #d4d4d4;border-radius:4px;font-size:12px;font-family:inherit;outline:none
+  }
+  .edit-field input:focus,.edit-field select:focus{border-color:#93c5fd;box-shadow:0 0 0 2px rgba(37,99,235,0.1)}
+  .edit-actions{display:flex;gap:6px;margin-top:10px}
+  .edit-actions button{padding:5px 12px;border-radius:4px;border:1px solid #d4d4d4;background:#fff;cursor:pointer;font-size:11px;font-family:inherit}
+  .edit-actions .save-btn{background:#2563eb;color:#fff;border-color:#2563eb}
+  .edit-actions .save-btn:hover{background:#1d4ed8}
+  .edit-actions .cancel-btn:hover{background:#f3f4f6}
+
+  /* State grid */
+  .state-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .state-grid .kv{font-size:12px;padding:4px 8px;background:#f9fafb;border-radius:4px;overflow:hidden;text-overflow:ellipsis}
+  .state-grid .kv .k{color:#6b7280;font-weight:500}
+
+  /* Timeline */
+  .tl-item{font-size:12px;padding:6px 0;border-bottom:1px solid #f3f4f6;display:flex;gap:8px;align-items:flex-start}
+  .tl-item .tt{color:#9ca3af;white-space:nowrap;flex-shrink:0;font-size:10px;width:60px}
+  .tl-item .ttxt{color:#374151;line-height:1.4}
+  .tl-item .ttype{font-size:10px;padding:1px 5px;border-radius:3px;background:#f3f4f6;color:#6b7280;margin-right:4px;flex-shrink:0}
+
+  /* Tasks */
+  .task-item{font-size:12px;padding:6px 0;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:8px}
+  .task-item .ttitle{flex:1;color:#374151}
+  .task-item .ttitle.done{text-decoration:line-through;color:#9ca3af}
+  .task-item .tstatus{font-size:10px;padding:2px 6px;border-radius:4px}
+  .task-item .tstatus.pending{background:#fef3c7;color:#92400e}
+  .task-item .tstatus.completed{background:#d1fae5;color:#065f46}
+  .task-item .tcomp{padding:2px 8px;border-radius:4px;border:1px solid #d4d4d4;background:#fff;cursor:pointer;font-size:10px;font-family:inherit}
+  .task-item .tcomp:hover{background:#f3f4f6}
+  .task-item .tcomp:disabled{opacity:0.3;cursor:default}
+
+  /* Notes */
+  .notes-area{width:100%;min-height:80px;padding:8px;border:1px solid #d4d4d4;border-radius:6px;font-size:12px;font-family:inherit;resize:vertical;outline:none;line-height:1.5}
+  .notes-area:focus{border-color:#93c5fd}
+  .notes-save{margin-top:6px;padding:4px 12px;border-radius:4px;border:1px solid #d4d4d4;background:#fff;cursor:pointer;font-size:11px;font-family:inherit}
+  .notes-save:hover{background:#f3f4f6}
+  .notes-status{font-size:11px;color:#22c55e;margin-top:4px;display:none}
+
+  /* Right panel */
+  .right-panel{width:340px;min-width:300px;background:#fff;border-left:1px solid #e5e7eb;display:flex;flex-direction:column}
   .right-panel h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#9ca3af;padding:14px 16px 6px}
   .proposal-list{flex:1;overflow-y:auto}
-  .prop-item{
-    padding:12px 16px;border-bottom:1px solid #f3f4f6;cursor:pointer
-  }
+  .prop-item{padding:10px 16px;border-bottom:1px solid #f3f4f6;cursor:pointer}
   .prop-item:hover{background:#f9fafb}
-  .prop-item .phead{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+  .prop-item .phead{display:flex;gap:6px;align-items:center;margin-bottom:3px}
   .prop-item .pto{font-size:12px;font-weight:500;color:#374151}
   .prop-item .pstatus{font-size:10px;padding:2px 6px;border-radius:4px}
   .prop-item .pstatus.pending{background:#fef3c7;color:#92400e}
   .prop-item .pstatus.sent{background:#d1fae5;color:#065f46}
   .prop-item .pstatus.rejected{background:#fee2e2;color:#991b1b}
-  .prop-item .pmsg{font-size:12px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .prop-item .preason{font-size:11px;color:#9ca3af;margin-top:2px}
-  .prop-actions{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
-  .prop-actions button{
-    padding:4px 10px;border-radius:4px;border:1px solid #d4d4d4;
-    background:#fff;cursor:pointer;font-size:11px;font-family:inherit
-  }
-  .prop-actions button:hover{background:#f3f4f6}
+  .prop-item .pmsg{font-size:11px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prop-item .preason{font-size:10px;color:#9ca3af;margin-top:2px}
+  .prop-actions{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+  .prop-actions button{padding:3px 8px;border-radius:4px;border:1px solid #d4d4d4;background:#fff;cursor:pointer;font-size:10px;font-family:inherit}
   .prop-actions .apr{background:#2563eb;color:#fff;border-color:#2563eb}
   .prop-actions .apr:hover{background:#1d4ed8}
   .prop-actions .rjt{color:#dc2626;border-color:#fca5a5}
@@ -130,16 +154,17 @@ def workspace_inbox():
   .prop-actions .edt{color:#6b7280}
   .prop-actions button:disabled{opacity:0.4;cursor:not-allowed}
   .edit-box{margin:4px 0}
-  .edit-box textarea{width:100%;padding:6px;border:1px solid #93c5fd;border-radius:4px;font-size:11px;font-family:inherit;min-height:48px;resize:vertical}
+  .edit-box textarea{width:100%;padding:5px;border:1px solid #93c5fd;border-radius:4px;font-size:11px;font-family:inherit;min-height:40px;resize:vertical}
   .edit-box .ebtn{display:flex;gap:4px;margin-top:4px}
   .edit-box .ebtn button{padding:3px 8px;font-size:10px;border-radius:4px;border:1px solid #d4d4d4;background:#fff;cursor:pointer;font-family:inherit}
   .edit-box .ebtn .save{background:#2563eb;color:#fff;border-color:#2563eb}
-  .pfeed{font-size:11px;color:#2563eb;margin-top:4px;font-weight:500}
-  .empty-state{padding:32px 16px;text-align:center;color:#9ca3af;font-size:13px}
+  .pfeed{font-size:10px;color:#2563eb;margin-top:3px;font-weight:500}
+  .empty-state{padding:32px 16px;text-align:center;color:#9ca3af;font-size:13px;line-height:1.6}
+  .empty-state strong{color:#6b7280}
   .toast{position:fixed;bottom:20px;right:20px;background:#1a1a1a;color:#fff;padding:10px 16px;border-radius:6px;font-size:12px;z-index:999}
   @media (max-width:900px){
     .main{flex-direction:column}
-    .left-panel,.right-panel{width:100%;min-width:0;border:none;border-bottom:1px solid #e5e7eb;max-height:300px}
+    .left-panel,.right-panel{width:100%;min-width:0;border:none;border-bottom:1px solid #e5e7eb;max-height:250px}
   }
 </style>
 </head>
@@ -150,7 +175,7 @@ def workspace_inbox():
   <span class="badge" id="entity-count">0 entities</span>
   <div class="top-actions">
     <button onclick="runLoop()" id="btn-loop">Run Loop</button>
-    <button onclick="showCreateEntity()" class="primary" id="btn-create">+ Create Entity</button>
+    <button onclick="showCreateEntity()" class="primary">+ Create Entity</button>
   </div>
 </div>
 
@@ -171,12 +196,23 @@ def workspace_inbox():
   </div>
 
   <div class="center-panel">
-    <div class="detail-header">
-      <h3 id="detail-name">Select an entity</h3>
-      <div class="meta" id="detail-meta"></div>
+    <div class="detail-header" id="detail-header">
+      <div class="info">
+        <h3 id="detail-name">Select an entity</h3>
+        <div class="meta" id="detail-meta"></div>
+      </div>
+      <button class="edit-btn" id="btn-toggle-edit" onclick="toggleEditMode()" style="display:none">Edit</button>
     </div>
     <div class="detail-body" id="detail-body">
-      <div class="empty-state">Click an entity from the left panel to see details.</div>
+      <div class="empty-state" id="empty-state">
+        <strong>Welcome to SHUNYA Workspace</strong><br><br>
+        Get started:<br>
+        • Click <strong>"+ Create Entity"</strong> above to add a lead<br>
+        • Then click <strong>"Run Loop"</strong> to process it<br>
+        • Approve proposals in the right panel<br><br>
+        Each entity goes through:<br>
+        <strong>New → Contacted → Quoted → Closed</strong>
+      </div>
     </div>
   </div>
 
@@ -187,10 +223,13 @@ def workspace_inbox():
 </div>
 
 <script>
-let entities = [];
-let proposals = [];
-let selectedEntityId = null;
-let editingProposalId = null;
+var entities = [];
+var proposals = [];
+var selectedEntityId = null;
+var editingProposalId = null;
+var editMode = false;
+var currentTimeline = [];
+var currentTasks = [];
 
 async function api(url, method, body) {
   var opts = { method: method || 'GET', headers: {} };
@@ -202,36 +241,25 @@ async function api(url, method, body) {
 
 function toast(msg) {
   var t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
+  t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(function(){ t.remove(); }, 2500);
 }
 
+function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
 async function loadAll() {
-  await Promise.all([loadEntities(), loadProposals()]);
+  try { var d = await api('/debug/entities'); entities = d.entities || []; } catch(e) { entities = []; }
+  try { var d = await api('/proposals'); proposals = d.proposals || []; } catch(e) { proposals = []; }
   renderEntityList();
   renderProposals();
   updatePipeline();
   document.getElementById('entity-count').textContent = entities.length + ' entities';
-}
-
-async function loadEntities() {
-  try {
-    var d = await api('/debug/entities');
-    entities = d.entities || [];
-  } catch(e) { console.error('load entities', e); entities = []; }
-}
-
-async function loadProposals() {
-  try {
-    var d = await api('/proposals');
-    proposals = d.proposals || [];
-  } catch(e) { console.error('load proposals', e); proposals = []; }
+  if (selectedEntityId) loadEntityDetail(selectedEntityId);
 }
 
 function getStage(st) {
-  if (!st || typeof st !== 'object') return '—';
+  if (!st || typeof st !== 'object') return 'new';
   var s = st.stage || '';
   if (s === 'new' || s === 'contacted' || s === 'quoted') return s;
   if (st.status === 'closed' || s === 'closed') return 'closed';
@@ -240,7 +268,10 @@ function getStage(st) {
 
 function renderEntityList() {
   var el = document.getElementById('entity-list');
-  if (!entities.length) { el.innerHTML = '<div class="empty-state">No entities. Create one to start.</div>'; return; }
+  if (!entities.length) {
+    el.innerHTML = '<div class="empty-state">No entities yet.<br>Click <strong>+ Create Entity</strong> above.</div>';
+    return;
+  }
   el.innerHTML = entities.map(function(e){
     var stage = getStage(e.state || {});
     var name = (e.state && (e.state.name || e.state.description || '')) || e.object_type || e.type || '#'+e.id;
@@ -248,44 +279,188 @@ function renderEntityList() {
     return '<div class="'+cls+'" onclick="selectEntity('+e.id+')">' +
       '<span class="eid">#'+e.id+'</span>' +
       '<span class="ename">'+esc(name)+'</span>' +
-      '<span class="estag '+stage+'">'+stage+'</span>' +
-    '</div>';
+      '<span class="estag '+stage+'">'+stage+'</span></div>';
   }).join('');
 }
 
 function selectEntity(id) {
   selectedEntityId = id;
+  editMode = false;
   renderEntityList();
+  document.getElementById('btn-toggle-edit').style.display = '';
+  loadEntityDetail(id);
+}
+
+async function loadEntityDetail(id) {
   var e = entities.find(function(x){ return x.id === id; });
-  if (!e) { return; }
+  if (!e) return;
   var state = e.state || {};
   var name = state.name || state.description || e.object_type || e.type || '#'+e.id;
   document.getElementById('detail-name').textContent = name;
   document.getElementById('detail-meta').textContent = '#'+e.id + ' · ' + (e.object_type || e.type || '?');
 
+  // Fetch timeline + tasks in parallel
+  try {
+    var tlData = await api('/debug/execution/' + id);
+    currentTimeline = tlData.timeline || [];
+  } catch(e) { currentTimeline = []; }
+  try {
+    var tkData = await api('/debug/tasks?entity_id=' + id);
+    currentTasks = tkData.tasks || [];
+  } catch(e) { currentTasks = []; }
+
+  renderDetail();
+}
+
+function renderDetail() {
+  if (editMode) { renderEditForm(); return; }
+  renderDetailTabs('state');
+}
+
+var activeTab = 'state';
+function renderDetailTabs(tab) {
+  activeTab = tab || activeTab;
+  var e = entities.find(function(x){ return x.id === selectedEntityId; });
+  if (!e) return;
+  var state = e.state || {};
+
+  var tabsHtml = '<div class="tab-bar">' +
+    '<button class="tab-btn' + (activeTab === 'state' ? ' active' : '') + '" onclick="renderDetailTabs(\'state\')">State</button>' +
+    '<button class="tab-btn' + (activeTab === 'timeline' ? ' active' : '') + '" onclick="renderDetailTabs(\'timeline\')">Timeline</button>' +
+    '<button class="tab-btn' + (activeTab === 'tasks' ? ' active' : '') + '" onclick="renderDetailTabs(\'tasks\')">Tasks</button>' +
+    '<button class="tab-btn' + (activeTab === 'notes' ? ' active' : '') + '" onclick="renderDetailTabs(\'notes\')">Notes</button>' +
+  '</div>';
+
+  var contentHtml = '';
+  if (activeTab === 'state') {
+    contentHtml = '<div class="detail-section"><h4>Current State</h4><div class="state-grid">';
+    for (var k in state) {
+      contentHtml += '<div class="kv"><span class="k">'+k+'</span> <span class="v">'+esc(String(state[k]))+'</span></div>';
+    }
+    contentHtml += '</div></div>';
+
+    var entityProps = proposals.filter(function(p){ return p.entity && p.entity.id === selectedEntityId; });
+    if (entityProps.length) {
+      contentHtml += '<div class="detail-section"><h4>Recent Proposals</h4>';
+      entityProps.slice(-3).reverse().forEach(function(p){
+        contentHtml += '<div class="tl-item"><span class="ttype">['+p.status+']</span><span class="ttxt">'+esc(p.message.slice(0,60))+'</span></div>';
+      });
+      contentHtml += '</div>';
+    }
+  } else if (activeTab === 'timeline') {
+    if (currentTimeline.length === 0) {
+      contentHtml = '<div class="empty-state">No events yet. Run the loop to see activity.</div>';
+    } else {
+      contentHtml = '<div class="detail-section"><h4>Events</h4>';
+      currentTimeline.slice().reverse().forEach(function(l){
+        var tp = l.event_type || l.type || '—';
+        var ts = l.timestamp ? (l.timestamp.slice(11,19) || '') : '';
+        var pl = l.payload || {};
+        contentHtml += '<div class="tl-item"><span class="tt">'+ts+'</span><span class="ttype">'+tp+'</span><span class="ttxt">'+esc(JSON.stringify(pl).slice(0,80))+'</span></div>';
+      });
+      contentHtml += '</div>';
+    }
+  } else if (activeTab === 'tasks') {
+    if (currentTasks.length === 0) {
+      contentHtml = '<div class="empty-state">No tasks for this entity.<br>Tasks are created by the decision engine.</div>';
+    } else {
+      contentHtml = '<div class="detail-section"><h4>Tasks</h4>';
+      currentTasks.forEach(function(t){
+        var done = t.status === 'completed';
+        contentHtml += '<div class="task-item">' +
+          '<span class="ttitle' + (done ? ' done' : '') + '">'+esc(t.title)+'</span>' +
+          '<span class="tstatus '+(t.status)+'">'+t.status+'</span>' +
+          (t.status === 'pending' ? '<button class="tcomp" onclick="completeTask('+t.id+')">Done</button>' : '') +
+        '</div>';
+      });
+      contentHtml += '</div>';
+    }
+  } else if (activeTab === 'notes') {
+    contentHtml = '<div class="detail-section"><h4>Notes</h4>' +
+      '<textarea class="notes-area" id="notes-text" placeholder="Add notes about this entity..."></textarea>' +
+      '<button class="notes-save" onclick="saveNotes()">Save Notes</button>' +
+      '<div class="notes-status" id="notes-status">Saved</div></div>';
+    // Load notes
+    api('/debug/entity/'+selectedEntityId+'/notes').then(function(d){
+      document.getElementById('notes-text').value = d.notes || '';
+    }).catch(function(){});
+  }
+
   var body = document.getElementById('detail-body');
-  var shtml = '<div class="detail-section"><h4>Current State</h4><div class="state-grid">';
-  for (var k in state) {
-    shtml += '<div class="kv"><span class="k">'+k+'</span><span class="v">'+esc(String(state[k]))+'</span></div>';
-  }
-  shtml += '</div></div>';
+  body.innerHTML = tabsHtml + contentHtml;
+}
 
-  // Filter proposals for this entity
-  var entityProps = proposals.filter(function(p){ return p.entity && p.entity.id === id; });
-  if (entityProps.length) {
-    shtml += '<div class="detail-section"><h4>Proposals</h4>';
-    entityProps.forEach(function(p){
-      shtml += '<div class="timeline-item"><span class="t">['+p.status+']</span><span class="d">'+esc(p.message.slice(0,80))+'</span></div>';
-    });
-    shtml += '</div>';
-  }
+function renderEditForm() {
+  var e = entities.find(function(x){ return x.id === selectedEntityId; });
+  if (!e) return;
+  var state = e.state || {};
+  var shtml = '<div class="edit-grid">' +
+    '<div class="edit-field"><label>Name</label><input id="ef-name" value="'+esc(state.name||'')+'"></div>' +
+    '<div class="edit-field"><label>Phone</label><input id="ef-phone" value="'+esc(state.phone||'')+'"></div>' +
+    '<div class="edit-field"><label>Email</label><input id="ef-email" value="'+esc(state.email||'')+'"></div>' +
+    '<div class="edit-field"><label>Stage</label><select id="ef-stage">' +
+      '<option value="new"'+(state.stage==='new'?' selected':'')+'>New</option>' +
+      '<option value="contacted"'+(state.stage==='contacted'?' selected':'')+'>Contacted</option>' +
+      '<option value="quoted"'+(state.stage==='quoted'?' selected':'')+'>Quoted</option>' +
+      '<option value="closed"'+(state.stage==='closed'?' selected':'')+'>Closed</option>' +
+    '</select></div>' +
+  '</div>' +
+  '<div class="edit-actions">' +
+    '<button class="save-btn" onclick="saveEntityEdit()">Save Changes</button>' +
+    '<button class="cancel-btn" onclick="toggleEditMode()">Cancel</button>' +
+  '</div>';
 
-  body.innerHTML = shtml || '<div class="empty-state">Entity has no state.</div>';
+  document.getElementById('detail-body').innerHTML = '<div class="detail-section"><h4>Edit Entity</h4>'+shtml+'</div>';
+}
+
+function toggleEditMode() {
+  editMode = !editMode;
+  document.getElementById('btn-toggle-edit').textContent = editMode ? 'View' : 'Edit';
+  if (editMode) { renderEditForm(); } else { renderDetail(); }
+}
+
+async function saveEntityEdit() {
+  var updates = {
+    name: document.getElementById('ef-name').value,
+    phone: document.getElementById('ef-phone').value,
+    email: document.getElementById('ef-email').value,
+    stage: document.getElementById('ef-stage').value,
+  };
+  try {
+    await api('/debug/entity/'+selectedEntityId, 'PUT', { state: updates });
+    toast('Entity updated');
+    editMode = false;
+    document.getElementById('btn-toggle-edit').textContent = 'Edit';
+    await loadAll();
+    selectEntity(selectedEntityId);
+  } catch(e) { toast('Error: '+e.message); }
+}
+
+async function saveNotes() {
+  var text = document.getElementById('notes-text').value;
+  try {
+    await api('/debug/entity/'+selectedEntityId+'/notes', 'POST', { notes: text });
+    var st = document.getElementById('notes-status');
+    st.style.display = 'block';
+    setTimeout(function(){ st.style.display = 'none'; }, 2000);
+  } catch(e) { toast('Error: '+e.message); }
+}
+
+async function completeTask(id) {
+  try {
+    await api('/debug/tasks/'+id+'/complete', 'POST');
+    toast('Task completed');
+    await loadAll();
+    selectEntity(selectedEntityId);
+  } catch(e) { toast('Error: '+e.message); }
 }
 
 function renderProposals() {
   var pl = document.getElementById('proposal-list');
-  if (!proposals.length) { pl.innerHTML = '<div class="empty-state">No proposals yet.</div>'; return; }
+  if (!proposals.length) {
+    pl.innerHTML = '<div class="empty-state">No proposals yet.<br>Create an entity and run the loop.</div>';
+    return;
+  }
   pl.innerHTML = proposals.map(function(p){
     var entityName = (p.entity && (p.entity.name || '')) || p.to || '?';
     var cls = 'pstatus ' + (p.status === 'pending' ? 'pending' : p.status === 'sent' || p.status === 'approved' ? 'sent' : 'rejected');
@@ -297,30 +472,23 @@ function renderProposals() {
       actionsHtml = '<div class="prop-actions">' +
         '<button class="apr" onclick="approveProposal('+p.id+')" id="apr-'+p.id+'">Approve</button>' +
         '<button class="rjt" onclick="rejectProposal('+p.id+')" id="rjt-'+p.id+'">Reject</button>' +
-        '<button class="edt" onclick="toggleEdit('+p.id+')">Edit</button>' +
-      '</div>';
+        '<button class="edt" onclick="toggleEdit('+p.id+')">Edit</button></div>';
     }
 
     var editHtml = '';
     if (showEdit) {
-      editHtml = '<div class="edit-box" id="ebox-'+p.id+'">' +
+      editHtml = '<div class="edit-box">' +
         '<textarea id="etext-'+p.id+'">'+esc(p.message)+'</textarea>' +
         '<div class="ebtn"><button class="save" onclick="saveEdit('+p.id+')">Save</button>' +
-        '<button onclick="cancelEdit('+p.id+')">Cancel</button></div>' +
-      '</div>';
+        '<button onclick="toggleEdit('+p.id+')">Cancel</button></div></div>';
     }
 
     return '<div class="prop-item" onclick="selectEntityFromProposal('+p.id+')">' +
-      '<div class="phead">' +
-        '<span class="pto">'+esc(entityName)+'</span>' +
-        '<span class="'+cls+'">'+p.status+'</span>' +
-      '</div>' +
+      '<div class="phead"><span class="pto">'+esc(entityName)+'</span><span class="'+cls+'">'+p.status+'</span></div>' +
       '<div class="pmsg">'+esc(p.message)+'</div>' +
-      '<div class="preason">'+esc(ctx.reason || '')+'</div>' +
-      editHtml +
-      actionsHtml +
-      '<div class="pfeed" id="pfeed-'+p.id+'"></div>' +
-    '</div>';
+      '<div class="preason">'+esc(ctx.reason||'')+'</div>' +
+      editHtml + actionsHtml +
+      '<div class="pfeed" id="pfeed-'+p.id+'"></div></div>';
   }).join('');
 }
 
@@ -335,27 +503,21 @@ function updatePipeline() {
     var stage = getStage(e.state || {});
     if (counts[stage] !== undefined) counts[stage]++;
   });
-  document.getElementById('count-new').textContent = counts.new;
-  document.getElementById('count-contacted').textContent = counts.contacted;
-  document.getElementById('count-quoted').textContent = counts.quoted;
-  document.getElementById('count-closed').textContent = counts.closed;
-  ['new','contacted','quoted','closed'].forEach(function(s){
+  for (var s in counts) {
+    document.getElementById('count-'+s).textContent = counts[s];
     document.getElementById('pipe-'+s).className = 'dot' + (counts[s] > 0 ? ' has' : '');
-  });
+  }
 }
 
 async function runLoop() {
   var btn = document.getElementById('btn-loop');
-  btn.disabled = true;
-  btn.textContent = 'Running...';
+  btn.disabled = true; btn.textContent = 'Running...';
   try {
     var r = await api('/debug/run-cycle', 'POST');
     toast('Loop done: ' + (r.summary ? r.summary.actions_taken + ' actions' : 'ok'));
     await loadAll();
-    if (selectedEntityId) selectEntity(selectedEntityId);
   } catch(e) { toast('Loop error: '+e.message); }
-  btn.disabled = false;
-  btn.textContent = 'Run Loop';
+  btn.disabled = false; btn.textContent = 'Run Loop';
 }
 
 function showCreateEntity() {
@@ -367,8 +529,7 @@ function showCreateEntity() {
   if (phone) data.data.phone = phone;
   if (email) data.data.email = email;
   api('/debug/entity', 'POST', data).then(function(){
-    toast('Entity created');
-    loadAll();
+    toast('Entity created'); loadAll();
   }).catch(function(e){ toast('Error: '+e.message); });
 }
 
@@ -379,9 +540,8 @@ async function approveProposal(id) {
   try {
     await api('/proposals/'+id+'/approve', 'POST', { approved_by: 'human' });
     document.getElementById('pfeed-'+id).textContent = '✓ Sent';
-    toast('Proposal approved and sent');
+    toast('Proposal approved');
     await loadAll();
-    if (selectedEntityId) selectEntity(selectedEntityId);
   } catch(e) { document.getElementById('pfeed-'+id).textContent = 'Error: '+e.message; if (btn) btn.disabled = false; }
 }
 
@@ -402,11 +562,6 @@ function toggleEdit(id) {
   renderProposals();
 }
 
-function cancelEdit(id) {
-  editingProposalId = null;
-  renderProposals();
-}
-
 async function saveEdit(id) {
   var ta = document.getElementById('etext-'+id);
   if (!ta) return;
@@ -420,8 +575,6 @@ async function saveEdit(id) {
     await loadAll();
   } catch(e) { document.getElementById('pfeed-'+id).textContent = 'Error: '+e.message; }
 }
-
-function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 loadAll();
 </script>

@@ -122,3 +122,107 @@ def get_execution_trace(object_id):
         "object": _serialize(entity),
         "timeline": [l.to_dict() for l in logs],
     })
+
+
+# ---------------------------------------------------------------------------
+# 6. Update entity (name, phone, email, stage)
+# ---------------------------------------------------------------------------
+
+
+@debug_bp.route("/entity/<int:entity_id>", methods=["PUT"])
+def update_entity(entity_id):
+    """Update entity state fields."""
+    entity = db.session.get(Object, entity_id)
+    if entity is None:
+        return jsonify({"error": "Entity not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    updates = data.get("state", data)
+
+    # Merge state updates
+    current_state = dict(entity.state or {})
+    for k, v in updates.items():
+        if v is not None:
+            current_state[k] = v
+    entity.state = current_state
+
+    log_execution(entity.id, "UPDATED", {"state_updates": updates})
+    db.session.commit()
+
+    return jsonify({"entity": _serialize(entity)})
+
+
+# ---------------------------------------------------------------------------
+# 7. List tasks for an entity
+# ---------------------------------------------------------------------------
+
+
+@debug_bp.route("/tasks", methods=["GET"])
+def list_tasks():
+    """Return tasks, optionally filtered by entity_id."""
+    from app.models import Task
+
+    entity_id = request.args.get("entity_id", type=int)
+    query = Task.query
+    if entity_id:
+        query = query.filter_by(entity_id=entity_id)
+    tasks = query.order_by(Task.created_at.desc()).all()
+    return jsonify({"tasks": [_serialize(t) for t in tasks]})
+
+
+# ---------------------------------------------------------------------------
+# 8. Complete a task
+# ---------------------------------------------------------------------------
+
+
+@debug_bp.route("/tasks/<int:task_id>/complete", methods=["POST"])
+def complete_task(task_id):
+    """Mark a task as completed."""
+    from app.models import Task
+
+    task = db.session.get(Task, task_id)
+    if task is None:
+        return jsonify({"error": "Task not found"}), 404
+
+    task.status = "completed"
+    task.completed_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return jsonify({"task": _serialize(task)})
+
+
+# ---------------------------------------------------------------------------
+# 9. Notes on entity (stored in entity context JSON)
+# ---------------------------------------------------------------------------
+
+
+@debug_bp.route("/entity/<int:entity_id>/notes", methods=["GET"])
+def get_entity_notes(entity_id):
+    """Get notes stored on an entity's context."""
+    entity = db.session.get(Object, entity_id)
+    if entity is None:
+        return jsonify({"error": "Entity not found"}), 404
+
+    ctx = entity.context or {}
+    notes = ctx.get("notes", "")
+    return jsonify({"notes": notes, "entity_id": entity_id})
+
+
+@debug_bp.route("/entity/<int:entity_id>/notes", methods=["POST"])
+def save_entity_notes(entity_id):
+    """Save notes on an entity's context."""
+    entity = db.session.get(Object, entity_id)
+    if entity is None:
+        return jsonify({"error": "Entity not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    notes = data.get("notes", "")
+
+    ctx = dict(entity.context or {})
+    ctx["notes"] = notes
+    entity.context = ctx
+
+    log_execution(entity.id, "NOTES_SAVED", {"notes_length": len(notes)})
+    db.session.commit()
+
+    return jsonify({"notes": notes, "entity_id": entity_id})
