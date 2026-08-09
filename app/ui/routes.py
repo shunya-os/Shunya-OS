@@ -82,6 +82,11 @@ def workspace_inbox():
   .entity-item .estag.contacted{background:#fef3c7;color:#92400e}
   .entity-item .estag.quoted{background:#d1fae5;color:#065f46}
   .entity-item .estag.closed{background:#d1fae5;color:#065f46}
+  .entity-item .osig{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .entity-item .osig.green{background:#22c55e}
+  .entity-item .osig.amber{background:#f59e0b}
+  .entity-item .osig.red{background:#dc2626}
+  .entity-item .osig.blue{background:#3b82f6}
 
   .center-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
   .detail-header{padding:14px 20px 10px;background:#fff;border-bottom:1px solid #e5e7eb;flex-shrink:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -91,6 +96,27 @@ def workspace_inbox():
   .detail-header .edit-btn{padding:4px 10px;border-radius:4px;border:1px solid #d4d4d4;background:#fff;cursor:pointer;font-size:11px;font-family:inherit}
   .detail-header .edit-btn:hover{background:#f3f4f6}
   .detail-body{flex:1;overflow-y:auto;padding:14px 20px}
+
+  /* Brief */
+  .brief{background:#f0f7ff;border:1px solid #dbeafe;border-radius:8px;padding:14px 16px;margin-bottom:12px;line-height:1.5}
+  .brief .title{font-size:13px;font-weight:600;color:#1d4ed8;margin-bottom:4px}
+  .brief .line{font-size:12px;color:#374151;margin-top:4px;display:flex;align-items:center;gap:6px}
+  .brief .line .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+  .brief .line .dot.g{background:#22c55e}
+  .brief .line .dot.a{background:#f59e0b}
+  .brief .line .dot.r{background:#dc2626}
+
+  /* Risk */
+  .risk-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;margin-bottom:12px}
+  .risk-box .rtitle{font-size:11px;font-weight:600;color:#dc2626;margin-bottom:4px}
+  .risk-box .rtext{font-size:12px;color:#991b1b;line-height:1.4}
+
+  /* Next best action */
+  .nba-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+  .nba-box .ntext{font-size:12px;color:#166534;flex:1;line-height:1.4}
+  .nba-box .nbtn{padding:4px 10px;border-radius:4px;border:1px solid #22c55e;background:#22c55e;color:#fff;cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap}
+  .nba-box .nbtn:hover{background:#16a34a}
+
   .tab-bar{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid #e5e7eb}
   .tab-btn{padding:6px 14px;font-size:12px;border:none;background:none;cursor:pointer;color:#6b7280;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px}
   .tab-btn.active{color:#2563eb;border-bottom-color:#2563eb;font-weight:500}
@@ -227,6 +253,7 @@ def workspace_inbox():
       <button class="edit-btn" id="btn-toggle-edit" onclick="toggleEditMode()" style="display:none">Edit</button>
     </div>
     <div class="detail-body" id="detail-body">
+      <div id="brief-area"></div>
       <div class="empty-state" id="empty-state">
         <strong>Welcome to SHUNYA Workspace</strong><br><br>
         Get started:<br>
@@ -275,9 +302,31 @@ async function loadAll(){
   try{var d=await api('/debug/tasks');tasks=(d.tasks||[]).filter(function(t){return t.entity_id})}catch(e){tasks=[]}
   renderAttention();renderEntityList();renderProposals();updatePipeline();
   document.getElementById('entity-count').innerHTML='<span>'+entities.length+' entities</span>';
+  renderBrief();
   if(selectedEntityId)loadEntityDetail(selectedEntityId);
 }
 
+function renderBrief(){
+  if(selectedEntityId||entities.length===0){document.getElementById('brief-area').style.display='none';return;}
+  document.getElementById('brief-area').style.display='block';
+  var pp=proposals.filter(function(p){return p.status==='pending';});
+  var due=tasks.filter(function(t){return t.status==='pending'&&t.due_date&&new Date(t.due_date)<new Date();});
+  var ot=tasks.filter(function(t){return t.status==='pending'&&!due.find(function(d){return d.id===t.id});});
+  var se=entities.filter(function(e){
+    var s=getStage(e.state||{});if(s==='closed')return false;
+    if(!e.updated_at)return false;return(new Date()-new Date(e.updated_at))/3600000>STALE_HOURS&&(s==='new'||s==='contacted');
+  });
+  var qnfr=entities.filter(function(e){var s=getStage(e.state||{});return s==='quoted'&&(!e.updated_at||(new Date()-new Date(e.updated_at))/3600000>2);});
+  var close=entities.filter(function(e){var s=getStage(e.state||{});return s==='closed';}).length;
+  var totalVal=0;entities.forEach(function(e){var st=e.state||{};if(st.deal_value)totalVal+=parseFloat(st.deal_value)||0;});
+  var h='<div class="brief"><div class="title">Today's Brief</div><div class="line">'+entities.length+' leads · '+close+' closed · $'+totalVal.toFixed(0)+' pipeline</div>';
+  if(pp.length)h+='<div class="line"><span class="dot a"></span>'+pp.length+' proposal'+(pp.length>1?'s':'')+' pending review</div>';
+  if(se.length)h+='<div class="line"><span class="dot r"></span>'+se.length+' stale lead'+(se.length>1?'s':'')+' — no recent activity</div>';
+  if(due.length)h+='<div class="line"><span class="dot r"></span>'+due.length+' overdue task'+(due.length>1?'s':'')+'</div>';
+  if(close)h+='<div class="line"><span class="dot g"></span>'+close+' deal'+(close>1?'s':'')+' closed</div>';
+  h+='</div>';
+  document.getElementById('brief-area').innerHTML=h;
+}
 function getStage(st){
   if(!st||typeof st!=='object')return'new';var s=st.stage||'';
   if(s==='new'||s==='contacted'||s==='quoted')return s;
@@ -331,9 +380,14 @@ function renderEntityList(){
     if(epp[e.id])cls+=' urgent';else if(sei[e.id]||oei[e.id])cls+=' attention';
     var b='';
     if(epp[e.id])b='<span class="ebadge pending show">prop</span>';
-    else if(sei[e.id])b='<span class="ebadge stale show">stale</span>';
-    else if(oei[e.id])b='<span class="ebadge stale show">overdue</span>';
-    return '<div class="'+cls+'" onclick="selectEntity('+e.id+')"><span class="eid">#'+e.id+'</span><span class="ename">'+esc(name)+'</span>'+b+'<span class="estag '+stage+'">'+stage+'</span></div>';
+        else if(sei[e.id])b='<span class="ebadge stale show">stale</span>';
+        else if(oei[e.id])b='<span class="ebadge stale show">overdue</span>';
+        // Outcome signal
+        var osig='green';
+        if(epp[e.id]||sei[e.id]||oei[e.id])osig='amber';
+        if(sei[e.id]&&(new Date()-new Date(e.updated_at))/3600000>4)osig='red';
+        if(stage==='closed')osig='blue';
+        return '<div class="'+cls+'" onclick="selectEntity('+e.id+')"><span class="eid">#'+e.id+'</span><span class="ename">'+esc(name)+'</span><span class="osig '+osig+'"></span>'+b+'<span class="estag '+stage+'">'+stage+'</span></div>';
   }).join('');
 }
 function renderFilters(){
@@ -372,7 +426,22 @@ function renderDetailTabs(tab){
     '<button class="tab-btn'+(activeTab==='timeline'?' active':'')+'" onclick="renderDetailTabs(\'timeline\')">Timeline'+(currentTimeline.length?'<span class="count">'+currentTimeline.length+'</span>':'')+'</button>'+
     '<button class="tab-btn'+(activeTab==='tasks'?' active':'')+'" onclick="renderDetailTabs(\'tasks\')">Tasks'+(pc?'<span class="count">'+pc+'</span>':'')+'</button>'+
     '<button class="tab-btn'+(activeTab==='notes'?' active':'')+'" onclick="renderDetailTabs(\'notes\')">Notes</button></div>';
-  var ch='';
+  var ch='';var e=entities.find(function(x){return x.id===selectedEntityId;});
+  // Risk detection
+  if(e){var st=e.state||{};var stage=getStage(st);
+    var riskHtml='';
+    if(stage==='new'&&e.updated_at&&(new Date()-new Date(e.updated_at))/3600000>STALE_HOURS)riskHtml='<div class="risk-box"><div class="rtitle">At Risk</div><div class="rtext">'+esc(st.name||'Lead')+' has not responded — no activity for '+ago(e.updated_at)+'. This deal may stall without action.</div></div>';
+    else if(stage==='contacted'&&e.updated_at&&(new Date()-new Date(e.updated_at))/3600000>2)riskHtml='<div class="risk-box"><div class="rtitle">Needs Attention</div><div class="rtext">'+esc(st.name||'Lead')+' contacted but no response in '+ago(e.updated_at)+'. Follow up now.</div></div>';
+    else if(stage==='quoted'&&e.updated_at&&(new Date()-new Date(e.updated_at))/3600000>2)riskHtml='<div class="risk-box"><div class="rtitle">May Drop Off</div><div class="rtext">'+esc(st.name||'Lead')+' sent a quote '+ago(e.updated_at)+' ago with no follow-up response. Re-engage.</div></div>';
+    // Next best action
+    var nbaHtml='';var pendingProps=proposals.filter(function(p){return p.entity&&p.entity.id===selectedEntityId&&p.status==='pending';});
+    if(pendingProps.length)nbaHtml='<div class="nba-box"><span class="ntext">Approve proposal for '+esc(st.name||'this lead')+' — message ready to send</span><button class="nbtn" onclick="approveProposal('+pendingProps[0].id+')">Approve</button></div>';
+    else if(stage==='new')nbaHtml='<div class="nba-box"><span class="ntext">Contact '+esc(st.name||'this lead')+' — no interaction yet</span></div>';
+    else if(stage==='contacted')nbaHtml='<div class="nba-box"><span class="ntext">Send quote to '+esc(st.name||'this lead')+' — initial contact made</span></div>';
+    else if(stage==='quoted')nbaHtml='<div class="nba-box"><span class="ntext">Follow up with '+esc(st.name||'this lead')+' — quote delivered</span></div>';
+    else if(stage==='closed'&&(st.deal_value))nbaHtml='<div class="nba-box" style="background:#f0fdf4"><span class="ntext">Deal closed at '+esc(st.currency||'$')+' '+esc(st.deal_value)+' — well done</span></div>';
+    ch+=riskHtml+nbaHtml;
+  }
   if(activeTab==='state'){
     ch='<div class="detail-section"><h4>Current State</h4><div class="state-grid">';
     var pk=['name','phone','email','stage','status','task'];var ok=Object.keys(state).filter(function(k){return pk.indexOf(k)===-1;});
@@ -453,7 +522,7 @@ function renderProposals(){
     var se=(editingProposalId===p.id),ctx=p.context||{},ah='';
     if(p.status==='pending')ah='<div class="prop-actions"><button class="apr" onclick="approveProposal('+p.id+')" id="apr-'+p.id+'">Approve</button><button class="rjt" onclick="rejectProposal('+p.id+')" id="rjt-'+p.id+'">Reject</button><button class="edt" onclick="toggleEdit('+p.id+')">Edit</button></div>';
     var eh='';if(se)eh='<div class="edit-box"><textarea id="etext-'+p.id+'">'+esc(p.message)+'</textarea><div class="ebtn"><button class="save" onclick="saveEdit('+p.id+')">Save</button><button onclick="toggleEdit('+p.id+')">Cancel</button></div></div>';
-    return '<div class="prop-item" onclick="selectEntityFromProposal('+p.id+')"><div class="phead"><span class="pto">'+esc(en)+'</span><span class="'+cs+'">'+p.status+'</span></div><div class="pmsg">'+esc(p.message)+'</div><div class="preason">Why: '+esc(ctx.reason||'AI')+'</div>'+eh+ah+'<div class="pfeed" id="pfeed-'+p.id+'"></div></div>';
+    return '<div class="prop-item" onclick="selectEntityFromProposal('+p.id+')"><div class="phead"><span class="pto">'+esc(en)+'</span><span class="'+cs+'">'+p.status+'</span></div><div class="pmsg">'+esc(p.message)+'</div><div class="preason">Why: '+esc(ctx.reason||'AI')+' · Confidence: '+esc(ctx.confidence||'high')+'</div>'+eh+ah+'<div class="pfeed" id="pfeed-'+p.id+'"></div></div>';
   }).join('');
 }
 function selectEntityFromProposal(i){var p=proposals.find(function(x){return x.id===i;});if(p&&p.entity&&p.entity.id)selectEntity(p.entity.id);}
