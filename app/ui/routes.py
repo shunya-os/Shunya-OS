@@ -309,12 +309,7 @@ def workspace_inbox():
     <h2>Loop Activity</h2>
     <div id="loop-activity" style="flex:1;overflow-y:auto"></div>
     <h2>Integrations</h2>
-    <div class="intg-grid">
-      <div class="intg-card" onclick="toast('Gmail — configure in settings')"><div class="ic">✉</div>Gmail<div class="il">Configure</div></div>
-      <div class="intg-card" onclick="toast('WhatsApp — configure in settings')"><div class="ic">💬</div>WhatsApp<div class="il">Configure</div></div>
-      <div class="intg-card" onclick="toast('Calendar — coming soon')"><div class="ic">📅</div>Calendar<div class="il">Coming soon</div></div>
-      <div class="intg-card" onclick="toast('Slack — coming soon')"><div class="ic">🔔</div>Slack<div class="il">Coming soon</div></div>
-    </div>
+    <div class="intg-grid" id="intg-grid"></div>
   </div>
 </div>
 
@@ -613,7 +608,7 @@ function toggleEdit(id){editingProposalId=(editingProposalId===id)?null:id;rende
 async function saveEdit(id){var t=document.getElementById('etext-'+id);if(!t)return;var m=t.value.trim();if(!m)return;try{await api('/proposals/'+id+'/edit','POST',{message:m});document.getElementById('pfeed-'+id).textContent='✓ Saved';editingProposalId=null;toast('Updated');await loadAll();}catch(e){document.getElementById('pfeed-'+id).textContent='Error: '+e.message;}}
 
 /* ── Command Bar (Cmd+K) ── */
-var cmdActions=[{k:'Create Entity',i:'+',fn:function(){closeCmd();showCreateEntity();}},{k:'Run Loop',i:'▶',fn:function(){closeCmd();runLoop();}},{k:'Run Loop (Not Auto)',i:'↻',fn:function(){closeCmd();runLoop();}},{k:'Filter: Priority',i:'!',fn:function(){closeCmd();activeFilter='priority';renderEntityList();}},{k:'Filter: Stale',i:'⏳',fn:function(){closeCmd();activeFilter='stale';renderEntityList();}},{k:'Filter: Proposals',i:'📋',fn:function(){closeCmd();activeFilter='proposals';renderEntityList();}},{k:'Filter: Tasks',i:'✓',fn:function(){closeCmd();activeFilter='tasks';renderEntityList();}}];
+var cmdActions=[{k:'Ask SHUNYA anything...',i:'🤖',fn:function(){closeCmd();askShunya();}},{k:'Create Entity',i:'+',fn:function(){closeCmd();showCreateEntity();}},{k:'Run Loop',i:'▶',fn:function(){closeCmd();runLoop();}},{k:'Filter: Priority',i:'!',fn:function(){closeCmd();activeFilter='priority';renderEntityList();}},{k:'Filter: Stale',i:'⏳',fn:function(){closeCmd();activeFilter='stale';renderEntityList();}},{k:'Filter: Proposals',i:'📋',fn:function(){closeCmd();activeFilter='proposals';renderEntityList();}},{k:'Filter: Tasks',i:'✓',fn:function(){closeCmd();activeFilter='tasks';renderEntityList();}}];
 var cmdFiltered=cmdActions;
 function openCmd(){document.getElementById('cmd-overlay').classList.add('show');document.getElementById('cmd-input').value='';document.getElementById('cmd-results').innerHTML='';cmdFiltered=cmdActions;cmdSearch('');setTimeout(function(){document.getElementById('cmd-input').focus();},100);}
 function closeCmd(){document.getElementById('cmd-overlay').classList.remove('show');}
@@ -644,8 +639,35 @@ async function renderLoopActivity(){
   }catch(e){document.getElementById('loop-activity').innerHTML='<div class="empty-state" style="padding:12px">Could not load.</div>';}
 }
 
+/* ── Integrations ── */
+async function renderIntegrations(){
+  try{var d=await api('/api/v1/integrations');var ints=d.integrations||[];var h='';
+    if(!ints.length){h='<div class="empty-state" style="padding:8px">No integrations registered.</div>';}
+    else{ints.forEach(function(i){
+      var st=i.connected?'Connected':(i.configured?'Error':'Not configured');
+      var sc=i.connected?'#22c55e':(i.configured?'#dc2626':'#9ca3af');
+      h+='<div class="intg-card"><div class="ic">'+esc(i.icon||'🔌')+'</div>'+esc(i.display_name||i.name)+'<div class="il" style="color:'+sc+'">'+st+'</div></div>';
+    });}
+    document.getElementById('intg-grid').innerHTML=h;
+  }catch(e){document.getElementById('intg-grid').innerHTML='<div class="empty-state" style="padding:8px">Could not load integrations.</div>';}
+}
+
+/* ── Ask SHUNYA (AI Command) ── */
+function askShunya() {
+  var q=prompt('What would you like to know or do?','');
+  if(!q)return;
+  toast('Asking SHUNYA...');
+  api('/api/v1/intelligence/answer','POST',{query:q,use_web_search:true}).then(function(r){
+    var msg=r.synthesis||'No answer available.';
+    var prov=r.synthesis_model||'';
+    var err=r.error||'';
+    var info='SHUNYA says:\\n\\n'+msg+(prov?'\\n\\n(Source: '+prov+')':'')+(err?'\\n\\nError: '+err:'');
+    toast(info);
+  }).catch(function(e){toast('Error: '+e.message);});
+}
+
 /* ── Polling ── */
-var pollTimer=setInterval(function(){loadAll();renderLoopActivity();},15000);
+var pollTimer=setInterval(function(){loadAll();renderLoopActivity();renderIntegrations();},15000);
 
 /* ── Init ── */
 loadAll();

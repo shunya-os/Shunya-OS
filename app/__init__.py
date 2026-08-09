@@ -652,6 +652,19 @@ def create_app(config_override: dict | None = None):
     from app.communication.proposal_routes import proposals_bp
     app.register_blueprint(proposals_bp)
 
+    # ACTIVATION-14D: Integration framework
+    from app.integration.routes_api import integration_bp as integrations_v2_bp
+    app.register_blueprint(integrations_v2_bp)
+
+    # Auto-connect configured integrations on boot
+    try:
+        from app.integration.providers.email_integration import EmailIntegration  # noqa: F401 — registers itself
+        from app.integration.registry import registry
+        app.logger.info("Registered %d integrations", len(registry.list()))
+        registry.connect_all()
+    except Exception as exc:
+        app.logger.warning("Integration init: %s", exc)
+
     # ---- Serve screenshots for coherence board ----
     @app.route("/screenshots/<path:filename>")
     def serve_screenshot(filename):
