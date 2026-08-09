@@ -664,7 +664,7 @@ def create_app(config_override: dict | None = None):
     @app.route("/reports/<path:filename>")
     def serve_report(filename):
         return send_from_directory(
-            os.path.join(os.path.dirname(__file__), ".."),
+            os.path.join(os.path.dirname(__file__), "..", "reports"),
             filename
         )
 
@@ -961,5 +961,43 @@ a:hover{background:#4338ca}
                 app.logger.info("Loaded %d persisted identities", cnt)
     except Exception as exc:
         app.logger.warning("Could not load persisted identities: %s", exc)
+
+    # ---- ACTIVATION-R3: Loop automation ----
+    import threading
+
+    def _start_loop_worker():
+        """Run the execution loop in background thread."""
+        from app.runtime.loop import run_loop
+
+        app.logger.info("Loop automation worker started")
+        with app.app_context():
+            run_loop(interval=3)
+
+    if os.environ.get("ENABLE_LOOP_AUTOMATION", "").lower() in ("true", "1", "yes"):
+        thread = threading.Thread(target=_start_loop_worker, daemon=True, name="shunya-loop")
+        thread.start()
+        app.logger.info("Loop automation enabled (background thread)")
+
+    @app.cli.command("run-loop")
+    def run_loop_command():
+        """Run the execution loop continuously in the foreground."""
+        import time
+        from app.runtime.loop import run_cycle
+
+        app.logger.info("Run-loop command started. Press Ctrl+C to stop.")
+        print("[WORKER] SHUNYA loop worker starting. Cycles every 3s. Ctrl+C to stop.")
+        cycle_count = 0
+        try:
+            with app.app_context():
+                while True:
+                    cycle_count += 1
+                    summary = run_cycle()
+                    actions = summary.get("actions_taken", 0)
+                    errors = len(summary.get("errors", []))
+                    if actions > 0 or errors > 0:
+                        print(f"[WORKER] Cycle {cycle_count}: {actions} actions, {errors} errors")
+                    time.sleep(3)
+        except KeyboardInterrupt:
+            print(f"[WORKER] Stopped after {cycle_count} cycles")
 
     return app
