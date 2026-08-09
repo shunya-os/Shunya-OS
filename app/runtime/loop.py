@@ -11,6 +11,10 @@ No recursion, no business logic.
 PROD-17: Autonomous execution loop — commitments.
 The same cycle processes all commitments: gap-aware decision from the
 latest observation, then applies it. Continuous processing, one cycle.
+
+ACTIVATION-R2: Single source of truth — Object model only.
+Lead and Entity legacy models removed from loop execution.
+All entity processing uses Object (app/objects/models.py).
 """
 
 import time
@@ -26,15 +30,10 @@ from app.graph.service import get_targets
 from app.commitments.models import Commitment
 from app.runtime.decision_engine import decide_next_from_commitment
 from app.commitments.service import apply_decision
-from app.runtime.decision_engine import decide_lead_task
-from app.runtime.decision_engine import decide_lead_stage
-from app.runtime.decision_engine import decide_entity
 from app.communication.service import MessageService
 from app.output.generator import generate_output
 from app.communication.processor import process_inbound
 from app.communication.delivery import deliver_messages
-from app.core.entity import Entity
-from app.models import Lead
 from app.execution_log.models import log_execution
 from app.execution.effects import execute_effects
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -152,9 +151,6 @@ def _run_objects(summary: dict):
                 )
 
                 # ACTIVATION-08B: Effects now create MessageProposal objects.
-                # No direct proposal creation here — the effect engine handles
-                # whatsapp/email effects by converting them to proposals.
-                # This prevents duplicate proposals for the same entity + intent.
                 effects = action.get("effects", [])
                 if effects:
                     execute_effects(effects, obj.id)
@@ -187,52 +183,6 @@ def _run_commitments(summary: dict):
         summary["errors"].append({"section": "commitments", "error": str(e)})
 
 
-def _run_leads(summary: dict):
-    """Process all leads -- crash-isolated section."""
-    try:
-        leads = Lead.query.all()
-        for lead in leads:
-            try:
-                task_dec = decide_lead_task(lead)
-                if task_dec.get("type") == "update":
-                    lead.outcome = "attempted"
-
-                # PROD-32-34: stage progression
-                stage_dec = decide_lead_stage(lead)
-                if isinstance(stage_dec, list):
-                    for dec in stage_dec:
-                        if dec.get("type") == "update":
-                            for k, v in dec.get("payload", {}).items():
-                                setattr(lead, k, v)
-                elif stage_dec.get("type") == "update":
-                    for k, v in stage_dec.get("payload", {}).items():
-                        setattr(lead, k, v)
-            except Exception as e:
-                logger.error("Lead %d error: %s", lead.id if hasattr(lead, 'id') else 0, e)
-                summary["errors"].append({"section": "leads", "id": getattr(lead, 'id', None), "error": str(e)})
-    except Exception as e:
-        logger.error("Leads section crashed: %s", e)
-        summary["errors"].append({"section": "leads", "error": str(e)})
-
-
-def _run_entities(summary: dict):
-    """Process all generic Entities -- crash-isolated section."""
-    try:
-        entities = Entity.query.all()
-        for e in entities:
-            try:
-                ed = decide_entity(e)
-                if ed.get("type") == "update":
-                    for k, v in ed.get("payload", {}).items():
-                        setattr(e, k, v)
-            except Exception as ex:
-                logger.error("Entity error: %s", ex)
-                summary["errors"].append({"section": "entities", "error": str(ex)})
-    except Exception as ex:
-        logger.error("Entities section crashed: %s", ex)
-        summary["errors"].append({"section": "entities", "error": str(ex)})
-
-
 def run_cycle() -> dict:
     """Run one iteration of the execution loop with crash isolation.
 
@@ -240,7 +190,8 @@ def run_cycle() -> dict:
     in one processing domain never blocks another. db.session.commit()
     ALWAYS executes to prevent orphaned transactions.
 
-    ACTIVATION-03A: Loop Atomicity Principle enforced.
+    ACTIVATION-R2: Only Object and Commitment models are processed.
+    Lead and Entity legacy models removed.
     """
     summary = {
         "status": "completed",
@@ -258,18 +209,12 @@ def run_cycle() -> dict:
     _run_commitments(summary)
     _safe_rollback(summary)
 
-    _run_leads(summary)
-    _safe_rollback(summary)
-
     try:
         process_inbound()
     except Exception as e:
         logger.error("process_inbound failed: %s", e)
         summary["errors"].append({"section": "process_inbound", "error": str(e)})
         _safe_rollback(summary)
-
-    _run_entities(summary)
-    _safe_rollback(summary)
 
     try:
         deliver_messages()
