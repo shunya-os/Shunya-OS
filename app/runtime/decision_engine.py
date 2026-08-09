@@ -27,6 +27,9 @@ from app.objects.models import Object
 from app.commitments.models import Commitment
 from app.observations.models import Observation
 from app.models import Task
+from app.communication.email import send_email
+from app.communication.whatsapp import send_whatsapp
+from app.communication.logger import log_communication
 
 
 def build_context(entity):
@@ -123,6 +126,46 @@ def get_next_action(obj) -> dict:
                 "version": 2
             }
         }
+
+    # ACTIVATION-01: Lead flow — new → contacted → quoted → closed
+    if obj.object_type == "lead":
+        stage = state.get("stage", "new")
+        status = state.get("status")
+
+        if stage == "new" and status != "contacted":
+            return {
+                "type": "update",
+                "payload": {"stage": "contacted", "task": "Contact customer"},
+                "effects": [
+                    {"type": "log", "channel": "system", "message": "Lead moved to contacted"}
+                ],
+            }
+
+        if stage == "contacted":
+            task_count = Task.query.filter_by(entity_id=obj.id).count()
+            if task_count == 0:
+                return {
+                    "type": "update",
+                    "payload": {"task": "Send quote", "stage": "quoted"},
+                    "effects": [
+                        {"type": "whatsapp", "to": "customer", "message": "Here is your quote!"},
+                        {"type": "log", "channel": "system", "message": "Quote sent to lead"},
+                    ],
+                }
+
+        if stage == "quoted" and status != "closed":
+            return {
+                "type": "update",
+                "payload": {"task": "Follow up", "status": "closed"},
+                "effects": [
+                    {"type": "email", "to": "customer", "subject": "Follow up",
+                     "body": "Checking in on your quote."},
+                    {"type": "log", "channel": "system", "message": "Follow-up sent"},
+                ],
+            }
+
+        if stage == "closed" or status == "closed":
+            return {"type": "noop"}
 
     return {"type": "noop"}
 

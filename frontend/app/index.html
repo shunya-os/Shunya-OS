@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHUNYA Activation</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       background:#f5f5f5;color:#1a1a1a;display:flex;height:100vh}
+  .sidebar{width:300px;background:#fff;border-right:1px solid #e5e7eb;
+           overflow-y:auto;padding:16px;flex-shrink:0}
+  .main{flex:1;padding:24px;overflow-y:auto}
+  h1{font-size:18px;font-weight:600;margin-bottom:16px}
+  h2{font-size:15px;font-weight:600;margin-bottom:8px}
+  h3{font-size:13px;font-weight:600;margin:12px 0 6px;color:#6b7280}
+  .entity-row{padding:10px;border-radius:6px;cursor:pointer;margin-bottom:4px;
+              border:1px solid transparent;transition:all 0.15s}
+  .entity-row:hover{background:#f3f4f6}
+  .entity-row.active{background:#eff6ff;border-color:#93c5fd}
+  .entity-id{font-weight:500;color:#6b7280;font-size:12px}
+  .entity-type{font-size:11px;color:#9ca3af;margin-left:6px}
+  .card{background:#fff;border-radius:8px;padding:16px;margin-bottom:12px;
+        border:1px solid #e5e7eb}
+  pre{background:#f3f4f6;padding:12px;border-radius:6px;font-size:12px;
+      overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+  button{padding:8px 14px;border-radius:6px;border:1px solid #d4d4d4;
+         background:#fff;cursor:pointer;font-size:13px;margin-right:6px;margin-bottom:6px}
+  button:hover{background:#f3f4f6}
+  button.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+  button.primary:hover{background:#1d4ed8}
+  button.danger{color:#dc2626;border-color:#fca5a5}
+  .tag{padding:2px 6px;border-radius:4px;font-size:11px;margin-left:4px}
+  .tag-green{background:#dcfce7;color:#166534}
+  .tag-yellow{background:#fef9c3;color:#854d0e}
+  .tag-gray{background:#f3f4f6;color:#6b7280}
+  .empty{color:#9ca3af;text-align:center;padding:40px;font-size:14px}
+  .toast{position:fixed;bottom:24px;right:24px;background:#1a1a1a;color:#fff;
+         padding:10px 16px;border-radius:6px;font-size:13px;z-index:999}
+  input[type="text"]{padding:8px 12px;border:1px solid #d4d4d4;border-radius:6px;
+                     font-size:13px;width:100%;margin-bottom:8px;outline:none}
+  .action-bar{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+  .task-item{padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:13px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useCallback,Fragment} = React;
+const API = '/api/v2';
+
+function App() {
+  const [entities,setEntities]=useState([]);
+  const [selected,setSelected]=useState(null);
+  const [detail,setDetail]=useState(null);
+  const [toast,setToast]=useState(null);
+  const [loading,setLoading]=useState(true);
+
+  const show=useCallback(m=>{setToast(m);setTimeout(()=>setToast(null),3000)},[]);
+
+  const loadEntities=useCallback(async()=>{
+    const r=await fetch(API+'/entities');const d=await r.json();
+    setEntities(d.entities||[]);setLoading(false)
+  },[]);
+
+  useEffect(()=>{loadEntities()},[loadEntities]);
+
+  const selectEntity=useCallback(async(id)=>{
+    setSelected(id);
+    const r=await fetch(API+'/entities/'+id);
+    const d=await r.json();
+    setDetail(d)
+  },[]);
+
+  const act=async(type,payload={})=>{
+    if(!selected)return;
+    const r=await fetch(API+'/entities/'+selected+'/action',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:type,payload})
+    });
+    const d=await r.json();
+    show(type+' completed');
+    selectEntity(selected);
+    loadEntities();
+  };
+
+  const runLoop=async()=>{
+    const r=await fetch(API+'/loop/run',{method:'POST'});
+    const d=await r.json();
+    show('Loop ran: '+(d.summary?.actions_taken||0)+' actions');
+    loadEntities();
+    if(selected)selectEntity(selected);
+  };
+
+  return (<Fragment>
+    <div className="sidebar">
+      <h1>SHUNYA</h1>
+      <button className="primary" onClick={runLoop} style={{width:'100%',marginBottom:12}}>Run Intelligence</button>
+      <input type="text" placeholder="New entity..." id="newEntityInput" />
+      <button onClick={async()=>{
+        const inp=document.getElementById('newEntityInput');
+        if(!inp.value)return;
+        await fetch(API+'/entities',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'lead',state:{description:inp.value,stage:'new'}})});
+        inp.value='';loadEntities();show('Entity created')
+      }} style={{width:'100%',marginBottom:12}}>Create Entity</button>
+      {loading?<div className="empty">Loading...</div>:
+       entities.length===0?<div className="empty">No entities</div>:
+       entities.map(e=>(
+         <div key={e.id} className={'entity-row'+(selected===e.id?' active':'')}
+              onClick={()=>selectEntity(e.id)}>
+           <span className="entity-id">#{e.id}</span>
+           <span className="entity-type">{e.type}</span>
+           <span className={'tag '+(e.state?.status==='closed'||e.state?.stage==='closed'?'tag-green':'tag-yellow')}>
+             {e.state?.stage||e.state?.status||'new'}
+           </span>
+         </div>
+       ))}
+    </div>
+    <div className="main">
+      {!detail?<div className="empty">Select an entity</div>:
+       <Fragment>
+        <div className="card">
+          <h2>Entity #{detail.entity.id} <span className="entity-type">{detail.entity.object_type}</span></h2>
+          <pre>{JSON.stringify(detail.entity.state||{},null,2)}</pre>
+          <div className="action-bar">
+            <button className="primary" onClick={()=>act('run_decision')}>Run Decision</button>
+            <button onClick={()=>{const t=prompt('Task:');if(t)act('add_task',{title:t})}}>Add Task</button>
+            <button className="danger" onClick={()=>act('update_state',{status:'closed'})}>Mark Closed</button>
+          </div>
+        </div>
+        {detail.tasks&&detail.tasks.length>0&&<div className="card">
+          <h2>Tasks ({detail.tasks.length})</h2>
+          {detail.tasks.map(t=>(
+            <div key={t.id} className="task-item">
+              <span className={'tag '+(t.status==='completed'?'tag-green':t.status==='pending'?'tag-yellow':'tag-gray')}>{t.status}</span>
+              {' '}{t.title}
+            </div>
+          ))}
+        </div>}
+       </Fragment>}
+    </div>
+    {toast&&<div className="toast">{toast}</div>}
+  </Fragment>);
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
