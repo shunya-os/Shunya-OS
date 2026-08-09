@@ -657,6 +657,12 @@ def create_app(config_override: dict | None = None):
     from app.core.health import health_bp
     app.register_blueprint(health_bp)
 
+    # PHASE 3: Register evidence model so create_all creates its table
+    try:
+        from app.evidence import models_db  # noqa: F401 — registers Evidence model
+    except Exception:
+        pass
+
     # Auto-connect configured integrations on boot
     try:
         from app.integration.providers.email_integration import EmailIntegration  # noqa: F401 — registers itself

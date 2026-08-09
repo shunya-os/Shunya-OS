@@ -6,7 +6,7 @@ Added evidence_type for filtering (execution|ai|proposal).
 """
 
 import logging
-from datetime import datetime, timezone
+from app.core.time import now
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def log_evidence(
         "confidence": confidence_float,
         "confidence_label": _label_from_confidence(confidence_float),
         "evidence_type": evidence_type,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now().isoformat(),
         "entity_id": entity_id,
         "inputs": inputs or {},
         "outputs": outputs or {},
