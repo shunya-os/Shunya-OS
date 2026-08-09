@@ -168,6 +168,10 @@ def _handle_proposal_whatsapp(effect: dict, entity_id: int = None) -> dict:
     if not to or not message:
         return {"status": "skipped", "reason": "missing to/message"}
 
+    # Use decision metadata from action if available
+    decision_source = effect.get("decision_source", "effect_engine")
+    decision_confidence = effect.get("decision_confidence", "high")
+
     proposal = create_proposal(
         to=to,
         message=message,
@@ -175,9 +179,9 @@ def _handle_proposal_whatsapp(effect: dict, entity_id: int = None) -> dict:
         entity_type="lead",
         entity_name=effect.get("name", ""),
         context_reason="Lead outreach via WhatsApp",
-        context_source="effect_engine",
+        context_source=decision_source,
         context_priority="high",
-        context_confidence="high",
+        context_confidence=decision_confidence,
     )
 
     if proposal is None:
@@ -195,6 +199,10 @@ def _handle_proposal_email(effect: dict, entity_id: int = None) -> dict:
     if not to or not body:
         return {"status": "skipped", "reason": "missing to/body"}
 
+    # Use decision metadata from action if available
+    decision_source = effect.get("decision_source", "effect_engine")
+    decision_confidence = effect.get("decision_confidence", "high")
+
     proposal = create_proposal(
         to=to,
         message=message,
@@ -202,9 +210,9 @@ def _handle_proposal_email(effect: dict, entity_id: int = None) -> dict:
         entity_type="lead",
         entity_name=effect.get("name", ""),
         context_reason=f"Email outreach: {subject}",
-        context_source="effect_engine",
+        context_source=decision_source,
         context_priority="high",
-        context_confidence="high",
+        context_confidence=decision_confidence,
     )
 
     if proposal is None:
