@@ -128,6 +128,18 @@ def create_proposal(
     except Exception:
         pass
 
+    # PHASE 2C: Cortex observation for proposal
+    try:
+        from app.intelligence.cortex_bridge import observe_proposal
+        observe_proposal(
+            proposal_id=proposal.id,
+            entity_id=entity_id,
+            source=context_source,
+            reason=context_reason,
+        )
+    except Exception:
+        pass
+
     return proposal
 
 

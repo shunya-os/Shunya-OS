@@ -123,6 +123,17 @@ def chat():
                 )
             except Exception:
                 pass
+            # PHASE 2C: Cortex observation for AI response
+            try:
+                from app.intelligence.cortex_bridge import observe_ai_response
+                observe_ai_response(
+                    provider=p.name,
+                    model=getattr(p, 'model', 'unknown'),
+                    confidence=0.92 if not fallback_used else 0.65,
+                    fallback_used=fallback_used,
+                )
+            except Exception:
+                pass
             return jsonify({
                 'content': result.get('content', ''),
                 'model': result.get('model', getattr(p, 'model', 'unknown')),

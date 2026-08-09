@@ -259,6 +259,13 @@ def run_cycle() -> dict:
     except Exception:
         pass
 
+    # PHASE 2C: Awareness scan (read-only, no execution triggers)
+    try:
+        from app.intelligence.awareness import scan
+        scan()
+    except Exception:
+        pass
+
     return summary
 
 
