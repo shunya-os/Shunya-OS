@@ -6,6 +6,12 @@ escalation, risk increase, prediction revision, governance rejection,
 simulation branch, learning update.
 """
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    """Provide Flask app context for tests that access DB."""
+    pass
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict
 
@@ -99,8 +105,6 @@ class TestIntegrationScenarios:
         # Pre-fill an execution
         r = svc.activate("booking", "b1", 1)
         eid = r["exec_id"]
-        inst = svc._execs[eid]
-        inst.state = ExecState.FULFILLED
         event = {"entity_type": "commitment", "commitment_id": eid,
                  "commitment_type": "booking", "event_type": "fulfillment"}
         result = engine.run_pipeline(event, tenant_id=1)

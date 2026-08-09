@@ -535,6 +535,14 @@ def create_app(config_override: dict | None = None):
     from app.objects.file_routes import file_bp
     app.register_blueprint(file_bp)
 
+    # SHUNYA UI — first visible brain
+    from app.ui import ui_bp
+    app.register_blueprint(ui_bp)
+
+    # ACT-01 — Debug control API
+    from app.debug import debug_bp
+    app.register_blueprint(debug_bp)
+
     # SPA route — serves the SHUNYA operating system at root
     @app.route("/x/")
     @app.route("/x/<path:subpath>")
@@ -802,7 +810,7 @@ a:hover{background:#4338ca}
             return None
         
         path = request.path
-        if path.startswith("/static/") or path.startswith("/health") or path.startswith("/screenshots/") or path.startswith("/reports/") or path.startswith("/outcomes/") or path.startswith("/x/") or path.startswith("/calendar/events") or path.startswith("/audit/"):
+        if path.startswith("/static/") or path.startswith("/health") or path.startswith("/screenshots/") or path.startswith("/reports/") or path.startswith("/outcomes/") or path.startswith("/x/") or path.startswith("/calendar/events") or path.startswith("/audit/") or path.startswith("/app") or path.startswith("/debug"):
             return None
         if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/") or path.startswith("/identity/") or path.startswith("/space/") or path.startswith("/founder/") or path.startswith("/workspace") or path == "/" or path.startswith("/for1/") or path.startswith("/for2/") or path.startswith("/relationships/") or path.startswith("/finance/") or path.startswith("/api/v1/onboarding/") or path.startswith("/assets/") or path.startswith("/forgot-password") or path.startswith("/reset-password") or path.startswith("/request-verification") or path.startswith("/verify-email") or path.startswith("/change-password") or path == "/living":
             return None

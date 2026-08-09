@@ -12,6 +12,12 @@ Validates:
 """
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    """Provide Flask app context for tests that access DB."""
+    pass
 from app.temporal.snapshot import (
     TemporalSnapshot, SnapshotStore, capture_snapshot, get_store, reset_store,
 )

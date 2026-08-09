@@ -14,6 +14,7 @@ latest observation, then applies it. Continuous processing, one cycle.
 """
 
 import time
+import json
 import logging
 
 from app import db
@@ -97,6 +98,8 @@ def run_cycle() -> dict:
     for obj in objects:
         try:
             action = get_next_action(obj)
+            print(f"[ACT-01] Processing Entity: {obj.id} (type={obj.object_type})")
+            print(f"[ACT-01] Decision: {json.dumps(action, default=str)}")
 
             if action["type"] == "noop":
                 emit_signal(obj.id, "no_action", {"state": obj.state})

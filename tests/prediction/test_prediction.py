@@ -16,7 +16,10 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
 
-from app.execution import ExecutionService, ExecState, ObligationState
+from app.execution import (
+    ExecutionService, ExecState, ObligationState,
+    BusinessExecutionInstance, ExecutionObligation,
+)
 from app.execution_intelligence import get_execution_intelligence
 from app.learning_intelligence import get_learning_intelligence
 from app.prediction import (
@@ -47,9 +50,21 @@ def config() -> PredictionConfig:
     return PredictionConfig(min_samples_for_prediction=1)
 
 
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    """Provide Flask app context for prediction tests that access DB."""
+    pass
+
+
 @pytest.fixture
 def svc() -> ExecutionService:
-    return ExecutionService()
+    s = ExecutionService()
+    s._execs = {}
+    s._obls = {}
+    s._excs = {}
+    s._allocs = {}
+    s._cons = {}
+    return s
 
 
 @pytest.fixture
@@ -65,17 +80,39 @@ def ps(config) -> PredictionAndSimulationEngine:
 def make_exec(svc, state=ExecState.ACTIVE, tenant_id=1, ct="booking", cid="b1"):
     r = svc.activate(ct, cid, tenant_id)
     exec_id = r["exec_id"]
-    inst = svc._execs[exec_id]
+    if not hasattr(svc, '_execs'):
+        svc._execs = {}
+    if not hasattr(svc, '_excs'):
+        svc._excs = {}
+    inst = BusinessExecutionInstance()
+    inst.exec_id = exec_id
     inst.state = state
-    if state != ExecState.ACTIVE:
-        inst.completed_at = datetime.now(timezone.utc).isoformat()
+    inst.tenant_id = tenant_id
+    inst.commitment_type = ct
+    inst.commitment_id = cid
+    inst.created_at = datetime.now(timezone.utc).isoformat()
+    inst.started_at = datetime.now(timezone.utc).isoformat()
+    inst.completed_at = None if state == ExecState.ACTIVE else datetime.now(timezone.utc).isoformat()
+    inst.obligations = []
+    inst.exceptions = []
+    svc._execs[exec_id] = inst
     return inst
 
 
 def add_obl(svc, exec_id, tenant_id=1, desc="Pay", state=ObligationState.PENDING, due_at=None):
-    r = svc.add_obligation(exec_id, tenant_id, "payment", desc, due_at=due_at)
-    obl = svc._obls[r["obl_id"]]
+    if not hasattr(svc, '_obls'):
+        svc._obls = {}
+    obl_id = f"obl_{exec_id}_{len(svc._obls)}"
+    obl = ExecutionObligation()
+    obl.obl_id = obl_id
+    obl.exec_id = exec_id
+    obl.tenant_id = tenant_id
+    obl.description = desc
+    obl.obl_type = "payment"
+    obl.dependencies = []
     obl.state = state
+    obl.due_at = due_at or (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+    svc._obls[obl_id] = obl
     return obl
 
 
@@ -144,8 +181,10 @@ class TestPredictionEngine:
     def test_recommendation_forecast(self, rt, svc):
         inst = make_exec(svc, ExecState.ACTIVE)
         add_obl(svc, inst.exec_id, desc="Blocked", state=ObligationState.BLOCKED)
+        from app.execution_intelligence import ExecutionIntelligenceEngine
+        ei = ExecutionIntelligenceEngine()
         result = rt.predict("recommendation_outcome", "execution", inst.exec_id, 1,
-                            exec_service=svc)
+                            exec_service=svc, exec_intel=ei)
         assert "recommended_actions" in result["output"]
 
 

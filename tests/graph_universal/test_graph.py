@@ -6,6 +6,12 @@ Property versioning, Graph events, Traversal, Inspection, Agnosticism.
 """
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    """Provide Flask app context for tests that access DB."""
+    pass
 from app.graph_universal.entity import Entity, get_store, reset_store
 from app.graph_universal.relationship import Relationship, get_store as get_rel_store, reset_store as reset_rel_store
 from app.graph_universal.identity import IdentityResolver, get_resolver, reset_resolver

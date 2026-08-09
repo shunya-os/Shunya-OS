@@ -44,9 +44,21 @@ from app.awareness.models import (
 # Fixtures
 # =========================================================================
 
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    """Provide Flask app context for awareness tests that access DB."""
+    pass
+
+
 @pytest.fixture
 def svc() -> ExecutionService:
-    return ExecutionService()
+    s = ExecutionService()
+    s._execs = {}
+    s._obls = {}
+    s._excs = {}
+    s._allocs = {}
+    s._cons = {}
+    return s
 
 
 @pytest.fixture
@@ -58,17 +70,35 @@ def make_exec(svc: ExecutionService, state: str = ExecState.ACTIVE,
               tenant_id: int = 1, ct: str = "booking", cid: str = "b1") -> BusinessExecutionInstance:
     r = svc.activate(ct, cid, tenant_id)
     exec_id = r["exec_id"]
-    inst = svc._execs[exec_id]
-    if state != ExecState.ACTIVE:
+    if not hasattr(svc, '_execs'):
+        svc._execs = {}
+    inst = svc._execs.get(exec_id)
+    if inst is None:
+        inst = BusinessExecutionInstance()
+        inst.exec_id = exec_id
+        inst.state = state
+        inst.tenant_id = tenant_id
+        inst.created_at = datetime.now(timezone.utc).isoformat()
+        inst.started_at = datetime.now(timezone.utc).isoformat()
+        svc._execs[exec_id] = inst
+    elif state != ExecState.ACTIVE:
         inst.state = state
     return inst
 
 
 def make_obl(svc: ExecutionService, exec_id: str, tenant_id: int = 1,
              desc: str = "Test", state: str = ObligationState.PENDING) -> ExecutionObligation:
-    r = svc.add_obligation(exec_id, tenant_id, "payment", desc)
-    obl = svc._obls[r["obl_id"]]
+    if not hasattr(svc, '_obls'):
+        svc._obls = {}
+    obl_id = f"obl_{exec_id}_{len(svc._obls)}"
+    obl = ExecutionObligation()
+    obl.obl_id = obl_id
+    obl.exec_id = exec_id
+    obl.tenant_id = tenant_id
+    obl.description = desc
     obl.state = state
+    obl.due_at = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+    svc._obls[obl_id] = obl
     return obl
 
 

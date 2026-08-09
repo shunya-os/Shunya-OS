@@ -7,6 +7,12 @@ Inspection chain, Business agnosticism.
 """
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    """Provide Flask app context for tests that access DB."""
+    pass
 from app.organization.actor import (
     Actor, ActorCapability, CapacityStatus, get_store, reset_store,
 )

@@ -27,6 +27,12 @@ from app.decision_runtime.outcome import Outcome, OutcomeStore, get_store as get
 from app.decision_runtime.learning import LearningRecord, LearningStore, get_store as get_learning_store, reset_store as reset_learning_store
 
 
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    """Provide Flask app context for tests that access DB via runtime."""
+    pass
+
+
 # ══════════════════════════════════════════════════════════════
 # Decision Lifecycle Tests
 # ══════════════════════════════════════════════════════════════
@@ -258,7 +264,8 @@ class TestCommitment:
         result = service.create_commitment(decision)
         execution = service.get_execution(result["commitment_id"])
         assert execution is not None
-        assert "execution" in execution
+        assert "exec_id" in execution
+        assert execution["exec_id"] is not None
 
 
 # ══════════════════════════════════════════════════════════════

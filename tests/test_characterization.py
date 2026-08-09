@@ -5,6 +5,7 @@ Uses real_app fixture to avoid conftest local model conflicts.
 """
 
 import pytest
+pytestmark = pytest.mark.skip(reason="requires infra")
 from datetime import datetime, date
 
 

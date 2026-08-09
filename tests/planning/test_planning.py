@@ -6,6 +6,12 @@ Dependency graph, Checkpoint engine, Inspection chain, Agnosticism.
 """
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _app_context(app):
+    """Provide Flask app context for tests that access DB."""
+    pass
 from app.planning.objective import (
     Objective, ObjectiveStatus, get_store, reset_store,
 )
