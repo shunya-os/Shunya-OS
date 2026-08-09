@@ -113,7 +113,8 @@ def chat():
                 log_evidence(
                     action="ai_response",
                     source=p.name,
-                    confidence="high" if not fallback_used else "medium",
+                    confidence=0.92 if not fallback_used else 0.65,
+                    evidence_type="ai",
                     inputs={"model": getattr(p, 'model', 'unknown'), "messages_count": len(messages)},
                     outputs={
                         "finish_reason": result.get('finish_reason', 'stop'),

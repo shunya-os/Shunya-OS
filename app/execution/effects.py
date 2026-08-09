@@ -112,7 +112,8 @@ def create_proposal(
         log_evidence(
             action="create_proposal",
             source=context_source,
-            confidence=context_confidence,
+            confidence=0.92 if context_confidence == "high" else (0.65 if context_confidence == "medium" else 0.35),
+            evidence_type="proposal",
             entity_id=entity_id,
             inputs={
                 "to": to,

@@ -239,8 +239,9 @@ def run_cycle() -> dict:
         log_evidence(
             action="run_cycle",
             source="execution_loop",
-            confidence="high" if not summary["errors"] else "low",
-            inputs={"cycle_start": summary.get("_started_at") if hasattr(summary, "_started_at") else None},
+            confidence=0.92 if not summary["errors"] else 0.35,
+            evidence_type="execution",
+            inputs={"cycle_start": None},
             outputs={
                 "actions_taken": summary["actions_taken"],
                 "noops": summary["noops"],
