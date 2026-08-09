@@ -105,6 +105,28 @@ def create_proposal(
 
     logger.info("Proposal #%d created: -> %s", proposal.id, to)
     print(f"[PROPOSAL] #{proposal.id} -> {to}: {message[:80]}...")
+
+    # PHASE 2A: Evidence log for proposal creation
+    try:
+        from app.evidence.service import log_evidence
+        log_evidence(
+            action="create_proposal",
+            source=context_source,
+            confidence=context_confidence,
+            entity_id=entity_id,
+            inputs={
+                "to": to,
+                "reason": context_reason,
+                "message_preview": message[:100],
+            },
+            outputs={
+                "proposal_id": proposal.id,
+                "status": "pending",
+            },
+        )
+    except Exception:
+        pass
+
     return proposal
 
 

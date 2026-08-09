@@ -232,6 +232,25 @@ def run_cycle() -> dict:
         summary["status"] = "partial" if summary["errors"] else "completed"
 
     summary["status"] = "completed" if not summary["errors"] else "partial"
+
+    # PHASE 2A: Evidence log for this cycle
+    try:
+        from app.evidence.service import log_evidence
+        log_evidence(
+            action="run_cycle",
+            source="execution_loop",
+            confidence="high" if not summary["errors"] else "low",
+            inputs={"cycle_start": summary.get("_started_at") if hasattr(summary, "_started_at") else None},
+            outputs={
+                "actions_taken": summary["actions_taken"],
+                "noops": summary["noops"],
+                "errors": len(summary["errors"]),
+                "status": summary["status"],
+            },
+        )
+    except Exception:
+        pass
+
     return summary
 
 

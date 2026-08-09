@@ -107,6 +107,21 @@ def chat():
                 logger.warning(f'AI provider {p.name} failed: {last_error}')
                 fallback_used = True
                 continue
+            # PHASE 2A: Evidence log for AI response
+            try:
+                from app.evidence.service import log_evidence
+                log_evidence(
+                    action="ai_response",
+                    source=p.name,
+                    confidence="high" if not fallback_used else "medium",
+                    inputs={"model": getattr(p, 'model', 'unknown'), "messages_count": len(messages)},
+                    outputs={
+                        "finish_reason": result.get('finish_reason', 'stop'),
+                        "fallback_used": fallback_used,
+                    },
+                )
+            except Exception:
+                pass
             return jsonify({
                 'content': result.get('content', ''),
                 'model': result.get('model', getattr(p, 'model', 'unknown')),
