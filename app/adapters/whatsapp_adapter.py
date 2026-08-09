@@ -1,37 +1,29 @@
-"""WhatsApp Adapter — free web mode (print/log) with future API path.
+"""WhatsApp Adapter — GUARDRAILED: No direct sends allowed.
 
-ACTIVATION-04: Outbound message adapter. Switches MODE to "api"
-when Meta Business API credentials are configured.
+ACTIVATION-08B: This adapter is BLOCKED for direct use.
+All outbound communication must go through MessageProposal → human approval → send.
+
+Callers MUST use the proposal system in app/execution/effects.py instead.
+Direct calls to whatsapp_adapter.send() will fail loudly.
 """
 
 import logging
 
 logger = logging.getLogger(__name__)
 
-MODE = "free"  # switch to "api" when credentials configured
+GUARDRAIL_MESSAGE = (
+    "BLOCKED: Direct WhatsApp send via whatsapp_adapter.send() is DISABLED. "
+    "ACTIVATION-08B: All outbound communication must go through "
+    "MessageProposal -> human approval -> send. "
+    "Use create_proposal() in app/execution/effects.py instead."
+)
 
 
 def send(effect: dict) -> dict:
-    """Send a WhatsApp message. Mode-switchable between free and API."""
-    to = effect.get("to", "")
-    message = effect.get("message", "")
-
-    if not to or not message:
-        return {"status": "skipped", "reason": "missing to/message"}
-
-    if MODE == "free":
-        return send_whatsapp_web(to, message)
-    else:
-        return send_whatsapp_api(to, message)
-
-
-def send_whatsapp_web(to: str, message: str) -> dict:
-    """Free web mode — print/log only. Replace with Playwright later."""
-    logger.info("[WhatsApp-Web] -> %s: %s", to, message[:100])
-    print(f"[WhatsApp-Web] -> {to}: {message[:120]}")
-    return {"status": "sent", "channel": "whatsapp_web"}
-
-
-def send_whatsapp_api(to: str, message: str) -> dict:
-    """Future Meta Business API integration."""
-    return {"status": "not_implemented", "channel": "whatsapp_api"}
+    """BLOCKED by ACTIVATION-08B guardrail. Use proposal system instead."""
+    logger.error(GUARDRAIL_MESSAGE)
+    return {
+        "status": "blocked",
+        "reason": GUARDRAIL_MESSAGE,
+        "channel": "whatsapp",
+    }

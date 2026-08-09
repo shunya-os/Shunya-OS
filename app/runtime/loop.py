@@ -37,8 +37,6 @@ from app.core.entity import Entity
 from app.models import Lead
 from app.execution_log.models import log_execution
 from app.execution.effects import execute_effects
-from app.communication.models import MessageProposal
-from app.communication.registry import get_provider
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
 logger = logging.getLogger(__name__)
@@ -153,22 +151,13 @@ def _run_objects(summary: dict):
                     channel="system"
                 )
 
-                # ACTIVATION-04: Execute effects via dedicated engine
+                # ACTIVATION-08B: Effects now create MessageProposal objects.
+                # No direct proposal creation here — the effect engine handles
+                # whatsapp/email effects by converting them to proposals.
+                # This prevents duplicate proposals for the same entity + intent.
                 effects = action.get("effects", [])
                 if effects:
                     execute_effects(effects, obj.id)
-
-                # ACTIVATION-06: Propose message (human must approve before send)
-                provider = get_provider()
-                phone = None
-                if hasattr(obj, "state") and obj.state:
-                    phone = obj.state.get("phone")
-                if phone:
-                    proposal = MessageProposal(
-                        to=phone,
-                        message="Shunya test message"
-                    )
-                    db.session.add(proposal)
 
                 # PROD-13: propagate to relational targets
                 _propagate_to_targets(obj, summary)

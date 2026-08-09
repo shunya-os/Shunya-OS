@@ -1,11 +1,13 @@
-"""ACTIVATION-04: Effect Execution Engine.
+"""ACTIVATION-08B: Effect Execution Engine — creates proposals, never sends directly.
 
-Pure dispatch layer — every effect type routes to its adapter,
-result is persisted for traceability.
+ACTIVATION-04 → ACTIVATION-08B migration:
+Every outbound effect (whatsapp, email) creates a MessageProposal instead of
+sending directly. The human must approve before any message goes out.
 
-Architecture:
-    decision_engine → effects list  →  execute_effect(effect)  →  adapter.send()
-                                      →  result stored in Observation / logs
+Constitutional rule: Shunya proposes. Only human disposes.
+NO EXCEPTIONS.
+
+Task and log effects remain internal (no human approval needed).
 """
 
 import json
@@ -13,25 +15,109 @@ import logging
 from datetime import datetime, timezone
 
 from app import db
-from app.adapters import whatsapp_adapter
-from app.adapters import email_adapter
+from app.communication.models import MessageProposal
 from app.communication.logger import log_communication
 from app.execution_log.models import log_execution
 
 logger = logging.getLogger(__name__)
 
 
-def execute_effect(effect: dict, entity_id: int = None) -> dict:
-    """Execute a single effect via the correct adapter.
+def _proposal_exists(entity_id: int, message_snippet: str) -> bool:
+    """Check if a pending proposal already exists for this entity + message intent.
 
-    Returns result dict with status (sent|created|logged|skipped|failed).
-    Results are persisted to ExecutionLog for traceability.
+    Prevents duplicate proposals across loop cycles for the same entity.
+    Only checks pending proposals — already-approved/sent/rejected proposals
+    are considered consumed and do not block new ones.
+    """
+    if not entity_id:
+        return False
+    existing = (
+        MessageProposal.query
+        .filter_by(entity_id=entity_id, status="pending")
+        .order_by(MessageProposal.id.desc())
+        .first()
+    )
+    if existing and message_snippet and existing.message == message_snippet:
+        return True
+    # Also flag if ANY pending proposal exists for this entity — prevents
+    # stacking multiple pending proposals for the same entity in one cycle
+    if existing:
+        return True
+    return False
+
+
+def create_proposal(
+    to: str,
+    message: str,
+    entity_id: int = None,
+    entity_type: str = None,
+    entity_name: str = None,
+    context_reason: str = "AI-generated proposal",
+    context_source: str = "effect_engine",
+    context_priority: str = "high",
+    context_confidence: str = "high",
+) -> MessageProposal:
+    """Create a MessageProposal. This is the ONLY path for outbound messages.
+
+    Args:
+        to: Recipient identifier (phone number, email address).
+        message: Message content.
+        entity_id: Optional entity/object ID for association.
+        entity_type: Optional entity type.
+        entity_name: Optional human-readable entity name.
+        context_reason: Why this proposal exists (shown to human).
+        context_source: Origin of the proposal.
+        context_priority: Priority level for the human inbox.
+        context_confidence: Confidence level.
+
+    Returns:
+        The created MessageProposal, or None if a duplicate was prevented.
+    """
+    # Deduplicate: skip if pending proposal already exists for this entity
+    if entity_id and _proposal_exists(entity_id, message):
+        logger.info("Duplicate proposal prevented for entity_id=%d", entity_id)
+        return None
+
+    proposal = MessageProposal(
+        to=to,
+        message=message,
+        entity_id=entity_id,
+        entity_type=entity_type,
+        entity_name=entity_name,
+        context_reason=context_reason,
+        context_source=context_source,
+        context_priority=context_priority,
+        context_confidence=context_confidence,
+    )
+    db.session.add(proposal)
+    db.session.flush()
+
+    log_execution(
+        entity_id or 0,
+        "PROPOSAL_CREATED",
+        {
+            "to": to,
+            "message_preview": message[:100],
+            "reason": context_reason,
+            "proposal_id": proposal.id,
+        },
+    )
+
+    logger.info("Proposal #%d created: -> %s", proposal.id, to)
+    print(f"[PROPOSAL] #{proposal.id} -> {to}: {message[:80]}...")
+    return proposal
+
+
+def execute_effect(effect: dict, entity_id: int = None) -> dict:
+    """Execute a single effect. Outbound types create proposals; internal types dispatch.
+
+    Returns result dict with status (proposal_created|created|logged|skipped|failed).
     """
     etype = effect.get("type", "")
 
     handlers = {
-        "whatsapp": _handle_whatsapp,
-        "email": _handle_email,
+        "whatsapp": _handle_proposal_whatsapp,
+        "email": _handle_proposal_email,
         "task": _handle_task,
         "log": _handle_log,
     }
@@ -42,12 +128,12 @@ def execute_effect(effect: dict, entity_id: int = None) -> dict:
         result = {"status": "skipped", "type": etype, "reason": "unknown_type"}
     else:
         try:
-            result = handler(effect)
+            result = handler(effect, entity_id)
         except Exception as e:
             logger.error("Effect handler crashed: %s — %s", etype, e)
             result = {"status": "failed", "type": etype, "error": str(e)}
 
-    # Persist execution trace (ACTIVATION-04: mandatory traceability)
+    # Persist execution trace
     log_execution(
         entity_id or 0,
         "EFFECT",
@@ -60,7 +146,6 @@ def execute_effect(effect: dict, entity_id: int = None) -> dict:
     )
 
     print(f"[EFFECT] {etype}: {json.dumps({'status': result.get('status'), 'entity_id': entity_id})}")
-
     return result
 
 
@@ -73,21 +158,65 @@ def execute_effects(effects: list, entity_id: int = None) -> list:
     return results
 
 
-# ── Handler implementations ──
+# ── Proposal-based handlers (outbound communication) ──
 
 
-def _handle_whatsapp(effect: dict) -> dict:
-    """Route WhatsApp effects to the WhatsApp adapter."""
-    return whatsapp_adapter.send(effect)
+def _handle_proposal_whatsapp(effect: dict, entity_id: int = None) -> dict:
+    """Convert a WhatsApp effect into a MessageProposal — NEVER sends directly."""
+    to = effect.get("to", "")
+    message = effect.get("message", "")
+    if not to or not message:
+        return {"status": "skipped", "reason": "missing to/message"}
+
+    proposal = create_proposal(
+        to=to,
+        message=message,
+        entity_id=entity_id,
+        entity_type="lead",
+        entity_name=effect.get("name", ""),
+        context_reason="Lead outreach via WhatsApp",
+        context_source="effect_engine",
+        context_priority="high",
+        context_confidence="high",
+    )
+
+    if proposal is None:
+        return {"status": "duplicate_prevented", "reason": "pending proposal exists"}
+    return {"status": "proposal_created", "proposal_id": proposal.id, "channel": "whatsapp"}
 
 
-def _handle_email(effect: dict) -> dict:
-    """Route email effects to the Email adapter."""
-    return email_adapter.send(effect)
+def _handle_proposal_email(effect: dict, entity_id: int = None) -> dict:
+    """Convert an Email effect into a MessageProposal — NEVER sends directly."""
+    to = effect.get("to", "")
+    subject = effect.get("subject", "Update from SHUNYA")
+    body = effect.get("body", effect.get("message", ""))
+    message = f"Subject: {subject}\n\n{body}"
+
+    if not to or not body:
+        return {"status": "skipped", "reason": "missing to/body"}
+
+    proposal = create_proposal(
+        to=to,
+        message=message,
+        entity_id=entity_id,
+        entity_type="lead",
+        entity_name=effect.get("name", ""),
+        context_reason=f"Email outreach: {subject}",
+        context_source="effect_engine",
+        context_priority="high",
+        context_confidence="high",
+    )
+
+    if proposal is None:
+        return {"status": "duplicate_prevented", "reason": "pending proposal exists"}
+    return {"status": "proposal_created", "proposal_id": proposal.id, "channel": "email"}
 
 
-def _handle_task(effect: dict) -> dict:
-    """Create a task from an effect dict.
+# ── Internal handlers (no human approval needed) ──
+
+
+def _handle_task(effect: dict, entity_id: int = None) -> dict:
+    """Create a task from an effect dict — internal operation, no proposal needed.
 
     Effect format: {"type": "task", "title": "...", "description": "..."}
     """
@@ -101,7 +230,7 @@ def _handle_task(effect: dict) -> dict:
         if description:
             task.description = description
         db.session.add(task)
-        db.session.commit()
+        db.session.flush()
         logger.info("Task created: %s (#%d)", title, task.id)
         print(f"[TASK CREATED] #{task.id}: {title}")
         return {"status": "created", "task_id": task.id, "title": title}
@@ -111,8 +240,8 @@ def _handle_task(effect: dict) -> dict:
         return {"status": "failed", "error": str(e)}
 
 
-def _handle_log(effect: dict) -> dict:
-    """Record a log communication entry."""
+def _handle_log(effect: dict, entity_id: int = None) -> dict:
+    """Record a log communication entry — internal only."""
     channel = effect.get("channel", "system")
     message = effect.get("message", "")
     log_communication(channel, "system", message)
