@@ -36,10 +36,31 @@ from app.communication.delivery import deliver_messages
 from app.core.entity import Entity
 from app.models import Lead
 from app.execution_log.models import log_execution
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 logger = logging.getLogger(__name__)
 
 _LOOP_INTERVAL = 3
+
+
+def _safe_rollback(summary: dict = None):
+    """Rollback a failed transaction without throwing.
+
+    Only rolls back if the session has a failed transaction (aborted).
+    Does NOT rollback healthy uncommitted changes — they preserve their
+    pending state until the final commit in run_cycle().
+
+    Idempotent -- safe to call when no transaction is active.
+    """
+    try:
+        db.session.execute(db.text("SELECT 1"))
+    except (OperationalError, ProgrammingError) as e:
+        msg = str(e)
+        if "aborted" in msg.lower() or "current transaction" in msg.lower():
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
 
 
 def _propagate_to_targets(obj, summary: dict):
@@ -78,130 +99,203 @@ def _propagate_to_targets(obj, summary: dict):
             )
 
 
-def run_cycle() -> dict:
-    """Run one iteration of the execution loop.
+def _run_objects(summary: dict):
+    """Process all Object entities — crash-isolated section."""
+    try:
+        objects = Object.query.all()
+        summary["total_objects"] = len(objects)
+        for obj in objects:
+            try:
+                # ACTIVATION-03B: Schema validation — skip malformed entities
+                if not hasattr(obj, 'type') or obj.type is None:
+                    logger.warning("Skipping entity %d: invalid schema (type=None)", obj.id)
+                    summary["errors"].append({"object_id": obj.id, "error": "invalid schema: type is None"})
+                    continue
 
-    For each object:
-    1. Determine next action via decision engine
-    2. Execute action if update
-    3. Propagate to relational targets
-    4. Emit pure observation signal
+                action = get_next_action(obj)
+                print(f"[ACT-01] Processing Entity: {obj.id} (type={obj.type})")
+                print(f"[ACT-01] Decision: {json.dumps(action, default=str)}")
+
+                log_execution(obj.id, "ENTITY_SEEN", {"object_type": obj.type, "state": obj.state})
+
+                if action["type"] == "noop":
+                    emit_signal(obj.id, "no_action", {"state": obj.state})
+                    summary["noops"] += 1
+                    summary["signals_emitted"] += 1
+                    log_execution(obj.id, "NOOP", {"state": obj.state})
+                    continue
+
+                log_execution(obj.id, "DECISION", action)
+
+                state_before = dict(obj.state or {})
+                execute_action(obj, action)
+                emit_signal(
+                    obj.id, "state_changed",
+                    {"from": state_before, "to": obj.state},
+                )
+                summary["actions_taken"] += 1
+                summary["signals_emitted"] += 1
+                log_execution(obj.id, "ACTION", {
+                    "action": action,
+                    "state_before": state_before,
+                    "state_after": obj.state,
+                })
+
+                # PROD-52: after state update -- generate output and create message
+                output = generate_output(obj)
+                MessageService.create(
+                    entity_id=obj.id,
+                    content=str(output),
+                    direction="outbound",
+                    channel="system"
+                )
+
+                # ACTIVATION-01: Process effects from decision engine
+                effects = action.get("effects", [])
+                for effect in effects:
+                    try:
+                        etype = effect.get("type", "")
+                        if etype == "email":
+                            from app.communication.email import send_email
+                            send_email(effect.get("to"), effect.get("subject"), effect.get("body"))
+                        elif etype == "whatsapp":
+                            from app.communication.whatsapp import send_whatsapp
+                            send_whatsapp(effect.get("to"), effect.get("message"))
+                        elif etype == "log":
+                            from app.communication.logger import log_communication
+                            log_communication(effect.get("channel", "system"),
+                                              "system", effect.get("message", ""), obj.id)
+                    except Exception as eff_err:
+                        logger.error("Effect failed for %d: %s", obj.id, eff_err)
+
+                # PROD-13: propagate to relational targets
+                _propagate_to_targets(obj, summary)
+
+            except Exception as e:
+                logger.error("Loop error on object %d: %s", obj.id, e)
+                summary["errors"].append({"object_id": obj.id, "error": str(e)})
+                log_execution(obj.id, "ERROR", {"error": str(e)})
+    except Exception as e:
+        logger.error("Objects section crashed: %s", e)
+        summary["errors"].append({"section": "objects", "error": str(e)})
+
+
+def _run_commitments(summary: dict):
+    """Process all commitments -- crash-isolated section."""
+    try:
+        commitments = Commitment.query.all()
+        for c in commitments:
+            try:
+                decision = decide_next_from_commitment(c)
+                apply_decision(c, decision)
+            except Exception as e:
+                logger.error("Commitment %d error: %s", c.id if hasattr(c, 'id') else 0, e)
+                summary["errors"].append({"section": "commitments", "id": getattr(c, 'id', None), "error": str(e)})
+    except Exception as e:
+        logger.error("Commitments section crashed: %s", e)
+        summary["errors"].append({"section": "commitments", "error": str(e)})
+
+
+def _run_leads(summary: dict):
+    """Process all leads -- crash-isolated section."""
+    try:
+        leads = Lead.query.all()
+        for lead in leads:
+            try:
+                task_dec = decide_lead_task(lead)
+                if task_dec.get("type") == "update":
+                    lead.outcome = "attempted"
+
+                # PROD-32-34: stage progression
+                stage_dec = decide_lead_stage(lead)
+                if isinstance(stage_dec, list):
+                    for dec in stage_dec:
+                        if dec.get("type") == "update":
+                            for k, v in dec.get("payload", {}).items():
+                                setattr(lead, k, v)
+                elif stage_dec.get("type") == "update":
+                    for k, v in stage_dec.get("payload", {}).items():
+                        setattr(lead, k, v)
+            except Exception as e:
+                logger.error("Lead %d error: %s", lead.id if hasattr(lead, 'id') else 0, e)
+                summary["errors"].append({"section": "leads", "id": getattr(lead, 'id', None), "error": str(e)})
+    except Exception as e:
+        logger.error("Leads section crashed: %s", e)
+        summary["errors"].append({"section": "leads", "error": str(e)})
+
+
+def _run_entities(summary: dict):
+    """Process all generic Entities -- crash-isolated section."""
+    try:
+        entities = Entity.query.all()
+        for e in entities:
+            try:
+                ed = decide_entity(e)
+                if ed.get("type") == "update":
+                    for k, v in ed.get("payload", {}).items():
+                        setattr(e, k, v)
+            except Exception as ex:
+                logger.error("Entity error: %s", ex)
+                summary["errors"].append({"section": "entities", "error": str(ex)})
+    except Exception as ex:
+        logger.error("Entities section crashed: %s", ex)
+        summary["errors"].append({"section": "entities", "error": str(ex)})
+
+
+def run_cycle() -> dict:
+    """Run one iteration of the execution loop with crash isolation.
+
+    Every section is individually wrapped in try/except so a failure
+    in one processing domain never blocks another. db.session.commit()
+    ALWAYS executes to prevent orphaned transactions.
+
+    ACTIVATION-03A: Loop Atomicity Principle enforced.
     """
-    objects = Object.query.all()
     summary = {
-        "total_objects": len(objects),
+        "status": "completed",
+        "total_objects": 0,
         "actions_taken": 0,
         "noops": 0,
         "signals_emitted": 0,
         "errors": [],
     }
 
-    for obj in objects:
-        try:
-            action = get_next_action(obj)
-            print(f"[ACT-01] Processing Entity: {obj.id} (type={obj.object_type})")
-            print(f"[ACT-01] Decision: {json.dumps(action, default=str)}")
+    # ----- Crash-isolated sections -----
+    _run_objects(summary)
+    _safe_rollback(summary)
 
-            log_execution(obj.id, "ENTITY_SEEN", {"object_type": obj.object_type, "state": obj.state})
+    _run_commitments(summary)
+    _safe_rollback(summary)
 
-            if action["type"] == "noop":
-                emit_signal(obj.id, "no_action", {"state": obj.state})
-                summary["noops"] += 1
-                summary["signals_emitted"] += 1
-                log_execution(obj.id, "NOOP", {"state": obj.state})
-                continue
+    _run_leads(summary)
+    _safe_rollback(summary)
 
-            log_execution(obj.id, "DECISION", action)
+    try:
+        process_inbound()
+    except Exception as e:
+        logger.error("process_inbound failed: %s", e)
+        summary["errors"].append({"section": "process_inbound", "error": str(e)})
+        _safe_rollback(summary)
 
-            state_before = dict(obj.state or {})
-            execute_action(obj, action)
-            emit_signal(
-                obj.id, "state_changed",
-                {"from": state_before, "to": obj.state},
-            )
-            summary["actions_taken"] += 1
-            summary["signals_emitted"] += 1
-            log_execution(obj.id, "ACTION", {
-                "action": action,
-                "state_before": state_before,
-                "state_after": obj.state,
-            })
+    _run_entities(summary)
+    _safe_rollback(summary)
 
-            # PROD-52: after state update — generate output and create message
-            output = generate_output(obj)
-            MessageService.create(
-                entity_id=obj.id,
-                content=str(output),
-                direction="outbound",
-                channel="system"
-            )
+    try:
+        deliver_messages()
+    except Exception as e:
+        logger.error("deliver_messages failed: %s", e)
+        summary["errors"].append({"section": "deliver_messages", "error": str(e)})
+        _safe_rollback(summary)
 
-            # ACTIVATION-01: Process effects from decision engine
-            effects = action.get("effects", [])
-            for effect in effects:
-                try:
-                    etype = effect.get("type", "")
-                    if etype == "email":
-                        from app.communication.email import send_email
-                        send_email(effect.get("to"), effect.get("subject"), effect.get("body"))
-                    elif etype == "whatsapp":
-                        from app.communication.whatsapp import send_whatsapp
-                        send_whatsapp(effect.get("to"), effect.get("message"))
-                    elif etype == "log":
-                        from app.communication.logger import log_communication
-                        log_communication(effect.get("channel", "system"),
-                                          "system", effect.get("message", ""), obj.id)
-                except Exception as eff_err:
-                    logger.error("Effect failed for %d: %s", obj.id, eff_err)
+    # ----- Completion guarantee: commit ALWAYS executes -----
+    try:
+        db.session.commit()
+    except Exception as e:
+        logger.error("Final commit failed: %s", e)
+        summary["errors"].append({"section": "commit", "error": str(e)})
+        summary["status"] = "partial" if summary["errors"] else "completed"
 
-            # PROD-13: propagate to relational targets
-            _propagate_to_targets(obj, summary)
-
-        except Exception as e:
-            logger.error("Loop error on object %d: %s", obj.id, e)
-            summary["errors"].append({"object_id": obj.id, "error": str(e)})
-            log_execution(obj.id, "ERROR", {"error": str(e)})
-
-    # PROD-17: process all commitments — gap-aware decision → apply
-    commitments = Commitment.query.all()
-    for c in commitments:
-        decision = decide_next_from_commitment(c)
-        apply_decision(c, decision)
-
-    # PROD-28/30: process leads — task creation + outcome
-    leads = Lead.query.all()
-    for lead in leads:
-        task_dec = decide_lead_task(lead)
-        if task_dec.get("type") == "update":
-            lead.outcome = "attempted"
-
-        # PROD-32-34: stage progression
-        stage_dec = decide_lead_stage(lead)
-        # PROD-40: support multi-action list decisions
-        if isinstance(stage_dec, list):
-            for dec in stage_dec:
-                if dec.get("type") == "update":
-                    for k, v in dec.get("payload", {}).items():
-                        setattr(lead, k, v)
-        elif stage_dec.get("type") == "update":
-            for k, v in stage_dec.get("payload", {}).items():
-                setattr(lead, k, v)
-
-    # PROD-59: process inbound events before entity processing
-    process_inbound()
-
-    # PROD-45: process all Entities — generic state transitions
-    entities = Entity.query.all()
-    for e in entities:
-        ed = decide_entity(e)
-        if ed.get("type") == "update":
-            for k, v in ed.get("payload", {}).items():
-                setattr(e, k, v)
-
-    # PROD-59: deliver pending messages at end of cycle
-    deliver_messages()
-
-    db.session.commit()
+    summary["status"] = "completed" if not summary["errors"] else "partial"
     return summary
 
 

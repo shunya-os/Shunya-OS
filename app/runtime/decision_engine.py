@@ -128,7 +128,7 @@ def get_next_action(obj) -> dict:
         }
 
     # ACTIVATION-01: Lead flow — new → contacted → quoted → closed
-    if obj.object_type == "lead":
+    if obj.type == "lead":
         stage = state.get("stage", "new")
         status = state.get("status")
         phone = state.get("phone", "")

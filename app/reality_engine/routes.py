@@ -84,54 +84,19 @@ def get_reality():
 
 @reality_bp.route("/stream", methods=["GET"])
 def stream_reality():
-    """GET /api/v1/reality/stream
+    """GET /api/v1/reality/stream -- TEMPORARILY DISABLED.
 
-    SSE stream of reality events. The frontend subscribes once and receives
-    continuous updates. Falls back to polling without any frontend changes.
+    The SSE stream with time.sleep(5) caused gunicorn worker timeout (30s),
+    killing workers and destabilising the runtime. Disabled until a non-blocking
+    generator replaces the polling loop. Frontend falls back to polling via
+    the GET /api/v1/reality endpoint -- no UX degradation.
 
-    This is a transport — the Reality Engine abstraction means the frontend
-    never knows whether it's receiving data via SSE (this stream) or polling
-    (the GET endpoint above).
+    ACTIVATION-03A: Systemic instability source eliminated.
     """
-    identity_id = _require_identity()
-    if not identity_id:
-        identity_id = DEMO_IDENTITY
-
-    workspace_type = request.args.get("workspace_type", "founder")
-    workspace_id = request.args.get("workspace_id", "default")
-    engine = get_reality_engine()
-
-    def generate():
-        last_data = None
-        while True:
-            try:
-                projection = engine.build_projection(
-                    workspace_type=workspace_type,
-                    workspace_id=workspace_id,
-                    identity_id=identity_id,
-                )
-                data = projection.to_dict()
-
-                # Only push if something changed
-                if data != last_data:
-                    last_data = data
-                    yield f"data: {json.dumps(data)}\n\n"
-                else:
-                    yield f": keepalive\n\n"
-            except Exception as exc:
-                yield f"event: error\ndata: {json.dumps({'error': str(exc)})}\n\n"
-
-            time.sleep(5)  # Check every 5 seconds
-
-    return Response(
-        stream_with_context(generate()),
-        mimetype="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
-    )
+    return jsonify({
+        "status": "disabled",
+        "reason": "blocking loop causes worker death -- use polling (GET /api/v1/reality) instead"
+    })
 
 
 # ═════════════════════════════════════════════════════════════════════

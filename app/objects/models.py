@@ -5,7 +5,7 @@ class Object(db.Model):
     __tablename__ = "objects"
 
     id = db.Column(db.Integer, primary_key=True)
-    object_type = db.Column(db.String(100), nullable=False)
+    type = db.Column("object_type", db.String(100), nullable=False)
     state = db.Column(db.JSON, default={})
     context = db.Column(db.JSON, default={})
 
@@ -15,3 +15,12 @@ class Object(db.Model):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc)
     )
+
+    @property
+    def object_type(self):
+        """Backward-compat alias for .type (ACTIVATION-03B)."""
+        return self.type
+
+    @object_type.setter
+    def object_type(self, value):
+        self.type = value

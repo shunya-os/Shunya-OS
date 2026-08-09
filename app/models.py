@@ -67,8 +67,6 @@ class Lead(db.Model):
     notes = db.Column(db.Text)
     status = db.Column(db.String(30), default=LeadStatus.NEW.value, index=True)
     assigned_to = db.Column(db.String(120))
-    # PROD-23: link lead to its commitment
-    commitment_id = db.Column(db.Integer, db.ForeignKey("commitments.id"), nullable=True)
     # PROD-42: link lead to generic Entity
     entity_id = db.Column(db.Integer, nullable=True)
     # PROD-30: outcome of the lead execution

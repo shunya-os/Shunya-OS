@@ -7,7 +7,7 @@ class Entity(db.Model):
     __tablename__ = "entities"
 
     id = db.Column(db.Integer, primary_key=True)
-    type = db.Column(db.String(50))
+    type = db.Column(db.String(50), nullable=False)
     state = db.Column(db.String(50))
     data = db.Column(db.JSON)
 
