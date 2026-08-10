@@ -10,7 +10,7 @@ Does NOT auto-execute — outputs are read-only guidance.
 """
 
 import logging
-from datetime import datetime, timezone
+from app.core.time import now
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ def _generate_action(signal: dict, ctx: dict) -> dict:
         "impact": impact,
         "reason": signal.get("reason", ""),
         "suggested_action": signal.get("suggested_action", ""),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now().isoformat(),
     }
 
 
@@ -151,6 +151,29 @@ def compute_decisions() -> list:
         except Exception as e:
             logger.debug("Decision engine: error processing signal: %s", e)
             continue
+
+    # PHASE 3.2: Shadow influence — augment decisions with shadow confidence
+    try:
+        from app.core.shadow_runner import run_all_shadows
+        from app.intelligence.comparator import compare
+        shadow_outputs = run_all_shadows()
+
+        for decision in decisions:
+            try:
+                comparison = compare(decision, shadow_outputs)
+                decision["source"] = decision.get("source", "rule")
+                decision["confidence"] = comparison["enhanced_confidence"]
+                decision["shadow_confidence"] = comparison["shadow_confidence"]
+                decision["shadow_agreement_pct"] = comparison["shadow_signals"]["shadow_agreement"] * 100
+                decision["shadow_reasoning"] = comparison["reasoning"]
+
+                # Augment priority based on cortex influence
+                if comparison["shadow_signals"]["cortex_priority"] > 0.7:
+                    decision["priority_score"] = min(100, decision.get("priority_score", 0) + 10)
+            except Exception as e:
+                logger.debug("Decision shadow augmentation failed: %s", e)
+    except Exception as e:
+        logger.debug("Shadow comparison failed: %s", e)
 
     # Sort by priority_score descending
     decisions.sort(key=lambda d: -d.get("priority_score", 0))

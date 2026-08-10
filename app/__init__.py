@@ -660,6 +660,7 @@ def create_app(config_override: dict | None = None):
     # PHASE 3: Register evidence model so create_all creates its table
     try:
         from app.evidence import models_db  # noqa: F401 — registers Evidence model
+        from app.evidence import decision_trace  # noqa: F401 — registers DecisionTrace model
     except Exception:
         pass
 

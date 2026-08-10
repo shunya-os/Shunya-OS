@@ -4,7 +4,7 @@ PHASE 2C.2: Decision Intelligence.
 All endpoints return structured, read-only intelligence data.
 """
 
-from datetime import datetime, timezone
+from app.core.time import now
 
 from flask import Blueprint, jsonify, request
 
@@ -23,7 +23,7 @@ def api_awareness():
         signals = scan()
 
         # Ensure each signal has a timestamp
-        now = datetime.now(timezone.utc).isoformat()
+        now = now().isoformat()
         for s in signals:
             if "timestamp" not in s:
                 s["timestamp"] = now
@@ -126,6 +126,28 @@ def api_debug_state():
             "consistency_notes": [str(e)],
             "error": str(e),
         })
+
+@awareness_bp.route("/decision-trace/<int:object_id>", methods=["GET"])
+def api_decision_trace(object_id):
+    """Return decision traces for a specific object."""
+    try:
+        from app.evidence.decision_trace import get_decision_traces
+        traces = get_decision_traces(object_id=object_id, limit=20)
+        return jsonify({"traces": traces, "total": len(traces)})
+    except Exception as e:
+        return jsonify({"traces": [], "total": 0, "error": str(e)})
+
+
+@awareness_bp.route("/decision-trace", methods=["GET"])
+def api_decision_traces_all():
+    """Return all recent decision traces."""
+    try:
+        from app.evidence.decision_trace import get_decision_traces
+        traces = get_decision_traces(limit=50)
+        return jsonify({"traces": traces, "total": len(traces)})
+    except Exception as e:
+        return jsonify({"traces": [], "total": 0, "error": str(e)})
+
 
 @awareness_bp.route("/decisions", methods=["GET"])
 def api_decisions():

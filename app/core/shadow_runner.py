@@ -126,8 +126,8 @@ def run_shadow_authz() -> dict:
     """Run the authz RBAC system in shadow mode."""
     result = {"system": "authz", "status": "shadow", "shadow_ok": False, "outputs": []}
     try:
-        from app.authz.services import get_permissions
-        permissions = get_permissions()
+        from app.authz.models import Role
+        permissions = [r.to_dict() for r in Role.query.all()]
         result["outputs"].append({
             "module": "authz",
             "action": "get_permissions",
@@ -143,8 +143,8 @@ def run_shadow_automation() -> dict:
     """Run the automation system in shadow mode."""
     result = {"system": "automation", "status": "shadow", "shadow_ok": False, "outputs": []}
     try:
-        from app.automation.service import evaluate_rules
-        rules = evaluate_rules()
+        from app.automation.models import AutomationRule
+        rules = [r.to_dict() for r in AutomationRule.query.all()]
         result["outputs"].append({
             "module": "automation",
             "action": "evaluate_rules",
@@ -160,8 +160,9 @@ def run_shadow_onboarding() -> dict:
     """Run the onboarding system in shadow mode."""
     result = {"system": "onboarding", "status": "shadow", "shadow_ok": False, "outputs": []}
     try:
-        from app.onboarding import get_onboarding_steps
-        steps = get_onboarding_steps()
+        from app.onboarding.engine import get_or_create_session
+        session = get_or_create_session(org_id=1, identity_id='shadow')
+        steps = [{'current_question': session.current_question()}] if hasattr(session, 'current_question') else []
         result["outputs"].append({
             "module": "onboarding",
             "action": "get_onboarding_steps",
