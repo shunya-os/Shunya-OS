@@ -242,6 +242,56 @@ def test_idempotency_duplicate_execution_request(clean_db, app_context):
     assert second["skipped"] is True
 
 
+def test_concurrent_idempotency_atomicity(clean_db, app_context):
+    """Two simultaneous deliveries with same source_type+source_id must produce exactly ONE processed.
+
+    This test exercises the database-level unique constraint to prove
+    atomic check-then-create semantics. The DB guarantees that only
+    one of two concurrent deliveries succeeds.
+    """
+    from app.execution.idempotency import IdempotencyGuard
+    from app.evidence.models_db import EvidenceRecord
+    from app.core.db import get_session
+    import threading
+    
+    guard = IdempotencyGuard()
+    results = []
+    errors = []
+    app = app_context  # Flask app from fixture
+    
+    def deliver():
+        with app.app_context():
+            try:
+                r = guard.guard("concurrent", "con-001", {"test": "concurrent"})
+                results.append(r)
+            except Exception as e:
+                errors.append(str(e))
+    
+    # Launch two concurrent deliveries
+    t1 = threading.Thread(target=deliver)
+    t2 = threading.Thread(target=deliver)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    
+    assert len(errors) == 0, f"Concurrent delivery errors: {errors}"
+    assert len(results) == 2, f"Expected 2 results, got {len(results)}"
+    
+    # Exactly one should be processed, one should be skipped
+    processed = [r for r in results if r.get("processed") is True]
+    skipped = [r for r in results if r.get("skipped") is True]
+    assert len(processed) == 1, f"Expected 1 processed, got {len(processed)}: {processed}"
+    assert len(skipped) == 1, f"Expected 1 skipped, got {len(skipped)}: {skipped}"
+    
+    # Exactly one durable evidence record should exist
+    session = get_session()
+    records = session.query(EvidenceRecord).filter_by(
+        source_type="concurrent", source_id="con-001"
+    ).all()
+    assert len(records) == 1, f"Expected 1 evidence record, got {len(records)}"
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # Workstream 6: Retry semantics
 # ══════════════════════════════════════════════════════════════════════════════
