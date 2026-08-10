@@ -23,9 +23,15 @@ class EvidenceRecord(db.Model):
     source_type: email/pdf/contact/event/execution/ai/proposal
     source_id: Reference to the source (thread id, object id, proposal id)
     raw_reference: Raw snippet of the source
+
+    Unique constraint on (source_type, source_id) enables idempotency
+    enforcement at the database level.
     """
 
     __tablename__ = "evidence_records"
+    __table_args__ = (
+        db.UniqueConstraint('source_type', 'source_id', name='uq_evidence_source'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     source_type = db.Column(db.String(50), nullable=False)
