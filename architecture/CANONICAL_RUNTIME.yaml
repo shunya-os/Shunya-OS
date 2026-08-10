@@ -1,0 +1,231 @@
+# SHUNYA OS — Canonical Runtime Ownership & Data Flow
+# FDA2 — Core Runtime Consolidation
+# Machine-checkable runtime inventory.
+
+metadata:
+  document: "SHUNYA_OS_FDA2_CANONICAL_RUNTIME"
+  version: 1.0
+  date: "2026-08-10"
+  governing_directive: "FDA2"
+  status: "production"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CANONICAL RUNTIME PATH
+# ══════════════════════════════════════════════════════════════════════════════
+# One authoritative event → observation → awareness → decision → execution → evidence → learning path.
+
+runtime_path:
+  entry_point:
+    canonical_owner: "app/runtime/entry.py"
+    function: "process_event()"
+    description: "THE ONLY entry point for all system events. All execution flows through here."
+    enforcement: "ExecutionGate in app/execution_engine/engine.py blocks direct execution"
+
+  evidence:
+    canonical_owner: "app/evidence/models_db.py"
+    function: "create_evidence(), require_evidence()"
+    model: "EvidenceRecord"
+    persistence: "SQLAlchemy (evidence_records table)"
+    description: "Every event/decision/execution produces evidence. No signal without evidence."
+
+  decision_trace:
+    canonical_owner: "app/evidence/decision_trace.py"
+    function: "record_decision_trace()"
+    model: "DecisionTrace"
+    persistence: "SQLAlchemy (decision_traces table)"
+    description: "Every decision cycle is recorded with shadow comparison."
+
+  awareness:
+    canonical_owner: "app/intelligence/awareness.py"
+    function: "scan()"
+    description: "Detects signals from cortex observations. Read-only intelligence layer."
+
+  decision:
+    canonical_owner: "app/intelligence/decision_engine.py"
+    function: "compute_decisions()"
+    description: "Computes decisions from awareness signals."
+
+  shadow_runner:
+    canonical_owner: "app/core/shadow_runner.py"
+    function: "run_all_shadows()"
+    description: "Runs shadow execution for comparison with main decision."
+
+  comparator:
+    canonical_owner: "app/intelligence/comparator.py"
+    function: "compare()"
+    description: "Compares main decision with shadow outputs."
+
+  execution_gate:
+    canonical_owner: "app/execution_engine/engine.py"
+    function: "open_execution_gate(), close_execution_gate()"
+    description: "Gate that blocks execution unless called from process_event()."
+
+  outcome:
+    canonical_owner: "app/execution/models.py"
+    function: "Outcome model"
+    model: "Outcome"
+    persistence: "SQLAlchemy (sh_outcomes table)"
+    description: "The BusinessExecutionInstance — durable execution aggregate."
+
+  outcome_runtime:
+    canonical_owner: "app/execution/runtime.py"
+    function: "OutcomeRuntime"
+    description: "Owns outcome lifecycle: accept → queue → execute → complete/fail."
+
+  recovery:
+    canonical_owner: "app/execution/recovery.py"
+    function: "RecoveryOrchestrator"
+    description: "5-level recovery hierarchy: retry → alternative → alt workflow → partial → human."
+
+  learning:
+    canonical_owner: "app/intelligence/learning.py"
+    function: "adjust_confidence(), record_outcome()"
+    description: "Consumes execution outcomes to adjust confidence. NOT a runtime authority."
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RUNTIME ID RELATIONSHIPS
+# ══════════════════════════════════════════════════════════════════════════════
+
+id_relationships:
+  event:
+    source: "app/runtime/entry.py"
+    identifier: "event_type + event_data (no formal event_id yet)"
+    note: "Events are identified by source + type + data. No UUID event_id yet."
+
+  evidence:
+    source: "app/evidence/models_db.py"
+    identifier: "EvidenceRecord.id (integer, auto-increment)"
+    traceable_to: "source_type + source_id"
+
+  decision_trace:
+    source: "app/evidence/decision_trace.py"
+    identifier: "DecisionTrace.id (integer, auto-increment)"
+    traceable_to: "object_id"
+
+  outcome:
+    source: "app/execution/models.py"
+    identifier: "Outcome.outcome_id (out_ + 8 hex chars)"
+    traceable_to: "identity_id"
+
+  learning:
+    source: "app/intelligence/learning.py"
+    identifier: "memory_store weights (signal: + entity: keys)"
+    traceable_to: "signal_type + entity_type + entity_id"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LIFECYCLE STATE MACHINE
+# ══════════════════════════════════════════════════════════════════════════════
+
+outcome_lifecycle:
+  states:
+    - accepted
+    - queued
+    - executing
+    - monitoring
+    - completed
+    - failed
+  valid_transitions:
+    accepted: [queued]
+    queued: [executing]
+    executing: [completed, failed, monitoring]
+    monitoring: [completed, failed]
+    completed: []
+    failed: []
+  partial_execution:
+    - "Each step tracks success/failure independently"
+    - "Stage is 'completed' only if ALL steps succeed"
+    - "Stage is 'failed' if ANY step fails after recovery exhaustion"
+    - "Recovery history records each attempt per step"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# IDEMPOTENCY
+# ══════════════════════════════════════════════════════════════════════════════
+
+idempotency:
+  event_processing:
+    mechanism: "EvidenceRecord dedup by source_type + source_id"
+    status: "NOT IMPLEMENTED — FDA2 implements idempotency guard"
+  execution:
+    mechanism: "Outcome.outcome_id uniqueness (DB constraint)"
+    status: "NATIVE — outcome_id is unique in DB"
+  duplicate_prevention:
+    mechanism: "IdempotencyGuard — checks evidence before processing"
+    status: "IMPLEMENTED in FDA2"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RETRY SEMANTICS
+# ══════════════════════════════════════════════════════════════════════════════
+
+retry:
+  canonical_owner: "app/execution/recovery.py"
+  levels:
+    - level: 1
+      name: "Retry"
+      max_attempts: 3
+      behavior: "Retry same operation with exponential backoff (1s, 2s, 4s)"
+    - level: 2
+      name: "Alternative implementation"
+      behavior: "Switch to different field mapping"
+    - level: 3
+      name: "Alternative workflow"
+      behavior: "Different approach to same outcome"
+    - level: 4
+      name: "Partial completion"
+      behavior: "Preserve completed work, report partial success"
+    - level: 5
+      name: "Human assistance"
+      behavior: "Only now ask the user — NOT IMPLEMENTED"
+  retryable: ["create_object", "update_object", "delete_object"]
+  non_retryable: ["irreversible_actions"]
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FAILURE SEMANTICS
+# ══════════════════════════════════════════════════════════════════════════════
+
+failure:
+  explicit_failure:
+    - "Outcome.stage = 'failed' when recovery exhausted"
+    - "Outcome.last_error records the error message"
+    - "Outcome.error_count tracks total failures"
+    - "Recovery history records each attempt"
+  silent_failure_prevention:
+    - "process_event() wraps entire cycle in try/except"
+    - "FAILURE trace recorded in DecisionTrace if cycle fails"
+    - "Evidence must be created before any signal proceeds"
+  partial_execution:
+    - "Individual step results are stored in Outcome.steps"
+    - "Stage is 'failed' not 'completed' when partial"
+    - "Recovery history is preserved per-step"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LEGACY ROUTE CONTAINMENT
+# ══════════════════════════════════════════════════════════════════════════════
+
+legacy_containment:
+  - path: "app/execution_runtime/"
+    status: "ARCHIVED — files deleted, compatibility stub only"
+    enforcement: "Test test_archived_modules_are_not_importable_by_production"
+  - path: "app/object_composer/"
+    status: "ARCHIVED — directory deleted"
+    enforcement: "FDA1 regression test"
+  - path: "app/object_workspace/"
+    status: "ARCHIVED — directory deleted"
+    enforcement: "FDA1 regression test"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FUTURE FDA EXTENSION POINTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+extension_points:
+  fda3_memory:
+    interface: "app/intelligence/observation.py"
+    description: "Observation lifecycle is the canonical observation mechanism"
+    status: "READY for FDA3"
+  fda4_identity:
+    interface: "app/core/identity/resolver.py"
+    description: "Identity resolution is the canonical identity path"
+    status: "READY for FDA4"
+  fda5_integration:
+    interface: "app/integration/gmail_ingest.py"
+    description: "Integration ingestion is the canonical integration path"
+    status: "READY for FDA5"
