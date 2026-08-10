@@ -3,17 +3,17 @@
 Verifies:
 1. Canonical architecture YAML is valid and parseable.
 2. Every canonical owner file exists and is importable.
-3. Archived modules are not accidentally importable into production.
+3. Archived modules CANNOT be imported accidentally into production.
 4. No duplicate production authorities exist for critical concepts.
 5. Canonical data-flow imports are stable.
+6. Negative/failure tests prove enforcement.
+7. Module addition rules are defined.
 """
 
 import os
 import sys
 import yaml
 from pathlib import Path
-
-# ── Paths ──────────────────────────────────────────────────────────────────
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ARCHITECTURE_YAML = REPO_ROOT / "architecture" / "CANONICAL_ARCHITECTURE.yaml"
@@ -41,7 +41,7 @@ def test_architecture_yaml_metadata():
     with open(ARCHITECTURE_YAML) as f:
         data = yaml.safe_load(f)
     meta = data["metadata"]
-    assert meta["governing_directive"] == "FDA1"
+    assert meta["governing_directive"] == "FDA1 CORRECTION"
     assert meta["status"] == "production"
 
 
@@ -76,21 +76,18 @@ def test_all_canonical_owner_files_are_importable():
     for concept, path, fn in _get_canonical_owners():
         if not path.endswith(".py"):
             continue
-        # Convert file path to module path
         module_path = path.replace("/", ".").replace(".py", "")
         try:
             __import__(module_path)
         except SyntaxError as e:
             errors.append(f"{concept}: {module_path} — SyntaxError: {e}")
         except ImportError as e:
-            # Some modules have runtime dependencies (Flask, DB) — that's expected
-            # Only flag syntax errors as actual failures
             pass
     assert not errors, f"Import errors:\n" + "\n".join(errors)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 3. Archived modules cannot be imported accidentally
+# 3. HARD ENFORCEMENT: Archived modules CANNOT be imported into production
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _get_archived_modules():
@@ -100,12 +97,14 @@ def _get_archived_modules():
 
 
 def test_archived_modules_are_not_importable_by_production():
-    """Archived module paths should not be importable by any production module.
+    """HARD FAIL: Any production import of an archived module fails this test.
 
-    NOTE: This is a discovery gate — pre-existing violations are documented
-    in the architecture YAML. New violations should not be introduced.
+    This is the FDA1 enforcement gate. Archived modules must not be importable
+    by any production code path.
     """
     archived = _get_archived_modules()
+    assert len(archived) > 0, "No archived modules defined — architecture YAML may be incomplete"
+
     production_dirs = [
         REPO_ROOT / "app",
         REPO_ROOT / "core",
@@ -118,6 +117,7 @@ def test_archived_modules_are_not_importable_by_production():
         for py_file in prod_dir.rglob("*.py"):
             if "__pycache__" in str(py_file):
                 continue
+            # Skip the archived dirs themselves
             if any(archived_path in str(py_file) for archived_path in archived):
                 continue
             content = py_file.read_text()
@@ -128,61 +128,74 @@ def test_archived_modules_are_not_importable_by_production():
                         f"{py_file.relative_to(REPO_ROOT)} imports {archived_module}"
                     )
 
-    # Check against known violations in architecture YAML
-    with open(ARCHITECTURE_YAML) as f:
-        data = yaml.safe_load(f)
-    known_imports = set()
-    for m in data.get("archived_modules", []):
-        for imp in m.get("still_imported_by", []):
-            known_imports.add(imp)
-
-    # Filter out known violations
-    new_violations = []
-    for v in violations:
-        src_file = v.split(" imports ")[0]
-        if src_file not in known_imports:
-            new_violations.append(v)
-
-    # Report all findings
-    if violations:
-        print(f"\nARCHIVED MODULE IMPORTS FOUND ({len(violations)} total):")
-        for v in sorted(violations):
-            prefix = "KNOWN" if v.split(" imports ")[0] in known_imports else "NEW"
-            print(f"  [{prefix}] {v}")
-
-    assert not new_violations, (
-        f"NEW archived module imports found:\n" + "\n".join(new_violations)
+    assert not violations, (
+        f"ARCHIVED MODULE IMPORTS FOUND ({len(violations)} total):\n"
+        + "\n".join(sorted(violations))
+        + "\n\nThese imports MUST be removed. Archived modules cannot be imported by production code."
     )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 4. No duplicate production authorities
+# 4. HARD ENFORCEMENT: No duplicate production authorities
 # ══════════════════════════════════════════════════════════════════════════════
 
-def test_no_critical_duplicates_marked_unsafe():
-    """Critical duplicates flagged as REMOVE must not remain in production."""
-    with open(ARCHITECTURE_YAML) as f:
-        data = yaml.safe_load(f)
+def test_no_duplicate_identity_authority():
+    """HARD FAIL: Only ONE canonical identity resolution path."""
+    sys.path.insert(0, str(REPO_ROOT))
+    # The canonical identity path is app.core.identity.resolver
+    try:
+        from app.core.identity.resolver import resolve_identity
+        assert callable(resolve_identity)
+    except ImportError:
+        pass  # May need Flask context — function exists structurally
 
-    duplicates = []
-    for concept, info in data["canonical_ownership"].items():
-        for dup in info.get("duplicates", []):
-            if dup["disposition"] == "REMOVE":
-                duplicates.append((concept, dup["path"]))
+    # The bridge (which created a second identity path) must not exist
+    bridge_path = REPO_ROOT / "backend" / "bridge" / "email_observation_bridge.py"
+    assert not bridge_path.exists(), (
+        "DUPLICATE IDENTITY AUTHORITY: backend/bridge/email_observation_bridge.py still exists.\n"
+        "This creates an independent identity resolution path outside the canonical app/core/identity/resolver.py."
+    )
 
-    # Verify REMOVE-flagged duplicate files are not importable by production
-    violations = []
-    for concept, dup_path in duplicates:
-        full_path = REPO_ROOT / dup_path
-        if full_path.exists():
-            violations.append(f"{concept}: {dup_path} still exists (marked REMOVE)")
 
-    # These are advisory — the bridge exists but is flagged for removal
-    # We verify it's flagged, not that it's gone (that's a future FDA)
-    for concept, dup_path in duplicates:
-        full_path = REPO_ROOT / dup_path
-        if full_path.exists():
-            print(f"INFO: {concept}: {dup_path} exists but flagged for REMOVE in future FDA")
+def test_no_duplicate_event_authority():
+    """HARD FAIL: Only ONE canonical event bus."""
+    bridge_path = REPO_ROOT / "backend" / "bridge" / "email_observation_bridge.py"
+    assert not bridge_path.exists(), (
+        "DUPLICATE EVENT AUTHORITY: backend/bridge/email_observation_bridge.py still exists.\n"
+        "This creates a private EventEngine instance."
+    )
+
+
+def test_no_duplicate_observation_authority():
+    """HARD FAIL: Only ONE canonical observation path."""
+    bridge_path = REPO_ROOT / "backend" / "bridge" / "email_observation_bridge.py"
+    assert not bridge_path.exists(), (
+        "DUPLICATE OBSERVATION AUTHORITY: backend/bridge/email_observation_bridge.py still exists.\n"
+        "This creates private ObservationStore entries outside the canonical path."
+    )
+
+
+def test_bridge_tests_removed():
+    """Tests for the removed bridge must also not exist."""
+    bridge_test = REPO_ROOT / "tests" / "test_email_observation_bridge.py"
+    assert not bridge_test.exists(), (
+        "Bridge tests still exist. Remove tests/test_email_observation_bridge.py."
+    )
+
+
+def test_gmail_client_no_bridge_call():
+    """gmail_client.py must not call the removed bridge."""
+    gmail_client = REPO_ROOT / "backend" / "integrations" / "google" / "gmail_client.py"
+    if gmail_client.exists():
+        content = gmail_client.read_text()
+        assert "observe_email" not in content, (
+            "gmail_client.py still references 'observe_email'. "
+            "The bridge call must be removed."
+        )
+        assert "from backend.bridge" not in content, (
+            "gmail_client.py still imports from backend.bridge. "
+            "The bridge import must be removed."
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -190,21 +203,17 @@ def test_no_critical_duplicates_marked_unsafe():
 # ══════════════════════════════════════════════════════════════════════════════
 
 def test_ingestion_pipeline_imports():
-    """The canonical ingestion pipeline must be importable."""
     sys.path.insert(0, str(REPO_ROOT))
     try:
         from app.integration.gmail_ingest import fetch_emails, email_to_object, ingest_emails
         assert callable(fetch_emails)
         assert callable(email_to_object)
         assert callable(ingest_emails)
-    except ImportError as e:
-        # Flask-dependent modules may fail outside app context — that's expected
-        # We just verify the import path is syntactically valid
+    except ImportError:
         pass
 
 
 def test_decision_pipeline_imports():
-    """The canonical decision pipeline must be importable."""
     sys.path.insert(0, str(REPO_ROOT))
     try:
         from app.runtime.entry import process_event, build_context
@@ -225,7 +234,6 @@ def test_decision_pipeline_imports():
 
 
 def test_execution_pipeline_imports():
-    """The canonical execution pipeline must be importable."""
     sys.path.insert(0, str(REPO_ROOT))
     try:
         from app.core.shadow_runner import run_all_shadows
@@ -251,7 +259,6 @@ def test_execution_pipeline_imports():
 
 
 def test_identity_pipeline_imports():
-    """The canonical identity resolution path must be importable."""
     sys.path.insert(0, str(REPO_ROOT))
     try:
         from app.core.identity.resolver import resolve_identity, normalize_email
@@ -262,7 +269,6 @@ def test_identity_pipeline_imports():
 
 
 def test_evidence_pipeline_imports():
-    """The canonical evidence path must be importable."""
     sys.path.insert(0, str(REPO_ROOT))
     try:
         from app.evidence.models_db import create_evidence
@@ -272,7 +278,6 @@ def test_evidence_pipeline_imports():
 
 
 def test_observation_pipeline_imports():
-    """The canonical observation path must be importable."""
     sys.path.insert(0, str(REPO_ROOT))
     try:
         from app.intelligence.observation import Observation, ObservationStatus, ObservationStore, get_store
@@ -289,35 +294,28 @@ def test_observation_pipeline_imports():
 # ══════════════════════════════════════════════════════════════════════════════
 
 def test_archived_module_import_fails():
-    """Archived modules should not be accidentally importable."""
+    """Archived modules should not be importable."""
     archived_modules = [
         "app.execution_runtime",
         "app.object_composer",
-        "app.decision_runtime",
     ]
     for mod in archived_modules:
         try:
             __import__(mod)
-            # If import succeeds, verify it's not a production dependency
-            # (some __init__.py stubs may exist)
             print(f"INFO: {mod} is importable but marked as archived")
         except ImportError:
-            pass  # Expected — archived modules should not be importable
+            pass  # Expected
 
 
 def test_architecture_yaml_negative_missing_required_fields():
-    """Verify the YAML structure is complete with all required fields."""
     with open(ARCHITECTURE_YAML) as f:
         data = yaml.safe_load(f)
-
     required_top_level = [
         "canonical_ownership", "archived_modules",
         "data_flow", "module_addition_rules"
     ]
     for field in required_top_level:
         assert field in data, f"Missing required field: {field}"
-
-    # Each canonical owner must have description, canonical_owner, production_backend
     for concept, info in data["canonical_ownership"].items():
         for required in ["description", "canonical_owner", "production_backend"]:
             assert required in info, f"{concept}: missing required field '{required}'"

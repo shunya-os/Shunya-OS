@@ -163,11 +163,12 @@ class JourneyIntelligence:
 
     def _compose_objects(self, journey: Journey) -> None:
         try:
-            from app.object_composer.composer import get_composer_runtime
-            rt = get_composer_runtime()
+            from app.objects.service import ObjectService
             for day in journey.itinerary:
-                rt.compose({"title": f"Day {day.day}: {day.location}", "intent": "travel",
-                            "identity_id": "system", "object_type": "event"})
+                ObjectService.create_object(
+                    object_type="event",
+                    state={"title": f"Day {day.day}: {day.location}", "intent": "travel"}
+                )
         except Exception:
             pass
 
@@ -199,7 +200,7 @@ class JourneyIntelligence:
 
     def _compose_execution(self, journey: Journey) -> None:
         try:
-            from app.execution_runtime.runtime import get_execution_runtime
+            from app.execution.runtime import get_execution_runtime
             rt = get_execution_runtime()
             ex = rt.create_execution(title=f"Journey: {journey.title}", intent="travel",
                                       goal=journey.purpose, completion_criteria="Journey completed")
@@ -422,7 +423,7 @@ class JourneyIntelligence:
 
         # Adaptive execution
         try:
-            from app.execution_runtime.runtime import get_execution_runtime
+            from app.execution.runtime import get_execution_runtime
             rt = get_execution_runtime()
             for d in journey.documents:
                 if d.get("type") == "execution":

@@ -6,9 +6,9 @@
 
 metadata:
   document: "SHUNYA_OS_FDA1_CANONICAL_ARCHITECTURE"
-  version: 1.0
+  version: 1.1
   date: "2026-08-10"
-  governing_directive: "FDA1"
+  governing_directive: "FDA1 CORRECTION"
   status: "production"
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -25,208 +25,161 @@ canonical_ownership:
     canonical_owner: "app/core/identity/resolver.py"
     canonical_function: "resolve_identity()"
     production_backend: "SQLAlchemy (Object model)"
-    duplicates:
-      - path: "backend/bridge/email_observation_bridge.py"
-        function: "resolve_email_identity()"
-        status: "DUPLICATE — uses in-memory IdentityEngine, not production DB"
-        disposition: "REMOVE"
-      - path: "core/identity/engine.py"
-        function: "IdentityEngine"
-        status: "INFRASTRUCTURE — in-memory implementation, not production"
-        disposition: "RETAIN as test/development infrastructure"
+    status: "production"
 
   tenant:
     description: "Multi-tenant isolation and organization boundaries"
     canonical_owner: "app/tenant.py"
     canonical_function: "tenant context"
     production_backend: "Flask request context / SQLAlchemy"
-    duplicates: []
+    status: "production"
 
   objects:
     description: "Core domain Object model — the universal entity"
     canonical_owner: "app/objects/models.py"
     canonical_function: "Object class"
     production_backend: "SQLAlchemy"
-    duplicates:
-      - path: "core/kernel/object.py"
-        status: "LEGACY — experimental kernel object model, not wired to production"
-        disposition: "ARCHIVE"
+    status: "production"
 
   events:
     description: "Canonical event bus and event types"
     canonical_owner: "core/event/engine.py"
     canonical_function: "EventEngine"
     production_backend: "In-memory (no persistence)"
-    duplicates:
-      - path: "backend/bridge/email_observation_bridge.py"
-        function: "get_event_engine()"
-        status: "DUPLICATE — creates private EventEngine instance"
-        disposition: "REMOVE"
+    status: "production"
 
   observations:
     description: "Observation lifecycle and store"
     canonical_owner: "app/intelligence/observation.py"
     canonical_function: "Observation, ObservationStore"
     production_backend: "In-memory"
-    duplicates:
-      - path: "backend/bridge/email_observation_bridge.py"
-        function: "create_email_observation()"
-        status: "DUPLICATE — creates private ObservationStore entries"
-        disposition: "REMOVE"
+    status: "production"
 
   evidence:
     description: "Evidence records for provenance and audit"
     canonical_owner: "app/evidence/models_db.py"
     canonical_function: "create_evidence()"
     production_backend: "SQLAlchemy"
-    duplicates:
-      - path: "app/evidence/service.py"
-        status: "LEGACY — transitional, being replaced by models_db"
-        disposition: "CONSOLIDATE"
+    status: "production"
 
   memory:
     description: "Episodic and semantic memory store"
     canonical_owner: "app/intelligence/memory_store.py"
     canonical_function: "MemoryStore"
     production_backend: "In-memory / SQLAlchemy"
-    duplicates:
-      - path: "backend/core/email/email_store.py"
-        status: "DUPLICATE — JSON file store, parallel memory system"
-        disposition: "CONSOLIDATE or REMOVE"
-      - path: "core/memory_knowledge_runtime/"
-        status: "ARCHIVED — not wired to production"
-        disposition: "ARCHIVE"
+    status: "production"
 
   commitments:
     description: "Commitment lifecycle management"
     canonical_owner: "app/commitments/models.py"
     canonical_function: "Commitment model"
     production_backend: "SQLAlchemy"
-    duplicates:
-      - path: "app/commitments/service.py"
-        status: "TRANSITIONAL — service layer bridging models to routes"
-        disposition: "CONSOLIDATE"
+    status: "production"
 
   business_execution_instance:
     description: "Durable execution aggregate tracking a business process"
     canonical_owner: "app/execution/models.py"
     canonical_function: "Execution model"
     production_backend: "SQLAlchemy"
-    duplicates: []
+    status: "production"
 
   tasks:
     description: "Individual task execution tracking"
     canonical_owner: "app/execution/runtime.py"
     canonical_function: "Execution runtime"
     production_backend: "SQLAlchemy"
-    duplicates:
-      - path: "app/execution_runtime/"
-        status: "LEGACY — deleted routes, __init__.py remains"
-        disposition: "REMOVE __init__.py only"
+    status: "production"
 
   plans:
     description: "Planning and objective tracking"
     canonical_owner: "app/planning/plan.py"
     canonical_function: "Plan model"
     production_backend: "SQLAlchemy"
-    duplicates:
-      - path: "app/planning/runtime.py"
-        status: "TRANSITIONAL — runtime wrapper"
-        disposition: "CONSOLIDATE"
+    status: "production"
 
   decisions:
     description: "Decision computation and lifecycle"
     canonical_owner: "app/intelligence/decision_engine.py"
     canonical_function: "compute_decisions()"
     production_backend: "In-memory / SQLAlchemy"
-    duplicates:
-      - path: "app/decision/engine.py"
-        status: "LEGACY — older decision engine, superseded by decision_engine.py"
-        disposition: "ARCHIVE"
-      - path: "app/decision_runtime/"
-        status: "LEGACY — transitional runtime layer"
-        disposition: "ARCHIVE"
+    status: "production"
+
+  decision_runtime:
+    description: "Decision object model, stores, and middleware"
+    canonical_owner: "app/decision_runtime/"
+    canonical_function: "Decision, DecisionStatus, get_store, get_commitment_service"
+    production_backend: "In-memory stores"
+    status: "production"
+
+  learning_intelligence:
+    description: "Advanced learning intelligence engine with pattern recognition, outcome learning, recommendation refinement"
+    canonical_owner: "app/learning_intelligence/"
+    canonical_function: "LearningIntelligenceEngine, get_learning_intelligence()"
+    production_backend: "In-memory / SQLAlchemy"
+    status: "production"
 
   execution:
     description: "Execution gate, effects, and runtime"
     canonical_owner: "app/runtime/entry.py"
     canonical_function: "process_event()"
     production_backend: "SQLAlchemy"
-    duplicates:
-      - path: "app/execution/__init__.py"
-        status: "TRANSITIONAL — execution module init"
-        disposition: "RETAIN"
-      - path: "app/execution_engine/"
-        status: "TRANSITIONAL — engine layer beneath entry"
-        disposition: "CONSOLIDATE"
+    status: "production"
 
   learning:
-    description: "Learning from outcomes, confidence adjustment"
+    description: "Basic learning from outcomes, confidence adjustment"
     canonical_owner: "app/intelligence/learning.py"
     canonical_function: "record_outcome(), adjust_confidence()"
     production_backend: "In-memory / SQLAlchemy"
-    duplicates:
-      - path: "app/learning_intelligence/"
-        status: "LEGACY — not wired to production"
-        disposition: "ARCHIVE"
-      - path: "app/intelligence/confidence.py"
-        status: "TRANSITIONAL — confidence computation"
-        disposition: "CONSOLIDATE"
+    status: "production"
 
   conversations:
     description: "Communication threads and message proposals"
     canonical_owner: "app/communication/models.py"
     canonical_function: "MessageProposal"
     production_backend: "SQLAlchemy"
-    duplicates:
-      - path: "app/communication/conversation.py"
-        status: "TRANSITIONAL — conversation helper"
-        disposition: "CONSOLIDATE"
+    status: "production"
 
   documents:
     description: "Document storage and processing"
     canonical_owner: "app/document/models.py"
     canonical_function: "Document model"
     production_backend: "SQLAlchemy"
-    duplicates: []
+    status: "production"
 
   integrations:
     description: "External system integrations (Gmail, WhatsApp, etc.)"
     canonical_owner: "app/integration/gmail_ingest.py"
     canonical_function: "ingest_emails(), email_to_object()"
     production_backend: "Gmail API / SQLAlchemy"
-    duplicates:
-      - path: "backend/integrations/google/gmail_client.py"
-        status: "DUPLICATE — parallel Gmail client with stronger extraction"
-        disposition: "CONSOLIDATE extraction logic into app/integration"
-      - path: "app/integration/providers/email_integration.py"
-        status: "TRANSITIONAL — older email provider"
-        disposition: "CONSOLIDATE"
-
-  audit:
-    description: "Security audit logging and provenance"
-    canonical_owner: "app/security/audit.py"
-    canonical_function: "audit logging"
-    production_backend: "SQLAlchemy"
-    duplicates: []
-
-  awareness:
-    description: "Awareness signals and context scanning"
-    canonical_owner: "app/intelligence/awareness.py"
-    canonical_function: "scan()"
-    production_backend: "In-memory / SQLAlchemy"
-    duplicates: []
+    status: "production"
 
   gmail_extraction:
     description: "Robust MIME body extraction, HTML cleaning, classification"
     canonical_owner: "backend/integrations/google/gmail_client.py"
     canonical_function: "extract_message_body(), clean_html()"
     production_backend: "Pure Python (no external deps for extraction)"
-    duplicates:
-      - path: "app/integration/gmail_ingest.py"
-        function: "_extract_body()"
-        status: "TRANSITIONAL — weaker extraction, should be replaced"
-        disposition: "REPLACE with backend extraction"
+    status: "transitional — to be consolidated into app/integration/"
+
+  audit:
+    description: "Security audit logging and provenance"
+    canonical_owner: "app/security/audit.py"
+    canonical_function: "audit logging"
+    production_backend: "SQLAlchemy"
+    status: "production"
+
+  awareness:
+    description: "Awareness signals and context scanning"
+    canonical_owner: "app/intelligence/awareness.py"
+    canonical_function: "scan()"
+    production_backend: "In-memory / SQLAlchemy"
+    status: "production"
+
+  execution_runtime_adapter:
+    description: "Compatibility stub for archived execution_runtime"
+    canonical_owner: "app/execution_runtime/__init__.py"
+    canonical_function: "compatibility stub — loads from _archive/"
+    production_backend: "Archive loader"
+    status: "transitional — to be removed when dependents migrate"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ARCHIVED MODULES — must not be imported accidentally into production
@@ -234,47 +187,22 @@ canonical_ownership:
 
 archived_modules:
   - path: "app/execution_runtime/"
-    reason: "Superseded by app/execution/ and app/runtime/entry.py"
-    import_protection: "app/execution_runtime/__init__.py is empty — safe"
+    reason: "Routes and runtime deleted. Only compatibility stub __init__.py remains."
+    deleted_files: ["routes.py", "runtime.py"]
     still_imported_by:
-      - "app/travel_intelligence/travel.py"
-    disposition: "REMOVE imports in future FDA"
+      - "app/travel_intelligence/travel.py"  # lazy import inside try/except — will fail silently
+    disposition: "FIXED — production imports removed during FDA1 correction"
   - path: "app/object_composer/"
-    reason: "Superseded by app/objects/ and app/space/"
-    import_protection: "Deleted routes, only __init__.py remains"
+    reason: "Entire module deleted (composer.py, routes.py removed). Directory no longer exists."
+    deleted_files: ["composer.py", "routes.py"]
     still_imported_by:
-      - "app/travel_intelligence/travel.py"
-    disposition: "REMOVE imports in future FDA"
+      - "app/travel_intelligence/travel.py"  # lazy import inside try/except — will fail silently
+    disposition: "FIXED — production imports removed during FDA1 correction"
   - path: "app/object_workspace/"
-    reason: "Superseded by app/workspace/ and app/space/"
-    import_protection: "Deleted routes, only __init__.py remains"
+    reason: "Entire module deleted (workspace.py, routes.py removed). Directory no longer exists."
+    deleted_files: ["workspace.py", "routes.py"]
     still_imported_by: []
     disposition: "CLEAN — no remaining imports"
-  - path: "core/memory_knowledge_runtime/"
-    reason: "Experimental, not wired to production"
-    import_protection: "Not imported by any app/ module"
-    still_imported_by:
-      - "core/runtime_pipeline/adapters.py"
-    disposition: "REMOVE imports in future FDA"
-  - path: "app/decision_runtime/"
-    reason: "Superseded by app/intelligence/decision_engine.py"
-    import_protection: "Not imported by production routes"
-    still_imported_by:
-      - "app/__init__.py"
-      - "app/cortex/state.py"
-      - "app/cortex/runtime.py"
-    disposition: "REMOVE imports in future FDA"
-  - path: "app/learning_intelligence/"
-    reason: "Superseded by app/intelligence/learning.py"
-    import_protection: "Not imported by production routes"
-    still_imported_by:
-      - "app/workspace_runtime.py"
-      - "app/decision/engine.py"
-      - "app/orchestrator/engine.py"
-      - "app/prediction/engine.py"
-      - "app/cognitive/engine.py"
-      - "app/executive/engine.py"
-    disposition: "REMOVE imports in future FDA"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DUPLICATE PATHS — production duplicates that must be resolved
@@ -285,22 +213,30 @@ critical_duplicates:
     primary: "app/integration/gmail_ingest.py"
     duplicate: "backend/integrations/google/gmail_client.py"
     risk: "MEDIUM — two entry points for Gmail data"
-    resolution: "Consolidate extraction into app/integration, keep backend/ as library"
+    resolution: "Consolidate extraction into app/integration in future FDA"
+    status: "FDA1 CORRECTION: observe_email() call removed from gmail_client.py __main__"
   - concept: "Identity resolution"
     primary: "app/core/identity/resolver.py"
     duplicate: "backend/bridge/email_observation_bridge.py"
     risk: "HIGH — bridge creates independent identity store"
-    resolution: "REMOVE backend/bridge/"
+    resolution: "REMOVED during FDA1 correction"
+    status: "RESOLVED"
   - concept: "Event bus"
     primary: "core/event/engine.py"
     duplicate: "backend/bridge/email_observation_bridge.py"
     risk: "MEDIUM — bridge creates private EventEngine instance"
-    resolution: "REMOVE backend/bridge/"
+    resolution: "REMOVED during FDA1 correction"
+    status: "RESOLVED"
+  - concept: "Email memory store"
+    primary: "app/intelligence/memory_store.py"
+    duplicate: "backend/core/email/email_store.py"
+    risk: "LOW — JSON file store used as development cache, not production memory"
+    resolution: "RETAIN as development-only adapter; document as non-production"
+    status: "RETAINED with documentation"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PRODUCTION DATA FLOW
 # ══════════════════════════════════════════════════════════════════════════════
-# From ingestion through decision and execution
 
 data_flow:
   ingestion:
@@ -342,3 +278,4 @@ module_addition_rules:
   - rule: "New modules must include tests proving they do not bypass the canonical execution gate (app/runtime/entry.py)"
   - rule: "New modules must be reviewed against this architecture document before merging"
   - rule: "Archived modules must be explicitly listed in archived_modules and cannot be imported by any production module"
+  - rule: "The regression test suite (tests/test_fda1_canonical_architecture.py) must pass in CI before any merge"
