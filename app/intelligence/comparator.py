@@ -18,7 +18,7 @@ def extract_decision_confidence(main_decision: dict) -> float:
     return mapping.get(conf, 0.60)
 
 
-def extract_shadow_signals(shadow_outputs: list) -> dict:
+def extract_shadow_signals(shadow_outputs: list, context: dict = None) -> dict:
     """Extract meaningful signals from shadow outputs.
 
     Returns:
@@ -50,6 +50,9 @@ def extract_shadow_signals(shadow_outputs: list) -> dict:
                     priorities = [i.get("priority", 0.5) for i in items if i.get("priority") is not None]
                     if priorities:
                         result["cortex_priority"] = max(priorities)
+        # Boost if context shows this object is a priority
+        if context and context.get("entity_id"):
+            result["cortex_priority"] = max(result["cortex_priority"], 0.65)
             if system == "kernel" and o.get("module") == "state_machine":
                 if o.get("state"):
                     result["kernel_state_valid"] = True
@@ -63,7 +66,7 @@ def extract_shadow_signals(shadow_outputs: list) -> dict:
     return result
 
 
-def compare(main_decision: dict, shadow_outputs: list) -> dict:
+def compare(main_decision: dict, shadow_outputs: list, context: dict = None) -> dict:
     """Compare main decision with shadow outputs.
 
     Args:
@@ -81,7 +84,7 @@ def compare(main_decision: dict, shadow_outputs: list) -> dict:
             enhanced_confidence: float
     """
     main_conf = extract_decision_confidence(main_decision)
-    shadow_sigs = extract_shadow_signals(shadow_outputs)
+    shadow_sigs = extract_shadow_signals(shadow_outputs, context=context)
 
     # Compute shadow confidence from cortex priority and agreement
     shadow_conf = (

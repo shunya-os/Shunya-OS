@@ -33,6 +33,9 @@ class DecisionTrace(db.Model):
     source = db.Column(db.String(50), default="rule")
     confidence = db.Column(db.Float, default=0.5)
     shadow_agreement_pct = db.Column(db.Float, default=0.0)
+    execution_status = db.Column(db.String(20), nullable=True)
+    execution_output = db.Column(db.JSON, nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=now)
 
     def to_dict(self) -> dict:
@@ -46,6 +49,9 @@ class DecisionTrace(db.Model):
             "source": self.source or "rule",
             "confidence": self.confidence or 0.5,
             "shadow_agreement_pct": self.shadow_agreement_pct or 0.0,
+            "execution_status": self.execution_status,
+            "execution_output": self.execution_output or {},
+            "error_message": self.error_message,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -58,6 +64,9 @@ def record_decision_trace(
     final_decision: dict,
     source: str = "rule",
     confidence: float = 0.5,
+    execution_status: str = None,
+    execution_output: dict = None,
+    error_message: str = None,
 ) -> DecisionTrace:
     """Record a decision trace with full context."""
     trace = DecisionTrace(
@@ -69,6 +78,9 @@ def record_decision_trace(
         source=source,
         confidence=confidence,
         shadow_agreement_pct=comparison_result.get("shadow_confidence", 0.0) * 100,
+        execution_status=execution_status,
+        execution_output=execution_output or {},
+        error_message=error_message,
     )
     get_session().add(trace)
     get_session().flush()

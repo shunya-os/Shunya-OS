@@ -44,7 +44,7 @@ def get_shadow_systems() -> list:
 # REAL shadow runners — use actual functions from each module
 # ---------------------------------------------------------------------------
 
-def run_shadow_cortex() -> dict:
+def run_shadow_cortex(context: dict = None) -> dict:
     """Run the cortex AttentionEngine in shadow mode.
 
     Uses the REAL get_engine() and AttentionEngine.get_attention_queue().
@@ -84,7 +84,7 @@ def run_shadow_cortex() -> dict:
     return result
 
 
-def run_shadow_planning() -> dict:
+def run_shadow_planning(context: dict = None) -> dict:
     """Run the planning PlanningService in shadow mode."""
     result = {"system": "planning", "status": "shadow", "shadow_ok": False, "outputs": []}
     try:
@@ -105,7 +105,7 @@ def run_shadow_planning() -> dict:
     return result
 
 
-def run_shadow_kernel() -> dict:
+def run_shadow_kernel(context: dict = None) -> dict:
     """Run the kernel StateMachine in shadow mode."""
     result = {"system": "kernel", "status": "shadow", "shadow_ok": False, "outputs": []}
     try:
@@ -122,7 +122,7 @@ def run_shadow_kernel() -> dict:
     return result
 
 
-def run_shadow_authz() -> dict:
+def run_shadow_authz(context: dict = None) -> dict:
     """Run the authz RBAC system in shadow mode."""
     result = {"system": "authz", "status": "shadow", "shadow_ok": False, "outputs": []}
     try:
@@ -139,7 +139,7 @@ def run_shadow_authz() -> dict:
     return result
 
 
-def run_shadow_automation() -> dict:
+def run_shadow_automation(context: dict = None) -> dict:
     """Run the automation system in shadow mode."""
     result = {"system": "automation", "status": "shadow", "shadow_ok": False, "outputs": []}
     try:
@@ -156,7 +156,7 @@ def run_shadow_automation() -> dict:
     return result
 
 
-def run_shadow_onboarding() -> dict:
+def run_shadow_onboarding(context: dict = None) -> dict:
     """Run the onboarding system in shadow mode."""
     result = {"system": "onboarding", "status": "shadow", "shadow_ok": False, "outputs": []}
     try:
@@ -174,7 +174,7 @@ def run_shadow_onboarding() -> dict:
     return result
 
 
-def run_all_shadows() -> list:
+def run_all_shadows(context: dict = None) -> list:
     """Execute all shadow-mode systems and return their outputs."""
     shadows = []
     for system in get_shadow_systems():
@@ -190,7 +190,7 @@ def run_all_shadows() -> list:
             }
             fn = runner.get(name)
             if fn:
-                result = fn()
+                result = fn(context=context)
                 shadows.append(result)
                 if result.get("shadow_ok"):
                     logger.info("Shadow OK: %s", name)

@@ -152,15 +152,24 @@ def compute_decisions() -> list:
             logger.debug("Decision engine: error processing signal: %s", e)
             continue
 
-    # PHASE 3.2: Shadow influence — augment decisions with shadow confidence
+    # PHASE 3.3: Context-aware shadow influence + mandatory decision trace
     try:
         from app.core.shadow_runner import run_all_shadows
         from app.intelligence.comparator import compare
-        shadow_outputs = run_all_shadows()
+        from app.evidence.decision_trace import record_decision_trace
 
         for decision in decisions:
             try:
-                comparison = compare(decision, shadow_outputs)
+                # Build context for this specific decision
+                entity_id = decision.get("entity_id")
+                ctx = _get_entity_context(entity_id) if entity_id else {}
+
+                # Run shadows with context
+                shadow_outputs = run_all_shadows(context=ctx)
+
+                # Compare with context
+                comparison = compare(decision, shadow_outputs, context=ctx)
+
                 decision["source"] = decision.get("source", "rule")
                 decision["confidence"] = comparison["enhanced_confidence"]
                 decision["shadow_confidence"] = comparison["shadow_confidence"]
@@ -170,10 +179,36 @@ def compute_decisions() -> list:
                 # Augment priority based on cortex influence
                 if comparison["shadow_signals"]["cortex_priority"] > 0.7:
                     decision["priority_score"] = min(100, decision.get("priority_score", 0) + 10)
+
+                # MANDATORY: Record decision trace (no escape path)
+                record_decision_trace(
+                    object_id=entity_id,
+                    main_decision=dict(decision),
+                    shadow_outputs=shadow_outputs,
+                    comparison_result=comparison,
+                    final_decision=dict(decision),
+                    source=decision.get("source", "rule"),
+                    confidence=comparison["enhanced_confidence"],
+                )
             except Exception as e:
-                logger.debug("Decision shadow augmentation failed: %s", e)
+                logger.warning("Decision trace failed for entity %s: %s", decision.get("entity_id"), e)
+                # Still record a minimal trace on failure
+                try:
+                    record_decision_trace(
+                        object_id=decision.get("entity_id"),
+                        main_decision=dict(decision),
+                        shadow_outputs=[],
+                        comparison_result={"error": str(e)},
+                        final_decision=dict(decision),
+                        source="error",
+                        confidence=0.0,
+                        execution_status="failed",
+                        error_message=str(e),
+                    )
+                except Exception:
+                    pass
     except Exception as e:
-        logger.debug("Shadow comparison failed: %s", e)
+        logger.warning("Shadow comparison system failed: %s", e)
 
     # Sort by priority_score descending
     decisions.sort(key=lambda d: -d.get("priority_score", 0))
