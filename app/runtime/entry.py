@@ -138,12 +138,18 @@ def _make_decision(awareness: dict, event_data: dict) -> dict:
 def _execute(decision: dict, event_data: dict) -> dict:
     """Execute the decision.
 
-    For now, runs the execution loop cycle.
-    In Phase 5, this will trigger specific actions.
+    Opens the execution gate, runs the loop, closes the gate.
     """
     try:
+        from app.execution_engine.engine import open_execution_gate, close_execution_gate
         from app.runtime.loop import run_cycle
-        summary = run_cycle()
+
+        open_execution_gate()
+        try:
+            summary = run_cycle()
+        finally:
+            close_execution_gate()
+
         return {
             "status": summary.get("status", "completed"),
             "actions_taken": summary.get("actions_taken", 0),

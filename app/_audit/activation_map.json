@@ -13,37 +13,37 @@
       "status": "dormant",
       "classification": "SHADOW",
       "should_activate": true,
-      "activation_path": "awareness → decision_engine → daily_brief",
+      "activation_path": "awareness \u2192 decision_engine \u2192 daily_brief",
       "mode": "shadow_first",
       "files": 6,
-      "value": "attention, brief, health, state — UI-ready intelligence",
+      "value": "attention, brief, health, state \u2014 UI-ready intelligence",
       "reason": "Powerful but dangerous. Must observe before controlling."
     },
     "evidence": {
       "status": "partially_active",
       "classification": "CONNECT",
       "should_activate": true,
-      "activation_path": "evidence/service.py → runtime pipeline (already active)",
+      "activation_path": "evidence/service.py \u2192 runtime pipeline (already active)",
       "mode": "connected",
       "files": 6,
-      "value": "Provenance tracking — trust layer for all decisions",
+      "value": "Provenance tracking \u2014 trust layer for all decisions",
       "reason": "Already partially wired. EvidenceRecord model active. Need to enforce pipeline."
     },
     "awareness": {
       "status": "active",
       "classification": "CONNECT",
       "should_activate": true,
-      "activation_path": "intelligence/awareness.py → scan() → decision_engine",
+      "activation_path": "intelligence/awareness.py \u2192 scan() \u2192 decision_engine",
       "mode": "connected",
       "files": 1,
-      "value": "Business awareness — idle, failed, stuck, fallback detection",
+      "value": "Business awareness \u2014 idle, failed, stuck, fallback detection",
       "reason": "Already active in run_cycle(). Phase 2C completed."
     },
     "planning": {
       "status": "dormant",
       "classification": "SHADOW",
       "should_activate": true,
-      "activation_path": "planning/ → shadow → decision_engine",
+      "activation_path": "planning/ \u2192 shadow \u2192 decision_engine",
       "mode": "shadow_first",
       "files": 6,
       "value": "Action planning engine",
@@ -51,27 +51,28 @@
     },
     "shunya": {
       "status": "dormant",
-      "classification": "ARCHIVE_HARD",
-      "should_activate": false,
+      "classification": "SHADOW",
+      "should_activate": true,
       "files": 50,
       "value": "Complete OS sub-framework (14 sub-dirs, ~50 files)",
-      "reason": "14 sub-dirs, 50 files. Duplicate of core runtime. Extract primitives to app/core/, archive rest."
+      "reason": "14 sub-dirs, 50 files. Duplicate of core runtime. Extract primitives to app/core/, archive rest. (converted from ARCHIVE_HARD \u2014 nothing deleted yet)",
+      "mode": "shadow_first"
     },
     "kernel": {
       "status": "dormant",
       "classification": "SHADOW",
       "should_activate": true,
-      "activation_path": "kernel/ → shadow → extract primitives to app/core/",
+      "activation_path": "kernel/ \u2192 shadow \u2192 extract primitives to app/core/",
       "mode": "shadow_first",
       "files": 10,
-      "value": "Kernel abstractions — state, identity, object, context, relationship",
+      "value": "Kernel abstractions \u2014 state, identity, object, context, relationship",
       "reason": "Contains reusable primitives. Extract to app/core/ in shadow mode."
     },
     "authz": {
       "status": "dormant",
       "classification": "SHADOW",
       "should_activate": true,
-      "activation_path": "authz/ → shadow → RBAC pipeline",
+      "activation_path": "authz/ \u2192 shadow \u2192 RBAC pipeline",
       "mode": "shadow_first",
       "files": 4,
       "value": "Role-based access control",
@@ -81,7 +82,7 @@
       "status": "dormant",
       "classification": "SHADOW",
       "should_activate": true,
-      "activation_path": "automation/ → shadow → execution triggers",
+      "activation_path": "automation/ \u2192 shadow \u2192 execution triggers",
       "mode": "shadow_first",
       "files": 4,
       "value": "Automation rules and triggers",
@@ -91,7 +92,7 @@
       "status": "dormant",
       "classification": "SHADOW",
       "should_activate": true,
-      "activation_path": "onboarding/ → shadow → frontend integration",
+      "activation_path": "onboarding/ \u2192 shadow \u2192 frontend integration",
       "mode": "shadow_first",
       "files": 3,
       "value": "User onboarding flow",
@@ -139,43 +140,47 @@
     },
     "decision_runtime": {
       "status": "archived",
-      "classification": "ARCHIVE_HARD",
-      "should_activate": false,
+      "classification": "SHADOW",
+      "should_activate": true,
       "files": 7,
       "value": "Legacy decision runtime",
-      "reason": "Already archived in Phase 1. Compatibility stubs in place."
+      "reason": "Already archived in Phase 1. Compatibility stubs in place. (converted from ARCHIVE_HARD \u2014 nothing deleted yet)",
+      "mode": "shadow_first"
     },
     "execution_runtime": {
       "status": "archived",
-      "classification": "ARCHIVE_HARD",
-      "should_activate": false,
+      "classification": "SHADOW",
+      "should_activate": true,
       "files": 2,
       "value": "Alternative execution runtime",
-      "reason": "Already archived in Phase 1. Compatibility stubs in place."
+      "reason": "Already archived in Phase 1. Compatibility stubs in place. (converted from ARCHIVE_HARD \u2014 nothing deleted yet)",
+      "mode": "shadow_first"
     },
     "execution_intelligence": {
       "status": "archived",
-      "classification": "ARCHIVE_HARD",
-      "should_activate": false,
+      "classification": "SHADOW",
+      "should_activate": true,
       "files": 3,
       "value": "Execution intelligence engine",
-      "reason": "Already archived in Phase 1. Compatibility stubs in place."
+      "reason": "Already archived in Phase 1. Compatibility stubs in place. (converted from ARCHIVE_HARD \u2014 nothing deleted yet)",
+      "mode": "shadow_first"
     },
     "graph_universal": {
       "status": "archived",
-      "classification": "ARCHIVE_HARD",
-      "should_activate": false,
+      "classification": "SHADOW",
+      "should_activate": true,
       "files": 8,
       "value": "Universal business graph",
-      "reason": "Already archived in Phase 1. Graph/ is canonical."
+      "reason": "Already archived in Phase 1. Graph/ is canonical. (converted from ARCHIVE_HARD \u2014 nothing deleted yet)",
+      "mode": "shadow_first"
     }
   },
   "summary": {
     "total_systems": 18,
     "CONNECT": 3,
-    "SHADOW": 7,
+    "SHADOW": 11,
     "MERGE": 5,
-    "ARCHIVE_HARD": 4,
-    "active_runtime_path": "evidence → awareness → decision_engine → execution_loop → proposals → approval → send"
+    "ARCHIVE_HARD": 0,
+    "active_runtime_path": "evidence \u2192 awareness \u2192 decision_engine \u2192 execution_loop \u2192 proposals \u2192 approval \u2192 send"
   }
 }

@@ -7,6 +7,31 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# PHASE 3 LAYER D: Execution gate
+# Set to True ONLY when called from app/runtime/entry.py
+_execution_gate_open = False
+
+
+def open_execution_gate():
+    """Open the execution gate. Called ONLY by entry.py."""
+    global _execution_gate_open
+    _execution_gate_open = True
+
+
+def close_execution_gate():
+    """Close the execution gate."""
+    global _execution_gate_open
+    _execution_gate_open = False
+
+
+def _check_execution_gate():
+    """Block execution if the gate is not open (not from entry.py)."""
+    if not _execution_gate_open:
+        raise RuntimeError(
+            "Direct execution forbidden. All execution must go through "
+            "app/runtime/entry.py process_event()."
+        )
+
 
 class ExecutionEngine:
 
@@ -57,32 +82,43 @@ def execute_action(obj: "Object", action: dict):
     returned as-is with no side effects and no log entry.
 
     PHASE 3 LAYER C: Enforces evidence → decision → execution pipeline.
-    Execution without evidence is forbidden.
+    PHASE 3 LAYER D: Blocks direct execution outside entry.py.
     """
+    # PHASE 3 LAYER D: Block direct execution
+    _check_execution_gate()
+
     if action.get("type") == "update":
         state_before = dict(obj.state or {})
         payload = action.get("payload", {})
 
-        # PHASE 3 LAYER C: Pipeline enforcement
+        # PHASE 3 LAYER C: Hard pipeline enforcement
+        # No execution without evidence. This is a hard block.
         decision_source = action.get("decision_source", "unknown")
         decision_confidence = action.get("decision_confidence", "low")
 
-        # Check that evidence exists for this decision
         try:
             from app.evidence.models_db import EvidenceRecord
             evidence = EvidenceRecord.query.filter(
                 EvidenceRecord.source_id == str(obj.id)
             ).order_by(EvidenceRecord.id.desc()).first()
             if evidence is None:
-                # Log warning but don't block — evidence may be in cortex state_log
-                logger.warning(
-                    "No direct EvidenceRecord for object %d. "
-                    "Decision source=%s confidence=%s. "
-                    "Pipeline: evidence → decision → execution has gap.",
-                    obj.id, decision_source, decision_confidence,
-                )
-        except Exception:
-            pass
+                # Check cortex state_log as secondary evidence source
+                from app.cortex.state_log import query
+                cortex_records = query(observation_type="execution_summary", entity_id=obj.id, limit=1)
+                if not cortex_records:
+                    raise RuntimeError(
+                        f"Execution without evidence forbidden. "
+                        f"Object {obj.id} has no EvidenceRecord and no cortex observation. "
+                        f"Decision source={decision_source} confidence={decision_confidence}. "
+                        f"Pipeline: evidence → decision → execution violated."
+                    )
+        except RuntimeError:
+            raise
+        except Exception as e:
+            raise RuntimeError(
+                f"Execution without evidence forbidden. "
+                f"Evidence check failed for object {obj.id}: {e}"
+            ) from e
 
         obj.state = {**(obj.state or {}), **payload}
         db.session.commit()

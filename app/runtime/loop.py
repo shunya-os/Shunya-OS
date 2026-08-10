@@ -118,6 +118,22 @@ def _run_objects(summary: dict):
 
                 log_execution(obj.id, "ENTITY_SEEN", {"object_type": obj.type, "state": obj.state})
 
+                # PHASE 3 LAYER C: Capture evidence BEFORE execution
+                # Pipeline: evidence → awareness → decision → execution
+                try:
+                    from app.evidence.models_db import create_evidence
+                    create_evidence(
+                        source_type="execution",
+                        source_id=str(obj.id),
+                        raw_reference={
+                            "entity_seen": True,
+                            "object_type": obj.type,
+                            "state": obj.state,
+                        },
+                    )
+                except Exception as e:
+                    logger.warning("Evidence capture for entity %d failed: %s", obj.id, e)
+
                 if action["type"] == "noop":
                     emit_signal(obj.id, "no_action", {"state": obj.state})
                     summary["noops"] += 1
@@ -202,6 +218,15 @@ def run_cycle() -> dict:
         "errors": [],
     }
 
+    # PHASE 3 LAYER D: Open execution gate for this cycle
+    try:
+        from app.execution_engine.engine import open_execution_gate, close_execution_gate
+        _gate_opened = False
+        open_execution_gate()
+        _gate_opened = True
+    except Exception:
+        _gate_opened = False
+
     # ----- Crash-isolated sections -----
     _run_objects(summary)
     _safe_rollback(summary)
@@ -263,6 +288,13 @@ def run_cycle() -> dict:
     try:
         from app.intelligence.awareness import scan
         scan()
+    except Exception:
+        pass
+
+    # PHASE 3 LAYER D: Close execution gate
+    try:
+        if _gate_opened:
+            close_execution_gate()
     except Exception:
         pass
 

@@ -1,0 +1,68 @@
+{
+  "generated_at": "2026-08-10",
+  "phase": "PHASE 3.1 HARDENING",
+  "shadow_systems_total": 11,
+  "shadow_runs_executed": 6,
+  "shadow_ok": 3,
+  "shadow_failed": 3,
+  "execution_gate": {
+    "status": "active",
+    "blocks_direct_execution": true,
+    "opens_via_entry_point": true,
+    "opens_via_run_cycle": true
+  },
+  "pipeline_enforcement": {
+    "status": "active",
+    "evidence_required": true,
+    "block_on_missing_evidence": true,
+    "evidence_captured_in_loop": true
+  },
+  "activation_map_updated": {
+    "shunya": "SHADOW (was ARCHIVE_HARD)",
+    "decision_runtime": "SHADOW (was ARCHIVE_HARD)",
+    "execution_runtime": "SHADOW (was ARCHIVE_HARD)",
+    "execution_intelligence": "SHADOW (was ARCHIVE_HARD)",
+    "graph_universal": "SHADOW (was ARCHIVE_HARD)"
+  },
+  "shadow_systems": {
+    "cortex": {
+      "status": "OK",
+      "modules": ["attention.get_attention_queue", "state.synthesize"],
+      "real_functions": true,
+      "output": "structured attention items + state dict"
+    },
+    "planning": {
+      "status": "OK",
+      "modules": ["planning.create_plan"],
+      "real_functions": true,
+      "output": "plan dict"
+    },
+    "kernel": {
+      "status": "OK",
+      "modules": ["state.StateMachine"],
+      "real_functions": true,
+      "output": "state machine dict"
+    },
+    "authz": {
+      "status": "NEEDS_FIX",
+      "error": "get_permissions not found in authz.services",
+      "real_functions": false
+    },
+    "automation": {
+      "status": "NEEDS_FIX",
+      "error": "evaluate_rules not found in automation.service",
+      "real_functions": false
+    },
+    "onboarding": {
+      "status": "NEEDS_FIX",
+      "error": "get_onboarding_steps not found in onboarding",
+      "real_functions": false
+    }
+  },
+  "missing_links": [
+    "authz.services.get_permissions — function doesn't exist",
+    "automation.service.evaluate_rules — function doesn't exist",
+    "onboarding.get_onboarding_steps — function doesn't exist"
+  ],
+  "verdict": "PHASE 3.1: 3 of 6 shadow systems work with real functions. 3 need function discovery. Pipeline enforcement and execution gate are active and verified."
+}
