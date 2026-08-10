@@ -285,11 +285,12 @@ def test_concurrent_idempotency_atomicity(clean_db, app_context):
     assert len(skipped) == 1, f"Expected 1 skipped, got {len(skipped)}: {skipped}"
     
     # Exactly one durable evidence record should exist
-    session = get_session()
-    records = session.query(EvidenceRecord).filter_by(
-        source_type="concurrent", source_id="con-001"
-    ).all()
-    assert len(records) == 1, f"Expected 1 evidence record, got {len(records)}"
+    from app import db
+    with db.engine.connect() as conn:
+        result = conn.execute(
+            db.text("SELECT COUNT(*) FROM evidence_records WHERE source_type='concurrent' AND source_id='con-001'")
+        ).scalar()
+    assert result == 1, f"Expected 1 evidence record, got {result}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
