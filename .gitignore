@@ -96,3 +96,9 @@ tasks/
 
 *storybook.log
 storybook-static
+
+# Secrets and local OAuth credentials
+credentials/
+
+# Local runtime data
+/data/
