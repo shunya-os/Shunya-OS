@@ -662,6 +662,7 @@ def create_app(config_override: dict | None = None):
         from app.evidence import models_db  # noqa: F401 — registers Evidence model
         from app.evidence import decision_trace  # noqa: F401 — registers DecisionTrace model
         from app.automation import models  # noqa: F401 — registers AutomationRule model
+        from app.intelligence import memory_store  # noqa: F401 — registers LearningWeight model
     except Exception:
         pass
 
