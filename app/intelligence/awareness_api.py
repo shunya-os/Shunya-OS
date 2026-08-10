@@ -149,6 +149,23 @@ def api_decision_traces_all():
         return jsonify({"traces": [], "total": 0, "error": str(e)})
 
 
+@awareness_bp.route("/ingest/gmail", methods=["POST"])
+def api_ingest_gmail():
+    """Trigger Gmail ingestion — fetches last 100 emails and converts to objects."""
+    try:
+        from app.integration.gmail_ingest import ingest_emails, link_threads
+        body = request.get_json(silent=True) or {}
+        max_results = body.get("max_results", 100)
+
+        summary = ingest_emails(max_results=max_results)
+        return jsonify({
+            "status": "ok",
+            "summary": summary,
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)})
+
+
 @awareness_bp.route("/decisions", methods=["GET"])
 def api_decisions():
     """Return computed decision intelligence from awareness signals.

@@ -41,12 +41,25 @@ def update_weight(key: str, delta: float) -> float:
     """Update the weight for a key by delta.
 
     Positive delta for success, negative for failure.
-    Returns the new weight.
+    Bounded between 0.15 (entropy floor) and 0.95 (ceiling).
+    Decays toward 0.5 over time to prevent oscillation.
+
+    PHASE 3.4: Stability controls:
+    - Entropy floor: 0.15 (never collapses to 0)
+    - Ceiling: 0.95 (never explodes to 1)
+    - Decay: weights drift back to 0.5 over time
     """
     try:
         entry = LearningWeight.query.filter_by(key=key).first()
         if entry:
-            entry.weight = max(0.0, min(1.0, entry.weight + delta))
+            # Apply decay toward 0.5 (prevents runaway)
+            decay_rate = 0.02
+            if entry.weight > 0.5:
+                entry.weight -= decay_rate
+            elif entry.weight < 0.5:
+                entry.weight += decay_rate
+
+            entry.weight = max(0.15, min(0.95, entry.weight + delta))
             entry.sample_count = (entry.sample_count or 0) + 1
             entry.last_updated = now()
             get_session().flush()
@@ -54,7 +67,7 @@ def update_weight(key: str, delta: float) -> float:
         else:
             entry = LearningWeight(
                 key=key,
-                weight=max(0.0, min(1.0, 0.5 + delta)),
+                weight=max(0.15, min(0.95, 0.5 + delta)),
                 sample_count=1,
             )
             get_session().add(entry)

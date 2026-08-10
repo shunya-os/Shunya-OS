@@ -57,7 +57,7 @@ def build_context(entity_id: Optional[int] = None, event_data: dict = None) -> d
         from app.evidence.decision_trace import DecisionTrace
         traces = DecisionTrace.query.filter_by(
             object_id=entity_id
-        ).order_by(DecisionTrace.id.desc()).limit(10).all()
+        ).order_by(DecisionTrace.id.desc()).limit(3).all()
         ctx["recent_decisions"] = [
             {
                 "id": t.id,
