@@ -181,10 +181,3 @@ def get_execution_intelligence():
         _instance = ExecutionIntelligenceEngine()
         logger.info("ExecutionIntelligence stub initialized (original archived)")
     return _instance
-
-
-def reset_execution_intelligence():
-    """Compatibility stub — no-op. Original engine is archived."""
-    global _instance
-    _instance = None
-    logger.debug("execution_intelligence stub: reset (no-op)")

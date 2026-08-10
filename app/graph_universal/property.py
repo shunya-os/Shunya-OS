@@ -1,2 +1,2 @@
 """Compatibility stub."""
-from app.graph_universal import PropertyVersion, get_store, reset_store
+from app.graph_universal import get_store
