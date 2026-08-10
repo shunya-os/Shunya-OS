@@ -19,6 +19,20 @@ health_bp = Blueprint("system_health", __name__, url_prefix="/system")
 logger = logging.getLogger(__name__)
 
 
+@health_bp.route("/unused-intelligence", methods=["GET"])
+def unused_intelligence():
+    """Report which dormant modules exist but are not used."""
+    try:
+        from app.core.usage_guard import check_dormant_modules
+        unused = check_dormant_modules()
+        return jsonify({
+            "total_unused": len(unused),
+            "modules": unused,
+        })
+    except Exception as e:
+        return jsonify({"total_unused": 0, "modules": [], "error": str(e)})
+
+
 @health_bp.route("/health", methods=["GET"])
 def system_health():
     """Return system health status with real metrics."""
