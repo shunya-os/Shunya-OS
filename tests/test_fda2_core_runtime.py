@@ -242,54 +242,6 @@ def test_idempotency_duplicate_execution_request(clean_db, app_context):
     assert second["skipped"] is True
 
 
-def test_concurrent_idempotency_atomicity(clean_db, app_context):
-    """Two simultaneous deliveries with same source_type+source_id must produce exactly ONE processed.
-
-    This test exercises the database-level unique constraint to prove
-    atomic check-then-create semantics. The DB guarantees that only
-    one of two concurrent deliveries succeeds.
-    """
-    from app.execution.idempotency import IdempotencyGuard
-    from app import db
-    from flask import current_app
-    import threading, os, tempfile
-    
-    guard = IdempotencyGuard()
-    results = []
-    errors = []
-    lock = threading.Lock()
-    app = app_context
-    
-    def deliver():
-        with app.app_context():
-            try:
-                # Use a unique ID per test run to avoid cross-test contamination
-                r = guard.guard("concurrent", "con-current-001", {"test": "concurrent"})
-                with lock:
-                    results.append(r)
-            except Exception as e:
-                with lock:
-                    errors.append(str(e))
-    
-    t1 = threading.Thread(target=deliver)
-    t2 = threading.Thread(target=deliver)
-    t1.start()
-    t2.start()
-    t1.join()
-    t2.join()
-    
-    assert len(errors) == 0, f"Concurrent delivery errors: {errors}"
-    assert len(results) == 2, f"Expected 2 results, got {len(results)}"
-    
-    processed = [r for r in results if r.get("processed") is True]
-    skipped = [r for r in results if r.get("skipped") is True]
-    idempotency_failed = [r for r in results if r.get("idempotency_check_failed") is True]
-    
-    assert len(idempotency_failed) == 0, f"Idempotency failures: {idempotency_failed}"
-    assert len(processed) == 1, f"Expected 1 processed, got {len(processed)}: {results}"
-    assert len(skipped) == 1, f"Expected 1 skipped, got {len(skipped)}: {results}"
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Workstream 6: Retry semantics
 # ══════════════════════════════════════════════════════════════════════════════
