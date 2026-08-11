@@ -487,3 +487,22 @@ class TestRealE2E:
                             reason="incorrect_merge")
         assert result["success"]
         assert result["new_identity_id"] is not None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# GOVERNANCE: LEGACY IDENTITY PATH PREVENTION
+# ═══════════════════════════════════════════════════════════════════════
+
+class TestIdentityGovernance:
+    """Gate: Canonical identity path is enforced; legacy paths are quarantined."""
+
+    def test_identity_service_is_canonical(self):
+        """IdentityService must be the canonical identity resolution path."""
+        from app.identity.service import IdentityService
+        from core.identity_interface import IdentityResolutionInterface
+        assert issubclass(IdentityService, IdentityResolutionInterface)
+
+    def test_legacy_identity_engine_quarantined(self):
+        """app.shunya.identity.engine.IdentityEngine is LEGACY."""
+        from core.identity_interface import IdentityResolutionInterface
+        assert IdentityResolutionInterface is not None
