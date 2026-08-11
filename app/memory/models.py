@@ -23,6 +23,25 @@ class MemoryType:
     OTHER = "other"
 
 
+class TruthClassification:
+    """FDA3: Distinguish FACT / OBSERVATION / INFERENCE / MEMORY / DECISION.
+
+    Memory must NEVER silently promote:
+    INFERENCE → FACT
+    MEMORY → FACT
+    DECISION → OUTCOME
+    INTENTION → OUTCOME
+    """
+    FACT = "fact"                     # Directly supported by authoritative evidence
+    OBSERVATION = "observation"       # Something SHUNYA observed
+    INFERENCE = "inference"           # Something SHUNYA derived
+    MEMORY = "memory"                 # Persisted contextual information
+    DECISION = "decision"             # Produced by the reasoning system
+    OUTCOME = "outcome"              # What actually happened
+    EVIDENCE = "evidence"            # Proof of what happened
+    INTENTION = "intention"          # Stated intent (not yet outcome)
+
+
 class MemoryScope:
     PERSON = "person"
     RELATIONSHIP = "relationship"
@@ -41,11 +60,19 @@ class MemoryCreationMechanism:
 
 
 class MemoryStatus:
+    """FDA3 memory lifecycle states.
+
+    Explicit lifecycle: candidate → confirmed → active → superseded/invalidated/expired/archived.
+    Memory must NOT silently overwrite consequential history.
+    """
+    CANDIDATE = "candidate"
+    CONFIRMED = "confirmed"
     ACTIVE = "active"
     SUPERSEDED = "superseded"
-    EXPIRED = "expired"
-    REVOKED = "revoked"
     INVALIDATED = "invalidated"
+    EXPIRED = "expired"
+    ARCHIVED = "archived"
+    REVOKED = "revoked"
     CONSOLIDATED = "consolidated"
 
 
@@ -115,6 +142,7 @@ class MemoryCandidate(db.Model):
     source_object_id = db.Column(db.Integer, nullable=True)
     human_context_item_id = db.Column(db.Integer, nullable=True)
     creation_mechanism = db.Column(db.String(30), nullable=False, default="explicit")
+    truth_classification = db.Column(db.String(20), nullable=False, default="memory")
     status = db.Column(db.String(30), nullable=False, default="proposed")
     approved_by = db.Column(db.String(120), default="")
     approved_at = db.Column(db.DateTime, nullable=True)
@@ -158,9 +186,13 @@ class MemoryRecord(db.Model):
     source_object_id = db.Column(db.Integer, nullable=True)
     human_context_item_id = db.Column(db.Integer, nullable=True)
     creation_mechanism = db.Column(db.String(30), nullable=False, default="explicit")
+    truth_classification = db.Column(db.String(20), nullable=False, default="memory")
     status = db.Column(db.String(30), nullable=False, default="active")
     supersedes_id = db.Column(db.Integer, nullable=True)
     superseded_by_id = db.Column(db.Integer, nullable=True)
+    resolution_type = db.Column(db.String(30), nullable=True)
+    resolution_reason = db.Column(db.Text, nullable=True)
+    injection_checked = db.Column(db.Boolean, default=False)
     privacy_decision_id = db.Column(db.Integer, nullable=True)
     memory_eligibility_state = db.Column(db.String(30), default="ineligible")
     policy_version = db.Column(db.Integer, default=1)
@@ -178,12 +210,16 @@ class MemoryProvenance(db.Model):
     __table_args__ = (
         Index("ix_mp_memory", "memory_id"),
         Index("ix_mp_source", "source_object_type", "source_object_id"),
+        db.UniqueConstraint("provenance_source", "provenance_source_id",
+                            name="uq_mp_source_idempotency"),
     )
     id = db.Column(db.Integer, primary_key=True)
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True)
     memory_id = db.Column(db.Integer, db.ForeignKey("memory_records.id"), nullable=False, index=True)
     source_object_type = db.Column(db.String(60), nullable=False)
     source_object_id = db.Column(db.Integer, nullable=False)
+    provenance_source = db.Column(db.String(255), nullable=True)
+    provenance_source_id = db.Column(db.String(255), nullable=True)
     provenance_role = db.Column(db.String(30), default="source")
     observed_at = db.Column(db.DateTime, nullable=True)
     creation_mechanism = db.Column(db.String(30), default="explicit")
