@@ -796,6 +796,10 @@ def create_app(config_override: dict | None = None):
     from app.leads.routes import leads_bp
     app.register_blueprint(leads_bp)
 
+    # ---- Import API ---------------------------------------------------------
+    from app.import_api.routes import import_bp
+    app.register_blueprint(import_bp)
+
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
     @app.route("/admin/<path:subpath>")
