@@ -114,6 +114,31 @@ def ensure_runtime() -> None:
     def _memory_search(query: str) -> list:
         return runtime.memory.search(query)
 
+    # ── Internet/Web Search Provider (FDA7) ──
+    def _internet_search(query: str) -> list[dict]:
+        """Search the web via canonical search provider chain.
+        
+        Returns results with provenance for external evidence classification.
+        """
+        try:
+            from app.search.provider import resolve_search_provider
+            provider = resolve_search_provider()
+            raw = provider.search(query, max_results=5)
+            results = []
+            for r in raw:
+                results.append({
+                    "url": r.get("url", ""),
+                    "title": r.get("title", ""),
+                    "snippet": r.get("body", r.get("snippet", "")),
+                    "provider": provider.name,
+                })
+            return results
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Web search failed: {e}")
+            return []
+
     def _module_context(session_id: str) -> str:
         ctx = runtime.context.get(session_id)
         return ctx.active_module or ""
@@ -121,16 +146,28 @@ def ensure_runtime() -> None:
     runtime.wire_graph_provider(_graph_search)
     runtime.wire_object_provider(_object_search)
     runtime.wire_memory_provider(_memory_search)
+    runtime.wire_internet_provider(_internet_search)
 
-    # ── LLM Provider ──
-    def _llm_complete(messages: list[dict], temperature: float = 0.7,
-                      max_tokens: int = 1024) -> dict:
-        """Complete a chat using the SHUNYA LLM provider chain."""
+    # ── LLM Provider (with FDA8 model orchestration) ──
+    def _model_orchestrated_complete(messages: list[dict], temperature: float = 0.7,
+                                      max_tokens: int = 1024) -> dict:
+        """Complete with model orchestration — deterministic-first routing (FDA8)."""
+        from core.model_orchestrator import ModelOrchestrator
+        orch = ModelOrchestrator()
+        # Use deterministic-first routing: check if the task is deterministic
+        if messages and len(messages) > 0:
+            last_msg = messages[-1].get("content", "").lower()
+            if any(kw in last_msg for kw in ["sort", "count", "aggregate", "validate", "deduplicate"]):
+                result = orch.process_request("deterministic", last_msg)
+                if result.get("success") and result.get("deterministic"):
+                    return {"content": result["result"], "role": "assistant", "provider": "deterministic"}
+
+        # Otherwise use standard LLM provider
         from app.ai.provider import get_provider
         provider = get_provider()
         return provider.complete(messages, temperature=temperature, max_tokens=max_tokens)
 
-    runtime.wire_llm_provider(_llm_complete)
+    runtime.wire_llm_provider(_model_orchestrated_complete)
 
     # ── Action Handlers ──
     def _handle_answer(params: dict) -> dict:

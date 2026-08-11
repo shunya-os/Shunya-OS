@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable
+from datetime import datetime
 
 from .types import RetrievedEvidence
 
@@ -66,18 +67,35 @@ class RetrievalLayer:
                     metadata={"key": item.key} if hasattr(item, 'key') else {},
                 ))
 
-        # 4. Internet (optional)
+        # 4. Internet (optional — via canonical WebResearchEngine with provenance)
         if self._internet_provider:
             try:
-                results = self._internet_provider(query)
-                for r in results[:3]:
-                    evidence.append(RetrievedEvidence(
+                safe_results = []
+                raw_results = self._internet_provider(query)
+                for r in (raw_results or []):
+                    # Prompt injection scan
+                    from core.web_intelligence import PromptInjectionGuard
+                    combined_text = f"{r.get('title', '')} {r.get('snippet', r.get('body', ''))}"
+                    injection = PromptInjectionGuard.scan(combined_text)
+                    safe_text = PromptInjectionGuard.sanitize(combined_text) if injection else combined_text
+
+                    evidence_item = RetrievedEvidence(
                         source="internet",
-                        content=str(r.get("snippet", r.get("content", str(r)))),
+                        content=safe_text,
                         relevance=0.5,
                         confidence=0.4,
-                        metadata=r,
-                    ))
+                        metadata={
+                            "url": r.get("url", ""),
+                            "title": r.get("title", ""),
+                            "provider": r.get("provider", "web"),
+                            "retrieved_at": datetime.utcnow().isoformat(),
+                            "injection_detected": len(injection) > 0,
+                            "injection_patterns": [f["pattern"] for f in injection],
+                            "classification": "external",
+                        },
+                    )
+                    safe_results.append(evidence_item)
+                evidence.extend(safe_results[:3])
             except Exception:
                 pass
 
