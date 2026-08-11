@@ -23,35 +23,55 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+
+    def _table_exists(name: str) -> bool:
+        dialect = conn.dialect.name
+        if dialect == "sqlite":
+            result = conn.execute(
+                sa.text("SELECT name FROM sqlite_master WHERE type='table' AND name=:name"),
+                {"name": name},
+            ).fetchone()
+            return result is not None
+        else:
+            result = conn.execute(
+                sa.text(
+                    "SELECT EXISTS (SELECT FROM information_schema.tables "
+                    "WHERE table_name = :name)"
+                ),
+                {"name": name},
+            ).fetchone()
+            return result[0] if result else False
+
     # === memory_records ===
-    # add truth_classification (default 'memory')
-    op.add_column("memory_records",
-        sa.Column("truth_classification", sa.String(20),
-                  nullable=False, server_default="memory"))
-    # add resolution fields
-    op.add_column("memory_records",
-        sa.Column("resolution_type", sa.String(30), nullable=True))
-    op.add_column("memory_records",
-        sa.Column("resolution_reason", sa.Text(), nullable=True))
-    op.add_column("memory_records",
-        sa.Column("injection_checked", sa.Boolean(),
-                  nullable=False, server_default=sa.text("0")))
+    if _table_exists("memory_records"):
+        op.add_column("memory_records",
+            sa.Column("truth_classification", sa.String(20),
+                      nullable=False, server_default="memory"))
+        op.add_column("memory_records",
+            sa.Column("resolution_type", sa.String(30), nullable=True))
+        op.add_column("memory_records",
+            sa.Column("resolution_reason", sa.Text(), nullable=True))
+        op.add_column("memory_records",
+            sa.Column("injection_checked", sa.Boolean(),
+                      nullable=False, server_default=sa.text("0")))
 
     # === memory_candidates ===
-    op.add_column("memory_candidates",
-        sa.Column("truth_classification", sa.String(20),
-                  nullable=False, server_default="memory"))
+    if _table_exists("memory_candidates"):
+        op.add_column("memory_candidates",
+            sa.Column("truth_classification", sa.String(20),
+                      nullable=False, server_default="memory"))
 
     # === memory_provenances ===
-    op.add_column("memory_provenances",
-        sa.Column("provenance_source", sa.String(255), nullable=True))
-    op.add_column("memory_provenances",
-        sa.Column("provenance_source_id", sa.String(255), nullable=True))
-    # unique constraint for idempotency
-    op.create_unique_constraint(
-        "uq_mp_source_idempotency", "memory_provenances",
-        ["provenance_source", "provenance_source_id"],
-    )
+    if _table_exists("memory_provenances"):
+        op.add_column("memory_provenances",
+            sa.Column("provenance_source", sa.String(255), nullable=True))
+        op.add_column("memory_provenances",
+            sa.Column("provenance_source_id", sa.String(255), nullable=True))
+        op.create_unique_constraint(
+            "uq_mp_source_idempotency", "memory_provenances",
+            ["provenance_source", "provenance_source_id"],
+        )
 
 
 def downgrade() -> None:

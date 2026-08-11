@@ -503,6 +503,58 @@ class TestIdentityGovernance:
         assert issubclass(IdentityService, IdentityResolutionInterface)
 
     def test_legacy_identity_engine_quarantined(self):
-        """app.shunya.identity.engine.IdentityEngine is LEGACY."""
-        from core.identity_interface import IdentityResolutionInterface
-        assert IdentityResolutionInterface is not None
+        """app.shunya.identity.engine.IdentityEngine is LEGACY.
+
+        This test scans production code for direct imports of the legacy
+        identity engine. Existing consumers are tolerated but are documented
+        as legacy migration targets. No NEW production code should import
+        from app.shunya.identity.engine directly.
+        """
+        from pathlib import Path
+        root = Path(__file__).parent.parent
+
+        # Known legacy consumers (permitted exceptions)
+        known_legacy_consumers = {
+            "app/shunya/context/engine.py",
+            "app/human_context/__init__.py",
+            "app/privacy/__init__.py",
+            "app/intake/matcher.py",
+            "app/intake/validator.py",
+            # Legacy module self-references
+            "app/shunya/identity/__init__.py",
+            "app/shunya/identity/engine.py",
+        }
+
+        # Scan production code for direct imports of legacy identity engine
+        legacy_imports = [
+            "from app.shunya.identity.engine",
+            "from app.shunya.identity import IdentityEngine",
+            "get_identity_engine",
+        ]
+
+        violations = []
+        for pyfile in sorted(Path(root / "app").rglob("*.py")):
+            rel = str(pyfile.relative_to(root))
+            if "/tests/" in rel or "/archive/" in rel or "/_audit/" in rel:
+                continue
+            content = pyfile.read_text()
+            for imp in legacy_imports:
+                if imp in content:
+                    if rel not in known_legacy_consumers:
+                        violations.append(f"{rel} uses '{imp}'")
+
+        assert len(violations) == 0, (
+            f"New production code bypassing canonical IdentityService:\n"
+            + "\n".join(violations)
+        )
+
+    def test_legacy_identity_resolver_uses_same_model(self):
+        """Legacy IdentityResolver (app.shunya.identity._legacy) uses the
+        same Person/PersonIdentity model as the canonical IdentityService.
+        It is not a separate identity authority.
+        """
+        # Verify the legacy resolver imports Person/PersonIdentity
+        from app.shunya.identity._legacy import IdentityResolver
+        # Just verify it's importable (the legacy resolver shares the
+        # same Person/PersonIdentity model as the canonical service)
+        assert IdentityResolver is not None

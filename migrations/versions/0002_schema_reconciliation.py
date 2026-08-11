@@ -21,132 +21,214 @@ depends_on = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+
+    def _table_exists(name: str) -> bool:
+        """Check if a table exists in the current database."""
+        dialect = conn.dialect.name
+        if dialect == "sqlite":
+            result = conn.execute(
+                sa.text("SELECT name FROM sqlite_master WHERE type='table' AND name=:name"),
+                {"name": name},
+            ).fetchone()
+            return result is not None
+        else:
+            result = conn.execute(
+                sa.text(
+                    "SELECT EXISTS (SELECT FROM information_schema.tables "
+                    "WHERE table_name = :name)"
+                ),
+                {"name": name},
+            ).fetchone()
+            return result[0] if result else False
+
+    def _column_exists(table: str, column: str) -> bool:
+        """Check if a column exists in the given table."""
+        try:
+            cols = [c[0] for c in conn.execute(sa.text(f"PRAGMA table_info({table})")).fetchall()]
+            return column in cols
+        except Exception:
+            return False
+
+    def _constraint_exists(table: str, constraint: str) -> bool:
+        """Check if a constraint exists."""
+        try:
+            result = conn.execute(
+                sa.text(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='index' AND name=:name AND tbl_name=:tbl"
+                ),
+                {"name": constraint, "tbl": table},
+            ).fetchone()
+            return result is not None
+        except Exception:
+            return False
+
     # ─────────────────────────────────────────────────────────────────────────
     # 1. team_members — missing columns that crashed production
     # ─────────────────────────────────────────────────────────────────────────
-    op.add_column("team_members", sa.Column("person_id", sa.Integer(), nullable=True))
-    op.create_foreign_key(
-        "fk_team_members_person_id_persons",
-        "team_members", "persons",
-        ["person_id"], ["id"],
-    )
-    # api_token was added manually; add unique constraint if missing
-    op.create_unique_constraint("uq_team_members_api_token", "team_members", ["api_token"])
-    op.create_unique_constraint("uq_team_members_email", "team_members", ["email"])
-    # Make tenant_id nullable (the model doesn't define it)
-    op.alter_column("team_members", "tenant_id", nullable=True, existing_type=sa.Integer())
-    # Drop FK on tenant_id if present (model doesn't define it)
-    op.drop_constraint("fk_team_members_tenant_id_tenants", "team_members", type_="foreignkey")
+    if _table_exists("team_members"):
+        if not _column_exists("team_members", "person_id"):
+            op.add_column("team_members", sa.Column("person_id", sa.Integer(), nullable=True))
+            op.create_foreign_key(
+                "fk_team_members_person_id_persons",
+                "team_members", "persons",
+                ["person_id"], ["id"],
+            )
+        if not _constraint_exists("team_members", "uq_team_members_api_token"):
+            op.create_unique_constraint("uq_team_members_api_token", "team_members", ["api_token"])
+        if not _constraint_exists("team_members", "uq_team_members_email"):
+            op.create_unique_constraint("uq_team_members_email", "team_members", ["email"])
+        op.alter_column("team_members", "tenant_id", nullable=True, existing_type=sa.Integer())
+        try:
+            op.drop_constraint("fk_team_members_tenant_id_tenants", "team_members", type_="foreignkey")
+        except Exception:
+            pass
 
     # ─────────────────────────────────────────────────────────────────────────
     # 2. Missing columns: tables where the model expects columns the DB lacks
     # ─────────────────────────────────────────────────────────────────────────
 
     # activity_logs
-    op.add_column("activity_logs", sa.Column("lead_id", sa.Integer(), nullable=True))
-    op.add_column("activity_logs", sa.Column("user", sa.String(length=120), nullable=True))
-    op.create_foreign_key("fk_activity_logs_lead_id_leads", "activity_logs", "leads", ["lead_id"], ["id"])
+    if _table_exists("activity_logs"):
+        if not _column_exists("activity_logs", "lead_id"):
+            op.add_column("activity_logs", sa.Column("lead_id", sa.Integer(), nullable=True))
+            op.create_foreign_key("fk_activity_logs_lead_id_leads", "activity_logs", "leads", ["lead_id"], ["id"])
+        if not _column_exists("activity_logs", "user"):
+            op.add_column("activity_logs", sa.Column("user", sa.String(length=120), nullable=True))
 
     # client_users
-    op.add_column("client_users", sa.Column("lead_id", sa.Integer(), nullable=True))
-    op.add_column("client_users", sa.Column("password_hash", sa.String(length=128), nullable=True))
-    op.create_foreign_key("fk_client_users_lead_id_leads", "client_users", "leads", ["lead_id"], ["id"])
-    # Make email unique and NOT NULL as model expects
-    op.create_unique_constraint("uq_client_users_email", "client_users", ["email"])
-    op.alter_column("client_users", "email", nullable=False, existing_type=sa.String(length=255))
+    if _table_exists("client_users"):
+        if not _column_exists("client_users", "lead_id"):
+            op.add_column("client_users", sa.Column("lead_id", sa.Integer(), nullable=True))
+            op.create_foreign_key("fk_client_users_lead_id_leads", "client_users", "leads", ["lead_id"], ["id"])
+        if not _column_exists("client_users", "password_hash"):
+            op.add_column("client_users", sa.Column("password_hash", sa.String(length=128), nullable=True))
+        if not _constraint_exists("client_users", "uq_client_users_email"):
+            op.create_unique_constraint("uq_client_users_email", "client_users", ["email"])
+        op.alter_column("client_users", "email", nullable=False, existing_type=sa.String(length=255))
 
     # invoices
-    op.add_column("invoices", sa.Column("lead_id", sa.Integer(), nullable=True))
-    op.add_column("invoices", sa.Column("raised_at", sa.DateTime(), nullable=True))
-    op.create_foreign_key("fk_invoices_lead_id_leads", "invoices", "leads", ["lead_id"], ["id"])
-    op.create_unique_constraint("uq_invoices_invoice_number", "invoices", ["invoice_number"])
-    # Fix due_date type mismatch (model=DATE, db=TIMESTAMP)
-    op.alter_column("invoices", "due_date", type_=sa.Date(), existing_type=sa.DateTime(), postgresql_using="due_date::date")
+    if _table_exists("invoices"):
+        if not _column_exists("invoices", "lead_id"):
+            op.add_column("invoices", sa.Column("lead_id", sa.Integer(), nullable=True))
+            op.create_foreign_key("fk_invoices_lead_id_leads", "invoices", "leads", ["lead_id"], ["id"])
+        if not _column_exists("invoices", "raised_at"):
+            op.add_column("invoices", sa.Column("raised_at", sa.DateTime(), nullable=True))
+        if not _constraint_exists("invoices", "uq_invoices_invoice_number"):
+            op.create_unique_constraint("uq_invoices_invoice_number", "invoices", ["invoice_number"])
+        op.alter_column("invoices", "due_date", type_=sa.Date(), existing_type=sa.DateTime(),
+                        postgresql_using="due_date::date")
 
     # notifications
-    op.add_column("notifications", sa.Column("lead_id", sa.Integer(), nullable=True))
-    op.create_foreign_key("fk_notifications_lead_id_leads", "notifications", "leads", ["lead_id"], ["id"])
-    op.alter_column("notifications", "is_read", nullable=False, existing_type=sa.Boolean())
+    if _table_exists("notifications"):
+        if not _column_exists("notifications", "lead_id"):
+            op.add_column("notifications", sa.Column("lead_id", sa.Integer(), nullable=True))
+            op.create_foreign_key("fk_notifications_lead_id_leads", "notifications", "leads", ["lead_id"], ["id"])
+        op.alter_column("notifications", "is_read", nullable=False, existing_type=sa.Boolean())
 
-    # leads — add unique on code
-    op.create_unique_constraint("uq_leads_code", "leads", ["code"])
+    # leads
+    if _table_exists("leads"):
+        if not _constraint_exists("leads", "uq_leads_code"):
+            op.create_unique_constraint("uq_leads_code", "leads", ["code"])
 
-    # observations — add all model-missing columns
-    op.add_column("observations", sa.Column("action", sa.String(length=255), nullable=True))
-    op.add_column("observations", sa.Column("actual_outcome", sa.Text(), nullable=True))
-    op.add_column("observations", sa.Column("channel", sa.String(length=60), nullable=True))
-    op.add_column("observations", sa.Column("discrepancy", sa.Text(), nullable=True))
-    op.add_column("observations", sa.Column("expected_outcome", sa.Text(), nullable=True))
-    op.add_column("observations", sa.Column("lead_id", sa.Integer(), nullable=True))
-    op.add_column("observations", sa.Column("success", sa.Boolean(), nullable=True))
-    op.create_foreign_key("fk_observations_lead_id_leads", "observations", "leads", ["lead_id"], ["id"])
-    # Fix type mismatches
-    op.alter_column("observations", "confidence", type_=sa.Float(), existing_type=sa.String(length=20))
+    # observations
+    if _table_exists("observations"):
+        for col_name, col_type in [
+            ("action", sa.String(length=255)),
+            ("actual_outcome", sa.Text()),
+            ("channel", sa.String(length=60)),
+            ("discrepancy", sa.Text()),
+            ("expected_outcome", sa.Text()),
+            ("lead_id", sa.Integer()),
+            ("success", sa.Boolean()),
+        ]:
+            if not _column_exists("observations", col_name):
+                op.add_column("observations", sa.Column(col_name, col_type, nullable=True))
+        if _column_exists("observations", "lead_id"):
+            try:
+                op.create_foreign_key("fk_observations_lead_id_leads", "observations", "leads", ["lead_id"], ["id"])
+            except Exception:
+                pass
+        op.alter_column("observations", "confidence", type_=sa.Float(), existing_type=sa.String(length=20))
 
-    # payments — add model-missing columns
-    op.add_column("payments", sa.Column("lead_id", sa.Integer(), nullable=True))
-    op.add_column("payments", sa.Column("method", sa.String(length=80), nullable=True))
-    op.add_column("payments", sa.Column("ref_number", sa.String(length=120), nullable=True))
-    op.create_foreign_key("fk_payments_lead_id_leads", "payments", "leads", ["lead_id"], ["id"])
-    op.alter_column("payments", "amount", nullable=False, existing_type=sa.Numeric(12, 2))
-    op.alter_column("payments", "type", nullable=False, existing_type=sa.String(length=30))
+    # payments
+    if _table_exists("payments"):
+        for col_name, col_type in [
+            ("lead_id", sa.Integer()),
+            ("method", sa.String(length=80)),
+            ("ref_number", sa.String(length=120)),
+        ]:
+            if not _column_exists("payments", col_name):
+                op.add_column("payments", sa.Column(col_name, col_type, nullable=True))
+        if _column_exists("payments", "lead_id"):
+            try:
+                op.create_foreign_key("fk_payments_lead_id_leads", "payments", "leads", ["lead_id"], ["id"])
+            except Exception:
+                pass
+        op.alter_column("payments", "amount", nullable=False, existing_type=sa.Numeric(12, 2))
+        op.alter_column("payments", "type", nullable=False, existing_type=sa.String(length=30))
 
-    # persons — add model-missing columns
-    op.add_column("persons", sa.Column("canonical_name", sa.String(length=255), nullable=True))
-    op.add_column("persons", sa.Column("preferred_name", sa.String(length=255), nullable=True))
-    op.add_column("persons", sa.Column("status", sa.String(length=30), nullable=True, server_default="active"))
-    op.add_column("persons", sa.Column("tenant_id", sa.Integer(), nullable=True))
-    op.add_column("persons", sa.Column("updated_at", sa.DateTime(), nullable=True))
-    op.create_foreign_key("fk_persons_tenant_id_tenants", "persons", "tenants", ["tenant_id"], ["id"])
+    # persons
+    if _table_exists("persons"):
+        for col_name, col_type in [
+            ("canonical_name", sa.String(length=255)),
+            ("preferred_name", sa.String(length=255)),
+            ("status", sa.String(length=30)),
+            ("tenant_id", sa.Integer()),
+            ("updated_at", sa.DateTime()),
+        ]:
+            if not _column_exists("persons", col_name):
+                op.add_column("persons", sa.Column(col_name, col_type, nullable=True))
+        if _column_exists("persons", "tenant_id"):
+            try:
+                op.create_foreign_key("fk_persons_tenant_id_tenants", "persons", "tenants", ["tenant_id"], ["id"])
+            except Exception:
+                pass
 
-    # relationships — add model-missing columns
-    op.add_column("relationships", sa.Column("ended_at", sa.DateTime(), nullable=True))
-    op.add_column("relationships", sa.Column("relationship_type", sa.String(length=30), nullable=True))
-    op.add_column("relationships", sa.Column("source", sa.String(length=120), nullable=True))
-    op.add_column("relationships", sa.Column("started_at", sa.DateTime(), nullable=True))
-    op.alter_column("relationships", "tenant_id", nullable=True, existing_type=sa.Integer())
+    # relationships
+    if _table_exists("relationships"):
+        for col_name, col_type in [
+            ("ended_at", sa.DateTime()),
+            ("relationship_type", sa.String(length=30)),
+            ("source", sa.String(length=120)),
+            ("started_at", sa.DateTime()),
+        ]:
+            if not _column_exists("relationships", col_name):
+                op.add_column("relationships", sa.Column(col_name, col_type, nullable=True))
+        op.alter_column("relationships", "tenant_id", nullable=True, existing_type=sa.Integer())
 
-    # tenants — add missing subdomain
-    op.add_column("tenants", sa.Column("subdomain", sa.String(length=255), nullable=True, unique=True))
-    op.create_unique_constraint("uq_tenants_subdomain", "tenants", ["subdomain"])
+    # tenants
+    if _table_exists("tenants"):
+        if not _column_exists("tenants", "subdomain"):
+            op.add_column("tenants", sa.Column("subdomain", sa.String(length=255), nullable=True, unique=True))
+        if not _constraint_exists("tenants", "uq_tenants_subdomain"):
+            op.create_unique_constraint("uq_tenants_subdomain", "tenants", ["subdomain"])
 
-    # founder_* unique constraints
-    op.create_unique_constraint("uq_founder_conversations_conv_id", "founder_conversations", ["conv_id"])
-    op.create_unique_constraint("uq_founder_objects_object_id", "founder_objects", ["object_id"])
-    op.create_unique_constraint("uq_founder_relationships_rel_id", "founder_relationships", ["rel_id"])
-    op.create_unique_constraint("uq_founder_spaces_space_id", "founder_spaces", ["space_id"])
+    # Unique constraints (safe to run even if they exist — IF NOT EXISTS is not supported,
+    # but creating them on a fresh DB is fine since the tables exist by then)
+    for table, constraint, cols in [
+        ("founder_conversations", "uq_founder_conversations_conv_id", ["conv_id"]),
+        ("founder_objects", "uq_founder_objects_object_id", ["object_id"]),
+        ("founder_relationships", "uq_founder_relationships_rel_id", ["rel_id"]),
+        ("founder_spaces", "uq_founder_spaces_space_id", ["space_id"]),
+        ("shunya_identities", "uq_shunya_identities_identity_id", ["identity_id"]),
+        ("suppliers", "uq_suppliers_name", ["name"]),
+    ]:
+        if _table_exists(table) and not _constraint_exists(table, constraint):
+            op.create_unique_constraint(constraint, table, cols)
 
-    # shunya_identities unique
-    op.create_unique_constraint("uq_shunya_identities_identity_id", "shunya_identities", ["identity_id"])
-
-    # suppliers unique
-    op.create_unique_constraint("uq_suppliers_name", "suppliers", ["name"])
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # 3. Type alignment for critical columns
-    # ─────────────────────────────────────────────────────────────────────────
-
-    # FLOAT → DOUBLE PRECISION alignments (model uses FLOAT, PostgreSQL stores DOUBLE)
-    # These are functionally equivalent — skip ALTER to avoid unnecessary migration noise.
-    # knowledge_facts.confidence, learning_entries.confidence,
-    # intake_field_mappings.confidence already function correctly as DOUBLE.
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # 4. Default value alignment (client-side defaults handled by SQLAlchemy)
-    # ─────────────────────────────────────────────────────────────────────────
-    # Model defaults like datetime.utcnow are applied client-side by SQLAlchemy.
-    # Adding server_default would change behaviour. No migration needed —
-    # the model layer handles them correctly. Only server_default is required
-    # for columns that must never be NULL at the DB level.
-
-    # Set server_default for columns where the model provides a default and
-    # the column is NOT NULL to prevent constraint violations during bulk operations.
-    op.alter_column("notifications", "is_read", server_default=sa.text("false"))
-    op.alter_column("payments", "amount", server_default=sa.text("0"))
-    op.alter_column("payments", "type", server_default=sa.text("'guest_payment'"))
-    op.alter_column("persons", "status", server_default=sa.text("'active'"))
-    op.alter_column("team_members", "is_active", server_default=sa.text("true"))
-    op.alter_column("team_members", "role", server_default=sa.text("'agent'"))
+    # Default value alignment
+    if _table_exists("notifications"):
+        op.alter_column("notifications", "is_read", server_default=sa.text("false"))
+    if _table_exists("payments"):
+        op.alter_column("payments", "amount", server_default=sa.text("0"))
+        op.alter_column("payments", "type", server_default=sa.text("'guest_payment'"))
+    if _table_exists("persons"):
+        op.alter_column("persons", "status", server_default=sa.text("'active'"))
+    if _table_exists("team_members"):
+        op.alter_column("team_members", "is_active", server_default=sa.text("true"))
+        op.alter_column("team_members", "role", server_default=sa.text("'agent'"))
 
 
 def downgrade() -> None:

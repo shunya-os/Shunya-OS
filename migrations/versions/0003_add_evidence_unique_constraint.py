@@ -15,6 +15,28 @@ depends_on = None
 
 def upgrade():
     conn = op.get_bind()
+
+    def _table_exists(name: str) -> bool:
+        dialect = conn.dialect.name
+        if dialect == "sqlite":
+            result = conn.execute(
+                sa.text("SELECT name FROM sqlite_master WHERE type='table' AND name=:name"),
+                {"name": name},
+            ).fetchone()
+            return result is not None
+        else:
+            result = conn.execute(
+                sa.text(
+                    "SELECT EXISTS (SELECT FROM information_schema.tables "
+                    "WHERE table_name = :name)"
+                ),
+                {"name": name},
+            ).fetchone()
+            return result[0] if result else False
+
+    if not _table_exists("evidence_records"):
+        return
+
     inspector = sa.inspect(conn)
     constraints = inspector.get_unique_constraints('evidence_records')
     existing = [c['name'] for c in constraints]

@@ -22,30 +22,59 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+
+    def _table_exists(name: str) -> bool:
+        dialect = conn.dialect.name
+        if dialect == "sqlite":
+            result = conn.execute(
+                sa.text("SELECT name FROM sqlite_master WHERE type='table' AND name=:name"),
+                {"name": name},
+            ).fetchone()
+            return result is not None
+        else:
+            result = conn.execute(
+                sa.text(
+                    "SELECT EXISTS (SELECT FROM information_schema.tables "
+                    "WHERE table_name = :name)"
+                ),
+                {"name": name},
+            ).fetchone()
+            return result[0] if result else False
+
+    def _column_exists(table: str, column: str) -> bool:
+        try:
+            cols = [c[0] for c in conn.execute(
+                sa.text(f"PRAGMA table_info({table})")).fetchall()]
+            return column in cols
+        except Exception:
+            return False
+
     # === person_identities ===
-    op.add_column("person_identities",
-        sa.Column("source", sa.String(60), nullable=True))
-    op.add_column("person_identities",
-        sa.Column("source_id", sa.String(255), nullable=True))
-    op.add_column("person_identities",
-        sa.Column("confidence", sa.Float(), nullable=True,
-                  server_default=sa.text("1.0")))
-    op.add_column("person_identities",
-        sa.Column("metadata_json", sa.Text(), nullable=True))
+    if _table_exists("person_identities"):
+        for col, col_type in [
+            ("source", sa.String(60)),
+            ("source_id", sa.String(255)),
+            ("confidence", sa.Float()),
+            ("metadata_json", sa.Text()),
+        ]:
+            if not _column_exists("person_identities", col):
+                op.add_column("person_identities", sa.Column(col, col_type, nullable=True))
 
     # === persons ===
-    op.add_column("persons",
-        sa.Column("identity_type", sa.String(32), nullable=True))
-    op.add_column("persons",
-        sa.Column("metadata_json", sa.Text(), nullable=True))
+    if _table_exists("persons"):
+        if not _column_exists("persons", "identity_type"):
+            op.add_column("persons",
+                sa.Column("identity_type", sa.String(32), nullable=True))
+        if not _column_exists("persons", "metadata_json"):
+            op.add_column("persons",
+                sa.Column("metadata_json", sa.Text(), nullable=True))
 
-    # === persons.tenant_id: migrate NULL → default tenant, then set NOT NULL ===
-    # Step 1: assign any NULL tenant_id to 1 (default)
-    op.execute("UPDATE persons SET tenant_id = 1 WHERE tenant_id IS NULL")
-    # Step 2: alter column to NOT NULL
-    op.alter_column("persons", "tenant_id",
-                    existing_type=sa.Integer(),
-                    nullable=False)
+        # persons.tenant_id: migrate NULL → default tenant, then set NOT NULL
+        op.execute("UPDATE persons SET tenant_id = 1 WHERE tenant_id IS NULL")
+        op.alter_column("persons", "tenant_id",
+                        existing_type=sa.Integer(),
+                        nullable=False)
 
 
 def downgrade() -> None:
