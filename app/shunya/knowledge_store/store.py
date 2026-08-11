@@ -19,6 +19,7 @@ from app.shunya.knowledge_store.models import (
 )
 from app.shunya.knowledge_store.repository import KnowledgeRepository, InMemoryKnowledgeRepository
 from app.shunya.knowledge_store.versioning import VersionHistory, VersionConflictError
+from core.knowledge_interface import KnowledgeInterface, KnowledgeCategory, KnowledgeReference
 
 
 class KnowledgeStore:

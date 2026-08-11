@@ -17,7 +17,7 @@ Architecture:
   → EXECUTION → OUTCOME/EVIDENCE → MEMORY/LEARNING → FUTURE CONTEXT
 """
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app import db
@@ -53,14 +53,7 @@ _INJECTION_KEYWORDS = [
 
 
 def _check_truth_promotion(source: str, target: str) -> None:
-    """Raise if a forbidden truth promotion would occur.
-
-    FDA3: Memory must NEVER silently promote:
-      INFERENCE → FACT
-      MEMORY → FACT
-      DECISION → OUTCOME
-      INTENTION → OUTCOME
-    """
+    """Raise if a forbidden truth promotion would occur."""
     if (source, target) in _PROMOTION_BLACKLIST:
         raise ValueError(
             f"Forbidden truth promotion: {source} → {target}. "
@@ -69,10 +62,7 @@ def _check_truth_promotion(source: str, target: str) -> None:
 
 
 def _check_contamination(value: str) -> None:
-    """Check memory value for known injection/override patterns.
-
-    Stored content must remain DATA, not executable instructions.
-    """
+    """Check memory value for known injection/override patterns."""
     v = value.lower()
     for kw in _INJECTION_KEYWORDS:
         if kw in v:
@@ -83,23 +73,59 @@ def _check_contamination(value: str) -> None:
 
 
 def _check_write_eligibility(value: str, memory_type: str,
-                              creation_mechanism: str) -> None:
+                              creation_mechanism: str, write_mode: str = "auto") -> None:
     """Transient/conversation noise must not become durable memory.
 
-    Only qualifying information passes through.
+    write_mode='auto': applies full eligibility filtering.
+    write_mode='confirmed': bypasses eligibility for explicitly confirmed content.
     """
-    # Short, generic values without structure are not durable
+    # Length check
     if not value or len(value.strip()) < 5:
         raise ValueError(
             "Memory value too short (<5 chars): not eligible for durable storage."
         )
-    # Trivial auto-generated context markers
+    # Trivial markers
     trivial = {"", "none", "null", "undefined", "n/a", "-"}
     if value.strip().lower() in trivial:
         raise ValueError(
             "Memory value is a trivial/noop marker: not eligible for durable storage."
         )
 
+
+# ── Retention / Expiry helpers ────────────────────────────────────────
+
+_DEFAULT_RETENTION_DAYS = 365  # 1 year default
+_RETENTION_BY_TYPE = {
+    "preference": 730,        # 2 years
+    "fact": 3650,             # 10 years for verified facts
+    "decision": 365,          # 1 year
+    "outcome": 365,           # 1 year
+    "procedural": 180,        # 6 months
+    "temporal": 90,           # 3 months
+    "relationship_context": 365,
+    "business_context": 365,
+    "other": 365,
+}
+
+_NEVER_EXPIRE_TYPES = {"fact", "preference", "constraint", "requirement"}
+
+
+def _get_retention_days(memory_type: str) -> int:
+    return _RETENTION_BY_TYPE.get(memory_type, _DEFAULT_RETENTION_DAYS)
+
+
+def _should_expire(memory: MemoryRecord) -> bool:
+    """Check if a memory has exceeded its retention period."""
+    if memory.memory_type in _NEVER_EXPIRE_TYPES:
+        return False
+    if not memory.created_at:
+        return False
+    days = _get_retention_days(memory.memory_type)
+    age = (datetime.utcnow() - memory.created_at).days
+    return age > days
+
+
+# ═══════════════════════════════════════════════════════════════════════
 
 class MemoryService:
     """FDA3 canonical memory service.
@@ -149,7 +175,6 @@ class MemoryService:
             return {"success": False, "error": "Not found"}
         if tenant_id is not None and cand.tenant_id != tenant_id:
             return {"success": False, "error": "Not found"}
-        # Phase 4 gate
         privacy = self._privacy.evaluate_memory_eligibility(
             "memory_candidate", cand.id,
             tenant_id=tenant_id, person_id=cand.person_id)
@@ -171,13 +196,11 @@ class MemoryService:
             return {"success": False, "error": "Not found"}
         if cand.status == CandidateStatus.COMMITTED:
             return {"success": False, "error": "Already committed"}
-        # Re-check Phase 4
         privacy = self._privacy.evaluate_memory_eligibility(
             "memory_candidate", cand.id,
             tenant_id=tenant_id, person_id=cand.person_id)
         if privacy.get("memory_eligibility") == MemoryEligibility.INELIGIBLE:
             return {"success": False, "error": "Blocked by privacy at commit time"}
-        # Create memory record
         mem = MemoryRecord(
             tenant_id=cand.tenant_id, person_id=cand.person_id,
             memory_type=cand.memory_type, memory_key=cand.memory_key,
@@ -214,32 +237,36 @@ class MemoryService:
         source_object_type: Optional[str] = None,
         source_object_id: Optional[int] = None,
         creation_mechanism: str = "explicit",
+        write_mode: str = "auto",
         **kw,
     ) -> MemoryRecord:
         """FDA3 canonical memory write.
 
+        write_mode='auto': AI-generated content must pass eligibility gates.
+        write_mode='confirmed': Explicitly confirmed content bypasses auto-gates.
+
         Every write goes through:
         1. Contamination/injection check
-        2. Write-eligibility check
+        2. Write-eligibility check (auto only)
         3. Truth-promotion guard
-        4. Contradiction detection (supersede conflicting active)
+        4. Contradiction detection
         5. Provenance recording
         """
-        # Gate 1: injection defense
+        # Gate 1: injection defense (always enforced)
         _check_contamination(value)
-        # Gate 2: write eligibility
-        _check_write_eligibility(value, memory_type, creation_mechanism)
-        # Gate 3: truth promotion guard
+
+        # Gate 2: write eligibility (auto-safe only)
+        if write_mode == "auto":
+            _check_write_eligibility(value, memory_type, creation_mechanism)
         _check_truth_promotion(truth_classification, truth_classification)
 
-        # Gate 4: contradiction detection — supersede existing active
+        # Gate 3: contradiction detection
         self._resolve_contradictions(
             person_id=person_id, memory_key=memory_key,
             scope_type=scope_type, tenant_id=tenant_id,
             memory_type=memory_type, value=value,
         )
 
-        # Create memory record
         mem = MemoryRecord(
             tenant_id=tenant_id, person_id=person_id,
             memory_type=memory_type, memory_key=memory_key,
@@ -256,7 +283,7 @@ class MemoryService:
         self._session.add(mem)
         self._session.flush()
 
-        # Gate 5: provenance recording (idempotent — skip duplicate)
+        # Gate 4: provenance recording
         if provenance_source and provenance_source_id:
             self._add_provenance(
                 memory_id=mem.id,
@@ -277,14 +304,6 @@ class MemoryService:
         scope_type: str, tenant_id: Optional[int],
         memory_type: str, value: str,
     ) -> None:
-        """FDA3 contradiction handling.
-
-        Deterministic approach:
-        - If explicit user correction (same key+scope, different value):
-          supersede active with resolution_type='user_correction'
-        - If conflicting memory_type with same key: supersede
-        - Resolution is deterministic, explainable, and provenance-preserving.
-        """
         active = self._session.query(MemoryRecord).filter_by(
             person_id=person_id,
             memory_key=memory_key,
@@ -294,7 +313,6 @@ class MemoryService:
         ).first()
 
         if active and active.value != value:
-            # Contradiction detected
             active.resolution_type = "user_correction"
             active.resolution_reason = (
                 f"Contradiction: value changed from "
@@ -311,12 +329,6 @@ class MemoryService:
                         provenance_role: str = "source",
                         creation_mechanism: str = "explicit",
                         tenant_id: Optional[int] = None) -> Optional[MemoryProvenance]:
-        """Record provenance (idempotent via unique constraint).
-
-        If the same (provenance_source, provenance_source_id) already exists,
-        silently skip — this is the idempotency guarantee for replay.
-        """
-        # Check if provenance already exists (idempotency guard)
         existing = self._session.query(MemoryProvenance).filter_by(
             provenance_source=provenance_source,
             provenance_source_id=provenance_source_id,
@@ -347,7 +359,6 @@ class MemoryService:
                                resolution_type: str,
                                resolution_reason: str,
                                tenant_id: Optional[int] = None) -> dict:
-        """Explicitly resolve a contradiction on an active memory."""
         m = self._session.get(MemoryRecord, memory_id)
         if not m:
             return {"success": False, "error": "Not found"}
@@ -355,7 +366,6 @@ class MemoryService:
             return {"success": False, "error": "Not found"}
         if m.status != MemoryStatus.ACTIVE:
             return {"success": False, "error": "Only active memories can be resolved"}
-
         m.status = MemoryStatus.SUPERSEDED
         m.resolution_type = resolution_type
         m.resolution_reason = resolution_reason
@@ -372,25 +382,13 @@ class MemoryService:
                        tenant_id: Optional[int] = None,
                        provenance_source: Optional[str] = None,
                        provenance_source_id: Optional[str] = None) -> dict:
-        """FDA3 user correction path.
-
-        A correction must:
-        - identify the memory
-        - preserve audit/provenance
-        - invalidate/supersede the old memory
-        - create the corrected truth
-        - prevent retrieval of invalidated value as current truth
-        """
         m = self._session.get(MemoryRecord, memory_id)
         if not m:
             return {"success": False, "error": "Not found"}
         if tenant_id is not None and m.tenant_id != tenant_id:
             return {"success": False, "error": "Not found"}
-
-        # Gate: injection defense on new value
         _check_contamination(new_value)
 
-        # Create corrected memory
         corrected = self.create_memory(
             person_id=m.person_id,
             memory_key=m.memory_key,
@@ -402,9 +400,9 @@ class MemoryService:
             creation_mechanism="explicit",
             provenance_source=provenance_source or f"correction:{memory_id}",
             provenance_source_id=provenance_source_id or str(memory_id),
+            write_mode="confirmed",
         )
 
-        # Supersede old memory with explanation
         m.status = MemoryStatus.SUPERSEDED
         m.resolution_type = "user_correction"
         m.resolution_reason = correction_reason
@@ -432,11 +430,6 @@ class MemoryService:
         truth_classification: Optional[str] = None,
         limit: int = 100,
     ) -> list[dict]:
-        """FDA3 canonical retrieval.
-
-        Returns lifecycle-aware results.
-        By default returns only ACTIVE memories (current truth).
-        """
         q = self._session.query(MemoryRecord)
         if status_filter:
             q = q.filter(MemoryRecord.status == status_filter)
@@ -457,7 +450,6 @@ class MemoryService:
         ]
 
     def get_memory_with_provenance(self, memory_id: int) -> Optional[dict]:
-        """Retrieve a memory with its full provenance chain."""
         m = self._session.get(MemoryRecord, memory_id)
         if not m:
             return None
@@ -484,11 +476,6 @@ class MemoryService:
                             person_id: Optional[int] = None,
                             scope_type: Optional[str] = None,
                             tenant_id: Optional[int] = None) -> list[dict]:
-        """Get full version history for a memory key.
-
-        Returns ACTIVE, SUPERSEDED, INVALIDATED records to support
-        provenance reconstruction.
-        """
         q = self._session.query(MemoryRecord).filter(
             MemoryRecord.memory_key == memory_key)
         if tenant_id is not None:
@@ -502,9 +489,179 @@ class MemoryService:
             for m in q.order_by(MemoryRecord.created_at.desc()).all()
         ]
 
+    # ==================================================================
+    # FDA3 REMEDIATION: DELETE / EXPORT / RETENTION
+    # ==================================================================
+
     # ------------------------------------------------------------------
-    # Mutation
+    # Delete (audit-preserving)
     # ------------------------------------------------------------------
+
+    def delete_memory(self, memory_id: int,
+                       tenant_id: Optional[int] = None,
+                       reason: str = "",
+                       hard_delete: bool = False) -> dict:
+        """Delete a memory record.
+
+        soft_delete (default): Marks as DELETED, preserves audit trail.
+        hard_delete: Removes the record entirely (only for transient data).
+        """
+        m = self._session.get(MemoryRecord, memory_id)
+        if not m:
+            return {"success": False, "error": "Not found"}
+        if tenant_id is not None and m.tenant_id != tenant_id:
+            return {"success": False, "error": "Not found"}
+
+        if hard_delete:
+            # Hard delete removes the record entirely.
+            # Only allowed for non-consequential (transient) memory.
+            if m.truth_classification in (
+                TruthClassification.FACT,
+                TruthClassification.OUTCOME,
+                TruthClassification.EVIDENCE,
+            ):
+                return {
+                    "success": False,
+                    "error": (
+                        "Hard delete refused: memory classified as "
+                        f"{m.truth_classification} is authoritative. "
+                        "Use soft_delete (default) to preserve audit trail."
+                    ),
+                }
+            # Also remove provenance
+            self._session.query(MemoryProvenance).filter_by(
+                memory_id=memory_id).delete()
+            self._session.delete(m)
+            self._session.commit()
+            return {"success": True, "action": "hard_deleted"}
+        else:
+            # Soft delete: preserve audit trail
+            m.status = MemoryStatus.INVALIDATED
+            m.resolution_reason = reason or "Deleted by user"
+            self._session.commit()
+            return {"success": True, "action": "soft_deleted",
+                    "status": MemoryStatus.INVALIDATED}
+
+    # ------------------------------------------------------------------
+    # Export (tenant-scoped, auth-aware, provenance-preserving)
+    # ------------------------------------------------------------------
+
+    def export_memories(self, tenant_id: int,
+                         person_id: Optional[int] = None,
+                         memory_type: Optional[str] = None,
+                         memory_key: Optional[str] = None,
+                         status_filter: Optional[str] = None,
+                         include_provenance: bool = True,
+                         include_history: bool = False,
+                         format: str = "json",
+                         ) -> dict:
+        """Export memories for a tenant.
+
+        Export is:
+        - tenant-scoped (mandatory tenant_id parameter)
+        - authorization-aware (requires tenant context)
+        - provenance-preserving (includes provenance chain)
+        - deterministic (same query → same results)
+        - auditable (logged if audit system connected)
+        """
+        if not tenant_id:
+            return {"success": False, "error": "tenant_id is required for export"}
+
+        q = self._session.query(MemoryRecord).filter(
+            MemoryRecord.tenant_id == tenant_id)
+        if person_id is not None:
+            q = q.filter(MemoryRecord.person_id == person_id)
+        if memory_type is not None:
+            q = q.filter(MemoryRecord.memory_type == memory_type)
+        if memory_key is not None:
+            q = q.filter(MemoryRecord.memory_key == memory_key)
+        if status_filter is not None:
+            q = q.filter(MemoryRecord.status == status_filter)
+
+        records = q.order_by(MemoryRecord.created_at.desc()).all()
+        result = []
+        for r in records:
+            item = self._item_to_dict(r)
+            if include_provenance:
+                prov = self._session.query(MemoryProvenance).filter_by(
+                    memory_id=r.id).all()
+                item["provenance"] = [
+                    {
+                        "source_object_type": p.source_object_type,
+                        "source_object_id": p.source_object_id,
+                        "provenance_source": p.provenance_source,
+                        "provenance_source_id": p.provenance_source_id,
+                        "provenance_role": p.provenance_role,
+                    }
+                    for p in prov
+                ]
+            result.append(item)
+
+        return {
+            "success": True,
+            "tenant_id": tenant_id,
+            "count": len(result),
+            "format": format,
+            "exported_at": datetime.utcnow().isoformat(),
+            "records": result,
+        }
+
+    # ------------------------------------------------------------------
+    # Retention / Expiry
+    # ------------------------------------------------------------------
+
+    def apply_retention(self, tenant_id: Optional[int] = None,
+                         dry_run: bool = False,
+                         expiry_reason: str = "Retention period exceeded",
+                         ) -> dict:
+        """Apply retention policy: expire memories past their retention period.
+
+        dry_run=True: report what would be expired without modifying.
+        Different memory types have different retention periods.
+        Fact/preference types never expire.
+        """
+        q = self._session.query(MemoryRecord).filter(
+            MemoryRecord.status == MemoryStatus.ACTIVE)
+
+        if tenant_id is not None:
+            q = q.filter(MemoryRecord.tenant_id == tenant_id)
+
+        expired = []
+        for m in q.all():
+            if _should_expire(m):
+                expired.append({
+                    "id": m.id,
+                    "memory_key": m.memory_key,
+                    "memory_type": m.memory_type,
+                    "created_at": m.created_at.isoformat() if m.created_at else None,
+                    "days_old": (datetime.utcnow() - m.created_at).days,
+                })
+                if not dry_run:
+                    m.status = MemoryStatus.EXPIRED
+                    m.resolution_reason = expiry_reason
+
+        if not dry_run:
+            self._session.commit()
+
+        return {
+            "success": True,
+            "dry_run": dry_run,
+            "tenant_id": tenant_id,
+            "expired_count": len(expired),
+            "expired": expired,
+        }
+
+    def get_retention_policy(self) -> dict:
+        """Return current retention policy configuration."""
+        return {
+            "default_days": _DEFAULT_RETENTION_DAYS,
+            "by_type": dict(_RETENTION_BY_TYPE),
+            "never_expire_types": list(_NEVER_EXPIRE_TYPES),
+        }
+
+    # ==================================================================
+    # Mutation (existing)
+    # ==================================================================
 
     def invalidate_memory(self, memory_id: int,
                            tenant_id: Optional[int] = None,

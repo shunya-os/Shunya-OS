@@ -171,6 +171,10 @@ class ExecutionIntelligenceEngine:
     def portfolio_summary(self, *a, **kw):
         return self.portfolio.summary(*a, **kw)
 
+    def next_actions(self, *a, **kw):
+        """Stub — returns empty list. Original archived during Phase 1 consolidation."""
+        return []
+
 
 _instance = None
 

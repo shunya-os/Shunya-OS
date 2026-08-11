@@ -30,6 +30,21 @@ class MemoryKnowledgeRuntimeAdapter(RuntimeInterface):
 
     Handles KNOWLEDGE_GRAPH_UPDATE and MEMORY_UPDATE stages.
     Wraps core/memory_knowledge_runtime/ into the canonical pipeline.
+
+    TRANSITIONAL ADAPTER — FDA3
+    ============================
+    Owner: Core OS Kernel (core/os.py)
+    Migration target: app.memory.MemoryService (canonical DB-backed)
+    Migration contract: Replace this adapter when the core OS pipeline has
+    a Flask app context available for MemoryService calls.
+
+    This adapter exists because the core OS pipeline runs outside the Flask
+    app context where MemoryService (which depends on SQLAlchemy) is not
+    available. Once the OS pipeline can bootstrap with a DB session, this
+    adapter should delegate to MemoryService directly.
+
+    Do NOT add new production consumers that depend on this adapter.
+    New consumers must use app.memory.MemoryService directly.
     """
 
     name: str = "memory_knowledge"
