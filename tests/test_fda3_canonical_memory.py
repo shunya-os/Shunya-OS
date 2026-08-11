@@ -817,3 +817,40 @@ class TestDuplicateAuthorityPrevention:
         # This is an adapter class, not a violation — it wraps the canonical
         # for pipeline integration.
         assert MemoryKnowledgeRuntime is not None
+
+    def test_core_intelligence_runtime_memory_not_imported_by_production(self):
+        """core.intelligence_runtime.memory has zero production consumers.
+
+        This is DEAD code — it's an in-memory MemoryEngine that is not
+        used by any production path. The canonical memory is app.memory.MemoryService.
+        """
+        import sys
+        # Check that no production code imports this module
+        import os
+        from pathlib import Path
+        root = Path(__file__).parent.parent
+        matches = []
+        for pyfile in Path(root / "app").rglob("*.py"):
+            content = pyfile.read_text()
+            if "intelligence_runtime.memory" in content or "intelligence_runtime.memory" in content:
+                matches.append(str(pyfile))
+        for pyfile in Path(root / "core").rglob("*.py"):
+            content = pyfile.read_text()
+            if "intelligence_runtime.memory" in content or "intelligence_runtime.memory" in content:
+                f = str(pyfile)
+                if "/tests/" not in f and "/archive/" not in f:
+                    matches.append(f)
+        # core/intelligence_runtime/memory.py self-references are fine
+        self_refs = [m for m in matches if "intelligence_runtime/memory.py" in m]
+        external = [m for m in matches if "intelligence_runtime/memory.py" not in m]
+        # Only the module itself can reference it
+        assert len(external) == 0, f"Production imports of core.intelligence_runtime.memory: {external}"
+
+    def test_knowledge_interface_importable(self):
+        """KnowledgeInterface must be importable as the canonical knowledge contract."""
+        from core.knowledge_interface import KnowledgeInterface, KnowledgeGovernance, KnowledgeCategory
+        assert KnowledgeInterface is not None
+        assert KnowledgeGovernance is not None
+        assert KnowledgeCategory.FACT == "fact"
+        assert KnowledgeGovernance.is_valid_knowledge_category("fact")
+        assert not KnowledgeGovernance.is_valid_knowledge_category("bogus")
