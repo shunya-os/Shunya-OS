@@ -23,6 +23,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     conn = op.get_bind()
+    is_sqlite = conn.dialect.name == "sqlite"
 
     def _table_exists(name: str) -> bool:
         dialect = conn.dialect.name
@@ -44,7 +45,7 @@ def upgrade() -> None:
 
     def _column_exists(table: str, column: str) -> bool:
         try:
-            cols = [c[0] for c in conn.execute(
+            cols = [c[1] for c in conn.execute(
                 sa.text(f"PRAGMA table_info({table})")).fetchall()]
             return column in cols
         except Exception:
@@ -71,10 +72,12 @@ def upgrade() -> None:
                 sa.Column("metadata_json", sa.Text(), nullable=True))
 
         # persons.tenant_id: migrate NULL → default tenant, then set NOT NULL
-        op.execute("UPDATE persons SET tenant_id = 1 WHERE tenant_id IS NULL")
-        op.alter_column("persons", "tenant_id",
-                        existing_type=sa.Integer(),
-                        nullable=False)
+        # Skip on SQLite which doesn't support ALTER COLUMN SET NOT NULL
+        if not is_sqlite:
+            op.execute("UPDATE persons SET tenant_id = 1 WHERE tenant_id IS NULL")
+            op.alter_column("persons", "tenant_id",
+                            existing_type=sa.Integer(),
+                            nullable=False)
 
 
 def downgrade() -> None:

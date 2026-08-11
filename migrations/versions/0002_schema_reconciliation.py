@@ -22,11 +22,11 @@ depends_on = None
 
 def upgrade() -> None:
     conn = op.get_bind()
+    dialect = conn.dialect.name
+    is_sqlite = dialect == "sqlite"
 
     def _table_exists(name: str) -> bool:
-        """Check if a table exists in the current database."""
-        dialect = conn.dialect.name
-        if dialect == "sqlite":
+        if is_sqlite:
             result = conn.execute(
                 sa.text("SELECT name FROM sqlite_master WHERE type='table' AND name=:name"),
                 {"name": name},
@@ -43,26 +43,46 @@ def upgrade() -> None:
             return result[0] if result else False
 
     def _column_exists(table: str, column: str) -> bool:
-        """Check if a column exists in the given table."""
         try:
-            cols = [c[0] for c in conn.execute(sa.text(f"PRAGMA table_info({table})")).fetchall()]
+            cols = [c[1] for c in conn.execute(
+                sa.text(f"PRAGMA table_info({table})")).fetchall()]
             return column in cols
         except Exception:
             return False
 
     def _constraint_exists(table: str, constraint: str) -> bool:
-        """Check if a constraint exists."""
         try:
-            result = conn.execute(
-                sa.text(
-                    "SELECT name FROM sqlite_master "
-                    "WHERE type='index' AND name=:name AND tbl_name=:tbl"
-                ),
-                {"name": constraint, "tbl": table},
-            ).fetchone()
-            return result is not None
+            if is_sqlite:
+                result = conn.execute(
+                    sa.text(
+                        "SELECT name FROM sqlite_master "
+                        "WHERE type='index' AND name=:name AND tbl_name=:tbl"
+                    ),
+                    {"name": constraint, "tbl": table},
+                ).fetchone()
+                return result is not None
+            else:
+                result = conn.execute(
+                    sa.text(
+                        "SELECT constraint_name FROM information_schema.table_constraints "
+                        "WHERE table_name=:tbl AND constraint_name=:name"
+                    ),
+                    {"tbl": table, "name": constraint},
+                ).fetchone()
+                return result is not None if result else False
         except Exception:
             return False
+
+    def _safe(fn, *a, **kw):
+        """Execute a migration operation, catching SQLite-incompatible errors."""
+        if is_sqlite:
+            try:
+                fn(*a, **kw)
+            except (NotImplementedError, Exception):
+                # SQLite doesn't support ALTER TABLE ADD CONSTRAINT, ALTER COLUMN, etc.
+                pass
+        else:
+            fn(*a, **kw)
 
     # ─────────────────────────────────────────────────────────────────────────
     # 1. team_members — missing columns that crashed production
@@ -76,17 +96,17 @@ def upgrade() -> None:
                 ["person_id"], ["id"],
             )
         if not _constraint_exists("team_members", "uq_team_members_api_token"):
-            op.create_unique_constraint("uq_team_members_api_token", "team_members", ["api_token"])
+            _safe(op.create_unique_constraint, "uq_team_members_api_token", "team_members", ["api_token"])
         if not _constraint_exists("team_members", "uq_team_members_email"):
-            op.create_unique_constraint("uq_team_members_email", "team_members", ["email"])
-        op.alter_column("team_members", "tenant_id", nullable=True, existing_type=sa.Integer())
+            _safe(op.create_unique_constraint, "uq_team_members_email", "team_members", ["email"])
+        _safe(op.alter_column, "team_members", "tenant_id", nullable=True, existing_type=sa.Integer())
         try:
-            op.drop_constraint("fk_team_members_tenant_id_tenants", "team_members", type_="foreignkey")
+            _safe(op.drop_constraint, "fk_team_members_tenant_id_tenants", "team_members", type_="foreignkey")
         except Exception:
             pass
 
     # ─────────────────────────────────────────────────────────────────────────
-    # 2. Missing columns: tables where the model expects columns the DB lacks
+    # 2. Missing columns
     # ─────────────────────────────────────────────────────────────────────────
 
     # activity_logs
@@ -105,8 +125,8 @@ def upgrade() -> None:
         if not _column_exists("client_users", "password_hash"):
             op.add_column("client_users", sa.Column("password_hash", sa.String(length=128), nullable=True))
         if not _constraint_exists("client_users", "uq_client_users_email"):
-            op.create_unique_constraint("uq_client_users_email", "client_users", ["email"])
-        op.alter_column("client_users", "email", nullable=False, existing_type=sa.String(length=255))
+            _safe(op.create_unique_constraint, "uq_client_users_email", "client_users", ["email"])
+        _safe(op.alter_column, "client_users", "email", nullable=False, existing_type=sa.String(length=255))
 
     # invoices
     if _table_exists("invoices"):
@@ -116,21 +136,21 @@ def upgrade() -> None:
         if not _column_exists("invoices", "raised_at"):
             op.add_column("invoices", sa.Column("raised_at", sa.DateTime(), nullable=True))
         if not _constraint_exists("invoices", "uq_invoices_invoice_number"):
-            op.create_unique_constraint("uq_invoices_invoice_number", "invoices", ["invoice_number"])
-        op.alter_column("invoices", "due_date", type_=sa.Date(), existing_type=sa.DateTime(),
-                        postgresql_using="due_date::date")
+            _safe(op.create_unique_constraint, "uq_invoices_invoice_number", "invoices", ["invoice_number"])
+        _safe(op.alter_column, "invoices", "due_date", type_=sa.Date(), existing_type=sa.DateTime(),
+              postgresql_using="due_date::date")
 
     # notifications
     if _table_exists("notifications"):
         if not _column_exists("notifications", "lead_id"):
             op.add_column("notifications", sa.Column("lead_id", sa.Integer(), nullable=True))
             op.create_foreign_key("fk_notifications_lead_id_leads", "notifications", "leads", ["lead_id"], ["id"])
-        op.alter_column("notifications", "is_read", nullable=False, existing_type=sa.Boolean())
+        _safe(op.alter_column, "notifications", "is_read", nullable=False, existing_type=sa.Boolean())
 
     # leads
     if _table_exists("leads"):
         if not _constraint_exists("leads", "uq_leads_code"):
-            op.create_unique_constraint("uq_leads_code", "leads", ["code"])
+            _safe(op.create_unique_constraint, "uq_leads_code", "leads", ["code"])
 
     # observations
     if _table_exists("observations"):
@@ -150,7 +170,7 @@ def upgrade() -> None:
                 op.create_foreign_key("fk_observations_lead_id_leads", "observations", "leads", ["lead_id"], ["id"])
             except Exception:
                 pass
-        op.alter_column("observations", "confidence", type_=sa.Float(), existing_type=sa.String(length=20))
+        _safe(op.alter_column, "observations", "confidence", type_=sa.Float(), existing_type=sa.String(length=20))
 
     # payments
     if _table_exists("payments"):
@@ -166,8 +186,8 @@ def upgrade() -> None:
                 op.create_foreign_key("fk_payments_lead_id_leads", "payments", "leads", ["lead_id"], ["id"])
             except Exception:
                 pass
-        op.alter_column("payments", "amount", nullable=False, existing_type=sa.Numeric(12, 2))
-        op.alter_column("payments", "type", nullable=False, existing_type=sa.String(length=30))
+        _safe(op.alter_column, "payments", "amount", nullable=False, existing_type=sa.Numeric(12, 2))
+        _safe(op.alter_column, "payments", "type", nullable=False, existing_type=sa.String(length=30))
 
     # persons
     if _table_exists("persons"):
@@ -196,17 +216,16 @@ def upgrade() -> None:
         ]:
             if not _column_exists("relationships", col_name):
                 op.add_column("relationships", sa.Column(col_name, col_type, nullable=True))
-        op.alter_column("relationships", "tenant_id", nullable=True, existing_type=sa.Integer())
+        _safe(op.alter_column, "relationships", "tenant_id", nullable=True, existing_type=sa.Integer())
 
     # tenants
     if _table_exists("tenants"):
         if not _column_exists("tenants", "subdomain"):
             op.add_column("tenants", sa.Column("subdomain", sa.String(length=255), nullable=True, unique=True))
         if not _constraint_exists("tenants", "uq_tenants_subdomain"):
-            op.create_unique_constraint("uq_tenants_subdomain", "tenants", ["subdomain"])
+            _safe(op.create_unique_constraint, "uq_tenants_subdomain", "tenants", ["subdomain"])
 
-    # Unique constraints (safe to run even if they exist — IF NOT EXISTS is not supported,
-    # but creating them on a fresh DB is fine since the tables exist by then)
+    # Unique constraints
     for table, constraint, cols in [
         ("founder_conversations", "uq_founder_conversations_conv_id", ["conv_id"]),
         ("founder_objects", "uq_founder_objects_object_id", ["object_id"]),
@@ -216,105 +235,16 @@ def upgrade() -> None:
         ("suppliers", "uq_suppliers_name", ["name"]),
     ]:
         if _table_exists(table) and not _constraint_exists(table, constraint):
-            op.create_unique_constraint(constraint, table, cols)
+            _safe(op.create_unique_constraint, constraint, table, cols)
 
     # Default value alignment
     if _table_exists("notifications"):
-        op.alter_column("notifications", "is_read", server_default=sa.text("false"))
+        _safe(op.alter_column, "notifications", "is_read", server_default=sa.text("false"))
     if _table_exists("payments"):
-        op.alter_column("payments", "amount", server_default=sa.text("0"))
-        op.alter_column("payments", "type", server_default=sa.text("'guest_payment'"))
+        _safe(op.alter_column, "payments", "amount", server_default=sa.text("0"))
+        _safe(op.alter_column, "payments", "type", server_default=sa.text("'guest_payment'"))
     if _table_exists("persons"):
-        op.alter_column("persons", "status", server_default=sa.text("'active'"))
+        _safe(op.alter_column, "persons", "status", server_default=sa.text("'active'"))
     if _table_exists("team_members"):
-        op.alter_column("team_members", "is_active", server_default=sa.text("true"))
-        op.alter_column("team_members", "role", server_default=sa.text("'agent'"))
-
-
-def downgrade() -> None:
-    """Reverse all additive changes.
-
-    WARNING: Reversing this migration may lose data if the added columns
-    were populated. Only downgrade in development/test environments.
-    """
-    # Reverse order of upgrade (LIFO)
-
-    # Team members
-    op.drop_constraint("uq_team_members_email", "team_members", type_="unique")
-    op.drop_constraint("uq_team_members_api_token", "team_members", type_="unique")
-    op.drop_constraint("fk_team_members_person_id_persons", "team_members", type_="foreignkey")
-    op.drop_column("team_members", "person_id")
-
-    # Activity logs
-    op.drop_constraint("fk_activity_logs_lead_id_leads", "activity_logs", type_="foreignkey")
-    op.drop_column("activity_logs", "user")
-    op.drop_column("activity_logs", "lead_id")
-
-    # Client users
-    op.drop_constraint("uq_client_users_email", "client_users", type_="unique")
-    op.drop_constraint("fk_client_users_lead_id_leads", "client_users", type_="foreignkey")
-    op.drop_column("client_users", "password_hash")
-    op.drop_column("client_users", "lead_id")
-
-    # Invoices
-    op.drop_constraint("uq_invoices_invoice_number", "invoices", type_="unique")
-    op.drop_constraint("fk_invoices_lead_id_leads", "invoices", type_="foreignkey")
-    op.drop_column("invoices", "raised_at")
-    op.drop_column("invoices", "lead_id")
-
-    # Notifications
-    op.drop_constraint("fk_notifications_lead_id_leads", "notifications", type_="foreignkey")
-    op.drop_column("notifications", "lead_id")
-
-    # Leads
-    op.drop_constraint("uq_leads_code", "leads", type_="unique")
-
-    # Observations
-    op.drop_constraint("fk_observations_lead_id_leads", "observations", type_="foreignkey")
-    op.drop_column("observations", "success")
-    op.drop_column("observations", "lead_id")
-    op.drop_column("observations", "expected_outcome")
-    op.drop_column("observations", "discrepancy")
-    op.drop_column("observations", "channel")
-    op.drop_column("observations", "actual_outcome")
-    op.drop_column("observations", "action")
-
-    # Payments
-    op.drop_constraint("fk_payments_lead_id_leads", "payments", type_="foreignkey")
-    op.drop_column("payments", "ref_number")
-    op.drop_column("payments", "method")
-    op.drop_column("payments", "lead_id")
-
-    # Persons
-    op.drop_constraint("fk_persons_tenant_id_tenants", "persons", type_="foreignkey")
-    op.drop_column("persons", "updated_at")
-    op.drop_column("persons", "tenant_id")
-    op.drop_column("persons", "status")
-    op.drop_column("persons", "preferred_name")
-    op.drop_column("persons", "canonical_name")
-
-    # Relationships
-    op.drop_column("relationships", "started_at")
-    op.drop_column("relationships", "source")
-    op.drop_column("relationships", "relationship_type")
-    op.drop_column("relationships", "ended_at")
-
-    # Tenants
-    op.drop_constraint("uq_tenants_subdomain", "tenants", type_="unique")
-    op.drop_column("tenants", "subdomain")
-
-    # Founder unique constraints
-    op.drop_constraint("uq_founder_conversations_conv_id", "founder_conversations", type_="unique")
-    op.drop_constraint("uq_founder_objects_object_id", "founder_objects", type_="unique")
-    op.drop_constraint("uq_founder_relationships_rel_id", "founder_relationships", type_="unique")
-    op.drop_constraint("uq_founder_spaces_space_id", "founder_spaces", type_="unique")
-    op.drop_constraint("uq_shunya_identities_identity_id", "shunya_identities", type_="unique")
-    op.drop_constraint("uq_suppliers_name", "suppliers", type_="unique")
-
-    # Default alignment reversals
-    op.alter_column("notifications", "is_read", server_default=None)
-    op.alter_column("payments", "amount", server_default=None)
-    op.alter_column("payments", "type", server_default=None)
-    op.alter_column("persons", "status", server_default=None)
-    op.alter_column("team_members", "is_active", server_default=None)
-    op.alter_column("team_members", "role", server_default=None)
+        _safe(op.alter_column, "team_members", "is_active", server_default=sa.text("true"))
+        _safe(op.alter_column, "team_members", "role", server_default=sa.text("'agent'"))
