@@ -507,6 +507,8 @@ class Person(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
+    # Legacy name column: production DB has name NOT NULL from original schema
+    name = db.Column(db.String(255), nullable=True)
     canonical_name = db.Column(db.String(255), nullable=False, index=True)
     preferred_name = db.Column(db.String(255), default="", index=True)
     identity_type = db.Column(db.String(32), nullable=True)

@@ -107,9 +107,12 @@ class IdentityService(IdentityResolutionInterface):
                     canonical_name=claim.claim_value).first()
             if not person:
                 person = Person(
+                    name=claim.claim_value if claim.claim_type == ClaimType.NAME
+                           else f"Unknown ({claim.claim_type.value})",
                     canonical_name=claim.claim_value if claim.claim_type == ClaimType.NAME
                                else f"Unknown ({claim.claim_type.value})",
                     identity_type=claim.identity_type.value if isinstance(claim.identity_type, Enum) else claim.identity_type,
+                    tenant_id=claim.tenant_id,
                 )
                 self._session.add(person)
                 self._session.flush()

@@ -7,7 +7,7 @@ FDA2 — Core Runtime Consolidation.
 import sqlalchemy as sa
 from alembic import op
 
-revision = '0003_add_evidence_unique_constraint'
+revision = '0003_evidence_unique_constr'
 down_revision = '0002_schema_reconciliation'
 branch_labels = None
 depends_on = None

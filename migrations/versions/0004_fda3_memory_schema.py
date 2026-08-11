@@ -17,7 +17,7 @@ import sqlalchemy as sa
 
 
 revision: str = "0004_fda3_memory_schema"
-down_revision: Union[str, None] = "0003_add_evidence_unique_constraint"
+down_revision: Union[str, None] = "0003_evidence_unique_constr"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -46,9 +46,41 @@ def upgrade() -> None:
 
     def _column_exists(table: str, column: str) -> bool:
         try:
-            cols = [c[1] for c in conn.execute(
-                sa.text(f"PRAGMA table_info({table})")).fetchall()]
+            if is_sqlite:
+                cols = [c[1] for c in conn.execute(
+                    sa.text(f"PRAGMA table_info({table})")).fetchall()]
+            else:
+                cols = [c[0] for c in conn.execute(
+                    sa.text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = :table"
+                    ),
+                    {"table": table},
+                ).fetchall()]
             return column in cols
+        except Exception:
+            return False
+
+    def _constraint_exists(table: str, constraint: str) -> bool:
+        try:
+            if is_sqlite:
+                result = conn.execute(
+                    sa.text(
+                        "SELECT name FROM sqlite_master "
+                        "WHERE type='index' AND name=:name AND tbl_name=:tbl"
+                    ),
+                    {"name": constraint, "tbl": table},
+                ).fetchone()
+                return result is not None
+            else:
+                result = conn.execute(
+                    sa.text(
+                        "SELECT constraint_name FROM information_schema.table_constraints "
+                        "WHERE table_name=:tbl AND constraint_name=:name"
+                    ),
+                    {"tbl": table, "name": constraint},
+                ).fetchone()
+                return result is not None if result else False
         except Exception:
             return False
 
@@ -85,7 +117,7 @@ def upgrade() -> None:
             op.add_column("memory_provenances",
                 sa.Column("provenance_source_id", sa.String(255), nullable=True))
         # Unique constraint — only on PostgreSQL (SQLite can't add after creation)
-        if not is_sqlite:
+        if not is_sqlite and not _constraint_exists("memory_provenances", "uq_mp_source_idempotency"):
             op.create_unique_constraint(
                 "uq_mp_source_idempotency", "memory_provenances",
                 ["provenance_source", "provenance_source_id"],

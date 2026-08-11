@@ -45,8 +45,17 @@ def upgrade() -> None:
 
     def _column_exists(table: str, column: str) -> bool:
         try:
-            cols = [c[1] for c in conn.execute(
-                sa.text(f"PRAGMA table_info({table})")).fetchall()]
+            if is_sqlite:
+                cols = [c[1] for c in conn.execute(
+                    sa.text(f"PRAGMA table_info({table})")).fetchall()]
+            else:
+                cols = [c[0] for c in conn.execute(
+                    sa.text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = :table"
+                    ),
+                    {"table": table},
+                ).fetchall()]
             return column in cols
         except Exception:
             return False
