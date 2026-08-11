@@ -6,7 +6,7 @@ canonical import/export fabric.
 """
 import logging
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 
 from core.api_contract import (
     success_response,
@@ -42,7 +42,7 @@ def import_contacts_csv():
 
     svc = IdentityService()
     importer = CSVContactImporter(identity_service=svc)
-    result = importer.import_data(content, tenant_id=getattr(request, "tenant_id", "1"))
+    result = importer.import_data(content, tenant_id=g.tenant_id)
 
     return success_response(
         data={
@@ -69,7 +69,7 @@ def import_contacts_json():
 
     svc = IdentityService()
     importer = JSONDataImporter(identity_service=svc)
-    result = importer.import_data(data, tenant_id=getattr(request, "tenant_id", "1"))
+    result = importer.import_data(data, tenant_id=g.tenant_id)
 
     return success_response(
         data={
