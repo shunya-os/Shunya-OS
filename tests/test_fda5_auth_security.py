@@ -18,14 +18,20 @@ class TestAuthBoundary:
     """Authentication is enforced on every API boundary."""
 
     def test_unauthenticated_request_rejected(self, app):
-        """No auth → 401 or 403."""
+        """No auth → 401."""
         from core.api_contract import register_error_handlers
         with app.app_context():
             register_error_handlers(app)
+            # First verify the route exists
             with app.test_client() as client:
-                # Use /system/health which is always registered
-                resp = client.get("/api/v1/intelligence")
-                assert resp.status_code in (401, 403, 404)
+                health_resp = client.get("/system/health")
+                assert health_resp.status_code == 200, "/system/health must exist and be accessible"
+            # Now test auth-required route with correct HTTP method
+            with app.test_client() as client:
+                resp = client.post("/api/v1/intelligence/ask",
+                                   json={"query": "test"})
+                # Must be 401 (auth failure), not 404 (route missing) or 405 (wrong method)
+                assert resp.status_code in (401, 403), f"Expected 401/403, got {resp.status_code}"
 
     def test_health_endpoint_public(self, app):
         """Health endpoint should be accessible without auth."""
