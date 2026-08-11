@@ -303,13 +303,21 @@ class NotificationType(str, PyEnum):
 
 
 class PersonIdentity(db.Model):
-    """Compatibility Layer — Identity method for legacy resolver."""
+    """FDA4: Canonical identity claim storage.
+
+    Every identity claim (email, phone, name, alias, external ID) is stored
+    here with full provenance. Conflicting claims remain visible.
+    """
     __tablename__ = "person_identities"
     id = db.Column(db.Integer, primary_key=True)
     person_id = db.Column(db.Integer, db.ForeignKey("persons.id"))
     identity_type = db.Column(db.String(32), nullable=False)
     identity_value = db.Column(db.String(255), nullable=False)
     normalized_value = db.Column(db.String(255), nullable=False, index=True)
+    source = db.Column(db.String(60), nullable=True)
+    source_id = db.Column(db.String(255), nullable=True)
+    confidence = db.Column(db.Float, default=1.0)
+    metadata_json = db.Column(db.Text, nullable=True)
     verification_state = db.Column(db.String(32), default="unverified")
     def __repr__(self):
         return f"<PersonIdentity #{self.id} {self.identity_type}:{self.identity_value}>"
@@ -501,6 +509,8 @@ class Person(db.Model):
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
     canonical_name = db.Column(db.String(255), nullable=False, index=True)
     preferred_name = db.Column(db.String(255), default="", index=True)
+    identity_type = db.Column(db.String(32), nullable=True)
+    metadata_json = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(30), default="active", index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
