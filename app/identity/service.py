@@ -278,7 +278,7 @@ class IdentityService(IdentityResolutionInterface):
                 "matched_value": value,
                 "match_type": list(p_types),
                 "person_ids": list(person_ids),
-                "person_names": [p.name for p in persons],
+                "person_names": [p.canonical_name for p in persons],
             })
 
         return results
@@ -482,7 +482,7 @@ class IdentityService(IdentityResolutionInterface):
                 "claim_value": value,
                 "claim_types": list(set(p.identity_type for p in pis)),
                 "person_ids": list(person_ids),
-                "person_names": [p.name for p in persons],
+                "person_names": [p.canonical_name for p in persons],
                 "sources": list(set(p.source for p in pis if p.source)),
                 "status": "conflicted",
             })

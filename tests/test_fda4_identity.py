@@ -27,6 +27,8 @@ def app():
     os.environ["DATABASE_URL"] = f"sqlite:///{db_path}"
     application = create_app({"TESTING": True})
     with application.app_context():
+        # Import memory models to register their tables
+        import app.memory.models  # noqa: F401
         db.create_all()
         yield application
     if old_db_url:
@@ -137,19 +139,29 @@ class TestDeduplication:
     """Gate F: Duplicate detection is deterministic."""
 
     def test_find_duplicates_by_email(self, svc):
-        # Create two people with same email
-        svc.add_claim(IdentityClaim(
-            claim_value="dup@example.com",
-            claim_type=ClaimType.EMAIL,
-            source="gmail", source_id="t1",
-            tenant_id="t1",
-        ))
-        svc.add_claim(IdentityClaim(
-            claim_value="dup@example.com",
-            claim_type=ClaimType.EMAIL,
-            source="import", source_id="t2",
-            tenant_id="t1",
-        ))
+        """Find duplicates: same email on different people must be detected."""
+        import json
+        from app.models import Person, PersonIdentity as PI
+
+        # Create two different people
+        p1 = Person(canonical_name="Alice", tenant_id=1)
+        p2 = Person(canonical_name="Bob", tenant_id=1)
+        svc._session.add_all([p1, p2])
+        svc._session.flush()
+
+        # Add the same email to both people (simulating a merge conflict)
+        for p in [p1, p2]:
+            pi = PI(
+                person_id=p.id, identity_type="email",
+                identity_value="dup@example.com",
+                normalized_value="dup@example.com",
+                source="test", source_id="src",
+                confidence=0.5,
+                metadata_json=json.dumps({"tenant_id": "1"}),
+            )
+            svc._session.add(pi)
+        svc._session.commit()
+
         dups = svc.find_duplicates()
         assert len(dups) >= 1
         assert dups[0]["classification"] == "confirmed"
@@ -230,37 +242,54 @@ class TestConflict:
     """Gate I: Conflicting claims remain visible."""
 
     def test_find_conflicts(self, svc):
-        # Two different people with same email value
-        svc.add_claim(IdentityClaim(
-            claim_value="conflict@example.com",
-            claim_type=ClaimType.EMAIL,
-            source="source_a", source_id="a1",
-            tenant_id="t1",
-        ))
-        svc.add_claim(IdentityClaim(
-            claim_value="conflict@example.com",
-            claim_type=ClaimType.EMAIL,
-            source="source_b", source_id="b1",
-            tenant_id="t1",
-        ))
+        """Conflicting claims: same email value on different people."""
+        import json
+        from app.models import Person, PersonIdentity as PI
+
+        p1 = Person(canonical_name="Alice", tenant_id=1)
+        p2 = Person(canonical_name="Bob", tenant_id=1)
+        svc._session.add_all([p1, p2])
+        svc._session.flush()
+
+        pi1 = PI(person_id=p1.id, identity_type="email",
+                 identity_value="conflict@example.com",
+                 normalized_value="conflict@example.com",
+                 source="source_a", source_id="a1",
+                 confidence=0.9, metadata_json=json.dumps({"tenant_id": "1"}))
+        pi2 = PI(person_id=p2.id, identity_type="email",
+                 identity_value="conflict@example.com",
+                 normalized_value="conflict@example.com",
+                 source="source_b", source_id="b1",
+                 confidence=0.9, metadata_json=json.dumps({"tenant_id": "1"}))
+        svc._session.add_all([pi1, pi2])
+        svc._session.commit()
+
         conflicts = svc.find_conflicts()
         assert len(conflicts) >= 1
 
     def test_resolve_conflict(self, svc):
-        c1 = svc.add_claim(IdentityClaim(
-            claim_value="resolve@example.com",
-            claim_type=ClaimType.EMAIL,
-            source="a", source_id="a1",
-            tenant_id="t1",
-        ))
-        svc.add_claim(IdentityClaim(
-            claim_value="resolve@example.com",
-            claim_type=ClaimType.EMAIL,
-            source="b", source_id="b1",
-            tenant_id="t1",
-        ))
+        """Resolve a conflicting claim to a target identity."""
+        import json
+        from app.models import Person, PersonIdentity as PI
+
+        p1 = Person(canonical_name="Alice", tenant_id=1)
+        p2 = Person(canonical_name="Bob", tenant_id=1)
+        svc._session.add_all([p1, p2])
+        svc._session.flush()
+
+        for p, src, sid in [(p1, "a", "a1"), (p2, "b", "b1")]:
+            svc._session.add(PI(
+                person_id=p.id, identity_type="email",
+                identity_value="resolve@example.com",
+                normalized_value="resolve@example.com",
+                source=src, source_id=sid,
+                confidence=0.9,
+                metadata_json=json.dumps({"tenant_id": "1"}),
+            ))
+        svc._session.commit()
+
         result = svc.resolve_conflict(
-            "resolve@example.com", c1.identity_id,
+            "resolve@example.com", str(p1.id),
             resolution="manual", reason="verified")
         assert result["success"]
 
@@ -307,28 +336,27 @@ class TestHistoricalIntegrity:
 class TestMemoryIdentityIntegration:
     """Gate M: Memory references canonical identity."""
 
-    def test_identity_resolution_used_by_memory(self, app, svc):
+    def test_identity_resolution_used_by_memory(self, svc):
         """MemoryService can reference identity-resolved person IDs."""
         from app.memory import MemoryService
         from app.memory.models import TruthClassification
 
-        with app.app_context():
-            c = svc.add_claim(IdentityClaim(
-                claim_value="memory_user@example.com",
-                claim_type=ClaimType.EMAIL,
-                source="gmail", source_id="mem1",
-                tenant_id="t1",
-            ))
-            mem_svc = MemoryService()
-            m = mem_svc.create_memory(
-                person_id=int(c.identity_id),
-                memory_key="preference",
-                value="prefers email communication",
-                truth_classification=TruthClassification.OBSERVATION,
-                provenance_source="identity_resolution",
-                provenance_source_id=c.identity_id,
-            )
-            assert m.person_id == int(c.identity_id)
+        c = svc.add_claim(IdentityClaim(
+            claim_value="memory_user@example.com",
+            claim_type=ClaimType.EMAIL,
+            source="gmail", source_id="mem1",
+            tenant_id="t1",
+        ))
+        mem_svc = MemoryService()
+        m = mem_svc.create_memory(
+            person_id=int(c.identity_id),
+            memory_key="preference",
+            value="prefers email communication",
+            truth_classification=TruthClassification.OBSERVATION,
+            provenance_source="identity_resolution",
+            provenance_source_id=c.identity_id,
+        )
+        assert m.person_id == int(c.identity_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════
