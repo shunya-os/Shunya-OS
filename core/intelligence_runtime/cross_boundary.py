@@ -251,14 +251,25 @@ class ExecutionAuthorityEnforcer:
     - model output
 
     Execution requires the canonical authorization path.
+
+    Authority is determined by the evidence's canonical classification,
+    NOT by string matching on source names. Evidence classified as
+    EXTERNAL_EVIDENCE, MEMORY, or INFERENCE is intrinsically
+    non-authoritative. Only COMPANY_TRUTH evidence can authorize
+    execution, and even then only through the canonical identity +
+    policy path.
     """
 
-    NON_AUTHORITY_SOURCES = {
-        "web", "internet", "memory", "customer_content",
-        "email", "generated_text", "model_output", "imported",
-        "external_evidence", "web_search", "web_page",
-        "malicious_web_page", "web research", "web_result",
+    NON_AUTHORITY_CLASSIFICATIONS = {
+        "external_evidence", "memory", "inference", "unknown",
     }
+    """Evidence classifications that are intrinsically non-authoritative.
+
+    This is a CONSTITUTIONAL set, not a configurable list. Any evidence
+    with these classifications is inherently non-authoritative regardless
+    of its source name. New evidence types added in the future must be
+    explicitly classified as COMPANY_TRUTH to be authoritative.
+    """
 
     @classmethod
     def check(
@@ -270,13 +281,19 @@ class ExecutionAuthorityEnforcer:
     ) -> AuthorityCheck:
         """Check execution authority for a proposed action.
 
+        Authority is determined by the CANONICAL CLASSIFICATION of evidence,
+        NOT by source name strings. Evidence classified as external_evidence,
+        memory, inference, or unknown is intrinsically non-authoritative.
+
         Returns:
             - AUTHORIZED if the action follows the canonical authorization path
             - DENIED if evidence sources are non-authoritative
         """
-        # Check: all evidence sources are non-authoritative
+        # Check: all evidence classifications are non-authoritative
+        # This is a CONSTITUTIONAL rule — classifications are set at
+        # evidence creation time, not discovered from source names.
         all_non_authoritative = all(
-            s.lower() in cls.NON_AUTHORITY_SOURCES
+            s.lower() in cls.NON_AUTHORITY_CLASSIFICATIONS
             for s in evidence_sources
         )
 
@@ -285,9 +302,9 @@ class ExecutionAuthorityEnforcer:
                 authorized=False,
                 authority_path="blocked",
                 reason=(
-                    f"Execution blocked: evidence only from non-authoritative sources "
-                    f"({', '.join(evidence_sources)}). "
-                    f"Canonical authorization path requires: "
+                    f"Execution blocked: evidence classifications "
+                    f"({', '.join(evidence_sources)}) are intrinsically "
+                    f"non-authoritative. Canonical authorization path requires: "
                     f"user identity → tenant context → policy decision → explicit authorization."
                 ),
                 evidence_used=evidence_sources,
@@ -452,12 +469,11 @@ class CrossBoundaryIntelligenceService:
         stage_start = time.monotonic()
 
         # Determine evidence sources for authority check
+        # USING CLASSIFICATIONS, not source names — this is a constitutional rule.
         evidence_sources = []
         if company_evidence:
-            evidence_sources.extend(e.source.lower() for e in company_evidence)
             evidence_sources.extend(e.classification.value for e in company_evidence)
         if external_evidence:
-            evidence_sources.extend(e.source.lower() for e in external_evidence)
             evidence_sources.extend(e.classification.value for e in external_evidence)
 
         # Check if the request implies execution
