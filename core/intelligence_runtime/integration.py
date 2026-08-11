@@ -151,21 +151,51 @@ def ensure_runtime() -> None:
     # ── LLM Provider (with FDA8 model orchestration) ──
     def _model_orchestrated_complete(messages: list[dict], temperature: float = 0.7,
                                       max_tokens: int = 1024) -> dict:
-        """Complete with model orchestration — deterministic-first routing (FDA8)."""
-        from core.model_orchestrator import ModelOrchestrator
-        orch = ModelOrchestrator()
-        # Use deterministic-first routing: check if the task is deterministic
-        if messages and len(messages) > 0:
-            last_msg = messages[-1].get("content", "").lower()
-            if any(kw in last_msg for kw in ["sort", "count", "aggregate", "validate", "deduplicate"]):
-                result = orch.process_request("deterministic", last_msg)
-                if result.get("success") and result.get("deterministic"):
-                    return {"content": result["result"], "role": "assistant", "provider": "deterministic"}
+        """Complete with model orchestration — deterministic-first routing (FDA8).
 
-        # Otherwise use standard LLM provider
-        from app.ai.provider import get_provider
-        provider = get_provider()
-        return provider.complete(messages, temperature=temperature, max_tokens=max_tokens)
+        Uses the canonical Inference Orchestrator's 5-stage pipeline:
+        classify → policy → select → execute → observe.
+        """
+        from core.inference_orchestrator import (
+            get_orchestrator, OrchestratorRequest, reset_orchestrator,
+        )
+
+        # Extract input text from messages
+        input_text = ""
+        if messages and len(messages) > 0:
+            last_msg = messages[-1].get("content", "")
+            # Join all messages for context
+            parts = [m.get("content", "") for m in messages if m.get("content")]
+            input_text = "\n".join(parts)
+
+        # Build orchestrator request — the orchestrator handles classification,
+        # policy, capability-based selection, execution, and observation
+        request = OrchestratorRequest(
+            input_text=input_text,
+            session_id="runtime",
+            temperature=temperature,
+            max_tokens=max_tokens,
+            request_type="chat",
+        )
+
+        try:
+            orch = get_orchestrator()
+            response = orch.process(request)
+            return {
+                "content": response.content or response.error or "No response",
+                "role": "assistant",
+                "provider": response.provider or "unknown",
+                "model": response.model or "unknown",
+                "orchestrator_pipeline": [s.to_dict() for s in response.pipeline],
+            }
+        except Exception as e:
+            # Fallback: if orchestrator fails, use direct provider
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Orchestrator failed, falling back to direct provider: {e}")
+            from app.ai.provider import get_provider
+            provider = get_provider()
+            return provider.complete(messages, temperature=temperature, max_tokens=max_tokens)
 
     runtime.wire_llm_provider(_model_orchestrated_complete)
 
