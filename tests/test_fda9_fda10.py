@@ -1126,15 +1126,14 @@ class TestCanonicalRuntimePath:
         assert data.get("error") is not None
 
     def test_api_ask_with_session(self, app, client):
-        """POST /api/v1/intelligence/ask with session → processes successfully."""
-        self._setup_session(client, app)
-        resp = client.post(
-            "/api/v1/intelligence/ask",
-            json={"question": "What is our revenue?"},
-        )
-        assert resp.status_code in (200, 400)
-        data = resp.get_json()
-        if resp.status_code == 200:
+            """POST /api/v1/intelligence/ask with session → processes successfully."""
+            self._setup_session(client, app)
+            resp = client.post(
+                "/api/v1/intelligence/ask",
+                json={"question": "What is our revenue?"},
+            )
+            assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.get_json()}"
+            data = resp.get_json()
             assert data["success"] is True
 
     def test_api_company_first_with_evidence(self, app, client):

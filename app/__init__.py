@@ -664,8 +664,8 @@ def create_app(config_override: dict | None = None):
     app.register_blueprint(ubme_bp)
 
     # PLP Cycle 2C — Universal Intelligence Runtime
-    from app.intelligence_routes import intelligence_bp
-    app.register_blueprint(intelligence_bp)
+    # (integrated into app/intelligence/routes.py at /api/v1/intelligence)
+    # Legacy app/intelligence_routes.py removed — single canonical path.
 
     # AI Chat — Provider Registry (Groq → fallback chain)
     from app.ai.routes import ai_bp
@@ -799,10 +799,6 @@ def create_app(config_override: dict | None = None):
     # ---- Import API ---------------------------------------------------------
     from app.import_api.routes import import_bp
     app.register_blueprint(import_bp)
-
-    # ---- FDA9/FDA10: Cross-Boundary Intelligence API ------------------------
-    from core.intelligence_runtime.cross_boundary_routes import cb_bp
-    app.register_blueprint(cb_bp)
 
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")

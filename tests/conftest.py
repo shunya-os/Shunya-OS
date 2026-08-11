@@ -101,8 +101,9 @@ def client(app):
 
 
 @pytest.fixture(scope="function")
-def tenant(app, db):
+def tenant(app):
     """Create a sample tenant for multi-tenant tests."""
+    from app import db
     from app.tenant import Tenant
     t = Tenant(
         company_name="Test Travel Co",
@@ -122,8 +123,9 @@ def test_tenant(tenant):
 
 
 @pytest.fixture(scope="function")
-def admin_user(app, db):
+def admin_user(app):
     """Create an admin TeamMember for auth-required tests."""
+    from app import db
     from app.auth import TeamMember
     user = TeamMember(
         name="Admin User",

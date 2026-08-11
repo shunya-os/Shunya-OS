@@ -259,165 +259,92 @@ def api_ask():
         "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
     })
 
-    # ── Stage 4: Intent Classification ──────────────────────────────
+    # ── Stage 4: Execution Authority Classification ─────────────────
     stage_start = time.monotonic()
-    from core.inference_governance import CapabilityBasedRouter
-    from core.inference_orchestrator import get_orchestrator
-    orch = get_orchestrator()
-    available_raw = orch.execution_layer.get_available_providers()
-    available = [p.get("name", "").lower() for p in available_raw if isinstance(p, dict)]
-    available = [n for n in available if n]
+    from core.intelligence_runtime.cross_boundary import ExecutionAuthorityEnforcer
 
-    # Check if this is a deterministic-only query (no model needed)
-    text = question.lower().strip()
-    deterministic_response = None
-    simple_greetings = {"hello", "hi", "hey", "good morning", "good evening", "good afternoon"}
-    simple_farewells = {"bye", "goodbye", "see you", "see ya"}
-    simple_thanks = {"thanks", "thank you", "thank you!"}
+    # Classify evidence sources for authority check
+    evidence_classifications = [e["classification"] for e in evidence_used]
+    has_company_data = len(company_evidence) > 0
 
-    if text in simple_greetings:
-        deterministic_response = "Hello! I'm SHUNYA, your business intelligence engine. How can I help you today?"
-    elif text in simple_farewells:
-        deterministic_response = "Goodbye! Feel free to come back anytime."
-    elif text in simple_thanks:
-        deterministic_response = "You're welcome! Let me know if you need anything else."
-
-    if deterministic_response:
+    # Check if evidence is from non-authoritative sources
+    if evidence_classifications:
+        all_non_auth = all(
+            c in ExecutionAuthorityEnforcer.NON_AUTHORITY_CLASSIFICATIONS
+            for c in evidence_classifications
+        )
+        if all_non_auth and not has_company_data:
+            # Only non-authoritative evidence — execution authority denied
+            # But query-only paths (no execute action requested) are allowed
+            pipeline_stages.append({
+                "stage": "execution_authority",
+                "status": "note_only_external_evidence",
+                "classification": "external_only",
+                "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
+            })
+        else:
+            pipeline_stages.append({
+                "stage": "execution_authority",
+                "status": "authorized",
+                "company_evidence_present": has_company_data,
+                "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
+            })
+    else:
         pipeline_stages.append({
-            "stage": "intent_classification", "status": "deterministic",
-            "model_invoked": False,
+            "stage": "execution_authority",
+            "status": "no_evidence",
             "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
         })
-        total_latency = round((time.monotonic() - start) * 1000, 1)
-        return jsonify({
-            "success": True,
-            "answer": deterministic_response,
-            "deterministic": True,
-            "model_invoked": False,
-            "tenant": tenant,
-            "evidence_used": evidence_used,
-            "pipeline": pipeline_stages,
-            "latency_ms": total_latency,
-        })
 
-    pipeline_stages.append({
-        "stage": "intent_classification", "status": "success",
-        "model_invoked": True,
-        "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
-    })
-
-    # ── Stage 5: Inference Governance ───────────────────────────────
+    # ── Stage 5: Inference Governance (deterministic-first + capability routing + orchestrator) ──
     stage_start = time.monotonic()
-    from core.inference_governance import InferenceGovernanceService, \
-        DeterministicResponseTemplates, ProviderCostRegistry
+    from core.inference_governance import InferenceGovernanceService, reset_governance_service
 
-    # Check deterministic templates for common patterns
-    det_templates = DeterministicResponseTemplates()
-    det_response = det_templates.get_response("help", question)
-    if det_response:
-        total_latency = round((time.monotonic() - start) * 1000, 1)
-        return jsonify({
-            "success": True,
-            "answer": det_response,
-            "deterministic": True,
-            "model_invoked": False,
-            "tenant": tenant,
-            "evidence_used": evidence_used,
-            "pipeline": pipeline_stages,
-            "latency_ms": total_latency,
-        })
+    # Build company context for the system prompt
+    context_parts = [e["content"] for e in company_evidence]
+    context = ". ".join(context_parts) if context_parts else "No business data found yet."
 
-    # Route through capability-based routing
-    route = CapabilityBasedRouter.route(
+    # Use InferenceGovernanceService as the canonical inference entry point
+    gov_service = InferenceGovernanceService(paid_enabled=True)
+    gov_result = gov_service.process(
         query=question,
-        available_providers=available,
-        paid_enabled=True,  # Default: paid enabled for production
+        session_id=tenant.get("identity_id", ""),
+        paid_allowed=True,
     )
 
-    # Check if paid is needed but blocked
-    if route.get("paid_blocked"):
-        total_latency = round((time.monotonic() - start) * 1000, 1)
-        return jsonify({
-            "success": False,
-            "error": "The requested capability requires paid inference, which is currently disabled.",
-            "route": route,
-            "tenant": tenant,
-            "evidence_used": evidence_used,
-            "pipeline": pipeline_stages,
-            "latency_ms": total_latency,
-        }), 403
-
     pipeline_stages.append({
-        "stage": "inference_governance", "status": "success",
-        "capability": route.get("capability", "chat"),
-        "suggested_provider": route.get("suggested_provider", ""),
-        "cost_class": route.get("required_cost_class", ""),
+        "stage": "inference_governance",
+        "status": "deterministic" if gov_result.get("deterministic") else "model_invoked",
+        "model_invoked": gov_result.get("model_invoked", False),
+        "provider": gov_result.get("provider", ""),
+        "model": gov_result.get("model", ""),
+        "observability": gov_result.get("observability", {}),
         "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
     })
-
-    # ── Stage 6: Execute through canonical orchestrator ─────────────
-    stage_start = time.monotonic()
-    try:
-        # Build context from company evidence
-        context_parts = [e["content"] for e in company_evidence]
-        context = ". ".join(context_parts) if context_parts else "No business data found yet."
-
-        # Use orchestrator with governance hint
-        orch = get_orchestrator()
-        from core.inference_orchestrator import OrchestratorRequest
-
-        # Build system prompt with company-first context
-        system_prompt = (
-            f"You are SHUNYA, an AI assistant for a business. "
-            f"Current business context: {context}\n\n"
-            f"Guidelines:\n"
-            f"- Answer business questions using the provided context where possible.\n"
-            f"- If company data is insufficient, you may use general knowledge.\n"
-            f"- Be honest about what you know and don't know.\n"
-            f"- Be concise, helpful, and friendly.\n"
-        )
-
-        request_obj = OrchestratorRequest(
-            input_text=question,
-            session_id=tenant.get("identity_id", ""),
-            system_prompt=system_prompt,
-            provider_hint=route.get("suggested_provider", ""),
-        )
-        orch_response = orch.process(request_obj)
-
-        pipeline_stages.append({
-            "stage": "inference_execution", "status": "success" if orch_response.success else "error",
-            "provider": orch_response.provider or "",
-            "model": orch_response.model or "",
-            "latency_ms": round(orch_response.latency_ms, 1),
-            "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
-        })
-
-        answer = orch_response.content or "I don't have sufficient information to answer this."
-
-    except Exception as exc:
-        logger.warning("Inference execution failed: %s", exc)
-        pipeline_stages.append({
-            "stage": "inference_execution", "status": "error",
-            "error": str(exc),
-            "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
-        })
-        # Fallback: safe failure with company context
-        if company_evidence:
-            answer = "I found your business data but couldn't process your question. Please try rephrasing."
-        else:
-            answer = "I'm having trouble processing your request right now. Please try again."
 
     total_latency = round((time.monotonic() - start) * 1000, 1)
 
+    if gov_result.get("error"):
+        return jsonify({
+            "success": False,
+            "error": gov_result["error"],
+            "answer": "",
+            "deterministic": gov_result.get("deterministic", False),
+            "model_invoked": gov_result.get("model_invoked", False),
+            "tenant": tenant,
+            "evidence_used": evidence_used,
+            "pipeline": pipeline_stages,
+            "latency_ms": total_latency,
+        }), 500 if gov_result.get("paid_blocked") else 200
+
     return jsonify({
         "success": True,
-        "answer": answer,
-        "deterministic": False,
-        "model_invoked": True,
+        "answer": gov_result.get("content", ""),
+        "deterministic": gov_result.get("deterministic", False),
+        "model_invoked": gov_result.get("model_invoked", False),
         "tenant": tenant,
         "evidence_used": evidence_used,
-        "routing": route,
+        "routing": gov_result.get("routing", {}),
         "pipeline": pipeline_stages,
         "latency_ms": total_latency,
     })
