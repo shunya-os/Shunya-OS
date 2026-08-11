@@ -66,31 +66,58 @@ class TestOutcomeEngine:
             assert outcome.last_error is not None
 
     def test_execution_idempotency(self, app):
-        """Same commitment → execution system handles duplicates safely.
+        """Same commitment → same execution identity (idempotent).
 
-        The BusinessExecutionInstance creates a new execution per activate call.
-        Idempotency at this level means: duplicate requests do not corrupt state,
-        both executions are valid, and the system remains consistent.
+        BusinessExecutionInstance.activate() now checks for existing
+        executions with the same commitment before creating a new one.
         """
         from app.execution import BusinessExecutionInstance
+        from app.execution.models import Outcome
         with app.app_context():
             engine = BusinessExecutionInstance()
 
-            # Same commitment_type, called twice
-            r1 = engine.activate(commitment_type="task", commitment_id="idempotent_002", tenant_id=1)
-            r2 = engine.activate(commitment_type="task", commitment_id="idempotent_002", tenant_id=1)
+            # Same commitment_id, called twice
+            r1 = engine.activate(commitment_type="task", commitment_id="idempotent_003", tenant_id=1)
+            r2 = engine.activate(commitment_type="task", commitment_id="idempotent_003", tenant_id=1)
 
             # Both succeed
             assert r1["success"] is True
             assert r2["success"] is True
 
-            # Both executions are retrievable
-            outcome1 = engine.get(r1["exec_id"])
-            outcome2 = engine.get(r2["exec_id"])
-            assert outcome1 is not None
-            assert outcome2 is not None
-            assert outcome1.stage is not None
-            assert outcome2.stage is not None
+            # IDEMPOTENCY: same commitment_id must produce the same execution identity
+            assert r1["exec_id"] == r2["exec_id"], (
+                f"Expected same exec_id for idempotent call, got {r1['exec_id']} vs {r2['exec_id']}"
+            )
+            # Second call should be recognized as idempotent
+            assert r2.get("idempotent") is True
+
+            # Only one execution instance exists in the database
+            count = Outcome.query.filter(
+                Outcome.intention == "Execute task idempotent_003"
+            ).count()
+            assert count == 1, f"Expected 1 execution, found {count}"
+
+            # The single execution is retrievable
+            outcome = engine.get(r1["exec_id"])
+            assert outcome is not None
+            assert outcome.outcome_id == r1["exec_id"]
+
+    def test_execution_idempotency_different_tenant(self, app):
+        """Different tenant with different commitment_id → separate executions."""
+        from app.execution import BusinessExecutionInstance
+        with app.app_context():
+            engine = BusinessExecutionInstance()
+
+            # Tenant 1 creates execution with unique commitment
+            r1 = engine.activate(commitment_type="task", commitment_id="tenant_a_001", tenant_id=1)
+            # Tenant 2 creates execution with different commitment_id
+            r2 = engine.activate(commitment_type="task", commitment_id="tenant_b_001", tenant_id=2)
+
+            assert r1["success"] is True
+            assert r2["success"] is True
+
+            # Different commitments → different executions
+            assert r1["exec_id"] != r2["exec_id"]
 
 class TestActionability:
     """FDA6-G7: Recommendation → authorized execution → outcome."""

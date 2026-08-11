@@ -33,12 +33,21 @@ class ExecState:
     PENDING = "pending"
     CANCELLED = "cancelled"
     ACTIVE = "active"
+    FULFILLED = "fulfilled"
+    BLOCKED = "blocked"
+    AT_RISK = "at_risk"
+    PARTIALLY_FULFILLED = "partially_fulfilled"
 
 
 class ObligationState:
     """Obligation state constants."""
     PENDING = "pending"
     FULFILLED = "fulfilled"
+    SATISFIED = "satisfied"
+    WAIVED = "waived"
+    BLOCKED = "blocked"
+    FAILED = "failed"
+    READY = "ready"
     BREACHED = "breached"
 
 
@@ -99,10 +108,24 @@ class ResourcePositionState:
 class BusinessExecutionInstance(OutcomeRuntime):
     """A business execution instance — backed by the Outcome Runtime."""
     def activate(self, commitment_type: str = "", commitment_id: str = "", tenant_id: int = 1):
-        """Activate an execution for a commitment."""
+        """Activate an execution for a commitment.
+
+        Idempotent: same tenant + type + id returns the same execution.
+        """
+        intention = f"Execute {commitment_type} {commitment_id}"
+
+        # Idempotency check: look for existing execution with same commitment
+        from app.execution.models import Outcome
+        from app import db
+        existing = Outcome.query.filter_by(
+            intention=intention,
+        ).order_by(Outcome.id.desc()).first()
+        if existing:
+            return {"success": True, "exec_id": existing.outcome_id, "idempotent": True}
+
         outcome = self.accept(
             identity_id=str(tenant_id),
-            intention=f"Execute {commitment_type} {commitment_id}",
+            intention=intention,
             steps=[{"action": {"action": "execute", "type": commitment_type, "id": commitment_id}}],
         )
         return {"success": True, "exec_id": outcome.outcome_id}
