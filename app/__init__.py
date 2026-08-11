@@ -384,6 +384,36 @@ def create_app(config_override: dict | None = None):
         IntegrationConnection, SocialAccount, ScheduledPost, AdCampaign,
     )
 
+    # ---- Register ALL models before auto-create tables -------------------
+    # Models imported later (evidence, memory, communication, document, etc.)
+    # are registered here so db.create_all() creates their tables.
+    from app.evidence import models_db  # noqa: F401 — EvidenceRecord
+    from app.evidence import decision_trace  # noqa: F401 — DecisionTrace
+    from app.automation import models  # noqa: F401 — AutomationRule
+    from app.intelligence import memory_store  # noqa: F401 — LearningWeight
+    from app.execution.models import Outcome  # noqa: F401
+    from app.communication.models import (  # noqa: F401
+        ExternalConversation, ExternalMessage,
+        ExternalAttachmentReference, MessageProposal,
+        ExternalParticipant, CommunicationSource,
+        CommunicationCapturePolicy, CommunicationCaptureScope,
+        SyncCursor,
+    )
+    from app.communication.models import Message  # noqa: F401
+    from app.communication.inbound import InboundEvent  # noqa: F401
+    from app.human_context.models import (  # noqa: F401
+        ContextConcept, HumanContextItem, ContextProposal,
+    )
+    from app.memory.models import (  # noqa: F401
+        MemoryRecord, MemoryCandidate, MemoryProvenance,
+        MemoryConcept,
+    )
+    from app.document.models import (  # noqa: F401
+        DocumentRecord, DocumentSection, ExtractedField,
+        DocumentComparison, ComparisonItem,
+    )
+    from app.llm.models import ModelRun  # noqa: F401
+
     # ---- Auto-create tables (safe for first run) --------------------------
     with app.app_context():
         from sqlalchemy.exc import OperationalError, ProgrammingError

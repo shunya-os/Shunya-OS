@@ -24,6 +24,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     conn = op.get_bind()
+    is_sqlite = conn.dialect.name == "sqlite"
 
     def _table_exists(name: str) -> bool:
         dialect = conn.dialect.name
@@ -83,13 +84,12 @@ def upgrade() -> None:
         if not _column_exists("memory_provenances", "provenance_source_id"):
             op.add_column("memory_provenances",
                 sa.Column("provenance_source_id", sa.String(255), nullable=True))
-        try:
+        # Unique constraint — only on PostgreSQL (SQLite can't add after creation)
+        if not is_sqlite:
             op.create_unique_constraint(
                 "uq_mp_source_idempotency", "memory_provenances",
                 ["provenance_source", "provenance_source_id"],
             )
-        except (NotImplementedError, Exception):
-            pass
 
 
 def downgrade() -> None:
