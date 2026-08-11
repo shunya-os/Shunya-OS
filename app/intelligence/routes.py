@@ -177,6 +177,9 @@ def api_ask():
     if not question:
         return jsonify({"success": False, "error": "Question is required."}), 400
 
+    action = data.get("action", "").strip()
+    execute = data.get("execute", False) or bool(action)
+
     tenant = _resolve_tenant()
     start = time.monotonic()
     pipeline_stages = []
@@ -259,7 +262,7 @@ def api_ask():
         "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
     })
 
-    # ── Stage 4: Execution Authority Classification ─────────────────
+    # ── Stage 4: Execution Authority — Active Enforcement ──────────
     stage_start = time.monotonic()
     from core.intelligence_runtime.cross_boundary import ExecutionAuthorityEnforcer
 
@@ -273,9 +276,31 @@ def api_ask():
             c in ExecutionAuthorityEnforcer.NON_AUTHORITY_CLASSIFICATIONS
             for c in evidence_classifications
         )
+
         if all_non_auth and not has_company_data:
             # Only non-authoritative evidence — execution authority denied
-            # But query-only paths (no execute action requested) are allowed
+            if execute:
+                total_latency = round((time.monotonic() - start) * 1000, 1)
+                return jsonify({
+                    "success": False,
+                    "error": (
+                        "Execution blocked: evidence only from non-authoritative "
+                        "classifications. Execution requires company-confirmed "
+                        "evidence through the canonical authorization path."
+                    ),
+                    "answer": "",
+                    "tenant": tenant,
+                    "evidence_used": evidence_used,
+                    "pipeline": pipeline_stages + [{
+                        "stage": "execution_authority",
+                        "status": "denied",
+                        "classification": "external_only",
+                        "reason": "No authoritative evidence to authorize execution",
+                        "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
+                    }],
+                    "latency_ms": total_latency,
+                }), 403
+
             pipeline_stages.append({
                 "stage": "execution_authority",
                 "status": "note_only_external_evidence",
@@ -290,6 +315,26 @@ def api_ask():
                 "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
             })
     else:
+        if execute:
+            total_latency = round((time.monotonic() - start) * 1000, 1)
+            return jsonify({
+                "success": False,
+                "error": (
+                    "Execution blocked: no evidence available to authorize "
+                    "execution. Provide company-confirmed evidence."
+                ),
+                "answer": "",
+                "tenant": tenant,
+                "evidence_used": evidence_used,
+                "pipeline": pipeline_stages + [{
+                    "stage": "execution_authority",
+                    "status": "denied",
+                    "reason": "No evidence to authorize execution",
+                    "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
+                }],
+                "latency_ms": total_latency,
+            }), 403
+
         pipeline_stages.append({
             "stage": "execution_authority",
             "status": "no_evidence",
