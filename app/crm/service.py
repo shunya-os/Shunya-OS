@@ -138,6 +138,9 @@ def create_lead_with_identity(
         db.session.add(lead)
         db.session.flush()
 
+        # Set tenant_id on the lead for tenant isolation
+        lead.tenant_id = tenant_id
+
         rel = _resolve_identity(lead, tenant_id, name, phone, email, created_by)
         if rel:
             lead.person_id = lead.person_id or rel.id

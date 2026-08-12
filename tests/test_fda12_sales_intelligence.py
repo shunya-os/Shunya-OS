@@ -46,6 +46,56 @@ class TestLeadScoring:
         assert result["error"] is not None
 
 
+class TestEvidenceBackedNBA:
+    def test_nba_from_lead_state_is_deterministic(self, app, client):
+        """New lead without owner → NBA recommends contact_lead + assign_owner with evidence."""
+        from app.crm.service import create_lead_with_identity
+        from app.sales_intelligence.service import next_best_action
+        with app.app_context():
+            # Create a lead with specific state: new, no owner, no destination
+            lead = create_lead_with_identity(
+                tenant_id=1, name="NBA Test Lead", phone="+1-555-NBA",
+                email="nba@test.com", source="api",
+            )
+            actions = next_best_action(lead.id)
+
+        # Verify: new unassigned lead should recommend contact + assign
+        action_types = {a["action"] for a in actions}
+        assert "contact_lead" in action_types, \
+            f"Expected contact_lead, got {action_types}"
+        assert "assign_owner" in action_types, \
+            f"Expected assign_owner, got {action_types}"
+
+        # Verify every action has evidence grounded in lead state
+        for a in actions:
+            assert a["confidence"] == "deterministic", \
+                f"NBA {a['action']} should be deterministic, got {a['confidence']}"
+            assert a["owner"] in ("unassigned", "manager"), \
+                f"NBA {a['action']} owner should reflect unassigned lead, got {a['owner']}"
+
+    def test_nba_qualified_lead_recommends_proposal(self, app, client):
+        """Qualified lead with assignment → NBA recommends send_proposal."""
+        from app.crm.service import create_lead_with_identity, assign_lead, qualify_lead_and_update
+        from app.sales_intelligence.service import next_best_action
+        with app.app_context():
+            lead = create_lead_with_identity(
+                tenant_id=1, name="NBA Qualified", phone="+1-555-NBAQ",
+                email="nbaq@test.com", source="api", budget=10000,
+                destination="Tokyo",
+            )
+            assign_lead(lead, "agent_1", 1)
+            qualify_lead_and_update(lead, 1)
+            actions = next_best_action(lead.id)
+
+        action_types = {a["action"] for a in actions}
+        assert "send_proposal" in action_types, \
+            f"Qualified lead should get send_proposal, got {action_types}"
+
+        for a in actions:
+            assert a["confidence"] == "deterministic"
+            assert a["owner"] == "agent_1"
+
+
 class TestNextBestAction:
     def test_new_lead_recommends_contact(self, app, client):
         from app.crm.service import create_lead_with_identity
@@ -143,3 +193,43 @@ class TestConversionAnalysis:
         result = conversion_analysis(1)
         assert "conversion_rate" in result
         assert "loss_reasons" in result
+
+
+class TestTenantIsolation:
+    def test_tenant_a_cannot_access_tenant_b_lead_through_scoring(self, app, client):
+        """Tenant A's score service must not expose Tenant B's leads."""
+        from app.crm.service import create_lead_with_identity
+        from app.sales_intelligence.service import lead_scoring
+        with app.app_context():
+            # Create a lead for tenant 2
+            lead_b = create_lead_with_identity(
+                tenant_id=2, name="Tenant B Lead", phone="+1-555-TENB",
+                email="tenb@test.com", source="api",
+            )
+            bid = lead_b.id
+        # Tenant 1's scoring function should not crash when given tenant B's lead
+        # (scoring is per-lead, but the violation surface is that tenant B's data
+        #  should not appear in tenant A's pipeline/aggregation queries)
+        from app.sales_intelligence.service import pipeline_health
+        result = pipeline_health(tenant_id=1)
+        # Tenant B's lead should not appear in Tenant A's pipeline
+        all_ids = set()
+        for stalled in result.get("stalled_leads", []):
+            all_ids.add(stalled.get("id"))
+        assert bid not in all_ids, f"Tenant B lead {bid} leaked into Tenant A pipeline"
+
+    def test_tenant_a_cannot_see_tenant_b_forecast(self, app, client):
+        """Tenant A's forecast must not include Tenant B's pipeline value."""
+        from app.crm.service import create_lead_with_identity
+        from app.sales_intelligence.service import forecast
+        with app.app_context():
+            # Create a high-value lead for tenant 2
+            lead_b = create_lead_with_identity(
+                tenant_id=2, name="Tenant B High Value", phone="+1-555-TBHV",
+                email="tenb-hv@test.com", source="api", budget=999999,
+            )
+        # Tenant 1 forecast should not include tenant B's data
+        result = forecast(tenant_id=1, months=3)
+        # The pipeline value should be reasonable (not 999999)
+        pipeline_val = float(result.get("pipeline_value", 0))
+        assert pipeline_val < 999999, f"Tenant B budget leaked into Tenant A forecast: {pipeline_val}"

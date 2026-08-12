@@ -99,9 +99,11 @@ def upgrade():
         )
 
     # Extend leads
-    for col in ("campaign_id", "utm_source", "utm_campaign", "utm_medium", "utm_term", "utm_content"):
+    for col in ("tenant_id", "campaign_id", "utm_source", "utm_campaign", "utm_medium", "utm_term", "utm_content"):
         if not _column_exists(conn, "leads", col):
-            if col == "campaign_id":
+            if col == "tenant_id":
+                op.add_column("leads", sa.Column("tenant_id", sa.Integer(), nullable=True, index=True))
+            elif col == "campaign_id":
                 op.add_column("leads", sa.Column("campaign_id", sa.Integer(), nullable=True))
             else:
                 op.add_column("leads", sa.Column(col, sa.String(255), nullable=True, server_default=""))
@@ -182,7 +184,7 @@ def downgrade():
             op.drop_column("customer", col)
         except Exception:
             pass
-    for col in ("utm_content", "utm_term", "utm_medium", "utm_campaign", "utm_source", "campaign_id"):
+    for col in ("utm_content", "utm_term", "utm_medium", "utm_campaign", "utm_source", "campaign_id", "tenant_id"):
         try:
             op.drop_column("leads", col)
         except Exception:

@@ -44,6 +44,68 @@ class TestChannelComparison:
         assert isinstance(result, list)
 
 
+class TestRevenueAttributionAudit:
+    def test_auditable_revenue_chain(self, app, client):
+        """Campaign → source event → Lead → Customer → revenue source record → attributed revenue.
+
+        Proves the attribution result identifies the source records/IDs used.
+        """
+        from app.marketing_os.service import capture_lead, create_campaign
+        from app.crm.service import convert_to_customer, create_opportunity, assign_lead, qualify_lead_and_update
+        from app.marketing_intelligence.service import get_attribution
+        from app.models import Lead, Proposal
+        with app.app_context():
+            # 1. Create campaign
+            camp = create_campaign(name="Revenue Audit", tenant_id=1, budget=1000)
+            cid = camp.id
+
+            # 2. Capture lead from campaign with UTM (source event)
+            result = capture_lead(tenant_id=1, name="Audit Lead",
+                                  phone="+1-555-AUDIT", email="audit@test.com",
+                                  campaign_id=cid, utm_source="facebook",
+                                  utm_campaign="summer")
+            lead = Lead.query.get(result["lead_id"])
+            assert lead.campaign_id == cid, "Lead not linked to campaign"
+            assert lead.utm_source == "facebook", "UTM not preserved"
+
+            # 3. Progress through pipeline
+            assign_lead(lead, "agent_1", 1)
+            qualify_lead_and_update(lead, 1)
+
+            # 4. Create a revenue-bearing proposal (accepted)
+            prop = create_opportunity(lead, 1, "Revenue Proposal")
+            prop.status = "accepted"
+            prop.budget = 50000
+            from app import db
+            db.session.commit()
+            prop_id = prop.id
+
+            # 5. Convert to customer
+            cust = convert_to_customer(lead, 1)
+            cust_id = cust.id
+
+            # 6. Get attribution — must show the revenue chain
+            attr = get_attribution(cid, 1)
+            assert attr["leads_count"] >= 1
+            assert attr["customers_count"] >= 1
+            assert float(attr["total_revenue"]) >= 50000, \
+                f"Attributed revenue should include accepted proposal, got {attr['total_revenue']}"
+
+            # 7. Verify the audit trail — source records are identifiable
+            assert any(l["id"] == lead.id for l in attr["leads"]), \
+                "Attribution must identify the source lead record"
+            assert any(c["id"] == cust_id for c in attr["customers"]), \
+                "Attribution must identify the source customer record"
+
+            # 8. Revenue trace from customer
+            from app.marketing_intelligence.service import revenue_trace
+            trace = revenue_trace(cust_id, 1)
+            assert trace is not None
+            assert trace["lead"]["code"] == lead.code
+            assert trace["campaign"]["name"] == "Revenue Audit"
+            assert trace["customer"]["id"] == cust_id
+
+
 class TestRevenueTrace:
     def test_revenue_trace_from_customer(self, app, client):
         from app.marketing_os.service import capture_lead, create_campaign

@@ -45,7 +45,7 @@ def get_attribution(campaign_id: int, tenant_id: int) -> dict:
 
 def get_conversion(tenant_id: int) -> dict:
     """Stage conversion rates from lead captured → contacted → qualified → won."""
-    all_leads = Lead.query.all()
+    all_leads = Lead.query.filter_by(tenant_id=tenant_id).all()
     total = len(all_leads)
     contacted = sum(1 for l in all_leads if l.status in ("contacted", "qualified", "converted"))
     qualified = sum(1 for l in all_leads if l.status in ("qualified", "converted"))

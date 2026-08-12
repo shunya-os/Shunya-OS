@@ -75,6 +75,8 @@ class Lead(db.Model):
     stage = db.Column(db.String(50), default="new")
     # Person compatibility (Phase 1)
     person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=True)
+    # Tenant isolation
+    tenant_id = db.Column(db.Integer, nullable=True, index=True)
     # FDA14: Campaign attribution
     campaign_id = db.Column(db.Integer, nullable=True, index=True)
     utm_source = db.Column(db.String(255), nullable=True, default="")

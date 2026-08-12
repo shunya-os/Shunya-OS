@@ -130,7 +130,7 @@ def next_best_action(lead_id: int) -> list:
 
 def pipeline_health(tenant_id: int) -> dict:
     """Pipeline stage distribution and aging."""
-    all_leads = Lead.query.all()
+    all_leads = Lead.query.filter_by(tenant_id=tenant_id).all()
     total = len(all_leads)
 
     stages = {}
@@ -160,7 +160,7 @@ def pipeline_health(tenant_id: int) -> dict:
 
 def forecast(tenant_id: int, months: int = 3) -> dict:
     """Simple forecast from pipeline value and conversion rates."""
-    all_leads = Lead.query.all()
+    all_leads = Lead.query.filter_by(tenant_id=tenant_id).all()
     qualified = [l for l in all_leads if l.status == "qualified"]
     proposals = Proposal.query.all()
     draft_proposals = [p for p in proposals if p.status == "draft"]
@@ -214,7 +214,7 @@ def salesperson_intel(agent_id: str) -> dict:
 
 def conversion_analysis(tenant_id: int) -> dict:
     """Stage conversion rates and loss reasons."""
-    all_leads = Lead.query.all()
+    all_leads = Lead.query.filter_by(tenant_id=tenant_id).all()
     total = len(all_leads)
 
     loss_reasons = {}
