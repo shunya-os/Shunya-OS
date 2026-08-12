@@ -710,6 +710,10 @@ def create_app(config_override: dict | None = None):
     from app.documents_knowledge.routes import doc_knowledge_bp
     app.register_blueprint(doc_knowledge_bp)
 
+    # FDA25 — Import / Export / Migration API
+    from app.import_export.routes import import_bp
+    app.register_blueprint(import_bp)
+
     # M8 — Executive Intelligence
     from app.intelligence.routes import intelligence_bp
     app.register_blueprint(intelligence_bp)
