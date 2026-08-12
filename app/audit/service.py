@@ -25,9 +25,10 @@ from typing import Any, Dict, List, Optional, Tuple
 # =========================================================================
 
 CANONICAL_AUDIT_MATRIX = {
-    "audit_event": {
+    "operational_audit_event": {
         "owner": "app.security.audit.AuditLog",
         "table": "sh_audit_logs",
+        "purpose": "General-purpose CRUD audit — operational business actions",
         "append_only": True,
         "tenant_bound": False,
         "actor": "identity_id",
@@ -35,6 +36,20 @@ CANONICAL_AUDIT_MATRIX = {
         "object": "resource_type + resource_id",
         "timestamp": "timestamp",
         "details": "details (JSON)",
+        "specialization": "operational",
+    },
+    "destructive_action_audit": {
+        "owner": "app.genesis_protection.AuditLog",
+        "table": "genesis_audit_log",
+        "purpose": "Destructive/administrative action audit — protective governance only",
+        "append_only": True,
+        "tenant_bound": False,
+        "actor": "actor_id",
+        "action": "operation (AuditAction enum)",
+        "object": "entity_type + entity_id",
+        "timestamp": "occurred_at",
+        "details": "details (JSON), explanation, outcome, restoration_event_id",
+        "specialization": "governance",
     },
     "decision_trace": {
         "owner": "app.evidence.decision_trace.DecisionTrace",
@@ -69,16 +84,18 @@ CANONICAL_AUDIT_MATRIX = {
         "timestamp": "created_at",
         "details": "intention, steps, recovery_history, final_summary",
     },
-    "destructive_audit": {
+    "destructive_action_audit": {
         "owner": "app.genesis_protection.AuditLog",
-        "table": "audit_logs",
+        "table": "genesis_audit_log",
+        "purpose": "Destructive/administrative actions — protective governance only",
         "append_only": True,
         "tenant_bound": False,
         "actor": "actor_id",
-        "action": "action",
+        "action": "operation (AuditAction enum)",
         "object": "entity_type + entity_id",
-        "timestamp": "created_at",
-        "details": "details, reason",
+        "timestamp": "occurred_at",
+        "details": "details, explanation, outcome, restoration_event_id",
+        "specialization": "governance",
     },
     "commitment": {
         "owner": "app.commitments.models.Commitment",
