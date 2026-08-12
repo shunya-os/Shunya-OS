@@ -204,6 +204,7 @@ def api_ask():
     query_lower = question.lower()
     company_evidence = []
     has_company_data = False
+    evidence_semantic_states = set()
 
     from app import db as _db
     from sqlalchemy import text as _text
@@ -217,11 +218,13 @@ def api_ask():
             company_evidence.append({
                 "content": f"Total objects: {total_objects}",
                 "source": "company_db/founder_objects",
+                "semantic": "FACT",
                 "classification": "company_truth",
                 "confidence": 0.95,
             })
-    except Exception:
-        pass
+            evidence_semantic_states.add("FACT")
+    except Exception as exc:
+        logger.warning("Failed to query founder_objects: %s", exc)
 
     # Financial data
     try:
@@ -231,11 +234,13 @@ def api_ask():
             company_evidence.append({
                 "content": f"Invoices: {invoice_count}",
                 "source": "company_db/fin_invoices",
+                "semantic": "FACT",
                 "classification": "company_truth",
                 "confidence": 0.95,
             })
-    except Exception:
-        pass
+            evidence_semantic_states.add("FACT")
+    except Exception as exc:
+        logger.warning("Failed to query invoices: %s", exc)
 
     try:
         from app.models import Lead
@@ -244,11 +249,17 @@ def api_ask():
             company_evidence.append({
                 "content": f"Leads: {lead_count}",
                 "source": "company_db/leads",
+                "semantic": "FACT",
                 "classification": "company_truth",
                 "confidence": 0.95,
             })
-    except Exception:
-        pass
+            evidence_semantic_states.add("FACT")
+    except Exception as exc:
+        logger.warning("Failed to query leads: %s", exc)
+
+    # If no company evidence found, mark semantic state as UNKNOWN
+    if not has_company_data:
+        evidence_semantic_states.add("UNKNOWN")
 
     # ── Stage 3: Evidence Assembly ──────────────────────────────────
     stage_start = time.monotonic()
@@ -259,6 +270,7 @@ def api_ask():
         "status": "success",
         "company_evidence_count": len(company_evidence),
         "has_company_data": has_company_data,
+        "semantic_states": sorted(evidence_semantic_states),
         "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
     })
 
