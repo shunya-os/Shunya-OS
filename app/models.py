@@ -75,6 +75,13 @@ class Lead(db.Model):
     stage = db.Column(db.String(50), default="new")
     # Person compatibility (Phase 1)
     person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), nullable=True)
+    # FDA14: Campaign attribution
+    campaign_id = db.Column(db.Integer, nullable=True, index=True)
+    utm_source = db.Column(db.String(255), nullable=True, default="")
+    utm_campaign = db.Column(db.String(255), nullable=True, default="")
+    utm_medium = db.Column(db.String(255), nullable=True, default="")
+    utm_term = db.Column(db.String(255), nullable=True, default="")
+    utm_content = db.Column(db.String(255), nullable=True, default="")
     person = db.relationship("Person", backref="leads", lazy="select")
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -26,6 +26,12 @@ class Commitment(db.Model):
         default="pending"  # pending → in_progress → completed → failed
     )
 
+    # FDA13: Link to relationship and campaign
+    relationship_id = db.Column(db.Integer, db.ForeignKey("rel_relationships.id"), nullable=True, index=True)
+    campaign_id = db.Column(db.Integer, nullable=True, index=True)
+    issue_type = db.Column(db.String(60), nullable=True, default="")
+    # issue_type: service, escalation, approval, onboarding, followup
+
     meta = db.Column(db.JSON, default={})
 
     created_at = db.Column(

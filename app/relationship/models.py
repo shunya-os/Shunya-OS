@@ -215,6 +215,9 @@ class TimelineEntry(db.Model):
     description = db.Column(db.Text, default="")
     reference_type = db.Column(db.String(60), default="")  # e.g. "proposal", "invoice", "note"
     reference_id = db.Column(db.Integer, nullable=True)
+    # FDA15: Attribution link
+    campaign_id = db.Column(db.Integer, nullable=True, index=True)
+    source_event = db.Column(db.String(255), default="")  # e.g. "campaign.click", "email.open"
     metadata_json = db.Column(db.Text, default="{}")
     created_by = db.Column(db.String(64), default="")
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

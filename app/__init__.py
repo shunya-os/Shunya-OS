@@ -19,6 +19,12 @@ from jinja2 import FileSystemLoader, ChoiceLoader
 # ---------------------------------------------------------------------------
 db = SQLAlchemy()
 
+# FDA12-15: Import blueprints upfront to avoid import shadowing inside create_app
+from app.sales_intelligence.routes import sales_bp  # noqa: F401
+from app.customer_experience.routes import cust_bp  # noqa: F401
+from app.marketing_os.routes import mkt_bp  # noqa: F401
+from app.marketing_intelligence.routes import analytics_bp  # noqa: F401
+
 # ---------------------------------------------------------------------------
 # Logging setup
 # ---------------------------------------------------------------------------
@@ -654,6 +660,22 @@ def create_app(config_override: dict | None = None):
     # CRM Foundation — Lead-to-Customer (FDA11)
     from app.crm.routes import crm_bp
     app.register_blueprint(crm_bp)
+
+    # FDA12-15: Import models so FK references resolve in metadata
+    import importlib
+    importlib.import_module("app.marketing.models")
+
+    # FDA12 — Sales Intelligence
+    app.register_blueprint(sales_bp)
+
+    # FDA13 — Customer Experience
+    app.register_blueprint(cust_bp)
+
+    # FDA14 — Marketing OS
+    app.register_blueprint(mkt_bp)
+
+    # FDA15 — Marketing Intelligence
+    app.register_blueprint(analytics_bp)
 
     # M8 — Executive Intelligence
     from app.intelligence.routes import intelligence_bp

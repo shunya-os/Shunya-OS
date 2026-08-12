@@ -406,6 +406,10 @@ def convert_to_customer(lead: Lead, tenant_id: int) -> Optional[Customer]:
         name=lead.customer_name or "",
         phone=lead.phone or "",
         email=lead.email or "",
+        lead_id=lead.id,
+        tenant_id=tenant_id,
+        status="active",
+        relationship_id=getattr(lead, '_crm_relationship_id', None),
     )
     db.session.add(customer)
     db.session.flush()
