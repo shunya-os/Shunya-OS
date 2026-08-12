@@ -651,6 +651,10 @@ def create_app(config_override: dict | None = None):
     from app.intake.routes import intake_bp
     app.register_blueprint(intake_bp)
 
+    # CRM Foundation — Lead-to-Customer (FDA11)
+    from app.crm.routes import crm_bp
+    app.register_blueprint(crm_bp)
+
     # M8 — Executive Intelligence
     from app.intelligence.routes import intelligence_bp
     app.register_blueprint(intelligence_bp)
