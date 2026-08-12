@@ -53,7 +53,14 @@ PERMISSIONS = {
 
 
 DEFAULT_ROLES = {
-    "owner": {"display_name": "Owner", "description": "Full control", "permissions": list(PERMISSIONS.keys()), "is_system": True},
+    "owner": {"display_name": "Owner", "description": "Full control", "permissions": list(PERMISSIONS.keys()) + [
+        "connector.create","connector.edit","connector.delete","connector.view",
+        "delegation.create","delegation.revoke","delegation.view",
+        "tenant.edit","tenant.view",
+        "admin.manage_connectors","admin.manage_delegations","admin.manage_policies",
+        "admin.manage_service_accounts","admin.view_audit","admin.manage_roles",
+        "audit.view","audit.export",
+    ], "is_system": True},
     "admin": {"display_name": "Admin", "description": "Manage settings, members, data",
         "permissions": ["org.edit","org.manage_members","rel.view","rel.create","rel.edit","rel.merge","rel.view_timeline","rel.edit_memory",
             "proposal.view","proposal.create","proposal.edit","proposal.send","proposal.approve","proposal.ai_generate",

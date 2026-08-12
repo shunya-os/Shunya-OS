@@ -420,6 +420,11 @@ def create_app(config_override: dict | None = None):
     )
     from app.llm.models import ModelRun  # noqa: F401
 
+    # FDA22 — Extended Auth models (ServiceAccount, ApprovalDelegation, TenantPolicy)
+    from app.authz.extended_models import (  # noqa: F401
+        ServiceAccount, ApprovalDelegation, TenantPolicy,
+    )
+
     # ---- Auto-create tables (safe for first run) --------------------------
     with app.app_context():
         from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -691,6 +696,11 @@ def create_app(config_override: dict | None = None):
     _importlib.import_module("app.audit.service")
     from app.audit.routes import audit_bp
     app.register_blueprint(audit_bp)
+
+    # FDA22 — Admin & Permissions API
+    _importlib.import_module("app.authz.extended_services")
+    from app.authz.admin_routes import admin_bp
+    app.register_blueprint(admin_bp)
 
     # M8 — Executive Intelligence
     from app.intelligence.routes import intelligence_bp
