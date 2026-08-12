@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "0002_schema_reconciliation"
-down_revision = None  # First migration; adjust if another rev precedes
+down_revision = "0001_initial_schema"
 branch_labels = None
 depends_on = None
 
@@ -44,9 +44,19 @@ def upgrade() -> None:
 
     def _column_exists(table: str, column: str) -> bool:
         try:
-            cols = [c[1] for c in conn.execute(
-                sa.text(f"PRAGMA table_info({table})")).fetchall()]
-            return column in cols
+            if is_sqlite:
+                cols = [c[1] for c in conn.execute(
+                    sa.text(f"PRAGMA table_info({table})")).fetchall()]
+                return column in cols
+            else:
+                result = conn.execute(
+                    sa.text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = :table AND column_name = :column"
+                    ),
+                    {"table": table, "column": column},
+                ).fetchone()
+                return result is not None
         except Exception:
             return False
 
