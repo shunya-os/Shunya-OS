@@ -92,6 +92,7 @@ def api_create_followup(lead_id: int):
     task = create_follow_up(
         lead=lead, title=data.get("title", "Follow-up"),
         due_date=due, assigned_to=data.get("assigned_to", lead.assigned_to or ""),
+        tenant_id=data.get("tenant_id", 1),
     )
     return jsonify({"success": True, "task": {"id": task.id, "title": task.title}})
 

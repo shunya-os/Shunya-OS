@@ -137,6 +137,7 @@ def create_lead_with_identity(
         rel = _resolve_identity(lead, tenant_id, name, phone, email, created_by)
         if rel:
             lead.person_id = lead.person_id or rel.id
+            lead._crm_relationship_id = rel.id
             _add_timeline_entry(
                 organization_id=tenant_id,
                 relationship_id=rel.id,
@@ -226,6 +227,21 @@ def get_relationship_id_for_person(org_id: int, person_id: int) -> int | None:
     return rel.id if rel else person_id  # Fallback to person_id if no relationship
 
 
+def _rel_id_for_lead(lead: Lead, tenant_id: int) -> int:
+    """Resolve the CanonicalRelationship ID for a lead."""
+    # Prefer cached relationship id set at creation time
+    cached = getattr(lead, '_crm_relationship_id', None)
+    if cached:
+        return cached
+    # Otherwise look up by person_id (legacy_person_id on relationship)
+    if lead.person_id:
+        rel_id = get_relationship_id_for_person(tenant_id, lead.person_id)
+        if rel_id:
+            return rel_id
+    # Last resort: use person_id
+    return lead.person_id or 0
+
+
 def assign_lead(lead: Lead, owner: str, tenant_id: int) -> Lead:
     """Assign a lead to an owner. Records on timeline."""
     old_owner = lead.assigned_to
@@ -236,7 +252,7 @@ def assign_lead(lead: Lead, owner: str, tenant_id: int) -> Lead:
     if lead.person_id:
         _add_timeline_entry(
             organization_id=tenant_id,
-            relationship_id=lead.person_id,
+            relationship_id=_rel_id_for_lead(lead, tenant_id),
             event_type="lead.assigned",
             title=f"Lead assigned to {owner}",
             description=f"Previous owner: {old_owner or 'unassigned'}",
@@ -257,7 +273,7 @@ def qualify_lead_and_update(lead: Lead, tenant_id: int) -> QualificationResult:
         if lead.person_id:
             _add_timeline_entry(
                 organization_id=tenant_id,
-                relationship_id=lead.person_id,
+                relationship_id=_rel_id_for_lead(lead, tenant_id),
                 event_type="lead.qualified",
                 title="Lead qualified",
                 description=result.detail,
@@ -294,7 +310,7 @@ def check_sla(lead: Lead) -> dict:
     }
 
 
-def create_follow_up(lead: Lead, title: str, due_date: datetime, assigned_to: str) -> Task:
+def create_follow_up(lead: Lead, title: str, due_date: datetime, assigned_to: str, tenant_id: int = 1) -> Task:
     """Create a follow-up task for a lead.
 
     Uses the canonical Task model (app.models.Task) — no new task engine.
@@ -321,8 +337,8 @@ def create_follow_up(lead: Lead, title: str, due_date: datetime, assigned_to: st
 
     if lead.person_id:
         _add_timeline_entry(
-            organization_id=lead.person_id if hasattr(lead, 'person_id') else 0,
-            relationship_id=lead.person_id,
+            organization_id=tenant_id,
+            relationship_id=_rel_id_for_lead(lead, tenant_id),
             event_type="followup.created",
             title=f"Follow-up created: {title}",
             description=f"Assigned to: {assigned_to}, Due: {due_date.isoformat()}",
@@ -345,7 +361,7 @@ def create_opportunity(lead: Lead, tenant_id: int, title: str = "") -> Proposal:
     """
     proposal = Proposal(
         organization_id=tenant_id,
-        relationship_id=lead.person_id,
+        relationship_id=_rel_id_for_lead(lead, tenant_id),
         opportunity_id=lead.id,
         title=title or f"Proposal for {lead.customer_name or lead.code}",
         status="draft",
@@ -362,7 +378,7 @@ def create_opportunity(lead: Lead, tenant_id: int, title: str = "") -> Proposal:
     if lead.person_id:
         _add_timeline_entry(
             organization_id=tenant_id,
-            relationship_id=lead.person_id,
+            relationship_id=_rel_id_for_lead(lead, tenant_id),
             event_type="opportunity.created",
             title=f"Opportunity created: {proposal.title}",
             description=f"Proposal #{proposal.id}, Status: draft",
@@ -393,7 +409,7 @@ def convert_to_customer(lead: Lead, tenant_id: int) -> Optional[Customer]:
     if lead.person_id:
         _add_timeline_entry(
             organization_id=tenant_id,
-            relationship_id=lead.person_id,
+            relationship_id=_rel_id_for_lead(lead, tenant_id),
             event_type="customer.converted",
             title=f"Lead converted to customer: {lead.customer_name or lead.code}",
             description=f"Customer #{customer.id}, Lead code: {lead.code}",
@@ -414,7 +430,7 @@ def mark_lost(lead: Lead, reason: str, tenant_id: int) -> Lead:
     if lead.person_id:
         _add_timeline_entry(
             organization_id=tenant_id,
-            relationship_id=lead.person_id,
+            relationship_id=_rel_id_for_lead(lead, tenant_id),
             event_type="lead.lost",
             title=f"Lead lost: {reason}",
             description=f"Reason: {reason}",
@@ -452,7 +468,7 @@ def reassign_unattended_leads(tenant_id: int, new_owner: str) -> list[Lead]:
         if lead.person_id:
             _add_timeline_entry(
                 organization_id=tenant_id,
-                relationship_id=lead.person_id,
+                relationship_id=_rel_id_for_lead(lead, tenant_id),
                 event_type="lead.reassigned",
                 title=f"Lead reassigned from {old_owner or 'unassigned'} to {new_owner}",
                 description=f"SLA escalation: unattended for >{ESCALATION_SLA_HOURS}h",
