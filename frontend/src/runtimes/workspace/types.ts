@@ -31,7 +31,10 @@ export type WorkspaceType =
   | 'calendar'
   | 'proposals'
   | 'music'
-  | 'email';
+  | 'email'
+  | 'admin'
+  | 'people'
+  | 'import-export';
 
 export interface WorkspaceIdentity {
   id: string;
