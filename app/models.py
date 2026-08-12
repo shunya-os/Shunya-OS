@@ -150,9 +150,20 @@ def _lead_auto_create_entity(target, args, kwargs):
     """Auto-create a generic Entity for every new Lead."""
     from app.core.entity import Entity
     tenant_id = get_lead_tenant_id() or kwargs.get("_tenant_id")
+    # Look up entity definition_id for 'lead' type
+    from sqlalchemy import text as _tx
+    try:
+        result = db.session.execute(
+            _tx("SELECT id FROM entity_definitions WHERE type = 'lead' AND tenant_id = :t LIMIT 1"),
+            {"t": tenant_id or 1},
+        )
+        row = result.fetchone()
+        def_id = row[0] if row else 1
+    except Exception:
+        def_id = 1
     entity = Entity(
         tenant_id=tenant_id or 1,
-        definition_id=0,
+        definition_id=def_id,
         type="lead",
         state=kwargs.get("stage", "new"),
         data={},
