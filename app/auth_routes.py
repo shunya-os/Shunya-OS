@@ -46,7 +46,7 @@ def admin_required(view):
     def wrapped_view(**kwargs):
         if g.user.role != UserRole.ADMIN.value:
             flash("Admin access required", "error")
-            return redirect(url_for("workspace.workspace_home"))
+            return redirect(url_for("workspace_routes.workspace_home"))
         return view(**kwargs)
     return wrapped_view
 
@@ -98,7 +98,7 @@ def login_page():
             user.last_login = datetime.utcnow()
             user.generate_token()
             db.session.commit()
-            return jsonify({"success": True, "redirect": url_for("workspace.workspace_home")})
+            return jsonify({"success": True, "redirect": url_for("workspace_routes.workspace_home")})
         return jsonify({"success": False, "error": "Invalid email or password"}), 401
 
     # Handle form POST (legacy)
@@ -126,15 +126,15 @@ def login_page():
             user.last_login = datetime.utcnow()
             user.generate_token()
             db.session.commit()
-            next_url = request.args.get("next") or url_for("workspace.workspace_home")
+            next_url = request.args.get("next") or url_for("workspace_routes.workspace_home")
             return redirect(next_url)
 
         flash("Invalid email or password", "error")
-        return render_template("shunya_login.html")
+        return redirect(url_for("serve_index"))
 
     if session.get("user_id"):
-        return redirect(url_for("workspace.workspace_home"))
-    return render_template("shunya_login.html")
+        return redirect(url_for("workspace_routes.workspace_home"))
+    return redirect(url_for("serve_index"))
 
 
 # Shunya OS frontend posts to /auth/login/password — alias to same handler
@@ -375,7 +375,7 @@ def gmail_oauth_callback():
         service = GmailOAuthService(session=db.session)
         source = service.connect_account(tenant_id, code, state)
         flash(f"Gmail account {source.account_identifier} connected successfully!", "success")
-        return redirect(url_for("workspace.workspace_home"))
+        return redirect(url_for("workspace_routes.workspace_home"))
     except ValueError as e:
         flash(f"Gmail connection failed: {e}", "error")
         return redirect(url_for("auth.gmail_connect_page"))

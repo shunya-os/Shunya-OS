@@ -42,6 +42,10 @@ def upgrade() -> None:
             ).fetchone()
             return result[0] if result else False
 
+    # If 0001_initial_schema already created all tables, skip reconciliation
+    if _table_exists("leads"):
+        return
+
     def _column_exists(table: str, column: str) -> bool:
         try:
             if is_sqlite:
