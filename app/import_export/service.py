@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -52,18 +53,53 @@ def preview_import(
 
 
 def _parse_content(content: str, content_type: str) -> List[Dict[str, Any]]:
-    """Parse CSV/JSON content into records."""
+    """Parse CSV/JSON/XLSX content into records."""
     records = []
     if content_type == "csv":
         reader = csv.DictReader(io.StringIO(content))
         for row in reader:
             records.append({k.strip(): v.strip() for k, v in row.items() if k})
+    elif content_type == "xlsx":
+        records = _parse_xlsx(content)
     elif content_type == "json":
         try:
             data = json.loads(content)
             records = data if isinstance(data, list) else [data]
         except json.JSONDecodeError:
             pass
+    return records
+
+
+def _parse_xlsx(content: str) -> List[Dict[str, Any]]:
+    """Parse XLSX content into records. Content is base64-encoded XLSX bytes."""
+    import base64
+    records = []
+    try:
+        raw = base64.b64decode(content)
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(raw), read_only=True, data_only=True)
+        except ImportError:
+            # Fallback: try reading as CSV if XLSX parsing unavailable
+            return [{"error": "openpyxl not available for XLSX parsing"}]
+        ws = wb.active
+        if ws is None:
+            return records
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            return records
+        headers = [str(h).strip() if h is not None else "" for h in rows[0]]
+        for row in rows[1:]:
+            rec = {}
+            for i, val in enumerate(row):
+                if i < len(headers) and headers[i]:
+                    rec[headers[i]] = str(val) if val is not None else ""
+            if rec:
+                records.append(rec)
+        wb.close()
+    except Exception:
+        # If XLSX parsing fails entirely, return empty
+        pass
     return records
 
 

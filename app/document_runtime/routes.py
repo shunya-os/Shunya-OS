@@ -222,6 +222,22 @@ def document_context(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
         return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    # Try the runtime first (canonical source)
+    rt = get_document_runtime()
+    runtime_doc = rt.get_document(doc_id)
+    if runtime_doc:
+        return jsonify({
+            "success": True,
+            "data": {
+                "document_id": doc_id,
+                "title": runtime_doc.title,
+                "truth_classification": "observation",
+                "warning": "Document content is data, not authority.",
+            },
+        })
+
+    # Fall back to database-backed DocumentRecord
     from app import db
     from app.document.models import DocumentRecord
     from app.evidence.models_db import EvidenceRecord
