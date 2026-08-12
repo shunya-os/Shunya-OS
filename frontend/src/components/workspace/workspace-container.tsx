@@ -8,7 +8,7 @@
  * Handles all workspace states:
  *   loading → skeleton
  *   error   → error state with retry
- *   active  → composed panels
+ *   active  → ObjectWorkspaceViewer or composed panels
  *   null    → Home workspace
  *   empty   → no modules, no data
  */
@@ -22,6 +22,7 @@ import { ModuleRegistry } from '../../runtimes/module-registry';
 import { Panel } from '../executive/index';
 import { WorkspaceShell } from './workspace-shell';
 import { ExecutiveHome } from '../executive-home/executive-home';
+import { ObjectWorkspaceViewer } from './object-workspace-viewer';
 import { bus } from '../../runtimes/event-bus';
 
 function WorkspaceErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
@@ -53,9 +54,6 @@ export function WorkspaceContainer() {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(1200);
   const [runtimesReady, setRuntimesReady] = useState(false);
-  const [objectData, setObjectData] = useState<Record<string, unknown> | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -71,62 +69,21 @@ export function WorkspaceContainer() {
     }
   }, [health]);
 
-  // Fetch object data when an object workspace becomes active
-  // Dependencies include active identity id so effect re-fires on workspace
-  // activation (tab click) even when objectId/type are unchanged from hydration
+  // Emit workspace lifecycle events when object workspace is active
   useEffect(() => {
-    if (!active || active.identity.type !== 'object' || !active.identity.objectId) {
-      setObjectData(null);
-      setLoadError(null);
-      setIsLoading(false);
-      return;
-    }
-    let cancelled = false;
+    if (!active || active.identity.type !== 'object') return;
     const oid = active.identity.objectId;
-    setIsLoading(true);
-    setLoadError(null);
-
-    fetch(`/api/v1/founder/objects/${oid}`, { credentials: 'include' })
-      .then(r => {
-        if (!r.ok) {
-          if (r.status === 404) throw new Error(`Object not found or has been deleted`);
-          if (r.status === 401 || r.status === 403) throw new Error(`You don't have permission to view this object`);
-          throw new Error(`Server error (${r.status})`);
-        }
-        return r.json();
-      })
-      .then(d => {
-        if (!cancelled) {
-          if (!d.data) throw new Error('Object data is empty');
-          setObjectData(d.data ?? null);
-          setLoadError(null);
-          setIsLoading(false);
-          // Emit ObjectLoaded to transition workspace from loading → hydrating
-          bus.emit({ type: 'ObjectLoaded', objectType: active.identity.objectType!, objectId: oid, data: d.data });
-          // Emit TimelineLoaded to transition from hydrating → active
-          bus.emit({ type: 'TimelineLoaded', objectType: active.identity.objectType!, objectId: oid, events: [] });
-        }
-      })
-      .catch(err => {
-        if (!cancelled) {
-          setLoadError(err.message);
-          setObjectData(null);
-          setIsLoading(false);
-          useWorkspaceStore.getState().markError(active.identity.id, err.message);
-        }
-      });
-    return () => { cancelled = true; };
-  }, [active?.identity.id, active?.identity.objectId, active?.identity.type]);
+    const otype = active.identity.objectType;
+    if (oid && otype && active.status === 'loading') {
+      bus.emit({ type: 'ObjectLoaded', objectType: otype, objectId: oid, data: {} });
+    }
+  }, [active?.identity.id, active?.identity.objectId, active?.identity.type, active?.status]);
 
   const shellContext = active ? {
     workspaceType: active.layout,
     objectId: active.identity.objectId,
     objectType: active.identity.objectType,
   } : { workspaceType: 'home' };
-
-  const runtimeStates: Record<string, Record<string, unknown>> = objectData
-    ? { object: objectData as Record<string, unknown> }
-    : {};
 
   function renderContent() {
     // While booting, render the Home workspace with skeleton loading
@@ -144,32 +101,41 @@ export function WorkspaceContainer() {
       return <ExecutiveHome />;
     }
 
-    // Error state (from local fetch or workspace status)
-    if (loadError || active.status === 'error') {
+    // Error state (from workspace status)
+    if (active.status === 'error') {
       return (
         <WorkspaceErrorState
-          error={loadError ?? active.error ?? 'Unknown error'}
+          error={active.error ?? 'Unknown error'}
           onRetry={() => {
-            setLoadError(null);
-            setObjectData(null);
-            setIsLoading(true);
+            useWorkspaceStore.getState().transitionTo(active.identity.id, 'loading');
           }}
         />
       );
     }
 
-    // Loading state (local fetch or workspace still initializing)
-    if (isLoading && !objectData) {
+    // Loading state
+    if (active.status === 'loading') {
       return <WorkspaceLoadingState />;
     }
 
-    // Active workspace — compose panels (even if workspace status is still transitioning)
-    // The local objectData is the source of truth for rendering
-    if (objectData) {
+    // Object workspace — render the unified object viewer
+    if (active.identity.type === 'object' && active.identity.objectId) {
+      return (
+        <div className="wksp-panels" ref={ref}>
+          <ObjectWorkspaceViewer
+            objectId={active.identity.objectId}
+            objectType={active.identity.objectType}
+          />
+        </div>
+      );
+    }
+
+    // Active workspace — compose panels via composition engine
+    if (active.status === 'active' || active.status === 'hydrating') {
       const workspaceType = active.layout ?? 'home';
       let composed;
       try {
-        composed = CompositionEngine.compose(workspaceType, width, runtimeStates);
+        composed = CompositionEngine.compose(workspaceType, width, {});
       } catch {
         return <ExecutiveHome />;
       }
@@ -177,7 +143,6 @@ export function WorkspaceContainer() {
       return (
         <div className="wksp-panels" ref={ref}>
           {composed.panels.map(p => {
-            // Error state for individual panels
             if (p.error) {
               return (
                 <div key={p.id} className="wksp-panel-error">
@@ -196,7 +161,7 @@ export function WorkspaceContainer() {
       );
     }
 
-    // Fallback: no object data, no active workspace
+    // Fallback
     return <ExecutiveHome />;
   }
 

@@ -677,6 +677,16 @@ def create_app(config_override: dict | None = None):
     # FDA15 — Marketing Intelligence
     app.register_blueprint(analytics_bp)
 
+    # FDA16-FDA20 — Unified Workspace API
+    # Must be imported here (not at module level) to avoid import shadowing
+    # inside create_app() — the workspace_objects modules import from app.models
+    # which shadows the `app` Flask instance at module level.
+    import importlib as _importlib
+    _importlib.import_module("app.workspace_objects.service")
+    _importlib.import_module("app.workspace_objects.copilot")
+    from app.workspace_objects.routes import workspace_api
+    app.register_blueprint(workspace_api)
+
     # M8 — Executive Intelligence
     from app.intelligence.routes import intelligence_bp
     app.register_blueprint(intelligence_bp)
