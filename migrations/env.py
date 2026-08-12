@@ -14,6 +14,7 @@ if config.config_file_name is not None:
 from app import db
 from app.models import Lead, Supplier, InvoiceStatus, TaskList, Task, Organization, Person, Document
 from app.evidence.models_db import EvidenceRecord  # noqa: register model
+from app.authz.extended_models import ServiceAccount, ApprovalDelegation, TenantPolicy  # noqa: register FDA22 models
 target_metadata = db.metadata
 
 def run_migrations_offline() -> None:

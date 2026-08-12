@@ -24,6 +24,9 @@ EXTENDED_PERMISSIONS = {
     "connector.edit": "Edit API/service connectors",
     "connector.delete": "Delete API/service connectors",
     "connector.view": "View API/service connectors",
+    # People / internal operations
+    "people.view": "View team members and people data",
+    "people.manage": "Manage team data (attendance, training, policy)",
     # Delegation / approval
     "delegation.create": "Create approval delegations",
     "delegation.revoke": "Revoke approval delegations",

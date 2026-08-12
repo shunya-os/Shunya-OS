@@ -40,6 +40,19 @@ def auth_headers(app, client):
     return {"X-Identity-Id": "test_manager"}
 
 
+@pytest.fixture(autouse=True)
+def reset_fda23_stores():
+    """Clear in-memory FDA23 stores between tests to prevent cross-test leakage."""
+    from app.people import routes as people_routes
+    people_routes._attendance_store.clear()
+    people_routes._policy_store.clear()
+    people_routes._training_store.clear()
+    people_routes._acknowledgement_store.clear()
+    people_routes._completion_store.clear()
+    people_routes._leave_id_counter = 0
+    yield
+
+
 @pytest.fixture(scope="function")
 def seed_org(app):
     """Seed org with members, roles, and sample tasks."""
@@ -52,6 +65,16 @@ def seed_org(app):
     db.session.add(org)
     db.session.flush()
     seed_default_roles(1)
+
+    # Add people.manage to the manager role for FDA23 workstream tests
+    manager_role = db.session.query(Role).filter_by(organization_id=1, name="manager").first()
+    if manager_role:
+        import json
+        perms = json.loads(manager_role.permissions or "[]")
+        if "people.manage" not in perms:
+            perms.append("people.manage")
+            manager_role.permissions = json.dumps(perms)
+            db.session.flush()
 
     manager_role = db.session.query(Role).filter_by(organization_id=1, name="manager").first()
     viewer_role = db.session.query(Role).filter_by(organization_id=1, name="viewer").first()
@@ -226,6 +249,194 @@ class TestPeopleHealth:
         resp = client.get("/api/v1/people/health")
         assert resp.status_code == 200
         assert resp.get_json()["service"] == "people-operations"
+
+
+class TestPeopleAttendance:
+    """FDA23: Attendance and leave workstream."""
+
+    def test_list_attendance_empty(self, client, auth_headers, seed_org):
+        """List attendance returns no records initially."""
+        resp = client.get("/api/v1/people/attendance", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+        assert data["data"]["summary"]["total_requests"] == 0
+
+    def test_submit_attendance(self, client, auth_headers, seed_org):
+        """Submit a leave request."""
+        resp = client.post("/api/v1/people/attendance", headers=auth_headers, json={
+            "member_id": "test_manager",
+            "type": "leave",
+            "date": "2026-08-15",
+            "reason": "Personal leave",
+        })
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert data["success"] is True
+        assert data["data"]["status"] == "pending"
+        assert data["data"]["type"] == "leave"
+        assert data["data"]["member_id"] == "test_manager"
+        assert data["data"]["id"].startswith("ATT-")
+
+    def test_submit_attendance_missing_fields(self, client, auth_headers, seed_org):
+        """Submit without required fields returns 400."""
+        resp = client.post("/api/v1/people/attendance", headers=auth_headers, json={
+            "member_id": "test_manager",
+        })
+        assert resp.status_code == 400
+        assert resp.get_json()["success"] is False
+
+    def test_submit_attendance_invalid_type(self, client, auth_headers, seed_org):
+        """Submit with invalid type returns 400."""
+        resp = client.post("/api/v1/people/attendance", headers=auth_headers, json={
+            "member_id": "test_manager",
+            "type": "vacation",
+            "date": "2026-08-15",
+        })
+        assert resp.status_code == 400
+        assert "Invalid type" in resp.get_json()["error"]
+
+    def test_attendance_shows_submitted(self, client, auth_headers, seed_org):
+        """Submitted record appears in listing."""
+        client.post("/api/v1/people/attendance", headers=auth_headers, json={
+            "member_id": "worker_1", "type": "sick", "date": "2026-08-10", "reason": "Flu",
+        })
+        resp = client.get("/api/v1/people/attendance", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["data"]["summary"]["total_requests"] == 1
+        assert data["data"]["summary"]["pending"] == 1
+
+    def test_attendance_requires_auth(self, client):
+        """Unauthenticated returns 401."""
+        resp = client.get("/api/v1/people/attendance")
+        assert resp.status_code == 401
+
+    def test_attendance_post_requires_auth(self, client):
+        """Unauthenticated POST returns 401."""
+        resp = client.post("/api/v1/people/attendance", json={"member_id": "x", "type": "leave", "date": "2026-01-01"})
+        assert resp.status_code == 401
+
+    def test_attendance_requires_manage_permission(self, client, seed_org):
+        """User without people.manage gets 401/403."""
+        with client.session_transaction() as s:
+            s["identity_id"] = "no_perm_user"
+            s["current_org_id"] = 1
+        resp = client.get("/api/v1/people/attendance", headers={"X-Identity-Id": "no_perm_user"})
+        assert resp.status_code in (401, 403)
+
+
+class TestPeoplePolicies:
+    """FDA23: Policy/SOP acknowledgement workstream."""
+
+    def test_list_policies(self, client, auth_headers, seed_org):
+        """List seeded policies."""
+        resp = client.get("/api/v1/people/policies", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+        assert data["data"]["total"] == 3
+        # No policies acknowledged yet
+        assert data["data"]["acknowledged_count"] == 0
+
+    def test_acknowledge_policy(self, client, auth_headers, seed_org):
+        """Acknowledge a specific policy."""
+        resp = client.post("/api/v1/people/policies/p1/acknowledge", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+        assert data["data"]["acknowledged"] is True
+        assert data["data"]["version"] == "1.2"
+
+    def test_acknowledged_policy_reflects_in_listing(self, client, auth_headers, seed_org):
+        """After acknowledging a policy, list shows it as acknowledged."""
+        client.post("/api/v1/people/policies/p1/acknowledge", headers=auth_headers)
+        resp = client.get("/api/v1/people/policies", headers=auth_headers)
+        data = resp.get_json()
+        assert data["data"]["acknowledged_count"] == 1
+        p1 = next(p for p in data["data"]["policies"] if p["id"] == "p1")
+        assert p1["acknowledged"] is True
+        p2 = next(p for p in data["data"]["policies"] if p["id"] == "p2")
+        assert p2["acknowledged"] is False
+
+    def test_acknowledge_nonexistent_policy(self, client, auth_headers, seed_org):
+        """Acknowledging a non-existent policy returns 404."""
+        resp = client.post("/api/v1/people/policies/nonexistent/acknowledge", headers=auth_headers)
+        assert resp.status_code == 404
+
+    def test_policies_requires_auth(self, client):
+        """Unauthenticated returns 401."""
+        resp = client.get("/api/v1/people/policies")
+        assert resp.status_code == 401
+
+    def test_policies_acknowledge_requires_auth(self, client):
+        """Unauthenticated policy acknowledge returns 401."""
+        resp = client.post("/api/v1/people/policies/p1/acknowledge")
+        assert resp.status_code == 401
+
+    def test_policies_requires_manage_permission(self, client, seed_org):
+        """User without people.manage gets 401/403."""
+        with client.session_transaction() as s:
+            s["identity_id"] = "no_perm_user"
+            s["current_org_id"] = 1
+        resp = client.get("/api/v1/people/policies", headers={"X-Identity-Id": "no_perm_user"})
+        assert resp.status_code in (401, 403)
+
+
+class TestPeopleTraining:
+    """FDA23: Training records workstream."""
+
+    def test_list_training(self, client, auth_headers, seed_org):
+        """List seeded training records."""
+        resp = client.get("/api/v1/people/training", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+        assert data["data"]["total"] == 3
+        assert data["data"]["completed_count"] == 0
+
+    def test_complete_training(self, client, auth_headers, seed_org):
+        """Mark a training as complete."""
+        resp = client.post("/api/v1/people/training/t1/complete", headers=auth_headers)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["success"] is True
+        assert data["data"]["completed"] is True
+        assert data["data"]["training_id"] == "t1"
+
+    def test_completed_training_reflects_in_listing(self, client, auth_headers, seed_org):
+        """After completing training, list shows it as completed."""
+        client.post("/api/v1/people/training/t1/complete", headers=auth_headers)
+        resp = client.get("/api/v1/people/training", headers=auth_headers)
+        data = resp.get_json()
+        assert data["data"]["completed_count"] == 1
+        t1 = next(t for t in data["data"]["trainings"] if t["id"] == "t1")
+        assert t1["completed"] is True
+        t2 = next(t for t in data["data"]["trainings"] if t["id"] == "t2")
+        assert t2["completed"] is False
+
+    def test_complete_nonexistent_training(self, client, auth_headers, seed_org):
+        """Completing a non-existent training returns 404."""
+        resp = client.post("/api/v1/people/training/nonexistent/complete", headers=auth_headers)
+        assert resp.status_code == 404
+
+    def test_training_requires_auth(self, client):
+        """Unauthenticated returns 401."""
+        resp = client.get("/api/v1/people/training")
+        assert resp.status_code == 401
+
+    def test_training_complete_requires_auth(self, client):
+        """Unauthenticated training complete returns 401."""
+        resp = client.post("/api/v1/people/training/t1/complete")
+        assert resp.status_code == 401
+
+    def test_training_requires_manage_permission(self, client, seed_org):
+        """User without people.manage gets 401/403."""
+        with client.session_transaction() as s:
+            s["identity_id"] = "no_perm_user"
+            s["current_org_id"] = 1
+        resp = client.get("/api/v1/people/training", headers={"X-Identity-Id": "no_perm_user"})
+        assert resp.status_code in (401, 403)
 
 
 if __name__ == "__main__":

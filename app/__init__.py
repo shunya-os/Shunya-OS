@@ -706,10 +706,6 @@ def create_app(config_override: dict | None = None):
     from app.people.routes import people_bp
     app.register_blueprint(people_bp)
 
-    # FDA24 — Document & Knowledge OS API
-    from app.documents_knowledge.routes import doc_knowledge_bp
-    app.register_blueprint(doc_knowledge_bp)
-
     # FDA25 — Import / Export / Migration API
     from app.import_export.routes import import_bp
     app.register_blueprint(import_bp)

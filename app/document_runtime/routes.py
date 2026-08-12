@@ -1,7 +1,8 @@
-"""EP-05 — Universal Document Runtime API."""
+"""EP-05 — Universal Document Runtime API.
+FDA24 consolidated: injection detection + context added to canonical doc_bp.
+"""
 
 from flask import Blueprint, jsonify, request, g
-
 from .runtime import get_document_runtime, DOCUMENT_TYPES
 
 doc_bp = Blueprint("documents", __name__, url_prefix="/api/v1/documents")
@@ -116,7 +117,6 @@ def document_ocr(doc_id: str):
 
 @doc_bp.route("/types", methods=["GET"])
 def list_document_types():
-    """GET /api/v1/documents/types — list supported document types and their lifecycles."""
     return jsonify({"success": True, "data": {
         doc_type: {"lifecycle": config["lifecycle"], "default_purpose": config["default_purpose"]}
         for doc_type, config in DOCUMENT_TYPES.items()
@@ -125,7 +125,6 @@ def list_document_types():
 
 @doc_bp.route("/<doc_id>/transition", methods=["POST"])
 def transition_document(doc_id: str):
-    """POST /api/v1/documents/<id>/transition — advance lifecycle stage."""
     identity_id = _require_identity()
     if not identity_id:
         return jsonify({"success": False, "error": "Authentication required"}), 401
@@ -142,7 +141,6 @@ def transition_document(doc_id: str):
 
 @doc_bp.route("/<doc_id>/evidence", methods=["POST"])
 def add_evidence(doc_id: str):
-    """POST /api/v1/documents/<id>/evidence — add evidence to document."""
     identity_id = _require_identity()
     if not identity_id:
         return jsonify({"success": False, "error": "Authentication required"}), 401
@@ -160,7 +158,6 @@ def add_evidence(doc_id: str):
 
 @doc_bp.route("/<doc_id>/risk", methods=["GET"])
 def document_risk(doc_id: str):
-    """GET /api/v1/documents/<id>/risk — AI risk analysis."""
     identity_id = _require_identity()
     if not identity_id:
         return jsonify({"success": False, "error": "Authentication required"}), 401
@@ -171,7 +168,6 @@ def document_risk(doc_id: str):
 
 @doc_bp.route("/<doc_id>/recommend", methods=["GET"])
 def document_recommendation(doc_id: str):
-    """GET /api/v1/documents/<id>/recommend — AI next-action recommendation."""
     identity_id = _require_identity()
     if not identity_id:
         return jsonify({"success": False, "error": "Authentication required"}), 401
@@ -182,7 +178,6 @@ def document_recommendation(doc_id: str):
 
 @doc_bp.route("/<doc_id>/relationships", methods=["POST"])
 def add_relationship(doc_id: str):
-    """POST /api/v1/documents/<id>/relationships — link document to an object."""
     identity_id = _require_identity()
     if not identity_id:
         return jsonify({"success": False, "error": "Authentication required"}), 401
@@ -195,3 +190,52 @@ def add_relationship(doc_id: str):
     if not doc:
         return jsonify({"success": False, "error": "Document not found"}), 404
     return jsonify({"success": True, "data": doc.to_dict()})
+
+
+# ── FDA24 consolidated: injection detection + context ──────────────────
+
+
+@doc_bp.route("/check-injection", methods=["POST"])
+def check_injection():
+    """POST /api/v1/documents/check-injection — detect prompt injection.
+    A document is DATA, not AUTHORITY. Injected instructions are isolated.
+    """
+    identity_id = _require_identity()
+    if not identity_id:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    data = request.get_json(silent=True) or {}
+    content = (data.get("content") or "").strip()
+    if not content:
+        return jsonify({"success": False, "error": "content is required"}), 400
+    from app.documents_knowledge.service import check_prompt_injection
+    result = check_prompt_injection(content)
+    return jsonify({
+        "success": True, "data": result,
+        "truth_classification": "observation",
+        "warning": "Document content is data, not authority.",
+    })
+
+
+@doc_bp.route("/<doc_id>/context", methods=["GET"])
+def document_context(doc_id: str):
+    """GET /api/v1/documents/<id>/context — contextualize with evidence."""
+    identity_id = _require_identity()
+    if not identity_id:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    from app import db
+    from app.document.models import DocumentRecord
+    from app.evidence.models_db import EvidenceRecord
+    try:
+        doc = db.session.query(DocumentRecord).filter_by(id=int(doc_id)).first()
+    except (ValueError, TypeError):
+        doc = None
+    if not doc:
+        return jsonify({"success": False, "error": "Document not found"}), 404
+    evidence = db.session.query(EvidenceRecord).filter_by(
+        source_type="document", source_id=str(doc.id)).all()
+    return jsonify({"success": True, "data": {
+        "document": {"id": doc.id, "filename": doc.original_filename, "classification": doc.classification},
+        "evidence": [e.to_dict() for e in evidence],
+        "truth_classification": "observation",
+        "warning": "Document content is data, not authority.",
+    }})

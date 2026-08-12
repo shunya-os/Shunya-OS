@@ -229,8 +229,8 @@ def _import_lead(org_id: int, data: Dict, identity_id: str) -> Optional[Dict]:
 
     set_lead_tenant_id(org_id)
     try:
-        import secrets
-        code = data.get("code") or f"IMP{datetime.now(timezone.utc).strftime('%y%m%d%H%M%S')}{secrets.token_hex(2)}"
+        from app.models import next_inquiry_code
+        code = data.get("code") or next_inquiry_code(db.session)
         lead = Lead(
             code=code,
             customer_name=data.get("customer_name", "Imported Lead"),
