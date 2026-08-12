@@ -112,9 +112,10 @@ def create_lead_with_identity(
     """
     from app.relationship.services import create_relationship as _create_rel
     from sqlalchemy.exc import IntegrityError
+    from app.models import next_inquiry_code, set_lead_tenant_id, clear_lead_tenant_id
 
     try:
-        from app.models import next_inquiry_code
+        set_lead_tenant_id(tenant_id)
         code = next_inquiry_code(db.session)
         lead = Lead(
             code=code,
@@ -159,6 +160,8 @@ def create_lead_with_identity(
                 _retry_count=_retry_count + 1,
             )
         raise
+    finally:
+        clear_lead_tenant_id()
 
 
 def _resolve_identity(

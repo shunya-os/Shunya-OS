@@ -125,11 +125,37 @@ class Lead(db.Model):
 
 
 # PROD-42: auto-create Entity when a Lead is created
+# Thread-local for tenant_id propagation to Entity creation
+import threading
+_lead_tenant_local = threading.local()
+
+
+def set_lead_tenant_id(tenant_id: int):
+    """Set the tenant_id for the next Lead created in this thread."""
+    _lead_tenant_local.tenant_id = tenant_id
+
+
+def get_lead_tenant_id() -> int | None:
+    """Get the current thread's lead tenant_id."""
+    return getattr(_lead_tenant_local, 'tenant_id', None)
+
+
+def clear_lead_tenant_id():
+    """Clear the current thread's lead tenant_id."""
+    _lead_tenant_local.tenant_id = None
+
+
 @db.event.listens_for(Lead, 'init')
 def _lead_auto_create_entity(target, args, kwargs):
     """Auto-create a generic Entity for every new Lead."""
     from app.core.entity import Entity
-    entity = Entity(type="lead", state=kwargs.get("stage", "new"), data={})
+    tenant_id = get_lead_tenant_id() or kwargs.get("_tenant_id")
+    entity = Entity(
+        tenant_id=tenant_id or 1,
+        type="lead",
+        state=kwargs.get("stage", "new"),
+        data={},
+    )
     target._pending_entity = entity
 
 
@@ -142,6 +168,7 @@ def _lead_attach_entity(mapper, connection, target):
         # Insert entity via direct SQL
         result = connection.execute(
             EntityClass.__table__.insert().values(
+                tenant_id=entity.tenant_id,
                 type=entity.type,
                 state=entity.state,
                 data=entity.data
