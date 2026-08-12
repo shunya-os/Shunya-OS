@@ -702,6 +702,10 @@ def create_app(config_override: dict | None = None):
     from app.authz.admin_routes import admin_bp
     app.register_blueprint(admin_bp)
 
+    # FDA23 — People / Internal Operations API
+    from app.people.routes import people_bp
+    app.register_blueprint(people_bp)
+
     # M8 — Executive Intelligence
     from app.intelligence.routes import intelligence_bp
     app.register_blueprint(intelligence_bp)
