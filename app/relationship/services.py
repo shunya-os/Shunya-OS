@@ -20,7 +20,9 @@ from app.relationship.models import (
 # ── Relationship CRUD ─────────────────────────────────────────────────────
 
 
-def create_relationship(organization_id: int, data: dict, created_by: str = "") -> Relationship:
+def create_relationship(organization_id: int, data: dict,
+                        created_by: str = "",
+                        legacy_person_id: Optional[int] = None) -> Relationship:
     """Create a new relationship within an organization."""
     rel = Relationship(
         organization_id=organization_id,
@@ -60,6 +62,7 @@ def create_relationship(organization_id: int, data: dict, created_by: str = "") 
         status=data.get("status", "active"),
         notes=data.get("notes", ""),
         custom_attributes=json.dumps(data.get("custom_attributes", {})),
+        legacy_person_id=legacy_person_id,
         created_by=created_by,
     )
     db.session.add(rel)

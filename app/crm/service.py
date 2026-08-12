@@ -117,6 +117,10 @@ def create_lead_with_identity(
     try:
         set_lead_tenant_id(tenant_id)
         code = next_inquiry_code(db.session)
+        if _retry_count > 0:
+            # On retry, use a unique suffix to avoid code collisions
+            import uuid
+            code = f"{code[:14]}{uuid.uuid4().hex[:6].upper()}"
         lead = Lead(
             code=code,
             source=source,
@@ -211,8 +215,8 @@ def _resolve_identity(
             "source": "lead_capture",
             "relationship_type": "lead",
             "internal_owner": created_by or "",
-            "legacy_person_id": person.id,
         },
+        legacy_person_id=person.id,
         created_by=created_by,
     )
     lead.person_id = person.id
