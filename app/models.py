@@ -152,6 +152,7 @@ def _lead_auto_create_entity(target, args, kwargs):
     tenant_id = get_lead_tenant_id() or kwargs.get("_tenant_id")
     entity = Entity(
         tenant_id=tenant_id or 1,
+        definition_id=0,
         type="lead",
         state=kwargs.get("stage", "new"),
         data={},
@@ -169,6 +170,7 @@ def _lead_attach_entity(mapper, connection, target):
         result = connection.execute(
             EntityClass.__table__.insert().values(
                 tenant_id=entity.tenant_id,
+                definition_id=entity.definition_id,
                 type=entity.type,
                 state=entity.state,
                 data=entity.data
