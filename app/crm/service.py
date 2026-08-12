@@ -134,9 +134,9 @@ def create_lead_with_identity(
         db.session.add(lead)
         db.session.flush()
 
-        rel = _resolve_identity(tenant_id, name, phone, email, created_by)
+        rel = _resolve_identity(lead, tenant_id, name, phone, email, created_by)
         if rel:
-            lead.person_id = rel.id
+            lead.person_id = lead.person_id or rel.id
             _add_timeline_entry(
                 organization_id=tenant_id,
                 relationship_id=rel.id,
@@ -165,38 +165,65 @@ def create_lead_with_identity(
 
 
 def _resolve_identity(
-    tenant_id: int, name: str, phone: str, email: str, created_by: str
+    lead: Lead, tenant_id: int, name: str, phone: str, email: str, created_by: str
 ) -> Optional[Relationship]:
     """Find or create a canonical relationship for this lead.
 
     Tries email match, then phone match, then creates new.
-    This is the canonical identity resolution path.
+    The Lead's person_id FK constraint (@persons.id) is satisfied by
+    creating a Person record. The Relationship is created separately.
     """
+    # Create Person record for the FK constraint (leads.person_id → persons.id)
+    from app.models import Person
+    person = Person(
+        tenant_id=tenant_id,
+        name=name or phone or email or "Unknown",
+        canonical_name=name or phone or email or "Unknown",
+        status="active",
+    )
+    db.session.add(person)
+    db.session.flush()
+
+    # Find or create relationship
     if email:
         rel = Relationship.query.filter_by(
             organization_id=tenant_id, email=email
         ).first()
         if rel:
+            lead.person_id = person.id
             return rel
     if phone:
         rel = Relationship.query.filter_by(
             organization_id=tenant_id, phone=phone
         ).first()
         if rel:
+            lead.person_id = person.id
             return rel
+
     # Create new relationship
-    return create_relationship(
+    rel = create_relationship(
         organization_id=tenant_id,
         data={
-            "display_name": name or phone or email or "Unknown Lead",
-            "email": email,
-            "phone": phone,
+            "display_name": name or phone or email or "Unknown",
+            "email": email or "",
+            "phone": phone or "",
             "source": "lead_capture",
             "relationship_type": "lead",
             "internal_owner": created_by or "",
+            "legacy_person_id": person.id,
         },
         created_by=created_by,
     )
+    lead.person_id = person.id
+    return rel
+
+
+def get_relationship_id_for_person(org_id: int, person_id: int) -> int | None:
+    """Get the CanonicalRelationship ID for a given Person ID and org."""
+    rel = Relationship.query.filter_by(
+        organization_id=org_id, legacy_person_id=person_id
+    ).first()
+    return rel.id if rel else person_id  # Fallback to person_id if no relationship
 
 
 def assign_lead(lead: Lead, owner: str, tenant_id: int) -> Lead:
