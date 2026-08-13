@@ -206,7 +206,7 @@ def api_founder_signin():
         session.modified = True
         return jsonify({
             "success": True,
-            "redirect": url_for("workspace.workspace_home"),
+            "redirect": url_for("workspace_routes.workspace_home"),
             "name": tm.name,
             "identity_id": "",
         })
