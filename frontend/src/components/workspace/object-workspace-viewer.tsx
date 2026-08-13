@@ -9,6 +9,7 @@ import { getObjectWorkspace } from '../../api/workspace-api';
 import { CopilotPanel } from './copilot-panel';
 import { TimelineView } from './timeline-view';
 import { CommitmentPanel } from './commitment-panel';
+import { AuditReconstruction } from './audit-reconstruction';
 
 interface Props {
   objectId: string;
@@ -213,6 +214,8 @@ export const ObjectWorkspaceViewer: FC<Props> = ({ objectId, objectType }) => {
           {sections.includes('intelligence') && <IntelligenceCard data={intelligence} />}
           {sections.includes('evidence') && <EvidenceList data={evidence} />}
           {sections.includes('relationships') && <RelationshipList data={relationships} />}
+          {/* FDA21 — Audit reconstruction — always visible when object is loaded */}
+          <AuditReconstruction objectId={objectId} objectType={objectType} />
         </div>
 
         {/* Center column: Timeline */}
