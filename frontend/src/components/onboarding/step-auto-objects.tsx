@@ -35,7 +35,7 @@ export function StepAutoObjects({ onNext, onBack, businessCategory }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const resp = await api.autoCreateFoundationalObjects(businessCategory);
+        const resp = await api.autoCreateFoundationalObjects(businessCategory || 'general');
         if (cancelled) return;
         if (resp.success && resp.data) {
           setObjects(resp.data.objects || []);

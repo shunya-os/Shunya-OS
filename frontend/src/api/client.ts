@@ -29,6 +29,12 @@ export const api = {
   /** Generic query — discover available capabilities. */
   query: <T = any>(path: string, opts?: RequestInit) => req<T>(path, opts),
 
+  /** Auto-create foundational objects during onboarding. */
+  autoCreateFoundationalObjects: (category: string) =>
+    req<{ success: boolean; data?: { objects: any[]; count: number }; error?: string }>('/founder/auto-create-objects', {
+      method: 'POST', body: JSON.stringify({ category }),
+    }),
+
   // ── Auth Pages ──
 
   /** Request a password reset email. */
