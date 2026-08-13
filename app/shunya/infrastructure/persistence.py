@@ -58,21 +58,21 @@ class Database:
                 kwargs["pool_size"] = self._pool_size
                 kwargs["pool_timeout"] = self._pool_timeout
                 kwargs["max_overflow"] = 10
-            # Handle SQLite pragmas for WAL mode
+            self._engine = create_engine(self._database_url, **kwargs)
+
+            # Handle SQLite pragmas for WAL mode — bind to this engine instance only
             if "sqlite" in self._database_url:
                 # Ensure directory for file-based SQLite
                 if self._database_url != "sqlite:///:memory:":
                     db_path = self._database_url.replace("sqlite:///", "")
                     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-                @event.listens_for(Engine, "connect")
+                @event.listens_for(self._engine, "connect")
                 def _set_sqlite_pragma(dbapi_connection, connection_record):  # type: ignore
                     cursor = dbapi_connection.cursor()
                     cursor.execute("PRAGMA journal_mode=WAL")
                     cursor.execute("PRAGMA foreign_keys=ON")
                     cursor.close()
-
-            self._engine = create_engine(self._database_url, **kwargs)
         return self._engine
 
     # ---- Sessions -----------------------------------------------------------
