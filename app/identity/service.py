@@ -32,6 +32,8 @@ from core.identity_interface import (
 
 _INJECTION_KEYWORDS_IDENTITY = [
     "ignore all security",
+    "ignore all previous instructions",
+    "ignore previous instructions",
     "bypass auth",
     "system override",
     "admin access",

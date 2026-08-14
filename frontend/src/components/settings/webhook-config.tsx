@@ -1,60 +1,53 @@
 /**
- * Webhook Configuration — Free Integration
+ * Webhook Configuration — FDA26 Server-side Backed
  *
- * Add webhook URLs for events (new_invoice, new_proposal, task_completed, etc.)
- * Test webhook button. Store in localStorage.
- * Warm glass-morphism design.
+ * Add webhook URLs for events. Stored on the server, delivered with HMAC
+ * signature, idempotency keys, and retry with backoff.
  */
 import { useState, useEffect, useCallback } from 'react';
-
-// ── Types ──
-interface WebhookEntry {
-  id: string;
-  url: string;
-  events: string[];
-  label: string;
-  enabled: boolean;
-  createdAt: number;
-}
-
-const STORAGE_KEY = 'shunya_webhooks';
-const AVAILABLE_EVENTS = [
-  { id: 'new_invoice', label: 'New Invoice Created' },
-  { id: 'invoice_paid', label: 'Invoice Paid' },
-  { id: 'new_proposal', label: 'New Proposal Created' },
-  { id: 'proposal_accepted', label: 'Proposal Accepted' },
-  { id: 'task_completed', label: 'Task Completed' },
-  { id: 'contact_added', label: 'Contact Added' },
-  { id: 'email_sent', label: 'Email Sent' },
-  { id: 'new_note', label: 'New Note Created' },
-] as const;
-
-function loadWebhooks(): WebhookEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveWebhooks(hooks: WebhookEntry[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(hooks));
-}
+import {
+  fetchWebhooks,
+  createWebhook,
+  updateWebhook,
+  deleteWebhook,
+  rotateWebhookSecret,
+  testWebhook,
+  fetchDeliveries,
+  type WebhookEntry,
+  type WebhookDelivery,
+  AVAILABLE_EVENTS,
+} from '../../api/webhooks';
 
 export function WebhookConfig() {
   const [webhooks, setWebhooks] = useState<WebhookEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [url, setUrl] = useState('');
   const [label, setLabel] = useState('');
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
-  const [testingId, setTestingId] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{ id: string; ok: boolean; msg: string } | null>(null);
+  const [testingId, setTestingId] = useState<number | null>(null);
+  const [testResult, setTestResult] = useState<{ id: number; ok: boolean; msg: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [deliveries, setDeliveries] = useState<Record<number, WebhookDelivery[]>>({});
+  const [showDeliveries, setShowDeliveries] = useState<number | null>(null);
 
   useEffect(() => {
-    setWebhooks(loadWebhooks());
+    loadWebhooks();
   }, []);
+
+  const loadWebhooks = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const hooks = await fetchWebhooks();
+      setWebhooks(hooks);
+    } catch (e: any) {
+      setError(e.message || 'Failed to load webhooks');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setUrl('');
@@ -73,68 +66,90 @@ export function WebhookConfig() {
     setShowForm(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!url.trim() || selectedEvents.length === 0) return;
-
-    const hooks = loadWebhooks();
-    if (editingId) {
-      const idx = hooks.findIndex((h) => h.id === editingId);
-      if (idx >= 0) {
-        hooks[idx] = { ...hooks[idx], url: url.trim(), label: label.trim() || url.trim(), events: selectedEvents };
+    setError('');
+    try {
+      if (editingId) {
+        await updateWebhook(editingId, { url: url.trim(), label: label.trim() || url.trim(), events: selectedEvents });
+      } else {
+        await createWebhook({ url: url.trim(), label: label.trim() || url.trim(), events: selectedEvents });
       }
-    } else {
-      const entry: WebhookEntry = {
-        id: Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
-        url: url.trim(),
-        events: selectedEvents,
-        label: label.trim() || url.trim(),
-        enabled: true,
-        createdAt: Date.now(),
-      };
-      hooks.push(entry);
+      resetForm();
+      await loadWebhooks();
+    } catch (e: any) {
+      setError(e.message || 'Failed to save webhook');
     }
-    saveWebhooks(hooks);
-    setWebhooks(hooks);
-    resetForm();
   };
 
-  const handleDelete = (id: string) => {
-    const hooks = loadWebhooks().filter((h) => h.id !== id);
-    saveWebhooks(hooks);
-    setWebhooks(hooks);
-    if (editingId === id) resetForm();
+  const handleDelete = async (id: number) => {
+    setError('');
+    try {
+      await deleteWebhook(id);
+      await loadWebhooks();
+    } catch (e: any) {
+      setError(e.message || 'Failed to delete webhook');
+    }
   };
 
-  const toggleEnabled = (id: string) => {
-    const hooks = loadWebhooks().map((h) => (h.id === id ? { ...h, enabled: !h.enabled } : h));
-    saveWebhooks(hooks);
-    setWebhooks(hooks);
+  const toggleEnabled = async (hook: WebhookEntry) => {
+    setError('');
+    try {
+      await updateWebhook(hook.id, { is_active: !hook.is_active });
+      await loadWebhooks();
+    } catch (e: any) {
+      setError(e.message || 'Failed to toggle webhook');
+    }
   };
 
   const handleTest = useCallback(async (hook: WebhookEntry) => {
     setTestingId(hook.id);
     setTestResult(null);
     try {
-      const payload = {
-        event: 'test',
-        timestamp: new Date().toISOString(),
-        data: { message: 'This is a test webhook from SHUNYA OS' },
-      };
-      await fetch(hook.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        mode: 'no-cors', // Allow cross-origin test
+      const delivery = await testWebhook(hook.id);
+      const ok = delivery.status === 'delivered';
+      setTestResult({
+        id: hook.id,
+        ok,
+        msg: ok
+          ? `Delivered (HTTP ${delivery.http_status}). Check your endpoint.`
+          : `Failed: ${delivery.error || 'Delivery error'}`,
       });
-      setTestResult({ id: hook.id, ok: true, msg: 'Webhook triggered (no-cors mode). Check your endpoint.' });
-    } catch {
-      setTestResult({ id: hook.id, ok: false, msg: 'Failed to reach endpoint. Check the URL.' });
+    } catch (e: any) {
+      setTestResult({ id: hook.id, ok: false, msg: e.message || 'Test failed' });
     }
     setTestingId(null);
   }, []);
 
+  const handleShowDeliveries = async (hook: WebhookEntry) => {
+    if (showDeliveries === hook.id) {
+      setShowDeliveries(null);
+      return;
+    }
+    try {
+      const items = await fetchDeliveries(hook.id);
+      setDeliveries((prev) => ({ ...prev, [hook.id]: items }));
+      setShowDeliveries(hook.id);
+    } catch {
+      setShowDeliveries(hook.id);
+    }
+  };
+
   const toggleEvent = (eventId: string) => {
     setSelectedEvents((prev) => (prev.includes(eventId) ? prev.filter((e) => e !== eventId) : [...prev, eventId]));
+  };
+
+  const handleRotateSecret = async (hook: WebhookEntry) => {
+    setError('');
+    try {
+      const updated = await rotateWebhookSecret(hook.id);
+      if (updated.secret) {
+        alert(`New secret: ${updated.secret}\n\nSave this — it will not be shown again.`);
+      }
+      await loadWebhooks();
+    } catch (e: any) {
+      setError(e.message || 'Failed to rotate secret');
+    }
   };
 
   return (
@@ -171,6 +186,12 @@ export function WebhookConfig() {
           + Add Webhook
         </button>
       </div>
+
+      {error && (
+        <div className="wh-error" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* Form */}
       {showForm && (
@@ -227,7 +248,8 @@ export function WebhookConfig() {
 
       {/* List */}
       <div className="wh-list">
-        {webhooks.length === 0 && !showForm && (
+        {loading && <div className="wh-loading">Loading webhooks…</div>}
+        {!loading && webhooks.length === 0 && !showForm && (
           <div className="wh-empty">
             <svg
               width="32"
@@ -248,13 +270,18 @@ export function WebhookConfig() {
           </div>
         )}
         {webhooks.map((hook) => (
-          <div key={hook.id} className={`wh-item ${!hook.enabled ? 'wh-item-disabled' : ''}`}>
+          <div key={hook.id} className={`wh-item ${!hook.is_active ? 'wh-item-disabled' : ''}`}>
             <div className="wh-item-info">
               <div className="wh-item-header">
                 <span className="wh-item-label">{hook.label}</span>
-                <span className={`wh-item-status ${hook.enabled ? 'wh-status-active' : 'wh-status-paused'}`}>
-                  {hook.enabled ? 'Active' : 'Paused'}
+                <span className={`wh-item-status ${hook.is_active ? 'wh-status-active' : 'wh-status-paused'}`}>
+                  {hook.is_active ? 'Active' : 'Paused'}
                 </span>
+                {hook.last_delivery_status && hook.last_delivery_status !== 'never' && (
+                  <span className={`wh-item-status ${hook.last_delivery_status === 'delivered' ? 'wh-status-ok' : 'wh-status-fail'}`}>
+                    {hook.last_delivery_status}
+                  </span>
+                )}
               </div>
               <div className="wh-item-url">{hook.url}</div>
               <div className="wh-item-events">
@@ -264,25 +291,38 @@ export function WebhookConfig() {
                   </span>
                 ))}
               </div>
+              {hook.delivery_count > 0 && (
+                <div className="wh-item-meta">
+                  {hook.delivery_count} delivery{(hook.delivery_count || 0) !== 1 ? 'ies' : ''}
+                  {hook.last_delivery_at ? ` · last ${new Date(hook.last_delivery_at).toLocaleDateString()}` : ''}
+                </div>
+              )}
             </div>
             <div className="wh-item-actions">
               <button
                 className="wh-btn wh-btn-ghost wh-btn-sm"
                 onClick={() => handleTest(hook)}
-                disabled={testingId === hook.id || !hook.enabled}
+                disabled={testingId === hook.id || !hook.is_active}
                 title="Test webhook"
               >
                 {testingId === hook.id ? '...' : 'Test'}
               </button>
               <button
                 className="wh-btn wh-btn-ghost wh-btn-sm"
-                onClick={() => toggleEnabled(hook.id)}
-                title={hook.enabled ? 'Pause' : 'Activate'}
+                onClick={() => toggleEnabled(hook)}
+                title={hook.is_active ? 'Pause' : 'Activate'}
               >
-                {hook.enabled ? '⏸' : '▶'}
+                {hook.is_active ? '⏸' : '▶'}
               </button>
               <button className="wh-btn wh-btn-ghost wh-btn-sm" onClick={() => handleEdit(hook)} title="Edit">
                 ✎
+              </button>
+              <button
+                className="wh-btn wh-btn-ghost wh-btn-sm"
+                onClick={() => handleRotateSecret(hook)}
+                title="Rotate secret"
+              >
+                🔑
               </button>
               <button
                 className="wh-btn wh-btn-ghost wh-btn-sm wh-btn-danger"
@@ -291,10 +331,33 @@ export function WebhookConfig() {
               >
                 ✕
               </button>
+              <button
+                className="wh-btn wh-btn-ghost wh-btn-sm"
+                onClick={() => handleShowDeliveries(hook)}
+                title="Delivery log"
+              >
+                📋
+              </button>
             </div>
             {testResult && testResult.id === hook.id && (
               <div className={`wh-test-result ${testResult.ok ? 'wh-test-ok' : 'wh-test-fail'}`}>
                 {testResult.ok ? '✓' : '✗'} {testResult.msg}
+              </div>
+            )}
+            {showDeliveries === hook.id && (
+              <div className="wh-deliveries">
+                {(deliveries[hook.id] || []).length === 0 && (
+                  <div className="wh-empty-text" style={{ padding: '8px 0' }}>No deliveries yet.</div>
+                )}
+                {(deliveries[hook.id] || []).slice(0, 10).map((d) => (
+                  <div key={d.id} className="wh-delivery-row">
+                    <span className={`wh-delivery-status wh-delivery-${d.status}`}>{d.status}</span>
+                    <span className="wh-delivery-event">{d.event_name}</span>
+                    <span className="wh-delivery-attempt">attempt {d.attempt}/{d.max_attempts}</span>
+                    {d.http_status && <span className="wh-delivery-http">HTTP {d.http_status}</span>}
+                    <span className="wh-delivery-time">{d.created_at ? new Date(d.created_at).toLocaleString() : ''}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -369,6 +432,21 @@ const whCss = `
 .wh-btn-danger:hover { color: #B91C1C !important; }
 
 .wh-btn-sm { padding: 4px 8px; font-size: 11px; }
+
+.wh-error {
+  padding: 8px 14px;
+  background: rgba(185,28,28,0.08);
+  color: #B91C1C;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(185,28,28,0.1);
+}
+
+.wh-loading {
+  padding: 32px 14px;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(26,28,29,0.3);
+}
 
 /* ── Form ── */
 .wh-form {
@@ -498,14 +576,23 @@ const whCss = `
 }
 
 .wh-status-paused {
-  background: rgba(164,134,95,0.1);
-  color: #A4865F;
+  background: rgba(148,115,71,0.1);
+  color: #947347;
+}
+
+.wh-status-ok {
+  background: rgba(45,106,79,0.08);
+  color: #2D6A4F;
+}
+
+.wh-status-fail {
+  background: rgba(185,28,28,0.08);
+  color: #B91C1C;
 }
 
 .wh-item-url {
   font-size: 12px;
-  color: rgba(26,28,29,0.45);
-  font-family: monospace;
+  color: rgba(26,28,29,0.35);
   word-break: break-all;
 }
 
@@ -513,16 +600,20 @@ const whCss = `
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 4px;
 }
 
 .wh-event-tag {
+  font-size: 10px;
   padding: 2px 8px;
   background: rgba(108,74,226,0.06);
-  border: 1px solid rgba(108,74,226,0.1);
+  color: rgba(108,74,226,0.7);
   border-radius: 6px;
+}
+
+.wh-item-meta {
   font-size: 10px;
-  color: #6C4AE2;
+  color: rgba(26,28,29,0.3);
+  margin-top: 2px;
 }
 
 .wh-item-actions {
@@ -536,7 +627,6 @@ const whCss = `
   padding: 6px 10px;
   border-radius: 6px;
   font-size: 11px;
-  line-height: 1.4;
 }
 
 .wh-test-ok {
@@ -549,8 +639,38 @@ const whCss = `
   color: #B91C1C;
 }
 
-@media (max-width: 768px) {
-  .wh-header { flex-direction: column; gap: 8px; align-items: stretch; }
-  .wh-item-actions { flex-wrap: wrap; }
+.wh-deliveries {
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(26,28,29,0.02);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
+
+.wh-delivery-row {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  align-items: center;
+}
+
+.wh-delivery-status {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.wh-delivery-delivered { background: rgba(45,106,79,0.1); color: #2D6A4F; }
+.wh-delivery-failed { background: rgba(185,28,28,0.1); color: #B91C1C; }
+.wh-delivery-pending { background: rgba(148,115,71,0.1); color: #947347; }
+.wh-delivery-exhausted { background: rgba(185,28,28,0.15); color: #B91C1C; }
+
+.wh-delivery-event { color: rgba(26,28,29,0.6); }
+.wh-delivery-attempt { color: rgba(26,28,29,0.35); }
+.wh-delivery-http { color: rgba(26,28,29,0.35); }
+.wh-delivery-time { color: rgba(26,28,29,0.25); margin-left: auto; }
 `;

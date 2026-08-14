@@ -83,6 +83,11 @@ def app():
         from app.security.audit import AuditLog  # noqa: F401
         # ACT-02 — Execution Log
         from app.execution_log.models import ExecutionLog  # noqa: F401
+        # FDA26 — Developer/Integration Platform models
+        from app.platform.models import (  # noqa: F401
+            WebhookDelivery,
+            WebhookSubscription,
+        )
         db.create_all()
         yield application
         db.drop_all()

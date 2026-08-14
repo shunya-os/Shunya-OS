@@ -47,6 +47,11 @@ _INJECTION_KEYWORDS = [
     "bypass authentication",
     "skip authorization",
     "ignore all rules",
+    "ignore all previous instructions",
+    "ignore previous instructions",
+    "disregard previous instructions",
+    "disregard all previous instructions",
+    "forget all previous instructions",
     "you are now",
     "system override",
 ]
