@@ -263,6 +263,8 @@ function AppShell() {
             } else {
               setPhase('onboarding');
             }
+          }} onSignUp={() => {
+            window.location.href = '/auth/signup';
           }} />
         </TokenProvider>
       );
@@ -347,6 +349,9 @@ function AppShell() {
           } else {
             setPhase('onboarding');
           }
+        }} onSignUp={() => {
+          window.history.replaceState({}, '', '/auth/signup');
+          setPhase('login');
         }} />
       </TokenProvider>
     );

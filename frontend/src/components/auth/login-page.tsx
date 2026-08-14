@@ -11,9 +11,10 @@ import { SessionManager, type Session } from '../../api/session';
 
 interface Props {
   onLogin: (session: Session) => void;
+  onSignUp?: () => void;
 }
 
-export function LoginPage({ onLogin }: Props) {
+export function LoginPage({ onLogin, onSignUp }: Props) {
   const [phase, setPhase] = useState<'intro' | 'form' | 'loading' | 'error'>('intro');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -113,6 +114,17 @@ export function LoginPage({ onLogin }: Props) {
               {phase === 'loading' ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
+          <div className="sh-login-signup">
+            Don't have an account?{' '}
+            <button
+              className="sh-login-link-btn"
+              onClick={onSignUp}
+              tabIndex={0}
+              type="button"
+            >
+              Create Account
+            </button>
+          </div>
           <div className="sh-login-footer">SHUNYA — One Operating System</div>
         </div>
       )}
@@ -182,6 +194,10 @@ export function LoginPage({ onLogin }: Props) {
 .sh-login-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .sh-login-btn:hover:not(:disabled) { opacity: 0.85; }
 .sh-login-footer { font-size: 0.7rem; color: #444; letter-spacing: 0.1em; }
+.sh-login-signup { margin-top: 16px; font-size: 0.8rem; color: #888; text-align: center; }
+.sh-login-link-btn { background: none; border: none; color: #6C4AE2; cursor: pointer; font-size: 0.8rem; text-decoration: underline; padding: 0; }
+.sh-login-link-btn:hover { color: #8B6FE8; }
+.sh-login-link-btn:focus-visible { outline: 2px solid #6C4AE2; outline-offset: 2px; border-radius: 2px; }
 .fade-in { animation: sh-fade-in 0.8s ease-out both; }
 @keyframes sh-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 `}</style>
