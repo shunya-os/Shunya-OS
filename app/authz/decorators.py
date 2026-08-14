@@ -20,11 +20,15 @@ def _resolve_identity() -> str:
 
 
 def _resolve_org_id() -> int | None:
-    """Resolve the current user's organization."""
+    """Resolve the current user's organization.
+
+    Canonical order:
+    1. session current_org_id (set by before_request bridge)
+    2. OrgMember lookup by identity (email or user_id)
+    """
     org_id = session.get("current_org_id")
     if org_id:
         return int(org_id)
-    # Fallback: first active OrgMember
     identity = _resolve_identity()
     if identity:
         from app.models import OrgMember
@@ -32,6 +36,20 @@ def _resolve_org_id() -> int | None:
         if om:
             return om.organization_id
     return None
+
+
+def _resolve_org_workspace_ids(org_id: int) -> list:
+    """Resolve workspace IDs belonging to an organization.
+
+    Canonical: workspaces are org-scoped via sh_workspaces.organization_id.
+    Falls back to legacy default workspace when org mapping absent.
+    """
+    from app.objects.legacy_models import Workspace
+    ws_ids = [w.id for w in Workspace.query.filter_by(organization_id=org_id).all()]
+    if ws_ids:
+        return ws_ids
+    # Legacy fallback: default workspaces
+    return ["spc_personal", "spc_business", "spc_custom"]
 
 
 def require_permission(permission: str):

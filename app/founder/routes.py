@@ -319,10 +319,13 @@ def founder_logout():
 def api_list_spaces():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
-    spaces = FounderSpace.query.filter_by(
-        identity_id=session.get("identity_id"),
-        status="active",
-    ).order_by(FounderSpace.created_at.desc()).all()
+    # Org-scoped: filter by user's organization
+    from app.authz.decorators import _resolve_org_id
+    org_id = _resolve_org_id()
+    if org_id:
+        spaces = FounderSpace.query.filter_by(organization_id=org_id, status="active").order_by(FounderSpace.created_at.desc()).all()
+    else:
+        spaces = FounderSpace.query.filter_by(identity_id=session.get("identity_id"), status="active").order_by(FounderSpace.created_at.desc()).all()
     return jsonify({"success": True, "data": [s.to_dict() for s in spaces]})
 
 
@@ -854,13 +857,21 @@ def api_list_object_types():
 
 @founder_bp.route("/api/v1/founder/objects", methods=["GET"])
 def api_list_founder_objects():
-    """List objects scoped to the current user's space."""
+    """List objects scoped to the current user's organization."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
-    identity = session.get("identity_id") or session.get("user_id") or ""
-    identity = str(identity)
-    # Filter by user's primary space (created_by acts as tenant-scope)
-    objs = FounderObject.query.filter_by(status="active", created_by=identity).order_by(FounderObject.updated_at.desc()).all()
+    from app.authz.decorators import _resolve_org_id
+    org_id = _resolve_org_id()
+    if org_id:
+        # Filter by org's spaces
+        space_ids = [s.space_id for s in FounderSpace.query.filter_by(organization_id=org_id).all()]
+        if space_ids:
+            objs = FounderObject.query.filter(FounderObject.space_id.in_(space_ids), FounderObject.status == "active").order_by(FounderObject.updated_at.desc()).all()
+        else:
+            objs = []
+    else:
+        identity = session.get("identity_id") or session.get("user_id") or ""
+        objs = FounderObject.query.filter_by(status="active", created_by=str(identity)).order_by(FounderObject.updated_at.desc()).all()
     return jsonify({"success": True, "data": [o.to_dict() for o in objs], "count": len(objs)})
 
 

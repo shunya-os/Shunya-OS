@@ -36,16 +36,24 @@ def create():
     name = data.get("name", data.get("object_type", "Object"))
     object_type = data.get("object_type", data.get("type", "generic"))
 
-    # Resolve the user's workspace from session
+    # Resolve the user's workspace from session (org-scoped)
     identity_id = session.get("identity_id") or session.get("user_id") or "system"
     if identity_id and isinstance(identity_id, int):
         identity_id = str(identity_id)
 
-    # Find an existing workspace, or use the first active one
-    workspace = Workspace.query.filter_by(status="active").first()
-    workspace_id = workspace.id if workspace else "spc_default"
-
     tenant_id = _resolve_tenant_id()
+
+    # Workspace is org-scoped: pick the user's org workspace
+    from app.authz.decorators import _resolve_org_workspace_ids
+    workspace_ids = _resolve_org_workspace_ids(tenant_id) if tenant_id else []
+    workspace = None
+    if workspace_ids:
+        workspace = Workspace.query.filter(
+            Workspace.id.in_(workspace_ids), Workspace.status == "active"
+        ).first()
+    if not workspace:
+        workspace = Workspace.query.filter_by(status="active").first()
+    workspace_id = workspace.id if workspace else "spc_default"
 
     # Create in sh_objects (production store used by workspace/reality_engine)
     obj = ShunyaObject(

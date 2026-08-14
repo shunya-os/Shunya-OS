@@ -20,6 +20,7 @@ class FounderSpace(db.Model):
     description = db.Column(db.Text, default="")
     identity_id = db.Column(db.String(64), nullable=False, index=True)
     member_count = db.Column(db.Integer, default=1)
+    organization_id = db.Column(db.Integer, nullable=True)
     status = db.Column(db.String(30), default="active")
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

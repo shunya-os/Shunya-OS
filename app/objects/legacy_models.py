@@ -43,6 +43,7 @@ class Workspace(db.Model):
     color = db.Column(db.String(10), default='#6C4AE2')
     description = db.Column(db.String(500), default='')
     created_by = db.Column(db.String(64), nullable=False)
+    organization_id = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     status = db.Column(db.String(20), default='active')
