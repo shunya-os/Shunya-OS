@@ -256,6 +256,36 @@ def api_signup():
     db.session.add(member)
     db.session.commit()
 
+    # Create OrgMember and assign default role for authorization
+    try:
+        from app.models import OrgMember, Organization
+        primary_org = Organization.query.first()
+        if primary_org:
+            om = OrgMember(
+                organization_id=primary_org.id,
+                identity_id=member.email,
+                name=member.name,
+                email=member.email,
+                role="member",
+                is_active=True,
+            )
+            db.session.add(om)
+            db.session.flush()
+            from app.authz.models import Role, OrgMemberRole
+            default_role = Role.query.filter_by(organization_id=primary_org.id, name="member").first()
+            if default_role:
+                db.session.add(OrgMemberRole(
+                    organization_id=primary_org.id,
+                    member_id=om.id,
+                    role_id=default_role.id,
+                    granted_by="system",
+                ))
+        db.session.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to create OrgMember for %s: %s", email, str(e))
+        db.session.rollback()
+
     session["user_id"] = member.id
     session.modified = True
 
