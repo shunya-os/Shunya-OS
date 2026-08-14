@@ -854,10 +854,13 @@ def api_list_object_types():
 
 @founder_bp.route("/api/v1/founder/objects", methods=["GET"])
 def api_list_founder_objects():
-    """List all objects."""
+    """List objects scoped to the current user's space."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
-    objs = FounderObject.query.filter_by(status="active").order_by(FounderObject.updated_at.desc()).all()
+    identity = session.get("identity_id") or session.get("user_id") or ""
+    identity = str(identity)
+    # Filter by user's primary space (created_by acts as tenant-scope)
+    objs = FounderObject.query.filter_by(status="active", created_by=identity).order_by(FounderObject.updated_at.desc()).all()
     return jsonify({"success": True, "data": [o.to_dict() for o in objs], "count": len(objs)})
 
 

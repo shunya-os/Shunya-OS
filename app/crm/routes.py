@@ -2,7 +2,7 @@
 
 Connects to the canonical /api/v1/leads blueprint.
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from app import db
 from app.models import Lead, LeadStatus
 from datetime import datetime, timedelta
@@ -17,12 +17,24 @@ from app.authz.decorators import require_permission
 crm_bp = Blueprint("crm", __name__, url_prefix="/api/v1/crm")
 
 
+def _resolve_tenant_from_session():
+    """Resolve the canonical tenant (organization) id from the session.
+
+    NEVER trusts request-body tenant_id — prevents cross-tenant writes.
+    """
+    from app.authz.decorators import _resolve_org_id
+    org_id = _resolve_org_id()
+    if org_id:
+        return org_id
+    return session.get("tenant_id") or 1
+
+
 @crm_bp.route("/leads", methods=["POST"])
 @require_permission("rel.create")
 def api_create_lead():
     """Create a lead through the canonical CRM path."""
     data = request.get_json(silent=True) or {}
-    tenant_id = data.get("tenant_id", 1)
+    tenant_id = _resolve_tenant_from_session() or 1
     try:
         lead = create_lead_with_identity(
             tenant_id=tenant_id,
@@ -48,7 +60,7 @@ def api_qualify_lead(lead_id: int):
     lead = db.session.get(Lead, lead_id)
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
-    tenant_id = request.get_json(silent=True or {}).get("tenant_id", 1)
+    tenant_id = _resolve_tenant_from_session()
     result = qualify_lead_and_update(lead, tenant_id)
     return jsonify({
         "success": True,
@@ -65,7 +77,7 @@ def api_assign_lead(lead_id: int):
         return jsonify({"success": False, "error": "Lead not found"}), 404
     data = request.get_json(silent=True) or {}
     owner = data.get("owner", "")
-    tenant_id = data.get("tenant_id", 1)
+    tenant_id = _resolve_tenant_from_session()
     if not owner:
         return jsonify({"success": False, "error": "Owner required"}), 400
     assign_lead(lead, owner, tenant_id)
@@ -94,7 +106,7 @@ def api_create_followup(lead_id: int):
     task = create_follow_up(
         lead=lead, title=data.get("title", "Follow-up"),
         due_date=due, assigned_to=data.get("assigned_to", lead.assigned_to or ""),
-        tenant_id=data.get("tenant_id", 1),
+        tenant_id=_resolve_tenant_from_session(),
     )
     return jsonify({"success": True, "task": {"id": task.id, "title": task.title}})
 
@@ -106,7 +118,7 @@ def api_create_opportunity(lead_id: int):
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
     data = request.get_json(silent=True) or {}
-    tenant_id = data.get("tenant_id", 1)
+    tenant_id = _resolve_tenant_from_session()
     proposal = create_opportunity(lead, tenant_id, title=data.get("title", ""))
     return jsonify({
         "success": True,
@@ -122,7 +134,7 @@ def api_lead_won(lead_id: int):
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
     data = request.get_json(silent=True) or {}
-    customer = convert_to_customer(lead, data.get("tenant_id", 1))
+    customer = convert_to_customer(lead, _resolve_tenant_from_session())
     return jsonify({
         "success": True,
         "customer": {"id": customer.id, "name": customer.name},
@@ -137,7 +149,7 @@ def api_lead_lost(lead_id: int):
         return jsonify({"success": False, "error": "Lead not found"}), 404
     data = request.get_json(silent=True) or {}
     reason = data.get("reason", "No reason provided")
-    mark_lost(lead, reason, data.get("tenant_id", 1))
+    mark_lost(lead, reason, _resolve_tenant_from_session())
     return jsonify({"success": True, "lead_id": lead.id, "outcome": reason})
 
 
@@ -148,7 +160,7 @@ def api_reassign_leads():
     new_owner = data.get("new_owner", "")
     if not new_owner:
         return jsonify({"success": False, "error": "new_owner required"}), 400
-    reassigned = reassign_unattended_leads(data.get("tenant_id", 1), new_owner)
+    reassigned = reassign_unattended_leads(_resolve_tenant_from_session(), new_owner)
     return jsonify({
         "success": True,
         "reassigned_count": len(reassigned),
