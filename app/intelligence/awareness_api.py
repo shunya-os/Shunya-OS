@@ -151,13 +151,18 @@ def api_decision_traces_all():
 
 @awareness_bp.route("/ingest/gmail", methods=["POST"])
 def api_ingest_gmail():
-    """Trigger Gmail ingestion — fetches last 100 emails and converts to objects."""
+    """Trigger Gmail ingestion via canonical GmailAdapter pipeline.
+
+    Uses the canonical GmailAdapter registered with IntegrationRegistry.
+    Identity → evidence → decision pipeline.
+    """
     try:
-        from app.integration.gmail_ingest import ingest_emails, link_threads
+        from app.integration.gmail_adapter import GmailAdapter
         body = request.get_json(silent=True) or {}
         max_results = body.get("max_results", 100)
 
-        summary = ingest_emails(max_results=max_results)
+        adapter = GmailAdapter()
+        summary = adapter.ingest_emails(max_results=max_results)
         return jsonify({
             "status": "ok",
             "summary": summary,

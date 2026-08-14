@@ -4,6 +4,7 @@ SHUNYA — Gmail Integration Adapter (FDA5-G5).
 Complete production path through the canonical EmailProvider interface.
 OAuth → fetch → normalize → IdentityService → provenance → evidence.
 """
+import base64
 import logging
 import re
 from datetime import datetime
@@ -218,6 +219,33 @@ class GmailAdapter(EmailProvider):
         )
 
     @staticmethod
+    def _extract_body_recursive(payload: dict) -> str:
+        """Recursively extract body text from a Gmail payload (supports nested MIME)."""
+        # Top-level body
+        body_data = payload.get("body", {}).get("data", "")
+        if body_data:
+            try:
+                return base64.urlsafe_b64decode(body_data + "===").decode("utf-8", errors="replace")
+            except Exception:
+                pass
+
+        # Check parts recursively
+        parts = payload.get("parts", [])
+        for part in parts:
+            part_data = part.get("body", {}).get("data", "")
+            if part_data:
+                try:
+                    return base64.urlsafe_b64decode(part_data + "===").decode("utf-8", errors="replace")
+                except Exception:
+                    continue
+            # Recurse into sub-parts
+            if part.get("parts"):
+                result = GmailAdapter._extract_body_recursive(part)
+                if result:
+                    return result
+        return ""
+
+    @staticmethod
     def normalize_email(raw_email: dict) -> dict:
         """Normalize a raw Gmail message into canonical email format."""
         headers = raw_email.get("payload", {}).get("headers", [])
@@ -228,21 +256,9 @@ class GmailAdapter(EmailProvider):
                     return h.get("value", "")
             return ""
 
-        # Extract body
-        body_text = ""
-        body_html = ""
+        # Extract body using recursive MIME parser
         payload = raw_email.get("payload", {})
-        if payload.get("mimeType") == "text/plain":
-            body_text = _decode_body(payload)
-        elif payload.get("mimeType") == "text/html":
-            body_html = _decode_body(payload)
-        elif "parts" in payload:
-            for part in payload["parts"]:
-                mt = part.get("mimeType", "")
-                if mt == "text/plain" and not body_text:
-                    body_text = _decode_body(part)
-                elif mt == "text/html" and not body_html:
-                    body_html = _decode_body(part)
+        body_text = GmailAdapter._extract_body_recursive(payload)
 
         return {
             "message_id": raw_email.get("id", ""),
@@ -253,23 +269,92 @@ class GmailAdapter(EmailProvider):
             "subject": _h("Subject"),
             "date": _h("Date"),
             "body_text": body_text,
-            "body_html": body_html,
             "labels": raw_email.get("labelIds", []),
             "internal_date": raw_email.get("internalDate", ""),
         }
 
+    def ingest_emails(self, max_results: int = 100) -> dict:
+        """Fetch and ingest emails through the canonical identity→evidence pipeline.
 
-def _decode_body(part: dict) -> str:
-    """Decode a Gmail message body part."""
-    data = part.get("body", {}).get("data", "")
-    if not data:
-        return ""
-    import base64
-    try:
-        decoded = base64.urlsafe_b64decode(data + "===")
-        return decoded.decode("utf-8", errors="replace")
-    except Exception:
-        return ""
+        Pipeline:
+            1. Fetch emails via Gmail API
+            2. Normalize each email
+            3. Resolve sender identity
+            4. Create evidence record
+            5. Trigger decision pipeline
+
+        Args:
+            max_results: Maximum emails to fetch.
+
+        Returns:
+            dict with ingestion summary.
+        """
+        from app.core.identity.resolver import resolve_identity
+        from app.evidence.service import log_evidence
+
+        summary = {"emails_fetched": 0, "objects_created": 0, "objects_matched": 0, "traces_recorded": 0, "errors": []}
+
+        try:
+            raw_emails = self.fetch_emails(limit=max_results)
+        except Exception as e:
+            summary["errors"].append({"stage": "fetch", "error": str(e)})
+            return summary
+
+        for email_data in raw_emails:
+            try:
+                # Stage 1: Identity resolution
+                identity = resolve_identity(
+                    email=email_data.get("from", ""),
+                    name=email_data.get("from", "").split("<")[0].strip() if "<" in email_data.get("from", "") else email_data.get("from", ""),
+                    source="gmail",
+                    metadata={
+                        "last_email_subject": email_data.get("subject", "")[:200],
+                        "last_email_at": email_data.get("date"),
+                    },
+                )
+
+                # Stage 2: Evidence record
+                log_evidence(
+                    action="email_received",
+                    source="gmail",
+                    confidence=0.85,
+                    evidence_type="communication",
+                    metadata={
+                        "message_id": email_data.get("message_id"),
+                        "thread_id": email_data.get("thread_id"),
+                        "from": email_data.get("from", "")[:200],
+                        "subject": email_data.get("subject", "")[:200],
+                    },
+                )
+
+                summary["objects_matched" if identity.get("matched") else "objects_created"] += 1
+
+                # Stage 3: Trigger decision pipeline
+                try:
+                    from app.runtime.entry import process_event
+                    pipeline_result = process_event(
+                        event_type="email_received",
+                        event_data={
+                            "entity_id": identity.get("object", {}).get("id") if hasattr(identity.get("object"), "id") else None,
+                            "email_id": email_data.get("message_id"),
+                            "subject": email_data.get("subject", ""),
+                            "sender": email_data.get("from", ""),
+                            "source": "gmail",
+                        },
+                        source="gmail",
+                    )
+                    if pipeline_result.get("decision_trace_id"):
+                        summary["traces_recorded"] += 1
+                except Exception:
+                    pass
+
+            except Exception as e:
+                summary["errors"].append({"email_id": email_data.get("message_id"), "error": str(e)})
+
+        summary["emails_fetched"] = len(raw_emails)
+        logger.info("Gmail ingestion: %d emails, %d matched, %d traces, %d errors",
+                     summary["emails_fetched"], summary["objects_matched"], summary["traces_recorded"], len(summary["errors"]))
+        return summary
 
 
 class _MockGmailService:

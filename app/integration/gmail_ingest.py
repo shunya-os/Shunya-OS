@@ -1,10 +1,21 @@
-"""Real Gmail Ingestion Engine — fetches emails via Gmail API and converts to SHUNYA objects.
+"""
+Real Gmail Ingestion Engine — fetches emails via Gmail API and converts to SHUNYA objects.
+
+[DEPRECATED] This module is a transitional implementation being replaced by the canonical
+GmailAdapter pathway. New code should use app.integration.gmail_adapter.GmailAdapter
+with the ingest_emails() method.
 
 PHASE 3.5: Connects real Gmail data → identity resolution → object creation → decision pipeline.
 Every email is traced through the full evidence → awareness → decision → execution pipeline.
 
 Uses google-api-python-client with OAuth 2.0 tokens stored in the integration system.
 """
+
+import warnings
+warnings.warn(
+    "gmail_ingest is deprecated. Use app.integration.gmail_adapter.GmailAdapter.ingest_emails() instead.",
+    DeprecationWarning, stacklevel=2,
+)
 
 import base64
 import logging
@@ -63,6 +74,8 @@ def get_gmail_service(token_path: str = None):
 
 def fetch_emails(max_results: int = 100, query: str = "newer_than:30d") -> list:
     """Fetch recent emails from Gmail inbox.
+
+    [DEPRECATED] Use GmailAdapter.ingest_emails() instead.
 
     Args:
         max_results: Maximum emails to fetch (default 100).
@@ -187,6 +200,8 @@ def _extract_body(payload: dict) -> str:
 def email_to_object(email_data: dict, source: str = "gmail") -> dict:
     """Convert an email into a SHUNYA object via identity resolution.
 
+    [DEPRECATED] Use GmailAdapter.ingest_emails() instead.
+
     Pipeline:
         1. Resolve sender identity (email → Object)
         2. Create or update the Object with email context
@@ -284,6 +299,8 @@ def email_to_object(email_data: dict, source: str = "gmail") -> dict:
 
 def ingest_emails(max_results: int = 100) -> dict:
     """Fetch and ingest the last N emails into SHUNYA.
+
+    [DEPRECATED] Use GmailAdapter.ingest_emails() instead.
 
     Returns:
         dict with:
