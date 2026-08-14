@@ -42,7 +42,10 @@ def test_health_endpoint(client):
     data = r.get_json()
     assert data["status"] == "ok"
     assert data["database"] == "connected"
-    assert "tables" in data
+    assert data["environment"] in ("production", "development", "testing")
+    assert "version" in data
+    assert "uptime_seconds" in data
+    assert "request_id" in data
 
 
 def test_request_id_on_every_response(client):
