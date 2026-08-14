@@ -206,6 +206,54 @@ def api_ask():
     has_company_data = False
     evidence_semantic_states = set()
 
+    # ── Stage 2.5: Safety Governance (age + explicit + injection) ────
+    safety_start = time.monotonic()
+    try:
+        from app.shunya.safety_governance import check_safety_governance
+        safety = check_safety_governance(
+            text=question,
+            identity_id=tenant.get("identity_id", ""),
+            tenant_id=tenant.get("tenant_id", 0),
+        )
+        if not safety.allowed:
+            total_latency = round((time.monotonic() - start) * 1000, 1)
+            return jsonify({
+                "success": False,
+                "error": "Request blocked by SHUNYA safety policy",
+                "safety": safety.to_dict(),
+                "answer": "",
+                "tenant": tenant,
+                "pipeline": pipeline_stages + [{
+                    "stage": "safety_governance",
+                    "status": "blocked",
+                    "reason": safety.reason,
+                    "duration_ms": round((time.monotonic() - safety_start) * 1000, 1),
+                }],
+                "latency_ms": total_latency,
+            }), 403
+        pipeline_stages.append({
+            "stage": "safety_governance",
+            "status": "passed",
+            "level": safety.level,
+            "duration_ms": round((time.monotonic() - safety_start) * 1000, 1),
+        })
+    except Exception as exc:
+        logger.warning("Safety governance check failed (fail-open disabled, blocking): %s", exc)
+        total_latency = round((time.monotonic() - start) * 1000, 1)
+        return jsonify({
+            "success": False,
+            "error": "Safety governance unavailable — request blocked",
+            "answer": "",
+            "tenant": tenant,
+            "pipeline": pipeline_stages + [{
+                "stage": "safety_governance",
+                "status": "unavailable",
+                "reason": str(exc),
+                "duration_ms": round((time.monotonic() - safety_start) * 1000, 1),
+            }],
+            "latency_ms": total_latency,
+        }), 503
+
     from app import db as _db
     from sqlalchemy import text as _text
 
