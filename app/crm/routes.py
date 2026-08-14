@@ -12,11 +12,13 @@ from app.crm.service import (
     convert_to_customer, mark_lost, reassign_unattended_leads,
     qualify_lead,
 )
+from app.authz.decorators import require_permission
 
 crm_bp = Blueprint("crm", __name__, url_prefix="/api/v1/crm")
 
 
 @crm_bp.route("/leads", methods=["POST"])
+@require_permission("rel.create")
 def api_create_lead():
     """Create a lead through the canonical CRM path."""
     data = request.get_json(silent=True) or {}
@@ -113,6 +115,7 @@ def api_create_opportunity(lead_id: int):
 
 
 @crm_bp.route("/leads/<int:lead_id>/won", methods=["POST"])
+@require_permission("proposal.approve")
 def api_lead_won(lead_id: int):
     """Convert a won lead to customer."""
     lead = db.session.get(Lead, lead_id)

@@ -3,7 +3,8 @@ Outcome Routes — API endpoints for the Outcome Runtime.
 """
 import logging
 from flask import Blueprint, jsonify, request, session
-
+from app import db
+from app.authz.decorators import require_permission
 from app.execution.runtime import get_runtime
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ def _get_identity() -> str | None:
 
 
 @execution_bp.route("", methods=["POST"])
+@require_permission("task.create")
 def create_outcome():
     """Accept a new outcome. Returns immediately with outcome ID."""
     identity_id = _get_identity()
