@@ -8,6 +8,7 @@ class Object(db.Model):
     type = db.Column("object_type", db.String(100), nullable=False)
     state = db.Column(db.JSON, default={})
     context = db.Column(db.JSON, default={})
+    tenant_id = db.Column(db.Integer, nullable=True)
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(
