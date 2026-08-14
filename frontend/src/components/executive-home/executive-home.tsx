@@ -418,9 +418,9 @@ export function ExecutiveHome({ loading: parentLoading }: { loading?: boolean })
             </Section>
           )}
 
-          {/* Object Summary */}
+          {/* Summary */}
           {objectSummary.total > 0 && (
-            <Section title="Object Summary">
+            <Section title="Summary">
               <div className="eh-summary">
                 <div className="eh-summary-row">
                   <span className="eh-summary-label">Total</span>

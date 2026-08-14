@@ -642,7 +642,7 @@ function AiModelSection() {
           </ThemeIcon>
           <span className="sp-ai-info-text">
             {selectedModel === 'Groq (default)'
-              ? 'Fast inference with Groq LPUs. Change to use a different provider.'
+              ? 'Fast AI with Groq LPUs. Change to use a different provider.'
               : `Using ${selectedModel} for AI operations.`}
           </span>
         </div>

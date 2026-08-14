@@ -1,5 +1,5 @@
 /**
- * Integration Hub 2.0 — Zapier Lite (12 Connectors)
+ * Integration Hub 2.0 — Integration Hub
  *
  * 12 mock service connectors with connect/disconnect, localStorage state,
  * mock OAuth flow popup, and last sync timestamp.

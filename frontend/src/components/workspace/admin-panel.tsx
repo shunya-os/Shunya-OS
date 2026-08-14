@@ -121,7 +121,7 @@ export const AdminPanel: FC = () => {
 
       {!loading && tab === 'policies' && (
         <div className="wksp-admin-section">
-          <h3>Tenant Policies</h3>
+          <h3>Organization Policies</h3>
           {policies.map(p => (
             <div key={p.id} className="wksp-admin-row"><strong>{p.policy_key}</strong> = <code>{p.policy_value}</code> <span className="wksp-muted">({p.policy_type})</span></div>
           ))}

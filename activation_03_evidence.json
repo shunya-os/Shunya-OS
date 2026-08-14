@@ -1,0 +1,58 @@
+{
+  "activation_03": "EXECUTION TRUTH LOOP VALIDATION",
+  "executed_at": "2026-08-09T15:25:00+02:00",
+  "entity": {
+    "id": 18,
+    "object_type": "lead",
+    "state": {
+      "description": "Bali honeymoon",
+      "email": "testuser@example.com",
+      "name": "Test User",
+      "phone": "+919****9999",
+      "stage": "quoted",
+      "status": "closed",
+      "task": "Follow up with Test User"
+    },
+    "created_at": "2026-08-09T15:09:43.067046+00:00",
+    "updated_at": "2026-08-09T15:15:07.475952+00:00",
+    "lifecycle_cycles": 5,
+    "lifecycle_complete": true
+  },
+  "execution_timeline": [
+    {"cycle": 1, "stage": "new", "action": "ENTITY_SEEN", "decision": {"type": "update", "payload": {"stage": "contacted", "task": "Contact Test User"}, "effects": [{"type": "log", "channel": "system", "message": "Lead Test User moved to contacted"}]}},
+    {"cycle": 2, "stage": "contacted", "action": "ENTITY_SEEN", "decision": {"type": "update", "payload": {"stage": "quoted", "task": "Send quote to Test User"}, "effects": [{"type": "whatsapp", "to": "+919****9999", "message": "Hi Test User, here is your quote!"}, {"type": "email", "to": "testuser@example.com", "subject": "Your quote, Test User"}, {"type": "log", "channel": "system", "message": "Quote sent to Test User"}]}},
+    {"cycle": 3, "stage": "quoted", "action": "ENTITY_SEEN", "decision": {"type": "update", "payload": {"status": "closed", "task": "Follow up with Test User"}, "effects": [{"type": "whatsapp", "to": "+919****9999", "message": "Hi Test User, just following up on your quote."}, {"type": "email", "to": "testuser@example.com", "subject": "Follow up, Test User"}, {"type": "log", "channel": "system", "message": "Follow-up sent to Test User"}]}},
+    {"cycle": 4, "stage": "closed", "action": "ENTITY_SEEN", "decision": "noop"},
+    {"cycle": 5, "stage": "closed", "action": "ENTITY_SEEN", "decision": "noop"}
+  ],
+  "effects_executed": [
+    {"type": "log", "channel": "system", "message": "Lead Test User moved to contacted", "target": "console"},
+    {"type": "whatsapp", "to": "+919****9999", "message": "Hi Test User, here is your quote! Let me know if you have questions.", "status": "logged (no credentials)"},
+    {"type": "email", "to": "testuser@example.com", "subject": "Your quote, Test User", "body": "Dear Test User,\\n\\nPlease find your quote attached.\\n\\nBest regards,\\nSHUNYA", "status": "logged (no credentials)"},
+    {"type": "log", "channel": "system", "message": "Quote sent to Test User", "target": "console"},
+    {"type": "whatsapp", "to": "+919****9999", "message": "Hi Test User, just following up on your quote. Let me know!", "status": "logged (no credentials)"},
+    {"type": "email", "to": "testuser@example.com", "subject": "Follow up, Test User", "body": "Hi Test User,\\n\\nJust checking in on your quote. Let me know if you need anything.\\n\\nBest,\\nSHUNYA", "status": "logged (no credentials)"},
+    {"type": "log", "channel": "system", "message": "Follow-up sent to Test User", "target": "console"}
+  ],
+  "system_health": {
+    "database": "connected",
+    "environment": "development",
+    "status": "ok",
+    "uptime_seconds": "varies (workers restart on timeout)"
+  },
+  "known_issues": [
+    {
+      "severity": "MEDIUM",
+      "component": "Lead model (app/models.py)",
+      "issue": "SQLAlchemy model queries `leads.commitment_id` column that does not exist in database -> psycopg2 UndefinedColumn error",
+      "impact": "Loop error returned to API caller; entity state transitions still succeed before the error triggers",
+      "fix": "Add commitment_id column to leads table via migration, or update Lead model to remove the reference"
+    },
+    {
+      "severity": "LOW",
+      "component": "Reality Stream (/api/v1/reality/stream)",
+      "issue": "SSE endpoint has a time.sleep(5) loop that causes gunicorn worker timeout (30s)",
+      "impact": "Workers get SIGKILL on long-lived SSE connections after 30s"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 /**
- * SHUNYA LX-05 — Memory Review & Governance
+ * SHUNYA LX-05 — Memory Review
  *
  * The founder must always understand:
  *   what SHUNYA learned,

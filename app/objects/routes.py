@@ -84,14 +84,11 @@ def create():
 
 @objects_bp.route("/<int:object_id>", methods=["PATCH"])
 def update(object_id):
+    """Update a business object (tenant-scoped)."""
+    from app.authz.decorators import _resolve_org_id
+    org_id = _resolve_org_id()
     obj = Object.query.get_or_404(object_id)
-
-    updated = ObjectService.update_state(
-        obj,
-        request.json or {}
-    )
-
-    return jsonify({
-        "id": updated.id,
-        "state": updated.state
-    })
+    if org_id and obj.tenant_id and obj.tenant_id != org_id:
+        return jsonify({"error": "Forbidden"}), 403
+    updated = ObjectService.update_state(obj, request.json or {})
+    return jsonify({"id": updated.id, "state": updated.state})
