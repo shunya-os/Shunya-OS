@@ -13,18 +13,6 @@ providers:
     enabled: true
     priority: 10  # highest priority among free providers
     models:
-      - id: llama-3.1-8b-instant
-        name: "Llama 3.1 8B"
-        context_window: 8192
-        max_output: 4096
-        quality: 0.5
-        cost_per_token: 0.0  # free tier
-        capabilities:
-          conversation: 0.7
-          reasoning: 0.5
-          coding: 0.5
-          summarization: 0.6
-          extraction: 0.5
       - id: llama-3.3-70b-versatile
         name: "Llama 3.3 70B"
         context_window: 32768
@@ -74,6 +62,18 @@ providers:
           vision: 0.9
           summarization: 0.9
           extraction: 0.85
+      - id: openai/gpt-oss-20b
+        name: "GPT-OSS-20B"
+        context_window: 128000
+        max_output: 8192
+        quality: 0.65
+        cost_per_token: 0.00000003  # $0.03/M tokens input
+        capabilities:
+          conversation: 0.65
+          reasoning: 0.6
+          coding: 0.5
+          summarization: 0.6
+          extraction: 0.55
 
   - id: local
     name: Local Provider

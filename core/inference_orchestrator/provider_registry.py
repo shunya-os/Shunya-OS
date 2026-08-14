@@ -166,7 +166,7 @@ def _build_default_groq() -> ProviderDefinition:
         priority=10,
         models=[
             ModelCapability(
-                name="llama-3.1-8b-instant",
+                name="llama-3.3-70b-versatile",
                 provider="Groq",
                 capabilities={
                     ProviderCapability.CHAT_COMPLETION,

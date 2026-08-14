@@ -317,4 +317,14 @@ class MessageProposal(db.Model):
     sent_at = db.Column(db.DateTime, nullable=True)
     edited_message = db.Column(db.Text, nullable=True)
 
+    # ACTIVATION-08: Entity association and context
+    entity_id = db.Column(db.Integer, nullable=True, index=True)
+    entity_type = db.Column(db.String(64), nullable=True)
+    entity_name = db.Column(db.String(128), nullable=True)
+
+    context_reason = db.Column(db.Text, nullable=True)
+    context_priority = db.Column(db.String(16), nullable=True, default=lambda: "medium")
+    context_source = db.Column(db.String(64), nullable=True, default=lambda: "decision_engine")
+    context_confidence = db.Column(db.String(16), nullable=True, default=lambda: "high")
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

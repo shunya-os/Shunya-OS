@@ -16,11 +16,11 @@ interface Props {
 }
 
 const OBJECT_TYPES = [
-  { value: 'Document', label: 'Document', icon: '📄' },
-  { value: 'Task', label: 'Task', icon: '✅' },
-  { value: 'Note', label: 'Note', icon: '📝' },
-  { value: 'Lead', label: 'Lead', icon: '🔍' },
-  { value: 'Invoice', label: 'Invoice', icon: '💰' },
+  { value: 'Document', label: 'Document', icon: '📄', desc: 'Store notes, plans, reports, or any text-based information you want to reference later.' },
+  { value: 'Task', label: 'Task', icon: '✅', desc: 'Track something you or your team needs to complete — a to-do, checklist item, or action item.' },
+  { value: 'Note', label: 'Note', icon: '📝', desc: 'Quick notes, ideas, or observations you want to keep — like a sticky note that stays organized.' },
+  { value: 'Lead', label: 'Lead', icon: '🔍', desc: 'A potential customer or sales opportunity — someone interested in your product or service.' },
+  { value: 'Invoice', label: 'Invoice', icon: '💰', desc: 'A bill you send to a customer for products or services provided — tracked as a receivable.' },
 ];
 
 type Phase = 'form' | 'loading' | 'error' | 'success';
@@ -149,6 +149,11 @@ export function StepFirstObject({ onNext, onBack }: Props) {
                       <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
                     ))}
                   </select>
+                  {selectedTypeMeta && (
+                    <div className="sh-onboarding-desc" style={{fontSize:'0.8rem',color:'#888',marginTop:4}}>
+                      {selectedTypeMeta.desc}
+                    </div>
+                  )}
                 </div>
 
                 {phase === 'error' && (

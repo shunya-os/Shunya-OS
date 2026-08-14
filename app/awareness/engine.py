@@ -274,18 +274,27 @@ class ContinuousRiskMonitor:
 
     def _find_affected_execs(self, obs: CanonicalObservation,
                               exec_service: ExecutionService) -> List[str]:
-        """Find all executions affected by this observation."""
-        if obs.source_id and obs.source_id in exec_service._execs:
-            return [obs.source_id]
-        # Check if source_id is an obligation
-        for oid, obl in exec_service._obls.items():
-            if oid == obs.source_id:
-                return [obl.exec_id]
-        # Check if source_id is an exception
-        for eid, exc in exec_service._excs.items():
-            if eid == obs.source_id:
-                return [exc.exec_id]
-        return []
+        """Find all executions affected by this observation.
+
+        Queries outcomes matching the observation's source_id or identity_id.
+        """
+        if not obs.source_id:
+            return []
+        # Query outcomes by outcome_id (maps to source_id)
+        try:
+            from app.execution.models import Outcome
+            match = Outcome.query.filter(
+                Outcome.outcome_id == obs.source_id
+            ).first()
+            if match:
+                return [match.outcome_id]
+            # Fall back to identity_id match
+            matches = Outcome.query.filter(
+                Outcome.identity_id == obs.source_id
+            ).all()
+            return [m.outcome_id for m in matches]
+        except Exception:
+            return []
 
     def get_risk(self, exec_id: str) -> Optional[str]:
         return self._risk_cache.get(exec_id)

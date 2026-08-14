@@ -300,6 +300,11 @@ def create_app(config_override: dict | None = None):
     app.config["JSON_SORT_KEYS"] = False
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB upload limit
 
+    # Session cookie security (production: behind HTTPS nginx proxy)
+    app.config["SESSION_COOKIE_SECURE"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+
     # Apply test/config overrides
     if config_override:
         app.config.update(config_override)
@@ -799,6 +804,24 @@ def create_app(config_override: dict | None = None):
             return send_from_directory(os.path.join(frontend_dist, "assets"), filename)
         abort(404)
 
+    @app.route("/manifest.json")
+    def serve_manifest():
+        """Serve PWA manifest.json publicly."""
+        return send_from_directory(frontend_dist, "manifest.json")
+
+    @app.route("/sw.js")
+    def serve_sw():
+        """Serve service worker publicly."""
+        return send_from_directory(frontend_dist, "sw.js")
+
+    # ---- Serve top-level PWA assets from frontend/dist ----
+    for _icon_name in ["icon-192.png", "icon-512.png", "favicon.ico"]:
+        app.add_url_rule(
+            f"/{_icon_name}",
+            endpoint=f"serve_{_icon_name.replace('.','_').replace('-','_')}",
+            view_func=lambda fn=_icon_name: send_from_directory(frontend_dist, fn),
+        )
+
     # ---- Explainable Intelligence Runtime (Phase Z3) ----
     from app.intelligence.runtime import load_scenario_data, register_explainability_middleware
     with app.app_context():
@@ -944,7 +967,7 @@ a:hover{background:#4338ca}
         path = request.path
         if path.startswith("/static/") or path.startswith("/health") or path.startswith("/ready") or path.startswith("/live") or path.startswith("/metrics") or path.startswith("/screenshots/") or path.startswith("/reports/") or path.startswith("/outcomes/") or path.startswith("/x/") or path.startswith("/calendar/events") or path.startswith("/audit/") or path.startswith("/app") or path.startswith("/debug") or path.startswith("/operator") or path.startswith("/api/v2") or path.startswith("/proposals"):
             return None
-        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/") or path.startswith("/identity/") or path.startswith("/space/") or path.startswith("/founder/") or path.startswith("/workspace") or path.startswith("/system/") or path == "/" or path.startswith("/for1/") or path.startswith("/for2/") or path.startswith("/relationships/") or path.startswith("/finance/") or path.startswith("/api/v1/onboarding/") or path.startswith("/assets/") or path.startswith("/forgot-password") or path.startswith("/reset-password") or path.startswith("/request-verification") or path.startswith("/verify-email") or path.startswith("/change-password") or path == "/living":
+        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/") or path.startswith("/identity/") or path.startswith("/space/") or path.startswith("/founder/") or path.startswith("/workspace") or path.startswith("/system/") or path == "/" or path.startswith("/for1/") or path.startswith("/for2/") or path.startswith("/relationships/") or path.startswith("/finance/") or path.startswith("/api/v1/onboarding/") or path.startswith("/assets/") or path.startswith("/forgot-password") or path.startswith("/reset-password") or path.startswith("/request-verification") or path.startswith("/verify-email") or path.startswith("/change-password") or path == "/living" or path == "/manifest.json" or path.startswith("/icon-") or path.startswith("/favicon") or path == "/sw.js":
             return None
         user_id = session.get("user_id")
         if not user_id:

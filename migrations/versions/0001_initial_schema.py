@@ -350,9 +350,9 @@ def upgrade():
         sa.Column("updated_at", sa.DateTime(), nullable=True, server_default=sa.func.now()),
     )
 
-    # ── customers ──
+    # ── customer ──
     op.create_table(
-        "customers",
+        "customer",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("name", sa.String(120), nullable=True),
         sa.Column("phone", sa.String(20), nullable=True),
@@ -502,7 +502,7 @@ def downgrade():
     op.drop_table("auth_member_roles")
     op.drop_table("auth_roles")
     op.drop_table("customer_profiles")
-    op.drop_table("customers")
+    op.drop_table("customer")
     op.drop_table("rel_ai_memory")
     op.drop_table("rel_timeline")
     op.drop_table("rel_relationships")

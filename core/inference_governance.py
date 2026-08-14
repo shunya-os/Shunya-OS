@@ -239,17 +239,17 @@ class CapabilityBasedRouter:
     }
 
     CAPABILITY_MODEL_HINTS: dict[str, str] = {
-        "chat": "llama-3.1-8b-instant",
-        "search": "llama-3.1-8b-instant",
+        "chat": "llama-3.3-70b-versatile",
+        "search": "llama-3.3-70b-versatile",
         "summarization": "gpt-4o-mini",
         "analysis": "gpt-4o-mini",
         "code_generation": "claude-3-haiku",
         "complex_reasoning": "gpt-4o",
         "vision": "gpt-4o",
-        "structured_extraction": "llama-3.1-8b-instant",
-        "classification": "llama-3.1-8b-instant",
+        "structured_extraction": "llama-3.3-70b-versatile",
+        "classification": "llama-3.3-70b-versatile",
         "creative_writing": "gpt-4o-mini",
-        "translation": "llama-3.1-8b-instant",
+        "translation": "llama-3.3-70b-versatile",
     }
 
     @classmethod

@@ -3,6 +3,10 @@
 PHASE 2A: Attach to run_cycle(), MessageProposal creation, and AI responses.
 PHASE 2A-FIX: confidence is now float 0.0-1.0 with confidence_label for display.
 Added evidence_type for filtering (execution|ai|proposal).
+
+FINALITY FIX: log_evidence now writes to canonical evidence_records table
+(via create_evidence) instead of act_execution_logs, which had FK constraint
+violations when entity_id was None/0.
 """
 
 import logging
@@ -41,7 +45,7 @@ def log_evidence(
     outputs: Optional[dict] = None,
     metadata: Optional[dict] = None,
 ) -> dict:
-    """Log a structured evidence record.
+    """Log a structured evidence record to the canonical evidence_records table.
 
     Args:
         action: What was done (e.g., "run_cycle", "create_proposal", "ai_response")
@@ -71,16 +75,18 @@ def log_evidence(
         "metadata": metadata or {},
     }
 
-    # Store in execution log for persistence
+    # Write to canonical evidence_records table
     try:
-        from app.execution_log.models import log_execution as log_to_db
-        log_to_db(
-            object_id=entity_id or 0,
-            event_type="EVIDENCE",
-            payload=record,
+        from app.evidence.models_db import create_evidence
+        import uuid
+        source_id = str(entity_id) if entity_id else f"anon:{action}:{uuid.uuid4().hex[:8]}"
+        create_evidence(
+            source_type=evidence_type or "execution",
+            source_id=source_id,
+            raw_reference=record,
         )
     except Exception as e:
-        logger.debug("Could not persist evidence: %s", e)
+        logger.debug("Could not persist evidence to evidence_records: %s", e)
 
     # Also log to Python logger
     logger.info(

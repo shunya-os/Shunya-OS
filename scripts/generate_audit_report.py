@@ -566,7 +566,7 @@ def build_report():
         '<font face="Courier">SHUNYA_AI_PROVIDERS</font> env var or defaults to:'
     ))
     chain_text = (
-        '<b>Groq</b> (llama-3.1-8b-instant) → <b>Gemini</b> (gemini-2.0-flash) → '
+        '<b>Groq</b> (llama-3.3-70b-versatile) → <b>Gemini</b> (gemini-2.0-flash) → '
         '<b>OpenRouter</b> (deepseek/deepseek-chat) → <b>Cloudflare</b> (@cf/meta/llama-3.1-8b-instruct) → '
         '<b>HuggingFace</b> (Llama-3.2-3B-Instruct) → <b>Together AI</b> (Llama-3.3-70B-Instruct-Turbo) → '
         '<b>Anthropic</b> (claude-3-haiku) → <b>OpenAI</b> (gpt-4o-mini) → <b>Local</b> (deterministic fallback)'

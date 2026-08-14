@@ -324,10 +324,10 @@ class PipelineExecutor:
         result = _svc.activate(exec_type, exec_ref, tenant_id)
         exec_id = result.get("exec_id", "")
         ctx.execution_id = exec_id
-        inst = _svc._execs.get(exec_id) if exec_id else None
+        inst_status = _svc.inspect(exec_id, tenant_id) if exec_id else None
         exec_data = {
             "exec_id": exec_id,
-            "state": inst.state if inst else "unknown",
+            "state": inst_status.get("status", "unknown") if inst_status else "unknown",
             "commitment_type": exec_type,
         }
         ctx = ContextPropagator().propagate(
@@ -351,7 +351,7 @@ class PipelineExecutor:
             obs = CanonicalObservation(
                 category=ObservationCategory.EXECUTION_STATE_CHANGE.value,
                 source_id=exec_id, tenant_id=tenant_id,
-                payload={"state": inst.state if inst else "active"},
+                payload={"state": inst_status.get("status", "active") if inst_status else "active"},
             )
             ingestion_result = _aware.ingest(
                 [{"observation_id": f"obs_{exec_id}",

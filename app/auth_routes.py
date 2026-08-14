@@ -130,11 +130,11 @@ def login_page():
             return redirect(next_url)
 
         flash("Invalid email or password", "error")
-        return redirect(url_for("serve_index"))
+        return redirect(url_for("main.index"))
 
     if session.get("user_id"):
         return redirect(url_for("workspace_routes.workspace_home"))
-    return redirect(url_for("serve_index"))
+    return redirect(url_for("main.index"))
 
 
 # Shunya OS frontend posts to /auth/login/password — alias to same handler

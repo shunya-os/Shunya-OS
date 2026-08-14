@@ -34,11 +34,11 @@ export function HomePage({ onEnterApp }: Props) {
     <div className="sh-auth">
       <div className="sh-public">
         <div className="sh-public-hero">
-          <div className="sh-public-zero">शून्य</div>
-          <div className="sh-public-sub">SHUNYA</div>
-          <div className="sh-public-tagline">
+          <h1 className="sh-public-zero" style={{fontSize:'inherit',fontWeight:'inherit',margin:0,padding:0}}>शून्य</h1>
+          <h2 className="sh-public-sub" style={{fontSize:'inherit',fontWeight:'inherit',margin:0,padding:0}}>SHUNYA</h2>
+          <h3 className="sh-public-tagline" style={{fontSize:'inherit',fontWeight:'inherit',margin:0,padding:0}}>
             One Operating System for Your Business
-          </div>
+          </h3>
           <div className="sh-public-description">
             An intelligent operating system that understands your business
             as a living system, not a database.

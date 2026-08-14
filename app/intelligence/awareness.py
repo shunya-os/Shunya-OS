@@ -12,7 +12,8 @@ Signals detected:
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
+from app.core.time import now
+from datetime import timedelta
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ def _detect_idle_entities() -> list:
         from app import db
 
         # Find entities with no updates in the last 2 hours
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
+        cutoff = now() - timedelta(hours=2)
         idle = Object.query.filter(
             Object.updated_at < cutoff
         ).limit(10).all()
@@ -128,7 +129,7 @@ def _detect_unexecuted_proposals(observations: dict) -> list:
 
         pending = MessageProposal.query.filter_by(status="pending").all()
         for p in pending:
-            if p.created_at and (datetime.now(timezone.utc) - p.created_at).total_seconds() > 3600:
+            if p.created_at and (now() - p.created_at).total_seconds() > 3600:
                 signals.append({
                     "type": "unexecuted_proposal",
                     "severity": "high",

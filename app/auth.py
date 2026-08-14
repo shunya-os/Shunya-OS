@@ -14,6 +14,7 @@ from enum import Enum
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 
 from app import db
+from app.tenant import Tenant  # noqa: F401 — needed for SQLAlchemy relationship resolution
 
 
 class UserRole(str, Enum):

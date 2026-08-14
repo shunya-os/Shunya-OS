@@ -127,11 +127,11 @@ class GroqProvider(OpenAIProvider):
     name = "groq"
 
     def __init__(self, api_key: str | None = None,
-                 model: str = "llama-3.1-8b-instant"):
+                 model: str = "llama-3.3-70b-versatile"):
         super().__init__(
             api_key=api_key or os.getenv("GROQ_API_KEY", ""),
             base_url="https://api.groq.com/openai/v1",
-            model=model or os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
+            model=model or os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
         )
 
 

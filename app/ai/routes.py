@@ -31,8 +31,9 @@ def chat():
         return jsonify({'error': 'messages is required'}), 400
 
     # ── Web Search Integration ──
-    # When web_search is true, extract the last user message, call the search endpoint,
-    # and prepend results as system context before sending to the AI provider.
+    # When web_search is true, extract the last user message, call the search
+    # function directly (in-process, no HTTP loop) and prepend results as
+    # system context before sending to the AI provider.
     if web_search:
         try:
             # Find the last user message to use as search query
@@ -43,47 +44,37 @@ def chat():
                     break
 
             if last_user_msg:
-                # Call the internal search API (same process, same Flask app)
-                from flask import current_app
-                with current_app.app_context():
-                    search_response = requests.get(
-                        f'http://localhost:5001/api/v1/search?q={quote(last_user_msg)}',
-                        timeout=10,
-                    )
+                # Use in-process search (avoids auth/Session issues of HTTP loopback)
+                from app.search.routes import _web_search
+                results = _web_search(last_user_msg, max_results=5)
 
-                    if search_response.ok:
-                        search_data = search_response.json()
-                        results = search_data.get('data', [])
+                if results:
+                    context_parts = [f"Web search results for '{last_user_msg}':"]
+                    for r in results[:5]:
+                        title = r.get('title', '')
+                        snippet = r.get('snippet', '')
+                        url = r.get('url', r.get('id', ''))
+                        context_parts.append(f"- {title}: {snippet} ({url})")
 
-                        if results:
-                            # Build web search context string
-                            context_parts = [f"Web search results for '{last_user_msg}':"]
-                            for r in results[:5]:
-                                title = r.get('title', '')
-                                snippet = r.get('snippet', '')
-                                url = r.get('url', r.get('id', ''))
-                                context_parts.append(f"- {title}: {snippet} ({url})")
+                    context = '\n'.join(context_parts)
 
-                            context = '\n'.join(context_parts)
+                    # Prepend as a system message
+                    sys_idx = -1
+                    for i, m in enumerate(messages):
+                        if m.get('role') == 'system':
+                            sys_idx = i
+                            break
 
-                            # Prepend as a system message (insert after the first system message,
-                            # or at position 0)
-                            sys_idx = -1
-                            for i, m in enumerate(messages):
-                                if m.get('role') == 'system':
-                                    sys_idx = i
-                                    break
-
-                            if sys_idx >= 0:
-                                messages.insert(sys_idx + 1, {
-                                    'role': 'system',
-                                    'content': context
-                                })
-                            else:
-                                messages.insert(0, {
-                                    'role': 'system',
-                                    'content': context
-                                })
+                    if sys_idx >= 0:
+                        messages.insert(sys_idx + 1, {
+                            'role': 'system',
+                            'content': context
+                        })
+                    else:
+                        messages.insert(0, {
+                            'role': 'system',
+                            'content': context
+                        })
         except Exception as e:
             logger.warning(f'AI web search integration failed: {e}')
             # Non-critical — continue with the original messages
@@ -121,6 +112,8 @@ def chat():
                         "fallback_used": fallback_used,
                     },
                 )
+                from app import db
+                db.session.commit()
             except Exception:
                 pass
             # PHASE 2C: Cortex observation for AI response
