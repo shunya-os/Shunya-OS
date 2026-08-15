@@ -21,10 +21,8 @@ from app.awareness.models import (
     PrioritizedObservation, AwarenessMemoryEntry,
     RuntimeConfig, AwarenessFilter, AwarenessStats,
 )
-from app.execution import (
-    BusinessExecutionInstance, ExecutionObligation,
-    ExecutionException, ExecState, ObligationState, ExecutionService,
-)
+from app.execution.constants import ExecState, ObligationState
+from app.execution_engine.service import ExecutionService
 from app.execution_intelligence import (
     ExecutionIntelligenceEngine, get_execution_intelligence,
     ExecutionHealthEngine, RiskDetectionEngine, NextActionEngine,

@@ -25,26 +25,26 @@ class TestOutcomeEngine:
                 intention="Complete quarterly review for golden test",
                 steps=[{"action": {"action": "review", "type": "quarterly", "id": "q1_2026"}}],
             )
-            assert outcome.stage == "accepted"
+            assert outcome.state.get('stage') == "accepted"
             exec_id = outcome.outcome_id
 
             # Step 2: Queue
             outcome = engine.queue(exec_id)
-            assert outcome.stage == "queued"
+            assert outcome.state.get('stage') == "queued"
 
             # Step 3: Execute — runs recovery hierarchy, transitions to completed
             outcome = engine.execute(exec_id)
-            assert outcome.stage in ("executing", "completed"), f"Expected executing or completed, got {outcome.stage}"
+            assert outcome.state.get('stage') in ("executing", "completed"), f"Expected executing or completed, got {outcome.state.get('stage')}"
 
             # Step 4: Complete — terminal state (may already be completed from execute)
-            if outcome.stage != "completed":
+            if outcome.state.get('stage') != "completed":
                 outcome = engine.complete(exec_id, {"result": "approved", "notes": "All quarterly targets met"})
-                assert outcome.stage == "completed"
+                assert outcome.state.get('stage') == "completed"
 
             # Step 5: Evidence is persisted and retrievable
             outcome = engine.get(exec_id)
             assert outcome is not None
-            assert outcome.stage in ("completed", "executing")
+            assert outcome.state.get('stage') in ("completed", "executing")
             assert outcome.outcome_id == exec_id
 
     def test_execution_can_reach_terminal_failed_state(self, app):
@@ -62,7 +62,7 @@ class TestOutcomeEngine:
             # Execute then fail
             engine.execute(exec_id)
             outcome = engine.fail(exec_id, "Insufficient data to complete review")
-            assert outcome.stage == "failed"
+            assert outcome.state.get('stage') == "failed"
             assert outcome.last_error is not None
 
     def test_execution_idempotency(self, app):
@@ -157,7 +157,7 @@ class TestActionability:
             # Step 4: Outcome is persisted and retrievable
             outcome = exec_engine.get(exec_id)
             assert outcome is not None
-            assert outcome.stage is not None
+            assert outcome.state.get('stage') is not None
 
     def test_unauthorized_action_rejected(self, app):
         """Unauthorized action → safe failure."""
@@ -311,7 +311,7 @@ class TestGoldenCrossBoundary:
             # 4. Outcome: Verify the outcome is persisted and retrievable
             outcome = exec_engine.get(exec_id)
             assert outcome is not None
-            assert outcome.stage is not None
+            assert outcome.state.get('stage') is not None
 
             # 5. Identity resolution still works
             r = id_svc.resolve("golden-path@company.com", ClaimType.EMAIL)

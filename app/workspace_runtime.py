@@ -24,9 +24,8 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Type, Callable
 
-from app.execution import (
-    ExecutionService, BusinessExecutionInstance, ExecState, ObligationState,
-)
+from app.execution.constants import ExecState, ObligationState
+from app.execution_engine.service import ExecutionService
 from app.execution_intelligence import (
     get_execution_intelligence, ExecutionIntelligenceEngine,
     HealthStatus, ActionPriority, RiskLevel,

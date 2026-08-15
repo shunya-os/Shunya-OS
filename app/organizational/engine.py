@@ -21,10 +21,7 @@ from app.organizational.models import (
     OrgKnowledgeNode, OrgKnowledgeEdge,
     OrgConfig, OrgFilter, OrgStats,
 )
-from app.execution import (
-    BusinessExecutionInstance, ExecState, ObligationState,
-    ExecutionObligation, ExecutionService,
-)
+from app.execution.constants import ExecState, ObligationState
 
 # =========================================================================
 # Singleton

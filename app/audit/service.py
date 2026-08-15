@@ -202,7 +202,12 @@ def reconstruct_business_outcome(
     result["executions"] = executions[:10]
     if executions:
         result["what_shunya_executed"] = executions[0].get("intention") or executions[0].get("action", "execution recorded")
-        result["what_actually_succeeded"] = executions[0].get("stage") if executions[0].get("stage") == "completed" else "incomplete"
+        result["what_actually_succeeded"] = "incomplete"
+        state = executions[0].get("state", {})
+        if state.get("stage") == "completed":
+            result["what_actually_succeeded"] = "completed"
+        elif state.get("stage") == "failed":
+            result["what_actually_succeeded"] = "failed"
 
     # 7. EVIDENCE CHAIN — evidence records connected to this object
     evidence = _get_evidence_chain(object_id, tenant_id)

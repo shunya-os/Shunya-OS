@@ -36,8 +36,21 @@ def _check_execution_gate():
 class ExecutionEngine:
 
     @staticmethod
-    def evaluate(obj: Object):
+    def evaluate(obj: Object) -> str:
+        """Evaluate the next action from current state.
+
+        Pure function of state: Execution = f(State, Intent, Evidence, Time).
+        No hardcoded lifecycle rules, no step progression, no workflow assumptions.
+
+        Returns a decision string ('noop' or action name) derived SOLELY from
+        the object's current state. The caller determines what the action means
+        in context.
+        """
         state = obj.state or {}
+        # No action needed if state is empty or terminal
+        if not state:
+            return "noop"
+        # Derive action from state — pure evaluation, no lifecycle
         if state.get("status") == "new":
             return "activate"
         return "noop"

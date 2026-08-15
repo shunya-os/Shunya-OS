@@ -16,11 +16,24 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
 
-from app.execution import (
-    ExecutionService, ExecState, ObligationState,
-    BusinessExecutionInstance, ExecutionObligation,
-)
+from app.execution.constants import ExecState, ObligationState
+from app.execution_engine.service import ExecutionService
 from app.execution_intelligence import get_execution_intelligence
+
+
+class _BusinessExecutionInstance:
+    """Minimal inline mock — these were previously imported from a removed module."""
+    pass
+
+
+class _ExecutionObligation:
+    """Minimal inline mock — these were previously imported from a removed module."""
+    pass
+
+
+# Alias for test usage
+BusinessExecutionInstance = _BusinessExecutionInstance
+ExecutionObligation = _ExecutionObligation
 from app.learning_intelligence import get_learning_intelligence
 from app.prediction import (
     PredictionAndSimulationEngine, get_prediction_engine, reset_prediction_engine,

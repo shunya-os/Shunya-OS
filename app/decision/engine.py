@@ -25,9 +25,8 @@ from app.decision.models import (
     OptionGenerationRule,
     DecisionConfig, DecisionFilter, DecisionStats,
 )
-from app.execution import (
-    ExecutionService, BusinessExecutionInstance, ExecState, ObligationState,
-)
+from app.execution.constants import ExecState, ObligationState
+from app.execution_engine.service import ExecutionService
 from app.execution_intelligence import (
     get_execution_intelligence, ExecutionIntelligenceEngine,
     HealthStatus, ActionPriority, RiskLevel,

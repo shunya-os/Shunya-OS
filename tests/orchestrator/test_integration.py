@@ -25,7 +25,8 @@ from app.orchestrator.models import (
     ContractCatalogue, ContractViolation,
     ExplanationGraph, OrchestratorConfig,
 )
-from app.execution import ExecutionService, ExecState, ObligationState
+from app.execution.constants import ExecState, ObligationState
+from app.execution_engine.service import ExecutionService
 from app.execution_intelligence import get_execution_intelligence
 from app.awareness import get_awareness_engine
 from app.organizational import get_organizational_intelligence

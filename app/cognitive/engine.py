@@ -33,9 +33,7 @@ from app.decision import (
     DecisionEvaluation, DecisionRecommendation, DecisionExplanation,
     DecisionSnapshot,
 )
-from app.execution import (
-    ExecutionService, BusinessExecutionInstance, ExecState, ObligationState,
-)
+from app.execution.constants import ExecState, ObligationState
 from app.execution_intelligence import (
     get_execution_intelligence, ExecutionIntelligenceEngine,
 )

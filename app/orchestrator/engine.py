@@ -23,10 +23,8 @@ from app.orchestrator.models import (
     ContextEntry, ProfilerSnapshot,
     OrchestratorConfig,
 )
-from app.execution import (
-    ExecutionService, ExecState, ObligationState,
-    BusinessExecutionInstance,
-)
+from app.execution.constants import ExecState, ObligationState
+from app.execution_engine.service import ExecutionService
 from app.execution_intelligence import (
     get_execution_intelligence, ExecutionIntelligenceEngine,
 )

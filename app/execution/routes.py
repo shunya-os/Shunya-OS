@@ -1,9 +1,10 @@
-"""
-Outcome Routes — API endpoints for the Outcome Runtime.
+"""Outcome Routes — API endpoints for the Outcome Runtime.
+
+Thin persistence layer. No step-based execution, no lifecycle progression.
+The canonical execution authority is the execution_engine.
 """
 import logging
 from flask import Blueprint, jsonify, request, session
-from app import db
 from app.authz.decorators import require_permission
 from app.execution.runtime import get_runtime
 
@@ -34,11 +35,8 @@ def create_outcome():
     if not intention:
         return jsonify({"success": False, "error": "intention is required"}), 400
 
-    steps = data.get("steps", [])
-    expected_seconds = data.get("expected_seconds", 30)
-
     runtime = get_runtime()
-    outcome = runtime.accept(identity_id, intention, steps, expected_seconds)
+    outcome = runtime.accept(identity_id, intention)
 
     return jsonify({
         "success": True,
@@ -93,27 +91,4 @@ def search_outcomes():
     return jsonify({
         "success": True,
         "data": [o.to_dict() for o in outcomes],
-    })
-
-
-@execution_bp.route("/<outcome_id>/execute", methods=["POST"])
-def execute_outcome(outcome_id: str):
-    """Execute an accepted outcome. Returns immediately; outcome will update as it progresses."""
-    runtime = get_runtime()
-    outcome = runtime.get(outcome_id)
-    if not outcome:
-        return jsonify({"success": False, "error": "Outcome not found"}), 404
-
-    # Queue and execute in background
-    runtime.queue(outcome_id)
-    # For now, execute synchronously. In production, this would go to a task queue.
-    try:
-        outcome = runtime.execute(outcome_id)
-    except Exception as e:
-        runtime.fail(outcome_id, str(e))
-        outcome = runtime.get(outcome_id)
-
-    return jsonify({
-        "success": True,
-        "data": outcome.to_dict(),
     })
