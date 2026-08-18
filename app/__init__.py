@@ -1124,6 +1124,7 @@ a:hover{background:#4338ca}
         """Run the execution loop continuously in the foreground."""
         import time
         from app.runtime.loop import run_cycle
+        from app.execution_engine.engine import open_execution_gate, close_execution_gate
 
         app.logger.info("Run-loop command started. Press Ctrl+C to stop.")
         print("[WORKER] SHUNYA loop worker starting. Cycles every 3s. Ctrl+C to stop.")
@@ -1132,7 +1133,11 @@ a:hover{background:#4338ca}
             with app.app_context():
                 while True:
                     cycle_count += 1
-                    summary = run_cycle()
+                    open_execution_gate()
+                    try:
+                        summary = run_cycle()
+                    finally:
+                        close_execution_gate()
                     actions = summary.get("actions_taken", 0)
                     errors = len(summary.get("errors", []))
                     if actions > 0 or errors > 0:

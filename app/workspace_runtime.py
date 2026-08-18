@@ -24,8 +24,6 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Type, Callable
 
-from app.execution.constants import ExecState, ObligationState
-from app.execution_engine.service import ExecutionService
 from app.execution_intelligence import (
     get_execution_intelligence, ExecutionIntelligenceEngine,
     HealthStatus, ActionPriority, RiskLevel,
@@ -136,25 +134,22 @@ class ObjectRegistry:
 # =========================================================================
 
 class ExecutionHandler:
-    """Handler for BusinessExecutionInstance objects."""
+    """Handler for execution (Outcome) objects — reads from canonical Outcome store."""
 
     @staticmethod
     def load(obj_id: str, tenant_id: int = 1) -> Optional[Dict[str, Any]]:
-        svc = ExecutionService()
-        inst = svc._execs.get(obj_id)
-        if not inst:
+        from app.execution.models import Outcome
+        outcome = Outcome.query.filter_by(outcome_id=obj_id).first()
+        if not outcome:
             return None
-        obls = [o for o in svc._obls.values() if o.exec_id == obj_id]
-        excs = [e for e in svc._excs.values() if e.exec_id == obj_id]
         return {
-            "id": inst.exec_id, "type": "execution", "tenant_id": inst.tenant_id,
-            "state": inst.state, "commitment_type": inst.commitment_type,
-            "commitment_reference": inst.commitment_reference,
-            "started_at": inst.started_at, "completed_at": inst.completed_at,
-            "obligation_count": len(obls),
-            "exception_count": len(excs),
-            "obligations": [{"id": o.obl_id, "type": o.obl_type, "state": o.state,
-                            "description": o.description} for o in obls],
+            "id": outcome.outcome_id,
+            "type": "execution",
+            "tenant_id": tenant_id,
+            "state": outcome.state or {},
+            "intention": outcome.intention,
+            "created_at": outcome.created_at.isoformat() if outcome.created_at else None,
+            "updated_at": outcome.updated_at.isoformat() if outcome.updated_at else None,
         }
 
     @staticmethod
@@ -162,9 +157,7 @@ class ExecutionHandler:
         return {
             "type": "execution", "id": obj.get("id", ""),
             "state": obj.get("state", "unknown"),
-            "commitment_type": obj.get("commitment_type", ""),
-            "obligation_count": obj.get("obligation_count", 0),
-            "exception_count": obj.get("exception_count", 0),
+            "intention": obj.get("intention", ""),
             "health": "good" if obj.get("state") == "active" else "atrisk",
         }
 
@@ -414,13 +407,16 @@ class ObjectGraphBridge:
     def get_recent(self, tenant_id: int = 1, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent objects across all types."""
         recent = []
-        svc = ExecutionService()
-        for eid, inst in list(svc._execs.items())[:limit]:
+        from app.execution.models import Outcome
+        outcomes = Outcome.query.filter_by(identity_id=str(tenant_id)).order_by(
+            Outcome.created_at.desc()
+        ).limit(limit).all()
+        for outcome in outcomes:
             recent.append({
-                "type": "execution", "id": eid,
-                "label": f"{inst.commitment_type} {eid[:12]}",
-                "state": inst.state,
-                "health": "good" if inst.state == "active" else "atrisk",
+                "type": "execution", "id": outcome.outcome_id,
+                "label": outcome.intention[:50] if outcome.intention else outcome.outcome_id[:12],
+                "state": outcome.state or {},
+                "health": "good" if outcome.state and outcome.state.get("status") == "active" else "atrisk",
             })
         # Add from executive intelligence
         ei = get_executive_engine()

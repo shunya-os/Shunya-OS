@@ -1,13 +1,20 @@
-from flask import Blueprint, jsonify
-from app.objects.models import Object
-from app.execution_engine.engine import ExecutionEngine
+"""Execution Engine routes — PROD-06: removed.
+
+The POST /api/v1/execution/<id>/run route was removed in PROD-06 because
+it constituted a second execution authority. All execution goes through
+the canonical path:
+
+    runtime/entry.py process_event()
+      → gate
+      → run_cycle()
+      → get_next_action()
+      → execute_action() (gate-checked)
+
+No HTTP-initiated execution bypass is permitted.
+"""
+
+from flask import Blueprint
 
 execution_bp = Blueprint("execution_engine", __name__, url_prefix="/api/v1/execution")
-
-@execution_bp.route("/<int:object_id>/run", methods=["POST"])
-def run_execution(object_id):
-    obj = Object.query.get_or_404(object_id)
-
-    result = ExecutionEngine.execute(obj)
-
-    return jsonify(result)
+# No routes — the /run route was removed in PROD-06.
+# Kept the Blueprint to avoid breaking tests that import execution_bp.

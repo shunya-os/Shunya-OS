@@ -1,27 +1,48 @@
 from app.objects.models import Object
-from app.execution_engine.service import ExecutionService, log_execution
-from app.execution_engine.truth import TruthService
-from app.intelligence.service import IntelligenceService
+from app.execution_engine.service import log_execution
 from app import db
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
 # PHASE 3 LAYER D: Execution gate
 # Set to True ONLY when called from app/runtime/entry.py
 _execution_gate_open = False
+_gate_lock = threading.Lock()
+_gate_refcount = 0
 
 
 def open_execution_gate():
-    """Open the execution gate. Called ONLY by entry.py."""
-    global _execution_gate_open
-    _execution_gate_open = True
+    """Open the execution gate. Thread-safe refcounted open.
+
+    Multiple concurrent callers can open the gate independently.
+    The gate remains open until ALL openers have called close().
+    This prevents one caller from closing the gate while another
+    is still executing.
+    """
+    global _execution_gate_open, _gate_refcount
+    with _gate_lock:
+        _gate_refcount += 1
+        _execution_gate_open = True
 
 
 def close_execution_gate():
-    """Close the execution gate."""
-    global _execution_gate_open
-    _execution_gate_open = False
+    """Close the execution gate. Thread-safe refcounted close.
+
+    Only closes the gate when the last opener calls close.
+    """
+    global _execution_gate_open, _gate_refcount
+    with _gate_lock:
+        _gate_refcount -= 1
+        if _gate_refcount <= 0:
+            _gate_refcount = 0
+            _execution_gate_open = False
+
+
+def is_gate_open() -> bool:
+    """Check whether the execution gate is currently open."""
+    return _execution_gate_open
 
 
 def _check_execution_gate():
@@ -32,60 +53,19 @@ def _check_execution_gate():
             "app/runtime/entry.py process_event()."
         )
 
-
 class ExecutionEngine:
+    """Execution engine — provides evaluate() and execute_action().
 
-    @staticmethod
-    def evaluate(obj: Object) -> str:
-        """Evaluate the next action from current state.
+    evaluate() is REMOVED from PROD-06. The canonical decision authority
+    is get_next_action() in runtime/decision_engine.py, which derives
+    structural decisions from Object.state only. Constitutional evaluation
+    (State + Intent + Evidence + Time) is established at entry.py via
+    DecisionContext — the sole orchestration entry point.
 
-        Pure function of state: Execution = f(State, Intent, Evidence, Time).
-        No hardcoded lifecycle rules, no step progression, no workflow assumptions.
-
-        Returns a decision string ('noop' or action name) derived SOLELY from
-        the object's current state. The caller determines what the action means
-        in context.
-        """
-        state = obj.state or {}
-        # No action needed if state is empty or terminal
-        if not state:
-            return "noop"
-        # Derive action from state — pure evaluation, no lifecycle
-        if state.get("status") == "new":
-            return "activate"
-        return "noop"
-
-    @staticmethod
-    def execute(obj: Object):
-        decision = ExecutionEngine.evaluate(obj)
-        trigger_state = dict(obj.state or {})
-
-        exe = ExecutionService.create_execution(
-            object_id=obj.id,
-            decision=decision
-        )
-        ExecutionService.update_status(exe, "running")
-
-        if decision == "activate":
-            TruthService.apply_truth(obj, {"status": "active"})
-            log_execution(
-                object_id=obj.id,
-                action_type=decision,
-                payload={"status": "active"},
-                state_before=trigger_state,
-                state_after=dict(obj.state or {}),
-            )
-
-        ExecutionService.update_status(exe, "completed")
-
-        IntelligenceService.learn_from_execution(obj, decision, trigger_state)
-
-        return {
-            "execution_id": exe.id,
-            "decision": decision,
-            "object_id": obj.id,
-            "final_state": obj.state
-        }
+    Only execute_action() remains: the single mutation primitive, always
+    gate-checked and evidence-checked.
+    """
+    pass
 
 
 def execute_action(obj: "Object", action: dict):

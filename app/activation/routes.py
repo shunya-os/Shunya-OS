@@ -9,7 +9,6 @@ from app.objects.models import Object
 from app.models import Task, TaskList
 from app.runtime.loop import run_cycle
 from app.runtime.decision_engine import get_next_action
-from app.execution_engine.engine import execute_action
 from . import activation_bp
 
 
@@ -87,8 +86,17 @@ def entity_action(entity_id):
         if action_type == "run_decision":
             action = get_next_action(entity)
             if action.get("type") != "noop":
-                execute_action(entity, action)
-                db.session.commit()
+                # Delegate to canonical execution authority (runtime/entry.py)
+                from app.runtime.entry import process_event
+                result = process_event(
+                    "run_decision",
+                    {"entity_id": entity.id, "action": action},
+                    source="activation_route",
+                )
+                # process_event handles gate, evidence, trace, commit
+                # The entity state is already updated by the canonical path
+                return jsonify({"action": action, "state": entity.state,
+                                "execution": result.get("execution")})
             return jsonify({"action": action, "state": entity.state})
 
         elif action_type == "add_task":

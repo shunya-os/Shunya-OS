@@ -683,13 +683,15 @@ class TestExistingRegression:
             assert m.id is not None
 
     def test_execution_idempotent(self, app):
-        """Execution idempotency still works."""
+        """Execution idempotency still works with explicit key."""
         from app.execution import BusinessExecutionInstance
         with app.app_context():
             r1 = BusinessExecutionInstance().activate(
-                commitment_type="task", commitment_id="fda7_reg", tenant_id=1)
+                commitment_type="task", commitment_id="fda7_reg", tenant_id=1,
+                idempotency_key="fda7-idem-reg")
             r2 = BusinessExecutionInstance().activate(
-                commitment_type="task", commitment_id="fda7_reg", tenant_id=1)
+                commitment_type="task", commitment_id="fda7_reg", tenant_id=1,
+                idempotency_key="fda7-idem-reg")
             assert r1["exec_id"] == r2["exec_id"]
 
 

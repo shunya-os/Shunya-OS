@@ -17,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
 
 from app.execution.constants import ExecState, ObligationState
-from app.execution_engine.service import ExecutionService
+from app.execution import ExecutionService
 from app.execution_intelligence import get_execution_intelligence
 
 

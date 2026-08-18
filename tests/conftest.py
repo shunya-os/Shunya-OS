@@ -46,6 +46,7 @@ def app():
         from app.human_context import models as _hc_models  # noqa: F401
         from app.memory import models as _mem_models  # noqa: F401
         from app.evidence import models as _ev_models  # noqa: F401
+        from app.execution import models as _exec_models  # noqa: F401 — registers IdempotencyRecord, Outcome
         from app.marketing import models as _mkt_models  # noqa: F401
         from app.document import models as _doc_models  # noqa: F401
         from app.llm import models as _llm_models  # noqa: F401

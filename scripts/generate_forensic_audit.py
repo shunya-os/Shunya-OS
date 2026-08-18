@@ -156,7 +156,7 @@ elements += section("3. DOMAIN MODEL TRUTH", [
     "",
     "Lead (LEGACY) — app/models.py (30+ columns):",
     "  Fields: id, stage, outcome, code, entity_id, assigned_to, completed_at, ...",
-    "  Used by: loop._run_leads(), decide_lead_stage(), decide_lead_task()",
+    "  Used by: loop._run_leads() (REMOVED — lead lifecycle eliminated from universal execution)",
     "  Status: STILL PROCESSED by loop — creates parallel universe with Object",
     "",
     "MessageProposal (ACTIVE) — app/communication/models.py:",

@@ -1,9 +1,19 @@
 """Remove workflow artifacts from sh_outcomes, drop orphan execution tables.
 
 Changes:
-1. sh_outcomes: add state JSON column, migrate stage→state, drop workflow columns
+1. sh_outcomes: add state JSON column, migrate stage->state, drop workflow columns
 2. execution_instances: drop (orphan, no model, 3 rows, no references)
 3. execution_tasks: drop (orphan, no model, 6 rows, no references)
+
+Reversibility: SCHEMA-REVERSIBLE, DATA-DESTRUCTIVE.
+- Schema shape is fully restored on downgrade (all columns + tables recreated).
+- Historical data is NOT restored: 9 dropped columns (steps, stage->state,
+  progress, expected/actual completion seconds, recovery_history,
+  final_summary, last_error, error_count) plus 2 dropped tables
+  (execution_instances, execution_tasks) lose their row-level data.
+- Exception: 'stage' values were migrated into state JSON and are
+  restored to their column on downgrade (TRANSFORMED, not lost).
+- The downgrade comment stating data cannot be restored is accurate.
 
 Revision ID: 0011_purify_execution_model
 Revises: 0010_schema_reconciliation

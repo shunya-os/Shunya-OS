@@ -274,7 +274,7 @@ story.append(Paragraph("3.1 Core Runtime Files", sty_SubSection))
 core_files = [
     ["File", "Lines", "Role", "Key Function(s)"],
     ["loop.py", "189", "Autonomous execution engine", "run_cycle(), run_loop()"],
-    ["decision_engine.py", "239", "Pure intelligence layer", "get_next_action(), decide_lead_stage(), decide_entity()"],
+    ["decision_engine.py", "239", "Pure intelligence layer", "get_next_action(), decide_entity()"],
     ["entity.py", "14", "Generic Entity abstraction", "Entity(db.Model)"],
     ["timeline.py", "33", "Unified entity history", "get_entity_timeline()"],
     ["generator.py", "12", "Structured output", "generate_output()"],

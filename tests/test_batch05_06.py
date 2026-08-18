@@ -52,92 +52,18 @@ def test_prod37_build_context(app, client):
 
 
 # =============================================================================
-# PROD-38: Context-Aware Decision
+# PROD-38: Context-Aware Decision (removed — lead lifecycle eliminated from universal execution)
 # =============================================================================
-
-def test_prod38_decide_lead_stage_context(app, client):
-    """Lead in contacted with no tasks → decision includes 'Send quote'."""
-    from app.models import Lead
-    from app.runtime.decision_engine import decide_lead_stage
-    from app import db
-
-    lead = Lead(
-        code="PROD38-TEST",
-        source="test",
-        customer_name="Test",
-        stage="contacted",
-        outcome="attempted",
-    )
-    db.session.add(lead)
-    db.session.commit()
-
-    decision = decide_lead_stage(lead)
-    assert decision["type"] == "update"
-    assert decision["payload"]["task"] == "Send quote"
 
 
 # =============================================================================
-# PROD-39: Multi-Step Decision
+# PROD-39: Multi-Step Decision (removed — lead lifecycle eliminated from universal execution)
 # =============================================================================
-
-def test_prod39_multi_step_decision(app, client):
-    """Quoted lead → returns list of actions."""
-    from app.models import Lead
-    from app.runtime.decision_engine import decide_lead_stage
-    from app import db
-
-    lead = Lead(
-        code="PROD39-TEST",
-        source="test",
-        customer_name="Test Multi",
-        stage="quoted",
-        outcome="attempted",
-    )
-    db.session.add(lead)
-    db.session.commit()
-
-    decision = decide_lead_stage(lead)
-    assert isinstance(decision, list)
-    assert len(decision) == 2
-    assert decision[0]["type"] == "update"
-    assert decision[0]["payload"]["task"] == "Follow up"
-    assert decision[1]["type"] == "update"
-    assert decision[1]["payload"]["priority"] == "high"
 
 
 # =============================================================================
-# PROD-40: Loop Multi-Action Support
+# PROD-40: Loop Multi-Action Support (removed — lead lifecycle eliminated from universal execution)
 # =============================================================================
-
-def test_prod40_loop_multi_action(app, client):
-    """Multi-decision → both applied."""
-    from app.models import Lead
-    from app.runtime.decision_engine import decide_lead_stage
-    from app import db
-
-    lead = Lead(
-        code="PROD40-TEST",
-        source="test",
-        customer_name="Test Multi Action",
-        stage="quoted",
-        outcome="attempted",
-    )
-    db.session.add(lead)
-    db.session.commit()
-
-    # Simulate what loop.py does with a list decision
-    stage_dec = decide_lead_stage(lead)
-    assert isinstance(stage_dec, list)
-
-    for dec in stage_dec:
-        if dec.get("type") == "update":
-            for k, v in dec.get("payload", {}).items():
-                setattr(lead, k, v)
-
-    # Verify both attributes were set via setattr
-    assert lead.outcome == "attempted"  # unchanged
-    assert getattr(lead, "task", None) == "Follow up"
-    assert getattr(lead, "priority", None) == "high"
 
 
 # =============================================================================

@@ -12,7 +12,6 @@ from app.observations.models import Observation
 from app.execution.models import Outcome
 from app.runtime.loop import run_cycle
 from app.runtime.decision_engine import get_next_action
-from app.execution_engine.engine import execute_action
 from . import operator_bp
 
 
@@ -114,9 +113,16 @@ def execute_operator_action():
         if action_type == "run_decision":
             action = get_next_action(entity)
             if action.get("type") != "noop":
-                execute_action(entity, action)
-                db.session.commit()
-                result = {"action_taken": action, "state": entity.state}
+                # Delegate to canonical execution authority (runtime/entry.py)
+                from app.runtime.entry import process_event
+                result = process_event(
+                    "run_decision",
+                    {"entity_id": entity.id, "action": action},
+                    source="operator_route",
+                )
+                # process_event handles gate, evidence, trace, commit
+                result = {"action_taken": action, "state": entity.state,
+                          "execution": result.get("execution")}
             else:
                 result = {"action_taken": None, "note": "noop", "state": entity.state}
 

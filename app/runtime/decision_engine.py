@@ -34,7 +34,9 @@ Relations are pure structure: {type, target_id}. No business meaning.
 
 import json
 import logging
+from typing import Optional
 
+from app.execution_engine.context import DecisionContext
 from app.objects.models import Object
 from app.commitments.models import Commitment
 from app.observations.models import Observation
@@ -45,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 def build_context(entity):
-    """Build a decision context dict for a lead/entity."""
+    """Build a decision context dict for an entity."""
     return {
         "state": getattr(entity, "stage", None),
         "outcome": getattr(entity, "outcome", None),
@@ -194,18 +196,38 @@ def _apply_hybrid_decision(rule_action: dict, ai_decision: dict) -> dict:
     return enriched
 
 
-def get_next_action(obj) -> dict:
+def get_next_action(obj, decision_ctx: Optional[DecisionContext] = None) -> dict:
     """Decide the next action for an object based on state + AI context.
 
     Args:
         obj: Object instance with .state dict.
+        decision_ctx: Optional constitutional input (State, Intent, Evidence, Time).
+            When provided, state is consumed from decision_ctx.state (merged with
+            obj.state), and evidence is checked before allowing an update decision.
+            This proves the four constitutional dimensions reach the decision boundary.
 
     Returns:
         update with payload if state progression needed.
         noop if state is fully evolved.
         Always includes decision_source and decision_confidence.
     """
-    state = obj.state or {}
+    # Constitutional state: primary source is DecisionContext when provided
+    if decision_ctx is not None and decision_ctx.state:
+        state = {**(obj.state or {}), **decision_ctx.state}
+    else:
+        state = obj.state or {}
+
+    # Constitutional evidence check: when DecisionContext includes evidence,
+    # do not return an update action unless evidence exists
+    if decision_ctx is not None and decision_ctx.has_evidence() is False:
+        # No evidence provided — constitutional chain is broken.
+        # Return noop instead of update, regardless of state.
+        if state:
+            return {
+                "type": "noop",
+                "decision_source": "constitutional",
+                "decision_confidence": "low",
+            }
 
     if not state:
         return {
@@ -275,118 +297,6 @@ def get_next_action(obj) -> dict:
             "decision_confidence": "high",
         }
 
-    # ACTIVATION-01: Lead flow — new → contacted → quoted → closed
-    if obj.type == "lead":
-        stage = state.get("stage", "new")
-        status = state.get("status")
-        phone = state.get("phone", "")
-        email = state.get("email", "")
-        name = state.get("name", "Customer")
-
-        if stage == "new" and status != "contacted":
-            rule_action = {
-                "type": "update",
-                "payload": {"stage": "contacted", "task": f"Contact {name}"},
-                "effects": [
-                    {
-                        "type": "log", "channel": "system",
-                        "message": f"Lead {name} moved to contacted",
-                        "decision_source": "rule",
-                        "decision_confidence": "high",
-                    }
-                ],
-            }
-            ai_decision = _get_ai_decision(obj)
-            enriched = _apply_hybrid_decision(rule_action, ai_decision)
-            if enriched.get("effects"):
-                for eff in enriched["effects"]:
-                    eff.setdefault("decision_source", enriched.get("decision_source", "rule"))
-                    eff.setdefault("decision_confidence", enriched.get("decision_confidence", "high"))
-            return enriched
-
-        if stage == "contacted":
-            task_count = Task.query.filter_by(entity_id=obj.id).count()
-            if task_count == 0:
-                effects = [
-                    {
-                        "type": "log", "channel": "system",
-                        "message": f"Quote sent to {name}",
-                        "decision_source": "rule",
-                        "decision_confidence": "high",
-                    },
-                ]
-                if phone:
-                    effects.insert(0, {
-                        "type": "whatsapp", "to": phone,
-                        "message": f"Hi {name}, here is your quote! Let me know if you have questions.",
-                        "decision_source": "rule",
-                        "decision_confidence": "high",
-                    })
-                if email:
-                    effects.insert(0 if not phone else 1, {
-                        "type": "email", "to": email,
-                        "subject": f"Your quote, {name}",
-                        "body": f"Dear {name},\n\nPlease find your quote attached.\n\nBest regards,\nSHUNYA",
-                        "decision_source": "rule",
-                        "decision_confidence": "high",
-                    })
-                rule_action = {
-                    "type": "update",
-                    "payload": {"task": f"Send quote to {name}", "stage": "quoted"},
-                    "effects": effects,
-                }
-                ai_decision = _get_ai_decision(obj)
-                enriched = _apply_hybrid_decision(rule_action, ai_decision)
-                if enriched.get("effects"):
-                    for eff in enriched["effects"]:
-                        eff.setdefault("decision_source", enriched.get("decision_source", "rule"))
-                        eff.setdefault("decision_confidence", enriched.get("decision_confidence", "high"))
-                return enriched
-
-        if stage == "quoted" and status != "closed":
-            effects = [
-                {
-                    "type": "log", "channel": "system",
-                    "message": f"Follow-up sent to {name}",
-                    "decision_source": "rule",
-                    "decision_confidence": "high",
-                },
-            ]
-            if email:
-                effects.insert(0, {
-                    "type": "email", "to": email,
-                    "subject": f"Follow up, {name}",
-                    "body": f"Hi {name},\n\nJust checking in on your quote. Let me know if you need anything.\n\nBest,\nSHUNYA",
-                    "decision_source": "rule",
-                    "decision_confidence": "high",
-                })
-            if phone:
-                effects.insert(0, {
-                    "type": "whatsapp", "to": phone,
-                    "message": f"Hi {name}, just following up on your quote. Let me know!",
-                    "decision_source": "rule",
-                    "decision_confidence": "high",
-                })
-            rule_action = {
-                "type": "update",
-                "payload": {"task": f"Follow up with {name}", "status": "closed"},
-                "effects": effects,
-            }
-            ai_decision = _get_ai_decision(obj)
-            enriched = _apply_hybrid_decision(rule_action, ai_decision)
-            if enriched.get("effects"):
-                for eff in enriched["effects"]:
-                    eff.setdefault("decision_source", enriched.get("decision_source", "rule"))
-                    eff.setdefault("decision_confidence", enriched.get("decision_confidence", "high"))
-            return enriched
-
-        if stage == "closed" or status == "closed":
-            return {
-                "type": "noop",
-                "decision_source": "rule",
-                "decision_confidence": "high",
-            }
-
     return {
         "type": "noop",
         "decision_source": "rule",
@@ -423,58 +333,6 @@ def decide_next_from_commitment(commitment: Commitment):
             "type": "update_commitment",
             "payload": {"status": "failed"}
         }
-
-    return {"type": "noop"}
-
-
-def decide_lead_task(lead):
-    """If a lead has no tasks, return a task creation action."""
-    task_count = Task.query.filter_by(lead_id=lead.id).count()
-    if task_count == 0:
-        return {
-            "type": "update",
-            "payload": {"task": "Call customer"}
-        }
-    return {"type": "noop"}
-
-
-def decide_lead_stage(lead):
-    """Progress lead through lifecycle stages based on outcome."""
-    context = build_context(lead)
-
-    if context["state"] == "quoted" and context["outcome"] != "closed":
-        return [
-            {"type": "update", "payload": {"task": "Follow up"}},
-            {"type": "update", "payload": {"priority": "high"}}
-        ]
-
-    if context["state"] == "contacted":
-        task_count = Task.query.filter_by(lead_id=lead.id).count()
-        if task_count == 0:
-            return {
-                "type": "update",
-                "payload": {"task": "Send quote"}
-            }
-
-    if not context["outcome"]:
-        return {"type": "noop"}
-
-    if context["outcome"] == "attempted":
-        if context["state"] == "new":
-            return {
-                "type": "update",
-                "payload": {"stage": "contacted"}
-            }
-        if context["state"] == "contacted":
-            return {
-                "type": "update",
-                "payload": {"stage": "quoted"}
-            }
-        if context["state"] == "quoted":
-            return {
-                "type": "update",
-                "payload": {"stage": "closed"}
-            }
 
     return {"type": "noop"}
 

@@ -2,6 +2,16 @@
 
 Uses the canonical Object model. No legacy ShunyaObject, no direct execution
 bypass, no workflow semantics.
+
+AUTHORITY CONTRACT:
+    This is a RECOVERY PRIMITIVE that delegates all execution through the
+    canonical authority (app.runtime.entry.process_event). It does NOT
+    call execution_engine.execute_action() directly — all mutations flow
+    through the evidence → context → decision → execution pipeline.
+
+    This satisfies requirement (b): delegator to canonical execution authority.
+
+    Tested in: test_recovery_delegates_to_canonical()
 """
 import logging
 import time
@@ -13,9 +23,9 @@ logger = logging.getLogger(__name__)
 class RecoveryOrchestrator:
     """Simple retry for execution actions.
 
-    Removed: 5-level recovery hierarchy, ShunyaObject usage, execute_action_direct.
-    Removed: step-based progression, workflow assumptions.
-    Kept: simple retry with exponential backoff.
+    All execution actions delegate to the canonical execution authority
+    (process_event in runtime/entry.py). This ensures the execution gate,
+    evidence pipeline, and decision trace are always enforced.
     """
 
     def execute_with_retry(
@@ -24,6 +34,8 @@ class RecoveryOrchestrator:
         max_attempts: int = 3,
     ) -> tuple[bool, dict, list]:
         """Execute an action with retry.
+
+        Delegates all execution to the canonical authority via process_event.
 
         Returns (success, result_dict, retry_log).
         """
@@ -68,12 +80,15 @@ class RecoveryOrchestrator:
         }, retry_log
 
     def _execute_action(self, action: dict) -> dict:
-        """Execute via canonical execution engine.
+        """Execute via CANONICAL authority (process_event).
 
-        Uses the canonical execution path. No legacy ShunyaObject.
-        The execution gate must be opened by the caller.
+        All execution actions are delegated through app.runtime.entry.process_event,
+        which handles gate management, evidence capture, decision trace, and
+        execution in the proper pipeline order.
+
+        This is NOT a direct execute_action call — it is always a delegator.
         """
-        from app.execution_engine.engine import execute_action
+        from app.runtime.entry import process_event
         from app.objects.models import Object
 
         action_type = action.get("action", "unknown")
@@ -96,9 +111,26 @@ class RecoveryOrchestrator:
             if obj_id:
                 obj = Object.query.get(obj_id)
                 if obj:
-                    from app.execution_engine.engine import execute_action as _exec
-                    _exec(obj, {"type": "update", "payload": data, "decision_source": "recovery", "decision_confidence": "high"})
-                    return {"success": True, "data": {"id": obj.id, "name": obj.name}}
+                    # Delegate through canonical execution path
+                    recovery_event = {
+                        "source_type": "recovery",
+                        "source_id": str(obj_id),
+                        "entity_id": obj_id,
+                        "id": obj_id,
+                        "action": action_type,
+                        "payload": data,
+                        "type": action_name,
+                        "name": getattr(obj, 'name', ''),
+                    }
+                    result = process_event(
+                        event_type=f"recovery_{action_type}",
+                        event_data=recovery_event,
+                        source="recovery",
+                    )
+                    exec_result = result.get("execution", {})
+                    return {"success": exec_result.get("status") == "completed",
+                            "data": {"id": obj_id, "name": getattr(obj, 'name', '')},
+                            "result": exec_result}
             return {"success": False, "error": f"Object #{obj_id} not found"}
 
         return {"success": False, "error": f"Unknown action: {action_type}"}

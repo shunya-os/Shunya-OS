@@ -9,7 +9,7 @@ from typing import Optional
 
 from app.decision_runtime.models import Decision, DecisionStatus
 from app.execution.constants import ExecState
-from app.execution_engine.service import ExecutionService
+from app.execution import ExecutionService
 
 
 @dataclass

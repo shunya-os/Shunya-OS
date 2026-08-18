@@ -7,91 +7,89 @@ import json
 
 
 class TestOutcomeEngine:
-    """FDA6-G6: Real outcome — execution reaches terminal state with persisted evidence."""
+    """FDA6-G6: Real outcome — execution reaches terminal state with persisted evidence.
 
-    def test_execution_reaches_terminal_completed_state(self, app):
-        """Execution → accepted → executing → completed → evidence persisted → outcome retrievable.
+    PROD-06 migration: step-based progression removed. The state-driven
+    model is: OutcomeRuntime.accept() creates an outcome, update_state()
+    mutates its opaque state dict. No predefined lifecycle progression.
+    """
 
-        Full lifecycle proof via the execute/recovery hierarchy which transitions
-        through accepted → queued → executing → completed.
+    def test_outcome_created_and_retrieved(self, app):
+        """Outcome → created via accept() → retrievable via get().
+
+        State-driven: OutcomeRuntime.accept() creates an outcome with
+        given intention and optional initial state. No step progression.
         """
         from app.execution import OutcomeRuntime
         with app.app_context():
             engine = OutcomeRuntime()
 
-            # Step 1: Accept — creates the outcome
+            # Accept — creates the outcome with intention
             outcome = engine.accept(
                 identity_id="1",
                 intention="Complete quarterly review for golden test",
-                steps=[{"action": {"action": "review", "type": "quarterly", "id": "q1_2026"}}],
+                state={"status": "accepted", "result": "pending"},
             )
-            assert outcome.state.get('stage') == "accepted"
+            assert outcome is not None
             exec_id = outcome.outcome_id
 
-            # Step 2: Queue
-            outcome = engine.queue(exec_id)
-            assert outcome.state.get('stage') == "queued"
+            # Retrieve — outcome is persisted
+            retrieved = engine.get(exec_id)
+            assert retrieved is not None
+            assert retrieved.outcome_id == exec_id
+            assert retrieved.intention == "Complete quarterly review for golden test"
 
-            # Step 3: Execute — runs recovery hierarchy, transitions to completed
-            outcome = engine.execute(exec_id)
-            assert outcome.state.get('stage') in ("executing", "completed"), f"Expected executing or completed, got {outcome.state.get('stage')}"
+    def test_outcome_can_reach_terminal_state(self, app):
+        """Outcome state can be updated to a terminal state via update_state().
 
-            # Step 4: Complete — terminal state (may already be completed from execute)
-            if outcome.state.get('stage') != "completed":
-                outcome = engine.complete(exec_id, {"result": "approved", "notes": "All quarterly targets met"})
-                assert outcome.state.get('stage') == "completed"
-
-            # Step 5: Evidence is persisted and retrievable
-            outcome = engine.get(exec_id)
-            assert outcome is not None
-            assert outcome.state.get('stage') in ("completed", "executing")
-            assert outcome.outcome_id == exec_id
-
-    def test_execution_can_reach_terminal_failed_state(self, app):
-        """Execution can reach terminal failed state."""
+        State-driven: update_state() mutates the opaque state dict.
+        No explicit fail() method — state is just data.
+        """
         from app.execution import OutcomeRuntime
         with app.app_context():
             engine = OutcomeRuntime()
             outcome = engine.accept(
                 identity_id="1",
                 intention="Test failure path",
-                steps=[{"action": {"action": "fail", "reason": "insufficient_data"}}],
+                state={"status": "processing", "attempt": 1},
             )
             exec_id = outcome.outcome_id
 
-            # Execute then fail
-            engine.execute(exec_id)
-            outcome = engine.fail(exec_id, "Insufficient data to complete review")
-            assert outcome.state.get('stage') == "failed"
-            assert outcome.last_error is not None
+            # Update state to terminal failure
+            outcome = engine.update_state(exec_id, {"status": "failed", "reason": "Insufficient data"})
+            assert outcome.state.get("status") == "failed"
+            assert outcome.state.get("reason") is not None
 
     def test_execution_idempotency(self, app):
-        """Same commitment → same execution identity (idempotent).
+        """Same explicit idempotency_key → same execution identity (idempotent).
 
-        BusinessExecutionInstance.activate() now checks for existing
-        executions with the same commitment before creating a new one.
+        BusinessExecutionInstance.activate() with an explicit idempotency_key
+        must return the same outcome_id on replay. Without an explicit key,
+        each call creates a distinct execution.
         """
         from app.execution import BusinessExecutionInstance
         from app.execution.models import Outcome
         with app.app_context():
             engine = BusinessExecutionInstance()
 
-            # Same commitment_id, called twice
-            r1 = engine.activate(commitment_type="task", commitment_id="idempotent_003", tenant_id=1)
-            r2 = engine.activate(commitment_type="task", commitment_id="idempotent_003", tenant_id=1)
+            # Same commitment_id called twice WITH explicit idempotency_key
+            r1 = engine.activate(commitment_type="task", commitment_id="idempotent_003",
+                                 tenant_id=1, idempotency_key="fda-idem-003")
+            r2 = engine.activate(commitment_type="task", commitment_id="idempotent_003",
+                                 tenant_id=1, idempotency_key="fda-idem-003")
 
             # Both succeed
             assert r1["success"] is True
             assert r2["success"] is True
 
-            # IDEMPOTENCY: same commitment_id must produce the same execution identity
+            # IDEMPOTENCY: same key must produce the same execution identity
             assert r1["exec_id"] == r2["exec_id"], (
                 f"Expected same exec_id for idempotent call, got {r1['exec_id']} vs {r2['exec_id']}"
             )
             # Second call should be recognized as idempotent
             assert r2.get("idempotent") is True
 
-            # Only one execution instance exists in the database
+            # Verify the single execution in database
             count = Outcome.query.filter(
                 Outcome.intention == "Execute task idempotent_003"
             ).count()
@@ -157,7 +155,8 @@ class TestActionability:
             # Step 4: Outcome is persisted and retrievable
             outcome = exec_engine.get(exec_id)
             assert outcome is not None
-            assert outcome.state.get('stage') is not None
+            assert outcome.outcome_id == exec_id
+            assert outcome.intention is not None
 
     def test_unauthorized_action_rejected(self, app):
         """Unauthorized action → safe failure."""
@@ -311,7 +310,8 @@ class TestGoldenCrossBoundary:
             # 4. Outcome: Verify the outcome is persisted and retrievable
             outcome = exec_engine.get(exec_id)
             assert outcome is not None
-            assert outcome.state.get('stage') is not None
+            assert outcome.outcome_id == exec_id
+            assert outcome.intention is not None
 
             # 5. Identity resolution still works
             r = id_svc.resolve("golden-path@company.com", ClaimType.EMAIL)

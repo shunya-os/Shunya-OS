@@ -218,14 +218,10 @@ def run_cycle() -> dict:
         "errors": [],
     }
 
-    # PHASE 3 LAYER D: Open execution gate for this cycle
-    try:
-        from app.execution_engine.engine import open_execution_gate, close_execution_gate
-        _gate_opened = False
-        open_execution_gate()
-        _gate_opened = True
-    except Exception:
-        _gate_opened = False
+    # Caller (entry.py _execute_with_trace) is responsible for opening
+    # and closing the execution gate. run_cycle does NOT manage the gate
+    # itself — it is subordinate to the canonical execution authority.
+    # See: app/runtime/entry.py for gate lifecycle.
 
     # ----- Crash-isolated sections -----
     _run_objects(summary)
@@ -291,23 +287,30 @@ def run_cycle() -> dict:
     except Exception:
         pass
 
-    # PHASE 3 LAYER D: Close execution gate
-    try:
-        if _gate_opened:
-            close_execution_gate()
-    except Exception:
-        pass
+    # Gate lifecycle is managed by the caller (entry.py _execute_with_trace).
+    # No close needed here.
 
     return summary
 
 
 def run_loop(interval: int = _LOOP_INTERVAL, cycles: int = None):
-    """Run the execution loop continuously."""
+    """Run the execution loop continuously with gate management.
+
+    Opens the canonical execution gate before each cycle and closes it
+    after. This is the production background path — the gate ensures
+    all execution goes through the canonical authority.
+    """
+    from app.execution_engine.engine import open_execution_gate, close_execution_gate
+
     count = 0
     while cycles is None or count < cycles:
         count += 1
         try:
-            summary = run_cycle()
+            open_execution_gate()
+            try:
+                summary = run_cycle()
+            finally:
+                close_execution_gate()
             if summary["actions_taken"] > 0 or summary["signals_emitted"] > 0:
                 logger.info(
                     "Loop cycle %d: %d objects, %d actions, %d signals",
