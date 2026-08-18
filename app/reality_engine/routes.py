@@ -108,7 +108,7 @@ def stream_reality():
     # by an already trusted authentication layer.
     identity_id = session.get("identity_id") or session.get("user_id")
     tenant_id = session.get("tenant_id") or session.get("current_org_id", 0)
-    if not identity_id:
+    if not identity_id or not tenant_id:
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     workspace_id = request.args.get("workspace_id", None)
     if workspace_id:
