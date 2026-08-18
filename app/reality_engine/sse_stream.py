@@ -86,6 +86,8 @@ class SSEStreamManager:
             self._route_event,
             consumer_name="sse_stream_manager",
         )
+        # Start Redis relay for cross-worker event delivery
+        bus.start_redis_relay()
 
     def stop(self) -> None:
         """Unsubscribe from the event bus and clear all clients."""

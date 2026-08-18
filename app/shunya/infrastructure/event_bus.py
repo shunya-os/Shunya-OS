@@ -21,6 +21,9 @@ Architectural authority: ADR-001, SHUNYA_CORE_MODELS.md §8, §10
 from __future__ import annotations
 
 import fnmatch
+import json
+import os
+import threading
 import time
 import uuid
 from collections import defaultdict
@@ -208,6 +211,9 @@ class EventBus:
         self._dlq: List[Tuple[CanonicalEvent, str]] = []  # (event, error)
         self._queue: List[Tuple[CanonicalEvent, str, int]] = []  # (event, consumer_name, attempt)
 
+        # Redis relay for cross-worker delivery (lazily started)
+        self._redis_relay: Optional[RedisEventRelay] = None
+
         # Stats
         self._stats: Dict[str, Any] = {
             "published": 0,
@@ -259,6 +265,10 @@ class EventBus:
 
         # Record for idempotency
         self._record_idempotency(event.event_id)
+
+        # Publish to Redis for cross-worker delivery (always, regardless of
+        # local subscribers — other workers may have subscribers)
+        self._publish_to_redis(event)
 
         # Find matching subscriptions
         consumers = self._find_consumers(event.event_type, event.tenant_id)
@@ -663,6 +673,209 @@ class EventBus:
             "published": 0, "delivered": 0, "failed": 0,
             "retried": 0, "dead_lettered": 0, "duplicates_suppressed": 0,
         }
+
+    # ---- Cross-worker Redis Relay -----------------------------------------
+
+    def _publish_to_redis(self, event: CanonicalEvent) -> None:
+        """Publish an event to Redis so other workers can receive it."""
+        if self._redis_relay is None:
+            return
+        try:
+            self._redis_relay.publish_to_redis(event)
+        except Exception:
+            pass
+
+    def _relay_from_redis(self, event: CanonicalEvent) -> None:
+        """Deliver an event received from Redis into local subscribers.
+
+        This is called by RedisEventRelay when it receives an event published
+        by another Gunicorn worker. It delivers to matching local subscribers
+        WITHOUT re-publishing to Redis (preventing loops).
+        """
+        # Idempotency check — if we already processed this event locally, skip
+        if self._is_duplicate(event.event_id):
+            self._stats["duplicates_suppressed"] += 1
+            return
+
+        self._record_idempotency(event.event_id)
+
+        consumers = self._find_consumers(event.event_type, event.tenant_id)
+        if not consumers:
+            return
+
+        for consumer_name in consumers:
+            sub = self._find_subscription(consumer_name, event.event_type)
+            if sub:
+                try:
+                    sub.consumer(event)
+                    self._stats["delivered"] += 1
+                except Exception as exc:
+                    self._stats["failed"] += 1
+
+    def start_redis_relay(self, redis_url: str = "") -> None:
+        """Start the Redis Pub/Sub relay for cross-worker event delivery."""
+        if not redis_url:
+            redis_url = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379")
+        self._redis_relay = RedisEventRelay(
+            redis_url=redis_url,
+            event_bus=self,
+        )
+        self._redis_relay.start()
+
+    def stop_redis_relay(self) -> None:
+        """Stop the Redis Pub/Sub relay."""
+        if self._redis_relay:
+            self._redis_relay.stop()
+            self._redis_relay = None
+
+
+# ---- Redis Event Relay (cross-worker transport) -------------------------
+
+
+class RedisEventRelay:
+    """Relays events between Gunicorn workers via Redis Pub/Sub.
+
+    Each worker subscribes to the ``shunya:events`` Redis channel.
+    When a local EventBus publishes an event, this relay also publishes
+    it to Redis. Other workers' relays receive it and feed it into their
+    local EventBus via ``_relay_from_redis()``, which delivers locally
+    without re-publishing to Redis (preventing loops).
+
+    Thread-safe. Runs a daemon subscriber thread.
+    """
+
+    REDIS_CHANNEL = "shunya:events"
+    RECONNECT_DELAY = 2.0  # seconds between reconnect attempts
+
+    def __init__(
+        self,
+        redis_url: str,
+        event_bus: EventBus,
+        logger: Any = None,
+    ) -> None:
+        self._redis_url = redis_url
+        self._bus = event_bus
+        self._logger = logger
+        self._running = False
+        self._pub_conn: Any = None  # Redis connection for publishing
+        self._sub_conn: Any = None  # Redis connection for subscribing
+        self._sub_thread: Optional[threading.Thread] = None
+        self._lock = threading.Lock()
+
+    def start(self) -> None:
+        """Start the relay. Safe to call multiple times."""
+        with self._lock:
+            if self._running:
+                return
+            self._running = True
+            self._sub_thread = threading.Thread(
+                target=self._subscriber_loop,
+                daemon=True,
+                name="redis-event-relay",
+            )
+            self._sub_thread.start()
+
+    def stop(self) -> None:
+        """Stop the relay. Safe to call multiple times."""
+        with self._lock:
+            self._running = False
+        # Closing the subscriber connection will unblock the thread
+        self._close_sub_conn()
+
+    def publish_to_redis(self, event: CanonicalEvent) -> None:
+        """Publish an event to the Redis channel for other workers."""
+        try:
+            conn = self._get_pub_conn()
+            if conn is None:
+                return
+            payload = json.dumps(event.to_dict(), default=str)
+            conn.publish(self.REDIS_CHANNEL, payload)
+        except Exception as exc:
+            if self._logger:
+                self._logger.warning(
+                    "Redis relay publish failed",
+                    extra={"error": str(exc), "event_id": event.event_id},
+                )
+
+    # ---- Internal: subscriber loop ---------------------------------------
+
+    def _subscriber_loop(self) -> None:
+        """Daemon thread: subscribe to Redis and relay events to local bus."""
+        import redis as redis_mod
+
+        while self._running:
+            try:
+                conn = redis_mod.from_url(self._redis_url, socket_timeout=10)
+                pubsub = conn.pubsub()
+                pubsub.subscribe(self.REDIS_CHANNEL)
+                self._sub_conn = conn
+
+                if self._logger:
+                    self._logger.info(
+                        "Redis event relay subscribed to %s",
+                        self.REDIS_CHANNEL,
+                    )
+
+                for message in pubsub.listen():
+                    if not self._running:
+                        break
+                    if message["type"] != "message":
+                        continue
+                    self._handle_redis_message(message["data"])
+
+            except Exception as exc:
+                if self._running:
+                    if self._logger:
+                        self._logger.warning(
+                            "Redis event relay error, reconnecting in %.1fs",
+                            self.RECONNECT_DELAY,
+                            extra={"error": str(exc)},
+                        )
+                    time.sleep(self.RECONNECT_DELAY)
+            finally:
+                self._close_sub_conn()
+
+    def _handle_redis_message(self, raw_data: bytes) -> None:
+        """Deserialize a Redis message and relay into the local event bus."""
+        try:
+            data = json.loads(raw_data)
+            event = CanonicalEvent.from_dict(data)
+            self._bus._relay_from_redis(event)
+        except Exception as exc:
+            if self._logger:
+                self._logger.error(
+                    "Failed to relay Redis event",
+                    extra={"error": str(exc)},
+                )
+
+    # ---- Internal: connections -------------------------------------------
+
+    def _get_pub_conn(self) -> Any:
+        """Get or create a Redis connection for publishing."""
+        import redis as redis_mod
+
+        if self._pub_conn is None:
+            try:
+                self._pub_conn = redis_mod.from_url(
+                    self._redis_url, socket_timeout=5
+                )
+            except Exception as exc:
+                if self._logger:
+                    self._logger.warning(
+                        "Redis relay pub connection failed",
+                        extra={"error": str(exc)},
+                    )
+                return None
+        return self._pub_conn
+
+    def _close_sub_conn(self) -> None:
+        """Close the subscriber connection."""
+        if self._sub_conn:
+            try:
+                self._sub_conn.close()
+            except Exception:
+                pass
+            self._sub_conn = None
 
 
 # ---- Module-level convenience -----------------------------------------------

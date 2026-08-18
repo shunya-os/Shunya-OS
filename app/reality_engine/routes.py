@@ -90,6 +90,9 @@ def stream_reality():
     Non-blocking SSE stream delivering real-time events from the canonical
     event bus to authenticated frontend clients.
 
+    *** SECURITY: Only session-authenticated identities are accepted. ***
+    *** The X-Identity-Id header is NOT trusted for SSE.              ***
+
     Each client gets a thread-safe queue. Events are filtered by tenant_id
     for cross-tenant isolation. Heartbeats keep the connection alive when
     no events are flowing. Timeout after 120s of inactivity.
@@ -99,20 +102,14 @@ def stream_reality():
     """
     from flask import session, g
 
-    # Extract identity — must be authenticated
-    identity_id = getattr(g, 'identity_id', None)
-    if not identity_id:
-        identity_id = session.get("identity_id") or session.get("user_id")
-    if not identity_id:
-        identity_id = request.headers.get("X-Identity-Id")
+    # ---- Auth: ONLY trust session-authenticated identities --------------
+    # X-Identity-Id header is NOT accepted for SSE — a client-supplied
+    # header must not be treated as proof of identity without validation
+    # by an already trusted authentication layer.
+    identity_id = session.get("identity_id") or session.get("user_id")
+    tenant_id = session.get("tenant_id") or session.get("current_org_id", 0)
     if not identity_id:
         return jsonify({"success": False, "error": "Not authenticated"}), 401
-
-    # Resolve tenant from identity
-    from app.identity.engine import IdentityEngine
-    engine = IdentityEngine()
-    identity = engine.resolve(identity_id)
-    tenant_id = identity.tenant_id if identity else 0
     workspace_id = request.args.get("workspace_id", None)
     if workspace_id:
         try:
