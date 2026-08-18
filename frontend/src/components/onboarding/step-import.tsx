@@ -341,13 +341,13 @@ export function StepImport({ onNext, onBack }: Props) {
 
         .oi-tabs { display: flex; gap: 4px; background: var(--sh-surface-subtle, #F8F7F4); border-radius: 10px; padding: 3px; margin: 16px 0; width: 100%; }
         .oi-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border: none; border-radius: 8px; background: transparent; color: var(--sh-text-secondary, rgba(26,28,29,0.55)); font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; }
-        .oi-tab-active { background: #fff; color: var(--sh-purple, #6C4AE2); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+        .oi-tab-active { background: #fff; color: var(--sh-gold, #6C4AE2); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
         .oi-tab:hover { color: var(--sh-text, #1A1C1D); }
         .oi-tab svg { flex-shrink: 0; }
 
         .oi-dropzone { display: flex; align-items: center; gap: 14px; padding: 24px; border: 2px dashed var(--sh-border, rgba(26,28,29,0.12)); border-radius: 12px; cursor: pointer; transition: all 0.15s; text-align: left; }
-        .oi-dropzone:hover, .oi-dropzone-active { border-color: var(--sh-purple, #6C4AE2); background: rgba(108,74,226,0.03); }
-        .oi-drop-icon { color: var(--sh-purple, #6C4AE2); flex-shrink: 0; }
+        .oi-dropzone:hover, .oi-dropzone-active { border-color: var(--sh-gold, #6C4AE2); background: rgba(108,74,226,0.03); }
+        .oi-drop-icon { color: var(--sh-gold, #6C4AE2); flex-shrink: 0; }
         .oi-drop-text { display: flex; flex-direction: column; gap: 2px; }
         .oi-drop-main { font-size: 13px; font-weight: 500; color: var(--sh-text, #1A1C1D); }
         .oi-drop-hint { font-size: 11px; color: var(--sh-text-tertiary, rgba(26,28,29,0.35)); }
@@ -361,7 +361,7 @@ export function StepImport({ onNext, onBack }: Props) {
         .oi-upload-done .oi-upload-status { color: var(--sh-success, #2D6A4F); }
         .oi-upload-error .oi-upload-status { color: var(--sh-danger, #B91C1C); }
 
-        .oi-spinner { width: 14px; height: 14px; border: 2px solid var(--sh-border, rgba(26,28,29,0.08)); border-top-color: var(--sh-purple, #6C4AE2); border-radius: 50%; animation: oi-spin 0.6s linear infinite; display: inline-block; }
+        .oi-spinner { width: 14px; height: 14px; border: 2px solid var(--sh-border, rgba(26,28,29,0.08)); border-top-color: var(--sh-gold, #6C4AE2); border-radius: 50%; animation: oi-spin 0.6s linear infinite; display: inline-block; }
         @keyframes oi-spin { to { transform: rotate(360deg); } }
 
         .oi-summary { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-top: 8px; }
@@ -372,7 +372,7 @@ export function StepImport({ onNext, onBack }: Props) {
         .oi-gmail-desc { font-size: 13px; line-height: 1.6; color: var(--sh-text-secondary, rgba(26,28,29,0.55)); margin: 0 0 12px; }
         .oi-gmail { }
         .oi-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: 1px solid var(--sh-border, rgba(26,28,29,0.12)); border-radius: 10px; background: #fff; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; color: var(--sh-text, #1A1C1D); }
-        .oi-btn:hover { border-color: var(--sh-purple, #6C4AE2); color: var(--sh-purple, #6C4AE2); }
+        .oi-btn:hover { border-color: var(--sh-gold, #6C4AE2); color: var(--sh-gold, #6C4AE2); }
         .oi-btn-google svg { color: #EA4335; }
         .oi-phase { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sh-text-secondary, rgba(26,28,29,0.55)); }
         .oi-phase-done { color: var(--sh-success, #2D6A4F); }

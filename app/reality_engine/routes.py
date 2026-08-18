@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, Response, current_app, stream_with_context
 
 from app.reality_engine.engine import get_reality_engine
+from app.reality_engine.sse_stream import get_sse_manager, serialize_event, serialize_heartbeat
 from app.graph_universal.traversal import GraphQueryEngine
 from app.graph_universal.entity import get_store as get_entity_store
 from app.graph_universal.relationship import get_store as get_rel_store
@@ -84,19 +85,72 @@ def get_reality():
 
 @reality_bp.route("/stream", methods=["GET"])
 def stream_reality():
-    """GET /api/v1/reality/stream -- TEMPORARILY DISABLED.
+    """GET /api/v1/reality/stream
 
-    The SSE stream with time.sleep(5) caused gunicorn worker timeout (30s),
-    killing workers and destabilising the runtime. Disabled until a non-blocking
-    generator replaces the polling loop. Frontend falls back to polling via
-    the GET /api/v1/reality endpoint -- no UX degradation.
+    Non-blocking SSE stream delivering real-time events from the canonical
+    event bus to authenticated frontend clients.
 
-    ACTIVATION-03A: Systemic instability source eliminated.
+    Each client gets a thread-safe queue. Events are filtered by tenant_id
+    for cross-tenant isolation. Heartbeats keep the connection alive when
+    no events are flowing. Timeout after 120s of inactivity.
+
+    This replaces the previous blocking-generator (time.sleep(5)) that
+    caused gunicorn worker timeout deaths.
     """
-    return jsonify({
-        "status": "disabled",
-        "reason": "blocking loop causes worker death -- use polling (GET /api/v1/reality) instead"
-    })
+    from flask import session, g
+
+    # Extract identity — must be authenticated
+    identity_id = getattr(g, 'identity_id', None)
+    if not identity_id:
+        identity_id = session.get("identity_id") or session.get("user_id")
+    if not identity_id:
+        identity_id = request.headers.get("X-Identity-Id")
+    if not identity_id:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    # Resolve tenant from identity
+    from app.identity.engine import IdentityEngine
+    engine = IdentityEngine()
+    identity = engine.resolve(identity_id)
+    tenant_id = identity.tenant_id if identity else 0
+    workspace_id = request.args.get("workspace_id", None)
+    if workspace_id:
+        try:
+            workspace_id = int(workspace_id)
+        except (ValueError, TypeError):
+            workspace_id = None
+
+    manager = get_sse_manager()
+    client = manager.register_client(tenant_id, identity_id, workspace_id=int(workspace_id) if workspace_id else None)
+
+    def generate():
+        last_heartbeat = time.time()
+        try:
+            while True:
+                events = client.drain(timeout=30.0)
+                if events:
+                    for event in events:
+                        yield serialize_event(event)
+                    last_heartbeat = time.time()
+                else:
+                    # Send heartbeat every 15s to keep connection alive
+                    if time.time() - last_heartbeat > 15:
+                        yield serialize_heartbeat()
+                        last_heartbeat = time.time()
+        except GeneratorExit:
+            pass
+        finally:
+            manager.unregister_client(client.client_id)
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ═════════════════════════════════════════════════════════════════════

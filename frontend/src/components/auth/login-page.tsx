@@ -1,13 +1,17 @@
 /**
- * Login Page — Cinematic introduction for SHUNYA.
+ * Login Page — Canonical warm-light authentication.
  *
- * First thing every founder sees. Dark, calm, intentional.
- * शून्य appears first. The story comes before the form.
+ * Visual Design Bible §6: Light mode only v1.0
+ * Background: #fbfaf8, Card: #ffffff
+ * Gold dot for identity. Dark text buttons.
+ *
+ * Directive §17: Public → authenticated continuity.
  */
 
 import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import { SessionManager, type Session } from '../../api/session';
+import { authStyles } from './auth-styles';
 
 interface Props {
   onLogin: (session: Session) => void;
@@ -22,17 +26,12 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
   const [showSub, setShowSub] = useState(false);
   const [showTagline, setShowTagline] = useState(false);
 
-  // Cinematic introduction sequence
   useEffect(() => {
     if (phase !== 'intro') return;
     const t1 = setTimeout(() => setShowSub(true), 1200);
     const t2 = setTimeout(() => setShowTagline(true), 2400);
     const t3 = setTimeout(() => setPhase('form'), 4000);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [phase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,84 +47,70 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
         onLogin(session);
       } else {
         setPhase('error');
-        setErrorMsg(resp.error ?? 'Sign in failed. Please check your credentials.');
+        setErrorMsg(resp.error ?? 'Sign in failed.');
       }
     } catch {
       setPhase('error');
-      setErrorMsg('Could not connect. Check that the server is running.');
+      setErrorMsg('Could not connect.');
     }
   };
 
-  const handleSkipIntro = () => {
-    setPhase('form');
-  };
+  const handleSkipIntro = () => setPhase('form');
 
   return (
     <div className="sh-cinematic">
       {phase === 'intro' && (
         <div className="sh-intro" onClick={handleSkipIntro}>
+          <div className="sh-intro-dot" aria-hidden="true" />
           <div className="sh-intro-zero">शून्य</div>
           {showSub && <div className="sh-intro-sub fade-in">SHUNYA</div>}
-          {showTagline && <div className="sh-intro-tagline fade-in">One Operating System for Your Business</div>}
+          {showTagline && <div className="sh-intro-tagline fade-in">Infinite Intelligence. Zero Noise.</div>}
           <div className="sh-intro-skip">Tap to continue</div>
         </div>
       )}
 
       {(phase === 'form' || phase === 'loading' || phase === 'error') && (
-        <div className="sh-login fade-in">
-          <div className="sh-login-header">
-            <div className="sh-login-zero">शून्य</div>
-            <div className="sh-login-sub">SHUNYA</div>
-          </div>
-          <form className="sh-login-form" onSubmit={handleSubmit} role="main" aria-label="Sign in">
-            <div className="sh-login-field">
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                autoFocus
-                disabled={phase === 'loading'}
-              />
+        <div className="sh-auth">
+          <div className="sh-auth-card sh-auth-fade-in">
+            <div className="sh-auth-header">
+              <div className="sh-auth-zero">शून्य</div>
+              <div className="sh-auth-sub">SHUNYA</div>
+              <div className="sh-auth-gold-dot" aria-hidden="true" />
             </div>
-            <div className="sh-login-field">
-              <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                disabled={phase === 'loading'}
-              />
-            </div>
-            {phase === 'error' && (
-              <div className="sh-login-error" role="alert">
-                {errorMsg}
+            <form className="sh-auth-form" onSubmit={handleSubmit} role="main" aria-label="Sign in">
+              <div className="sh-auth-field">
+                <label htmlFor="email">Email</label>
+                <input id="email" type="email" value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@company.com" autoFocus
+                  disabled={phase === 'loading'} />
               </div>
-            )}
-            <button
-              type="submit"
-              className="sh-login-btn"
-              disabled={phase === 'loading' || !email.trim() || !password.trim()}
-            >
-              {phase === 'loading' ? 'Signing in…' : 'Sign In'}
-            </button>
-          </form>
-          <div className="sh-login-signup">
-            Don't have an account?{' '}
-            <button
-              className="sh-login-link-btn"
-              onClick={onSignUp}
-              tabIndex={0}
-              type="button"
-            >
-              Create Account
-            </button>
+              <div className="sh-auth-field">
+                <label htmlFor="password">Password</label>
+                <input id="password" type="password" value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  disabled={phase === 'loading'} />
+              </div>
+              {phase === 'error' && <div className="sh-auth-error" role="alert">{errorMsg}</div>}
+              <button className="sh-auth-btn" type="submit"
+                disabled={phase === 'loading' || !email.trim() || !password.trim()}>
+                {phase === 'loading' ? 'Signing in\u2026' : 'Sign In'}
+              </button>
+            </form>
+            <div className="sh-auth-footer">
+              <span onClick={() => window.location.href = '/auth/forgot-password'} className="sh-auth-link">
+                Forgot password?
+              </span>
+              {onSignUp && (
+                <>
+                  <span style={{margin: '0 8px', color: 'var(--shunya-border, rgba(26,28,29,0.07))'}}>·</span>
+                  <span onClick={onSignUp} className="sh-auth-link">Create account</span>
+                </>
+              )}
+            </div>
           </div>
-          <div className="sh-login-footer">SHUNYA — One Operating System</div>
+          <style>{authStyles}</style>
         </div>
       )}
 
@@ -133,74 +118,52 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
 .sh-cinematic {
   position: fixed; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  background: #0a0a0f;
-  color: #e0e0e0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
-  overflow: hidden;
+  background: var(--shunya-bg, #FBF8F5);
+  color: var(--shunya-text, #1A1C1D);
+  font-family: var(--shunya-font-body, 'Inter', sans-serif);
 }
 .sh-intro {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 0; cursor: pointer; user-select: none;
-  animation: sh-fade-in 1s ease-out;
+  text-align: center; cursor: pointer; padding: 40px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.sh-intro-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--shunya-gold, #A4865F); margin-bottom: 8px;
 }
 .sh-intro-zero {
-  font-size: clamp(3rem, 12vw, 8rem);
-  font-weight: 300;
-  color: #ffffff;
-  letter-spacing: 0.05em;
-  font-family: 'Noto Sans Devanagari', 'Segoe UI', sans-serif;
+  font-family: var(--shunya-font-devanagari, 'Noto Sans Devanagari', serif);
+  font-size: 3.5rem; font-weight: 400;
+  letter-spacing: var(--shunya-tracking-wider, 0.06em);
+  color: var(--shunya-text, #1A1C1D);
 }
 .sh-intro-sub {
-  font-size: clamp(1.2rem, 4vw, 2.5rem);
-  font-weight: 300;
-  color: #888;
-  letter-spacing: 0.3em;
-  margin-top: 8px;
-  text-transform: uppercase;
+  font-family: var(--shunya-font-display, 'Playfair Display', serif);
+  font-size: 2rem; font-weight: 400;
+  letter-spacing: var(--shunya-tracking-tight, -0.025em);
+  color: var(--shunya-text, #1A1C1D); margin-top: 4px;
 }
 .sh-intro-tagline {
-  font-size: clamp(0.8rem, 2vw, 1.1rem);
-  color: #555;
-  margin-top: 24px;
-  letter-spacing: 0.05em;
+  font-family: var(--shunya-font-display, 'Playfair Display', serif);
+  font-size: 0.95rem; font-weight: 400; font-style: italic;
+  letter-spacing: var(--shunya-tracking-ultra, 0.2em);
+  text-transform: uppercase; color: var(--shunya-gold, #A4865F); margin-top: 12px;
 }
 .sh-intro-skip {
-  position: absolute; bottom: 40px;
-  font-size: 0.75rem; color: #333; letter-spacing: 0.1em;
+  margin-top: 32px; font-size: var(--shunya-text-sm, 12px);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
+  letter-spacing: var(--shunya-tracking-wider, 0.06em);
 }
-.sh-login {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 32px; width: 100%; max-width: 380px; padding: 24px;
+.fade-in {
+  animation: sh-intro-fade var(--shunya-duration-slow, 600ms) var(--shunya-ease-out, cubic-bezier(0.16,1,0.3,1)) both;
 }
-.sh-login-header { text-align: center; }
-.sh-login-zero { font-size: 2.5rem; color: #fff; font-weight: 300; }
-.sh-login-sub { font-size: 0.85rem; color: #666; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 4px; }
-.sh-login-form { width: 100%; display: flex; flex-direction: column; gap: 16px; }
-.sh-login-field label { display: block; font-size: 0.75rem; color: #888; margin-bottom: 4px; letter-spacing: 0.05em; }
-.sh-login-field input {
-  width: 100%; padding: 10px 14px;
-  background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 6px;
-  color: #e0e0e0; font-size: 0.95rem; outline: none; transition: border-color 0.2s;
+@keyframes sh-intro-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.sh-login-field input:focus { border-color: #555; }
-.sh-login-field input:disabled { opacity: 0.5; }
-.sh-login-error { font-size: 0.8rem; color: #f55; text-align: center; }
-.sh-login-btn {
-  width: 100%; padding: 10px 14px;
-  background: #fff; color: #0a0a0f;
-  border: none; border-radius: 6px; font-size: 0.95rem; font-weight: 500;
-  cursor: pointer; transition: opacity 0.2s;
+@media (prefers-reduced-motion: reduce) {
+  .fade-in { animation: none; opacity: 1; }
 }
-.sh-login-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.sh-login-btn:hover:not(:disabled) { opacity: 0.85; }
-.sh-login-footer { font-size: 0.7rem; color: #444; letter-spacing: 0.1em; }
-.sh-login-signup { margin-top: 16px; font-size: 0.8rem; color: #888; text-align: center; }
-.sh-login-link-btn { background: none; border: none; color: #6C4AE2; cursor: pointer; font-size: 0.8rem; text-decoration: underline; padding: 0; }
-.sh-login-link-btn:hover { color: #8B6FE8; }
-.sh-login-link-btn:focus-visible { outline: 2px solid #6C4AE2; outline-offset: 2px; border-radius: 2px; }
-.fade-in { animation: sh-fade-in 0.8s ease-out both; }
-@keyframes sh-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-`}</style>
+      `}</style>
     </div>
   );
 }

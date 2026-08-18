@@ -7,7 +7,7 @@ import time
 import json
 from datetime import datetime, timezone
 
-from flask import Blueprint, jsonify, request, Response, current_app
+from flask import Blueprint, jsonify, request, Response, current_app, stream_with_context
 from sqlalchemy import text
 
 from app import db
@@ -138,7 +138,7 @@ def stream_events():
             time.sleep(5)
 
     return Response(
-        generate(),
+        stream_with_context(generate()),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

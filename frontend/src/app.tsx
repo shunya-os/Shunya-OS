@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TokenProvider } from './tokens/token-provider';
-import { WorkspaceBar } from './components/workspace/workspace-bar';
 import { WorkspaceContainer } from './components/workspace/workspace-container';
-import { SearchBar } from './components/search/universal-search';
+import { ThreeZoneShell } from './components/workspace/three-zone-shell';
+import { AIResidentPanel } from './components/ui/ai-resident-panel';
+import { useRealityPresence } from './hooks/use-reality-presence';
 import { LoginPage } from './components/auth/login-page';
 import { ForgotPassword } from './components/auth/forgot-password';
 import { ResetPassword } from './components/auth/reset-password';
 import { Signup } from './components/auth/signup';
 import { InvitationAccept } from './components/auth/invitation-accept';
 import { VerifyEmail } from './components/auth/verify-email';
-import { HomePage, homepageStyles } from './components/public/homepage';
+import { HomePage } from './components/public/homepage';
 import { registerAllRuntimes } from './runtimes/registration';
 import { orchestrator } from './runtimes/orchestrator';
 import { ModuleRegistry } from './runtimes/module-registry';
@@ -176,15 +177,7 @@ function AppShell() {
     return unsub;
   }, []);
 
-  // Inject homepage styles early
-  useEffect(() => {
-    const el = document.createElement('style');
-    el.textContent = homepageStyles;
-    el.id = 'shunya-homepage-styles';
-    if (!document.getElementById('shunya-homepage-styles')) {
-      document.head.appendChild(el);
-    }
-  }, []);
+  // Styles are injected by each component via <style> tags
 
   const bootstrap = async () => {
     if (bootstrapped) return;
@@ -386,13 +379,25 @@ function AppShell() {
   }
 
   // ── Authenticated Workspace ──
+  const presence = useRealityPresence();
   return (
     <TokenProvider>
-      <div className="sh-app">
-        <WorkspaceBar />
-        <WorkspaceContainer />
-      </div>
-      <SearchBar />
+      <ThreeZoneShell
+        centerPanel={<WorkspaceContainer />}
+        rightPanel={
+          <AIResidentPanel
+            initialMode={presence.mode}
+            objectContext={presence.context?.summary}
+            suggestions={presence.mode === 'suggestive' ? [{
+              id: 'reality-insight',
+              text: presence.context?.summary || 'New information available',
+              confidence: 0.8,
+              sourceCount: presence.eventCount,
+              onAct: () => presence.acknowledge(),
+            }] : []}
+          />
+        }
+      />
     </TokenProvider>
   );
 }
@@ -400,11 +405,34 @@ function AppShell() {
 const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #root { height: 100%; width: 100%; }
-body { font-family: var(--shunya-font-family); font-size: var(--shunya-font-size-md); color: var(--shunya-text); background: var(--shunya-bg); -webkit-font-smoothing: antialiased; }
-.sh-app { display: flex; flex-direction: column; height: 100vh; }
-.sh-boot { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: var(--shunya-bg, #0a0a0f); gap: var(--shunya-spacing-md); padding: var(--shunya-spacing-xl); text-align: center; }
-.sh-boot-zero { font-size: clamp(2rem, 6vw, 4rem); color: #fff; font-weight: 300; opacity: 0.6; }
-.sh-boot-text { font-size: var(--shunya-font-size-lg); color: var(--shunya-text-secondary, #666); }
+body {
+  font-family: var(--shunya-font-body, 'Inter', sans-serif);
+  font-size: var(--shunya-text-base, 14px);
+  line-height: 1.5;
+  color: var(--shunya-text, #1A1C1D);
+  background: var(--shunya-bg, #FBF8F5);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.sh-boot {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100vh;
+  background: var(--shunya-bg, #FBF8F5);
+  gap: 16px; padding: 40px;
+  text-align: center;
+}
+.sh-boot-zero {
+  font-family: var(--shunya-font-devanagari, 'Noto Sans Devanagari', serif);
+  font-size: clamp(2rem, 6vw, 4rem);
+  color: var(--shunya-text, #1A1C1D);
+  font-weight: 400;
+  letter-spacing: var(--shunya-tracking-wider, 0.06em);
+}
+.sh-boot-text {
+  font-size: var(--shunya-text-md, 16px);
+  color: var(--shunya-text-secondary, rgba(26,28,29,0.55));
+}
 `;
 
 if (typeof document !== 'undefined') {

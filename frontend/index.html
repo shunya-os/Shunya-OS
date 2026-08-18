@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="SHUNYA — AI Operating System. An intelligent operating system that understands your business as a living system, not a database." />
-    <meta name="theme-color" content="#6C4AE2" />
+    <meta name="theme-color" content="#a4865f" />
     <meta property="og:title" content="SHUNYA — AI Operating System" />
     <meta property="og:description" content="An intelligent operating system that understands your business as a living system, not a database." />
     <meta property="og:type" content="website" />
@@ -16,25 +16,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@300;400;500;600&display=swap" rel="stylesheet" />
     <title>SHUNYA — AI Operating System</title>
     <style>
-      html { background: #FAF8F5; }
+      html { background: #fbfaf8; }
       body { margin: 0; }
     </style>
-    <script>
-      // Dark mode bootstrap — apply saved preference before first paint to avoid flash
-      (function () {
-        try {
-          var saved = localStorage.getItem('shunya-theme');
-          var dark = saved === 'dark' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          if (dark) {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            document.documentElement.style.colorScheme = 'dark';
-          }
-        } catch (e) { /* localStorage unavailable */ }
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>
