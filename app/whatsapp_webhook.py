@@ -2,15 +2,26 @@
 WhatsApp Webhook — plug-and-play. Configure via Settings page.
 When WhatsApp Business API credentials are set in env, this webhook
 processes incoming WhatsApp messages just like Telegram.
+
+Gate 2.2: Wired through canonical IngestionService for provenance,
+evidence, event emission, and idempotency.
 """
 
 import os
 import hashlib
 import hmac
+import json
+import logging
+from datetime import datetime, timezone
 from flask import request, jsonify
 from app import db
 from app.models import Lead
 from app.services import parse_inquiry_text, _cached_or_new_code, format_inquiry_reply
+
+logger = logging.getLogger(__name__)
+
+
+# ── Webhook Verification ──────────────────────────────────────────────
 
 
 def verify_whatsapp_signature(payload: bytes, signature: str) -> bool:
@@ -22,8 +33,13 @@ def verify_whatsapp_signature(payload: bytes, signature: str) -> bool:
     return hmac.compare_digest(f"sha256={expected}", signature)
 
 
+_CACHED_IDS: set[str] = set()
+"""In-memory idempotency set for webhook message IDs.
+Cleared on restart — acceptable for webhook dedup (WhatsApp will retry)."""
+
+
 def handle_whatsapp_incoming(payload: dict) -> tuple:
-    """Process incoming WhatsApp message and create lead."""
+    """Process incoming WhatsApp message through canonical ingestion pipeline."""
     entry = (payload.get("entry") or [{}])[0]
     changes = (entry.get("changes") or [{}])[0]
     value = changes.get("value") or {}
@@ -34,8 +50,16 @@ def handle_whatsapp_incoming(payload: dict) -> tuple:
         return jsonify({"status": "ignored"}), 200
 
     msg = messages[0]
+    msg_id = msg.get("id", "")
     sender = msg.get("from", "")
     msg_type = msg.get("type", "text")
+
+    # ── Idempotency: deduplicate by WhatsApp message ID ──
+    if msg_id:
+        if msg_id in _CACHED_IDS:
+            logger.info("Duplicate WhatsApp message skipped: %s", msg_id)
+            return jsonify({"status": "duplicate", "message_id": msg_id}), 200
+        _CACHED_IDS.add(msg_id)
 
     text = ""
     if msg_type == "text":
@@ -54,6 +78,37 @@ def handle_whatsapp_incoming(payload: dict) -> tuple:
         sender_name = profile.get("name", "")
 
     parsed = parse_inquiry_text(text)
+
+    # ── Canonical ingestion pipeline ──
+    try:
+        from core.ingestion import IngestionRecord, SourceType, InformationClass
+        from core.ingestion.service import get_ingestion_service
+
+        record = IngestionRecord(
+            idempotency_key=f"whatsapp:{msg_id}" if msg_id else "",
+            tenant_id=0,
+            source=SourceType.WEBHOOK,
+            source_identity=sender,
+            provider="whatsapp",
+            normalized_payload={
+                "message_id": msg_id,
+                "sender": sender,
+                "sender_name": sender_name,
+                "text": text,
+                "parsed": parsed,
+            },
+            information_class=InformationClass.USER_PROVIDED,
+            confidence=None,  # Unknown — user message, no measurable confidence
+        )
+        result = get_ingestion_service().process(record)
+        logger.info(
+            "WhatsApp ingestion: id=%s outcome=%s event=%s",
+            result.ingestion_id, result.outcome.value, result.canonical_event_id[:12] if result.canonical_event_id else "none",
+        )
+    except Exception as e:
+        logger.warning("Ingestion pipeline failed (non-blocking): %s", e)
+
+    # ── Downstream projection: Lead + activity log ──
     with db.session.no_autoflush:
         code = _cached_or_new_code(db.session)
 
@@ -64,7 +119,7 @@ def handle_whatsapp_incoming(payload: dict) -> tuple:
         pax=(f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
              if parsed.get("adults") or parsed.get("kids") else None),
         dates=parsed.get("dates"), notes=text, status="new",
-    )
+        )
     db.session.add(lead)
     db.session.commit()
 

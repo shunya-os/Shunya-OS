@@ -137,8 +137,8 @@ class Provenance:
     observed_timestamp: str = ""            # When the event actually occurred
     actor: str = ""                         # System actor that performed ingestion
     raw_payload_ref: str = ""               # Reference to raw payload (file path, blob key)
-    source_reliability: float = 0.5         # [0, 1] — 0.5 = unknown
-    confidence: float = 0.5                 # [0, 1] — 0.5 = unknown
+    source_reliability: Optional[float] = None  # [0, 1] — None = unknown, NEVER fabricated
+    confidence: Optional[float] = None          # [0, 1] — None = unknown, NEVER fabricated
     transformation_history: list[str] = field(default_factory=list)
 
 
@@ -200,7 +200,7 @@ class IngestionRecord:
     # Classification
     information_class: InformationClass = InformationClass.MODEL_INFERENCE
     content_class: ContentClass = ContentClass.UNKNOWN
-    confidence: float = 0.5
+    confidence: Optional[float] = None       # None = unknown, NEVER fabricated
 
     # Outcome
     outcome: ProcessingOutcome = ProcessingOutcome.PENDING

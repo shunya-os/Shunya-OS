@@ -1,6 +1,18 @@
 """
 Shunya — Auth/RBAC Layer (Phase 2)
 
+GATE 2.2 BOUNDARY: TeamMember is AUTHENTICATION METADATA ONLY.
+It is NOT a business identity authority.
+
+TeamMember has a `person_id` foreign key to the canonical Person table.
+All business identity resolution goes through the canonical identity path
+(kernel/identity.py + production/identity_repository.py + persons table).
+
+TeamMember is a login account with password hash, role, and session state.
+It does not create independent identity data.
+It does not resolve business identity.
+It does not serve as a second person/identity truth.
+
 Team accounts with role-based access control.
 Roles: Admin, Manager, Agent.
 Every request passes through permission check before accessing any resource.

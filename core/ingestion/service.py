@@ -202,8 +202,8 @@ class IngestionService:
                 source_identity=record.source_identity,
                 provider=record.provider,
                 acquisition_timestamp=datetime.now(timezone.utc).isoformat(),
-                confidence=record.confidence,
-                source_reliability=record.confidence,
+                confidence=record.confidence,         # None = unknown, NEVER fabricated
+                source_reliability=record.confidence,  # None = unknown, NEVER fabricated
             )
         return record
 
@@ -216,7 +216,7 @@ class IngestionService:
             from core.evidence.models import EvidenceDirection, EvidenceType
 
             engine = EvidenceEngine()
-            # Map InformationClass to source_reliability
+            # Map InformationClass to class-level reliability (architectural constant)
             reliability_map = {
                 InformationClass.TRUSTED_COMPANY: 1.0,
                 InformationClass.CONNECTED_SYSTEM: 0.95,
@@ -224,7 +224,18 @@ class IngestionService:
                 InformationClass.VERIFIED_EXTERNAL: 0.6,
                 InformationClass.MODEL_INFERENCE: 0.3,
             }
-            reliability = reliability_map.get(record.information_class, 0.5)
+            class_reliability = reliability_map.get(record.information_class, 0.5)
+
+            # Build metadata — preserve the distinction between unknown and explicit 0.5
+            evidence_metadata = {
+                "ingestion_id": record.ingestion_id,
+                "source_type": record.source.value,
+                "provider": record.provider,
+                "information_class": record.information_class.value,
+                "tenant_id": record.tenant_id,
+                "confidence_unknown": record.confidence is None,
+                "source_confidence": record.confidence,  # None = unknown
+            }
 
             evidence = engine.create_evidence(
                 object_id=record.resolved_person_id or record.ingestion_id,
@@ -232,14 +243,8 @@ class IngestionService:
                 statement=json.dumps(record.normalized_payload, default=str)[:500],
                 source=record.source.value,
                 direction=EvidenceDirection.SUPPORTING,
-                source_reliability=reliability,
-                metadata={
-                    "ingestion_id": record.ingestion_id,
-                    "source_type": record.source.value,
-                    "provider": record.provider,
-                    "information_class": record.information_class.value,
-                    "tenant_id": record.tenant_id,
-                },
+                source_reliability=class_reliability,
+                metadata=evidence_metadata,
             )
             record.add_transformation("evidence", f"evidence_id={evidence.evidence_id}")
         except Exception as e:
@@ -268,8 +273,10 @@ class IngestionService:
                     "information_class": record.information_class.value,
                     "outcome": record.outcome.value,
                     "person_id": record.resolved_person_id,
+                    "confidence_unknown": record.confidence is None,
+                    "confidence": record.confidence,  # None = unknown, stays null in JSON
                 },
-                confidence=record.confidence,
+                confidence=record.confidence if record.confidence is not None else 0.0,
             )
             event_id = get_event_bus().publish(event)
             record.canonical_event_id = event_id
