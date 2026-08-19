@@ -156,6 +156,25 @@ export interface ObjectRelationship {
 
 // ── Workspace State ──
 
+// ── Awareness ── What matters now
+
+export interface AwarenessSignal {
+  signal_id: string;
+  signal_type: 'change' | 'attention' | 'risk' | 'commitment' | 'opportunity' | 'information' | 'pattern' | 'conflict' | 'overdue' | 'blocked' | 'external';
+  title: string;
+  description: string;
+  reason: string;
+  priority: 'critical' | 'high' | 'normal' | 'low';
+  relevance_score: number;
+  source_event_id: string;
+  suggested_action: string;
+  evidence: Array<{ source: string; event_id: string; timestamp: string; detail: string }>;
+  affected_object_id?: string;
+  affected_object_type?: string;
+  status: 'active' | 'acknowledged' | 'dismissed' | 'snoozed' | 'expired' | 'resolved';
+  created_at: string;
+}
+
 export interface LivingWorkspaceState {
   // Reality
   realityEvents: RealityEvent[];
@@ -163,6 +182,12 @@ export interface LivingWorkspaceState {
   realityError: string | null;
   realityPollTime: string;
 
+  // Awareness — what matters now
+  awarenessSignals: AwarenessSignal[];
+  awarenessCount: number;
+  awarenessCalm: boolean;
+
+  // Understanding
   // Understanding
   observations: AIObservation[];
   activeReasoning: AIReasoning | null;

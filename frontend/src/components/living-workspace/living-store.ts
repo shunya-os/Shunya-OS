@@ -23,6 +23,7 @@ import type {
   AIRecommendation,
   Execution,
   LivingObject,
+  AwarenessSignal,
 } from './types';
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -84,6 +85,12 @@ interface LivingStore extends LivingWorkspaceState {
   dismissObservation: (id: string) => void;
   startPolling: () => () => void;
 
+  // Awareness
+  acknowledgeSignal: (id: string) => void;
+  dismissSignal: (id: string) => void;
+  snoozeSignal: (id: string) => void;
+  addAwarenessSignal: (signal: AwarenessSignal) => void;
+
   // ── LX-04 Adaptation ──
   interactionHistory: InteractionRecord[];
   founderPreferences: FounderPreference;
@@ -115,6 +122,11 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
   livingObjects: [],
   expandedObjectId: null,
   objectsLoading: false,
+
+  // ── Awareness ──
+  awarenessSignals: [],
+  awarenessCount: 0,
+  awarenessCalm: true,
 
   founderName: 'Founder',
   lastUpdated: timestamp(),
@@ -449,6 +461,39 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
   dismissObservation: (id) =>
     set((s) => ({ observations: s.observations.filter((o) => o.id !== id) })),
 
+  // ── Awareness Actions ──
+  acknowledgeSignal: (id) =>
+    set((s) => ({
+      awarenessSignals: s.awarenessSignals.map((sig) =>
+        sig.signal_id === id ? { ...sig, status: 'acknowledged' as const } : sig
+      ),
+      awarenessCount: Math.max(0, s.awarenessCount - 1),
+      awarenessCalm: s.awarenessCount <= 1,
+    })),
+  dismissSignal: (id) =>
+    set((s) => ({
+      awarenessSignals: s.awarenessSignals.filter((sig) => sig.signal_id !== id),
+      awarenessCount: Math.max(0, s.awarenessCount - 1),
+      awarenessCalm: s.awarenessCount <= 1,
+    })),
+  snoozeSignal: (id) =>
+    set((s) => ({
+      awarenessSignals: s.awarenessSignals.filter((sig) => sig.signal_id !== id),
+      awarenessCount: Math.max(0, s.awarenessCount - 1),
+      awarenessCalm: s.awarenessCount <= 1,
+    })),
+  addAwarenessSignal: (signal) =>
+    set((s) => {
+      // Dedup: avoid adding the same signal twice
+      if (s.awarenessSignals.some((sig) => sig.signal_id === signal.signal_id)) return s;
+      const updated = [signal, ...s.awarenessSignals].slice(0, 20);
+      return {
+        awarenessSignals: updated,
+        awarenessCount: updated.filter((sig) => sig.status === 'active').length,
+        awarenessCalm: false,
+      };
+    }),
+
   // ── Reality via SSE Runtime ──
   startPolling: () => {
     // Initial fetch (the SSE stream will keep it updated)
@@ -551,6 +596,28 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
             });
           }
         }
+      }
+
+      // ── Awareness: detect awareness:* events ──
+      if (evtType.startsWith('awareness:')) {
+        const payload = data.payload || {};
+        const signal: AwarenessSignal = {
+          signal_id: payload.signal_id || data.event_id,
+          signal_type: (payload.signal_type || 'attention') as any,
+          title: payload.title || evt.title,
+          description: payload.description || evt.description,
+          reason: payload.reason || '',
+          priority: (payload.priority || 'normal') as any,
+          relevance_score: payload.relevance || 0.5,
+          source_event_id: payload.source_event_id || '',
+          suggested_action: payload.suggested_action || '',
+          evidence: payload.evidence || [],
+          affected_object_id: data.object_id,
+          affected_object_type: data.object_type,
+          status: (payload.status || 'active') as any,
+          created_at: payload.created_at || data.timestamp || new Date().toISOString(),
+        };
+        get().addAwarenessSignal(signal);
       }
 
       // Prepend to reality events

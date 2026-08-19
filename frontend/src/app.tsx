@@ -4,6 +4,7 @@ import { WorkspaceContainer } from './components/workspace/workspace-container';
 import { ThreeZoneShell } from './components/workspace/three-zone-shell';
 import { AIResidentPanel } from './components/ui/ai-resident-panel';
 import { useRealityPresence } from './hooks/use-reality-presence';
+import { AwarenessPanel } from './components/living-workspace/awareness-panel';
 import { LoginPage } from './components/auth/login-page';
 import { ForgotPassword } from './components/auth/forgot-password';
 import { ResetPassword } from './components/auth/reset-password';
@@ -392,6 +393,7 @@ function AuthenticatedWorkspace() {
     <TokenProvider>
       <ThreeZoneShell
         centerPanel={<WorkspaceContainer />}
+        leftPanel={<AwarenessPanel />}
         rightPanel={
           <AIResidentPanel
             initialMode={presence.mode}
