@@ -176,7 +176,7 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
         import json
         event = CanonicalEvent(
             event_type='object_created',
-            tenant_id=0,  # Will be set by caller context
+            tenant_id=0,  # Set by caller; 0 = unknown tenant
             workspace_id=None,
             actor_id=identity_id,
             actor_type='identity',
