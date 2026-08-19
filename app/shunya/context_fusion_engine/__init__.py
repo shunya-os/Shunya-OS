@@ -1,9 +1,15 @@
-"""SHUNYA — Context Fusion Engine (Phase M — ES-009).
+"""
+SHUNYA — Context Fusion Engine
 
-Assembles bounded workspace context from identity, knowledge, and request
-providers. Deterministic, budget-enforced, and fingerprinted.
+GATE 2.1 CONSOLIDATION: QUARANTINED — This module re-exports from
+app/shunya/context/ which is itself a legacy duplicate of the canonical
+context assembly at core/intelligence/context_assembly/.
 
-Architectural authority: ES-009
+The canonical persistent memory store is app/memory/ (MemoryService, FDA3).
+The canonical runtime context assembly is core/intelligence/context_assembly/.
+
+Kept for backward compatibility only. New code should use
+core/intelligence/context_assembly/ for runtime context needs.
 """
 
 # Re-export canonical types from existing implementation

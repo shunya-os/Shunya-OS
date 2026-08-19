@@ -1,9 +1,15 @@
-"""SHUNYA — Context Fusion Engine (Phase E).
+"""
+SHUNYA — Context Engine (Phase E).
 
-Facade providing context assembly orchestration with infrastructure
-integration for Event Bus, Metrics, Logging, and Health.
+GATE 2.1 CONSOLIDATION: QUARANTINED — This is a legacy context assembly
+module that overlaps with the canonical runtime context assembly at
+core/intelligence/context_assembly/.
 
-Architectural authority: ES-009
+The canonical persistent memory store is app/memory/ (MemoryService, FDA3).
+The canonical runtime context assembly is core/intelligence/context_assembly/.
+
+Kept for backward compatibility only. New code should use
+core/intelligence/context_assembly/ for runtime context needs.
 """
 
 from __future__ import annotations

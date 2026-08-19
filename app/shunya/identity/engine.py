@@ -1,9 +1,17 @@
 """SHUNYA — Identity Engine (Phase D).
 
-Facade providing identity resolution, registration, lifecycle management,
-and event integration. Persists via Knowledge Store.
+GATE 2.1 CONSOLIDATION: QUARANTINED — This is a duplicate of the canonical
+kernel Identity contract (app/kernel/identity.py) and the production
+IdentityRepository (app/production/identity_repository.py).
 
-Architectural authority: ES-010
+This module persists via Knowledge Store, which is a non-canonical path.
+The canonical persistence path is via IdentityRepository using the
+shunya_identities + persons database tables.
+
+Kept for backward compatibility only. Will be removed when all consumers
+have migrated to the kernel Identity contract.
+
+Architectural authority: ES-010 (superseded by Gate 2.1 canonical rule)
 """
 
 from __future__ import annotations

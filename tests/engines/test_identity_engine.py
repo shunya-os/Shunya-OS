@@ -10,7 +10,7 @@ from app.shunya.identity.models import (
 from app.shunya.identity.engine import IdentityEngine, get_identity_engine, reset_identity_engine
 from app.shunya.identity.resolver import IdentityResolver
 from app.shunya.identity.lifecycle import LifecycleEngine, InvalidTransitionError
-from app.shunya.identity.normalizer import (
+from core.identity.normalizers import (
     normalize_email, normalize_phone, normalize_name, normalize_for_type, identity_type_strength,
 )
 from app.shunya.knowledge_store.store import KnowledgeStore

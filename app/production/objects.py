@@ -122,6 +122,7 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
     """Create a typed business object without Flask route decorators.
     
     Used by both the API endpoint and the Outcome Engine (Z-07 Article III).
+    Emits a canonical event through the EventBus for real-time awareness.
     """
     # Case-insensitive type lookup
     type_lower = object_type.lower()
@@ -168,6 +169,30 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
     )
     db.session.add(obj)
     db.session.commit()
+
+    # Emit canonical event through EventBus for real-time awareness
+    try:
+        from app.shunya.infrastructure.event_bus import CanonicalEvent, get_event_bus
+        import json
+        event = CanonicalEvent(
+            event_type='object_created',
+            tenant_id=0,  # Will be set by caller context
+            workspace_id=None,
+            actor_id=identity_id,
+            actor_type='identity',
+            actor_name='',
+            object_id=obj_id,
+            object_type=type_config['display_name'],
+            payload={
+                'name': name,
+                'object_type': type_lower,
+                'source': 'api_create',
+            },
+            confidence=1.0,
+        )
+        get_event_bus().publish(event)
+    except Exception:
+        pass  # Event emission is advisory — never break object creation
 
     return {
         "success": True,

@@ -1,9 +1,10 @@
 """SHUNYA — Identity resolver (Phase D).
 
-Identity lookup, registration, merge, duplicate detection, and alias handling.
-Persists via Knowledge Store.
+GATE 2.1 CONSOLIDATION: QUARANTINED — Duplicate of canonical
+kernel Identity contract. Persists via Knowledge Store (non-canonical).
+Kept for backward compatibility only.
 
-Architectural authority: ES-010, SHUNYA_CORE_MODELS.md §3
+Architectural authority: ES-010 (superseded by Gate 2.1)
 """
 
 from __future__ import annotations

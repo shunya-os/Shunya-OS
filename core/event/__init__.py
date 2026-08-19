@@ -1,15 +1,13 @@
 """
 SHUNYA — Event Engine
 
-The Event Engine is the canonical event bus for the SHUNYA runtime. It
-provides asynchronous event emission, typed subscriptions, at-least-once
-delivery semantics, and event replay capabilities.
+GATE 2.1 CONSOLIDATION: QUARANTINED — This in-memory EventEngine is NOT
+the canonical event bus. It is used only by tests.
 
-Public API:
-    - EventEngine       — In-memory event bus with subscriptions and replay
-    - SystemEvent       — Immutable dataclass for system events
-    - EventType         — Canonical event type enumeration
-    - EventPriority     — Priority level enumeration
+The canonical event bus is app/shunya/infrastructure/event_bus.py
+(CanonicalEvent, EventBus with Redis relay, idempotency, DLQ).
+
+Kept as a test-only utility. Do not use in production code.
 """
 
 from __future__ import annotations

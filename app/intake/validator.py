@@ -3,7 +3,7 @@ Validation — row-level and field-level validation for intake candidates.
 """
 import re
 from typing import Optional
-from app.shunya.identity import normalize_email, normalize_phone
+from core.identity.normalizers import normalize_email, normalize_phone
 
 
 class ValidationMessage:

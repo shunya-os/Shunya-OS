@@ -56,6 +56,44 @@ _CHAIN_DECAY: float = 0.9
 """Multiplier per chain hop for chain-depth penalty."""
 
 
+# ── Company-First Trust Hierarchy (Gate 2.1) ──────────────────────────────────
+
+
+class SourceReliability:
+    """Canonical source reliability values per the company-first trust hierarchy.
+
+    Higher values indicate more trustworthy information sources.
+    External or AI-derived information must never silently overwrite
+    trusted company data.
+
+    Hierarchy (highest to lowest):
+        1. TRUSTED_COMPANY — Canonical company records (DB, CRM, ERP)
+        2. CONNECTED_SYSTEM — Connected company systems (Gmail, Calendar, Drive)
+        3. USER_PROVIDED — Information provided by the user directly
+        4. VERIFIED_EXTERNAL — Verified external information (web research)
+        5. MODEL_INFERENCE — Model knowledge or AI inference (lowest trust)
+    """
+    TRUSTED_COMPANY = 1.0      # Trusted company data
+    CONNECTED_SYSTEM = 0.95    # Connected company systems
+    USER_PROVIDED = 0.8        # User-provided information
+    VERIFIED_EXTERNAL = 0.6    # Verified external information
+    MODEL_INFERENCE = 0.3      # Model knowledge/inference
+
+
+class InformationType:
+    """Semantic type of information for distinguishing origin.
+
+    Every piece of evidence must be classified as one of these.
+    External or model-derived information must not silently overwrite
+    trusted company data of a different type.
+    """
+    FACT = "fact"                  # Verified company truth
+    INFERENCE = "inference"        # Derived from existing data
+    RECOMMENDATION = "recommendation"  # Suggested action
+    DRAFT = "draft"                # Unverified, in-progress
+    ACTION = "action"              # Committed action/decision
+
+
 # ── EvidenceEngine ────────────────────────────────────────────────────────────
 
 

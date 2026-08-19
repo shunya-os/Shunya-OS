@@ -1,8 +1,9 @@
 """SHUNYA — Identity lifecycle (Phase D).
 
-Lifecycle state machine per ES-010 §6 and SHUNYA_CORE_MODELS.md §3.
+GATE 2.1 CONSOLIDATION: QUARANTINED — Duplicate of canonical
+kernel Identity contract. Kept for backward compatibility only.
 
-Architectural authority: ES-010
+Architectural authority: ES-010 (superseded by Gate 2.1)
 """
 
 from __future__ import annotations
