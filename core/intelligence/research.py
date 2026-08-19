@@ -211,7 +211,7 @@ class UniversalResearchOrchestrator:
 
     @staticmethod
     def _needs_freshness(question_type: str) -> bool:
-        return question_type in ("research", "calculate")
+        return question_type in ("research",)
 
     # ── Research Plan ─────────────────────────────────────────────────
 

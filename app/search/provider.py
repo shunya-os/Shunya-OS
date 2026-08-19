@@ -20,13 +20,12 @@ class SearchProvider(ABC):
 
 
 class DuckDuckGoProvider(SearchProvider):
-    """Free, no API key required. Region-limited from some servers."""
-
+    """Free, no API key required. Uses ddgs package for rich search results."""
     name = "duckduckgo"
 
     def search(self, query: str, max_results: int = 5) -> list[dict]:
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
             with DDGS() as ddgs:
                 results = list(ddgs.text(query, max_results=max_results))
             return [
@@ -34,8 +33,17 @@ class DuckDuckGoProvider(SearchProvider):
                 for r in results if r.get("body")
             ]
         except ImportError:
-            logger.warning("duckduckgo_search not installed")
-            return []
+            try:
+                from duckduckgo_search import DDGS
+                with DDGS() as ddgs:
+                    results = list(ddgs.text(query, max_results=max_results))
+                return [
+                    {"title": r.get("title", ""), "body": r.get("body", ""), "url": r.get("href", "")}
+                    for r in results if r.get("body")
+                ]
+            except ImportError:
+                logger.warning("DuckDuckGo search not installed")
+                return []
         except Exception as e:
             logger.warning(f"DuckDuckGo search failed: {e}")
             return []

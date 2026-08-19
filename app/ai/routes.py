@@ -18,6 +18,69 @@ logger = logging.getLogger(__name__)
 ai_bp = Blueprint('ai', __name__, url_prefix='/api/v1/ai')
 
 
+@ai_bp.route('/research', methods=['POST'])
+def research():
+    """Universal research endpoint — uses the canonical research orchestrator.
+    
+    POST /api/v1/ai/research
+    {
+        "question": "...",
+        "freshness_seconds": 3600,
+        "capability": "research"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    question = data.get('question', '')
+    if not question:
+        return jsonify({'error': 'question is required'}), 400
+    
+    from flask import session
+    tenant_id = session.get('tenant_id', 0)
+    actor_id = session.get('identity_id', '')
+    
+    from core.intelligence.research import get_research_orchestrator
+    orch = get_research_orchestrator()
+    response = orch.research(
+        question=question,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        freshness_seconds=data.get('freshness_seconds'),
+        capability=data.get('capability'),
+    )
+    
+    return jsonify({
+        'request_id': response.request_id,
+        'answer': response.answer,
+        'summary': response.summary,
+        'claims': [
+            {
+                'statement': c.statement,
+                'status': c.status.value,
+                'confidence': c.confidence,
+                'detail': c.detail,
+            }
+            for c in response.claims
+        ],
+        'context_used': [
+            {'source': s.source, 'type': s.type, 'detail': s.detail}
+            for s in response.context_used
+        ],
+        'external_sources': [
+            {'source': s.source, 'url': s.url, 'detail': s.detail}
+            for s in response.external_sources_used
+        ],
+        'deterministic': response.deterministic_result is not None,
+        'model_used': response.model_used,
+        'provider_used': response.provider_used,
+        'freshness_verified': response.freshness_verified,
+        'freshness_ok': response.freshness_ok,
+        'freshness_note': response.freshness_note,
+        'degraded': response.degraded,
+        'error': response.error,
+        'duration_ms': response.duration_ms,
+    })
+
+
 @ai_bp.route('/chat', methods=['POST'])
 def chat():
     """Send a chat completion request. Auto-fallsback through provider chain on failure."""
