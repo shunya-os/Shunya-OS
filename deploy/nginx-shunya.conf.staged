@@ -1,0 +1,89 @@
+# =========================
+# HTTP → HTTPS REDIRECT + ACME
+# =========================
+server {
+    listen 80;
+    server_name shunyaos.com www.shunyaos.com app.shunyaos.com;
+
+    # ACME challenge (REQUIRED for cert renewals)
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    # Redirect everything else to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# =========================
+# HTTPS MAIN SERVER
+# =========================
+server {
+    listen 443 ssl http2;
+    server_name shunyaos.com www.shunyaos.com app.shunyaos.com;
+
+    client_max_body_size 100M;
+
+    # SSL (Certbot managed paths — DO NOT CHANGE)
+    ssl_certificate /etc/letsencrypt/live/shunyaos.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/shunyaos.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # =========================
+    # SECURITY HEADERS
+    # =========================
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # =========================
+    # TIMEOUTS (prevent 504)
+    # =========================
+    proxy_connect_timeout 5s;
+    proxy_send_timeout 60s;
+    proxy_read_timeout 60s;
+
+    # =========================
+    # SSE: Disable buffering for /api/v1/reality/stream
+    # Required for Server-Sent Events to stream through nginx
+    # =========================
+    location /api/v1/reality/stream {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_redirect off;
+    }
+
+    # =========================
+    # APP ROUTING
+    # =========================
+    location / {
+        proxy_pass http://127.0.0.1:5001;
+        proxy_buffering on;
+        proxy_buffers 16 16k;
+        proxy_buffer_size 32k;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP $remote_addr;
+
+        proxy_redirect off;
+    }
+}

@@ -14,35 +14,11 @@
  * typography, SHUNYA presence, calmness, identity.
  */
 
-import { useState } from 'react';
-import { PricingSection } from './pricing';
-
 interface Props {
   onEnterApp: () => void;
 }
 
 export function HomePage({ onEnterApp }: Props) {
-  const [showPricing, setShowPricing] = useState(false);
-
-  if (showPricing) {
-    return (
-      <div className="sh-public">
-        <div className="sh-public-inner">
-          <div className="sh-public-header">
-            <button className="sh-public-back" onClick={() => setShowPricing(false)}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="8" x2="4" y2="8" />
-                <polyline points="8 4 4 8 8 12" />
-              </svg>
-              Back
-            </button>
-          </div>
-          <PricingSection />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="sh-public">
       {/* Hero Artwork Layer (placeholder — match design bible spec) */}
@@ -73,12 +49,6 @@ export function HomePage({ onEnterApp }: Props) {
         <div className="sh-public-actions">
           <button className="sh-public-btn sh-public-btn-primary" onClick={onEnterApp}>
             Get Started
-          </button>
-          <button
-            className="sh-public-btn sh-public-btn-secondary"
-            onClick={() => setShowPricing(true)}
-          >
-            View Pricing
           </button>
         </div>
       </div>

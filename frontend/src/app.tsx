@@ -343,8 +343,7 @@ function AppShell() {
             setPhase('onboarding');
           }
         }} onSignUp={() => {
-          window.history.replaceState({}, '', '/auth/signup');
-          setPhase('login');
+          window.location.href = '/auth/signup';
         }} />
       </TokenProvider>
     );
