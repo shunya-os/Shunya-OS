@@ -46,6 +46,10 @@ export function subscribeSSE(type: SSEType): SSESubscription {
         const data = JSON.parse(event.data);
 
         if (type === 'reality') {
+          // Emit the raw canonical event as an individual reality:event
+          bus.emit({ type: 'reality:event', data });
+
+          // Also emit snapshot for backward compatibility
           bus.emit({ type: 'reality:snapshot', data });
         } else {
           // events stream: { created: [...], updated: [...] }
@@ -71,7 +75,11 @@ export function subscribeSSE(type: SSEType): SSESubscription {
           RECONNECT_MAX_MS,
         );
         attempt++;
-        reconnectTimer = setTimeout(connect, delay);
+        bus.emit({ type: 'reality:disconnected' });
+        reconnectTimer = setTimeout(() => {
+          bus.emit({ type: 'reality:reconnected' });
+          connect();
+        }, delay);
       }
     };
   }

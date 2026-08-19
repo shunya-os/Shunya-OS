@@ -455,7 +455,7 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
     get().fetchReality();
 
     // Subscribe to reality:snapshot events from the SSE Runtime
-    const unsub = bus.on('reality:snapshot', (e) => {
+    const unsubSnapshot = bus.on('reality:snapshot', (e) => {
       if (e.type !== 'reality:snapshot') return;
       const data = e.data as Record<string, any>;
 
@@ -494,8 +494,76 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
       }
     });
 
+    // Subscribe to individual canonical events from the SSE stream
+    const unsubEvent = bus.on('reality:event', (e) => {
+      if (e.type !== 'reality:event') return;
+      const data = e.data as Record<string, any>;
+      if (!data || !data.event_type) return;
+
+      // Map canonical event to RealityEvent
+      const evt: RealityEvent = {
+        id: data.event_id || `re-${Date.now()}`,
+        type: (data.event_type || 'system_event') as any,
+        title: data.event_type?.replace(/\./g, ' ') || 'System Event',
+        description: data.payload?.message || data.event_type || '',
+        object_type: data.object?.type || data.object_type,
+        object_id: data.object?.id || data.object_id,
+        object_name: data.object?.name || data.object_name,
+        timestamp: data.timestamp || new Date().toISOString(),
+        actor: data.actor?.name || data.actor || '',
+        importance: data.confidence != null && data.confidence < 0.5 ? 'high' as const
+          : 'normal' as const,
+      };
+
+      // Update execution state from event type
+      const evtType = data.event_type || '';
+      if (evtType.includes('execution_') || evtType.includes('processing')) {
+        // Update active executions
+        const existing = get().activeExecutions;
+        const isCompletion = evtType.includes('completed') || evtType.includes('success');
+        const isFailure = evtType.includes('failed') || evtType.includes('error');
+        const isStart = evtType.includes('started') || evtType.includes('begun') || evtType.includes('processing');
+
+        if (isStart) {
+          const exec = {
+            id: data.event_id || `exec-${Date.now()}`,
+            label: evt.title,
+            description: evt.description,
+            status: 'in_progress' as const,
+            progress: 0.3,
+            started_at: data.timestamp || new Date().toISOString(),
+          };
+          set({ activeExecutions: [...existing, exec] });
+        } else if (isCompletion || isFailure) {
+          const outcome = existing.find(e => e.label === evt.title);
+          if (outcome) {
+            const completed = {
+              ...outcome,
+              status: isCompletion ? 'completed' as const : 'failed' as const,
+              progress: isCompletion ? 1.0 : 0.0,
+              completed_at: new Date().toISOString(),
+              outcome: data.payload?.message || (isCompletion ? 'Completed' : 'Failed'),
+              error: isFailure ? (data.payload?.error || 'Execution failed') : undefined,
+            };
+            set({
+              activeExecutions: existing.filter(e => e.id !== outcome.id),
+              executionHistory: [completed, ...get().executionHistory].slice(0, 50),
+            });
+          }
+        }
+      }
+
+      // Prepend to reality events
+      set((s) => ({
+        realityEvents: [evt, ...s.realityEvents].slice(0, 50),
+        realityLoading: false,
+        realityError: null,
+      }));
+    });
+
     return () => {
-      unsub();
+      unsubSnapshot();
+      unsubEvent();
     };
   },
 

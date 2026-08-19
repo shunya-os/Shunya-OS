@@ -17,7 +17,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { bus, type RuntimeEvent } from '../runtimes/event-bus';
 import { subscribeSSE } from '../runtimes/sse-runtime';
 
-export type PresenceMode = 'ambient' | 'attentive' | 'suggestive' | 'conversational';
+export type PresenceMode = 'idle' | 'active' | 'attention' | 'processing' | 'success' | 'error' | 'recovery' | 'ambient' | 'attentive' | 'suggestive' | 'conversational';
 
 export interface RealityContext {
   objectType?: string;
@@ -28,8 +28,8 @@ export interface RealityContext {
   summary?: string;
 }
 
-const ATTENTIVE_TIMEOUT_MS = 30_000;  // 30s after last event, return to ambient
-const SUGGESTIVE_TIMEOUT_MS = 60_000; // 60s after last suggestion, return to ambient
+const ATTENTIVE_TIMEOUT_MS = 30_000;  // 30s after last event → ambient
+const IDLE_TIMEOUT_MS = 120_000;      // 120s after last event → idle (calm)
 
 interface RealityPresenceState {
   mode: PresenceMode;
@@ -61,7 +61,7 @@ export function useRealityPresence(): RealityPresenceState & {
   const returnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sseRef = useRef<{ close: () => void } | null>(null);
 
-  // Schedule a return to ambient after inactivity
+  // Schedule a return to ambient after inactivity, then idle after longer inactivity
   const scheduleReturnToAmbient = useCallback((timeoutMs: number) => {
     if (returnTimerRef.current) {
       clearTimeout(returnTimerRef.current);
@@ -69,9 +69,16 @@ export function useRealityPresence(): RealityPresenceState & {
     returnTimerRef.current = setTimeout(() => {
       setState(prev => {
         // Only downgrade if we haven't received a new event
-        if (prev.mode === 'ambient') return prev;
+        if (prev.mode === 'ambient' || prev.mode === 'idle') return prev;
         return { ...prev, mode: 'ambient', context: null };
       });
+      // After another idle period, go to idle/calm
+      setTimeout(() => {
+        setState(prev => {
+          if (prev.mode !== 'ambient') return prev;
+          return { ...prev, mode: 'idle', context: null };
+        });
+      }, IDLE_TIMEOUT_MS);
     }, timeoutMs);
   }, []);
 
@@ -83,6 +90,51 @@ export function useRealityPresence(): RealityPresenceState & {
 
     // Mark as connected
     setState(prev => ({ ...prev, connected: true }));
+
+    // Subscribe to individual canonical events (Gate 1.5: visual presence states)
+    const unsubEvent = bus.on('reality:event', (event) => {
+      if (event.type !== 'reality:event') return;
+      const data = event.data as Record<string, unknown>;
+      if (!data || !data.event_type) return;
+
+      const evtType = String(data.event_type || '');
+
+      // Derive presence mode from canonical event type
+      let mode: PresenceMode = 'active';
+      const context: RealityContext = {
+        eventType: evtType,
+        objectType: String((data as any).object?.type || data.object_type || ''),
+        objectName: String((data as any).object?.name || data.object_name || ''),
+        objectId: String((data as any).object?.id || data.object_id || ''),
+        timestamp: String(data.timestamp || new Date().toISOString()),
+        summary: String((data as any).payload?.message || evtType || 'System event'),
+      };
+
+      if (evtType.includes('execution_started') || evtType.includes('processing')) {
+        mode = 'processing';
+      } else if (evtType.includes('execution_completed') || evtType.includes('success')) {
+        mode = 'success';
+      } else if (evtType.includes('execution_failed') || evtType.includes('error')) {
+        mode = 'error';
+      } else if (evtType.includes('recovery') || evtType.includes('recovered')) {
+        mode = 'recovery';
+      } else if (evtType.includes('created') || evtType.includes('updated')) {
+        mode = 'attention';
+      } else if (evtType.includes('milestone') || evtType.includes('observation')) {
+        mode = 'attention';
+      }
+
+      setState(prev => ({
+        ...prev,
+        mode,
+        context,
+        lastEvent: event,
+        lastEventTime: Date.now(),
+        eventCount: prev.eventCount + 1,
+      }));
+
+      scheduleReturnToAmbient(ATTENTIVE_TIMEOUT_MS);
+    });
 
     // Subscribe to real-time events from the events stream
     const unsubCreated = bus.on('realtime:created', (event) => {
@@ -162,20 +214,50 @@ export function useRealityPresence(): RealityPresenceState & {
         eventCount: prev.eventCount + 1,
       }));
 
-      scheduleReturnToAmbient(SUGGESTIVE_TIMEOUT_MS);
+      scheduleReturnToAmbient(ATTENTIVE_TIMEOUT_MS);
     });
 
     // Listen for system/reality snapshot events
-    const unsubSnapshot = bus.on('reality:snapshot', () => {
-      // Reality snapshot received — keep connection alive
+        const unsubSnapshot = bus.on('reality:snapshot', () => {
+          // Reality snapshot received — keep connection alive
+          setState(prev => ({ ...prev, connected: true }));
+        });
+
+        // Listen for reality errors
+        const unsubError = bus.on('reality:error', (event) => {
+          if (event.type !== 'reality:error') return;
+          setState(prev => ({
+            ...prev,
+            mode: 'error',
+            context: {
+              eventType: 'error',
+              summary: event.message || 'Connection error',
+              timestamp: new Date().toISOString(),
+            },
+            lastEvent: event,
+            lastEventTime: Date.now(),
+            eventCount: prev.eventCount + 1,
+          }));
+          scheduleReturnToAmbient(ATTENTIVE_TIMEOUT_MS);
+        });
+
+        // Listen for disconnect/reconnect
+    const unsubDisconnected = bus.on('reality:disconnected', () => {
+      setState(prev => ({ ...prev, connected: false }));
+    });
+    const unsubReconnected = bus.on('reality:reconnected', () => {
       setState(prev => ({ ...prev, connected: true }));
     });
 
     return () => {
+      unsubEvent();
       unsubCreated();
       unsubUpdated();
       unsubInsight();
       unsubSnapshot();
+      unsubError();
+      unsubDisconnected();
+      unsubReconnected();
       realitySSE.close();
       if (returnTimerRef.current) clearTimeout(returnTimerRef.current);
     };

@@ -49,7 +49,12 @@ export type RuntimeEvent =
   | { type: 'realtime:updated'; items: Array<Record<string, unknown>> }
   | { type: 'notification'; kind: 'success' | 'error' | 'info'; message: string }
   // ── SSE Runtime Events (Continuous Reality transport) ──
-  | { type: 'reality:snapshot'; data: Record<string, unknown> };
+  | { type: 'reality:snapshot'; data: Record<string, unknown> }
+  // ── Individual canonical events from the SSE stream ──
+  | { type: 'reality:event'; data: Record<string, unknown> }
+  | { type: 'reality:error'; message: string }
+  | { type: 'reality:disconnected' }
+  | { type: 'reality:reconnected' };
 
 type EventHandler = (event: RuntimeEvent) => void;
 

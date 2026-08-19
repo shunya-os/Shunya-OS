@@ -14,7 +14,7 @@
 
 import { useState } from 'react';
 
-type PresenceMode = 'ambient' | 'attentive' | 'suggestive' | 'conversational';
+type PresenceMode = 'idle' | 'ambient' | 'active' | 'attention' | 'attentive' | 'processing' | 'success' | 'error' | 'recovery' | 'suggestive' | 'conversational';
 
 interface PresenceProps {
   mode?: PresenceMode;
@@ -26,8 +26,15 @@ export function ShunyaPresence({ mode = 'ambient', suggestionCount = 0, onActiva
   const [hover, setHover] = useState(false);
 
   const label = {
+    idle: 'SHUNYA is calm',
     ambient: 'SHUNYA is present',
+    active: 'SHUNYA is active',
+    attention: 'SHUNYA has your attention',
     attentive: 'SHUNYA has information',
+    processing: 'SHUNYA is processing',
+    success: 'Task completed',
+    error: 'Something needs attention',
+    recovery: 'SHUNYA is recovering',
     suggestive: `${suggestionCount} suggestion${suggestionCount !== 1 ? 's' : ''} available`,
     conversational: 'SHUNYA conversation active',
   }[mode];
@@ -67,6 +74,49 @@ export function ShunyaPresence({ mode = 'ambient', suggestionCount = 0, onActiva
 /* Ambient — quiet, no glow */
 .sh-presence--ambient .sh-presence-dot {
   box-shadow: none;
+}
+
+/* Idle — calm, smallest glow */
+.sh-presence--idle .sh-presence-dot {
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+/* Active — present, subtle */
+.sh-presence--active .sh-presence-dot {
+  box-shadow: 0 0 6px rgba(164,134,95,0.06);
+}
+
+/* Attention — gentle pulse */
+.sh-presence--attention .sh-presence-dot {
+  box-shadow: 0 0 8px var(--shunya-gold-glow, rgba(164,134,95,0.08));
+  animation: sh-presence-breathe 3s ease-in-out infinite;
+}
+
+/* Processing — subtle rhythm */
+.sh-presence--processing .sh-presence-dot {
+  box-shadow: 0 0 10px rgba(100,180,255,0.12);
+  animation: sh-presence-pulse 2s ease-in-out infinite;
+}
+
+/* Success — brief green flash, settles */
+.sh-presence--success .sh-presence-dot {
+  background: #5BA85B;
+  box-shadow: 0 0 12px rgba(91,168,91,0.2);
+  animation: sh-presence-flash 1.5s ease-out 1;
+}
+
+/* Error — amber, visible */
+.sh-presence--error .sh-presence-dot {
+  background: #D4A040;
+  box-shadow: 0 0 14px rgba(212,160,64,0.25);
+}
+
+/* Recovery — gentle amber pulse */
+.sh-presence--recovery .sh-presence-dot {
+  background: #BFAC8B;
+  box-shadow: 0 0 8px rgba(191,172,139,0.15);
+  animation: sh-presence-breathe 5s ease-in-out infinite;
 }
 
 /* Attentive — subtle gold glow */
@@ -110,6 +160,17 @@ export function ShunyaPresence({ mode = 'ambient', suggestionCount = 0, onActiva
 @keyframes sh-presence-breathe {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
+}
+
+@keyframes sh-presence-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.8; }
+}
+
+@keyframes sh-presence-flash {
+  0% { transform: scale(1); opacity: 0.6; }
+  30% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.9; }
 }
 
 @media (prefers-reduced-motion: reduce) {

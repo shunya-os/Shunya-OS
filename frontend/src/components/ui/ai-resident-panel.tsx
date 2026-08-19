@@ -15,7 +15,7 @@
 import { useState } from 'react';
 import { ShunyaPresence } from '../ui/shunya-presence';
 
-type PresenceMode = 'ambient' | 'attentive' | 'suggestive' | 'conversational';
+type PresenceMode = 'idle' | 'ambient' | 'active' | 'attention' | 'attentive' | 'processing' | 'success' | 'error' | 'recovery' | 'suggestive' | 'conversational';
 
 interface Suggestion {
   id: string;
@@ -36,9 +36,13 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
   const [expanded, setExpanded] = useState(false);
 
   const handleActivate = () => {
-    if (mode === 'ambient' && suggestions.length > 0) setMode('attentive');
-    else if (mode === 'attentive') { setMode('suggestive'); setExpanded(true); }
+    if (mode === 'idle' || mode === 'ambient') {
+      setMode(suggestions.length > 0 ? 'attentive' : 'ambient');
+    } else if (mode === 'active' || mode === 'attention') {
+      setMode(suggestions.length > 0 ? 'attentive' : 'ambient');
+    } else if (mode === 'attentive') { setMode('suggestive'); setExpanded(true); }
     else if (mode === 'suggestive') { setMode('conversational'); setExpanded(true); }
+    else { setMode('ambient'); }
   };
 
   return (
@@ -105,10 +109,10 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
         </div>
       )}
 
-      {/* Collapsed idle state (ambient, not expanded) */}
-      {!expanded && mode === 'ambient' && (
+      {/* Collapsed idle state (ambient/idle, not expanded) */}
+      {!expanded && (mode === 'ambient' || mode === 'idle') && (
         <div className="sh-ai-idle">
-          <p>I'm here when you need me.</p>
+          <p>{mode === 'idle' ? 'Everything is calm.' : 'I\'m here when you need me.'}</p>
         </div>
       )}
 
