@@ -377,7 +377,16 @@ function AppShell() {
     );
   }
 
-  // ── Authenticated Workspace ──
+  // ── Authenticated Workspace (separate component to respect React hooks rules) ──
+  if (phase === 'ready') {
+    return <AuthenticatedWorkspace />;
+  }
+
+  // Fallback — should not reach here
+  return <BootScreen message="Loading…" />;
+}
+
+function AuthenticatedWorkspace() {
   const presence = useRealityPresence();
   return (
     <TokenProvider>

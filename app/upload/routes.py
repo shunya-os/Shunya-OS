@@ -49,11 +49,12 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str):
             "compression": meta.get("compression", {}).get("compression", "none"),
             "content_type": content_type,
         })
+        doc_id = f"doc_{uuid.uuid4().hex[:12]}"
         db.session.execute(
             text("""INSERT INTO founder_objects (object_id, space_id, object_type, name, content, status, created_by, created_at)
                     VALUES (:oid, :sid, 'Document', :name, :content, 'active', :cb, NOW())"""),
             {
-                "oid": f"doc_{uuid.uuid4().hex[:12]}",
+                "oid": doc_id,
                 "sid": "onb_system",
                 "name": filename,
                 "content": content,
@@ -61,6 +62,31 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str):
             }
         )
         db.session.commit()
+
+        # ── Gate 2.2: Canonical ingestion event emission ──
+        try:
+            from app.shunya.infrastructure.event_bus import CanonicalEvent, get_event_bus
+            event = CanonicalEvent(
+                event_type="ingestion:file_upload",
+                tenant_id=0,  # Set by session context where available
+                workspace_id=None,
+                actor_id="system",
+                actor_type="upload",
+                actor_name="file_upload",
+                object_id=doc_id,
+                object_type="Document",
+                payload={
+                    "filename": filename,
+                    "content_type": content_type,
+                    "sha256": sha256,
+                    "source": "file_upload",
+                },
+                confidence=1.0,
+            )
+            get_event_bus().publish(event)
+            logger.info(f"Canonical ingestion event emitted for upload: {filename}")
+        except Exception as e:
+            logger.warning(f"Ingestion event emission failed (non-blocking): {e}")
 
         job.update(stage="Complete", step=100, result=meta)
 

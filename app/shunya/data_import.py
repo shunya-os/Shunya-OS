@@ -269,6 +269,32 @@ def import_data(
     if not errors:
         db.session.commit()
 
+    # ── Gate 2.2: Canonical ingestion event emission ──
+    if imported > 0:
+        try:
+            from app.shunya.infrastructure.event_bus import CanonicalEvent, get_event_bus
+            from core.ingestion import SourceType
+            event = CanonicalEvent(
+                event_type="ingestion:csv",
+                tenant_id=tenant_id or 0,
+                workspace_id=None,
+                actor_id=user,
+                actor_type="import",
+                actor_name="csv_import",
+                object_id="",
+                object_type="ingestion",
+                payload={
+                    "source": SourceType.CSV.value,
+                    "rows_imported": imported,
+                    "rows_errored": len(errors),
+                    "lead_ids": lead_ids[:10],
+                },
+                confidence=0.8,
+            )
+            get_event_bus().publish(event)
+        except Exception:
+            pass  # Non-blocking
+
     return {
         "imported": imported,
         "errors": errors,
