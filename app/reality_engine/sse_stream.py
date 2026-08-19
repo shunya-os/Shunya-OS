@@ -8,6 +8,7 @@ This replaces the disabled blocking-generator approach that killed gunicorn work
 """
 
 import json
+import logging
 import queue
 import threading
 import time
@@ -146,6 +147,12 @@ def get_sse_manager() -> SSEStreamManager:
     if _manager is None:
         _manager = SSEStreamManager()
         _manager.start()
+        # Also start the awareness subscriber — it subscribes to the same EventBus
+        try:
+            from core.awareness.subscriber import start_awareness_subscriber
+            start_awareness_subscriber()
+        except Exception:
+            logger.warning("Awareness subscriber could not be started", exc_info=True)
     return _manager
 
 

@@ -81,6 +81,199 @@ def research():
     })
 
 
+@ai_bp.route('/explain', methods=['POST'])
+def explain():
+    """Explain a previous intelligence result.
+    
+    POST /api/v1/ai/explain
+    {
+        "request_id": "..."
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    request_id = data.get('request_id', '')
+    if not request_id:
+        return jsonify({'error': 'request_id is required'}), 400
+    
+    from flask import session
+    tenant_id = session.get('tenant_id', 0)
+    
+    from core.intelligence.explain import ExplanationService
+    from core.intelligence import get_intelligence_service
+    service = ExplanationService()
+    
+    # For now, explain a fresh research result
+    # (In production, this would look up a stored response by request_id)
+    from core.intelligence import IntelligenceRequest, IntelligenceCapability
+    question = data.get('question', 'Explain the previous result')
+    req = IntelligenceRequest(question=question, request_id=request_id, tenant_id=tenant_id)
+    iq = get_intelligence_service()
+    response = iq.process(req)
+    
+    explanations = service.explain_response(response)
+    return jsonify({
+        'explanations': [
+            {
+                'claim': e.claim,
+                'status': e.status,
+                'conclusion': e.conclusion[:300],
+                'evidence_count': e.evidence_count,
+                'governed_evidence_count': e.governed_evidence_count,
+                'external_evidence_count': e.external_evidence_count,
+                'confidence': e.confidence,
+                'confidence_known': e.confidence_known,
+                'freshness_verified': e.freshness_verified,
+                'freshness_ok': e.freshness_ok,
+                'freshness_note': e.freshness_note,
+                'assumptions': e.assumptions,
+                'conflicts': e.conflicts,
+                'missing_information': e.missing_information,
+                'model_used': e.model_used,
+                'provider_used': e.provider_used,
+            }
+            for e in explanations
+        ],
+    })
+
+
+@ai_bp.route('/correct', methods=['POST'])
+def correct():
+    """Correct a previous intelligence conclusion.
+    
+    POST /api/v1/ai/correct
+    {
+        "request_id": "...",
+        "target_claim": "...",
+        "corrected_value": "...",
+        "reason": "..."
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    target_claim = data.get('target_claim', '')
+    corrected_value = data.get('corrected_value', '')
+    
+    if not target_claim or not corrected_value:
+        return jsonify({'error': 'target_claim and corrected_value are required'}), 400
+    
+    from flask import session
+    tenant_id = session.get('tenant_id', 0)
+    actor_id = session.get('identity_id', '')
+    
+    from core.intelligence.correction import (
+        CorrectionService, CorrectionRecord, CorrectionType,
+    )
+    service = CorrectionService()
+    
+    correction = CorrectionRecord(
+        correction_type=CorrectionType.FACTUAL,
+        target_claim=target_claim,
+        original_value=data.get('original_value', ''),
+        corrected_value=corrected_value,
+        reason=data.get('reason', ''),
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+    )
+    
+    valid, reason = service.validate_correction(correction, tenant_id)
+    if not valid:
+        return jsonify({'error': reason}), 403
+    
+    cid = service.record_correction(correction)
+    return jsonify({
+        'correction_id': cid,
+        'target_claim': target_claim,
+        'corrected_value': corrected_value,
+        'original_value': correction.original_value,
+        'tenant_id': tenant_id,
+    })
+
+
+@ai_bp.route('/preference', methods=['POST'])
+def preference():
+    """Record a user preference.
+    
+    POST /api/v1/ai/preference
+    {
+        "key": "risk_threshold",
+        "value": "high",
+        "scope": "user"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    key = data.get('key', '')
+    value = data.get('value', '')
+    
+    if not key or not value:
+        return jsonify({'error': 'key and value are required'}), 400
+    
+    from flask import session
+    tenant_id = session.get('tenant_id', 0)
+    actor_id = session.get('identity_id', '')
+    
+    from core.intelligence.correction import CorrectionService, PreferenceRecord
+    service = CorrectionService()
+    
+    pref = PreferenceRecord(
+        key=key,
+        value=value,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        scope=data.get('scope', 'tenant'),
+    )
+    
+    pid = service.record_preference(pref)
+    return jsonify({
+        'preference_id': pid,
+        'key': key,
+        'value': value,
+        'scope': pref.scope,
+        'tenant_id': tenant_id,
+    })
+
+
+@ai_bp.route('/outcome', methods=['POST'])
+def outcome():
+    """Record an observed outcome for a recommendation.
+    
+    POST /api/v1/ai/outcome
+    {
+        "recommendation_id": "...",
+        "action_taken": "accepted",
+        "result": "success",
+        "outcome_description": "..."
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    recommendation_id = data.get('recommendation_id', '')
+    if not recommendation_id:
+        return jsonify({'error': 'recommendation_id is required'}), 400
+    
+    from flask import session
+    tenant_id = session.get('tenant_id', 0)
+    actor_id = session.get('identity_id', '')
+    
+    from core.intelligence.correction import CorrectionService, OutcomeRecord
+    service = CorrectionService()
+    
+    outcome = OutcomeRecord(
+        recommendation_id=recommendation_id,
+        recommendation_summary=data.get('recommendation_summary', ''),
+        action_taken=data.get('action_taken', 'unknown'),
+        result=data.get('result', 'unknown'),
+        outcome_description=data.get('outcome_description', ''),
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+    )
+    
+    oid = service.record_outcome(outcome)
+    return jsonify({
+        'outcome_id': oid,
+        'recommendation_id': recommendation_id,
+        'action_taken': outcome.action_taken,
+        'result': outcome.result,
+    })
+
+
 @ai_bp.route('/chat', methods=['POST'])
 def chat():
     """Send a chat completion request. Auto-fallsback through provider chain on failure."""

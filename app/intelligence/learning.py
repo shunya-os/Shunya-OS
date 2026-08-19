@@ -1,5 +1,10 @@
 """Basic Learning Loop — adjusts confidence based on execution outcomes.
 
+DEPRECATED: Use core.intelligence.correction instead.
+
+This module is a compatibility layer. New code should use:
+    from core.intelligence.correction import CorrectionService, OutcomeRecord
+
 PHASE 3.3: If execution fails, reduce confidence for similar decisions.
 If success, increase confidence. Simple weight-based system.
 

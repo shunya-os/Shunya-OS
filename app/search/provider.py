@@ -3,6 +3,7 @@
 Chain: DuckDuckGo → Brave Search → SearXNG (self-hosted)
 """
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from typing import Optional
 import logging
 
@@ -29,7 +30,12 @@ class DuckDuckGoProvider(SearchProvider):
             with DDGS() as ddgs:
                 results = list(ddgs.text(query, max_results=max_results))
             return [
-                {"title": r.get("title", ""), "body": r.get("body", ""), "url": r.get("href", "")}
+                {
+                    "title": r.get("title", ""),
+                    "body": r.get("body", ""),
+                    "url": r.get("href", ""),
+                    "acquisition_timestamp": datetime.now(timezone.utc).isoformat(),
+                }
                 for r in results if r.get("body")
             ]
         except ImportError:
@@ -38,7 +44,12 @@ class DuckDuckGoProvider(SearchProvider):
                 with DDGS() as ddgs:
                     results = list(ddgs.text(query, max_results=max_results))
                 return [
-                    {"title": r.get("title", ""), "body": r.get("body", ""), "url": r.get("href", "")}
+                    {
+                        "title": r.get("title", ""),
+                        "body": r.get("body", ""),
+                        "url": r.get("href", ""),
+                        "acquisition_timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
                     for r in results if r.get("body")
                 ]
             except ImportError:
