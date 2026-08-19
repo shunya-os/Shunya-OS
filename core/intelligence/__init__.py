@@ -172,6 +172,70 @@ class IntelligenceSignal:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# Conflict Result — explicit conflict detection
+# ═══════════════════════════════════════════════════════════════════
+
+
+@dataclass
+class ConflictResult:
+    """Result of comparing two sources of information for the same claim.
+
+    SHUNYA must detect when sources disagree, preserve both provenances,
+    and determine whether the conflict can be resolved.
+    """
+    claim: str = ""
+    company_value: str = ""
+    company_source: Optional[EvidenceSource] = None
+    company_timestamp: str = ""
+    external_value: str = ""
+    external_source: Optional[EvidenceSource] = None
+    external_timestamp: str = ""
+    conflict_detected: bool = False
+    conflict_resolved: bool = False
+    resolution: str = ""
+    authoritative_source: str = ""          # "company" | "external" | "unresolved"
+    resolution_reason: str = ""
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Model Routing Policy — controlled cost governance
+# ═══════════════════════════════════════════════════════════════════
+
+
+class ModelRoute(str, Enum):
+    """Available model routing options."""
+    FREE = "free"                   # Free/local model only
+    PAID = "paid"                   # Paid model allowed
+    LOCAL = "local"                 # Local model only
+    DETERMINISTIC = "deterministic" # No model needed
+    DENIED = "denied"               # No model usage allowed
+
+
+@dataclass
+class ModelRoutingPolicy:
+    """Policy for model routing governance.
+
+    Controls whether free, local, or paid model routes are allowed.
+    """
+    allowed_routes: list[ModelRoute] = field(default_factory=lambda: [ModelRoute.FREE, ModelRoute.LOCAL])
+    max_cost_per_request: float = 0.0      # 0 = no limit
+    require_deterministic_first: bool = True
+    escalate_to_paid_allowed: bool = False
+    escalation_reason: str = ""
+
+
+@dataclass
+class ModelRouteResult:
+    """Result of a model routing decision."""
+    route: ModelRoute = ModelRoute.FREE
+    provider: str = ""
+    model: str = ""
+    provenance: str = ""   # "free" | "paid" | "local" | "deterministic" | "denied"
+    policy_denied: bool = False
+    denial_reason: str = ""
+
+
+# ═══════════════════════════════════════════════════════════════════
 # Intelligence Response — the canonical output
 # ═══════════════════════════════════════════════════════════════════
 
