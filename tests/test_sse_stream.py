@@ -34,9 +34,31 @@ from app.shunya.infrastructure.event_bus import CanonicalEvent, get_event_bus, r
 def clean_state():
     reset_event_bus()
     reset_sse_manager()
+    _reset_awareness()
     yield
     reset_event_bus()
     reset_sse_manager()
+    _reset_awareness()
+
+
+def _reset_awareness():
+    from core.awareness.service import reset_awareness_service
+    from core.awareness.subscriber import stop_awareness_subscriber
+    for _ in range(3):
+        try:
+            stop_awareness_subscriber()
+        except Exception:
+            pass
+        try:
+            reset_awareness_service()
+        except Exception:
+            pass
+
+
+def _get_sse_manager_no_awareness():
+    mgr = get_sse_manager()
+    _reset_awareness()
+    return mgr
 
 
 def make_event(
@@ -238,17 +260,17 @@ class TestSerialization:
 
 class TestSingleton:
     def test_get_sse_manager(self):
-        manager = get_sse_manager()
+        manager = _get_sse_manager_no_awareness()
         assert manager is not None
         assert manager._running is True
 
     def test_sse_manager_is_singleton(self):
-        m1 = get_sse_manager()
-        m2 = get_sse_manager()
+        m1 = _get_sse_manager_no_awareness()
+        m2 = _get_sse_manager_no_awareness()
         assert m1 is m2
 
     def test_reset_sse_manager(self):
-        m1 = get_sse_manager()
+        m1 = _get_sse_manager_no_awareness()
         reset_sse_manager()
-        m2 = get_sse_manager()
+        m2 = _get_sse_manager_no_awareness()
         assert m1 is not m2

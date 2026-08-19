@@ -15,8 +15,17 @@ from core.awareness.service import AwarenessService, get_awareness_service, rese
 
 @pytest.fixture(autouse=True)
 def clean():
+    from core.awareness.subscriber import stop_awareness_subscriber
+    try:
+        stop_awareness_subscriber()
+    except Exception:
+        pass
     reset_awareness_service()
     yield
+    try:
+        stop_awareness_subscriber()
+    except Exception:
+        pass
     reset_awareness_service()
 
 
