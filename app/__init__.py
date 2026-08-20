@@ -24,6 +24,7 @@ from app.sales_intelligence.routes import sales_bp  # noqa: F401
 from app.customer_experience.routes import cust_bp  # noqa: F401
 from app.marketing_os.routes import mkt_bp  # noqa: F401
 from app.marketing_intelligence.routes import analytics_bp  # noqa: F401
+from app.g5.routes import g5_bp  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Logging setup
@@ -713,6 +714,11 @@ def create_app(config_override: dict | None = None):
     _importlib.import_module("app.commercial.models")
     from app.commercial.routes import commercial_bp
     app.register_blueprint(commercial_bp)
+
+    # G5 — Universal Marketing, Growth, Attribution & Learning
+    _importlib.import_module("app.g5.models")
+    from app.g5.routes import g5_bp
+    app.register_blueprint(g5_bp)
 
     # FDA21 — Audit & Governance reconstruction API
     _importlib.import_module("app.audit.service")

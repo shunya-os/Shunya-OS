@@ -47,6 +47,7 @@ const MANIFEST: ManifestEntry[] = [
   { id: 'business', path: () => import('./modules/business') },
   { id: 'ubme', path: () => import('./modules/ubme') },
   { id: 'commercial', path: () => import('./modules/commercial') },
+  { id: 'growth', path: () => import('./modules/growth') },
   // { id: 'hr', path: () => import('./modules/hr') },
   // { id: 'inventory', path: () => import('./modules/inventory') },
 ];
