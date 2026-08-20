@@ -28,6 +28,8 @@ import { AdminPanel } from '../workspace/admin-panel';
 import { ImportExportPanel } from '../workspace/import-export-panel';
 import { CommitmentWorkspace } from '../commitment/commitment-workspace';
 import { ConversationWorkspace } from '../conversation/conversation-workspace';
+import { CommercialWorkspace } from '../commercial/commercial-workspace';
+import { RelationshipWorkspace } from '../relationship/relationship-workspace';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -574,12 +576,81 @@ function IntegratedCommand() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 10. PRIMARY FOCUS AREA
+// 10. MOBILE DOMAIN NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+
+function MobileDomainNav() {
+  const [open, setOpen] = useState(false);
+
+  const handleDomainClick = useCallback((domain: Domain) => {
+    useWorkspaceStore.getState().open(domain.label, domain.wsType as any, {
+      objectType: domain.id,
+      objectId: domain.id,
+    });
+    setOpen(false);
+  }, []);
+
+  return (
+    <div className="pw-mobile-nav">
+      <button
+        className="pw-mobile-nav-btn"
+        onClick={() => setOpen(!open)}
+        aria-label="Organization"
+        title="Organization"
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <line x1="3" y1="3" x2="15" y2="3" />
+          <line x1="3" y1="9" x2="15" y2="9" />
+          <line x1="3" y1="15" x2="15" y2="15" />
+        </svg>
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="pw-mobile-nav-panel"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            <p className="pw-mobile-nav-title">Organization</p>
+            {ORGANIZATIONAL_DOMAINS.map((domain) => (
+              <button
+                key={domain.id}
+                className="pw-mobile-nav-item"
+                onClick={() => handleDomainClick(domain)}
+              >
+                <span className="pw-mobile-nav-icon">{domain.icon}</span>
+                <span>{domain.label}</span>
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 11. PRIMARY FOCUS AREA
 // ═══════════════════════════════════════════════════════════════════
 
 function PrimaryFocusArea() {
   const calm = useLivingStore((s) => s.awarenessCalm);
   const activeExecutions = useLivingStore((s) => s.activeExecutions);
+  const [intention, setIntention] = useState<string | null>(null);
+
+  // Wire intention endpoint on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/api/v1/intention', { credentials: 'include' });
+        const d = await r.json();
+        if (d.success && d.explanation) {
+          setIntention(d.explanation);
+        }
+      } catch { /* silent */ }
+    })();
+  }, []);
 
   const presenceMode: 'calm' | 'working' | 'attentive' | 'active' =
     activeExecutions.length > 0 ? 'working'
@@ -594,8 +665,25 @@ function PrimaryFocusArea() {
           <span className="pw-focus-brand-icon">शून्य</span>
           <span className="pw-focus-brand-label">SHUNYA</span>
         </div>
-        <PresenceIndicator mode={presenceMode} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <PresenceIndicator mode={presenceMode} />
+          {/* Mobile domain button */}
+          <MobileDomainNav />
+        </div>
       </div>
+
+      {/* Intention — SHUNYA's recommendation */}
+      {intention && (
+        <motion.div
+          className="pw-intention"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <span className="pw-intention-label">SHUNYA suggests: </span>
+          <span className="pw-intention-text">{intention}</span>
+        </motion.div>
+      )}
 
       {/* Companion greeting */}
       <CompanionGreeting />
@@ -792,7 +880,15 @@ function DomainWorkspaceRouter() {
 
   // Object workspace
   if (active.identity.type === 'object' && active.identity.objectId) {
-    // If the objectId is a domain concept (finance, commercial, etc.), show domain overview
+    // Commercial — real workspace with opportunities and proposals
+    if (active.identity.objectId === 'commercial') {
+      return <div className="pw-panel-container"><CommercialWorkspace /></div>;
+    }
+    // Relationships — real workspace with relationships, timeline, memory
+    if (active.identity.objectId === 'relationships') {
+      return <div className="pw-panel-container"><RelationshipWorkspace /></div>;
+    }
+    // If the objectId is a domain concept (finance, marketing, etc.), show domain overview
     if (DOMAIN_IDS.has(active.identity.objectId) && !active.identity.objectType?.includes('_')) {
       const domain = ORGANIZATIONAL_DOMAINS.find(d => d.id === active.identity.objectId);
       if (domain) {
@@ -1517,6 +1613,212 @@ styles.textContent = `
   font-size: 12px;
 }
 
+/* ── Intention ────────────────────────────────────────────── */
+.pw-intention {
+  margin-bottom: 16px;
+  padding: 10px 16px;
+  background: rgba(164,134,95,0.06);
+  border: 1px solid rgba(164,134,95,0.15);
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.pw-intention-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--shunya-gold, #a4865f);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pw-intention-text {
+  font-size: 13px;
+  color: rgba(26,28,29,0.65);
+  line-height: 1.4;
+}
+
+/* ── Mobile Domain Navigation ───────────────────────────── */
+.pw-mobile-nav {
+  display: none;
+  position: relative;
+}
+.pw-mobile-nav-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(26,28,29,0.55);
+  transition: all 0.15s;
+}
+.pw-mobile-nav-btn:hover {
+  border-color: var(--shunya-gold, #a4865f);
+  color: var(--shunya-text, #1A1C1D);
+}
+.pw-mobile-nav-panel {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  width: 240px;
+  background: var(--shunya-surface, #ffffff);
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  z-index: 50;
+}
+.pw-mobile-nav-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(26,28,29,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 8px;
+  padding: 0 4px;
+}
+.pw-mobile-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--shunya-text, #1A1C1D);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.pw-mobile-nav-item:hover {
+  background: rgba(26,28,29,0.04);
+}
+.pw-mobile-nav-icon {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+  opacity: 0.7;
+}
+
+/* ── Commercial / Relationship List Items ────────────────── */
+.pw-commercial-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pw-commercial-item {
+  padding: 12px 16px;
+  background: var(--shunya-surface, #ffffff);
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+  border-radius: 8px;
+  transition: border-color 0.15s;
+}
+.pw-commercial-item:hover {
+  border-color: var(--shunya-gold, #a4865f);
+}
+.pw-commercial-item-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--shunya-text, #1A1C1D);
+  margin-bottom: 4px;
+}
+.pw-commercial-item-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pw-commercial-tag {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: rgba(26,28,29,0.04);
+  color: rgba(26,28,29,0.55);
+}
+.pw-status-sent { color: #e67e22; }
+.pw-status-accepted { color: #6a9f6a; }
+.pw-status-active { color: #6a9f6a; }
+.pw-status-lead { color: #a4865f; }
+.pw-commercial-date {
+  font-size: 11px;
+  color: rgba(26,28,29,0.35);
+}
+.pw-tab-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(26,28,29,0.55);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.pw-tab-btn:hover {
+  border-color: var(--shunya-gold, #a4865f);
+}
+.pw-tab-active {
+  background: var(--shunya-gold, #a4865f);
+  color: #fff;
+  border-color: var(--shunya-gold, #a4865f);
+}
+
+/* ── Relationship Detail ───────────────────────────────── */
+.pw-rel-detail {
+  padding: 8px 16px 16px;
+  margin: 0 0 4px;
+  background: var(--shunya-surface-subtle, #f8f7f4);
+  border-radius: 0 0 8px 8px;
+}
+.pw-rel-section {
+  margin-bottom: 12px;
+}
+.pw-rel-section-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(26,28,29,0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 8px;
+}
+.pw-rel-timeline-item {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  align-items: flex-start;
+}
+.pw-rel-tl-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(26,28,29,0.2);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.pw-rel-tl-text {
+  font-size: 13px;
+  color: var(--shunya-text, #1A1C1D);
+  margin: 0;
+  line-height: 1.4;
+}
+.pw-rel-memory {
+  padding: 12px;
+  background: var(--shunya-surface, #ffffff);
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+  border-radius: 6px;
+}
+.pw-rel-memory p {
+  font-size: 13px;
+  color: rgba(26,28,29,0.65);
+  margin: 0 0 4px;
+}
+
 /* ── Loading / Error States ───────────────────────────────── */
 .pw-loading {
   display: flex;
@@ -1575,7 +1877,9 @@ styles.textContent = `
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 768px) {
   .pw-org-orientation { display: none; }
+  .pw-mobile-nav { display: block; }
   .pw-focus { padding: 24px 20px; }
+  .pw-panel-container { padding: 24px 20px; }
   .pw-voice-draft { width: calc(100vw - 40px); right: -8px; }
 }
 `;
