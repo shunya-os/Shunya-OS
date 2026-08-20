@@ -697,6 +697,11 @@ def create_app(config_override: dict | None = None):
     from app.workspace_objects.routes import workspace_api
     app.register_blueprint(workspace_api)
 
+    # G4 — Universal Revenue, Relationship & Commercial Execution
+    _importlib.import_module("app.commercial.models")
+    from app.commercial.routes import commercial_bp
+    app.register_blueprint(commercial_bp)
+
     # FDA21 — Audit & Governance reconstruction API
     _importlib.import_module("app.audit.service")
     from app.audit.routes import audit_bp

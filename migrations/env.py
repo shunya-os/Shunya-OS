@@ -57,6 +57,10 @@ from app.commitments.models import Commitment  # noqa: F401
 from app.observations.models import Observation  # noqa: F401
 from app.core.entity import Entity  # noqa: F401
 from app.customers.models import Customer  # noqa: F401
+from app.commercial.models import (  # noqa: F401
+    CommercialOpportunity, CommercialContext, CommercialProposal,
+    CommercialTransition, CommercialType,
+)
 from app.finance.models import (  # noqa: F401
     Account, LedgerEntry, JournalEntry,
     FinInvoice as Invoice, InvoiceItem, FinancePayment as Payment,
