@@ -7,8 +7,12 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_identity() -> str:
-    """Resolve the current user's canonical identity (OrgMember.identity_id = email)."""
-    # Enterprise cookie first, then header, then Flask session
+    """Resolve the current user's canonical identity (OrgMember.identity_id)."""
+    # Check session identity_id first (set by signin route)
+    identity_id = session.get("identity_id")
+    if identity_id:
+        return identity_id
+    # Fallback: TeamMember email
     from app.auth import TeamMember
     uid = session.get("user_id")
     if not uid:
