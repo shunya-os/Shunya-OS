@@ -123,10 +123,8 @@ const module: ShunyaModule = {
   },
 
   register: async (_data: Record<string, any>) => {
-    const campaigns: CampaignBrief[] = _data.campaigns ?? [];
     const overview = _data.overview ?? {};
     const intelMap: Record<number, IntelResponse> = _data.intelligenceMap ?? {};
-    const learnings = _data.learnings ?? [];
     const totalCampaigns = _data.totalCampaigns ?? 0;
     const activeCampaigns = _data.activeCampaigns ?? 0;
     const hasActionableLearnings = _data.hasActionableLearnings ?? false;
@@ -240,7 +238,7 @@ const module: ShunyaModule = {
             const s = state as any;
             const campId = s?.data?.id ?? s?.id;
             const intel = campId ? intelMap[campId] : null;
-            if (intel?.actionable_recommendations?.length > 0) {
+            if (intel && intel.actionable_recommendations && intel.actionable_recommendations.length > 0) {
               const rec = intel.actionable_recommendations[0];
               return {
                 action: rec.recommendation_action || 'Review campaign',
@@ -361,7 +359,7 @@ const module: ShunyaModule = {
     }
   },
 
-  ask: async (question: string): Promise<string | null> => {
+  ask: async (_question: string): Promise<string | null> => {
     // For now, return null — campaign Q&A can be added via the AI engine
     return null;
   },

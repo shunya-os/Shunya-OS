@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TokenProvider } from './tokens/token-provider';
-import { WorkspaceContainer } from './components/workspace/workspace-container';
-import { ThreeZoneShell } from './components/workspace/three-zone-shell';
-import { AIResidentPanel } from './components/ui/ai-resident-panel';
-import { useRealityPresence } from './hooks/use-reality-presence';
-import { AwarenessPanel } from './components/living-workspace/awareness-panel';
+import { PrimaryWorkspace } from './components/executive-home/executive-home';
 import { LoginPage } from './components/auth/login-page';
 import { ForgotPassword } from './components/auth/forgot-password';
 import { ResetPassword } from './components/auth/reset-password';
@@ -388,26 +384,9 @@ function AppShell() {
 }
 
 function AuthenticatedWorkspace() {
-  const presence = useRealityPresence();
   return (
     <TokenProvider>
-      <ThreeZoneShell
-        centerPanel={<WorkspaceContainer />}
-        leftPanel={<AwarenessPanel />}
-        rightPanel={
-          <AIResidentPanel
-            initialMode={presence.mode}
-            objectContext={presence.context?.summary}
-            suggestions={presence.mode === 'suggestive' ? [{
-              id: 'reality-insight',
-              text: presence.context?.summary || 'New information available',
-              confidence: 0.8,
-              sourceCount: presence.eventCount,
-              onAct: () => presence.acknowledge(),
-            }] : []}
-          />
-        }
-      />
+      <PrimaryWorkspace />
     </TokenProvider>
   );
 }
