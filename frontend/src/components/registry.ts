@@ -20,6 +20,7 @@ import {
   ConversationCard,
   Panel,
 } from './executive/index';
+import { CommercialContext } from './commercial/commercial-context';
 
 export interface ComponentMeta {
   id: string;
@@ -138,6 +139,14 @@ export const componentRegistry: ComponentMeta[] = [
     category: 'layout',
     component: Panel as any,
     propsSchema: { id: 'string', name: 'string' },
+  },
+  {
+    id: 'commercial-context',
+    name: 'Commercial Context Panel',
+    description: 'Commercial context for a relationship — what matters right now',
+    category: 'layout',
+    component: CommercialContext as any,
+    propsSchema: { relationshipId: 'number|string', organizationId: 'number?' },
   },
 ];
 
