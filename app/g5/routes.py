@@ -30,11 +30,22 @@ g5_bp = Blueprint("g5", __name__, url_prefix="/api/v1/growth")
 
 
 def _resolve_tenant():
-    """Resolve tenant/organization from request or default to 1."""
-    from app.authz.decorators import _resolve_org_id as resolve
-    org_id = resolve()
-    if org_id:
-        return org_id
+    """Resolve tenant from session (TeamMember.tenant_id) or fallback."""
+    from flask import session
+    user_id = session.get("user_id")
+    if user_id:
+        from app.auth import TeamMember
+        tm = TeamMember.query.get(user_id)
+        if tm and tm.tenant_id:
+            return tm.tenant_id
+    # Fallback: authz org resolution
+    try:
+        from app.authz.decorators import _resolve_org_id as resolve
+        org_id = resolve()
+        if org_id:
+            return org_id
+    except Exception:
+        pass
     return request.args.get("tenant_id", 1, type=int)
 
 
