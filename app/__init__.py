@@ -174,12 +174,24 @@ def _register_error_handlers(app: Flask):
 # Track application startup time
 _APP_START_TIME = __import__("time").time()
 
+# Build identifier — derived from git commit at deployment time
+_GIT_HEAD = ""
+try:
+    _GIT_HEAD = __import__("subprocess").check_output(
+        ["git", "rev-parse", "--short", "HEAD"],
+        cwd=__import__("os").path.dirname(__file__),
+        stderr=__import__("subprocess").DEVNULL, timeout=5,
+    ).decode("utf-8").strip()
+except Exception:
+    _GIT_HEAD = os.getenv("BUILD_ID", "unknown")
+
 
 def _health_check(app: Flask) -> dict:
     """Run a full health check against runtime dependencies."""
     from sqlalchemy import text
 
     checks = {"status": "ok", "version": "1.0.0"}
+    checks["build_id"] = _GIT_HEAD
     checks["uptime_seconds"] = int(__import__("time").time() - _APP_START_TIME)
     checks["environment"] = os.getenv("SHUNYA_ENVIRONMENT", os.getenv("FLASK_ENV", "production"))
     checks["request_id"] = getattr(g, "request_id", "")
