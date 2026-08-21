@@ -10,6 +10,41 @@ from flask import Blueprint, jsonify, request, session, g
 people_bp = Blueprint("people", __name__, url_prefix="/api/v1/people")
 
 
+@people_bp.route("", methods=["GET"])
+def people_root():
+    """Root people endpoint — returns organization members summary.
+    
+    This is the canonical entry point for people/organization navigation.
+    Returns a summary of all members in the current organization.
+    """
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    if not _require_people_permission():
+        return jsonify({"success": False, "error": "Insufficient permissions"}), 403
+
+    from app import db
+    from app.models import OrgMember
+    members = db.session.query(OrgMember).filter_by(
+        organization_id=_tenant_id()
+    ).all()
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "total": len(members),
+            "members": [{
+                "id": m.id,
+                "name": m.name or m.email,
+                "email": m.email,
+                "role": m.role,
+                "designation": m.designation or "",
+                "is_active": m.is_active,
+                "joined_at": m.joined_at.isoformat() if m.joined_at else None,
+            } for m in members],
+        },
+    })
+
+
 def _identity_id() -> str:
     return g.get("identity_id") or session.get("identity_id") or session.get("user_id", "anonymous")
 

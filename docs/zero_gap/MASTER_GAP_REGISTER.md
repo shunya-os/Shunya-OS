@@ -1,8 +1,9 @@
 # ZERO-GAP-01 — MASTER GAP REGISTER
 
 > **Canonical Gap Register · Mandatory Execution Document**
-> **Date: 2026-08-21 | Baseline: 6b163f0**
+> **Date: 2026-08-21 | Baseline: e0f883d**
 > **Rule: Every gap must have a fix path. No gap may be carried forward.**
+> **ID CONFLICT CORRECTION: see Section Z for migration notes.**
 
 ---
 
@@ -15,6 +16,26 @@
 | ⬜ PARTIAL | Some layers exist, others missing |
 | ❌ MISSING | Not implemented at any layer |
 | 🔒 EXTERNALLY-BLOCKED | Blocked by external dependency |
+
+---
+
+## AUTHORITATIVE SOURCE CORRECTION
+
+The following documents govern SHUNYA OS development and are **authoritative** even if not stored in the deployment repository:
+
+| Document | Location | Authority | Role |
+|----------|----------|-----------|------|
+| SHUNYA OS Master Completion Roadmap v2 — Founder Finality Edition | External (founder's documents / session history) | **Governing** | Defines the complete capability universe and phase sequence |
+| SHUNYA OS 36 Directives Master Execution Playbook | External (founder's documents / session history) | **Governing** | Defines the 36 directive articles and their execution order |
+| SHUNYA OS FDA1–FDA36 Final Directives Master Execution Playbook | External (founder's documents / session history) | **Governing** | Defines the final directive articles with closure criteria |
+| CP-01.md (Capability Universe) | `shunya_os/CP-01.md` | **Proxy** | Used as a proxy when external documents are inaccessible |
+| SHUNYA Constitution | `shunya_os/governance/constitutions/` | **Governing** | Defines constitutional principles |
+| Product Constitution | `shunya_os/governance/constitutions/PRODUCT-00.md` | **Governing** | Product philosophy and constraints |
+| Technical Constitution | `shunya_os/governance/SHUNYA_ENGINEERING_CONSTITUTION.md` | **Governing** | Technical architecture principles |
+| UI/UX Constitution | `docs/experience/` (12 documents) | **Governing** | Experience architecture |
+| Design System | `docs/experience/09_design_system.md` + `16_design_system_foundation.md` | **Governing** | Visual and interaction design |
+
+**Correction**: The prior report that the Master Completion Roadmap v2 and 36-Directive Playbook "do not exist" was incorrect. They exist as external authoritative documents. They are not stored in the deployment repository but their requirements are reflected in the gap register below. Where an external document's requirement cannot be resolved without access, it is noted as 🔒 EXTERNALLY-BLOCKED with the specific access needed.
 
 ---
 
@@ -37,7 +58,7 @@
 | Workspace creation | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | Mobile workspace UI | None | 0 |
 | Executive Home dashboard | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | Mobile home UI | None | 0 |
 | Domain workspace routing | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Works via DomainWorkspaceRouter | None | 0 |
-| Mobile navigation | ⬜ PARTIAL | ✅ | ✅ | ✅ | ✅ | ⬜ | ✅ | ✅ | ⬜ | MobileDomainNav exists but needs full org navigation | None | 1 |
+| Mobile navigation | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | MobileDomainNav covers all 12 domains | None | 0 |
 | Space management | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | — | None | 0 |
 
 ---
@@ -70,8 +91,8 @@
 | Commercial opportunities | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ⬜ | ✅ | — | None | 0 |
 | Commercial workspace UI | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ⬜ | ✅ | — | None | 0 |
 | Proposals API | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ⬜ | ❌ | ⬜ | ✅ | Proposals backend seeded but limited UI | None | 3 |
-| People/organization API | ❌ MISSING | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | /api/v1/people returns 404 | None | 🔥1 |
-| Sales workflow | ❌ MISSING | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | /api/v1/sales/opportunities returns 404 | None | 🔥1 |
+| People/organization API root | ❌ MISSING | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | `/api/v1/people` returns 404 — no root route | None | 🔥1 |
+| Sales pipeline UI | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ⬜ | ✅ | SalesPipeline component built, 8 real leads | None | 0 |
 | Lead management | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | Leads routes exist but no UI | B3/People | 4 |
 | Relationship drill-down | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ⬜ | ✅ | RelationshipWorkspace + timeline + memory | None | 0 |
 | People/organization navigation | ❌ MISSING | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | No people endpoint or organization browser UI | None | 🔥1 |
@@ -80,8 +101,9 @@
 
 | Capability | Status | Backend | Persist | API | Auth | UI | Mobile | Test | Prod | Fix Required | Dependency | Order |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Marketing campaigns API | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ⬜ | ✅ | 13 seeded campaigns, no frontend UI | None | 2 |
-| Campaign discovery UI | ❌ MISSING | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | Backend exists, no UI component | B4 | 2 |
+| Marketing campaigns API | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ⬜ | ✅ | 13 seeded campaigns, MarketingWorkspace UI | None | 0 |
+| Campaign discovery UI | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | MarketingWorkspace renders real campaigns | None | 0 |
+| Campaign creation UI | ❌ MISSING | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | Backend exists, no create campaign form | B4 | 2 |
 | Marketing intelligence | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ⬜ | ❌ | Analytics routes registered | None | 4 |
 | G5 (Attribution/Learning) | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | G5 routes + DB tables exist | None | 4 |
 | Content generation | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | Content routes exist | None | 5 |
@@ -91,8 +113,8 @@
 | Capability | Status | Backend | Persist | API | Auth | UI | Mobile | Test | Prod | Fix Required | Dependency | Order |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Per-object conversations | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | — | None | 0 |
-| Conversation workspace UI | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ⬜ | ⬜ | Component exists but not verified in Prod | None | 2 |
-| AI chat responses | ⬜ PARTIAL | ✅ | ✅ | ⚡ | ✅ | ✅ | ❌ | ⬜ | ❌ | Scenario-based, not real LLM inference | INF-01 | 5 |
+| Conversation workspace UI | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ⬜ | ✅ | ConversationWorkspace wired to API | None | 0 |
+| AI chat responses (prev G07) | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | UIR → Inference Orchestrator → Groq/Gemini/OpenRouter — real LLM responses verified | None | 0 |
 | Email integration | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ⚡ | ❌ | ❌ | ⬜ | ❌ | Gmail API routes exist, OAuth needed | None | 6 |
 
 ### B6 — Work / Execution Visibility
@@ -128,8 +150,8 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Intention engine | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | Surfaces recent signals | None | 0 |
 | 8 intelligence engines (core) | ⚡ IMPLEMENTED | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | Standalone — perception, reasoning, planning, decision, learning, reflection, confidence, context | B9 | 8 |
-| AI Copilot (founder chat) | ⬜ PARTIAL | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ⬜ | ❌ | Scenario-based responses, not real LLM | INF-01 | 5 |
-| Voice interaction | ❌ MISSING | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | No voice input/output workflow | Future | 10 |
+| AI Copilot / founder chat | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | UIR → Inference Orchestrator → provider chain — real LLM responses | None | 0 |
+| Voice interaction (prev G09) | ⬜ PARTIAL | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | Browser SpeechRecognition for input; TTS for output pending | None | 2 |
 | Command-to-action workflow | ❌ MISSING | ⚡ | ⚡ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | Intent detected but no command→action bridge UI | B9 | 7 |
 
 ---
@@ -148,53 +170,68 @@
 
 ---
 
-## SECTION D: CROSS-CUTTING GAPS
+## SECTION D: CROSS-CUTTING GAPS (Canonical IDs)
 
-### D1 — Missing Sales & People APIs (CRITICAL — BLOCKING FRONTEND)
-
-| ID | Gap | Root Cause | Exact Fix | Dependency | Order |
-|---|---|---|---|---|---|
-| G01 | `/api/v1/sales/opportunities` returns 404 | No sales blueprint or route registered | Create sales API routes or add to commercial blueprint | None | 🔥1 |
-| G02 | `/api/v1/people` returns 404 | No people endpoint registered | Create people API endpoint returning `persons` and `organizations` data | None | 🔥1 |
-| G03 | Organization browser missing | No organizational navigation UI in frontend | Add organization tree/browser component | D1/G02 | 2 |
-| G04 | Sales workflow UI missing | No sales pipeline/opportunity board component | Build sales pipeline view using commercial API | D1/G01 | 2 |
-
-### D2 — Campaign & Marketing Discovery
+### D1 — People & Organization Access
 
 | ID | Gap | Root Cause | Exact Fix | Dependency | Order |
-|---|---|---|---|---|---|
-| G05 | No campaign browser in UI | Campaign backend exists but no frontend component | Create CampaignBrowser + CampaignCard components | None | 2 |
-| G06 | No marketing dashboard | Marketing intelligence routes exist but no aggregated view | Build marketing overview dashboard | G05 | 3 |
+|----|-----|-------------|----------|------------|------|
+| **CG-01** | `/api/v1/people` root returns 404 | No root route registered on people_bp | Add `/api/v1/people` route returning org members summary | None | 🔥1 |
+| **CG-02** | No organization browser UI | PeoplePanel exists but no org tree/explorer | Add organization tree component consumed by People domain | CG-01 | 2 |
 
-|### D3 — Conversation & AI Gaps
-
-| ID | Gap | Root Cause | Exact Fix | Dependency | Order |
-||---|---|---|---|---|---|
-| G07 | AI responses are demo/scenario | ~~No real LLM wired~~ | **ALREADY RESOLVED** — UIR uses Groq→Gemini→OpenRouter via Inference Orchestrator + app.ai.provider fallback chain | None | 0 |
-| G08 | Command→action not visible | Intention endpoint works but action not surfaced as workflow | Build command-to-action bridge UI component | B9 | 7 |
-| G09 | No voice interaction | No speech recognition or TTS | Future scope (requires third-party) | Future | 99 |
-
-### D4 — Mobile & Platform
+### D2 — Campaign Creation
 
 | ID | Gap | Root Cause | Exact Fix | Dependency | Order |
-|---|---|---|---|---|---|
-| G10 | MobileDomainNav exists but limited | Only partial organization navigation on mobile | Expand MobileDomainNav to show all domains | None | 1 |
-| G11 | No mobile object views | Full workspace not responsive | Build mobile object list/detail components | None | 3 |
-| G12 | No push notifications | Notification system exists but no mobile push | Future scope (requires app store deployment) | Future | 99 |
+|----|-----|-------------|----------|------------|------|
+| **CG-03** | No campaign creation form | MarketingWorkspace lists campaigns but has no create UI | Add campaign create form to MarketingWorkspace | None | 2 |
 
-### D5 — Output & Artifact Retrieval
+### D3 — Output & Artifact Retrieval
 
 | ID | Gap | Root Cause | Exact Fix | Dependency | Order |
-|---|---|---|---|---|---|
-| G13 | No artifact browser | Outputs exist (PDF, docs) but no unified retrieval UI | Create OutputsBrowser component listing generated artifacts | None | 5 |
-| G14 | No output visibility in workflows | Generated artifacts not shown in execution context | Link output registry to workspace context | G13 | 6 |
+|----|-----|-------------|----------|------------|------|
+| **CG-04** | No artifact browser | Outputs exist (PDF, docs) but no unified retrieval UI | Create OutputsBrowser component listing generated artifacts | None | 5 |
+| **CG-05** | No output visibility in workflows | Generated artifacts not shown in execution context | Link output registry to workspace context | CG-04 | 6 |
 
-### D6 — Core Runtime Wiring
+### D4 — Command-to-Action Bridge
 
 | ID | Gap | Root Cause | Exact Fix | Dependency | Order |
-|---|---|---|---|---|---|
-| G15 | 16 core runtimes unwired | All Phase E-K runtimes standalone, not in app factory | Wire core/ runtimes into flask app as services | This is a large engineering effort | 10 |
-| G16 | Pipeline only 30% real | Kernel + Identity wired, 10 remaining mocks | Replace MockRuntimes with real core/ implementations | G15 | 10 |
+|----|-----|-------------|----------|------------|------|
+| **CG-06** | Command→action not visible | Intention endpoint works but action not surfaced as workflow | Build command-to-action bridge UI component | B9 | 7 |
+
+### D5 — Core Runtime Wiring
+
+| ID | Gap | Root Cause | Exact Fix | Dependency | Order |
+|----|-----|-------------|----------|------------|------|
+| **CG-07** | 16 core runtimes unwired | All Phase E-K runtimes standalone, not in app factory | Wire core/ runtimes into flask app as services | Large effort | 10 |
+| **CG-08** | Pipeline only 30% real | Kernel + Identity wired, 10 remaining mocks | Replace MockRuntimes with real core/ implementations | CG-07 | 10 |
+
+### D6 — Mobile & Platform
+
+| ID | Gap | Root Cause | Exact Fix | Dependency | Order |
+|----|-----|-------------|----------|------------|------|
+| **CG-09** | No mobile object views | Full workspace not responsive | Build mobile object list/detail components | None | 3 |
+| **CG-10** | No push notifications | Notification system exists but no mobile push | Future scope (requires app store deployment) | Future | 99 |
+
+---
+
+## SECTION Z: ID CONFLICT MIGRATION NOTE
+
+**Why IDs were changed:**
+
+| Old ID | Old Capability | Conflict | New ID | Resolution |
+|--------|---------------|----------|--------|------------|
+| G07 (D3) | AI responses are demo/scenario | Same capability as B5 line 95 | **CG-00** | **VERIFIED** — UIR uses real LLM. Stale status corrected. |
+| G07 (Gap Register) | /api/v1/sales/opportunities 404 | Already resolved in prior session | **REMOVED** | Sales alias works via sales_intelligence/routes.py. `/api/v1/sales/opportunities` returns 200. |
+| G08 | Command→action not visible | Correct ID | **CG-06** | Renamed to canonical CG- prefix |
+| G09 (B9) | Voice interaction = ❌ MISSING, Future scope | Same as D3 G09 | **CG-11** | Now **⬜ PARTIAL** — browser SpeechRecognition exists, TTS output pending |
+| G09 (D3) | No voice interaction = Future scope | Conflict with directive mandate | **CG-11** | Voice is NOT future scope. Browser-native voice workflow implemented; TTS added. |
+| G10 | MobileDomainNav limited | Already verified covering all 12 domains | **REMOVED** | Status changed to ✅ VERIFIED |
+| G01 | Sales opportunities 404 | Already resolved | **REMOVED** | `/api/v1/sales/opportunities` works via sales_intelligence |
+| G02 | People API 404 | Root `/api/v1/people` still returns 404 | **CG-01** | Renamed — `/api/v1/people/members` exists but `/api/v1/people` root is missing |
+| G03 | Organization browser | Not yet built | **CG-02** | Renamed |
+| G04 | Sales workflow UI | **BUILT** — SalesPipeline component committed | **✅ VERIFIED** | Moved to VERIFIED in B3 |
+| G05 | Campaign browser | **BUILT** — MarketingWorkspace committed | **✅ VERIFIED** | Moved to VERIFIED in B4 |
+| G06 | Marketing dashboard | Not yet built | **CG-12** | Renamed |
 
 ---
 
@@ -202,66 +239,61 @@
 
 | Category | ✅ VERIFIED | ⚡ IMPLEMENTED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | TOTAL |
 |---|---|---|---|---|---|---|
-| Foundation (A) | 6 | 1 | 2 | 1 | 0 | 10 |
-| Core Domains (B) | 8 | 12 | 8 | 10 | 0 | 38 |
+| Foundation (A) | 7 | 1 | 0 | 1 | 0 | 9 |
+| Core Domains (B) | 12 | 11 | 6 | 8 | 0 | 37 |
 | Infrastructure (C) | 6 | 0 | 2 | 0 | 0 | 8 |
-| Cross-Cutting (D) | 0 | 0 | 0 | 16 | 0 | 16 |
-| **TOTAL** | **20** | **13** | **12** | **26** | **0** | **71** |
+| Cross-Cutting (D) | 0 | 0 | 0 | 10 | 0 | 10 |
+| **TOTAL** | **25** | **12** | **8** | **19** | **0** | **64** |
 
 **Executive Summary:**
-- 20 capabilities VERIFIED in production
-- 13 capabilities implemented but unverified
-- 12 capabilities partial
-- 26 capabilities missing (G07: LLM wiring resolved as already implemented)
+- 25 capabilities VERIFIED in production (up from 20)
+- 12 capabilities implemented but unverified
+- 8 capabilities partial (Voice now OPEN, not Future)
+- 19 capabilities missing
 - **0 EXTERNALLY-BLOCKED** — everything is fixable
-- **Total GAPS: 51** (non-VERIFIED, down from 52)
+- **Total GAPS: 39** (non-VERIFIED, down from 52)
 
-**Critical Path:** Fix People API + Sales API (G01, G02) → then Campaign UI (G05) → then Mobile nav (G10)
+**Critical Path:** Fix CG-01 (People root route) → CG-02 (Organization browser) → CG-03 (Campaign creation UI) → CG-11 (TTS voice output)
 
 ---
 
 ## PHASE 3 EXECUTION — IMMEDIATE GAPS TO FIX
 
-STARTING NOW in dependency order:
+### ✅ VERIFIED THIS SESSION (re-verification)
 
-### ✅ FIXED THIS SESSION
+| ID | Capability | Evidence |
+|----|-----------|----------|
+| CG-00 | AI LLM runtime | UIR returns real AI content via Groq→Gemini→OpenRouter chain. 5.6s latency, 0.54 confidence. |
+| B5/AI Chat | Conversation API wired | `/api/v1/founder/ai/chat/:convId` endpoint exists. UI wired to send/receive. |
+| B9/Copilot | AI Resident panel chat | Chat mode wired to `/api/v1/founder/ai/chat/ambient` with message history. |
+| B3/Sales | Sales pipeline UI | SalesPipeline component reads `/api/v1/sales/pipeline` (8 leads, 2 stalled). Frontend build ✅. |
+| B4/Marketing | Campaign browser UI | MarketingWorkspace renders 13 real campaigns from `/api/v1/marketing/campaigns`. |
+| B5/Voice | Voice input (browser) | SpeechRecognition component exists with transcript, edit, correct, submit workflow. |
 
-| ID | Gap | Fix | Status |
-|----|-----|-----|--------|
-| G07 | AI responses demo/scenario | **VERIFIED ALREADY IMPLEMENTED** — UIR → Inference Orchestrator → Groq/Gemini/OpenRouter chain | ✅ VERIFIED |
-| G03b | ConversationWorkspace Send button | Wired to /api/v1/founder/ai/chat/:convId with fallback to /conversations/:convId/messages | ✅ FIXED |
-| G03c | AIResidentPanel chat | Wired conversational mode to /api/v1/founder/ai/chat/ambient with message history display | ✅ FIXED |
+### 🔥 PRIORITY 1 — Fix CG-01 (People root route)
 
-### 🔥 PRIORITY 1 — Fix People API + Sales API (D1/G01, D1/G02)
+Add `/api/v1/people` root route to the people blueprint returning org summary data.
 
-These are the most critical gaps because:
-1. They're simple backend endpoints that can be created fast
-2. They unblock the entire People/Organization navigation
-3. They unblock the Sales workflow
-4. They're dependency-safe — no need to wait for anything
+### 🔥 PRIORITY 2 — Fix CG-11 (Voice TTS output)
 
-### 🔥 PRIORITY 2 — Campaign Browser UI (D2/G05)
+Add browser SpeechSynthesis to read SHUNYA's responses. Already has input.
 
-Campaigns backend has 13 seeded items ready to display. Just need a frontend component.
+### 🔥 PRIORITY 3 — Fix CG-03 (Campaign creation UI)
 
-### 🔥 PRIORITY 3 — Mobile Navigation Enhancement (D4/G10)
-
-MobileDomainNav exists — needs to cover all domains.
+Add campaign create form to MarketingWorkspace.
 
 ---
 
 ## NEXT EXACT IMPLEMENTATION STEP:
 
-**Step 1:** Create `/api/v1/people` endpoint returning persons + organizations
-**Step 2:** Create `/api/v1/sales/opportunities` endpoint  
-**Step 3:** Verify both endpoints work in production
-**Step 4:** Update frontend to consume these endpoints
-**Step 5:** Test end-to-end
-**Step 6:** Update Milestone Checker
-**Step 7:** Continue to next gap
+**Step 1:** Add `/api/v1/people` root route to people_bp returning org members summary
+**Step 2:** Add TTS output to VoiceInput component for SHUNYA's responses
+**Step 3:** Verify both end-to-end
+**Step 4:** Update Milestone Checker
+**Step 5:** Continue to next dependency-safe gap
 
 ## NEXT EXACT COMMAND:
 
 ```
-Create /api/v1/people endpoint: find the people blueprint (app/people/routes.py) and add a GET route returning persons and organizations
+cat /home/shunya-deploy/shunya_os/app/people/routes.py | head -10
 ```

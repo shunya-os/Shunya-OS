@@ -383,6 +383,23 @@ const HAS_SPEECH = typeof window !== 'undefined' && (
   'SpeechRecognition' in window || 'webkitSpeechRecognition' in window
 );
 
+const HAS_TTS = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+// ── TTS Output ──────────────────────────────────────────────
+function speakText(text: string) {
+  if (!HAS_TTS) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.0;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
+  // Pick a voice
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google')) || voices[0];
+  if (preferred) utterance.voice = preferred;
+  window.speechSynthesis.speak(utterance);
+}
+
 function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) {
   const [listening, setListening] = useState(false);
   const [draft, setDraft] = useState('');
@@ -462,11 +479,14 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
               onChange={(e) => handleCorrect(e.target.value)}
               placeholder="Your speech will appear here. You can edit it or correct by voice."
               rows={3}
-            />
-            <div className="pw-voice-actions">
-              <button className="pw-voice-submit" onClick={handleSubmit}>Submit</button>
-              <button className="pw-voice-clear" onClick={() => setDraft('')}>Clear</button>
-              {listening && <span className="pw-voice-recording">Recording… speak now</span>}
+                          />
+                          <div className="pw-voice-actions">
+                            <button className="pw-voice-submit" onClick={handleSubmit}>Submit</button>
+                            <button className="pw-voice-clear" onClick={() => setDraft('')}>Clear</button>
+                            {HAS_TTS && draft.trim() && (
+                              <button className="pw-voice-tts" onClick={() => speakText(draft)} title="Preview aloud">🔊</button>
+                            )}
+                            {listening && <span className="pw-voice-recording">Recording… speak now</span>}
             </div>
           </motion.div>
         )}
