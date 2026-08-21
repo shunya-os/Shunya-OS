@@ -75,3 +75,9 @@ jobs:
           print(f'Personal OS: {len(r[\"available\"])} UCPs composed')
           print('CI verification passed')
           "
+      - name: Run canonical test suite
+        env:
+          DISABLE_RATE_LIMIT: "1"
+          FLASK_ENV: testing
+        run: |
+          PYTHONPATH=$PWD python -m pytest tests/ -q --tb=short 2>&1 | tail -10
