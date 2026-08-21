@@ -1,7 +1,7 @@
 """FDA3: Add truth_classification, provenance_idempotency, resolution fields.
 
 Revision ID: 0004_fda3_memory_schema
-Revises: 0003_add_evidence_unique_constraint
+Revises: 0003_evidence_unique_constr
 Create Date: 2026-08-11
 
 This migration adds:

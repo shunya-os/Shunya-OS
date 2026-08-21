@@ -30,11 +30,13 @@
 
 **Executive Summary:**
 - 46 capabilities VERIFIED in production
-- 0 implemented but unverified (all verified)
+- 0 implemented but unverified (all verified or reclassified)
 - 6 partial
 - 10 missing
 - **2 EXTERNALLY-BLOCKED** (CG-07 core runtimes, CG-10 push notifications — with evidence)
 - **Total gaps: 16** (non-VERIFIED, including 2 genuinely BLOCKED)
+
+**Note: A1 MFA backend routes exist at /mfa/setup, /mfa/verify, /mfa/disable, /mfa/challenge. TOTP is browser-feasible (QR code render). Needs frontend UI. NOT genuinely blocked — fixable.
 
 ---
 
