@@ -66,7 +66,7 @@ fi
 # ---- Step 5: Verification ----
 echo "[5/6] Verifying deployment..." | tee -a "${DEPLOY_LOG}"
 sleep 3
-HEALTH_URL="http://127.0.0.1:8000/health"
+HEALTH_URL="${SHUNYA_HEALTH_URL:-http://127.0.0.1:5001/health}"
 for i in 1 2 3 4 5; do
     if curl -sf "${HEALTH_URL}" > /dev/null 2>&1; then
         echo "  Application reachable at ${HEALTH_URL}" | tee -a "${DEPLOY_LOG}"

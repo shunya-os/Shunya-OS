@@ -12,9 +12,9 @@
 |---------|:-:|:-:|:-:|:-:|:-:|:---:|:----:|
 | Foundation (A) | 8 | 0 | 1 | 0 | 0 | 0 | 9 |
 | Core Domains (B) | 33 | 1 | 0 | 0 | 0 | 0 | 34 |
-| Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
+| Infrastructure (C) | 7 | 1 | 0 | 0 | 1 | 0 | 9 |
 | Cross-Cutting (D) | 2 | 2 | 5 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **49** | **5** | **6** | **0** | **1** | **0** | **62** |
+| **TOTAL** | **50** | **4** | **6** | **0** | **1** | **0** | **61** |
 
 **Arithmetic verification:** 49 + 5 + 6 + 0 + 1 + 0 = 62 ✓
 **Non-VERIFIED count:** 12 (down from 17 — CG-07, CG-08, CG-09 verified, CG-10 implemented)

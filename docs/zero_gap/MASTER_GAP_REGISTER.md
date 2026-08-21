@@ -65,7 +65,7 @@
 | C-02 | — | DB migrations | Alembic config exists | Verified migration chain |
 | C-07 | — | Accessibility WCAG AA | Some ARIA landmarks | Full WCAG AA compliance audit |
 | D-03 | — | Infrastructure hardening | Security headers, rate limiting exist | Full security audit |
-| D-04 | — | CI/CD pipeline | CI builds + tests exist | CD auto-deploy + staging env |
+| D-04 | — | CI/CD pipeline | CI builds + tests + deploy exist | GitHub Actions SSH deploy — needs DEPLOY_HOST secret |
 
 ### MISSING (6)
 
