@@ -123,7 +123,7 @@ The following documents govern SHUNYA OS development and are **authoritative** e
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Execution engine | ⚡ IMPLEMENTED | ✅ | ✅ | ⚡ | ⚡ | ❌ | ❌ | ✅ | ❌ | Standalone, not wired to any user-facing workflow | B1 | 7 |
 | Automation runtime | ⚡ IMPLEMENTED | ✅ | ✅ | ⚡ | ⚡ | ❌ | ❌ | ✅ | ❌ | Standalone, not wired | B1 | 7 |
-| Work visibility UI | ❌ MISSING | ⚡ | ⚡ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | No execution visibility for founder | B6 | 8 |
+| Work / execution visibility | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ⬜ | ✅ | ExecutionWorkspace wired to /api/v1/execution/work, reads real Outcomes + Tasks + Commitments | B6 | 0 |
 | Execution log | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ⬜ | Execution log routes exist | None | 5 |
 
 ### B7 — Memory & Knowledge
@@ -141,7 +141,7 @@ The following documents govern SHUNYA OS development and are **authoritative** e
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | PDF generation | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ⬜ | PDF routes registered, no UI trigger | None | 5 |
 | Document generation | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ⚡ | ❌ | ❌ | ⬜ | ❌ | Doc routes exist | None | 5 |
-| Artifact retrieval UI | ❌ MISSING | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | No output/artifact browser | None | 6 |
+| Artifact retrieval UI | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ⬜ | ✅ | OutputsBrowser wired to /api/v1/execution/outputs, reads Documents + Proposals + Results | None | 0 |
 | Output visibility | ❌ MISSING | ⚡ | ⚡ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | Outputs exist but no retrieval UI | B8 | 6 |
 
 ### B9 — Intelligence & AI
@@ -240,20 +240,20 @@ The following documents govern SHUNYA OS development and are **authoritative** e
 | Category | ✅ VERIFIED | ⚡ IMPLEMENTED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | TOTAL |
 |---|---|---|---|---|---|---|
 | Foundation (A) | 7 | 1 | 0 | 1 | 0 | 9 |
-| Core Domains (B) | 12 | 12 | 6 | 7 | 0 | 37 |
+| Core Domains (B) | 14 | 12 | 6 | 5 | 0 | 37 |
 | Infrastructure (C) | 6 | 0 | 2 | 0 | 0 | 8 |
 | Cross-Cutting (D) | 0 | 0 | 0 | 10 | 0 | 10 |
-| **TOTAL** | **25** | **13** | **8** | **18** | **0** | **64** |
+| **TOTAL** | **27** | **13** | **8** | **16** | **0** | **64** |
 
 **Executive Summary:**
-- 25 capabilities VERIFIED in production (up from 20)
+- 27 capabilities VERIFIED in production (up from 25)
 - 13 capabilities implemented but unverified
 - 8 capabilities partial (Voice now OPEN, not Future)
-- 18 capabilities missing
+- 16 capabilities missing
 - **0 EXTERNALLY-BLOCKED** — everything is fixable
-- **Total GAPS: 39** (non-VERIFIED, unchanged — MISSING→IMPLEMENTED)
+- **Total GAPS: 37** (non-VERIFIED, down from 39)
 
-**Critical Path:** CG-02 (Organization browser) → CG-04 (OutputsBrowser) → CG-12 (Marketing dashboard)
+**Critical Path:** CG-02 (Organization browser) → CG-12 (Marketing dashboard) → CG-06 (Command-to-action bridge)
 
 ---
 
@@ -263,29 +263,30 @@ The following documents govern SHUNYA OS development and are **authoritative** e
 
 | ID | Capability | Fix | Status |
 |----|-----------|-----|--------|
-| CG-03 | Campaign creation UI | Add campaign create form to MarketingWorkspace — name, description, objective, budget, status, dates. POST to `/api/v1/marketing/campaigns`. Frontend build ✅. | ⚡ IMPLEMENTED |
+| CG-13 | Work / execution visibility | ExecutionWorkspace wired to `/api/v1/execution/work` — real Outcomes + Tasks + Commitments | ✅ VERIFIED |
+| CG-14 | Artifact discovery | OutputsBrowser wired to `/api/v1/execution/outputs` — Documents + Proposals + Results | ✅ VERIFIED |
 
 ### 🔥 PRIORITY 1 — Organization browser (CG-02)
 
 PeoplePanel shows members but needs org tree/explorer for navigable organization view.
 
-### 🔥 PRIORITY 2 — Output/artifact retrieval (CG-04)
-
-Outputs exist (PDF, docs) but no unified retrieval UI. Build OutputsBrowser.
-
-### 🔥 PRIORITY 3 — Marketing dashboard (CG-12)
+### 🔥 PRIORITY 2 — Marketing dashboard (CG-12)
 
 Marketing intelligence routes exist but no aggregated overview dashboard.
+
+### 🔥 PRIORITY 3 — Command-to-action bridge (CG-06)
+
+Intent detected but no action confirmation UI.
 
 ---
 
 ## NEXT EXACT IMPLEMENTATION STEP:
 
-**Step 1:** Build OrganizationBrowser component — read PeoplePanel's member list and render as navigable org hierarchy
+**Step 1:** Build OrganizationBrowser component from PeoplePanel member data
 **Step 2:** Wire into DomainWorkspaceRouter for people/organization domain
 **Step 3:** Verify end-to-end
 **Step 4:** Update Milestone Checker
-**Step 5:** Continue to next dependency-safe gap (CG-04: OutputsBrowser)
+**Step 5:** Continue to next dependency-safe gap
 
 ## NEXT EXACT COMMAND:
 

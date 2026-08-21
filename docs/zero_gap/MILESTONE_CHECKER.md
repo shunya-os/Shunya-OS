@@ -1,7 +1,7 @@
 # ZERO-GAP-01 — MILESTONE CHECKER
 
 > **Compulsory · Updated Each Execution Boundary**
-> **Date: 2026-08-21 | Build: e0f883d + 9e98e05**
+> **Date: 2026-08-21 | Build: db6ace5**
 
 ---
 
@@ -14,7 +14,7 @@
 | Space management CRUD | ✅ VERIFIED | /api/v1/founder/spaces returns real data |
 | Object CRUD | ✅ VERIFIED | /api/v1/founder/objects real CRUD |
 | Executive Home dashboard | ✅ VERIFIED | Real components: PrimaryFocusArea, OrganizationalOrientation |
-| Domain workspace routing | ✅ VERIFIED | DomainWorkspaceRouter routes to Commercial, Relationship, Marketing, Sales |
+| Domain workspace routing | ✅ VERIFIED | DomainWorkspaceRouter routes to Commercial, Relationship, Marketing, Sales, Work, Outputs |
 | Mobile organizational nav | ✅ VERIFIED | MobileDomainNav covers all 12 domains |
 
 ## INTELLIGENCE — AI, Knowledge, Memory
@@ -43,7 +43,6 @@
 | Proposals | ✅ VERIFIED | API returns real seeded proposals |
 | Lead management | ⚡ IMPLEMENTED | Routes exist, no UI |
 | People panel | ✅ VERIFIED | /api/v1/people/members, /workload, /attendance, /people root all work |
-| Campaign creation UI | ❌ MISSING | Backend exists, no create form |
 
 ## BUSINESS CONTROL — Finance, Operations
 
@@ -53,6 +52,13 @@
 | Task management | ⚡ IMPLEMENTED | Backend routes exist |
 | Finance routes | ⚡ IMPLEMENTED | finance_bp registered |
 | Import/Export | ⚡ IMPLEMENTED | ImportExportPanel exists |
+
+## EXECUTION & OUTPUTS — NEWLY VERIFIED
+
+| Capability | Status | Evidence |
+|------------|--------|----------|
+| Work visibility / execution traceability | ✅ VERIFIED | ExecutionWorkspace reads /api/v1/execution/work — Outcomes + Tasks + Commitments |
+| Output / artifact discovery | ✅ VERIFIED | OutputsBrowser reads /api/v1/execution/outputs — Documents + Proposals + Results |
 
 ## GOVERNANCE — Authz, Audit, Security
 
@@ -99,20 +105,20 @@
 | Metric | Count |
 |--------|-------|
 | TOTAL GAPS (non-VERIFIED) at start | 52 |
-| GAPS FIXED (cumulative across all sessions) | 13 |
-| TOTAL VERIFIED now | 25 |
-| GAPS REMAINING | 39 |
-| THIS PACKAGE | ✅ CG-03 (campaign creation form) fixed |
+| GAPS FIXED (cumulative) | 15 |
+| TOTAL VERIFIED now | 27 |
+| GAPS REMAINING | 37 |
+| THIS PACKAGE | ✅ CG-13 (Work visibility), CG-14 (Artifact discovery) |
 
 ## CRITICAL PATH REMAINING
 
 | Priority | Gap | Action |
 |----------|-----|--------|
 | 🔥 1 | Organization browser (CG-02) | Build org component from PeoplePanel member data |
-| 🔥 2 | Outputs/artifact retrieval (CG-04) | Build OutputsBrowser |
-| 3 | Marketing dashboard (CG-12) | Build aggregated marketing overview |
+| 🔥 2 | Marketing dashboard (CG-12) | Build aggregated marketing overview |
+| 3 | Command-to-action bridge (CG-06) | Build action confirmation UI |
 | 4 | Memory/Knowledge UI (B7) | Build API bridge + UI |
-| 5 | Command-to-action bridge (CG-06) | Build action confirmation UI |
+| 5 | Mobile object views (CG-09) | Build mobile responsive object views |
 
 ## PARALLEL WORKSTREAMS
 
@@ -122,6 +128,8 @@
 | People root route (CG-01) | ✅ COMPLETE |
 | Voice TTS output (CG-11) | ✅ COMPLETE |
 | Campaign creation UI (CG-03) | ✅ COMPLETE |
+| Execution visibility (CG-13) | ✅ COMPLETE |
+| Artifact discovery (CG-14) | ✅ COMPLETE |
 | Organization browser (CG-02) | 🔥 NEXT |
 
 ## NEXT EXACT IMPLEMENTATION STEP
@@ -130,7 +138,7 @@
 
 **Prerequisite reading needed:**
 - `frontend/src/components/workspace/people-panel.tsx` — existing member list
-- `app/people/routes.py` — `/api/v1/people` root route (CG-01 just added)
+- `app/people/routes.py` — `/api/v1/people` root route
 
 ## NEXT EXACT COMMAND
 
