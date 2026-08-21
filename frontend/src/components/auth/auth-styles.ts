@@ -49,7 +49,7 @@ export const authStyles = `
 .sh-auth-sub {
   font-family: var(--shunya-font-display, 'Playfair Display', serif);
   font-size: 1.1rem;
-  color: var(--shunya-text-secondary, rgba(26,28,29,0.55));
+  color: var(--shunya-text-secondary, #636363);
   letter-spacing: var(--shunya-tracking-wide, 0.02em);
   font-weight: 400;
   margin-top: 2px;
@@ -70,7 +70,7 @@ export const authStyles = `
   display: block;
   font-size: var(--shunya-text-xs, 10px);
   font-weight: 600;
-  color: var(--shunya-text-secondary, rgba(26,28,29,0.55));
+  color: var(--shunya-text-secondary, #636363);
   margin-bottom: 6px;
   letter-spacing: var(--shunya-tracking-wider, 0.06em);
   text-transform: uppercase;
@@ -222,7 +222,7 @@ export const authStyles = `
 }
 .sh-auth-info {
   font-size: var(--shunya-text-sm, 12px);
-  color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
+  color: var(--shunya-text-tertiary, #888888);
   text-align: center;
   padding: 8px 12px;
 }
@@ -230,7 +230,7 @@ export const authStyles = `
 /* ── Divider ────────────────────────────────────────────────── */
 .sh-auth-divider {
   width: 100%; display: flex; align-items: center; gap: 12px;
-  color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
+  color: var(--shunya-text-tertiary, #888888);
   font-size: var(--shunya-text-xs, 10px);
   letter-spacing: var(--shunya-tracking-wider, 0.06em);
   text-transform: uppercase;
@@ -246,7 +246,7 @@ export const authStyles = `
 .sh-auth-footer {
   width: 100%; text-align: center;
   font-size: var(--shunya-text-sm, 12px);
-  color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
+  color: var(--shunya-text-tertiary, #888888);
 }
 
 /* ── Animations ────────────────────────────────────────────── */

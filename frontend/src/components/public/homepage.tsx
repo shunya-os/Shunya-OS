@@ -15,41 +15,43 @@
  */
 
 interface Props {
-  onEnterApp: () => void;
+ onEnterApp: () => void;
 }
 
 export function HomePage({ onEnterApp }: Props) {
   return (
-    <div className="sh-public" role="main" aria-label="SHUNYA homepage">
-      {/* Hero Artwork Layer (placeholder — match design bible spec) */}
-      <div className="sh-public-artwork" aria-hidden="true">
-        <div className="sh-public-artwork-ambient" />
-        <div className="sh-public-artwork-warmth" />
-        <div className="sh-public-artwork-toplight" />
-        {/*
-          TODO: Import actual SVG hero artwork from static/img/artwork-hero.svg
-          The canonical artwork has:
-          - Ribbons (7px, 3.5px, 2px) with gentle undulation animation
-          - Halos (190px, 150px, 100px) rotating at 80s/60s/45s
-          - Devanagari text at centre
-          - "INFINITE INTELLIGENCE. ZERO NOISE."
-        */}
-      </div>
+    <div className="sh-public-root">
+      <div className="sh-public" role="main" aria-label="SHUNYA homepage">
+        {/* Hero Artwork Layer (placeholder — match design bible spec) */}
+        <div className="sh-public-artwork" aria-hidden="true">
+          <div className="sh-public-artwork-ambient" />
+          <div className="sh-public-artwork-warmth" />
+          <div className="sh-public-artwork-toplight" />
+          {/*
+            TODO: Import actual SVG hero artwork from static/img/artwork-hero.svg
+            The canonical artwork has:
+            - Ribbons (7px, 3.5px, 2px) with gentle undulation animation
+            - Halos (190px, 150px, 100px) rotating at 80s/60s/45s
+            - Devanagari text at centre
+            - "INFINITE INTELLIGENCE. ZERO NOISE."
+          */}
+        </div>
 
-      {/* Identity Content */}
-      <div className="sh-public-hero">
-        <div className="sh-public-gold-dot" aria-hidden="true" />
-        <h1 className="sh-public-zero">शून्य</h1>
-        <h2 className="sh-public-sub">SHUNYA</h2>
-        <p className="sh-public-tagline">Infinite Intelligence. Zero Noise.</p>
-        <p className="sh-public-description">
-          An intelligent operating system that understands your business
-          as a living system, not a database.
-        </p>
-        <div className="sh-public-actions">
-          <button className="sh-public-btn sh-public-btn-primary" onClick={onEnterApp}>
-            Get Started
-          </button>
+        {/* Identity Content */}
+        <div className="sh-public-hero">
+          <div className="sh-public-gold-dot" aria-hidden="true" />
+          <h1 className="sh-public-zero">शून्य</h1>
+          <h2 className="sh-public-sub">SHUNYA</h2>
+          <p className="sh-public-tagline">Infinite Intelligence. Zero Noise.</p>
+          <p className="sh-public-description">
+            An intelligent operating system that understands your business
+            as a living system, not a database.
+          </p>
+          <div className="sh-public-actions">
+            <button className="sh-public-btn sh-public-btn-primary" onClick={onEnterApp}>
+              Get Started
+            </button>
+          </div>
         </div>
       </div>
 
@@ -62,7 +64,7 @@ export function HomePage({ onEnterApp }: Props) {
       <style>{`
 /* ── SHUNYA Public Homepage — Canonical Warm Light ─────────── */
 
-.sh-public {
+.sh-public-root {
   position: fixed; inset: 0;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
@@ -72,6 +74,13 @@ export function HomePage({ onEnterApp }: Props) {
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.sh-public {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  overflow: hidden;
 }
 
 .sh-public-inner {
@@ -161,7 +170,7 @@ export function HomePage({ onEnterApp }: Props) {
   font-style: italic;
   letter-spacing: var(--shunya-tracking-ultra, 0.2em);
   text-transform: uppercase;
-  color: var(--shunya-gold, #A4865F);
+  color: var(--shunya-gold-accessible, #7A6848);
   margin: 12px 0 0;
   line-height: 1.5;
 }
@@ -169,7 +178,7 @@ export function HomePage({ onEnterApp }: Props) {
 .sh-public-description {
   font-size: var(--shunya-text-md, 16px);
   line-height: 1.6;
-  color: var(--shunya-text-secondary, rgba(26,28,29,0.55));
+  color: var(--shunya-text-secondary, #636363);
   max-width: 440px;
   margin: 8px 0 0;
 }

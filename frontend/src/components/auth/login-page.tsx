@@ -176,11 +176,11 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
   font-family: var(--shunya-font-display, 'Playfair Display', serif);
   font-size: 0.95rem; font-weight: 400; font-style: italic;
   letter-spacing: var(--shunya-tracking-ultra, 0.2em);
-  text-transform: uppercase; color: var(--shunya-gold, #A4865F); margin-top: 12px;
+  text-transform: uppercase; color: var(--shunya-gold-accessible, #7A6848); margin-top: 12px;
 }
 .sh-intro-skip {
   margin-top: 32px; font-size: var(--shunya-text-sm, 12px);
-  color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
+  color: var(--shunya-text-tertiary, #888888);
   letter-spacing: var(--shunya-tracking-wider, 0.06em);
 }
 .fade-in {
