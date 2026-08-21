@@ -27,17 +27,17 @@
 | Foundation (A) | 9 | 0 | 0 | 0 | 0 | 0 | 9 |
 | Core Domains (B) | 34 | 0 | 0 | 0 | 0 | 0 | 34 |
 | Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
-| Cross-Cutting (D) | 5 | 2 | 2 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **54** | **4** | **2** | **0** | **1** | **0** | **61** |
+| Cross-Cutting (D) | 7 | 2 | 0 | 0 | 0 | 0 | 9 |
+| **TOTAL** | **56** | **4** | **0** | **0** | **1** | **0** | **61** |
 
 **Executive Summary:**
-- **54** capabilities VERIFIED in production (up from 52 — A-09, D-07 elevated)
+- **56** capabilities VERIFIED in production (up from 52 — A-09, D-06, D-07, D-09 elevated)
 - **4** PARTIAL (C-02, C-07, D-03, D-04)
-- **2** MISSING (D-06, D-09)
-- **0** EXTERNALLY-BLOCKED
+- **0** MISSING — all resolved
+- **0** EXTERNALLY-BLOCKED — all internal work
 - **1** PRIVILEGE-GATED (C-08 Nginx/HTTPS — needs sudo, root execution path)
 - **0** BLOCKED-BY-DEPENDENCY
-- **Total non-VERIFIED: 7** (all internal + privilege-gated)
+- **Total non-VERIFIED: 5** (4 partial + 1 privilege-gated)
 - **Genuinely external blockers: 0**
 
 **Classification Corrections Applied:**
@@ -53,7 +53,7 @@
 
 ---
 
-## REMAINING GAPS (7 non-VERIFIED)
+## REMAINING GAPS (5 non-VERIFIED)
 
 ### PARTIAL (5)
 
@@ -65,13 +65,13 @@
 | D-03 | — | Infrastructure hardening | Security headers, rate limiting exist | Full security audit |
 | D-04 | — | CI/CD pipeline | CI builds + tests + deploy exist | GitHub Actions SSH deploy — needs DEPLOY_HOST secret |
 
-### MISSING (3)
+### MISSING (0 — all resolved)
 
 | Canonical ID | Old ID | Capability | Fix Path |
 |---|---|---|---|
-| D-06 | — | Performance analytics & monitoring | Add prometheus/grafana or equivalent |
+| D-06 | — | Performance analytics & monitoring | ✅ IMPLEMENTED — /metrics endpoint (prometheus format), AnalyticsPanel component wired into workspace container |
 | D-07 | — | Cross-domain search integration | ✅ IMPLEMENTED — SearchBar wired into PrimaryWorkspace (⌘⇧K). Backend `/api/v1/search` (DuckDuckGo web) + `/api/v1/founder/search` (objects/relationships). Frontend `ModuleRegistry.searchAll` aggregates across all modules. |
-| D-09 | — | Audit trail visibility UI | Build audit viewer |
+| D-09 | — | Audit trail visibility UI | ✅ IMPLEMENTED — AuditViewer component wired into workspace container, connected to `/api/v1/audit/list` |
 
 ### PRIVILEGE-GATED (1)
 

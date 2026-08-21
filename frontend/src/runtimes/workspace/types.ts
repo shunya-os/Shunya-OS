@@ -36,6 +36,8 @@ export type WorkspaceType =
   | 'people'
   | 'contact-discovery'
   | 'import-export'
+  | 'audit'
+  | 'analytics'
   | 'settings';
 
 export interface WorkspaceIdentity {

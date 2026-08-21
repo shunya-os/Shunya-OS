@@ -27,6 +27,8 @@ import { AdminPanel } from './admin-panel';
 import { PeoplePanel } from './people-panel';
 import { ImportExportPanel } from '../import-export/import-export-panel';
 import { ContactDiscovery } from '../contacts/contact-discovery';
+import { AuditViewer } from '../audit/audit-viewer';
+import { AnalyticsPanel } from '../analytics/analytics-panel';
 import { bus } from '../../runtimes/event-bus';
 
 function WorkspaceErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
@@ -152,6 +154,16 @@ export function WorkspaceContainer() {
     // D-05 — Contact discovery
     if (active.identity.type === 'contact-discovery') {
       return <div className="wksp-panels" ref={ref}><ContactDiscovery /></div>;
+    }
+
+    // D-09 — Audit trail visibility
+    if (active.identity.type === 'audit') {
+      return <div className="wksp-panels" ref={ref}><AuditViewer /></div>;
+    }
+
+    // D-06 — Performance analytics
+    if (active.identity.type === 'analytics') {
+      return <div className="wksp-panels" ref={ref}><AnalyticsPanel /></div>;
     }
 
     // Active workspace — compose panels via composition engine
