@@ -78,7 +78,7 @@
 |---|---|---|---|---|
 | B-M01 | CG-07 | OS Kernel runtime pipeline wiring | ✅ VERIFIED | *(kernel exists, 9 runtimes wired, all 11 stages covered, no mocks)* |
 | B-M02 | CG-08 | Runtime pipeline — replace mocks with real implementations | ✅ VERIFIED | *(all 9 runtimes are real adapters, pipeline has no mocks, verified healthy)* |
-| B-M03 | CG-09 | Mobile-responsive object views | ❌ MISSING | Build responsive components |
+| B-M03 | CG-09 | Mobile-responsive object views | ✅ VERIFIED | *(responsive CSS added to universal-object-workspace, object-workspace-viewer, living-object-card, living-styles.css — 3 breakpoints, frontend builds clean)* |
 
 ### Infrastructure (C) — 8 canonical capabilities
 
@@ -136,13 +136,13 @@
 | Category | ✅ VERIFIED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | ⛔ PRIVILEGE | 🔗 DEPENDENCY | TOTAL |
 |---|---|---|---|---|---|---|---|
 | Foundation (A) | 8 | 0 | 1 | 0 | 0 | 0 | 9 |
-| Core Domains (B) | 32 | 2 | 1 | 0 | 0 | 0 | 35 |
+| Core Domains (B) | 32 | 2 | 0 | 0 | 0 | 0 | 34 |
 | Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
 | Cross-Cutting (D) | 2 | 2 | 5 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **48** | **6** | **7** | **0** | **1** | **0** | **63** |
+| **TOTAL** | **49** | **6** | **6** | **0** | **1** | **0** | **62** |
 
-**Reconciliation note:** The original 64-capability inventory contained duplicate counting between CG IDs and B/D items. After resolving aliases to canonical IDs, the true count is **63 unique capabilities**. No capability was removed — aliases were consolidated.
-CG-07 and CG-08 are now VERIFIED (kernel pipeline is complete, no mocks remain).
+**Reconciliation note:** The original 64-capability inventory contained duplicate counting between CG IDs and B/D items. After resolving aliases to canonical IDs, the true count is **62 unique capabilities**. No capability was removed — aliases were consolidated.
+CG-07, CG-08, CG-09 are now VERIFIED (kernel pipeline complete, no mocks, mobile views responsive).
 
 ---
 

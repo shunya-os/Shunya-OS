@@ -3614,6 +3614,12 @@
   .lw-welcome-title {
     font-size: var(--lw-text-xl);
   }
+
+  /* Card responsive */
+  .lw-obj-title-row { flex-wrap: wrap; }
+  .lw-obj-meta-row { flex-direction: column; align-items: flex-start; }
+  .lw-obj-header { padding: var(--lw-space-sm); }
+  .lw-obj-body { padding: 0 var(--lw-space-sm) var(--lw-space-sm); }
 }
 
 /* Small mobile */

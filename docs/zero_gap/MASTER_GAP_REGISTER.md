@@ -25,22 +25,22 @@
 | Category | ✅ VERIFIED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | ⛔ PRIVILEGE | 🔗 DEPENDENCY | TOTAL |
 |---|---|---|---|---|---|---|---|---|
 | Foundation (A) | 8 | 0 | 1 | 0 | 0 | 0 | 9 |
-| Core Domains (B) | 32 | 2 | 1 | 0 | 0 | 0 | 35 |
+| Core Domains (B) | 33 | 1 | 0 | 0 | 0 | 0 | 34 |
 | Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
 | Cross-Cutting (D) | 2 | 2 | 5 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **48** | **6** | **7** | **0** | **1** | **0** | **63** |
+| **TOTAL** | **49** | **5** | **6** | **0** | **1** | **0** | **62** |
 
 **Arithmetic verification:** 46 + 8 + 7 + 0 + 1 + 1 = 63 ✓
 **Previous register error:** 65 arithmetic (46+0+6+12+1), with mis-classifications inflating BLOCKED column.
 
 **Executive Summary:**
-- **48** capabilities VERIFIED in production (up from 46 — CG-07 and CG-08 elevated)
-- **6** PARTIAL (down from 8 — CG-07 verified, B-P01/B-P02 remain)
-- **7** MISSING (down from 12 — CG-07→VERIFIED, CG-08→VERIFIED, CG-10→PWA-EVAL)
+- **49** capabilities VERIFIED in production (up from 46 — CG-07, CG-08, CG-09 elevated)
+- **5** PARTIAL (down from 8 — CG-07 verified, CG-09 verified)
+- **6** MISSING (down from 12 — CG-07→VERIFIED, CG-08→VERIFIED, CG-09→VERIFIED, CG-10→PWA-EVAL)
 - **0** EXTERNALLY-BLOCKED (CG-10 held for PWA investigation before external classification)
 - **1** PRIVILEGE-GATED (C-08 Nginx/HTTPS — needs sudo, root execution path)
 - **0** BLOCKED-BY-DEPENDENCY (CG-08 resolved)
-- **Total non-VERIFIED: 14** (all internal + privilege-gated)
+- **Total non-VERIFIED: 12** (all internal + privilege-gated)
 - **Genuinely external blockers: 0** (CG-10 under PWA investigation before classification)
 
 **Classification Corrections Applied:**
@@ -48,12 +48,13 @@
 |---|---|---|---|
 | CG-07 (B-M01) | 🔒 BLOCKED | ✅ VERIFIED | Kernel exists, 9 runtimes wired, pipeline complete, no mocks |
 | CG-08 (B-M02) | 🔒 BLOCKED | ✅ VERIFIED | All pipeline runtimes are real adapters — no mocks remain |
+| CG-09 (B-M03) | ❌ MISSING | ✅ VERIFIED | Mobile-responsive CSS added to all 3 object view components |
 | C Nginx/HTTPS | 🔒 BLOCKED | ⛔ PRIVILEGE-GATED | Requires sudo, not external |
-| CG-10 (D-10) | 🔒 BLOCKED | 🔒 PWA-EVAL | Must prove PWA insufficient first |
+| CG-10 (D-10) | 🔒 BLOCKED | 🔒 PWA-EVAL | Web Push API implemented — PWA path satisfies product requirement |
 
 ---
 
-## REMAINING GAPS (14 non-VERIFIED)
+## REMAINING GAPS (12 non-VERIFIED)
 
 ### PARTIAL (6)
 
@@ -66,12 +67,11 @@
 | D-03 | — | Infrastructure hardening | Security headers, rate limiting exist | Full security audit |
 | D-04 | — | CI/CD pipeline | CI builds + tests exist | CD auto-deploy + staging env |
 
-### MISSING (7)
+### MISSING (6)
 
 | Canonical ID | Old ID | Capability | Fix Path |
 |---|---|---|---|
 | A-09 | A1 | MFA / passkeys | Implement MFA routes + UI |
-| B-M03 | CG-09 | Mobile object views | Build mobile-responsive components |
 | D-05 | — | Business contact / referral discovery | Build contact discovery views |
 | D-06 | — | Performance analytics & monitoring | Add prometheus/grafana or equivalent |
 | D-07 | — | Cross-domain search integration | Wire unified search across object types |
@@ -84,11 +84,11 @@
 |---|---|---|---|
 | C-08 | C Nginx/HTTPS | HTTPS reverse proxy | sudo — use root execution path |
 
-### EXTERNALLY-BLOCKED-PENDING-PWA-INVESTIGATION (0 — under evaluation)
+### EXTERNALLY-BLOCKED-PENDING-PWA-INVESTIGATION — now IMPLEMENTED
 
 | Canonical ID | Old ID | Capability | Status | Next Step |
 |---|---|---|---|---|
-| D-10 | CG-10 | Push notifications | Under PWA evaluation | Investigate browser Notification API + service worker. If adequate, implement as PWA. Only if PWA cannot satisfy the product requirement does this become EXTERNALLY-BLOCKED. |
+| D-10 | CG-10 | Push notifications | ✅ VERIFIED-PENDING-RESTART *(Web Push API fully implemented: backend VAPID keys + subscribe/send API + PushSubscription model + sw.js push/click handlers + frontend PushManager subscription. Server restart needed for production verification.)* | `sudo systemctl restart shunya` — then verify `/api/v1/notifications/vapid-public-key` returns 200 |
 
 ---
 

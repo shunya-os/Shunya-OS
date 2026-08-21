@@ -245,6 +245,20 @@ export const ObjectWorkspaceViewer: FC<Props> = ({ objectId, objectType }) => {
 .wksp-object-viewer { display: flex; flex-direction: column; flex: 1; padding: var(--shunya-spacing-md); gap: var(--shunya-spacing-md); overflow: auto; }
 .wksp-object-layout { display: grid; grid-template-columns: 320px 1fr 320px; gap: var(--shunya-spacing-md); flex: 1; min-height: 0; }
 @media (max-width: 1024px) { .wksp-object-layout { grid-template-columns: 1fr; } }
+@media (max-width: 768px) {
+  .wksp-object-viewer { padding: var(--shunya-spacing-sm); }
+  .wksp-context-grid { grid-template-columns: 1fr; }
+  .wksp-intel-scores { flex-direction: column; gap: 6px; }
+}
+@media (max-width: 480px) {
+  .wksp-object-viewer { padding: 8px; }
+  .wksp-card { padding: var(--shunya-spacing-sm); }
+  .wksp-identity-row { flex-direction: column; align-items: flex-start; }
+  .wksp-actions-bar { flex-direction: column; }
+  .wksp-action-btn { width: 100%; justify-content: center; }
+  .wksp-rel-item { flex-wrap: wrap; }
+  .wksp-rel-email { margin-left: 0; }
+}
 .wksp-object-left, .wksp-object-center, .wksp-object-right { display: flex; flex-direction: column; gap: var(--shunya-spacing-sm); min-height: 0; }
 .wksp-card { background: var(--shunya-surface-2, #1a1a26); border: 1px solid var(--shunya-surface-1, #22222e); border-radius: var(--shunya-radius-md, 8px); padding: var(--shunya-spacing-md); }
 .wksp-card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--shunya-text-secondary, #888); margin-bottom: var(--shunya-spacing-sm); }
