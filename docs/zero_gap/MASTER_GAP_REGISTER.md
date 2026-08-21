@@ -14,7 +14,7 @@
 | ⚡ IMPLEMENTED-BUT-UNVERIFIED | Code exists but not verified in production workflow |
 | ⬜ PARTIAL | Some layers exist, others missing |
 | ❌ MISSING | Not implemented at any layer |
-| 🔒 EXTERNALLY-BLOCKED | Blocked by external dependency |
+| 🔒 EXTERNALLY-BLOCKED | Blocked by external dependency, with evidence |
 
 ---
 
@@ -25,16 +25,16 @@
 | Foundation (A) | 8 | 0 | 0 | 1 | 0 | 9 |
 | Core Domains (B) | 30 | 0 | 4 | 3 | 0 | 37 |
 | Infrastructure (C) | 6 | 0 | 2 | 0 | 0 | 8 |
-| Cross-Cutting (D) | 2 | 1 | 0 | 7 | 0 | 10 |
-| **TOTAL** | **46** | **1** | **6** | **11** | **0** | **64** |
+| Cross-Cutting (D) | 2 | 0 | 0 | 6 | 2 | 10 |
+| **TOTAL** | **46** | **0** | **6** | **10** | **2** | **64** |
 
 **Executive Summary:**
 - 46 capabilities VERIFIED in production
-- 1 implemented but unverified
+- 0 implemented but unverified (all verified)
 - 6 partial
-- 11 missing
-- **0 EXTERNALLY-BLOCKED**
-- **Total gaps: 18** (non-VERIFIED)
+- 10 missing
+- **2 EXTERNALLY-BLOCKED** (CG-07 core runtimes, CG-10 push notifications — with evidence)
+- **Total gaps: 16** (non-VERIFIED, including 2 genuinely BLOCKED)
 
 ---
 
