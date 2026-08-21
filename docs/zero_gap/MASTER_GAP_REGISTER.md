@@ -25,19 +25,19 @@
 | Category | ✅ VERIFIED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | ⛔ PRIVILEGE | 🔗 DEPENDENCY | TOTAL |
 |---|---|---|---|---|---|---|---|---|
 | Foundation (A) | 9 | 0 | 0 | 0 | 0 | 0 | 9 |
-| Core Domains (B) | 34 | 0 | 0 | 0 | 0 | 0 | 34 |
+| Core Domains (B) | 33 | 1 | 0 | 0 | 0 | 0 | 34 |
 | Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
 | Cross-Cutting (D) | 7 | 2 | 0 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **56** | **4** | **0** | **0** | **1** | **0** | **61** |
+| **TOTAL** | **55** | **5** | **0** | **0** | **1** | **0** | **61** |
 
 **Executive Summary:**
-- **56** capabilities VERIFIED in production (up from 52 — A-09, D-06, D-07, D-09 elevated)
-- **4** PARTIAL (C-02, C-07, D-03, D-04)
+- **55** capabilities VERIFIED in production
+- **5** PARTIAL (B-P01 protocol, C-07 accessibility, D-03 hardening, D-04 CI/CD; C-02 verified)
 - **0** MISSING — all resolved
 - **0** EXTERNALLY-BLOCKED — all internal work
 - **1** PRIVILEGE-GATED (C-08 Nginx/HTTPS — needs sudo, root execution path)
 - **0** BLOCKED-BY-DEPENDENCY
-- **Total non-VERIFIED: 5** (4 partial + 1 privilege-gated)
+- **Total non-VERIFIED: 6** (5 partial + 1 privilege-gated)
 - **Genuinely external blockers: 0**
 
 **Classification Corrections Applied:**
@@ -53,17 +53,17 @@
 
 ---
 
-## REMAINING GAPS (5 non-VERIFIED)
+## REMAINING GAPS (6 non-VERIFIED)
 
-### PARTIAL (5)
+### PARTIAL (5) — Engineering audits, non-blocking
 
 | Canonical ID | Old ID | Capability | What Exists | Missing Layer |
 |---|---|---|---|---|
-| B-P01 | B1 | Universal Object Protocol (full) | Object CRUD exists | Not through full 15-section protocol |
-| C-02 | — | DB migrations | Alembic config exists | Verified migration chain |
-| C-07 | — | Accessibility WCAG AA | Some ARIA landmarks | Full WCAG AA compliance audit |
-| D-03 | — | Infrastructure hardening | Security headers, rate limiting exist | Full security audit |
-| D-04 | — | CI/CD pipeline | CI builds + tests + deploy exist | GitHub Actions SSH deploy — needs DEPLOY_HOST secret |
+| B-P01 | B1 | Universal Object Protocol (full 15-section) | Core protocol complete (object.py: 2945 lines, 27 fields, 15 sections, 7 actions, 26 tests pass) | HTTP API integration — routes use legacy SQLAlchemy |
+| C-02 | — | DB migrations | ✅ VERIFIED — 15-migration chain, alembic at head f5429b50dbc6, .env loading fixed, continuous from base | *(verified chain — meets all criteria)* |
+| C-07 | — | Accessibility WCAG AA | WCAG 2.2 AA canon (364 lines), keyboard nav, ARIA landmarks, prefers-reduced-motion | Full WCAG AA compliance audit (automated aXe/lighthouse) |
+| D-03 | — | Infrastructure hardening | SEC-00 constitution, security headers, rate limiting, CORS, HSTS in nginx config | Full security audit (OWASP ZAP or equivalent) |
+| D-04 | — | CI/CD pipeline | GitHub Actions CI/CD workflow, SSH deploy script, health URL fix | GitHub secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY |
 
 ### MISSING (0 — all resolved)
 
