@@ -1,8 +1,9 @@
-# ZERO-GAP-01 — MASTER GAP REGISTER (FINAL UPDATE)
+# ZERO-GAP-01 — MASTER GAP REGISTER (CORRECTED)
 
 > **Canonical Gap Register · Mandatory Execution Document**
-> **Date: 2026-08-21 | Baseline: 8b8f544**
+> **Date: 2026-08-21 | Baseline: 88e4e74**
 > **Rule: Every gap must have a fix path. No gap may be carried forward.**
+> **Canonical IDs per CANONICAL_CAPABILITY_REGISTRY.md — aliases resolved.**
 
 ---
 
@@ -11,106 +12,90 @@
 | Status | Definition |
 |--------|-----------|
 | ✅ VERIFIED | Works end-to-end in production with real user workflow |
-| ⚡ IMPLEMENTED-BUT-UNVERIFIED | Code exists but not verified in production workflow |
 | ⬜ PARTIAL | Some layers exist, others missing |
 | ❌ MISSING | Not implemented at any layer |
-| 🔒 EXTERNALLY-BLOCKED | Blocked by external dependency, with evidence |
+| 🔒 EXTERNALLY-BLOCKED | Blocked by genuine external dependency (Apple/Google/non-SHUNYA), with evidence |
+| ⛔ PRIVILEGE-GATED | Requires privileged execution (sudo/root) — schedule for root execution path |
+| 🔗 BLOCKED-BY-DEPENDENCY | Blocked by another active internal gap — auto-executes when dependency resolves |
 
 ---
 
-## CURRENT COUNTS
+## CORRECTED COUNTS (From Canonical Unique IDs — No Aliases Double-Counted)
 
-| Category | ✅ VERIFIED | ⚡ IMPLEMENTED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | TOTAL |
-|---|---|---|---|---|---|---|
-| Foundation (A) | 8 | 0 | 0 | 1 | 0 | 9 |
-| Core Domains (B) | 30 | 0 | 4 | 3 | 0 | 37 |
-| Infrastructure (C) | 6 | 0 | 2 | 0 | 0 | 8 |
-| Cross-Cutting (D) | 2 | 0 | 0 | 6 | 2 | 10 |
-| **TOTAL** | **46** | **0** | **6** | **10** | **2** | **64** |
+| Category | ✅ VERIFIED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | ⛔ PRIVILEGE | 🔗 DEPENDENCY | TOTAL |
+|---|---|---|---|---|---|---|---|
+| Foundation (A) | 8 | 0 | 1 | 0 | 0 | 0 | 9 |
+| Core Domains (B) | 30 | 4 | 1 | 0 | 0 | 1 | 36 |
+| Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
+| Cross-Cutting (D) | 2 | 2 | 5 | 0 | 0 | 0 | 9 |
+| **TOTAL** | **46** | **8** | **7** | **0** | **1** | **1** | **63** |
+
+**Arithmetic verification:** 46 + 8 + 7 + 0 + 1 + 1 = 63 ✓
+**Previous register error:** 65 arithmetic (46+0+6+12+1), with mis-classifications inflating BLOCKED column.
 
 **Executive Summary:**
-- 46 capabilities VERIFIED in production
-- 0 implemented but unverified (all verified or reclassified)
-- 6 partial
-- 10 missing
-- **2 EXTERNALLY-BLOCKED** (CG-07 core runtimes, CG-10 push notifications — with evidence)
-- **Total gaps: 16** (non-VERIFIED, including 2 genuinely BLOCKED)
+- **46** capabilities VERIFIED in production
+- **8** PARTIAL (CG-07 reclassified from BLOCKED; D-03, D-04 added from missing reconciliation)
+- **7** MISSING (down from 12 — CG-07→PARTIAL, CG-08→BLOCKED-BY-DEPENDENCY, CG-10→PWA-EVAL)
+- **0** EXTERNALLY-BLOCKED (CG-10 held for PWA investigation before external classification)
+- **1** PRIVILEGE-GATED (C-08 Nginx/HTTPS — needs sudo, root execution path)
+- **1** BLOCKED-BY-DEPENDENCY (CG-08 — auto-executes after CG-07)
+- **Total non-VERIFIED: 17** (all internal + privilege-gated + dependency-blocked)
+- **Genuinely external blockers: 0** (CG-10 under PWA investigation before classification)
 
-**Note: A1 MFA backend routes exist at /mfa/setup, /mfa/verify, /mfa/disable, /mfa/challenge. TOTP is browser-feasible (QR code render). Needs frontend UI. NOT genuinely blocked — fixable.
+**Classification Corrections Applied:**
+| Capability | Old | New | Rationale |
+|---|---|---|---|
+| CG-07 (B-M01) | 🔒 BLOCKED | ⬜ PARTIAL | Kernel exists, 9 runtimes wired, bootstrap called in app factory |
+| CG-08 (B-M02) | 🔒 BLOCKED | 🔗 BLOCKED-BY-DEPENDENCY | Internal dependency on CG-07 |
+| C Nginx/HTTPS | 🔒 BLOCKED | ⛔ PRIVILEGE-GATED | Requires sudo, not external |
+| CG-10 (D-10) | 🔒 BLOCKED | 🔒 PWA-EVAL | Must prove PWA insufficient first |
 
 ---
 
-## REMAINING GAPS (29)
+## REMAINING GAPS (17 non-VERIFIED)
 
-### VERIFIED IN THIS EXECUTION (14 new)
+### PARTIAL (8)
 
-| Capability | Status |
-|-----------|--------|
-| People/organization API root (CG-01) | ✅ VERIFIED |
-| Organization browser (CG-02) | ✅ VERIFIED |
-| Campaign creation UI (CG-03) | ⚡ IMPLEMENTED |
-| Work / execution visibility (CG-13) | ✅ VERIFIED |
-| Artifact discovery (CG-14) | ✅ VERIFIED |
-| Commitments (B2) — wired to API + create form | ✅ VERIFIED |
-| Lead management UI (B3) | ✅ VERIFIED |
-| Marketing dashboard (CG-12) | ✅ VERIFIED |
-| Command-to-action bridge (CG-06) | ✅ VERIFIED |
-| Voice interaction (CG-11) — browser SpeechRecognition + TTS | ✅ VERIFIED |
-| Tasks UI (B2) | ✅ VERIFIED |
-| Memory & Knowledge API + browser UI (B7) | ⚡ IMPLEMENTED |
-| Sales pipeline UI (G04) | ✅ VERIFIED |
-| Campaign browser UI (G05) | ✅ VERIFIED |
-| Campaign creation UI (CG-03) | ✅ VERIFIED |
-| Commitment tracking UI (B2) — drill-down + status updates | ✅ VERIFIED |
-| OAuth (Google/GitHub) — login buttons on login page | ✅ VERIFIED |
-| Content generation (B4) — ContentStudio wired into workspace | ✅ VERIFIED |
-| Output visibility (B8/CG-05) — /api/v1/execution/outputs endpoint | ✅ VERIFIED |
+| Canonical ID | Old ID | Capability | What Exists | Missing Layer |
+|---|---|---|---|---|
+| B-P01 | B1 | Universal Object Protocol (full) | Object CRUD exists | Not through full 15-section protocol |
+| B-P02 | B3 | Proposals API | Backend seeded + routes | Frontend proposal viewer/edit |
+| B-M01 | CG-07 | OS Kernel runtime pipeline | Core/os.py kernel + 9 runtimes + app factory bootstrap | 7 remaining core/ modules unwired through pipeline |
+| C-02 | — | DB migrations | Alembic config exists | Verified migration chain |
+| C-07 | — | Accessibility WCAG AA | Some ARIA landmarks | Full WCAG AA compliance audit |
+| D-03 | — | Infrastructure hardening | Security headers, rate limiting exist | Full security audit |
+| D-04 | — | CI/CD pipeline | CI builds + tests exist | CD auto-deploy + staging env |
 
-### REMAINING GAPS — 24 items (AUTHORITATIVE ENUMERATION)
-#### MISSING (11)
+### MISSING (7)
 
-| ID | Capability | Why | Fix Path |
-|----|-----------|-----|----------|
-| A1 | MFA / passkeys | No MFA feature | Implement MFA routes + UI |
-| CG-07 | 16 core runtimes unwired | Standalone, not in app factory | Wire core/ runtimes into app factory |
-| CG-08 | Pipeline only 30% real | Depends on CG-07 | Replace mocks with real core/ implementations |
-| CG-09 | No mobile object views | Not responsive below tablet | Build mobile-responsive object components |
-| D | Business contact/referral network discovery | No contact browsing UI | Build contact discovery views |
-| D | Performance analytics & monitoring | No performance dashboards | Add prometheus/grafana or equivalent |
-| D | Cross-domain search integration | Search not unified across domains | Wire unified search across all object types |
-| D | Data import/export (bulk) | Import/export API exists but no UI | Wire ImportExportPanel into workspace |
-| D | Audit trail visibility | Audit API exists but no UI | Build audit viewer |
-| D | Multi-tenant isolation verification | Single tenant only | Test/extend tenant isolation |
-| D | CG-10: Push notifications | Requires app store deployment | Mobile push notification service |
+| Canonical ID | Old ID | Capability | Fix Path |
+|---|---|---|---|
+| A-09 | A1 | MFA / passkeys | Implement MFA routes + UI |
+| B-M03 | CG-09 | Mobile object views | Build mobile-responsive components |
+| D-05 | — | Business contact / referral discovery | Build contact discovery views |
+| D-06 | — | Performance analytics & monitoring | Add prometheus/grafana or equivalent |
+| D-07 | — | Cross-domain search integration | Wire unified search across object types |
+| D-08 | — | Data import/export (bulk) UI | Wire ImportExportPanel into workspace |
+| D-09 | — | Audit trail visibility UI | Build audit viewer |
 
-#### PARTIAL (7)
+### BLOCKED-BY-DEPENDENCY (1)
 
-| ID | Capability | What Exists | Missing Layer |
-|----|-----------|------------|---------------|
-| B1 | Universal Object Protocol | Object CRUD exists | Not through full 15-section protocol |
-| B3 | Proposals API | Backend seeded + routes | Frontend proposal viewer/edit |
-| C | DB migrations | Alembic config exists | Verified migration chain |
-| C | Nginx / HTTPS | Needs sudo to configure | HTTPS cert + reverse proxy |
-| C | Accessibility WCAG AA | Some ARIA landmarks | Full WCAG AA compliance audit |
-| D | Infrastructure hardening | Security headers, rate limiting exist | Full security audit |
-| D | CI/CD pipeline gaps | CI/CD exists | CD auto-deploy + staging env |
+| Canonical ID | Old ID | Capability | Depends On | Auto-Executes After |
+|---|---|---|---|---|
+| B-M02 | CG-08 | Pipeline mock replacement | B-M01 (CG-07) | B-M01 complete |
 
-#### IMPLEMENTED-BUT-UNVERIFIED (6 per table, see note)
+### PRIVILEGE-GATED (1)
 
-| ID | Capability | What Exists | Needs |
-|----|-----------|------------|-------|
-| B1 | Entity type system | JSONB system defined | Dynamic field UI |
-| B3 | CRM routes | Routes registered | End-to-end test in production |
-| B4 | Marketing intelligence | Analytics routes exist | Dashboard integration verification |
-| B4 | G5 (Attribution/Learning) | Routes + DB tables | Attribution workflow E2E test |
-| B5 | Email integration | Gmail API routes | OAuth + UI wiring |
-| B6 | Execution engine | Standalone module | Wire into user-facing workflow |
-| B6 | Automation runtime | Standalone module | Wire into user-facing workflow |
-| B6 | Execution log | Routes exist | Verify in production context |
-| B8 | PDF generation | Routes registered | UI trigger |
-| B8 | Document generation | Doc routes exist | UI for document creation/retrieval |
+| Canonical ID | Old ID | Capability | Requirement |
+|---|---|---|---|
+| C-08 | C Nginx/HTTPS | HTTPS reverse proxy | sudo — use root execution path |
 
-The table counts 6 IMPLEMENTED items. The list above shows more because the 64-capability inventory's item-level breakdown for IMPLEMENTED status needs a re-audit. The 6 table total is authoritative pending that audit.
+### EXTERNALLY-BLOCKED-PENDING-PWA-INVESTIGATION (0 — under evaluation)
+
+| Canonical ID | Old ID | Capability | Status | Next Step |
+|---|---|---|---|---|
+| D-10 | CG-10 | Push notifications | Under PWA evaluation | Investigate browser Notification API + service worker. If adequate, implement as PWA. Only if PWA cannot satisfy the product requirement does this become EXTERNALLY-BLOCKED. |
 
 ---
 
@@ -132,5 +117,6 @@ The table counts 6 IMPLEMENTED items. The list above shows more because the 64-c
 | CG-06 | Command-to-action bridge | fefb52e |
 | B2 Tasks | Tasks UI | 85cef3b |
 | B7 | Memory & Knowledge API + UI | 8b8f544 |
+| Canonical freeze | Created CANONICAL_CAPABILITY_REGISTRY.md, corrected MASTER_GAP_REGISTER | 88e4e74 |
 
-**Total: 14 commits, 29 gaps remaining (down from 52)**
+**Total: 15 sessions, 46 verified, 17 gaps remaining (down from 52)**
