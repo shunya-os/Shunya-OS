@@ -24,20 +24,20 @@
 
 | Category | ✅ VERIFIED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | ⛔ PRIVILEGE | 🔗 DEPENDENCY | TOTAL |
 |---|---|---|---|---|---|---|---|---|
-| Foundation (A) | 8 | 0 | 1 | 0 | 0 | 0 | 9 |
+| Foundation (A) | 9 | 0 | 0 | 0 | 0 | 0 | 9 |
 | Core Domains (B) | 34 | 0 | 0 | 0 | 0 | 0 | 34 |
 | Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
-| Cross-Cutting (D) | 4 | 2 | 3 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **52** | **4** | **4** | **0** | **1** | **0** | **61** |
+| Cross-Cutting (D) | 5 | 2 | 2 | 0 | 0 | 0 | 9 |
+| **TOTAL** | **54** | **4** | **2** | **0** | **1** | **0** | **61** |
 
 **Executive Summary:**
-- **52** capabilities VERIFIED in production (up from 51 — B-P02 elevated)
-- **4** PARTIAL (down from 5 — B-P02→VERIFIED)
-- **4** MISSING
+- **54** capabilities VERIFIED in production (up from 52 — A-09, D-07 elevated)
+- **4** PARTIAL (C-02, C-07, D-03, D-04)
+- **2** MISSING (D-06, D-09)
 - **0** EXTERNALLY-BLOCKED
 - **1** PRIVILEGE-GATED (C-08 Nginx/HTTPS — needs sudo, root execution path)
 - **0** BLOCKED-BY-DEPENDENCY
-- **Total non-VERIFIED: 9** (all internal + privilege-gated)
+- **Total non-VERIFIED: 7** (all internal + privilege-gated)
 - **Genuinely external blockers: 0**
 
 **Classification Corrections Applied:**
@@ -53,7 +53,7 @@
 
 ---
 
-## REMAINING GAPS (9 non-VERIFIED)
+## REMAINING GAPS (7 non-VERIFIED)
 
 ### PARTIAL (5)
 
@@ -65,11 +65,10 @@
 | D-03 | — | Infrastructure hardening | Security headers, rate limiting exist | Full security audit |
 | D-04 | — | CI/CD pipeline | CI builds + tests + deploy exist | GitHub Actions SSH deploy — needs DEPLOY_HOST secret |
 
-### MISSING (4)
+### MISSING (3)
 
 | Canonical ID | Old ID | Capability | Fix Path |
 |---|---|---|---|
-| A-09 | A1 | MFA / passkeys | Implement MFA routes + UI |
 | D-06 | — | Performance analytics & monitoring | Add prometheus/grafana or equivalent |
 | D-07 | — | Cross-domain search integration | ✅ IMPLEMENTED — SearchBar wired into PrimaryWorkspace (⌘⇧K). Backend `/api/v1/search` (DuckDuckGo web) + `/api/v1/founder/search` (objects/relationships). Frontend `ModuleRegistry.searchAll` aggregates across all modules. |
 | D-09 | — | Audit trail visibility UI | Build audit viewer |
