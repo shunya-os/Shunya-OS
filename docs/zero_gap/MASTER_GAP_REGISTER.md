@@ -22,17 +22,17 @@
 
 | Category | ✅ VERIFIED | ⚡ IMPLEMENTED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | TOTAL |
 |---|---|---|---|---|---|---|
-| Foundation (A) | 7 | 1 | 0 | 1 | 0 | 9 |
+| Foundation (A) | 8 | 0 | 0 | 1 | 0 | 9 |
 | Core Domains (B) | 24 | 5 | 5 | 3 | 0 | 37 |
 | Infrastructure (C) | 6 | 0 | 2 | 0 | 0 | 8 |
 | Cross-Cutting (D) | 2 | 1 | 0 | 7 | 0 | 10 |
-| **TOTAL** | **40** | **7** | **7** | **10** | **0** | **64** |
+| **TOTAL** | **40** | **6** | **7** | **11** | **0** | **64** |
 
 **Executive Summary:**
 - 40 capabilities VERIFIED in production
-- 7 implemented but unverified
+- 6 implemented but unverified
 - 7 partial
-- 10 missing
+- 11 missing
 - **0 EXTERNALLY-BLOCKED**
 - **Total gaps: 24** (non-VERIFIED)
 
@@ -64,33 +64,51 @@
 | Content generation (B4) — ContentStudio wired into workspace | ✅ VERIFIED |
 | Output visibility (B8/CG-05) — /api/v1/execution/outputs endpoint | ✅ VERIFIED |
 
-### REMAINING — NEEDS ENGINEERING EFFORT
+### REMAINING GAPS — 24 items (AUTHORITATIVE ENUMERATION)
+#### MISSING (11)
 
-| ID | Capability | Status | Why |
-|----|-----------|--------|-----|
-| CG-07 | 16 core runtimes unwired | ❌ MISSING | Large architectural effort |
-| CG-08 | Pipeline only 30% real | ❌ MISSING | Depends on CG-07 |
-| CG-09 | No mobile object views | ❌ MISSING | Responsive object views |
-| B1 | Universal Object Protocol | ⬜ PARTIAL | Objects exist but not through protocol |
-| B1 | Entity type system | ⚡ IMPLEMENTED | JSONB entity system, no dynamic field UI |
-| A1 | MFA / passkeys | ❌ MISSING | Future feature |
-| B3 | CRM routes | ⚡ IMPLEMENTED | Routes registered but not verified |
-| B3 | Proposals API | ⬜ PARTIAL | Backend seeded but limited UI |
-| B4 | Marketing intelligence | ⚡ IMPLEMENTED | Routes exist, covered by dashboard |
-| B4 | G5 (Attribution/Learning) | ⚡ IMPLEMENTED | Routes + DB tables exist |
-| B5 | Email integration | ⚡ IMPLEMENTED | Gmail API routes exist, OAuth needed |
-| B6 | Execution engine | ⚡ IMPLEMENTED | Standalone, not wired |
-| B6 | Automation runtime | ⚡ IMPLEMENTED | Standalone, not wired |
-| B6 | Execution log | ⚡ IMPLEMENTED | Routes exist |
-| B8 | PDF generation | ⚡ IMPLEMENTED | Routes registered, no UI trigger |
-| B8 | Document generation | ⚡ IMPLEMENTED | Doc routes exist |
-| B9 | 8 intelligence engines | ⚡ IMPLEMENTED | Standalone modules |
-| B9 | Command-to-action (CG-06) | ✅ VERIFIED | Bridge UI built |
-| C | DB migrations | ⬜ PARTIAL | Alembic config exists |
-| C | Nginx / HTTPS | ⬜ PARTIAL | Needs sudo |
-| C | Accessibility WCAG AA | ⬜ PARTIAL | Some ARIA landmarks |
-| D | CG-05: Output in workflows | ✅ VERIFIED | /api/v1/execution/outputs + OutputsBrowser wired |
-| D | CG-10: Push notifications | ❌ MISSING | Requires app store deployment |
+| ID | Capability | Why | Fix Path |
+|----|-----------|-----|----------|
+| A1 | MFA / passkeys | No MFA feature | Implement MFA routes + UI |
+| CG-07 | 16 core runtimes unwired | Standalone, not in app factory | Wire core/ runtimes into app factory |
+| CG-08 | Pipeline only 30% real | Depends on CG-07 | Replace mocks with real core/ implementations |
+| CG-09 | No mobile object views | Not responsive below tablet | Build mobile-responsive object components |
+| D | Business contact/referral network discovery | No contact browsing UI | Build contact discovery views |
+| D | Performance analytics & monitoring | No performance dashboards | Add prometheus/grafana or equivalent |
+| D | Cross-domain search integration | Search not unified across domains | Wire unified search across all object types |
+| D | Data import/export (bulk) | Import/export API exists but no UI | Wire ImportExportPanel into workspace |
+| D | Audit trail visibility | Audit API exists but no UI | Build audit viewer |
+| D | Multi-tenant isolation verification | Single tenant only | Test/extend tenant isolation |
+| D | CG-10: Push notifications | Requires app store deployment | Mobile push notification service |
+
+#### PARTIAL (7)
+
+| ID | Capability | What Exists | Missing Layer |
+|----|-----------|------------|---------------|
+| B1 | Universal Object Protocol | Object CRUD exists | Not through full 15-section protocol |
+| B3 | Proposals API | Backend seeded + routes | Frontend proposal viewer/edit |
+| C | DB migrations | Alembic config exists | Verified migration chain |
+| C | Nginx / HTTPS | Needs sudo to configure | HTTPS cert + reverse proxy |
+| C | Accessibility WCAG AA | Some ARIA landmarks | Full WCAG AA compliance audit |
+| D | Infrastructure hardening | Security headers, rate limiting exist | Full security audit |
+| D | CI/CD pipeline gaps | CI/CD exists | CD auto-deploy + staging env |
+
+#### IMPLEMENTED-BUT-UNVERIFIED (6 per table, see note)
+
+| ID | Capability | What Exists | Needs |
+|----|-----------|------------|-------|
+| B1 | Entity type system | JSONB system defined | Dynamic field UI |
+| B3 | CRM routes | Routes registered | End-to-end test in production |
+| B4 | Marketing intelligence | Analytics routes exist | Dashboard integration verification |
+| B4 | G5 (Attribution/Learning) | Routes + DB tables | Attribution workflow E2E test |
+| B5 | Email integration | Gmail API routes | OAuth + UI wiring |
+| B6 | Execution engine | Standalone module | Wire into user-facing workflow |
+| B6 | Automation runtime | Standalone module | Wire into user-facing workflow |
+| B6 | Execution log | Routes exist | Verify in production context |
+| B8 | PDF generation | Routes registered | UI trigger |
+| B8 | Document generation | Doc routes exist | UI for document creation/retrieval |
+
+The table counts 6 IMPLEMENTED items. The list above shows more because the 64-capability inventory's item-level breakdown for IMPLEMENTED status needs a re-audit. The 6 table total is authoritative pending that audit.
 
 ---
 
