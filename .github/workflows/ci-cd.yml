@@ -1,90 +1,22 @@
-name: SHUNYA CI/CD
+name: Deploy to Production
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
+  workflow_run:
+    workflows: [CI]
+    types:
+      - completed
     branches: [main, master]
 
 jobs:
-  test:
-    name: Test & Build
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: shunya
-          POSTGRES_PASSWORD: shunya_test
-          POSTGRES_DB: shunya_os_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Install Python dependencies
-        run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install --no-cache-dir -r requirements.txt
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm install --legacy-peer-deps
-
-      - name: Run backend tests
-        env:
-          DATABASE_URL: postgresql://shunya:shunya_test@localhost:5432/shunya_os_test
-          FLASK_ENV: testing
-          SECRET_KEY: test-secret-key
-          DISABLE_RATE_LIMIT: "1"
-        run: |
-          source .venv/bin/activate
-          python -m pytest tests/ -x -q --tb=short -k "not test_ai and not loads_with_app and not test_golden_lead_to_customer" 2>&1 | tail -20
-
-      - name: Build frontend
-        working-directory: frontend
-        run: npm run build
-
-      - name: TypeScript check
-        working-directory: frontend
-        run: npx tsc --noEmit
-
   deploy:
     name: Deploy to Production
-    needs: test
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
