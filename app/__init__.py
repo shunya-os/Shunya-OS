@@ -118,12 +118,11 @@ def _rate_limiter_setup(app: Flask):
     from app import limiter
 
     store = os.getenv("REDIS_URL") or "memory://"
-    limiter.init_app(
-        app,
-        storage_uri=store,
-        default_limits=["200 per day", "50 per hour"],
-        enabled=not os.getenv("DISABLE_RATE_LIMIT", ""),
-    )
+    # Set app config for flask-limiter
+    app.config["RATELIMIT_STORAGE_URL"] = store
+    app.config["RATELIMIT_DEFAULT"] = ["200 per day", "50 per hour"]
+    app.config["RATELIMIT_ENABLED"] = not os.getenv("DISABLE_RATE_LIMIT", "")
+    limiter.init_app(app)
 
     app.logger.info("Rate limiter initialised (storage: %s)", store)
 
