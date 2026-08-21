@@ -25,7 +25,8 @@ import { PrimaryWorkspace } from '../executive-home/executive-home';
 import { ObjectWorkspaceViewer } from './object-workspace-viewer';
 import { AdminPanel } from './admin-panel';
 import { PeoplePanel } from './people-panel';
-import { ImportExportPanel } from './import-export-panel';
+import { ImportExportPanel } from '../import-export/import-export-panel';
+import { ContactDiscovery } from '../contacts/contact-discovery';
 import { bus } from '../../runtimes/event-bus';
 
 function WorkspaceErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
@@ -146,6 +147,11 @@ export function WorkspaceContainer() {
     // FDA25 — Import/Export panel
     if (active.identity.type === 'import-export') {
       return <div className="wksp-panels" ref={ref}><ImportExportPanel /></div>;
+    }
+
+    // D-05 — Contact discovery
+    if (active.identity.type === 'contact-discovery') {
+      return <div className="wksp-panels" ref={ref}><ContactDiscovery /></div>;
     }
 
     // Active workspace — compose panels via composition engine

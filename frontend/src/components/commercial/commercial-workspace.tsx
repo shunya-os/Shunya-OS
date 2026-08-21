@@ -4,33 +4,33 @@
  * Shows opportunities, proposals, and commercial context
  * from the existing /api/v1/commercial/ API.
  *
+ * Now uses dedicated ProposalList / ProposalDetail / ProposalEdit
+ * components from the proposals/ directory for full proposal lifecycle.
+ *
  * This is NOT a placeholder. It renders real data.
  */
 
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
+import { ProposalList, ProposalEdit } from '../proposals/index';
+import { ProposalDetail } from '../proposals/ProposalDetail';
+import type { ProposalData } from '../proposals/ProposalList';
 
 interface Opportunity {
   id: number;
   title: string;
   lifecycle_state?: string;
-  current_stage?: string; // deprecated alias
+  current_stage?: string;
   confidence: number;
   value?: number;
   currency?: string;
   description?: string;
   created_at: string;
   campaign_id?: number;
-}
-
-interface Proposal {
-  id: number;
-  title: string;
-  status: string;
-  total_value?: number;
-  currency?: string;
-  created_at: string;
-  opportunity_id?: number;
+  estimated_value?: number;
+  owner_identity_id?: string;
+  next_action?: string;
+  next_action_due_at?: string;
 }
 
 async function api<T>(path: string): Promise<T | null> {
@@ -52,29 +52,48 @@ async function postApi<T>(path: string, body: unknown): Promise<T | null> {
   } catch { return null; }
 }
 
+const OPPORTUNITY_STATE_LABELS: Record<string, string> = {
+  discovered: 'Discovered', being_understood: 'Learning',
+  active: 'Active', waiting: 'Waiting',
+  proposal_pending: 'Proposal Sent', accepted: 'Accepted',
+  declined: 'Declined', committed: 'Committed',
+  executing: 'Executing', completed: 'Completed', lost: 'Lost',
+};
+
+const OPPORTUNITY_STATE_COLORS: Record<string, string> = {
+  discovered: 'rgba(26,28,29,0.55)', being_understood: '#4a9e9e',
+  active: '#6a9f6a', waiting: '#e67e22',
+  proposal_pending: '#2980b9', accepted: '#6a9f6a',
+  declined: '#c0392b', committed: '#6a9f6a',
+  executing: '#6a9f6a', completed: 'rgba(26,28,29,0.45)', lost: '#c0392b',
+};
+
+type ViewState =
+  | { mode: 'list' }
+  | { mode: 'detail'; proposalId: number }
+  | { mode: 'create' };
+
 export const CommercialWorkspace: FC = () => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<'opportunities' | 'proposals'>('opportunities');
+  const [tab, setTab] = useState<'opportunities' | 'proposals'>('proposals');
+  const [view, setView] = useState<ViewState>({ mode: 'list' });
 
-  // Create proposal form state
-  const [showCreate, setShowCreate] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newOppId, setNewOppId] = useState<number | ''>('');
-  const [newValue, setNewValue] = useState<number | ''>('');
-  const [newScope, setNewScope] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState('');
+  // Create opportunity form
+  const [showCreateOpp, setShowCreateOpp] = useState(false);
+  const [newOppTitle, setNewOppTitle] = useState('');
+  const [newOppValue, setNewOppValue] = useState<number | ''>('');
+  const [newOppDesc, setNewOppDesc] = useState('');
+  const [creatingOpp, setCreatingOpp] = useState(false);
+  const [createOppError, setCreateOppError] = useState('');
 
   const loadData = async () => {
     setLoading(true);
     setError('');
     try {
-      const [oppData, propData] = await Promise.all([
+      const [oppData] = await Promise.all([
         api<any>('/api/v1/commercial/opportunities'),
-        api<any>('/api/v1/commercial/proposals'),
       ]);
       if (oppData) {
         setOpportunities(
@@ -84,9 +103,6 @@ export const CommercialWorkspace: FC = () => {
           }))
         );
       }
-      if (propData) {
-        setProposals(propData.proposals || []);
-      }
     } catch {
       setError('Could not load commercial data');
     }
@@ -95,34 +111,86 @@ export const CommercialWorkspace: FC = () => {
 
   useEffect(() => { loadData(); }, []);
 
-  const handleCreateProposal = async () => {
-    const title = newTitle.trim();
+  const handleCreateOpportunity = async () => {
+    const title = newOppTitle.trim();
     if (!title) {
-      setCreateError('Title is required');
+      setCreateOppError('Title is required');
       return;
     }
-    setCreating(true);
-    setCreateError('');
+    setCreatingOpp(true);
+    setCreateOppError('');
 
-    const result = await postApi<any>('/api/v1/commercial/proposals', {
+    const result = await postApi<any>('/api/v1/commercial/opportunities', {
       title,
-      opportunity_id: newOppId || undefined,
-      total_value: newValue || undefined,
-      scope_description: newScope.trim(),
+      description: newOppDesc.trim(),
+      estimated_value: newOppValue || undefined,
     });
 
     if (result?.success) {
-      setShowCreate(false);
-      setNewTitle('');
-      setNewOppId('');
-      setNewValue('');
-      setNewScope('');
+      setShowCreateOpp(false);
+      setNewOppTitle('');
+      setNewOppValue('');
+      setNewOppDesc('');
       await loadData();
     } else {
-      setCreateError(result?.error || 'Failed to create proposal');
+      setCreateOppError(result?.error || 'Failed to create opportunity');
     }
-    setCreating(false);
+    setCreatingOpp(false);
   };
+
+  const handleSelectProposal = (proposal: ProposalData) => {
+    setView({ mode: 'detail', proposalId: proposal.id });
+  };
+
+  const handleCreateProposal = () => {
+    setView({ mode: 'create' });
+  };
+
+  const handleSaveProposal = (proposal: ProposalData) => {
+    setView({ mode: 'detail', proposalId: proposal.id });
+  };
+
+  const handleBackToList = () => {
+    setView({ mode: 'list' });
+  };
+
+  const handleProposalUpdated = () => {
+    // Refresh proposals list when returning to list view
+    // Detail view does its own reload
+  };
+
+  // Render proposal views
+  if (view.mode === 'detail') {
+    return (
+      <div className="pw-panel-container">
+        <div className="pw-domain-header">
+          <span className="pw-domain-icon">◆</span>
+          <h2 className="pw-domain-title">Proposal Details</h2>
+        </div>
+        <ProposalDetail
+          proposalId={view.proposalId}
+          onBack={handleBackToList}
+          onUpdated={handleProposalUpdated}
+        />
+      </div>
+    );
+  }
+
+  if (view.mode === 'create') {
+    return (
+      <div className="pw-panel-container">
+        <div className="pw-domain-header">
+          <span className="pw-domain-icon">◆</span>
+          <h2 className="pw-domain-title">New Proposal</h2>
+        </div>
+        <ProposalEdit
+          editing={null}
+          onSave={handleSaveProposal}
+          onCancel={handleBackToList}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="pw-panel-container">
@@ -131,7 +199,7 @@ export const CommercialWorkspace: FC = () => {
         <h2 className="pw-domain-title">Commercial</h2>
       </div>
 
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
         <button
           className={`pw-tab-btn ${tab === 'opportunities' ? 'pw-tab-active' : ''}`}
           onClick={() => setTab('opportunities')}
@@ -142,7 +210,7 @@ export const CommercialWorkspace: FC = () => {
           className={`pw-tab-btn ${tab === 'proposals' ? 'pw-tab-active' : ''}`}
           onClick={() => setTab('proposals')}
         >
-          Proposals ({proposals.length})
+          Proposals
         </button>
       </div>
 
@@ -150,136 +218,117 @@ export const CommercialWorkspace: FC = () => {
       {error && <div className="pw-error-msg">{error}</div>}
 
       {!loading && tab === 'opportunities' && (
-        <div className="pw-commercial-list">
-          {opportunities.length === 0 && <div className="pw-domain-empty"><p>No opportunities yet.</p></div>}
-          {opportunities.map((opp) => (
-            <div key={opp.id} className="pw-commercial-item">
-              <div className="pw-commercial-item-title">{opp.title}</div>
-              <div className="pw-commercial-item-meta">
-                <span className="pw-commercial-tag">Confidence: {opp.confidence}%</span>
-                {(opp.current_stage || opp.lifecycle_state) && (
-                  <span className="pw-commercial-tag">Stage: {opp.current_stage || opp.lifecycle_state}</span>
-                )}
-                <span className="pw-commercial-date">Created: {new Date(opp.created_at).toLocaleDateString()}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!loading && tab === 'proposals' && (
         <div>
-          <div className="pw-commercial-list" style={{ marginBottom: 12 }}>
-            {proposals.length === 0 && <div className="pw-domain-empty"><p>No proposals yet.</p></div>}
-            {proposals.map((prop) => (
-              <div key={prop.id} className="pw-commercial-item">
-                <div className="pw-commercial-item-title">{prop.title}</div>
-                <div className="pw-commercial-item-meta">
-                  <span className={`pw-commercial-tag pw-status-${prop.status}`}>{prop.status}</span>
-                  {prop.total_value != null && prop.total_value > 0 && (
-                    <span className="pw-commercial-tag">{prop.currency || 'INR'} {prop.total_value.toLocaleString()}</span>
+          <div className="pw-commercial-list">
+            {opportunities.length === 0 && (
+              <div className="pw-domain-empty"><p>No opportunities yet.</p></div>
+            )}
+            {opportunities.map((opp) => {
+              const stateColor = OPPORTUNITY_STATE_COLORS[opp.lifecycle_state || opp.current_stage || ''] || 'rgba(26,28,29,0.55)';
+              return (
+                <div key={opp.id} className="pw-commercial-item">
+                  <div className="pw-commercial-item-title">{opp.title}</div>
+                  <div className="pw-commercial-item-meta">
+                    <span className="pw-commercial-tag">Confidence: {opp.confidence}%</span>
+                    {(opp.current_stage || opp.lifecycle_state) && (
+                      <span className="pw-commercial-tag" style={{
+                        background: `${stateColor}18`, color: stateColor,
+                        border: `1px solid ${stateColor}30`, fontWeight: 500,
+                      }}>
+                        {OPPORTUNITY_STATE_LABELS[opp.lifecycle_state || opp.current_stage || ''] || opp.lifecycle_state || opp.current_stage}
+                      </span>
+                    )}
+                    {((opp.estimated_value ?? opp.value) ?? 0) > 0 && (
+                      <span className="pw-commercial-tag" style={{ fontWeight: 500 }}>
+                        {opp.currency || 'INR'} {((opp.estimated_value ?? opp.value) ?? 0).toLocaleString('en-IN')}
+                      </span>
+                    )}
+                    <span className="pw-commercial-date">Created: {new Date(opp.created_at).toLocaleDateString()}</span>
+                  </div>
+                  {opp.next_action && (
+                    <div style={{ fontSize: 12, color: '#e67e22', marginTop: 4 }}>
+                      Next: {opp.next_action}
+                      {opp.next_action_due_at && ` (due ${new Date(opp.next_action_due_at).toLocaleDateString()})`}
+                    </div>
                   )}
-                  <span className="pw-commercial-date">{new Date(prop.created_at).toLocaleDateString()}</span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {!showCreate && (
+          {!showCreateOpp && (
             <button
               className="pw-tab-btn"
-              style={{ marginTop: 4 }}
-              onClick={() => setShowCreate(true)}
+              style={{ marginTop: 8 }}
+              onClick={() => setShowCreateOpp(true)}
             >
-              + Create Proposal
+              + Create Opportunity
             </button>
           )}
 
-          {showCreate && (
+          {showCreateOpp && (
             <div className="pw-commercial-item" style={{ marginTop: 8 }}>
-              <div className="pw-commercial-item-title" style={{ marginBottom: 8 }}>New Proposal</div>
+              <div className="pw-commercial-item-title" style={{ marginBottom: 8 }}>
+                New Opportunity
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <input
                   type="text"
-                  placeholder="Proposal title *"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Opportunity title *"
+                  value={newOppTitle}
+                  onChange={(e) => setNewOppTitle(e.target.value)}
                   style={{
                     padding: '6px 10px',
                     border: '1px solid var(--shunya-border, rgba(26,28,29,0.12))',
                     borderRadius: 6,
-                    fontFamily: 'inherit',
-                    fontSize: 13,
+                    fontFamily: 'inherit', fontSize: 13,
                     background: 'var(--shunya-surface, #ffffff)',
                     color: 'var(--shunya-text, #1A1C1D)',
                   }}
                 />
-                <select
-                  value={newOppId}
-                  onChange={(e) => setNewOppId(e.target.value ? Number(e.target.value) : '')}
+                <input
+                  type="number"
+                  placeholder="Estimated value"
+                  value={newOppValue}
+                  onChange={(e) => setNewOppValue(e.target.value ? Number(e.target.value) : '')}
                   style={{
                     padding: '6px 10px',
                     border: '1px solid var(--shunya-border, rgba(26,28,29,0.12))',
                     borderRadius: 6,
-                    fontFamily: 'inherit',
-                    fontSize: 13,
+                    fontFamily: 'inherit', fontSize: 13,
                     background: 'var(--shunya-surface, #ffffff)',
                     color: 'var(--shunya-text, #1A1C1D)',
                   }}
-                >
-                  <option value="">— No opportunity —</option>
-                  {opportunities.map((opp) => (
-                    <option key={opp.id} value={opp.id}>{opp.title}</option>
-                  ))}
-                </select>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    type="number"
-                    placeholder="Total value"
-                    value={newValue}
-                    onChange={(e) => setNewValue(e.target.value ? Number(e.target.value) : '')}
-                    style={{
-                      flex: 1,
-                      padding: '6px 10px',
-                      border: '1px solid var(--shunya-border, rgba(26,28,29,0.12))',
-                      borderRadius: 6,
-                      fontFamily: 'inherit',
-                      fontSize: 13,
-                      background: 'var(--shunya-surface, #ffffff)',
-                      color: 'var(--shunya-text, #1A1C1D)',
-                    }}
-                  />
-                </div>
+                />
                 <textarea
-                  placeholder="Scope description (optional)"
-                  value={newScope}
-                  onChange={(e) => setNewScope(e.target.value)}
+                  placeholder="Description (optional)"
+                  value={newOppDesc}
+                  onChange={(e) => setNewOppDesc(e.target.value)}
                   rows={2}
                   style={{
                     padding: '6px 10px',
                     border: '1px solid var(--shunya-border, rgba(26,28,29,0.12))',
                     borderRadius: 6,
-                    fontFamily: 'inherit',
-                    fontSize: 13,
+                    fontFamily: 'inherit', fontSize: 13,
                     background: 'var(--shunya-surface, #ffffff)',
                     color: 'var(--shunya-text, #1A1C1D)',
                     resize: 'vertical',
                   }}
                 />
-                {createError && <div style={{ color: '#c0392b', fontSize: 12 }}>{createError}</div>}
+                {createOppError && <div style={{ color: '#c0392b', fontSize: 12 }}>{createOppError}</div>}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     className="pw-tab-btn"
                     style={{ background: 'var(--shunya-gold, #a4865f)', color: '#fff', borderColor: 'transparent' }}
-                    onClick={handleCreateProposal}
-                    disabled={creating}
+                    onClick={handleCreateOpportunity}
+                    disabled={creatingOpp}
                   >
-                    {creating ? 'Creating…' : 'Create'}
+                    {creatingOpp ? 'Creating…' : 'Create'}
                   </button>
                   <button
                     className="pw-tab-btn"
-                    onClick={() => { setShowCreate(false); setCreateError(''); }}
-                    disabled={creating}
+                    onClick={() => { setShowCreateOpp(false); setCreateOppError(''); }}
+                    disabled={creatingOpp}
                   >
                     Cancel
                   </button>
@@ -288,6 +337,13 @@ export const CommercialWorkspace: FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {!loading && tab === 'proposals' && (
+        <ProposalList
+          onSelect={handleSelectProposal}
+          onCreate={handleCreateProposal}
+        />
       )}
     </div>
   );

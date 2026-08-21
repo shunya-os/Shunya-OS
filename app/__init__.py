@@ -249,6 +249,50 @@ def _register_health(app: Flask):
             "uptime_seconds": int(__import__("time").time() - _APP_START_TIME),
         }), 200
 
+    @app.route("/metrics")
+    def metrics():
+        """Prometheus-format /metrics endpoint exposing app metrics."""
+        try:
+            from prometheus_client import generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST
+            from prometheus_client import Gauge
+            import psutil
+            import os
+
+            registry = CollectorRegistry()
+            py_uptime = Gauge("shunya_uptime_seconds", "Shunya OS uptime", registry=registry)
+            py_uptime.set(int(__import__("time").time() - _APP_START_TIME))
+
+            py_db = Gauge("shunya_db_up", "Database connectivity", registry=registry)
+            try:
+                from sqlalchemy import text
+                db.session.execute(text("SELECT 1"))
+                py_db.set(1)
+            except Exception:
+                py_db.set(0)
+
+            py_mem = Gauge("shunya_memory_rss_bytes", "Memory RSS", registry=registry)
+            proc = psutil.Process(os.getpid())
+            py_mem.set(proc.memory_info().rss)
+
+            py_cpu = Gauge("shunya_cpu_percent", "CPU usage percent", registry=registry)
+            py_cpu.set(proc.cpu_percent(interval=0))
+
+            output = generate_latest(registry)
+            return (output, 200, {"Content-Type": CONTENT_TYPE_LATEST})
+        except ImportError:
+            # Fallback JSON metrics
+            import psutil
+            import os
+            proc = psutil.Process(os.getpid())
+            return jsonify({
+                "shunya_uptime_seconds": int(__import__("time").time() - _APP_START_TIME),
+                "shunya_db_up": 1,
+                "shunya_memory_rss_bytes": proc.memory_info().rss,
+                "shunya_cpu_percent": proc.cpu_percent(interval=0),
+                "shunya_version": "1.0.0",
+                "format": "json_fallback",
+            })
+
 
 # ---------------------------------------------------------------------------
 # Factory

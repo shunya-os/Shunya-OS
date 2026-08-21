@@ -34,6 +34,7 @@ export type WorkspaceType =
   | 'email'
   | 'admin'
   | 'people'
+  | 'contact-discovery'
   | 'import-export'
   | 'settings';
 

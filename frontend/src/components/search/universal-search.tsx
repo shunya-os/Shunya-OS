@@ -19,6 +19,7 @@ interface SearchResult {
   title: string;
   subtitle: string;
   status?: string;
+  url?: string;
 }
 
 export function SearchBar() {
@@ -33,7 +34,7 @@ export function SearchBar() {
   // ── Keyboard shortcut ──────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'k') {
         e.preventDefault();
         setOpen(true);
         setTimeout(() => inputRef.current?.focus(), 50);
@@ -56,8 +57,28 @@ export function SearchBar() {
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const hits = await ModuleRegistry.searchAll(query);
-        setResults(hits.slice(0, 20));
+        // 1. Module-level object search across all registered modules
+        const moduleHits = await ModuleRegistry.searchAll(query);
+
+        // 2. Web search via backend API
+        let webHits: SearchResult[] = [];
+        try {
+          const resp = await fetch(`/api/v1/search?q=${encodeURIComponent(query)}`, { credentials: 'include' });
+          if (resp.ok) {
+            const data = await resp.json();
+            webHits = (data.data ?? []).map((r: any, i: number) => ({
+              id: `web-${i}`,
+              type: 'web',
+              title: r.title ?? '',
+              subtitle: r.snippet ?? '',
+              url: r.url ?? '',
+            }));
+          }
+        } catch { /* web search unavailable */ }
+
+        // 3. Combine — object results first, then web results
+        const combined = [...moduleHits, ...webHits];
+        setResults(combined.slice(0, 20));
       } catch {
         setResults([]);
       } finally {
@@ -83,7 +104,11 @@ export function SearchBar() {
         const r = results[idx];
         setOpen(false);
         setQuery('');
-        openWorkspace(r.title, r.type as any, { objectType: r.type, objectId: r.id });
+        if (r.url) {
+          window.open(r.url, '_blank', 'noopener');
+        } else {
+          openWorkspace(r.title, r.type as any, { objectType: r.type, objectId: r.id });
+        }
       }
     },
     [results, idx, openWorkspace],
@@ -106,7 +131,7 @@ export function SearchBar() {
             autoComplete="off"
             spellCheck={false}
           />
-          <Kbd style={{ opacity: 0.35 }}>⌘K</Kbd>
+          <Kbd style={{ opacity: 0.35 }}>⌘⇧K</Kbd>
           {loading && <span className="sh-search-spin" />}
         </div>
         {results.length > 0 && (
@@ -121,7 +146,11 @@ export function SearchBar() {
                 onClick={() => {
                   setOpen(false);
                   setQuery('');
-                  openWorkspace(r.title, r.type as any, { objectType: r.type, objectId: r.id });
+                  if (r.url) {
+                    window.open(r.url, '_blank', 'noopener');
+                  } else {
+                    openWorkspace(r.title, r.type as any, { objectType: r.type, objectId: r.id });
+                  }
                 }}
               >
                 <span className="sh-search-item-type">{r.type[0].toUpperCase()}</span>

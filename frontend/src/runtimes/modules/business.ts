@@ -203,10 +203,18 @@ const module: ShunyaModule = {
     const q = query.toLowerCase();
     const hits: { id: string; type: string; title: string; subtitle: string; status?: string }[] = [];
     try {
-      const objs = await json<{ data: any[] }>('/founder/objects');
-      for (const o of objs.data ?? []) {
-        if ((o.name ?? '').toLowerCase().includes(q))
-          hits.push({ id: o.object_id ?? o.id, type: o.object_type ?? 'object', title: o.name, subtitle: o.object_type, status: o.status });
+      const resp = await fetch(`/api/v1/founder/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+      if (resp.ok) {
+        const data = await resp.json();
+        for (const o of data.data ?? []) {
+          hits.push({
+            id: o.object_id ?? o.rel_id ?? o.id,
+            type: o.object_type ?? o._type ?? 'object',
+            title: o.name,
+            subtitle: o.object_type ?? o._type ?? 'object',
+            status: o.status,
+          });
+        }
       }
     } catch { /* skip */ }
     return hits;

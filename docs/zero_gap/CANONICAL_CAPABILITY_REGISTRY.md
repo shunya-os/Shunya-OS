@@ -67,7 +67,7 @@
 
 | Canonical ID | Aliases | Capability | Status | What Exists | Missing Layer |
 |---|---|---|---|---|---|
-| B-P01 | B1 | Universal Object Protocol (full 15-section) | ⬜ PARTIAL | Object CRUD exists | Not through full 15-section protocol |
+| B-P01 | B1 | Universal Object Protocol (full) | ⬜ PARTIAL | Core protocol complete (object.py: 2945 lines, 27 fields, 15 sections, 7 actions). HTTP API uses legacy SQLAlchemy models — needs protocol integration |
 | B-P02 | B3 | Proposals API | ⬜ PARTIAL | Backend seeded + routes | Frontend proposal viewer/edit |
 | B-P03 | B3-crm | CRM routes | ✅ VERIFIED | *(elevated from partial)* | *(resolved in prior session)* |
 | B-P04 | B4-mktg | Marketing intelligence | ⬜ PARTIAL | Analytics routes exist | Dashboard integration verification |

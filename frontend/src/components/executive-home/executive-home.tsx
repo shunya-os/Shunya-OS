@@ -24,7 +24,8 @@ import { useWorkspaceStore } from '../../runtimes/workspace/store';
 import { useActiveWorkspace } from '../../hooks/workspace-hooks';
 import { ObjectWorkspaceViewer } from '../workspace/object-workspace-viewer';
 import { AdminPanel } from '../workspace/admin-panel';
-import { ImportExportPanel } from '../workspace/import-export-panel';
+import { ImportExportPanel } from '../import-export/import-export-panel';
+import { ContactDiscovery } from '../contacts/contact-discovery';
 import { CommitmentWorkspace } from '../commitment/commitment-workspace';
 import { ConversationWorkspace } from '../conversation/conversation-workspace';
 import { CommercialWorkspace } from '../commercial/commercial-workspace';
@@ -41,6 +42,7 @@ import { MemoryBrowser } from '../memory/memory-browser';
 import { ContentStudio } from '../content/content-studio';
 import { EntityManager } from '../entities/entity-manager';
 import { SettingsPanel } from '../settings/settings-panel';
+import { SearchBar } from '../search/universal-search';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -870,6 +872,11 @@ function DomainWorkspaceRouter() {
     return <div className="pw-panel-container"><ImportExportPanel /></div>;
   }
 
+  // Contact discovery panel
+  if (active.identity.type === 'contact-discovery') {
+    return <div className="pw-panel-container"><ContactDiscovery /></div>;
+  }
+
   // Settings panel
   if (active.identity.type === 'settings') {
     return <div className="pw-panel-container"><SettingsPanel /></div>;
@@ -1015,6 +1022,7 @@ export function PrimaryWorkspace({ loading: _loading }: { loading?: boolean }) {
 
       {/* Command + Voice — always at bottom */}
       <IntegratedCommand />
+      <SearchBar />
     </div>
   );
 }

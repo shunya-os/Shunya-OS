@@ -222,6 +222,40 @@ def record_corrective():
 
 
 # ---------------------------------------------------------------------------
+# Audit List
+# ---------------------------------------------------------------------------
+
+
+@audit_bp.route("/list", methods=["GET"])
+def list_audit_logs():
+    """List recent audit log entries across all objects.
+
+    Supports pagination via ?limit= and ?offset= query params.
+    Returns the most recent audit entries first.
+    """
+    from app.security.audit import AuditLog
+
+    limit = request.args.get("limit", 50, type=int)
+    offset = request.args.get("offset", 0, type=int)
+    limit = min(limit, 200)  # cap
+
+    try:
+        logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).offset(offset).limit(limit).all()
+        total = AuditLog.query.count()
+        return jsonify({
+            "success": True,
+            "data": {
+                "logs": [l.to_dict() for l in logs],
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+            },
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
 
@@ -250,5 +284,6 @@ def audit_health():
             "GET /api/v1/audit/export/<type>/<id>",
             "GET /api/v1/audit/verify/<type>/<id>",
             "POST /api/v1/audit/correct",
+            "GET /api/v1/audit/list",
         ],
     })

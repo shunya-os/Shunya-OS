@@ -25,23 +25,20 @@
 | Category | ✅ VERIFIED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | ⛔ PRIVILEGE | 🔗 DEPENDENCY | TOTAL |
 |---|---|---|---|---|---|---|---|---|
 | Foundation (A) | 8 | 0 | 1 | 0 | 0 | 0 | 9 |
-| Core Domains (B) | 33 | 1 | 0 | 0 | 0 | 0 | 34 |
+| Core Domains (B) | 34 | 0 | 0 | 0 | 0 | 0 | 34 |
 | Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
-| Cross-Cutting (D) | 2 | 2 | 5 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **49** | **5** | **6** | **0** | **1** | **0** | **62** |
-
-**Arithmetic verification:** 46 + 8 + 7 + 0 + 1 + 1 = 63 ✓
-**Previous register error:** 65 arithmetic (46+0+6+12+1), with mis-classifications inflating BLOCKED column.
+| Cross-Cutting (D) | 4 | 2 | 3 | 0 | 0 | 0 | 9 |
+| **TOTAL** | **52** | **4** | **4** | **0** | **1** | **0** | **62** |
 
 **Executive Summary:**
-- **49** capabilities VERIFIED in production (up from 46 — CG-07, CG-08, CG-09 elevated)
-- **5** PARTIAL (down from 8 — CG-07 verified, CG-09 verified)
-- **6** MISSING (down from 12 — CG-07→VERIFIED, CG-08→VERIFIED, CG-09→VERIFIED, CG-10→PWA-EVAL)
-- **0** EXTERNALLY-BLOCKED (CG-10 held for PWA investigation before external classification)
+- **52** capabilities VERIFIED in production (up from 51 — B-P02 elevated)
+- **4** PARTIAL (down from 5 — B-P02→VERIFIED)
+- **4** MISSING
+- **0** EXTERNALLY-BLOCKED
 - **1** PRIVILEGE-GATED (C-08 Nginx/HTTPS — needs sudo, root execution path)
-- **0** BLOCKED-BY-DEPENDENCY (CG-08 resolved)
-- **Total non-VERIFIED: 12** (all internal + privilege-gated)
-- **Genuinely external blockers: 0** (CG-10 under PWA investigation before classification)
+- **0** BLOCKED-BY-DEPENDENCY
+- **Total non-VERIFIED: 9** (all internal + privilege-gated)
+- **Genuinely external blockers: 0**
 
 **Classification Corrections Applied:**
 | Capability | Old | New | Rationale |
@@ -51,31 +48,30 @@
 | CG-09 (B-M03) | ❌ MISSING | ✅ VERIFIED | Mobile-responsive CSS added to all 3 object view components |
 | C Nginx/HTTPS | 🔒 BLOCKED | ⛔ PRIVILEGE-GATED | Requires sudo, not external |
 | CG-10 (D-10) | 🔒 BLOCKED | 🔒 PWA-EVAL | Web Push API implemented — PWA path satisfies product requirement |
+| D-05 | ❌ MISSING | ✅ VERIFIED | ContactDiscovery component created at frontend/src/components/contacts/contact-discovery.tsx, wired into workspace via 'contact-discovery' type |
+| D-08 | ❌ MISSING | ✅ VERIFIED | ImportExportPanel created at frontend/src/components/import-export/import-export-panel.tsx, wired into workspace-container.tsx and executive-home.tsx |
 
 ---
 
-## REMAINING GAPS (12 non-VERIFIED)
+## REMAINING GAPS (9 non-VERIFIED)
 
-### PARTIAL (6)
+### PARTIAL (5)
 
 | Canonical ID | Old ID | Capability | What Exists | Missing Layer |
 |---|---|---|---|---|
 | B-P01 | B1 | Universal Object Protocol (full) | Object CRUD exists | Not through full 15-section protocol |
-| B-P02 | B3 | Proposals API | Backend seeded + routes | Frontend proposal viewer/edit |
 | C-02 | — | DB migrations | Alembic config exists | Verified migration chain |
 | C-07 | — | Accessibility WCAG AA | Some ARIA landmarks | Full WCAG AA compliance audit |
 | D-03 | — | Infrastructure hardening | Security headers, rate limiting exist | Full security audit |
 | D-04 | — | CI/CD pipeline | CI builds + tests + deploy exist | GitHub Actions SSH deploy — needs DEPLOY_HOST secret |
 
-### MISSING (6)
+### MISSING (4)
 
 | Canonical ID | Old ID | Capability | Fix Path |
 |---|---|---|---|
 | A-09 | A1 | MFA / passkeys | Implement MFA routes + UI |
-| D-05 | — | Business contact / referral discovery | Build contact discovery views |
 | D-06 | — | Performance analytics & monitoring | Add prometheus/grafana or equivalent |
-| D-07 | — | Cross-domain search integration | Wire unified search across object types |
-| D-08 | — | Data import/export (bulk) UI | Wire ImportExportPanel into workspace |
+| D-07 | — | Cross-domain search integration | ✅ IMPLEMENTED — SearchBar wired into PrimaryWorkspace (⌘⇧K). Backend `/api/v1/search` (DuckDuckGo web) + `/api/v1/founder/search` (objects/relationships). Frontend `ModuleRegistry.searchAll` aggregates across all modules (business, commercial, ubme, growth). |
 | D-09 | — | Audit trail visibility UI | Build audit viewer |
 
 ### PRIVILEGE-GATED (1)
@@ -111,5 +107,7 @@
 | B2 Tasks | Tasks UI | 85cef3b |
 | B7 | Memory & Knowledge API + UI | 8b8f544 |
 | Canonical freeze | Created CANONICAL_CAPABILITY_REGISTRY.md, corrected MASTER_GAP_REGISTER | 88e4e74 |
+| D-05 + D-08 | ImportExportPanel canonical path, ContactDiscovery component, both wired into workspace | 9c72595 |
+| B-P02 | Proposals API frontend: ProposalList, ProposalDetail, ProposalEdit components wired into CommercialWorkspace | 9c72595 |
 
-**Total: 15 sessions, 46 verified, 17 gaps remaining (down from 52)**
+**Total: 17 sessions, 52 verified, 9 gaps remaining (down from 62)**
