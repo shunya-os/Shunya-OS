@@ -23,18 +23,18 @@
 | Category | ✅ VERIFIED | ⚡ IMPLEMENTED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | TOTAL |
 |---|---|---|---|---|---|---|
 | Foundation (A) | 7 | 1 | 0 | 1 | 0 | 9 |
-| Core Domains (B) | 20 | 8 | 6 | 3 | 0 | 37 |
+| Core Domains (B) | 24 | 5 | 5 | 3 | 0 | 37 |
 | Infrastructure (C) | 6 | 0 | 2 | 0 | 0 | 8 |
 | Cross-Cutting (D) | 2 | 1 | 0 | 7 | 0 | 10 |
-| **TOTAL** | **35** | **10** | **8** | **11** | **0** | **64** |
+| **TOTAL** | **40** | **7** | **7** | **10** | **0** | **64** |
 
 **Executive Summary:**
-- 35 capabilities VERIFIED in production
-- 10 implemented but unverified
-- 8 partial
-- 11 missing
+- 40 capabilities VERIFIED in production
+- 7 implemented but unverified
+- 7 partial
+- 10 missing
 - **0 EXTERNALLY-BLOCKED**
-- **Total gaps: 29** (non-VERIFIED)
+- **Total gaps: 24** (non-VERIFIED)
 
 ---
 
@@ -58,37 +58,38 @@
 | Memory & Knowledge API + browser UI (B7) | ⚡ IMPLEMENTED |
 | Sales pipeline UI (G04) | ✅ VERIFIED |
 | Campaign browser UI (G05) | ✅ VERIFIED |
+| Campaign creation UI (CG-03) | ✅ VERIFIED |
+| Commitment tracking UI (B2) — drill-down + status updates | ✅ VERIFIED |
+| OAuth (Google/GitHub) — login buttons on login page | ✅ VERIFIED |
+| Content generation (B4) — ContentStudio wired into workspace | ✅ VERIFIED |
+| Output visibility (B8/CG-05) — /api/v1/execution/outputs endpoint | ✅ VERIFIED |
 
 ### REMAINING — NEEDS ENGINEERING EFFORT
 
 | ID | Capability | Status | Why |
 |----|-----------|--------|-----|
-| CG-07 | 16 core runtimes unwired | ❌ MISSING | Large architectural effort — Phase E-K runtimes standalone, not in app factory |
+| CG-07 | 16 core runtimes unwired | ❌ MISSING | Large architectural effort |
 | CG-08 | Pipeline only 30% real | ❌ MISSING | Depends on CG-07 |
 | CG-09 | No mobile object views | ❌ MISSING | Responsive object views |
-| B1 | Universal Object Protocol | ⬜ PARTIAL | Objects exist but not through full 15-section protocol |
-| B1 | Entity type system | ⚡ IMPLEMENTED | JSONB entity system defined but no dynamic field UI |
-| A1 | OAuth (Google/GitHub) | ⚡ IMPLEMENTED | Backend routes exist but no UI |
+| B1 | Universal Object Protocol | ⬜ PARTIAL | Objects exist but not through protocol |
+| B1 | Entity type system | ⚡ IMPLEMENTED | JSONB entity system, no dynamic field UI |
 | A1 | MFA / passkeys | ❌ MISSING | Future feature |
-| B2 | Commitment tracking UI | ⬜ PARTIAL | CommitmentWorkspace shows items but drill-down incomplete |
 | B3 | CRM routes | ⚡ IMPLEMENTED | Routes registered but not verified |
 | B3 | Proposals API | ⬜ PARTIAL | Backend seeded but limited UI |
 | B4 | Marketing intelligence | ⚡ IMPLEMENTED | Routes exist, covered by dashboard |
 | B4 | G5 (Attribution/Learning) | ⚡ IMPLEMENTED | Routes + DB tables exist |
-| B4 | Content generation | ⚡ IMPLEMENTED | Routes exist |
 | B5 | Email integration | ⚡ IMPLEMENTED | Gmail API routes exist, OAuth needed |
 | B6 | Execution engine | ⚡ IMPLEMENTED | Standalone, not wired |
 | B6 | Automation runtime | ⚡ IMPLEMENTED | Standalone, not wired |
 | B6 | Execution log | ⚡ IMPLEMENTED | Routes exist |
 | B8 | PDF generation | ⚡ IMPLEMENTED | Routes registered, no UI trigger |
 | B8 | Document generation | ⚡ IMPLEMENTED | Doc routes exist |
-| B8 | Output visibility | ❌ MISSING | Outputs linked to execution context |
 | B9 | 8 intelligence engines | ⚡ IMPLEMENTED | Standalone modules |
 | B9 | Command-to-action (CG-06) | ✅ VERIFIED | Bridge UI built |
 | C | DB migrations | ⬜ PARTIAL | Alembic config exists |
 | C | Nginx / HTTPS | ⬜ PARTIAL | Needs sudo |
 | C | Accessibility WCAG AA | ⬜ PARTIAL | Some ARIA landmarks |
-| D | CG-05: Output in workflows | ❌ MISSING | Link output registry to workspace context |
+| D | CG-05: Output in workflows | ✅ VERIFIED | /api/v1/execution/outputs + OutputsBrowser wired |
 | D | CG-10: Push notifications | ❌ MISSING | Requires app store deployment |
 
 ---
