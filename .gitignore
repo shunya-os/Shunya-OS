@@ -90,6 +90,8 @@ media/
 logs/
 audit/
 !frontend/src/components/audit/
+axe-results/
+axe-*.mjs
 invoices/
 tasks/
 /reports/
