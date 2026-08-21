@@ -43,6 +43,7 @@ from app.document.models import (  # noqa: F401
 )
 from app.llm.models import ModelRun  # noqa: F401
 from app.notifications.models import PushSubscription  # noqa: F401
+from app.production.auth.mfa_models import MFAConfig  # noqa: F401
 from app.shunya.knowledge_store import KnowledgeFact  # noqa: F401
 from app.privacy.models import MemoryEligibilityPolicy  # noqa: F401
 from app.production.identity.workspace_model import Workspace  # noqa: F401

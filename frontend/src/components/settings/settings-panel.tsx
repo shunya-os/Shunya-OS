@@ -14,14 +14,14 @@ import {
   RefreshCw,
   FileDown,
   Shield,
-  KeyRound,
   Sparkles,
   CreditCard,
   Zap,
 } from 'lucide-react';
-import { ColorPicker, Kbd, PinInput, Group, Text, Select, ThemeIcon } from '@mantine/core';
+import { ColorPicker, Kbd, Group, Text, Select, ThemeIcon } from '@mantine/core';
 import { SessionManager } from '../../api/session';
 import { IntegrationHub } from './integration-hub';
+import { MfaSetup } from '../auth/mfa-setup';
 
 // ── Types ──
 
@@ -260,92 +260,10 @@ function DataSection() {
   );
 }
 
-// ── Security Section (MFA with Mantine PinInput) ──
+// ── Security Section (MFA via real API) ──
 
 function SecuritySection() {
-  const [mfaEnabled, setMfaEnabled] = useState(false);
-  const [verifyMode, setVerifyMode] = useState(false);
-  const [pin, setPin] = useState('');
-  const [mfaMsg, setMfaMsg] = useState('');
-
-  const handleVerify = () => {
-    // Demo verification: any 6-digit code enables MFA in this build.
-    if (pin.length === 6) {
-      setMfaEnabled(true);
-      setVerifyMode(false);
-      setPin('');
-      setMfaMsg('Two-factor authentication enabled. Use your authenticator app to generate codes.');
-    } else {
-      setMfaMsg('Enter the complete 6-digit code from your authenticator app.');
-    }
-    setTimeout(() => setMfaMsg(''), 4000);
-  };
-
-  const handleDisable = () => {
-    setMfaEnabled(false);
-    setMfaMsg('Two-factor authentication disabled.');
-    setTimeout(() => setMfaMsg(''), 3000);
-  };
-
-  return (
-    <div className="sp-section">
-      <div className="sp-section-header">
-        <KeyRound size={14} style={{ color: accentColor }} />
-        <span className="sp-section-title">Two-Factor Authentication</span>
-      </div>
-      <div className="sp-card">
-        <p className="sp-card-desc">
-          Add an extra layer of security to your account. When enabled, you will be asked
-          for a 6-digit code from your authenticator app at sign-in.
-        </p>
-
-        {!mfaEnabled && !verifyMode && (
-          <div className="sp-export-actions">
-            <button className="sp-btn sp-btn-primary" onClick={() => setVerifyMode(true)}>
-              <Shield size={13} /> Enable 2FA
-            </button>
-          </div>
-        )}
-
-        {verifyMode && (
-          <div className="sp-field" style={{ gap: 8 }}>
-            <span className="sp-field-label">Enter verification code</span>
-            <PinInput
-              length={6}
-              type="number"
-              oneTimeCode
-              value={pin}
-              onChange={setPin}
-              onComplete={handleVerify}
-              placeholder="0"
-              aria-label="6-digit verification code"
-            />
-            <Group gap={6} mt={4}>
-              <button className="sp-btn sp-btn-primary" onClick={handleVerify} disabled={pin.length !== 6}>
-                Verify & Enable
-              </button>
-              <button className="sp-btn" onClick={() => { setVerifyMode(false); setPin(''); }}>
-                Cancel
-              </button>
-            </Group>
-          </div>
-        )}
-
-        {mfaEnabled && (
-          <div className="sp-export-actions">
-            <span className="sp-export-msg" style={{ color: '#2D6A4F' }}>✓ Two-factor authentication is enabled</span>
-            <button className="sp-btn" onClick={handleDisable}>Disable 2FA</button>
-          </div>
-        )}
-
-        {mfaMsg && (
-          <div className="sp-export-msg" style={{ color: mfaEnabled && mfaMsg.includes('enabled') ? '#2D6A4F' : 'rgba(26,28,29,0.6)' }}>
-            {mfaMsg}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <MfaSetup />;
 }
 
 // ── Payment Section (Razorpay Integration) ──

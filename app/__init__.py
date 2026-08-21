@@ -565,6 +565,7 @@ def create_app(config_override: dict | None = None):
         password_reset_routes, email_verification_routes,
         mfa_routes, session_routes,
     )
+    from app.production.auth.mfa_models import MFAConfig  # noqa: F401 — MFA persistence
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main)

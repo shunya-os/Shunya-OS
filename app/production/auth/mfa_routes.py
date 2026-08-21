@@ -1,32 +1,34 @@
 """SHUNYA — MFA / 2FA (Milestone X, D2.4).
 
 Pluggable multi-factor authentication with TOTP support.
+Persistent MFA state via MFAConfig model (shunya_mfa_configs table).
 """
 
 import base64
 import hashlib
+import hmac
 import secrets
+import struct
+import time
 from datetime import datetime
 
 from flask import jsonify, request, session
 from werkzeug.exceptions import BadRequest
 
+from app import db
 from app.auth import TeamMember
 from app.auth_routes import auth_bp, login_required
-
-# In-memory MFA state per user
-_mfa_state: dict = {}  # user_id -> {secret, enabled, recovery_codes}
+from app.production.auth.mfa_models import MFAConfig
 
 
 def _generate_secret() -> str:
     """Generate a pseudo-TOTP secret (16 bytes, base32)."""
-    raw = secrets.token_bytes(20)  # 160 bits for proper TOTP
+    raw = secrets.token_bytes(20)
     return base64.b32encode(raw).decode("utf-8")
 
 
 def _decode_secret(secret: str) -> bytes:
     """Decode base32 secret with proper padding."""
-    # Add padding if missing
     padding = 8 - (len(secret) % 8)
     if padding != 8:
         secret += "=" * padding
@@ -39,16 +41,12 @@ def _generate_recovery_codes(count: int = 10) -> list:
 
 def _validate_totp(secret: str, code: str) -> bool:
     """Simple TOTP validation — for production use pyotp library."""
-    import hmac
-    import struct
-    import time
     try:
         int(code)
     except ValueError:
         return False
     if len(code) != 6:
         return False
-    # Simplified TOTP: check against current 30s window ±1
     intervals = [int(time.time()) // 30 + i for i in (-1, 0, 1)]
     for interval in intervals:
         msg = struct.pack(">Q", interval)
@@ -60,6 +58,19 @@ def _validate_totp(secret: str, code: str) -> bool:
     return False
 
 
+@auth_bp.route("/mfa/status", methods=["GET"])
+@login_required
+def mfa_status():
+    """Check MFA status for the current user."""
+    from flask import g
+    config = MFAConfig.query.filter_by(user_id=g.user.id).first()
+    if config and config.enabled:
+        return jsonify({"success": True, "data": {"enabled": True, "configured": True}})
+    if config:
+        return jsonify({"success": True, "data": {"enabled": False, "configured": True}})
+    return jsonify({"success": True, "data": {"enabled": False, "configured": False}})
+
+
 @auth_bp.route("/mfa/setup", methods=["POST"])
 @login_required
 def mfa_setup():
@@ -67,25 +78,37 @@ def mfa_setup():
     from flask import g
     user_id = g.user.id
 
-    if user_id in _mfa_state:
-        raise BadRequest("MFA is already configured or pending setup")
+    existing = MFAConfig.query.filter_by(user_id=user_id).first()
+    if existing and existing.enabled:
+        raise BadRequest("MFA is already enabled")
 
     secret = _generate_secret()
     uri = f"otpauth://totp/SHUNYA:{g.user.email}?secret={secret}&issuer=SHUNYA"
 
-    _mfa_state[user_id] = {
-        "secret": secret,
-        "enabled": False,
-        "recovery_codes": _generate_recovery_codes(),
-        "created_at": datetime.utcnow().isoformat(),
-    }
+    recovery_codes = _generate_recovery_codes()
+
+    if existing:
+        existing.secret = secret
+        existing.enabled = False
+        existing.recovery_codes = recovery_codes
+        existing.updated_at = datetime.utcnow()
+    else:
+        config = MFAConfig(
+            user_id=user_id,
+            secret=secret,
+            enabled=False,
+            recovery_codes=recovery_codes,
+        )
+        db.session.add(config)
+
+    db.session.commit()
 
     return jsonify({
         "success": True,
         "data": {
             "secret": secret,
             "uri": uri,
-            "recovery_codes": _mfa_state[user_id]["recovery_codes"],
+            "recovery_codes": recovery_codes,
         },
     })
 
@@ -97,20 +120,22 @@ def mfa_verify():
     from flask import g
     user_id = g.user.id
 
-    state = _mfa_state.get(user_id)
-    if not state:
+    config = MFAConfig.query.filter_by(user_id=user_id).first()
+    if not config:
         raise BadRequest("MFA has not been set up yet")
 
-    if state.get("enabled"):
+    if config.enabled:
         raise BadRequest("MFA is already enabled")
 
     data = request.get_json(silent=True) or {}
     code = data.get("code", "")
 
-    if not _validate_totp(state["secret"], code):
+    if not _validate_totp(config.secret, code):
         raise BadRequest("Invalid verification code")
 
-    state["enabled"] = True
+    config.enabled = True
+    config.updated_at = datetime.utcnow()
+    db.session.commit()
 
     return jsonify({
         "success": True,
@@ -125,16 +150,18 @@ def mfa_disable():
     from flask import g
     user_id = g.user.id
 
-    if user_id not in _mfa_state:
+    config = MFAConfig.query.filter_by(user_id=user_id).first()
+    if not config:
         raise BadRequest("MFA is not configured")
 
-    # Verify password before disabling
     data = request.get_json(silent=True) or {}
     password = data.get("password", "")
     if not g.user.check_password(password):
         raise BadRequest("Invalid password")
 
-    _mfa_state.pop(user_id, None)
+    config.enabled = False
+    config.updated_at = datetime.utcnow()
+    db.session.commit()
 
     return jsonify({
         "success": True,
@@ -154,15 +181,19 @@ def mfa_challenge():
     if not user:
         return jsonify({"success": False, "error": "Invalid credentials"}), 401
 
-    state = _mfa_state.get(user.id)
-    if not state or not state.get("enabled"):
+    config = MFAConfig.query.filter_by(user_id=user.id).first()
+    if not config or not config.enabled:
         return jsonify({"success": True, "message": "MFA not required"})
 
     # Try recovery code first
     if recovery_code:
-        if recovery_code in state.get("recovery_codes", []):
-            state["recovery_codes"].remove(recovery_code)
-            state["enabled"] = False
+        codes = config.recovery_codes or []
+        if recovery_code in codes:
+            codes.remove(recovery_code)
+            config.recovery_codes = codes
+            config.enabled = False
+            config.updated_at = datetime.utcnow()
+            db.session.commit()
             session["user_id"] = user.id
             return jsonify({
                 "success": True,
@@ -170,7 +201,7 @@ def mfa_challenge():
             })
         return jsonify({"success": False, "error": "Invalid recovery code"}), 401
 
-    if not _validate_totp(state["secret"], code):
+    if not _validate_totp(config.secret, code):
         return jsonify({"success": False, "error": "Invalid verification code"}), 401
 
     session["user_id"] = user.id
