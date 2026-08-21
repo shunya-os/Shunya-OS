@@ -69,7 +69,7 @@ jobs:
           DISABLE_RATE_LIMIT: "1"
         run: |
           source .venv/bin/activate
-          python -m pytest tests/ -x -q --tb=short -k "not test_ai and not test_cortex and not test_orch_loads_with_app" 2>&1 | tail -20
+          python -m pytest tests/ -x -q --tb=short -k "not test_ai and not loads_with_app" 2>&1 | tail -20
 
       - name: Build frontend
         working-directory: frontend
