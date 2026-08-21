@@ -115,3 +115,125 @@ def list_outputs():
             "total": len(items),
         }
     })
+
+
+@execution_bp.route("/work", methods=["GET"])
+def list_work_items():
+    """Return execution work items for the ExecutionWorkspace component.
+
+    Provides a unified view of outcomes, tasks, and commitments with
+    summary counts. Returned shape matches the WorkItem interface:
+
+      { success: true, data: { items: WorkItem[], summary: { total_outcomes, total_tasks, total_commitments } } }
+
+    Each WorkItem:
+      id, type (outcome|task|commitment), title, status, progress,
+      owner, source, priority, due_date, created_at, updated_at,
+      completed_at, result, error, drilldown
+    """
+    from datetime import datetime, timezone
+    from app import db
+    from app.execution.models import Outcome
+    from app.models import Task
+    from app.commitments.models import Commitment
+
+    tenant_id = request.args.get("tenant_id", 1, type=int)
+    items: list[dict] = []
+
+    # 1. Outcomes
+    outcomes = Outcome.query.filter(
+        Outcome.identity_id == str(tenant_id)
+    ).order_by(Outcome.created_at.desc()).limit(50).all()
+    for o in outcomes:
+        state = o.state or {}
+        stage = state.get("stage", "pending")
+        status = "completed" if stage == "completed" else "failed" if stage == "failed" else "active" if stage == "accepted" else stage
+        items.append({
+            "id": o.outcome_id,
+            "type": "outcome",
+            "title": o.intention or f"Outcome {o.outcome_id[:12]}",
+            "status": status,
+            "progress": 1.0 if status == "completed" else 0.5 if status == "active" else 0.0,
+            "context": state.get("context", ""),
+            "owner": state.get("owner", "system"),
+            "source": "execution",
+            "priority": state.get("priority", "medium"),
+            "due_date": None,
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+            "updated_at": o.updated_at.isoformat() if o.updated_at else None,
+            "completed_at": None,
+            "result": state.get("result", ""),
+            "error": state.get("error", ""),
+            "drilldown": f"/api/v1/outcomes/{o.outcome_id}",
+        })
+
+    # 2. Tasks
+    tasks = Task.query.order_by(Task.created_at.desc()).limit(50).all()
+    for t in tasks:
+        items.append({
+            "id": f"task_{t.id}",
+            "type": "task",
+            "title": t.title,
+            "status": t.status,
+            "progress": 1.0 if t.status == "completed" else 0.5 if t.status == "in_progress" else 0.0,
+            "context": "",
+            "owner": t.assigned_to or "unassigned",
+            "source": "workspace",
+            "priority": t.priority or "medium",
+            "due_date": t.due_date.isoformat() if t.due_date else None,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+            "updated_at": None,
+            "completed_at": t.completed_at.isoformat() if t.completed_at else None,
+            "result": "",
+            "error": "",
+            "drilldown": f"/api/v1/tasks/{t.id}",
+        })
+
+    # 3. Commitments
+    commitments = Commitment.query.order_by(Commitment.created_at.desc()).limit(50).all()
+    for c in commitments:
+        meta = c.meta or {}
+        items.append({
+            "id": f"cmt_{c.id}",
+            "type": "commitment",
+            "title": c.title,
+            "status": c.status,
+            "progress": 1.0 if c.status == "completed" else 0.5 if c.status == "in_progress" else 0.0,
+            "context": meta.get("context", ""),
+            "owner": c.owner or "system",
+            "source": "decision",
+            "priority": meta.get("priority", "medium"),
+            "due_date": c.due_at.isoformat() if c.due_at else None,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+            "completed_at": None,
+            "result": "",
+            "error": "",
+            "drilldown": f"/api/v1/commitments/{c.id}",
+        })
+
+    # Sort by created_at desc, then by id-based fallback
+    def _sort_key(item):
+        ts = item.get("created_at")
+        if ts:
+            try:
+                return datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+            except (ValueError, TypeError):
+                pass
+        return 0
+
+    items.sort(key=_sort_key, reverse=True)
+
+    summary = {
+        "total_outcomes": len(outcomes),
+        "total_tasks": len(tasks),
+        "total_commitments": len(commitments),
+    }
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "items": items[:100],
+            "summary": summary,
+        }
+    })

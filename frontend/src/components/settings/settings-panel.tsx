@@ -17,13 +17,15 @@ import {
   KeyRound,
   Sparkles,
   CreditCard,
+  Zap,
 } from 'lucide-react';
 import { ColorPicker, Kbd, PinInput, Group, Text, Select, ThemeIcon } from '@mantine/core';
 import { SessionManager } from '../../api/session';
+import { IntegrationHub } from './integration-hub';
 
 // ── Types ──
 
-type SettingsTab = 'profile' | 'appearance' | 'ai' | 'security' | 'data' | 'payments';
+type SettingsTab = 'profile' | 'appearance' | 'ai' | 'security' | 'data' | 'payments' | 'integrations';
 type ThemeColor = '#6C4AE2' | '#2D6A4F' | '#0891B2' | '#B91C1C' | '#A4865F';
 
 interface ProfileInfo {
@@ -39,6 +41,7 @@ const TABS: { id: SettingsTab; label: string; icon: any }[] = [
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'data', label: 'Data', icon: Download },
   { id: 'payments', label: 'Payments', icon: CreditCard },
+  { id: 'integrations', label: 'Integrations', icon: Zap },
 ];
 
 const accentColor = '#6C4AE2';
@@ -747,6 +750,7 @@ export function SettingsPanel() {
         {activeTab === 'security' && <SecuritySection />}
         {activeTab === 'data' && <DataSection />}
         {activeTab === 'payments' && <PaymentSection />}
+        {activeTab === 'integrations' && <IntegrationHub />}
       </div>
 
       <style>{spCss}</style>

@@ -188,10 +188,28 @@ def create_new_attribution():
     """Create an attribution record."""
     tenant_id = _resolve_tenant()
     data = request.get_json() or {}
+
+    # Derive target_type/target_id from interaction_id or identity_ref when
+    # not explicitly provided, so callers can POST with just interaction_id.
+    target_type = data.get("target_type")
+    target_id = data.get("target_id")
+    if target_id is None:
+        interaction_id = data.get("interaction_id")
+        identity_ref = data.get("identity_ref")
+        if interaction_id is not None:
+            target_type = target_type or "interaction"
+            target_id = interaction_id
+        elif identity_ref:
+            target_type = target_type or "identity"
+            target_id = hash(identity_ref) % (2**31)
+
+    if target_id is None:
+        return jsonify({"success": False, "error": "target_id is required"}), 400
+
     attr = create_attribution(
         tenant_id=tenant_id,
-        target_type=data.get("target_type", "interaction"),
-        target_id=data.get("target_id"),
+        target_type=target_type or "interaction",
+        target_id=target_id,
         campaign_id=data.get("campaign_id"),
         source=data.get("source", ""),
         source_ref=data.get("source_ref", ""),

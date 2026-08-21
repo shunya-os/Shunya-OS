@@ -40,6 +40,7 @@ import { CommandToActionBridge } from '../actions/command-to-action-bridge';
 import { MemoryBrowser } from '../memory/memory-browser';
 import { ContentStudio } from '../content/content-studio';
 import { EntityManager } from '../entities/entity-manager';
+import { SettingsPanel } from '../settings/settings-panel';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -867,6 +868,11 @@ function DomainWorkspaceRouter() {
   // Import/Export panel
   if (active.identity.type === 'import-export') {
     return <div className="pw-panel-container"><ImportExportPanel /></div>;
+  }
+
+  // Settings panel
+  if (active.identity.type === 'settings') {
+    return <div className="pw-panel-container"><SettingsPanel /></div>;
   }
 
   // Commitment workspace — self-contained, reads from API

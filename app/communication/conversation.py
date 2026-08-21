@@ -121,7 +121,7 @@ def create_conversation(title: str, participants: list[str] | None = None,
                         company_ids: list[str] | None = None,
                         project_ids: list[str] | None = None) -> Conversation:
     """Create a new Conversation Living Object."""
-    now = now().isoformat()
+    _now = now().isoformat()
     return Conversation(
         conversation_id=f"conv_{uuid.uuid4().hex[:12]}",
         title=title,
@@ -129,8 +129,8 @@ def create_conversation(title: str, participants: list[str] | None = None,
         company_ids=company_ids or [],
         project_ids=project_ids or [],
         channel=channel,
-        created_at=now,
-        updated_at=now,
+        created_at=_now,
+        updated_at=_now,
     )
 
 
@@ -138,7 +138,7 @@ def add_message(conversation: Conversation, channel: ChannelType,
                 direction: MessageDirection, sender: str, body: str,
                 subject: str = "", attachments: list[dict] | None = None) -> Message:
     """Attach a message to a conversation."""
-    now = now().isoformat()
+    _now = now().isoformat()
     msg = Message(
         message_id=f"msg_{uuid.uuid4().hex[:12]}",
         conversation_id=conversation.conversation_id,
@@ -148,8 +148,8 @@ def add_message(conversation: Conversation, channel: ChannelType,
         body=body,
         subject=subject,
         attachments=attachments or [],
-        timestamp=now,
+        timestamp=_now,
     )
     conversation.messages.append(msg)
-    conversation.updated_at = now
+    conversation.updated_at = _now
     return msg

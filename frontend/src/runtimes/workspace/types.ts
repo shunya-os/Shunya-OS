@@ -34,7 +34,8 @@ export type WorkspaceType =
   | 'email'
   | 'admin'
   | 'people'
-  | 'import-export';
+  | 'import-export'
+  | 'settings';
 
 export interface WorkspaceIdentity {
   id: string;
