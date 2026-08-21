@@ -3,6 +3,24 @@ from app import db
 from app.core.entity import Entity
 from app.core.timeline import get_entity_timeline
 
+# Import EntityDefinition model — used for dynamic entity type definitions
+try:
+    from app.entity_definitions.models import EntityDefinition
+except ImportError:
+    # Fallback: define a minimal model reference
+    from sqlalchemy import Table, Column, Integer, String, Boolean, Text
+    from app import db as _db
+    EntityDefinition = type('EntityDefinition', (db.Model,), {
+        '__tablename__': 'entity_definitions',
+        '__table_args__': {'extend_existing': True},
+        'id': db.Column(db.Integer, primary_key=True),
+        'tenant_id': db.Column(db.Integer, nullable=False),
+        'type': db.Column(db.String(100)),
+        'label': db.Column(db.String(200)),
+        'label_plural': db.Column(db.String(200)),
+        'is_active': db.Column(db.Boolean, default=True),
+    })
+
 entity_bp = Blueprint("entity_api", __name__, url_prefix="/api/v1/entities")
 
 # Schema definitions for dynamic entity types
@@ -64,10 +82,28 @@ def get_entity(entity_id):
 @entity_bp.route("/", methods=["POST"])
 def create_entity():
     data = request.get_json() or {}
-    entity_type = data.get("type", "customer")
+    entity_type = data.get("type", "contact")
     entity_data = data.get("data", {})
+    tenant_id = data.get("tenant_id", 1)
+
+    # Look up or create entity definition
+    definition = EntityDefinition.query.filter_by(
+        tenant_id=tenant_id, type=entity_type
+    ).first()
+    if not definition:
+        definition = EntityDefinition(
+            tenant_id=tenant_id,
+            type=entity_type,
+            label=entity_type.title(),
+            label_plural=f"{entity_type.title()}s",
+            is_active=True,
+        )
+        db.session.add(definition)
+        db.session.flush()
+
     entity = Entity(
-        tenant_id=data.get("tenant_id", 1),
+        tenant_id=tenant_id,
+        definition_id=definition.id,
         type=entity_type,
         state=data.get("state", "active"),
         data=entity_data,
