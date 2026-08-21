@@ -97,10 +97,10 @@
 | Metric | Count |
 |--------|-------|
 | TOTAL GAPS (non-VERIFIED) at start | 52 |
-| GAPS FIXED this execution | 2 (+1 verified pre-existing) |
-| GAPS REMAINING | 49 |
-| GAPS RESOLVED THIS RUN | ✅ G07 (LLM wiring verified), G03b (Conversation API wired), G03c (AI Resident panel wired) |
-| STATUS | All previous fixes preserved. 489 tests pass. |
+| GAPS FIXED this execution | 3 (+1 verified pre-existing) |
+| GAPS REMAINING | 48 |
+| GAPS RESOLVED THIS RUN | ✅ G07 (LLM wiring verified), G03b (Conversation API wired), G03c (AI Resident panel wired), G04 (SalesPipeline component) |
+| STATUS | All previous fixes preserved. 617 tests pass. |
 
 |## CRITICAL PATH REMAINING
 
