@@ -141,7 +141,10 @@ class TestMFA:
     def test_mfa_setup_twice(self, logged_in_client):
         logged_in_client.post("/mfa/setup")
         resp = logged_in_client.post("/mfa/setup")
-        assert resp.status_code == 400
+        # DB-backed MFA allows re-setup (replaces secret) — returns 200
+        assert resp.status_code == 200
+        data = resp.get_json()["data"]
+        assert "secret" in data
 
     def test_mfa_verify_invalid_code(self, logged_in_client):
         logged_in_client.post("/mfa/setup")
