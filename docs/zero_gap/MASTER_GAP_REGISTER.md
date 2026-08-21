@@ -26,19 +26,19 @@
 |---|---|---|---|---|---|---|---|---|
 | Foundation (A) | 9 | 0 | 0 | 0 | 0 | 0 | 9 |
 | Core Domains (B) | 33 | 1 | 0 | 0 | 0 | 0 | 34 |
-| Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
+| Infrastructure (C) | 7 | 2 | 0 | 0 | 0 | 0 | 9 |
 | Cross-Cutting (D) | 7 | 2 | 0 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **55** | **5** | **0** | **0** | **1** | **0** | **61** |
+| **TOTAL** | **56** | **5** | **0** | **0** | **0** | **0** | **61** |
 
 **Executive Summary:**
-- **55** capabilities VERIFIED in production
-- **4** PARTIAL (B-P01 protocol integration, C-07 accessibility, D-03 hardening audit, D-04 CI/CD secrets)
+- **56** capabilities VERIFIED in production
+- **5** PARTIAL (B-P01 protocol integration, C-02 DB migrations chain, C-07 accessibility, D-03 hardening audit, D-04 CI/CD secrets)
 - **0** MISSING — all resolved
 - **0** EXTERNALLY-BLOCKED — all internal work
-- **1** PRIVILEGE-GATED (C-08 Nginx/HTTPS — needs sudo, root execution path)
+- **0** PRIVILEGE-GATED — C-08 Nginx/HTTPS verified
 - **0** BLOCKED-BY-DEPENDENCY
-- **Total non-VERIFIED: 5** (4 partial + 1 privilege-gated)
-- **C-02 DB migrations: VERIFIED** — 15-migration chain continuous, rollback proven, production path confirmed
+- **Total non-VERIFIED: 5** (all partial — engineering audits, C-02 migration chain verified)
+- **56 + 5 = 61 ✓**
 
 **Classification Corrections Applied:**
 | Capability | Old | New | Rationale |
@@ -53,7 +53,7 @@
 
 ---
 
-## REMAINING GAPS (6 non-VERIFIED)
+## REMAINING GAPS (5 non-VERIFIED)
 
 ### PARTIAL (5) — Engineering audits, non-blocking
 
@@ -67,17 +67,21 @@
 
 ### MISSING (0 — all resolved)
 
-| Canonical ID | Old ID | Capability | Fix Path |
-|---|---|---|---|
-| D-06 | — | Performance analytics & monitoring | ✅ IMPLEMENTED — /metrics endpoint (prometheus format), AnalyticsPanel component wired into workspace container |
-| D-07 | — | Cross-domain search integration | ✅ IMPLEMENTED — SearchBar wired into PrimaryWorkspace (⌘⇧K). Backend `/api/v1/search` (DuckDuckGo web) + `/api/v1/founder/search` (objects/relationships). Frontend `ModuleRegistry.searchAll` aggregates across all modules. |
-| D-09 | — | Audit trail visibility UI | ✅ IMPLEMENTED — AuditViewer component wired into workspace container, connected to `/api/v1/audit/list` |
+All capabilities positively settled. No MISSING items remain.
 
-### PRIVILEGE-GATED (1)
+### C-08 Nginx/HTTPS — ✅ VERIFIED
 
-| Canonical ID | Old ID | Capability | Requirement |
-|---|---|---|---|
-| C-08 | C Nginx/HTTPS | ✅ VERIFIED — HTTPS fully operational. HTTP→HTTPS 301 redirect active. TLS 1.3/AES-256-GCM/X25519. Valid Let's Encrypt cert (CN=shunyaos.com). Security headers via nginx proxy. App serving at app.shunyaos.com. nginx workers as www-data, certs read by master process (root) — correct architecture. | *(verified — HTTPS endpoint, redirect, cert, TLS all confirmed)* |
+HTTPS fully operational. Let's Encrypt cert serving TLS 1.3. HTTP→HTTPS 301 redirect. Security headers active. nginx master (root) loads certs at startup — standard architecture. App health confirmed through HTTPS.
+  - Certificate: Let's Encrypt, CN=shunyaos.com, SAN: shunyaos.com, app.shunyaos.com, www.shunyaos.com
+  - Validity: Jul 26 → Oct 24 2026
+  - TLS: 1.3 / AES-256-GCM / X25519
+  - HTTPS: HTTP/2 200 (verified via curl without -k)
+  - HTTP→HTTPS: 301 Moved Permanently redirect
+  - Security headers: HSTS (31536000; includeSubDomains), X-Frame-Options DENY, X-Content-Type-Options nosniff, X-XSS-Protection, Referrer-Policy, Permissions-Policy
+  - nginx architecture: master (root, PID 367970) loads certs at startup; workers (www-data, 4 processes) do not read certs
+  - nginx -t as non-root fails (expected — certs are root:root), but config was loaded successfully by running master
+  - App health through HTTPS: {"status":"ok","build_id":"be11f46"}
+  - Prior www-data readability test invalid — workers don't need cert access in standard nginx architecture
 
 ### EXTERNALLY-BLOCKED-PENDING-PWA-INVESTIGATION — now IMPLEMENTED
 
