@@ -28,7 +28,7 @@
 | Core Domains (B) | 34 | 0 | 0 | 0 | 0 | 0 | 34 |
 | Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
 | Cross-Cutting (D) | 4 | 2 | 3 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **52** | **4** | **4** | **0** | **1** | **0** | **62** |
+| **TOTAL** | **52** | **4** | **4** | **0** | **1** | **0** | **61** |
 
 **Executive Summary:**
 - **52** capabilities VERIFIED in production (up from 51 — B-P02 elevated)
@@ -71,7 +71,7 @@
 |---|---|---|---|
 | A-09 | A1 | MFA / passkeys | Implement MFA routes + UI |
 | D-06 | — | Performance analytics & monitoring | Add prometheus/grafana or equivalent |
-| D-07 | — | Cross-domain search integration | ✅ IMPLEMENTED — SearchBar wired into PrimaryWorkspace (⌘⇧K). Backend `/api/v1/search` (DuckDuckGo web) + `/api/v1/founder/search` (objects/relationships). Frontend `ModuleRegistry.searchAll` aggregates across all modules (business, commercial, ubme, growth). |
+| D-07 | — | Cross-domain search integration | ✅ IMPLEMENTED — SearchBar wired into PrimaryWorkspace (⌘⇧K). Backend `/api/v1/search` (DuckDuckGo web) + `/api/v1/founder/search` (objects/relationships). Frontend `ModuleRegistry.searchAll` aggregates across all modules. |
 | D-09 | — | Audit trail visibility UI | Build audit viewer |
 
 ### PRIVILEGE-GATED (1)
