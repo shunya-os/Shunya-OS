@@ -14,6 +14,35 @@ class TestCRMLifecycle:
         """GOLDEN: CREATE LEAD → IDENTITY → ASSIGN → QUALIFY → SLA → FOLLOW-UP
         → OPPORTUNITY → PROPOSAL → WON → CUSTOMER → RELATIONSHIP HISTORY."""
         from app.relationship.models import TimelineEntry
+        from app import db as _db
+        from app.models import Organization, OrgMember
+        from app.authz.models import Role, OrgMemberRole
+        from app.authz.services import seed_default_roles
+        import json as _json
+
+        # ── Auth setup: org + admin role + member ───────────────────
+        org = Organization(name="Test CRM Org", slug="test-crm")
+        _db.session.add(org)
+        _db.session.commit()
+        seed_default_roles(org.id)
+        admin_role = Role.query.filter_by(organization_id=org.id, name="admin").first()
+        member = OrgMember(
+            organization_id=org.id,
+            identity_id="crm-golden-identity",
+            email="golden@crm.test",
+            name="Golden Tester",
+            is_active=True,
+        )
+        _db.session.add(member)
+        _db.session.commit()
+        _db.session.add(OrgMemberRole(
+            organization_id=org.id, member_id=member.id, role_id=admin_role.id,
+        ))
+        _db.session.commit()
+        with client.session_transaction() as sess:
+            sess["user_id"] = "crm-golden-identity"
+            sess["identity_id"] = "crm-golden-identity"
+            sess["current_org_id"] = org.id
 
         # 1. CREATE LEAD
         resp = client.post("/api/v1/crm/leads", json={
