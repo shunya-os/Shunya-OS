@@ -39,6 +39,7 @@ import { LeadManagement } from '../sales/lead-management';
 import { CommandToActionBridge } from '../actions/command-to-action-bridge';
 import { MemoryBrowser } from '../memory/memory-browser';
 import { ContentStudio } from '../content/content-studio';
+import { EntityManager } from '../entities/entity-manager';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -68,6 +69,7 @@ const ORGANIZATIONAL_DOMAINS: Domain[] = [
   { id: 'memory', label: 'Memory', icon: '◈', description: 'SHUNYA memory, reflections, history', wsType: 'object' },
   { id: 'relationships', label: 'Relationships', icon: '◈', description: 'Connections between people and entities', wsType: 'object' },
   { id: 'content', label: 'Content', icon: '✎', description: 'AI content generation studio', wsType: 'object' },
+  { id: 'entities', label: 'Entities', icon: '◈', description: 'Dynamic entity type system', wsType: 'object' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════
@@ -940,6 +942,10 @@ function DomainWorkspaceRouter() {
     // Content — AI content generation studio
     if (active.identity.objectId === 'content') {
       return <div className="pw-panel-container"><ContentStudio /></div>;
+    }
+    // Entities — dynamic entity type system
+    if (active.identity.objectId === 'entities') {
+      return <div className="pw-panel-container"><EntityManager /></div>;
     }
     // Knowledge — browsing
     // If the objectId is a domain concept (finance, marketing, etc.), show domain overview
