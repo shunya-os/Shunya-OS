@@ -27,6 +27,30 @@ def create():
     })
 
 
+@commitments_bp.route("/", methods=["GET"])
+def list_commitments():
+    owner = request.args.get("owner")
+    status = request.args.get("status")
+    limit = min(request.args.get("limit", 50, type=int), 200)
+    q = Commitment.query
+    if owner:
+        q = q.filter(Commitment.owner == owner)
+    if status:
+        q = q.filter(Commitment.status == status)
+    q = q.order_by(Commitment.created_at.desc()).limit(limit)
+    return jsonify({
+        "commitments": [{
+            "id": c.id,
+            "title": c.title,
+            "owner": c.owner,
+            "status": c.status,
+            "due_at": c.due_at.isoformat() if c.due_at else None,
+            "issue_type": c.issue_type or "",
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        } for c in q.all()]
+    })
+
+
 @commitments_bp.route("/<int:commitment_id>", methods=["PATCH"])
 def update(commitment_id):
     c = Commitment.query.get_or_404(commitment_id)
