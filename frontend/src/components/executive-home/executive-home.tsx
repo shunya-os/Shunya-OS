@@ -31,6 +31,7 @@ import { ConversationWorkspace } from '../conversation/conversation-workspace';
 import { CommercialWorkspace } from '../commercial/commercial-workspace';
 import { RelationshipWorkspace } from '../relationship/relationship-workspace';
 import { MarketingWorkspace } from '../marketing/marketing-workspace';
+import { SalesPipeline } from '../sales/sales-pipeline';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -892,6 +893,10 @@ function DomainWorkspaceRouter() {
     // Marketing — real campaign browser
     if (active.identity.objectId === 'marketing') {
       return <div className="pw-panel-container"><MarketingWorkspace /></div>;
+    }
+    // Sales — real pipeline viewer
+    if (active.identity.objectId === 'sales') {
+      return <div className="pw-panel-container"><SalesPipeline /></div>;
     }
     // If the objectId is a domain concept (finance, marketing, etc.), show domain overview
     if (DOMAIN_IDS.has(active.identity.objectId) && !active.identity.objectType?.includes('_')) {
