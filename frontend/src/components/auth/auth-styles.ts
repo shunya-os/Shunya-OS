@@ -142,6 +142,44 @@ export const authStyles = `
   outline-offset: 2px;
 }
 
+/* ── OAuth Buttons ──────────────────────────────────────────── */
+.sh-auth-oauth {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sh-auth-btn-oauth {
+  width: 100%; padding: 10px 22px;
+  background: var(--shunya-surface, #FFFFFF);
+  color: var(--shunya-text, #1A1C1D);
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+  border-radius: var(--shunya-radius-sm, 10px);
+  font-family: var(--shunya-font-body, 'Inter', sans-serif);
+  font-size: var(--shunya-text-sm, 12px);
+  font-weight: 500;
+  letter-spacing: var(--shunya-tracking-wide, 0.02em);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: border-color var(--shunya-duration-fast, 200ms) var(--shunya-ease, cubic-bezier(0.22,1,0.36,1)),
+              box-shadow var(--shunya-duration-fast, 200ms) var(--shunya-ease, cubic-bezier(0.22,1,0.36,1));
+}
+.sh-auth-btn-oauth:hover:not(:disabled) {
+  border-color: var(--shunya-border-hover, rgba(26,28,29,0.14));
+  box-shadow: 0 1px 4px rgba(26,28,29,0.04);
+}
+.sh-auth-btn-oauth:disabled { opacity: 0.4; cursor: not-allowed; }
+.sh-auth-btn-oauth:focus-visible {
+  outline: 2px solid var(--shunya-gold, #A4865F);
+  outline-offset: 2px;
+}
+.sh-auth-oauth-icon {
+  flex-shrink: 0;
+}
+
 /* ── Links ──────────────────────────────────────────────────── */
 .sh-auth-link {
   color: var(--shunya-text, #1A1C1D);
