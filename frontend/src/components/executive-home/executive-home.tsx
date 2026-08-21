@@ -32,6 +32,7 @@ import { RelationshipWorkspace } from '../relationship/relationship-workspace';
 import { MarketingDashboard } from '../marketing/marketing-dashboard';
 import { SalesPipeline } from '../sales/sales-pipeline';
 import { ExecutionWorkspace } from '../work/execution-workspace';
+import { TasksWorkspace } from '../work/tasks-workspace';
 import { OutputsBrowser } from '../outputs/outputs-browser';
 import { OrganizationBrowser } from '../organization/organization-browser';
 import { LeadManagement } from '../sales/lead-management';
@@ -916,6 +917,10 @@ function DomainWorkspaceRouter() {
     // Work — execution visibility
     if (active.identity.objectId === 'work') {
       return <div className="pw-panel-container"><ExecutionWorkspace /></div>;
+    }
+    // Tasks — individual task items
+    if (active.identity.objectId === 'tasks') {
+      return <div className="pw-panel-container"><TasksWorkspace /></div>;
     }
     // Outputs — artifact discovery
     if (active.identity.objectId === 'outputs') {
