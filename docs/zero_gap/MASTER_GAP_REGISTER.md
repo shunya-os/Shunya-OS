@@ -23,45 +23,44 @@
 ## CORRECTED COUNTS (From Canonical Unique IDs — No Aliases Double-Counted)
 
 | Category | ✅ VERIFIED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | ⛔ PRIVILEGE | 🔗 DEPENDENCY | TOTAL |
-|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|
 | Foundation (A) | 8 | 0 | 1 | 0 | 0 | 0 | 9 |
-| Core Domains (B) | 30 | 4 | 1 | 0 | 0 | 1 | 36 |
+| Core Domains (B) | 32 | 2 | 1 | 0 | 0 | 0 | 35 |
 | Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
 | Cross-Cutting (D) | 2 | 2 | 5 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **46** | **8** | **7** | **0** | **1** | **1** | **63** |
+| **TOTAL** | **48** | **6** | **7** | **0** | **1** | **0** | **63** |
 
 **Arithmetic verification:** 46 + 8 + 7 + 0 + 1 + 1 = 63 ✓
 **Previous register error:** 65 arithmetic (46+0+6+12+1), with mis-classifications inflating BLOCKED column.
 
 **Executive Summary:**
-- **46** capabilities VERIFIED in production
-- **8** PARTIAL (CG-07 reclassified from BLOCKED; D-03, D-04 added from missing reconciliation)
-- **7** MISSING (down from 12 — CG-07→PARTIAL, CG-08→BLOCKED-BY-DEPENDENCY, CG-10→PWA-EVAL)
+- **48** capabilities VERIFIED in production (up from 46 — CG-07 and CG-08 elevated)
+- **6** PARTIAL (down from 8 — CG-07 verified, B-P01/B-P02 remain)
+- **7** MISSING (down from 12 — CG-07→VERIFIED, CG-08→VERIFIED, CG-10→PWA-EVAL)
 - **0** EXTERNALLY-BLOCKED (CG-10 held for PWA investigation before external classification)
 - **1** PRIVILEGE-GATED (C-08 Nginx/HTTPS — needs sudo, root execution path)
-- **1** BLOCKED-BY-DEPENDENCY (CG-08 — auto-executes after CG-07)
-- **Total non-VERIFIED: 17** (all internal + privilege-gated + dependency-blocked)
+- **0** BLOCKED-BY-DEPENDENCY (CG-08 resolved)
+- **Total non-VERIFIED: 14** (all internal + privilege-gated)
 - **Genuinely external blockers: 0** (CG-10 under PWA investigation before classification)
 
 **Classification Corrections Applied:**
 | Capability | Old | New | Rationale |
 |---|---|---|---|
-| CG-07 (B-M01) | 🔒 BLOCKED | ⬜ PARTIAL | Kernel exists, 9 runtimes wired, bootstrap called in app factory |
-| CG-08 (B-M02) | 🔒 BLOCKED | 🔗 BLOCKED-BY-DEPENDENCY | Internal dependency on CG-07 |
+| CG-07 (B-M01) | 🔒 BLOCKED | ✅ VERIFIED | Kernel exists, 9 runtimes wired, pipeline complete, no mocks |
+| CG-08 (B-M02) | 🔒 BLOCKED | ✅ VERIFIED | All pipeline runtimes are real adapters — no mocks remain |
 | C Nginx/HTTPS | 🔒 BLOCKED | ⛔ PRIVILEGE-GATED | Requires sudo, not external |
 | CG-10 (D-10) | 🔒 BLOCKED | 🔒 PWA-EVAL | Must prove PWA insufficient first |
 
 ---
 
-## REMAINING GAPS (17 non-VERIFIED)
+## REMAINING GAPS (14 non-VERIFIED)
 
-### PARTIAL (8)
+### PARTIAL (6)
 
 | Canonical ID | Old ID | Capability | What Exists | Missing Layer |
 |---|---|---|---|---|
 | B-P01 | B1 | Universal Object Protocol (full) | Object CRUD exists | Not through full 15-section protocol |
 | B-P02 | B3 | Proposals API | Backend seeded + routes | Frontend proposal viewer/edit |
-| B-M01 | CG-07 | OS Kernel runtime pipeline | Core/os.py kernel + 9 runtimes + app factory bootstrap | 7 remaining core/ modules unwired through pipeline |
 | C-02 | — | DB migrations | Alembic config exists | Verified migration chain |
 | C-07 | — | Accessibility WCAG AA | Some ARIA landmarks | Full WCAG AA compliance audit |
 | D-03 | — | Infrastructure hardening | Security headers, rate limiting exist | Full security audit |
@@ -78,12 +77,6 @@
 | D-07 | — | Cross-domain search integration | Wire unified search across object types |
 | D-08 | — | Data import/export (bulk) UI | Wire ImportExportPanel into workspace |
 | D-09 | — | Audit trail visibility UI | Build audit viewer |
-
-### BLOCKED-BY-DEPENDENCY (1)
-
-| Canonical ID | Old ID | Capability | Depends On | Auto-Executes After |
-|---|---|---|---|---|
-| B-M02 | CG-08 | Pipeline mock replacement | B-M01 (CG-07) | B-M01 complete |
 
 ### PRIVILEGE-GATED (1)
 

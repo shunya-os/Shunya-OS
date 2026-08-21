@@ -3,6 +3,7 @@
  * - Cache-first for static assets (JS, CSS, images, fonts)
  * - Network-first for API calls
  * - Notify user on update
+ * - Web Push notification handling (PWA notifications)
  */
 
 const CACHE_NAME = 'shunya-v1';
@@ -82,6 +83,64 @@ self.addEventListener('fetch', (event) => {
 
   // Everything else — network-first
   event.respondWith(networkFirst(request));
+});
+
+// ── Web Push Notification Handling ──
+
+self.addEventListener('push', (event) => {
+  if (!event.data) {
+    // Push with no data — just a sync signal, not a notification
+    return;
+  }
+
+  try {
+    const data = event.data.json();
+    const title = data.title || 'SHUNYA';
+    const body = data.body || '';
+    const url = data.url || '/';
+    const tag = data.tag || 'general';
+
+    event.waitUntil(
+      self.registration.showNotification(title, {
+        body: body,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: tag,
+        data: { url: url },
+        vibrate: [200, 100, 200],
+        requireInteraction: true,
+      })
+    );
+  } catch (err) {
+    // Non-JSON push data — show a simple notification
+    event.waitUntil(
+      self.registration.showNotification('SHUNYA', {
+        body: event.data.text(),
+        icon: '/icon-192.png',
+      })
+    );
+  }
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const url = event.notification.data?.url || '/';
+
+  // Focus existing tab or open new one
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url === url && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // No matching tab — open a new one
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(url);
+      }
+    })
+  );
 });
 
 // ── Strategies ──

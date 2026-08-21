@@ -1,0 +1,1 @@
+"""SHUNYA PWA Push Notifications module."""

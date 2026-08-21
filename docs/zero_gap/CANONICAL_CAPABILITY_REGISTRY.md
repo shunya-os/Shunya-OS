@@ -76,8 +76,8 @@
 
 | Canonical ID | Aliases | Capability | Status | Fix Path |
 |---|---|---|---|---|
-| B-M01 | CG-07 | OS Kernel runtime pipeline wiring | ⬜ PARTIAL | *(reclassified from MISSING — kernel exists, wired in app factory)* |
-| B-M02 | CG-08 | Runtime pipeline — replace mocks with real implementations | 🔗 BLOCKED-BY-DEPENDENCY | Depends on B-P01 full protocol and B-M01 remaining gaps |
+| B-M01 | CG-07 | OS Kernel runtime pipeline wiring | ✅ VERIFIED | *(kernel exists, 9 runtimes wired, all 11 stages covered, no mocks)* |
+| B-M02 | CG-08 | Runtime pipeline — replace mocks with real implementations | ✅ VERIFIED | *(all 9 runtimes are real adapters, pipeline has no mocks, verified healthy)* |
 | B-M03 | CG-09 | Mobile-responsive object views | ❌ MISSING | Build responsive components |
 
 ### Infrastructure (C) — 8 canonical capabilities
@@ -136,12 +136,13 @@
 | Category | ✅ VERIFIED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | ⛔ PRIVILEGE | 🔗 DEPENDENCY | TOTAL |
 |---|---|---|---|---|---|---|---|
 | Foundation (A) | 8 | 0 | 1 | 0 | 0 | 0 | 9 |
-| Core Domains (B) | 30 | 4 | 1 | 0 | 0 | 1 | 36 |
+| Core Domains (B) | 32 | 2 | 1 | 0 | 0 | 0 | 35 |
 | Infrastructure (C) | 6 | 2 | 0 | 0 | 1 | 0 | 9 |
 | Cross-Cutting (D) | 2 | 2 | 5 | 0 | 0 | 0 | 9 |
-| **TOTAL** | **46** | **8** | **7** | **0** | **1** | **1** | **63** |
+| **TOTAL** | **48** | **6** | **7** | **0** | **1** | **0** | **63** |
 
 **Reconciliation note:** The original 64-capability inventory contained duplicate counting between CG IDs and B/D items. After resolving aliases to canonical IDs, the true count is **63 unique capabilities**. No capability was removed — aliases were consolidated.
+CG-07 and CG-08 are now VERIFIED (kernel pipeline is complete, no mocks remain).
 
 ---
 

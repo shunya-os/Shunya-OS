@@ -54,6 +54,37 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
+// PWA Push Notification subscription
+async function subscribeToPush(reg: ServiceWorkerRegistration) {
+  if (!('PushManager' in window)) return;
+  try {
+    const resp = await fetch('/api/v1/notifications/vapid-public-key');
+    if (!resp.ok) return;
+    const { public_key } = await resp.json();
+
+    const keyBytes = Uint8Array.from(atob(public_key), (c) => c.charCodeAt(0));
+
+    let subscription = await reg.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: keyBytes,
+      });
+    }
+
+    await fetch('/api/v1/notifications/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(subscription.toJSON()),
+    });
+  } catch (err: any) {
+    if (err?.name === 'NotAllowedError') {
+      return; // User denied notification permission — normal
+    }
+    errorLog.push({ msg: 'Push notification subscription failed: ' + (err?.message || String(err)), stack: '', source: 'push.subscribe' });
+  }
+}
+
 try {
   const rootEl = document.getElementById('root');
   if (rootEl) {
@@ -76,6 +107,9 @@ try {
             });
           }
         };
+
+        // Subscribe to push notifications after SW registration
+        subscribeToPush(reg);
       }).catch((err) => {
         errorLog.push({ msg: 'Service worker registration failed: ' + (err?.message || String(err)), stack: '', source: 'sw.register' });
       });

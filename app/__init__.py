@@ -782,6 +782,10 @@ def create_app(config_override: dict | None = None):
     from app.core.health import health_bp
     app.register_blueprint(health_bp)
 
+    # M10 — PWA Push Notifications (CG-10 / D-10)
+    from app.notifications.routes import notifications_bp
+    app.register_blueprint(notifications_bp)
+
     # FDA26: Developer & Integration Platform
     from app.platform import platform_bp
     app.register_blueprint(platform_bp)
@@ -796,6 +800,7 @@ def create_app(config_override: dict | None = None):
         from app.evidence import decision_trace  # noqa: F401 — registers DecisionTrace model
         from app.automation import models  # noqa: F401 — registers AutomationRule model
         from app.intelligence import memory_store  # noqa: F401 — registers LearningWeight model
+        from app.notifications.models import PushSubscription  # noqa: F401 — registers push subscription model
     except Exception:
         pass
 
