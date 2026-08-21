@@ -861,24 +861,11 @@ function DomainWorkspaceRouter() {
     return <div className="pw-panel-container"><ImportExportPanel /></div>;
   }
 
-  // Commitment workspace
+  // Commitment workspace — self-contained, reads from API
   if (active.identity.type === 'commitment') {
     return (
       <div className="pw-panel-container">
-        <CommitmentWorkspace
-          commitment={active.identity.objectId ? {
-            id: active.identity.objectId,
-            title: active.identity.name,
-            objective: '',
-            status: 'active',
-            progress: 0,
-            confidence: 0,
-            owner: '',
-            risks: [],
-            evidenceCount: 0,
-            relatedObjects: [],
-          } : undefined}
-        />
+        <CommitmentWorkspace />
       </div>
     );
   }

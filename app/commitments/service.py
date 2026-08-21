@@ -3,12 +3,14 @@ from app import db
 from app.commitments.models import Commitment
 
 
-def create_commitment(title: str, owner: str = None, due_at=None):
+def create_commitment(title: str, owner: str = None, due_at=None, issue_type: str = "", meta: dict = None):
     c = Commitment(
         title=title,
         owner=owner,
         due_at=due_at,
         status="pending",
+        issue_type=issue_type,
+        meta=meta or {},
     )
     db.session.add(c)
     db.session.commit()
