@@ -38,6 +38,7 @@ import { OrganizationBrowser } from '../organization/organization-browser';
 import { LeadManagement } from '../sales/lead-management';
 import { CommandToActionBridge } from '../actions/command-to-action-bridge';
 import { MemoryBrowser } from '../memory/memory-browser';
+import { ContentStudio } from '../content/content-studio';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -66,6 +67,7 @@ const ORGANIZATIONAL_DOMAINS: Domain[] = [
   { id: 'outputs', label: 'Outputs', icon: '✓', description: 'Generated results, reports, artifacts', wsType: 'object' },
   { id: 'memory', label: 'Memory', icon: '◈', description: 'SHUNYA memory, reflections, history', wsType: 'object' },
   { id: 'relationships', label: 'Relationships', icon: '◈', description: 'Connections between people and entities', wsType: 'object' },
+  { id: 'content', label: 'Content', icon: '✎', description: 'AI content generation studio', wsType: 'object' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════
@@ -934,6 +936,10 @@ function DomainWorkspaceRouter() {
     // Memory — browsing
     if (active.identity.objectId === 'memory') {
       return <div className="pw-panel-container"><MemoryBrowser /></div>;
+    }
+    // Content — AI content generation studio
+    if (active.identity.objectId === 'content') {
+      return <div className="pw-panel-container"><ContentStudio /></div>;
     }
     // Knowledge — browsing
     // If the objectId is a domain concept (finance, marketing, etc.), show domain overview
