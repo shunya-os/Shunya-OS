@@ -2,7 +2,7 @@
  * MarketingWorkspace — Campaign browser and marketing domain surface.
  *
  * Fetches real campaign data from the marketing API and displays it
- * as an organized, actionable workspace.
+ * as an organized, actionable workspace. Supports campaign creation.
  */
 
 import { useState, useEffect, useCallback, type FC } from 'react';
@@ -25,6 +25,16 @@ interface Campaign {
   utm_source: string;
 }
 
+interface NewCampaign {
+  name: string;
+  description: string;
+  objective: string;
+  budget: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   active: '#2e7d32',
   draft: 'rgba(26,28,29,0.35)',
@@ -41,6 +51,18 @@ const OBJECTIVE_LABELS: Record<string, string> = {
   leads: 'Leads',
   retention: 'Retention',
 };
+
+async function apiPost<T>(path: string, body: Record<string, unknown>): Promise<{ data?: T; error?: string }> {
+  try {
+    const r = await fetch(path, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return await r.json() as { data?: T; error?: string };
+  } catch { return { error: 'Network error' }; }
+}
 
 function formatCurrency(val: string): string {
   const n = parseFloat(val);
@@ -107,6 +129,114 @@ const CampaignCard: FC<{ campaign: Campaign }> = ({ campaign }) => (
   </div>
 );
 
+// ── Campaign Create Form ─────────────────────────────────────────
+
+function CampaignCreateForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+  const [form, setForm] = useState<NewCampaign>({
+    name: '', description: '', objective: 'leads',
+    budget: '0', status: 'draft', start_date: '', end_date: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleChange = (field: keyof NewCampaign, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) { setError('Campaign name is required'); return; }
+    setSaving(true); setError('');
+    const body: Record<string, unknown> = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      objective: form.objective,
+      budget: parseFloat(form.budget) || 0,
+      status: form.status,
+    };
+    if (form.start_date) body.start_date = form.start_date;
+    if (form.end_date) body.end_date = form.end_date;
+    const result = await apiPost('/api/v1/marketing/campaigns', body);
+    if (result.error) {
+      setError(result.error);
+      setSaving(false);
+    } else {
+      setSaving(false);
+      onCreated();
+    }
+  };
+
+  return (
+    <div style={{
+      background: 'var(--color-surface-elevated, #fff)',
+      border: '1px solid var(--color-border, rgba(0,0,0,0.06))',
+      borderRadius: 8, padding: 20, marginBottom: 16,
+    }}>
+      <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600 }}>New Campaign</h3>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <input placeholder="Campaign name *" value={form.name}
+          onChange={e => handleChange('name', e.target.value)}
+          style={inputStyle} />
+
+        <textarea placeholder="Description" value={form.description} rows={2}
+          onChange={e => handleChange('description', e.target.value)}
+          style={{ ...inputStyle, resize: 'vertical' }} />
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <select value={form.objective} onChange={e => handleChange('objective', e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+            {Object.entries(OBJECTIVE_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+          <select value={form.status} onChange={e => handleChange('status', e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+            {['draft', 'active', 'paused'].map(s => (
+              <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <input placeholder="Budget (USD)" value={form.budget}
+            onChange={e => handleChange('budget', e.target.value)}
+            style={inputStyle} type="number" min="0" step="100" />
+          <input placeholder="Start date" value={form.start_date}
+            onChange={e => handleChange('start_date', e.target.value)}
+            style={inputStyle} type="date" />
+          <input placeholder="End date" value={form.end_date}
+            onChange={e => handleChange('end_date', e.target.value)}
+            style={inputStyle} type="date" />
+        </div>
+      </div>
+
+      {error && <p style={{ color: '#d1453b', fontSize: 12, margin: '8px 0 0' }}>{error}</p>}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+        <button onClick={handleSubmit} disabled={saving || !form.name.trim()}
+          style={{ padding: '8px 20px', background: '#1A1C1D', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer', opacity: saving || !form.name.trim() ? 0.5 : 1 }}>
+          {saving ? 'Creating…' : 'Create Campaign'}
+        </button>
+        <button onClick={onCancel}
+          style={{ padding: '8px 20px', background: 'transparent', border: '1px solid rgba(26,28,29,0.07)', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  padding: '8px 12px',
+  border: '1px solid rgba(26,28,29,0.12)',
+  borderRadius: 6,
+  fontSize: 13,
+  outline: 'none',
+  fontFamily: 'inherit',
+  color: '#1A1C1D',
+  background: '#fff',
+  width: '100%',
+  boxSizing: 'border-box',
+};
+
 // ── Marketing Workspace ──────────────────────────────────────────
 
 export const MarketingWorkspace: FC = () => {
@@ -114,6 +244,7 @@ export const MarketingWorkspace: FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<string>('all');
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,6 +265,11 @@ export const MarketingWorkspace: FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  const handleCreated = () => {
+    setShowCreateForm(false);
+    load();
+  };
+
   const filtered = filter === 'all'
     ? campaigns
     : campaigns.filter(c => c.status === filter);
@@ -145,16 +281,38 @@ export const MarketingWorkspace: FC = () => {
 
   return (
     <div className="pw-marketing-workspace" style={{ padding: '24px 32px', maxWidth: 960 }}>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: '0 0 4px 0', fontSize: 22, fontWeight: 600, color: 'var(--color-text-primary, #1a1c1d)' }}>
-          Marketing
-        </h2>
-        <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-secondary, rgba(26,28,29,0.55))' }}>
-          Campaigns, content, and growth intelligence
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h2 style={{ margin: '0 0 4px 0', fontSize: 22, fontWeight: 600, color: 'var(--color-text-primary, #1a1c1d)' }}>
+            Marketing
+          </h2>
+          <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-secondary, rgba(26,28,29,0.55))' }}>
+            Campaigns, content, and growth intelligence
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          style={{
+            padding: '8px 18px',
+            background: showCreateForm ? 'transparent' : '#1A1C1D',
+            color: showCreateForm ? 'rgba(26,28,29,0.55)' : '#fff',
+            border: showCreateForm ? '1px solid rgba(26,28,29,0.07)' : 'none',
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: 'pointer',
+          }}
+        >
+          {showCreateForm ? 'Cancel' : '+ New Campaign'}
+        </button>
       </div>
 
-      {/* Summary */}
+      {/* Create form */}
+      {showCreateForm && (
+        <CampaignCreateForm onCreated={handleCreated} onCancel={() => setShowCreateForm(false)} />
+      )}
+
+      {/* Summary cards */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         <div style={{
           background: 'var(--color-surface-elevated, #fff)',
@@ -226,10 +384,7 @@ export const MarketingWorkspace: FC = () => {
       {!loading && !error && filtered.length === 0 && (
         <div className="pw-domain-empty" style={{ padding: 40, textAlign: 'center' }}>
           <p style={{ color: 'var(--color-text-secondary, rgba(26,28,29,0.55))' }}>
-            {filter === 'all' ? 'No campaigns found. Create a campaign to get started.' : `No ${filter} campaigns.`}
-          </p>
-          <p style={{ fontSize: 13, color: 'var(--color-text-tertiary, rgba(26,28,29,0.35))' }}>
-            Marketing capability (G5) is ready. Campaigns can be created through SHUNYA.
+            {filter === 'all' ? 'No campaigns found. Click "+ New Campaign" to create one.' : `No ${filter} campaigns.`}
           </p>
         </div>
       )}
