@@ -29,7 +29,7 @@ import { CommitmentWorkspace } from '../commitment/commitment-workspace';
 import { ConversationWorkspace } from '../conversation/conversation-workspace';
 import { CommercialWorkspace } from '../commercial/commercial-workspace';
 import { RelationshipWorkspace } from '../relationship/relationship-workspace';
-import { MarketingWorkspace } from '../marketing/marketing-workspace';
+import { MarketingDashboard } from '../marketing/marketing-dashboard';
 import { SalesPipeline } from '../sales/sales-pipeline';
 import { ExecutionWorkspace } from '../work/execution-workspace';
 import { OutputsBrowser } from '../outputs/outputs-browser';
@@ -900,9 +900,9 @@ function DomainWorkspaceRouter() {
     if (active.identity.objectId === 'relationships') {
       return <div className="pw-panel-container"><RelationshipWorkspace /></div>;
     }
-    // Marketing — real campaign browser
+    // Marketing — dashboard overview
     if (active.identity.objectId === 'marketing') {
-      return <div className="pw-panel-container"><MarketingWorkspace /></div>;
+      return <div className="pw-panel-container"><MarketingDashboard /></div>;
     }
     // Sales — real pipeline viewer
     if (active.identity.objectId === 'sales') {
