@@ -37,6 +37,7 @@ import { OutputsBrowser } from '../outputs/outputs-browser';
 import { OrganizationBrowser } from '../organization/organization-browser';
 import { LeadManagement } from '../sales/lead-management';
 import { CommandToActionBridge } from '../actions/command-to-action-bridge';
+import { MemoryBrowser } from '../memory/memory-browser';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -930,6 +931,11 @@ function DomainWorkspaceRouter() {
     if (active.identity.objectId === 'actions') {
       return <div className="pw-panel-container"><CommandToActionBridge /></div>;
     }
+    // Memory — browsing
+    if (active.identity.objectId === 'memory') {
+      return <div className="pw-panel-container"><MemoryBrowser /></div>;
+    }
+    // Knowledge — browsing
     // If the objectId is a domain concept (finance, marketing, etc.), show domain overview
     if (DOMAIN_IDS.has(active.identity.objectId) && !active.identity.objectType?.includes('_')) {
       const domain = ORGANIZATIONAL_DOMAINS.find(d => d.id === active.identity.objectId);

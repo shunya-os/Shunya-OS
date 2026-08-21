@@ -672,6 +672,10 @@ def create_app(config_override: dict | None = None):
     from app.execution_visibility.routes import execution_visibility_bp
     app.register_blueprint(execution_visibility_bp)
 
+    # Memory & Knowledge API
+    from app.memory_api.routes import memory_bp
+    app.register_blueprint(memory_bp)
+
     # M7 — Automation
     from app.automation.routes import automation_bp
     app.register_blueprint(automation_bp)
