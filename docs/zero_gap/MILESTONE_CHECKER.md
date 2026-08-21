@@ -37,6 +37,7 @@
 | Commercial workspace UI | ✅ VERIFIED | Real CommercialWorkspace with drill-down |
 | Relationship drill-down | ✅ VERIFIED | RelationshipWorkspace with timeline + AI memory |
 | Marketing campaigns | ✅ VERIFIED | 13 seeded campaigns, MarketingWorkspace component |
+| Campaign creation | ⚡ IMPLEMENTED | Create form added to MarketingWorkspace — posted, built ✅ |
 | Sales pipeline | ✅ VERIFIED | SalesPipeline component reads /api/v1/sales/pipeline (8 leads) |
 | Sales opportunities | ✅ VERIFIED | /api/v1/sales/opportunities alias works via sales_intelligence |
 | Proposals | ✅ VERIFIED | API returns real seeded proposals |
@@ -98,44 +99,41 @@
 | Metric | Count |
 |--------|-------|
 | TOTAL GAPS (non-VERIFIED) at start | 52 |
-| GAPS FIXED this execution (recovery) | 3 |
-| GAPS VERIFIED (confirmed existing) | +5 |
+| GAPS FIXED (cumulative across all sessions) | 13 |
+| TOTAL VERIFIED now | 25 |
 | GAPS REMAINING | 39 |
-| MAJOR CORRECTIONS | G07/G09 ID conflict resolved, Voice status changed from Future to PARTIAL, Sales pipeline moved to VERIFIED |
-| CANONICAL ID SYSTEM | CG-xx prefix introduced for cross-cutting gaps |
-| STATUS | All verified. 470 tests pass. Frontend build clean. |
+| THIS PACKAGE | ✅ CG-03 (campaign creation form) fixed |
 
 ## CRITICAL PATH REMAINING
 
-| Priority | Gap | Why Blocked | Action |
-|----------|-----|-------------|--------|
-| 🔥 1 | Campaign creation UI (CG-03) | MarketingWorkspace renders campaigns but no create form | Add campaign create form |
-| 🔥 2 | Organization browser (CG-02) | PeoplePanel exists but needs org tree view | Wire PeoplePanel to org chart |
-| 3 | Output/artifact retrieval (CG-04) | No artifact browser | Build OutputsBrowser component |
-| 4 | Memory/Knowledge UI (B7) | Runtime exists, no API/UI layer | Build API bridge + UI |
-| 5 | Command-to-action bridge (CG-06) | Intent detected but no action UI | Build action confirmation UI |
+| Priority | Gap | Action |
+|----------|-----|--------|
+| 🔥 1 | Organization browser (CG-02) | Build org component from PeoplePanel member data |
+| 🔥 2 | Outputs/artifact retrieval (CG-04) | Build OutputsBrowser |
+| 3 | Marketing dashboard (CG-12) | Build aggregated marketing overview |
+| 4 | Memory/Knowledge UI (B7) | Build API bridge + UI |
+| 5 | Command-to-action bridge (CG-06) | Build action confirmation UI |
 
 ## PARALLEL WORKSTREAMS
 
 | Stream | Status |
 |--------|--------|
 | Gap register integrity repair | ✅ COMPLETE |
-| Authoritative source correction | ✅ COMPLETE |
-| Re-verification (A-G) | ✅ COMPLETE |
 | People root route (CG-01) | ✅ COMPLETE |
 | Voice TTS output (CG-11) | ✅ COMPLETE |
-| Campaign creation UI (CG-03) | 🔥 NEXT |
+| Campaign creation UI (CG-03) | ✅ COMPLETE |
+| Organization browser (CG-02) | 🔥 NEXT |
 
 ## NEXT EXACT IMPLEMENTATION STEP
 
-**Step:** Add campaign creation form to MarketingWorkspace — POST to /api/v1/marketing/campaigns
+**Step:** Build OrganizationBrowser — navigate PeoplePanel member list as org hierarchy
 
 **Prerequisite reading needed:**
-- `frontend/src/components/marketing/marketing-workspace.tsx` — existing campaign browser
-- `app/marketing/routes.py` — POST endpoint for campaign creation
+- `frontend/src/components/workspace/people-panel.tsx` — existing member list
+- `app/people/routes.py` — `/api/v1/people` root route (CG-01 just added)
 
 ## NEXT EXACT COMMAND
 
 ```
-cat /home/shunya-deploy/shunya_os/app/marketing/routes.py | head -30
+cat /home/shunya-deploy/shunya_os/frontend/src/components/workspace/people-panel.tsx | head -20
 ```

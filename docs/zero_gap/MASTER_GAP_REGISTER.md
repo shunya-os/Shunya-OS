@@ -1,7 +1,7 @@
 # ZERO-GAP-01 — MASTER GAP REGISTER
 
 > **Canonical Gap Register · Mandatory Execution Document**
-> **Date: 2026-08-21 | Baseline: e0f883d**
+> **Date: 2026-08-21 | Baseline: efaf81e**
 > **Rule: Every gap must have a fix path. No gap may be carried forward.**
 > **ID CONFLICT CORRECTION: see Section Z for migration notes.**
 
@@ -103,7 +103,7 @@ The following documents govern SHUNYA OS development and are **authoritative** e
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Marketing campaigns API | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ⬜ | ✅ | 13 seeded campaigns, MarketingWorkspace UI | None | 0 |
 | Campaign discovery UI | ✅ VERIFIED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | MarketingWorkspace renders real campaigns | None | 0 |
-| Campaign creation UI | ❌ MISSING | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | Backend exists, no create campaign form | B4 | 2 |
+| Campaign creation UI | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ⬜ | ❌ | Create form built, committed, pushed. Needs production verification. | B4 | 2 |
 | Marketing intelligence | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ⬜ | ❌ | Analytics routes registered | None | 4 |
 | G5 (Attribution/Learning) | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | G5 routes + DB tables exist | None | 4 |
 | Content generation | ⚡ IMPLEMENTED | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | Content routes exist | None | 5 |
@@ -240,60 +240,55 @@ The following documents govern SHUNYA OS development and are **authoritative** e
 | Category | ✅ VERIFIED | ⚡ IMPLEMENTED | ⬜ PARTIAL | ❌ MISSING | 🔒 BLOCKED | TOTAL |
 |---|---|---|---|---|---|---|
 | Foundation (A) | 7 | 1 | 0 | 1 | 0 | 9 |
-| Core Domains (B) | 12 | 11 | 6 | 8 | 0 | 37 |
+| Core Domains (B) | 12 | 12 | 6 | 7 | 0 | 37 |
 | Infrastructure (C) | 6 | 0 | 2 | 0 | 0 | 8 |
 | Cross-Cutting (D) | 0 | 0 | 0 | 10 | 0 | 10 |
-| **TOTAL** | **25** | **12** | **8** | **19** | **0** | **64** |
+| **TOTAL** | **25** | **13** | **8** | **18** | **0** | **64** |
 
 **Executive Summary:**
 - 25 capabilities VERIFIED in production (up from 20)
-- 12 capabilities implemented but unverified
+- 13 capabilities implemented but unverified
 - 8 capabilities partial (Voice now OPEN, not Future)
-- 19 capabilities missing
+- 18 capabilities missing
 - **0 EXTERNALLY-BLOCKED** — everything is fixable
-- **Total GAPS: 39** (non-VERIFIED, down from 52)
+- **Total GAPS: 39** (non-VERIFIED, unchanged — MISSING→IMPLEMENTED)
 
-**Critical Path:** Fix CG-01 (People root route) → CG-02 (Organization browser) → CG-03 (Campaign creation UI) → CG-11 (TTS voice output)
+**Critical Path:** CG-02 (Organization browser) → CG-04 (OutputsBrowser) → CG-12 (Marketing dashboard)
 
 ---
 
 ## PHASE 3 EXECUTION — IMMEDIATE GAPS TO FIX
 
-### ✅ VERIFIED THIS SESSION (re-verification)
+### ✅ FIXED THIS PACKAGE
 
-| ID | Capability | Evidence |
-|----|-----------|----------|
-| CG-00 | AI LLM runtime | UIR returns real AI content via Groq→Gemini→OpenRouter chain. 5.6s latency, 0.54 confidence. |
-| B5/AI Chat | Conversation API wired | `/api/v1/founder/ai/chat/:convId` endpoint exists. UI wired to send/receive. |
-| B9/Copilot | AI Resident panel chat | Chat mode wired to `/api/v1/founder/ai/chat/ambient` with message history. |
-| B3/Sales | Sales pipeline UI | SalesPipeline component reads `/api/v1/sales/pipeline` (8 leads, 2 stalled). Frontend build ✅. |
-| B4/Marketing | Campaign browser UI | MarketingWorkspace renders 13 real campaigns from `/api/v1/marketing/campaigns`. |
-| B5/Voice | Voice input (browser) | SpeechRecognition component exists with transcript, edit, correct, submit workflow. |
+| ID | Capability | Fix | Status |
+|----|-----------|-----|--------|
+| CG-03 | Campaign creation UI | Add campaign create form to MarketingWorkspace — name, description, objective, budget, status, dates. POST to `/api/v1/marketing/campaigns`. Frontend build ✅. | ⚡ IMPLEMENTED |
 
-### 🔥 PRIORITY 1 — Fix CG-01 (People root route)
+### 🔥 PRIORITY 1 — Organization browser (CG-02)
 
-Add `/api/v1/people` root route to the people blueprint returning org summary data.
+PeoplePanel shows members but needs org tree/explorer for navigable organization view.
 
-### 🔥 PRIORITY 2 — Fix CG-11 (Voice TTS output)
+### 🔥 PRIORITY 2 — Output/artifact retrieval (CG-04)
 
-Add browser SpeechSynthesis to read SHUNYA's responses. Already has input.
+Outputs exist (PDF, docs) but no unified retrieval UI. Build OutputsBrowser.
 
-### 🔥 PRIORITY 3 — Fix CG-03 (Campaign creation UI)
+### 🔥 PRIORITY 3 — Marketing dashboard (CG-12)
 
-Add campaign create form to MarketingWorkspace.
+Marketing intelligence routes exist but no aggregated overview dashboard.
 
 ---
 
 ## NEXT EXACT IMPLEMENTATION STEP:
 
-**Step 1:** Add `/api/v1/people` root route to people_bp returning org members summary
-**Step 2:** Add TTS output to VoiceInput component for SHUNYA's responses
-**Step 3:** Verify both end-to-end
+**Step 1:** Build OrganizationBrowser component — read PeoplePanel's member list and render as navigable org hierarchy
+**Step 2:** Wire into DomainWorkspaceRouter for people/organization domain
+**Step 3:** Verify end-to-end
 **Step 4:** Update Milestone Checker
-**Step 5:** Continue to next dependency-safe gap
+**Step 5:** Continue to next dependency-safe gap (CG-04: OutputsBrowser)
 
 ## NEXT EXACT COMMAND:
 
 ```
-cat /home/shunya-deploy/shunya_os/app/people/routes.py | head -10
+cat /home/shunya-deploy/shunya_os/frontend/src/components/workspace/people-panel.tsx | head -10
 ```
