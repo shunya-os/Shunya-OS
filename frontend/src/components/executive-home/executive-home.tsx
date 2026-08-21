@@ -23,7 +23,6 @@ import { useLivingStore } from '../living-workspace/living-store';
 import { useWorkspaceStore } from '../../runtimes/workspace/store';
 import { useActiveWorkspace } from '../../hooks/workspace-hooks';
 import { ObjectWorkspaceViewer } from '../workspace/object-workspace-viewer';
-import { PeoplePanel } from '../workspace/people-panel';
 import { AdminPanel } from '../workspace/admin-panel';
 import { ImportExportPanel } from '../workspace/import-export-panel';
 import { CommitmentWorkspace } from '../commitment/commitment-workspace';
@@ -34,6 +33,7 @@ import { MarketingWorkspace } from '../marketing/marketing-workspace';
 import { SalesPipeline } from '../sales/sales-pipeline';
 import { ExecutionWorkspace } from '../work/execution-workspace';
 import { OutputsBrowser } from '../outputs/outputs-browser';
+import { OrganizationBrowser } from '../organization/organization-browser';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -846,9 +846,9 @@ function DomainWorkspaceRouter() {
 
   // ── Type-based routing ──
 
-  // People panel
+  // People panel — Organization Browser with hierarchy, search, roles
   if (active.identity.type === 'people') {
-    return <div className="pw-panel-container"><PeoplePanel /></div>;
+    return <div className="pw-panel-container"><OrganizationBrowser /></div>;
   }
 
   // Admin panel
