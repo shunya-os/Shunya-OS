@@ -7,6 +7,34 @@ import pytest
 from datetime import datetime, timedelta
 
 
+def _setup_crm_auth(client):
+    """Create org + admin role + member + session for CRM auth."""
+    from app import db as _db
+    from app.models import Organization, OrgMember
+    from app.authz.models import Role, OrgMemberRole
+    from app.authz.services import seed_default_roles
+    org = Organization(name="CRM-Auth", slug="crm-auth")
+    _db.session.add(org)
+    _db.session.commit()
+    seed_default_roles(org.id)
+    role = Role.query.filter_by(organization_id=org.id, name="admin").first()
+    member = OrgMember(
+        organization_id=org.id, identity_id="crm-id",
+        email="crm@test.com", name="CRM Tester", is_active=True,
+    )
+    _db.session.add(member)
+    _db.session.commit()
+    _db.session.add(OrgMemberRole(
+        organization_id=org.id, member_id=member.id, role_id=role.id,
+    ))
+    _db.session.commit()
+    with client.session_transaction() as sess:
+        sess["user_id"] = "crm-id"
+        sess["identity_id"] = "crm-id"
+        sess["current_org_id"] = org.id
+    return org.id
+
+
 class TestCRMLifecycle:
     """Complete lead-to-customer lifecycle through one canonical path."""
 
@@ -14,35 +42,9 @@ class TestCRMLifecycle:
         """GOLDEN: CREATE LEAD → IDENTITY → ASSIGN → QUALIFY → SLA → FOLLOW-UP
         → OPPORTUNITY → PROPOSAL → WON → CUSTOMER → RELATIONSHIP HISTORY."""
         from app.relationship.models import TimelineEntry
-        from app import db as _db
-        from app.models import Organization, OrgMember
-        from app.authz.models import Role, OrgMemberRole
-        from app.authz.services import seed_default_roles
-        import json as _json
 
-        # ── Auth setup: org + admin role + member ───────────────────
-        org = Organization(name="Test CRM Org", slug="test-crm")
-        _db.session.add(org)
-        _db.session.commit()
-        seed_default_roles(org.id)
-        admin_role = Role.query.filter_by(organization_id=org.id, name="admin").first()
-        member = OrgMember(
-            organization_id=org.id,
-            identity_id="crm-golden-identity",
-            email="golden@crm.test",
-            name="Golden Tester",
-            is_active=True,
-        )
-        _db.session.add(member)
-        _db.session.commit()
-        _db.session.add(OrgMemberRole(
-            organization_id=org.id, member_id=member.id, role_id=admin_role.id,
-        ))
-        _db.session.commit()
-        with client.session_transaction() as sess:
-            sess["user_id"] = "crm-golden-identity"
-            sess["identity_id"] = "crm-golden-identity"
-            sess["current_org_id"] = org.id
+        # ── Auth setup ──────────────────────────────────────────────
+        _setup_crm_auth(client)
 
         # 1. CREATE LEAD
         resp = client.post("/api/v1/crm/leads", json={
@@ -139,6 +141,7 @@ class TestCRMLifecycle:
 
     def test_duplicate_lead_creates_separate_entries(self, app, client):
         """A. Duplicate lead: same email creates new lead but resolves to same relationship."""
+        _setup_crm_auth(client)
         resp1 = client.post("/api/v1/crm/leads", json={
             "name": "Jane", "email": "jane@test.com", "phone": "+1-555-1001",
             "source": "api",
@@ -157,6 +160,7 @@ class TestCRMLifecycle:
 
     def test_conflicting_identity_resolution(self, app, client):
         """B. Same phone, different email — resolves to same relationship by phone."""
+        _setup_crm_auth(client)
         resp1 = client.post("/api/v1/crm/leads", json={
             "name": "Alice", "phone": "+1-555-2001", "email": "alice@test.com",
             "source": "api",
@@ -181,6 +185,7 @@ class TestCRMLifecycle:
 
     def test_owner_unavailable_lead_still_created(self, app, client):
         """C. Owner unavailable: lead is still created and can be reassigned."""
+        _setup_crm_auth(client)
         resp = client.post("/api/v1/crm/leads", json={
             "name": "Orphan Lead", "phone": "+1-555-3001",
             "source": "api", "assigned_to": "",
@@ -247,6 +252,7 @@ class TestCRMLifecycle:
 
     def test_duplicate_follow_up_prevention(self, app, client):
         """F. Duplicate follow-up: multiple follow-ups can exist for same lead."""
+        _setup_crm_auth(client)
         resp = client.post("/api/v1/crm/leads", json={
             "name": "Follow-Up Test", "phone": "+1-555-4001",
             "source": "api",
@@ -268,6 +274,7 @@ class TestCRMLifecycle:
 
     def test_lost_opportunity_with_reason(self, app, client):
         """G. Lost opportunity: lead marked lost with reason and outcome preserved."""
+        _setup_crm_auth(client)
         resp = client.post("/api/v1/crm/leads", json={
             "name": "Lost Deal", "phone": "+1-555-5001",
             "source": "api",
@@ -289,6 +296,7 @@ class TestCRMLifecycle:
 
     def test_tenant_a_cannot_access_tenant_b_crm(self, app, client):
         """H. Tenant B cannot access Tenant A's leads."""
+        _setup_crm_auth(client)
         from app.tenant import Tenant
         from app import db
         with app.app_context():
@@ -337,6 +345,7 @@ class TestCRMLifecycle:
 
     def test_retry_idempotent_qualification(self, app, client):
         """J. Retry: qualifying an already-qualified lead is safe."""
+        _setup_crm_auth(client)
         resp = client.post("/api/v1/crm/leads", json={
             "name": "Retry Test", "phone": "+1-555-8001",
             "destination": "Tokyo", "pax": "2",
@@ -427,6 +436,7 @@ class TestCRMEndToEnd:
 
     def test_full_crm_api_path(self, app, client):
         """Complete CRM API lifecycle."""
+        _setup_crm_auth(client)
         # Create
         r = client.post("/api/v1/crm/leads", json={
             "name": "E2E Test", "phone": "+1-555-9001",
