@@ -11,6 +11,13 @@ def score(lead_id):
     return jsonify(result)
 
 
+@sales_bp.route("/opportunities", methods=["GET"])
+def sales_opportunities():
+    """Alias to commercial opportunities for unified sales surface."""
+    from app.commercial.routes import list_opportunities
+    return list_opportunities()
+
+
 @sales_bp.route("/next-action/<int:lead_id>", methods=["GET"])
 def next_action(lead_id):
     result = si.next_best_action(lead_id)
