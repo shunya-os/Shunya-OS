@@ -89,6 +89,7 @@ media/
 .coverage
 logs/
 audit/
+!frontend/src/components/audit/
 invoices/
 tasks/
 /reports/
