@@ -182,16 +182,32 @@ def _register_error_handlers(app: Flask):
 # Track application startup time
 _APP_START_TIME = __import__("time").time()
 
-# Build identifier — derived from git commit at deployment time
-_GIT_HEAD = ""
+# Build identifier — deployment/build provenance
+_BUILD_ID = os.getenv("BUILD_ID", "")
+_GIT_COMMIT = ""
+_GIT_COMMIT_SHORT = ""
 try:
-    _GIT_HEAD = __import__("subprocess").check_output(
-        ["git", "rev-parse", "--short", "HEAD"],
+    _raw = __import__("subprocess").check_output(
+        ["git", "rev-parse", "HEAD"],
         cwd=__import__("os").path.dirname(__file__),
         stderr=__import__("subprocess").DEVNULL, timeout=5,
     ).decode("utf-8").strip()
+    _GIT_COMMIT = _raw
+    _GIT_COMMIT_SHORT = _raw[:7]
 except Exception:
-    _GIT_HEAD = os.getenv("BUILD_ID", "unknown")
+    pass
+
+
+def _resolve_git_commit() -> str:
+    """Resolve the current git commit at runtime. Used for /health."""
+    try:
+        return __import__("subprocess").check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=__import__("os").path.dirname(__file__),
+            stderr=__import__("subprocess").DEVNULL, timeout=5,
+        ).decode("utf-8").strip()
+    except Exception:
+        return _GIT_COMMIT or ""
 
 
 def _health_check(app: Flask) -> dict:
@@ -199,7 +215,9 @@ def _health_check(app: Flask) -> dict:
     from sqlalchemy import text
 
     checks = {"status": "ok", "version": "1.0.0"}
-    checks["build_id"] = _GIT_HEAD
+    checks["git_commit"] = _GIT_COMMIT
+    checks["git_commit_short"] = _GIT_COMMIT_SHORT
+    checks["build_id"] = _BUILD_ID
     checks["uptime_seconds"] = int(__import__("time").time() - _APP_START_TIME)
     checks["environment"] = os.getenv("SHUNYA_ENVIRONMENT", os.getenv("FLASK_ENV", "production"))
     checks["request_id"] = getattr(g, "request_id", "")
