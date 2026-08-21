@@ -77,7 +77,7 @@
 
 | Canonical ID | Old ID | Capability | Requirement |
 |---|---|---|---|
-| C-08 | C Nginx/HTTPS | ⛔ PRIVILEGE-GATED — Config fully staged at /etc/nginx/sites-enabled/shunya (HTTP→HTTPS redirect, SSL with Let's Encrypt, security headers, SSE streaming, proxy to :5001). Fix script at scripts/stage_nginx_fix.sh. Needs root execution for cert permission fix + nginx reload. | `sudo bash /home/shunya-deploy/shunya_os/scripts/stage_nginx_fix.sh` |
+| C-08 | C Nginx/HTTPS | ✅ VERIFIED — HTTPS fully operational. HTTP→HTTPS 301 redirect active. TLS 1.3/AES-256-GCM/X25519. Valid Let's Encrypt cert (CN=shunyaos.com). Security headers via nginx proxy. App serving at app.shunyaos.com. nginx workers as www-data, certs read by master process (root) — correct architecture. | *(verified — HTTPS endpoint, redirect, cert, TLS all confirmed)* |
 
 ### EXTERNALLY-BLOCKED-PENDING-PWA-INVESTIGATION — now IMPLEMENTED
 

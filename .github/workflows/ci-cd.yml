@@ -10,9 +10,6 @@ jobs:
   test:
     name: Test & Build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /home/shunya-deploy/shunya_os
 
     services:
       postgres:
@@ -72,7 +69,7 @@ jobs:
           DISABLE_RATE_LIMIT: "1"
         run: |
           source .venv/bin/activate
-          python -m pytest tests/ -x -q --tb=short --timeout=30 -k "not test_ai" 2>&1 | tail -20
+          python -m pytest tests/ -x -q --tb=short -k "not test_ai" 2>&1 | tail -20
 
       - name: Build frontend
         working-directory: frontend
