@@ -7,6 +7,10 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+# Load .env so DATABASE_URL is available to alembic
+from dotenv import load_dotenv
+load_dotenv()
+
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -38,6 +42,7 @@ from app.document.models import (  # noqa: F401
     DocumentRecord, DocumentSection, ExtractedField, DocumentComparison, ComparisonItem,
 )
 from app.llm.models import ModelRun  # noqa: F401
+from app.notifications.models import PushSubscription  # noqa: F401
 from app.shunya.knowledge_store import KnowledgeFact  # noqa: F401
 from app.privacy.models import MemoryEligibilityPolicy  # noqa: F401
 from app.production.identity.workspace_model import Workspace  # noqa: F401
