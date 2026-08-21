@@ -1,0 +1,205 @@
+[2026-08-21T15:30:20.074Z] ══════════════════════════════════════════════════════════════
+[2026-08-21T15:30:20.076Z]   SHUNYA OS — C-07 ACCESSIBILITY AUDIT
+[2026-08-21T15:30:20.076Z]   Started: 2026-08-21T15:30:20.076Z
+[2026-08-21T15:30:20.077Z]   User-Agent: Playwright + @axe-core/playwright
+[2026-08-21T15:30:20.077Z]   Scan scope: WCAG 2.0/2.1/2.2 AA + best-practice
+[2026-08-21T15:30:20.077Z] ══════════════════════════════════════════════════════════════
+
+[2026-08-21T15:30:21.019Z] ✓ shunyaos.com is reachable
+[2026-08-21T15:30:21.519Z] ✓ app.shunyaos.com is reachable
+[2026-08-21T15:30:21.534Z] 
+
+╔══════════════════════════════════════════════════════════════╗
+[2026-08-21T15:30:21.537Z] ║           UNAUTHENTICATED PAGES                              ║
+[2026-08-21T15:30:21.537Z] ╚══════════════════════════════════════════════════════════════╝
+
+[2026-08-21T15:30:21.623Z] 
+═══════════════════════════════════════
+[2026-08-21T15:30:21.624Z] SCANNING: landing_page — https://shunyaos.com
+[2026-08-21T15:30:21.624Z] ═══════════════════════════════════════
+
+[2026-08-21T15:30:26.534Z]   Violations: 1 total
+[2026-08-21T15:30:26.535Z]     Critical: 0  Serious: 0  Moderate: 1  Minor: 0
+[2026-08-21T15:30:26.535Z]   Incomplete items: 1
+[2026-08-21T15:30:26.535Z] 
+  ── MODERATE: region — All page content should be contained by landmarks
+[2026-08-21T15:30:26.535Z]      Help: https://dequeuniversity.com/rules/axe/4.13/region?application=playwright
+[2026-08-21T15:30:26.535Z]      Tags: cat.keyboard, best-practice, RGAAv4, RGAA-9.2.1
+[2026-08-21T15:30:26.535Z]      Elements affected: 5
+[2026-08-21T15:30:26.535Z]        • h1
+[2026-08-21T15:30:26.535Z]          <h1 class="sh-public-zero">शून्य</h1>
+[2026-08-21T15:30:26.535Z]          FAIL: Fix any of the following:
+  Some page content is not contained by landmarks
+[2026-08-21T15:30:26.535Z]        • h2
+[2026-08-21T15:30:26.535Z]          <h2 class="sh-public-sub">SHUNYA</h2>
+[2026-08-21T15:30:26.535Z]          FAIL: Fix any of the following:
+  Some page content is not contained by landmarks
+[2026-08-21T15:30:26.535Z]        • .sh-public-tagline
+[2026-08-21T15:30:26.535Z]          <p class="sh-public-tagline">Infinite Intelligence. Zero Noise.</p>
+[2026-08-21T15:30:26.535Z]          FAIL: Fix any of the following:
+  Some page content is not contained by landmarks
+[2026-08-21T15:30:26.535Z]        ... and 2 more elements
+[2026-08-21T15:30:26.536Z] 
+  Full results saved to: /home/shunya-deploy/shunya_os/frontend/axe-results/landing_page.json
+[2026-08-21T15:30:26.537Z] 
+── STRUCTURE TEST: landing_page ──
+[2026-08-21T15:30:28.234Z]   Landmarks found: 0
+[2026-08-21T15:30:28.234Z]   Headings found: 2
+[2026-08-21T15:30:28.235Z]   Heading levels: H1, H2
+[2026-08-21T15:30:28.235Z]         H1: शून्य
+      H2: SHUNYA
+[2026-08-21T15:30:28.235Z]   ✓ Heading hierarchy looks good
+[2026-08-21T15:30:28.235Z]   Form inputs: 0 total, 0 labeled, 0 UNLABELED
+[2026-08-21T15:30:28.235Z] 
+── COLOR CONTRAST TEST: landing_page ──
+[2026-08-21T15:30:29.929Z]   Unique color combinations found: 5
+[2026-08-21T15:30:29.929Z]     <H1> color: rgb(26, 28, 29) bg: rgba(0, 0, 0, 0) font: 48px — "शून्य"
+[2026-08-21T15:30:29.929Z]     <P> color: rgb(164, 134, 95) bg: rgba(0, 0, 0, 0) font: 17.6px — "Infinite Intelligence. Zero Noise."
+[2026-08-21T15:30:29.930Z]     <P> color: rgba(26, 28, 29, 0.55) bg: rgba(0, 0, 0, 0) font: 16px — "An intelligent operating system that und"
+[2026-08-21T15:30:29.930Z]     <BUTTON> color: rgb(255, 255, 255) bg: rgb(26, 28, 29) font: 12px — "Get Started"
+[2026-08-21T15:30:29.930Z]     <SPAN> color: rgba(26, 28, 29, 0.35) bg: rgba(0, 0, 0, 0) font: 12px — "AI Operating System"
+[2026-08-21T15:30:29.930Z] 
+── ZOOM/REFLOW TEST: landing_page ──
+[2026-08-21T15:30:32.315Z]   At 200% zoom (viewport 640px): horizontal scroll = false
+[2026-08-21T15:30:32.324Z]   Body text length at 200%: 181 chars
+[2026-08-21T15:30:32.334Z] 
+── REDUCED MOTION TEST: landing_page ──
+[2026-08-21T15:30:34.014Z]   prefers-reduced-motion: reduce active: false
+[2026-08-21T15:30:34.034Z]   CSS animation/transition rules: 20
+[2026-08-21T15:30:34.042Z]   data-reduced-motion attribute: not set
+[2026-08-21T15:30:34.227Z] 
+═══════════════════════════════════════
+[2026-08-21T15:30:34.229Z] SCANNING: login_page — https://shunyaos.com/login
+[2026-08-21T15:30:34.229Z] ═══════════════════════════════════════
+
+[2026-08-21T15:30:38.225Z]   Violations: 1 total
+[2026-08-21T15:30:38.225Z]     Critical: 0  Serious: 0  Moderate: 1  Minor: 0
+[2026-08-21T15:30:38.225Z]   Incomplete items: 1
+[2026-08-21T15:30:38.226Z] 
+  ── MODERATE: region — All page content should be contained by landmarks
+[2026-08-21T15:30:38.226Z]      Help: https://dequeuniversity.com/rules/axe/4.13/region?application=playwright
+[2026-08-21T15:30:38.226Z]      Tags: cat.keyboard, best-practice, RGAAv4, RGAA-9.2.1
+[2026-08-21T15:30:38.226Z]      Elements affected: 5
+[2026-08-21T15:30:38.226Z]        • h1
+[2026-08-21T15:30:38.226Z]          <h1 class="sh-public-zero">शून्य</h1>
+[2026-08-21T15:30:38.226Z]          FAIL: Fix any of the following:
+  Some page content is not contained by landmarks
+[2026-08-21T15:30:38.226Z]        • h2
+[2026-08-21T15:30:38.226Z]          <h2 class="sh-public-sub">SHUNYA</h2>
+[2026-08-21T15:30:38.226Z]          FAIL: Fix any of the following:
+  Some page content is not contained by landmarks
+[2026-08-21T15:30:38.226Z]        • .sh-public-tagline
+[2026-08-21T15:30:38.226Z]          <p class="sh-public-tagline">Infinite Intelligence. Zero Noise.</p>
+[2026-08-21T15:30:38.226Z]          FAIL: Fix any of the following:
+  Some page content is not contained by landmarks
+[2026-08-21T15:30:38.226Z]        ... and 2 more elements
+[2026-08-21T15:30:38.229Z] 
+  Full results saved to: /home/shunya-deploy/shunya_os/frontend/axe-results/login_page.json
+[2026-08-21T15:30:38.229Z] 
+── STRUCTURE TEST: login_page ──
+[2026-08-21T15:30:39.924Z]   Landmarks found: 0
+[2026-08-21T15:30:39.924Z]   Headings found: 2
+[2026-08-21T15:30:39.925Z]   Heading levels: H1, H2
+[2026-08-21T15:30:39.925Z]         H1: शून्य
+      H2: SHUNYA
+[2026-08-21T15:30:39.925Z]   ✓ Heading hierarchy looks good
+[2026-08-21T15:30:39.925Z]   Form inputs: 0 total, 0 labeled, 0 UNLABELED
+[2026-08-21T15:30:39.925Z] 
+── COLOR CONTRAST TEST: login_page ──
+[2026-08-21T15:30:41.552Z]   Unique color combinations found: 5
+[2026-08-21T15:30:41.552Z]     <H1> color: rgb(26, 28, 29) bg: rgba(0, 0, 0, 0) font: 48px — "शून्य"
+[2026-08-21T15:30:41.552Z]     <P> color: rgb(164, 134, 95) bg: rgba(0, 0, 0, 0) font: 17.6px — "Infinite Intelligence. Zero Noise."
+[2026-08-21T15:30:41.553Z]     <P> color: rgba(26, 28, 29, 0.55) bg: rgba(0, 0, 0, 0) font: 16px — "An intelligent operating system that und"
+[2026-08-21T15:30:41.553Z]     <BUTTON> color: rgb(255, 255, 255) bg: rgb(26, 28, 29) font: 12px — "Get Started"
+[2026-08-21T15:30:41.553Z]     <SPAN> color: rgba(26, 28, 29, 0.35) bg: rgba(0, 0, 0, 0) font: 12px — "AI Operating System"
+[2026-08-21T15:30:41.553Z] 
+── ZOOM/REFLOW TEST: login_page ──
+[2026-08-21T15:30:43.737Z]   At 200% zoom (viewport 640px): horizontal scroll = false
+[2026-08-21T15:30:43.747Z]   Body text length at 200%: 181 chars
+[2026-08-21T15:30:43.757Z] 
+── REDUCED MOTION TEST: login_page ──
+[2026-08-21T15:30:45.530Z]   prefers-reduced-motion: reduce active: false
+[2026-08-21T15:30:45.544Z]   CSS animation/transition rules: 20
+[2026-08-21T15:30:45.547Z]   data-reduced-motion attribute: not set
+[2026-08-21T15:30:45.603Z] 
+═══════════════════════════════════════
+[2026-08-21T15:30:45.603Z] SCANNING: pricing_page — https://shunyaos.com/pricing
+[2026-08-21T15:30:45.603Z] ═══════════════════════════════════════
+
+[2026-08-21T15:30:49.227Z]   Violations: 1 total
+[2026-08-21T15:30:49.227Z]     Critical: 0  Serious: 0  Moderate: 1  Minor: 0
+[2026-08-21T15:30:49.227Z]   Incomplete items: 1
+[2026-08-21T15:30:49.227Z] 
+  ── MODERATE: region — All page content should be contained by landmarks
+[2026-08-21T15:30:49.227Z]      Help: https://dequeuniversity.com/rules/axe/4.13/region?application=playwright
+[2026-08-21T15:30:49.227Z]      Tags: cat.keyboard, best-practice, RGAAv4, RGAA-9.2.1
+[2026-08-21T15:30:49.227Z]      Elements affected: 5
+[2026-08-21T15:30:49.227Z]        • h1
+[2026-08-21T15:30:49.227Z]          <h1 class="sh-public-zero">शून्य</h1>
+[2026-08-21T15:30:49.227Z]          FAIL: Fix any of the following:
+  Some page content is not contained by landmarks
+[2026-08-21T15:30:49.227Z]        • h2
+[2026-08-21T15:30:49.227Z]          <h2 class="sh-public-sub">SHUNYA</h2>
+[2026-08-21T15:30:49.227Z]          FAIL: Fix any of the following:
+  Some page content is not contained by landmarks
+[2026-08-21T15:30:49.227Z]        • .sh-public-tagline
+[2026-08-21T15:30:49.227Z]          <p class="sh-public-tagline">Infinite Intelligence. Zero Noise.</p>
+[2026-08-21T15:30:49.227Z]          FAIL: Fix any of the following:
+  Some page content is not contained by landmarks
+[2026-08-21T15:30:49.227Z]        ... and 2 more elements
+[2026-08-21T15:30:49.228Z] 
+  Full results saved to: /home/shunya-deploy/shunya_os/frontend/axe-results/pricing_page.json
+[2026-08-21T15:30:49.228Z] 
+── STRUCTURE TEST: pricing_page ──
+[2026-08-21T15:30:50.872Z]   Landmarks found: 0
+[2026-08-21T15:30:50.872Z]   Headings found: 2
+[2026-08-21T15:30:50.872Z]   Heading levels: H1, H2
+[2026-08-21T15:30:50.872Z]         H1: शून्य
+      H2: SHUNYA
+[2026-08-21T15:30:50.872Z]   ✓ Heading hierarchy looks good
+[2026-08-21T15:30:50.872Z]   Form inputs: 0 total, 0 labeled, 0 UNLABELED
+[2026-08-21T15:30:50.872Z] 
+── COLOR CONTRAST TEST: pricing_page ──
+[2026-08-21T15:30:52.505Z]   Unique color combinations found: 5
+[2026-08-21T15:30:52.505Z]     <H1> color: rgb(26, 28, 29) bg: rgba(0, 0, 0, 0) font: 48px — "शून्य"
+[2026-08-21T15:30:52.505Z]     <P> color: rgb(164, 134, 95) bg: rgba(0, 0, 0, 0) font: 17.6px — "Infinite Intelligence. Zero Noise."
+[2026-08-21T15:30:52.505Z]     <P> color: rgba(26, 28, 29, 0.55) bg: rgba(0, 0, 0, 0) font: 16px — "An intelligent operating system that und"
+[2026-08-21T15:30:52.505Z]     <BUTTON> color: rgb(255, 255, 255) bg: rgb(26, 28, 29) font: 12px — "Get Started"
+[2026-08-21T15:30:52.505Z]     <SPAN> color: rgba(26, 28, 29, 0.35) bg: rgba(0, 0, 0, 0) font: 12px — "AI Operating System"
+[2026-08-21T15:30:52.505Z] 
+── ZOOM/REFLOW TEST: pricing_page ──
+[2026-08-21T15:30:54.650Z]   At 200% zoom (viewport 640px): horizontal scroll = false
+[2026-08-21T15:30:54.659Z]   Body text length at 200%: 181 chars
+[2026-08-21T15:30:54.671Z] 
+── REDUCED MOTION TEST: pricing_page ──
+[2026-08-21T15:30:56.349Z]   prefers-reduced-motion: reduce active: false
+[2026-08-21T15:30:56.389Z]   CSS animation/transition rules: 20
+[2026-08-21T15:30:56.394Z]   data-reduced-motion attribute: not set
+[2026-08-21T15:30:56.409Z] 
+
+╔══════════════════════════════════════════════════════════════╗
+[2026-08-21T15:30:56.409Z] ║           AUTHENTICATED PAGES                                 ║
+[2026-08-21T15:30:56.410Z] ╚══════════════════════════════════════════════════════════════╝
+
+[2026-08-21T15:30:56.410Z]   Skipping authenticated pages (pass --auth to enable).
+[2026-08-21T15:30:56.410Z]   Set SHUNYA_EMAIL and SHUNYA_PASSWORD env vars for auth.
+[2026-08-21T15:30:56.659Z] 
+
+╔══════════════════════════════════════════════════════════════╗
+[2026-08-21T15:30:56.660Z] ║           AUDIT SUMMARY                                       ║
+[2026-08-21T15:30:56.661Z] ╚══════════════════════════════════════════════════════════════╝
+
+[2026-08-21T15:30:56.661Z]   landing_page: 0 critical, 0 serious, 1 moderate, 0 minor
+[2026-08-21T15:30:56.662Z]   login_page: 0 critical, 0 serious, 1 moderate, 0 minor
+[2026-08-21T15:30:56.665Z]   pricing_page: 0 critical, 0 serious, 1 moderate, 0 minor
+[2026-08-21T15:30:56.665Z] 
+  TOTAL: 0 critical, 0 serious, 3 moderate, 0 minor
+[2026-08-21T15:30:56.665Z] 
+  Violations by type:
+[2026-08-21T15:30:56.666Z]     MODERATE: region
+[2026-08-21T15:30:56.666Z]       All page content should be contained by landmarks
+[2026-08-21T15:30:56.666Z]       Pages: landing_page, login_page, pricing_page
+[2026-08-21T15:30:56.666Z]       Total nodes: 15
+[2026-08-21T15:30:56.666Z] 
+  Results saved to: /home/shunya-deploy/shunya_os/frontend/axe-results/
+[2026-08-21T15:30:56.666Z] ══════════════════════════════════════════════════════════════

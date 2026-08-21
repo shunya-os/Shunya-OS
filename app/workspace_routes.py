@@ -21,7 +21,7 @@ def _serve_spa():
         html = html.replace("crossorigin ", "")
         resp = make_response(html)
         resp.headers["Content-Type"] = "text/html; charset=utf-8"
-        resp.headers["Access-Control-Allow-Origin"] = "*"
+        # CORS handled by middleware — SPA is served from same origin.
         return resp
     return "Frontend not built. Run `cd frontend && npm run build`", 503
 

@@ -348,7 +348,14 @@ function AppShell() {
 
   // ── Public Homepage ──
   if (phase === 'public') {
-    return <HomePage onEnterApp={handleEnterApp} />;
+    return (
+      <>
+        <a href="#main-content" className="sh-skip-link">Skip to main content</a>
+        <div id="main-content">
+          <HomePage onEnterApp={handleEnterApp} />
+        </div>
+      </>
+    );
   }
 
   // ── Login / Auth Pages ──
@@ -422,6 +429,15 @@ body {
   font-size: var(--shunya-text-md, 16px);
   color: var(--shunya-text-secondary, rgba(26,28,29,0.55));
 }
+.sh-skip-link {
+  position: fixed; top: -100%; left: 8px; z-index: 9999;
+  padding: 8px 16px; background: var(--shunya-text, #1A1C1D);
+  color: var(--shunya-surface, #FFFFFF);
+  font-size: var(--shunya-text-sm, 12px); border-radius: 0 0 8px 8px;
+  text-decoration: none; font-family: var(--shunya-font-body, 'Inter', sans-serif);
+  transition: top var(--shunya-duration-fast, 200ms) var(--shunya-ease, cubic-bezier(0.22,1,0.36,1));
+}
+.sh-skip-link:focus { top: 0; outline: 2px solid var(--shunya-gold, #A4865F); }
 `;
 
 if (typeof document !== 'undefined') {
@@ -429,6 +445,15 @@ if (typeof document !== 'undefined') {
   el.textContent = styles;
   el.id = 'shunya-base-styles';
   document.head.appendChild(el);
+}
+
+// Set data-reduced-motion attribute for framer-motion
+if (typeof window !== 'undefined') {
+  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  document.documentElement.setAttribute('data-reduced-motion', mq.matches ? 'true' : 'false');
+  mq.addEventListener('change', (e) => {
+    document.documentElement.setAttribute('data-reduced-motion', e.matches ? 'true' : 'false');
+  });
 }
 
 export function App() { return <AppShell />; }

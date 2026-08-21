@@ -10,7 +10,7 @@ import os
 import secrets
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g, jsonify
-from app import db
+from app import db, limiter
 from app.auth import TeamMember, UserRole, AuthLayer
 
 auth_bp = Blueprint("auth", __name__)
@@ -71,6 +71,7 @@ def permission_required(resource: str, action: str = "read"):
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")  # Auth rate limiting
 def login_page():
     # Handle JSON POST (used by Shunya OS frontend)
     if request.method == "POST" and request.is_json:
@@ -139,6 +140,7 @@ def login_page():
 
 # Shunya OS frontend posts to /auth/login/password — alias to same handler
 @auth_bp.route("/login/password", methods=["POST"])
+@limiter.limit("10 per minute")  # Auth rate limiting
 def login_password_json():
     """JSON login endpoint (used by Shunya OS frontend)."""
     return login_page()
@@ -233,6 +235,7 @@ def inject_auth_globals():
 
 
 @auth_bp.route("/api/v1/auth/signup", methods=["POST"])
+@limiter.limit("5 per hour")  # Strict rate limiting for signup
 def api_signup():
     """Create a new user account. Returns identity_id on success."""
     data = request.get_json(silent=True) or {}

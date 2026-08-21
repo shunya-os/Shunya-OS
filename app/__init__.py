@@ -19,6 +19,11 @@ from jinja2 import FileSystemLoader, ChoiceLoader
 # ---------------------------------------------------------------------------
 db = SQLAlchemy()
 
+# Rate limiter — shared instance for decorator use across blueprints
+from flask_limiter import Limiter  # noqa: E402
+from flask_limiter.util import get_remote_address  # noqa: E402
+limiter = Limiter(key_func=get_remote_address)
+
 # FDA12-15: Import blueprints upfront to avoid import shadowing inside create_app
 from app.sales_intelligence.routes import sales_bp  # noqa: F401
 from app.customer_experience.routes import cust_bp  # noqa: F401
@@ -110,25 +115,17 @@ def _cors_setup(app: Flask):
 
 def _rate_limiter_setup(app: Flask):
     """Rate-limit webhook and API endpoints."""
-    try:
-        from flask_limiter import Limiter
-        from flask_limiter.util import get_remote_address
+    from app import limiter
 
-        store = os.getenv("REDIS_URL") or "memory://"
-        limiter = Limiter(
-            app=app,
-            key_func=get_remote_address,
-            storage_uri=store,
-            default_limits=["200 per day", "50 per hour"],
-            enabled=not os.getenv("DISABLE_RATE_LIMIT", ""),
-        )
+    store = os.getenv("REDIS_URL") or "memory://"
+    limiter.init_app(
+        app,
+        storage_uri=store,
+        default_limits=["200 per day", "50 per hour"],
+        enabled=not os.getenv("DISABLE_RATE_LIMIT", ""),
+    )
 
-        # Tighten limits on Telegram webhook
-        limiter.limit("10 per minute")(lambda: None)  # applied per-route in routes.py
-
-        app.logger.info("Rate limiter initialised (storage: %s)", store)
-    except ImportError:
-        app.logger.warning("flask-limiter not available — rate limiting disabled")
+    app.logger.info("Rate limiter initialised (storage: %s)", store)
 
 
 # ---------------------------------------------------------------------------

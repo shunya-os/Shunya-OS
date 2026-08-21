@@ -136,7 +136,8 @@ def _serve_spa_shell():
         html = html.replace("crossorigin ", "")
         resp = make_response(html)
         resp.headers["Content-Type"] = "text/html; charset=utf-8"
-        resp.headers["Access-Control-Allow-Origin"] = "*"
+        # CORS handled by Flask-CORS middleware for /api/* routes.
+        # No wildcard CORS needed — SPA is served from same origin.
         return resp
     return "Frontend not built. Run `cd frontend && npm run build`", 503
 

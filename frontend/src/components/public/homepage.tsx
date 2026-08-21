@@ -20,7 +20,7 @@ interface Props {
 
 export function HomePage({ onEnterApp }: Props) {
   return (
-    <div className="sh-public">
+    <div className="sh-public" role="main" aria-label="SHUNYA homepage">
       {/* Hero Artwork Layer (placeholder — match design bible spec) */}
       <div className="sh-public-artwork" aria-hidden="true">
         <div className="sh-public-artwork-ambient" />
@@ -54,7 +54,7 @@ export function HomePage({ onEnterApp }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="sh-public-footer">
+      <div className="sh-public-footer" role="contentinfo">
         <span className="sh-public-footer-dot" aria-hidden="true" />
         <span>AI Operating System</span>
       </div>
