@@ -34,6 +34,7 @@ import { SalesPipeline } from '../sales/sales-pipeline';
 import { ExecutionWorkspace } from '../work/execution-workspace';
 import { OutputsBrowser } from '../outputs/outputs-browser';
 import { OrganizationBrowser } from '../organization/organization-browser';
+import { LeadManagement } from '../sales/lead-management';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -906,6 +907,10 @@ function DomainWorkspaceRouter() {
     // Sales — real pipeline viewer
     if (active.identity.objectId === 'sales') {
       return <div className="pw-panel-container"><SalesPipeline /></div>;
+    }
+    // Leads — management
+    if (active.identity.objectId === 'leads') {
+      return <div className="pw-panel-container"><LeadManagement /></div>;
     }
     // Work — execution visibility
     if (active.identity.objectId === 'work') {
