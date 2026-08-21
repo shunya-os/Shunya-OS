@@ -419,6 +419,7 @@ def create_app(config_override: dict | None = None):
 
     # Object System — PROD-05
     from app.objects.models import Object  # noqa: F401
+    from app.kernel.models import UOPObject  # noqa: F401 — B-P01 Universal Object Protocol
 
     # Execution Engine — PROD-06
     from app.execution_engine.models import Execution  # noqa: F401
@@ -599,6 +600,9 @@ def create_app(config_override: dict | None = None):
     # Phase 0 — Foundation: Workspace + Universal Object API (registered before production_bp to avoid route conflicts)
     from app.objects.routes import objects_bp
     app.register_blueprint(objects_bp)
+    # B-P01 — Universal Object Protocol HTTP API
+    from app.kernel.routes import uop_bp
+    app.register_blueprint(uop_bp)
     # Execution Engine — PROD-06
     from app.execution_engine.routes import execution_bp
     app.register_blueprint(execution_bp)
