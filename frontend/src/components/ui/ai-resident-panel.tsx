@@ -31,9 +31,50 @@ interface Props {
   suggestions?: Suggestion[];
 }
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+async function apiPost(path: string, body: Record<string, string>): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const r = await fetch(path, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return await r.json();
+  } catch {
+    return { success: false, error: 'Network error' };
+  }
+}
+
 export function AIResidentPanel({ initialMode = 'ambient', objectContext, suggestions = [] }: Props) {
   const [mode, setMode] = useState<PresenceMode>(initialMode);
   const [expanded, setExpanded] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+
+  const handleChatSend = async () => {
+    if (!chatInput.trim() || chatSending) return;
+    const text = chatInput.trim();
+    setChatInput('');
+    setChatSending(true);
+    setChatMessages(prev => [...prev, { role: 'user', content: text }]);
+    try {
+      const result = await apiPost('/api/v1/founder/ai/chat/ambient', { content: text });
+      if (result.success && result.data?.response) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: result.data.response }]);
+      } else {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: 'I understand. Let me think about that.' }]);
+      }
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'I encountered an issue processing your request.' }]);
+    }
+    setChatSending(false);
+  };
 
   const handleActivate = () => {
     if (mode === 'idle' || mode === 'ambient') {
@@ -100,11 +141,32 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
       {/* Conversation (Conversational mode) */}
       {expanded && mode === 'conversational' && (
         <div className="sh-ai-conversation">
-          <div className="sh-ai-chat-placeholder">
-            Ask SHUNYA about this context
+          <div className="sh-ai-chat-messages" id="sh-ai-msg-list">
+            {chatMessages.map((m, i) => (
+              <div key={i} className={`sh-ai-chat-msg sh-ai-chat-msg-${m.role}`}>
+                {m.content}
+              </div>
+            ))}
+            {chatSending && <div className="sh-ai-chat-typing">SHUNYA is thinking…</div>}
           </div>
-          <div className="sh-ai-chat-input">
-            <input type="text" placeholder="Ask anything…" />
+          <div className="sh-ai-chat-input-row">
+            <input
+              type="text"
+              placeholder="Ask anything…"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && chatInput.trim() && !chatSending) handleChatSend();
+              }}
+              disabled={chatSending}
+            />
+            <button
+              className="sh-ai-chat-send"
+              onClick={handleChatSend}
+              disabled={!chatInput.trim() || chatSending}
+            >
+              {chatSending ? '…' : '→'}
+            </button>
           </div>
         </div>
       )}
@@ -196,14 +258,45 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
   padding: 12px 16px;
   gap: 8px;
 }
-.sh-ai-chat-placeholder {
+.sh-ai-chat-messages {
+  display: flex; flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.sh-ai-chat-msg {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: var(--shunya-text-sm, 12px);
+  line-height: 1.5;
+  max-width: 85%;
+}
+.sh-ai-chat-msg-user {
+  align-self: flex-end;
+  background: var(--shunya-gold, #A4865F);
+  color: #fff;
+}
+.sh-ai-chat-msg-assistant {
+  align-self: flex-start;
+  background: var(--shunya-surface, #FFFFFF);
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+  color: var(--shunya-text, #1A1C1D);
+}
+.sh-ai-chat-typing {
   font-size: var(--shunya-text-sm, 12px);
   color: var(--shunya-text-tertiary, rgba(26,28,29,0.35));
-  text-align: center;
-  padding: 24px 0;
+  font-style: italic;
+  padding: 4px 0;
 }
-.sh-ai-chat-input input {
-  width: 100%; padding: 8px 12px;
+.sh-ai-chat-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.sh-ai-chat-input-row input {
+  flex: 1;
+  padding: 8px 12px;
   border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
   border-radius: var(--shunya-radius-sm, 10px);
   background: var(--shunya-surface, #FFFFFF);
@@ -212,11 +305,28 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
   font-family: var(--shunya-font-body, 'Inter', sans-serif);
   outline: none;
 }
-.sh-ai-chat-input input:focus {
+.sh-ai-chat-input-row input:focus {
   border-color: var(--shunya-border-focus, #A4865F);
 }
-.sh-ai-chat-input input::placeholder {
+.sh-ai-chat-input-row input::placeholder {
   color: var(--shunya-text-faint, rgba(26,28,29,0.15));
+}
+.sh-ai-chat-send {
+  padding: 8px 14px;
+  background: var(--shunya-text, #1A1C1D);
+  color: var(--shunya-surface, #FFFFFF);
+  border: none;
+  border-radius: var(--shunya-radius-sm, 10px);
+  font-size: var(--shunya-text-sm, 12px);
+  cursor: pointer;
+  transition: opacity var(--shunya-duration-fast, 200ms);
+}
+.sh-ai-chat-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.sh-ai-chat-send:hover:not(:disabled) {
+  opacity: 0.85;
 }
 .sh-ai-idle {
   padding: 24px 16px;
