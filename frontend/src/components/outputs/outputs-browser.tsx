@@ -188,6 +188,13 @@ export const OutputsBrowser: FC = () => {
                 {item.value && item.value > 0 && <span>Value: {item.currency || 'USD'} {item.value.toLocaleString()}</span>}
                 {item.has_artifact && <span className="out-item-badge">Has artifact</span>}
                 {item.created_at && <span>{_timeAgo(item.created_at)}</span>}
+                {item.type === 'proposal' && (
+                  <a href={`/api/v1/pdf/proposal/${item.id.replace('prop_', '')}`}
+                    className="out-item-action" target="_blank" rel="noopener noreferrer"
+                    title="Download as PDF">
+                    PDF
+                  </a>
+                )}
               </div>
             </div>
           ))}
@@ -217,6 +224,11 @@ export const OutputsBrowser: FC = () => {
 .out-error { padding: 40px; text-align: center; color: #d1453b; }
 .out-empty { padding: 40px; text-align: center; }
 .out-empty-sub { font-size: 13px; color: rgba(26,28,29,0.45); }
+.out-item-action {
+  font-size: 11px; font-weight: 600; color: #a4865f; text-decoration: none;
+  padding: 2px 8px; border: 1px solid rgba(164,134,95,0.2); border-radius: 4px;
+}
+.out-item-action:hover { background: rgba(164,134,95,0.06); }
 .out-filter-btn {
   padding: 4px 12px;
   border-radius: 6px;
