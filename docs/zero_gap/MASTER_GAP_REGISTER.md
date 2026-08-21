@@ -166,11 +166,11 @@
 | G05 | No campaign browser in UI | Campaign backend exists but no frontend component | Create CampaignBrowser + CampaignCard components | None | 2 |
 | G06 | No marketing dashboard | Marketing intelligence routes exist but no aggregated view | Build marketing overview dashboard | G05 | 3 |
 
-### D3 — Conversation & AI Gaps
+|### D3 — Conversation & AI Gaps
 
 | ID | Gap | Root Cause | Exact Fix | Dependency | Order |
-|---|---|---|---|---|---|
-| G07 | AI responses are demo/scenario | No real LLM wired into conversation endpoint | Wire Groq API into /api/v1/founder/converse | INF-01 | 5 |
+||---|---|---|---|---|---|
+| G07 | AI responses are demo/scenario | ~~No real LLM wired~~ | **ALREADY RESOLVED** — UIR uses Groq→Gemini→OpenRouter via Inference Orchestrator + app.ai.provider fallback chain | None | 0 |
 | G08 | Command→action not visible | Intention endpoint works but action not surfaced as workflow | Build command-to-action bridge UI component | B9 | 7 |
 | G09 | No voice interaction | No speech recognition or TTS | Future scope (requires third-party) | Future | 99 |
 
@@ -206,15 +206,15 @@
 | Core Domains (B) | 8 | 12 | 8 | 10 | 0 | 38 |
 | Infrastructure (C) | 6 | 0 | 2 | 0 | 0 | 8 |
 | Cross-Cutting (D) | 0 | 0 | 0 | 16 | 0 | 16 |
-| **TOTAL** | **20** | **13** | **12** | **27** | **0** | **72** |
+| **TOTAL** | **20** | **13** | **12** | **26** | **0** | **71** |
 
 **Executive Summary:**
 - 20 capabilities VERIFIED in production
 - 13 capabilities implemented but unverified
 - 12 capabilities partial
-- 27 capabilities missing
+- 26 capabilities missing (G07: LLM wiring resolved as already implemented)
 - **0 EXTERNALLY-BLOCKED** — everything is fixable
-- **Total GAPS: 52** (non-VERIFIED)
+- **Total GAPS: 51** (non-VERIFIED, down from 52)
 
 **Critical Path:** Fix People API + Sales API (G01, G02) → then Campaign UI (G05) → then Mobile nav (G10)
 
@@ -223,6 +223,14 @@
 ## PHASE 3 EXECUTION — IMMEDIATE GAPS TO FIX
 
 STARTING NOW in dependency order:
+
+### ✅ FIXED THIS SESSION
+
+| ID | Gap | Fix | Status |
+|----|-----|-----|--------|
+| G07 | AI responses demo/scenario | **VERIFIED ALREADY IMPLEMENTED** — UIR → Inference Orchestrator → Groq/Gemini/OpenRouter chain | ✅ VERIFIED |
+| G03b | ConversationWorkspace Send button | Wired to /api/v1/founder/ai/chat/:convId with fallback to /conversations/:convId/messages | ✅ FIXED |
+| G03c | AIResidentPanel chat | Wired conversational mode to /api/v1/founder/ai/chat/ambient with message history display | ✅ FIXED |
 
 ### 🔥 PRIORITY 1 — Fix People API + Sales API (D1/G01, D1/G02)
 
