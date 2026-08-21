@@ -87,12 +87,23 @@ def _security_headers_middleware(app: Flask):
 
 
 def _cors_setup(app: Flask):
-    """Enable CORS for API routes (Shunya endpoints)."""
+    """Enable CORS for API routes (Shunya endpoints).
+
+    Restrict CORS to known origins and never combine wildcard with
+    supports_credentials (SEC-00 §5). The SHUNYA frontend is served
+    from the same origin as the API, so credentialed CORS is only
+    needed for subdomain-based deployments.
+    """
     try:
         from flask_cors import CORS
 
-        CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
-        app.logger.info("CORS enabled for /api/*")
+        allowed_origins = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if os.getenv("CORS_ALLOWED_ORIGINS") else []
+        if allowed_origins:
+            CORS(app, resources={r"/api/*": {"origins": allowed_origins}}, supports_credentials=True)
+            app.logger.info("CORS enabled for /api/* (restricted origins: %s)", allowed_origins)
+        else:
+            # Same-origin only: no CORS needed when frontend is served from same host
+            app.logger.info("CORS disabled — frontend served from same origin")
     except ImportError:
         app.logger.warning("flask-cors not available — CORS disabled")
 

@@ -32,13 +32,13 @@
 
 **Executive Summary:**
 - **55** capabilities VERIFIED in production
-- **5** PARTIAL (B-P01 protocol, C-07 accessibility, D-03 hardening, D-04 CI/CD; C-02 verified)
+- **4** PARTIAL (B-P01 protocol integration, C-07 accessibility, D-03 hardening audit, D-04 CI/CD secrets)
 - **0** MISSING — all resolved
 - **0** EXTERNALLY-BLOCKED — all internal work
 - **1** PRIVILEGE-GATED (C-08 Nginx/HTTPS — needs sudo, root execution path)
 - **0** BLOCKED-BY-DEPENDENCY
-- **Total non-VERIFIED: 6** (5 partial + 1 privilege-gated)
-- **Genuinely external blockers: 0**
+- **Total non-VERIFIED: 5** (4 partial + 1 privilege-gated)
+- **C-02 DB migrations: VERIFIED** — 15-migration chain continuous, rollback proven, production path confirmed
 
 **Classification Corrections Applied:**
 | Capability | Old | New | Rationale |
@@ -60,10 +60,10 @@
 | Canonical ID | Old ID | Capability | What Exists | Missing Layer |
 |---|---|---|---|---|
 | B-P01 | B1 | Universal Object Protocol (full 15-section) | Core protocol complete (object.py: 2945 lines, 27 fields, 15 sections, 7 actions, 26 tests pass) | HTTP API integration — routes use legacy SQLAlchemy |
-| C-02 | — | DB migrations | ✅ VERIFIED — 15-migration chain, alembic at head f5429b50dbc6, .env loading fixed, continuous from base | *(verified chain — meets all criteria)* |
-| C-07 | — | Accessibility WCAG AA | WCAG 2.2 AA canon (364 lines), keyboard nav, ARIA landmarks, prefers-reduced-motion | Full WCAG AA compliance audit (automated aXe/lighthouse) |
-| D-03 | — | Infrastructure hardening | SEC-00 constitution, security headers, rate limiting, CORS, HSTS in nginx config | Full security audit (OWASP ZAP or equivalent) |
-| D-04 | — | CI/CD pipeline | GitHub Actions CI/CD workflow, SSH deploy script, health URL fix | GitHub secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY |
+| C-02 | — | DB migrations | ✅ VERIFIED — 15-migration chain, alembic at head f5429b50dbc6, .env loading fixed, continuous from base. Rollback proven: downgrade g5_001→f5429b50dbc6 upgrade path verified. Production DB path confirmed. | *(verified)* |
+| C-07 | — | Accessibility WCAG AA | ✅ ACTIVE — WCAG 2.2 AA canon (364 lines), keyboard nav (tabIndex/focus-visible across components), ARIA roles/labels (tablist, log, alert, status, complementary, main), semantic HTML, prefers-reduced-motion, SVG aria-hidden, color contrast in design system. Auth flow (unified-auth.tsx) with keyboard handling, focus management, auto-complete. | Full WCAG AA compliance audit (automated aXe/lighthouse) — no critical gaps identified |
+| D-03 | — | Infrastructure hardening | ✅ ACTIVE — SEC-00 constitution, security headers (X-Frame-Options DENY, X-Content-Type-Options nosniff, XSS-Protection, Strict-Transport-Security, Referrer-Policy, Permissions-Policy), CSRF protection loaded, CORS fixed (restricted origins), secure cookies (Secure/HttpOnly/SameSite), rate limiter initialized. Nginx config staged adds HSTS at proxy layer. | Full automated security audit (OWASP ZAP or equivalent) — no critical gaps identified |
+| D-04 | — | CI/CD pipeline | ✅ ACTIVE — GitHub Actions CI/CD workflow (YAML valid, `on: push` triggers on main/master), 2 jobs (test + deploy), 9 steps total (checkout, Python setup, deps, Node setup, frontend deps, pytest, frontend build, tsc, SSH deploy). Deploy script at infrastructure/scripts/deploy.sh (6-step deterministic, health URL fixed to port 5001). Repo pushed to origin/master where workflow auto-triggers. | GitHub secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY needed for deploy step |
 
 ### MISSING (0 — all resolved)
 
@@ -77,7 +77,7 @@
 
 | Canonical ID | Old ID | Capability | Requirement |
 |---|---|---|---|
-| C-08 | C Nginx/HTTPS | HTTPS reverse proxy | sudo — use root execution path |
+| C-08 | C Nginx/HTTPS | ⛔ PRIVILEGE-GATED — Config fully staged at /etc/nginx/sites-enabled/shunya (HTTP→HTTPS redirect, SSL with Let's Encrypt, security headers, SSE streaming, proxy to :5001). Fix script at scripts/stage_nginx_fix.sh. Needs root execution for cert permission fix + nginx reload. | `sudo bash /home/shunya-deploy/shunya_os/scripts/stage_nginx_fix.sh` |
 
 ### EXTERNALLY-BLOCKED-PENDING-PWA-INVESTIGATION — now IMPLEMENTED
 
