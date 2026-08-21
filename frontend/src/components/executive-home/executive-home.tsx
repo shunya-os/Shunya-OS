@@ -35,6 +35,7 @@ import { ExecutionWorkspace } from '../work/execution-workspace';
 import { OutputsBrowser } from '../outputs/outputs-browser';
 import { OrganizationBrowser } from '../organization/organization-browser';
 import { LeadManagement } from '../sales/lead-management';
+import { CommandToActionBridge } from '../actions/command-to-action-bridge';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -919,6 +920,10 @@ function DomainWorkspaceRouter() {
     // Outputs — artifact discovery
     if (active.identity.objectId === 'outputs') {
       return <div className="pw-panel-container"><OutputsBrowser /></div>;
+    }
+    // Actions — command-to-action bridge
+    if (active.identity.objectId === 'actions') {
+      return <div className="pw-panel-container"><CommandToActionBridge /></div>;
     }
     // If the objectId is a domain concept (finance, marketing, etc.), show domain overview
     if (DOMAIN_IDS.has(active.identity.objectId) && !active.identity.objectType?.includes('_')) {
