@@ -383,14 +383,43 @@ def chat():
                 )
             except Exception:
                 pass
-            return jsonify({
+            # PHASE 3: Command lifecycle — create execution for meaningful commands
+            execution_info = None
+            conversation_id = data.get('conversation_id')
+            try:
+                from app.ai.command_lifecycle import _is_command_message, create_execution_for_command
+                from flask import session as flask_session
+                last_user_msg = ''
+                for m in reversed(messages):
+                    if m.get('role') == 'user':
+                        last_user_msg = m.get('content', '')
+                        break
+                is_cmd, action_type = _is_command_message(last_user_msg)
+                if is_cmd:
+                    execution_info = create_execution_for_command(
+                        user_message=last_user_msg,
+                        ai_response=result.get('content', ''),
+                        conversation_id=conversation_id,
+                        tenant_id=flask_session.get('tenant_id', 0),
+                        identity_id=str(flask_session.get('user_id', '')),
+                    )
+            except Exception as e:
+                logger.warning(f'AI command lifecycle error: {e}')
+            response_data = {
                 'content': result.get('content', ''),
                 'model': result.get('model', getattr(p, 'model', 'unknown')),
                 'provider': p.name,
                 'usage': result.get('usage', {}),
                 'finish_reason': result.get('finish_reason', 'stop'),
                 'fallback': fallback_used,
-            })
+            }
+            if execution_info:
+                response_data['command'] = {
+                    'outcome_id': execution_info.get('outcome_id'),
+                    'task_id': execution_info.get('task_id'),
+                    'drilldown': execution_info.get('drilldown'),
+                }
+            return jsonify(response_data)
         except Exception as e:
             last_error = str(e)
             logger.warning(f'AI provider {p.name} exception: {last_error}')
