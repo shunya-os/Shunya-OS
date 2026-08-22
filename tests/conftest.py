@@ -10,6 +10,13 @@ Exposes:
     real_app  (alias for app — backward compat for phase test files)
 """
 
+import os
+
+# Prevent uncontrolled external AI provider calls during tests.
+# LocalProvider is deterministic and makes zero network I/O.
+# Real provider tests must explicitly override this env var.
+os.environ.setdefault("SHUNYA_AI_PROVIDERS", "local")
+
 import pytest
 from app import create_app, db
 

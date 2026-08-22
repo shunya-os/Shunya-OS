@@ -81,8 +81,8 @@ with app.app_context():
         'participants': [user.id]
     })
     data3 = resp.get_json(silent=True) or {}
-    print(f"  Create conv status: {resp.status_code}")
-    conv_id = data3.get('id') or data3.get('conversation_id') or None
+    data3_wrapped = data3.get("data", data3)  # unwrap {data: ...} envelope
+    conv_id = data3_wrapped.get('conversation_id') or data3_wrapped.get('id') or None
     print(f"  Conversation ID: {conv_id}")
     results.append(('Create conversation', resp.status_code, conv_id is not None))
 
@@ -93,7 +93,7 @@ with app.app_context():
         print("\n=== TEST 3: Message Persistence ===")
         # Add a message
         resp = client.post(f'/api/v1/communication/conversations/{conv_id}/messages', json={
-            'content': 'What is the status of our sales pipeline?',
+            'body': 'What is the status of our sales pipeline?',
             'role': 'user'
         })
         data_msg = resp.get_json(silent=True) or {}
@@ -102,9 +102,9 @@ with app.app_context():
         # Fetch conversation to verify message persisted
         resp = client.get(f'/api/v1/communication/conversations/{conv_id}')
         data_get = resp.get_json(silent=True) or {}
-        print(f"  Get conversation status: {resp.status_code}")
-        msgs = data_get.get('messages', [])
-        print(f"  Messages count: {len(msgs)}")
+        data_get_inner = data_get.get("data", data_get)
+        msgs = data_get_inner.get('timeline', [])
+        print(f"  Timeline messages count: {len(msgs)}")
         results.append(('Message persistence', resp.status_code, len(msgs) > 0))
 
     # ═══════════════════════════════════════════════════════════════
@@ -174,4 +174,8 @@ with app.app_context():
         print(f"  {icon} {name}: HTTP {status}")
     print(f"\n  Overall: {'✅ PASS' if passed else '❌ FAIL'}")
 
-db.drop_all()
+# Cleanup — safe even outside app context for :memory: SQLite
+try:
+    db.drop_all()
+except (RuntimeError, Exception):
+    pass  # :memory: DB drops on process exit

@@ -174,7 +174,7 @@ class CommunicationRuntime:
             return ""
 
         message_count = len(conv.messages)
-        participants = ", ".join(conv.participants) if conv.participants else "Unknown"
+        participants = ", ".join(str(p) for p in conv.participants) if conv.participants else "Unknown"
         last_message = conv.messages[-1].body[:200] if conv.messages else "No messages"
 
         summary = (
