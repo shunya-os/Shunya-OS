@@ -147,6 +147,12 @@ with app.app_context():
     resp6 = client.get("/api/v1/memory/entries")
     data6 = resp6.get_json(silent=True) or {}
     test("Memory entries responds 200", resp6.status_code == 200)
+    entries = data6.get("data", {}).get("entries", [])
+    test("Memory has command entries from AI execution", 
+         any("command" in str(e.get("key","")) for e in entries) or 
+         any("outcome" in str(e.get("key","")) for e in entries) or
+         any("task" in str(e.get("key","")) for e in entries),
+         f"got {len(entries)} entries: {json.dumps(entries[:3])[:200] if entries else 'empty'}")
     
     resp6b = client.get("/api/v1/memory/knowledge")
     data6b = resp6b.get_json(silent=True) or {}

@@ -166,6 +166,43 @@ def create_execution_for_command(
     
     db.session.commit()
     
+    # Store in runtime memory for later retrieval
+    try:
+        from core.intelligence_runtime.integration import store_memory
+        from core.intelligence_runtime.types import MemoryType
+        store_memory(
+            key=f"command_{outcome_id}",
+            content=f"AI command: {user_message[:200]}",
+            source="ai_chat",
+        )
+        # Also store in short-term so memory API (which reads short_term by default) can find it
+        try:
+            from core.intelligence_runtime import get_runtime
+            runtime = get_runtime()
+            runtime.memory.store(
+                key=f"command_{outcome_id}",
+                content=f"AI command: {user_message[:200]}",
+                memory_type=MemoryType.SHORT_TERM,
+                source="ai_chat",
+            )
+            runtime.memory.store(
+                key=f"outcome_{outcome_id}",
+                content=f"Outcome: {user_message[:100]} → Status: accepted",
+                memory_type=MemoryType.SHORT_TERM,
+                source="execution",
+            )
+            if task_id:
+                runtime.memory.store(
+                    key=f"task_{task_id}",
+                    content=f"Task created: {user_message[:100]}",
+                    memory_type=MemoryType.SHORT_TERM,
+                    source="execution",
+                )
+        except Exception:
+            pass
+    except Exception as e:
+        logger.warning(f"Could not store in runtime memory: {e}")
+    
     return {
         "outcome_id": outcome_id,
         "execution_id": outcome_id,
