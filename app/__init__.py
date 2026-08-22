@@ -197,6 +197,10 @@ try:
 except Exception:
     pass
 
+# BUILD_ID fallback: use git commit short hash when env var not set
+if not _BUILD_ID:
+    _BUILD_ID = _GIT_COMMIT_SHORT or "unknown"
+
 
 def _resolve_git_commit() -> str:
     """Resolve the current git commit at runtime. Used for /health."""

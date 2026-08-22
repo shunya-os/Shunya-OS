@@ -90,7 +90,7 @@ class OpenAIProvider(LLMProvider):
         }
 
         try:
-            with httpx.Client(timeout=60.0) as client:
+            with httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0, read=30.0)) as client:
                 resp = client.post(
                     f"{self.base_url}/chat/completions",
                     headers=headers,
@@ -200,7 +200,7 @@ class CloudflareAIProvider(LLMProvider):
         url = f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/{self.model}"
 
         try:
-            with httpx.Client(timeout=60.0) as client:
+            with httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0, read=30.0)) as client:
                 resp = client.post(url, headers=headers, json=body)
                 resp.raise_for_status()
                 data = resp.json()
@@ -302,7 +302,7 @@ class AnthropicProvider(LLMProvider):
             body["system"] = system_msg
 
         try:
-            with httpx.Client(timeout=60.0) as client:
+            with httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0, read=30.0)) as client:
                 resp = client.post(
                     "https://api.anthropic.com/v1/messages",
                     headers=headers,

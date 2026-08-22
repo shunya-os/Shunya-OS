@@ -33,9 +33,9 @@ fi
 # ---- Step 1: Fetch ----
 echo "[1/6] Fetching latest code..." | tee -a "${DEPLOY_LOG}"
 cd "${DEPLOY_DIR}"
-git fetch origin main
-git checkout main
-git pull origin main
+git fetch origin master
+git checkout master
+git pull origin master
 echo "  Commit: $(git rev-parse HEAD)" | tee -a "${DEPLOY_LOG}"
 
 # ---- Step 2: Install ----
