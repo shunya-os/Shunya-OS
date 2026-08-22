@@ -236,6 +236,11 @@ class ProviderConfig:
     max_retries: int = 2
     timeout_seconds: int = 60
 
+    def __post_init__(self):
+        """Override timeout when running in test mode (local-only AI providers)."""
+        if os.getenv("SHUNYA_AI_PROVIDERS", "") == "local":
+            self.timeout_seconds = 2
+
 
 def resolve_provider_configs() -> list[ProviderConfig]:
     """Build the provider chain from environment variables.
