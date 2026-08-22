@@ -27,6 +27,7 @@ def _resolve_tenant() -> dict:
     )
     tenant_id = (
         session.get("current_org_id")
+        or session.get("tenant_id")
         or request.headers.get("X-Tenant-Id")
     )
     return {
