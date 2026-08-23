@@ -127,7 +127,22 @@ fi
 # ---- Step 9: Restart service ----
 echo "[9/12] Restarting application..." | tee -a "${DEPLOY_LOG}"
 if command -v systemctl &> /dev/null; then
-    sudo systemctl restart shunya 2>&1 | tee -a "${DEPLOY_LOG}"
+    if sudo -n systemctl restart shunya 2>&1 | tee -a "${DEPLOY_LOG}"; then
+        echo "  Restart via systemctl succeeded" | tee -a "${DEPLOY_LOG}"
+    else
+        echo "  WARNING: systemctl restart failed (no sudo). Trying gunicorn kill+HUP..." | tee -a "${DEPLOY_LOG}"
+        # Fallback: kill gunicorn master directly and restart via nohup
+        PID_FILE="/var/run/shunya.pid"
+        if [ -f "$PID_FILE" ]; then
+            kill -HUP "$(cat "$PID_FILE")" 2>/dev/null || true
+        fi
+        # Direct pkill fallback
+        pkill -f "gunicorn.*5001" 2>/dev/null && sleep 3 || true
+        cd "${DEPLOY_DIR}"
+        source .venv/bin/activate 2>/dev/null
+        nohup gunicorn --bind 127.0.0.1:5001 --workers 3 --timeout 60 --access-logfile - --error-logfile - wsgi:app > /tmp/gunicorn_deploy.log 2>&1 &
+        echo "  Restart via gunicorn background fallback" | tee -a "${DEPLOY_LOG}"
+    fi
 elif command -v docker-compose &> /dev/null; then
     docker-compose up -d --build --no-deps web 2>&1 | tee -a "${DEPLOY_LOG}"
 else

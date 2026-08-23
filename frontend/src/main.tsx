@@ -1,6 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './app';
+import { injectAdaptiveStyles } from './runtimes/adaptive';
+
+// Inject adaptive surface styles at bootstrap
+injectAdaptiveStyles();
 
 // Global error capture for headless browser debugging
 const errorLog: Array<{ msg: string; stack: string; source: string }> = [];

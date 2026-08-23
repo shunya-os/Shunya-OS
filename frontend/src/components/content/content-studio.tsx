@@ -4,7 +4,7 @@
  * 9 content formats: Blog, Social, Email, Product, PR, SEO, Ad, Landing, Repurpose
  * Brand Voice System: 5 profiles (Professional, Casual, Luxury, Technical, Friendly)
  * Tone Control Slider: 5 levels from Very Professional to Very Casual
- * History tab with localStorage persistence
+ * History tab with backend API persistence
  *
  * Warm glass-morphism design, inline CSS.
  */
@@ -72,6 +72,124 @@ export interface BrandVoiceProfile {
 
 function generateId(): string {
   return `cnt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// Map frontend ContentFormat ↔ backend content_type strings
+const FORMAT_TO_BACKEND: Record<string, string> = {
+  blog: 'blog_post',
+  social: 'social_post',
+  email: 'email',
+  product: 'product_desc',
+  press: 'press_release',
+  seo: 'seo_meta',
+  ad: 'ad_copy',
+  landing: 'landing_page',
+  repurpose: 'blog_post',
+};
+
+const BACKEND_TO_FORMAT: Record<string, ContentFormat> = {
+  blog_post: 'blog',
+  social_post: 'social',
+  email: 'email',
+  product_desc: 'product',
+  press_release: 'press',
+  seo_meta: 'seo',
+  ad_copy: 'ad',
+  landing_page: 'landing',
+};
+
+function mapBackendItem(item: Record<string, unknown>): SavedContent {
+  const rawType = String(item.content_type ?? 'blog_post');
+  return {
+    id: String(item.id),
+    format: BACKEND_TO_FORMAT[rawType] ?? ('blog' as ContentFormat),
+    label: String(item.prompt ?? ''),
+    content: String(item.generated_content ?? ''),
+    createdAt: String(item.created_at ?? new Date().toISOString()),
+  };
+}
+
+async function apiFetchHistory(): Promise<SavedContent[]> {
+  try {
+    const resp = await fetch('/api/v1/content/history', { credentials: 'include' });
+    if (!resp.ok) return [];
+    const body = await resp.json();
+    if (!body.success || !Array.isArray(body.data)) return [];
+    return body.data.map(mapBackendItem);
+  } catch {
+    return [];
+  }
+}
+
+async function apiSaveItem(
+  format: ContentFormat,
+  label: string,
+  content: string,
+): Promise<SavedContent | null> {
+  try {
+    const resp = await fetch('/api/v1/content/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        prompt: label,
+        content_type: FORMAT_TO_BACKEND[format] ?? 'blog_post',
+        generated_content: content,
+        tone: 'professional',
+      }),
+    });
+    const body = await resp.json();
+    if (body.success && body.data) {
+      // The generate endpoint may return { content, word_count, content_type } under data
+      // Use the body.id if available, otherwise generate a client-side id
+      return {
+        id: String(body.id ?? body.data?.id ?? generateId()),
+        format,
+        label,
+        content,
+        createdAt: new Date().toISOString(),
+      };
+    }
+    // Fallback: return a client-side item even if the API call succeeded but returned unexpected shape
+    if (resp.ok) {
+      return {
+        id: String(body.id ?? generateId()),
+        format,
+        label,
+        content,
+        createdAt: new Date().toISOString(),
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function apiDeleteItem(id: string): Promise<boolean> {
+  try {
+    const resp = await fetch(`/api/v1/content/history/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function apiUpdateItem(id: string, content: string): Promise<boolean> {
+  try {
+    const resp = await fetch(`/api/v1/content/history/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ content }),
+    });
+    return resp.ok;
+  } catch {
+    return false;
+  }
 }
 
 // ── Constants ─────────────────────────────────────────────────
@@ -168,22 +286,7 @@ const TONE_LABELS: Record<number, string> = {
   5: 'Very Casual',
 };
 
-const STORAGE_KEY = 'shunya_content_saved';
-
 // ── Helpers ───────────────────────────────────────────────────
-
-function loadSaved(): SavedContent[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveToStorage(items: SavedContent[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
 
 function wordCount(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -430,7 +533,7 @@ export function ContentStudio() {
   const [generating, setGenerating] = useState(false);
   const [output, setOutput] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [savedItems, setSavedItems] = useState<SavedContent[]>(() => loadSaved());
+  const [savedItems, setSavedItems] = useState<SavedContent[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
 
@@ -499,6 +602,9 @@ export function ContentStudio() {
 
   useEffect(() => {
     mountedRef.current = true;
+    apiFetchHistory().then((items) => {
+      if (mountedRef.current) setSavedItems(items);
+    });
     return () => {
       mountedRef.current = false;
     };
@@ -507,40 +613,46 @@ export function ContentStudio() {
   // ── Save handler ──
   const handleSave = useCallback(
     (format: ContentFormat, label: string, content: string) => {
-      const newItem: SavedContent = {
-        id: generateId(),
-        format,
-        label,
-        content,
-        createdAt: new Date().toISOString(),
-      };
-      const updated = [newItem, ...savedItems];
-      setSavedItems(updated);
-      saveToStorage(updated);
+      apiSaveItem(format, label, content).then((saved) => {
+        if (saved) {
+          setSavedItems((prev) => [saved, ...prev]);
+        } else {
+          // Fallback: add locally with generated id when API is unavailable
+          const fallback: SavedContent = {
+            id: generateId(),
+            format,
+            label,
+            content,
+            createdAt: new Date().toISOString(),
+          };
+          setSavedItems((prev) => [fallback, ...prev]);
+        }
+      });
     },
-    [savedItems],
+    [],
   );
 
   // ── Delete saved ──
   const handleDelete = useCallback(
     (id: string) => {
-      const updated = savedItems.filter((i) => i.id !== id);
-      setSavedItems(updated);
-      saveToStorage(updated);
+      setSavedItems((prev) => prev.filter((i) => i.id !== id));
+      apiDeleteItem(id);
     },
-    [savedItems],
+    [],
   );
 
   // ── Edit saved ──
   const handleEditSave = useCallback(
     (id: string) => {
-      const updated = savedItems.map((i) => (i.id === id ? { ...i, content: editContent } : i));
-      setSavedItems(updated);
-      saveToStorage(updated);
+      const updatedContent = editContent;
+      setSavedItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, content: updatedContent } : i)),
+      );
+      apiUpdateItem(id, updatedContent);
       setEditingId(null);
       setEditContent('');
     },
-    [savedItems, editContent],
+    [editContent],
   );
 
   // ── Build system prompt helper ──

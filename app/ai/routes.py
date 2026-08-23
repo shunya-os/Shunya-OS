@@ -484,6 +484,36 @@ def chat():
                     )
             except Exception as e:
                 logger.warning(f'AI command lifecycle error: {e}')
+
+            # PHASE 4: Create Outcome record for this chat turn
+            chat_outcome_id = None
+            try:
+                from app.execution.models import Outcome as _Outcome
+                from app import db as _db3
+                import uuid as _uuid3
+                from datetime import datetime, timezone
+
+                chat_outcome_id = f"o{_uuid3.uuid4().hex[:11]}"
+                chat_outcome = _Outcome(
+                    outcome_id=chat_outcome_id,
+                    identity_id=flask_session.get('identity_id', flask_session.get('user_id', 'anonymous')),
+                    intention=last_user_msg[:500] if last_user_msg else 'AI chat',
+                    state={
+                        'type': 'chat_response',
+                        'source': 'ai_chat',
+                        'source_id': conversation_id,
+                        'conversation_id': conversation_id,
+                        'description': (result.get('content', '') or '')[:2000],
+                    },
+                    created_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc),
+                )
+                _db3.session.add(chat_outcome)
+                _db3.session.commit()
+            except Exception as e_out:
+                logger.warning(f'Chat outcome persistence error: {e_out}')
+                chat_outcome_id = None
+
             response_data = {
                 'content': result.get('content', ''),
                 'model': result.get('model', getattr(p, 'model', 'unknown')),
@@ -491,6 +521,7 @@ def chat():
                 'usage': result.get('usage', {}),
                 'finish_reason': result.get('finish_reason', 'stop'),
                 'fallback': fallback_used,
+                'outcome_id': chat_outcome_id,
             }
             if execution_info:
                 response_data['command'] = {
@@ -570,6 +601,44 @@ def get_conversation(conv_id):
         return jsonify({'error': str(e)}), 500
 
 
+@ai_bp.route('/conversations/<conv_id>/outputs', methods=['GET'])
+def get_conversation_outputs(conv_id):
+    """Get outcomes (outputs) linked to an AI conversation.
+
+    Queries Outcome records where state['source'] == 'ai_chat'
+    and state['source_id'] == conv_id. Returns the outcomes
+    alongside the conversation metadata.
+
+    GET /api/v1/ai/conversations/<conv_id>/outputs
+    """
+    try:
+        from app.execution.models import Outcome
+        from app.founder.models import FounderConversation
+        from sqlalchemy import text
+
+        conv = FounderConversation.query.filter_by(conv_id=conv_id).first()
+        if not conv:
+            return jsonify({'error': 'Conversation not found'}), 404
+
+        # Query outcomes where state->>'source' = 'ai_chat' and state->>'source_id' = conv_id
+        outcomes = Outcome.query.filter(
+            Outcome.state['source'].astext == 'ai_chat',
+            Outcome.state['source_id'].astext == conv_id,
+        ).order_by(Outcome.created_at.desc()).all()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'conversation': conv.to_dict(),
+                'outcomes': [o.to_dict() for o in outcomes],
+                'count': len(outcomes),
+            }
+        })
+    except Exception as e:
+        logger.warning(f'Get conversation outputs error: {e}')
+        return jsonify({'success': True, 'data': {'outcomes': [], 'count': 0}})
+
+
 @ai_bp.route('/save-output', methods=['POST'])
 def save_output():
     """Save an AI response as an actionable organisational object.
@@ -614,6 +683,7 @@ def save_output():
             state={
                 'type': output_type or 'task',
                 'conversation_id': conversation_id,
+                'source_id': conversation_id,
                 'description': content[:2000],
                 'source': 'ai_chat',
             },
