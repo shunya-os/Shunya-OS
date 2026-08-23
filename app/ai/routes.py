@@ -286,6 +286,59 @@ def chat():
     if not messages:
         return jsonify({'error': 'messages is required'}), 400
 
+    # ── Conversation Identity & Persistence ──
+    conversation_id = data.get('conversation_id')
+    from flask import session as flask_session
+    tenant_id = flask_session.get('tenant_id', 0)
+    identity_id = str(flask_session.get('identity_id', flask_session.get('user_id', '')))
+    conv_object_id = data.get('object_id', '')  # Link to a founder_object
+
+    # Create or resolve conversation for persistence
+    import uuid as _uuid
+    if not conversation_id:
+        conversation_id = f"conv_{_uuid.uuid4().hex[:16]}"
+    elif not tenant_id and flask_session.get('current_org_id'):
+        tenant_id = flask_session.get('current_org_id')
+
+    # Persist the user message(s) to FounderConversation
+    try:
+        from app.founder.models import FounderConversation, FounderMessage
+        from app import db as _db
+        from datetime import datetime as _dt
+
+        # Find or create conversation
+        conv = FounderConversation.query.filter_by(conv_id=conversation_id).first()
+        if not conv:
+            conv = FounderConversation(
+                conv_id=conversation_id,
+                object_id=conv_object_id or f"tenant_{tenant_id}",
+                title=messages[-1].get('content', 'New conversation')[:100] if messages else 'New conversation',
+                identity_id=identity_id or 'anonymous',
+                status='active',
+            )
+            _db.session.add(conv)
+            _db.session.commit()
+
+        # Store each user message
+        for m in messages:
+            if m.get('role') in ('user', 'human'):
+                existing = FounderMessage.query.filter_by(
+                    conv_id=conversation_id,
+                    role='human',
+                    content=m.get('content', '')[:500]
+                ).first()
+                if not existing:
+                    fm = FounderMessage(
+                        conv_id=conversation_id,
+                        role='human',
+                        content=m.get('content', '')[:5000],
+                    )
+                    _db.session.add(fm)
+        _db.session.commit()
+    except Exception as e:
+        logger.warning(f'Conversation persistence (user msg): {e}')
+        _db.session.rollback()
+
     # ── Web Search Integration ──
     # When web_search is true, extract the last user message, call the search
     # function directly (in-process, no HTTP loop) and prepend results as
@@ -419,6 +472,22 @@ def chat():
                     'task_id': execution_info.get('task_id'),
                     'drilldown': execution_info.get('drilldown'),
                 }
+            # Persist AI response to conversation
+            response_data['conversation_id'] = conversation_id
+            try:
+                from app.founder.models import FounderMessage
+                from app import db as _db2
+                ai_content = result.get('content', '')
+                if ai_content:
+                    fm = FounderMessage(
+                        conv_id=conversation_id,
+                        role='assistant',
+                        content=ai_content[:5000],
+                    )
+                    _db2.session.add(fm)
+                    _db2.session.commit()
+            except Exception as e_ai:
+                logger.warning(f'Conversation persistence (AI msg): {e_ai}')
             return jsonify(response_data)
         except Exception as e:
             last_error = str(e)
@@ -431,3 +500,45 @@ def chat():
         'model': 'none',
         'fallback': True,
     }), 503
+
+
+@ai_bp.route('/conversations', methods=['GET'])
+def list_conversations():
+    """List recent conversations for the current identity."""
+    from flask import session as flask_session
+    identity_id = str(flask_session.get('identity_id', flask_session.get('user_id', '')))
+    if not identity_id:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    try:
+        from app.founder.models import FounderConversation
+        convs = FounderConversation.query.filter_by(identity_id=identity_id)\
+            .order_by(FounderConversation.updated_at.desc()).limit(50).all()
+        return jsonify({
+            'success': True,
+            'data': [c.to_dict() for c in convs],
+        })
+    except Exception as e:
+        logger.warning(f'List conversations error: {e}')
+        return jsonify({'success': True, 'data': [], 'note': 'No conversations yet'})
+
+
+@ai_bp.route('/conversations/<conv_id>', methods=['GET'])
+def get_conversation(conv_id):
+    """Get a conversation with its messages."""
+    try:
+        from app.founder.models import FounderConversation, FounderMessage
+        conv = FounderConversation.query.filter_by(conv_id=conv_id).first()
+        if not conv:
+            return jsonify({'error': 'Conversation not found'}), 404
+        msgs = FounderMessage.query.filter_by(conv_id=conv_id)\
+            .order_by(FounderMessage.created_at.asc()).all()
+        return jsonify({
+            'success': True,
+            'data': {
+                'conversation': conv.to_dict(),
+                'messages': [m.to_dict() for m in msgs],
+            }
+        })
+    except Exception as e:
+        logger.warning(f'Get conversation error: {e}')
+        return jsonify({'error': str(e)}), 500
