@@ -306,12 +306,37 @@ def chat():
         from app import db as _db
         from datetime import datetime as _dt
 
-        # Find or create conversation
+        # Find or create conversation with a valid object_id (FK to founder_objects)
+        conv_object_ref = conv_object_id or "conv_system"
         conv = FounderConversation.query.filter_by(conv_id=conversation_id).first()
         if not conv:
+            # Ensure the founder_object exists for the FK constraint
+            from app.founder.models import FounderObject, FounderSpace
+            existing_obj = FounderObject.query.filter_by(object_id=conv_object_ref).first()
+            if not existing_obj:
+                # Find or create a system space
+                system_space = FounderSpace.query.filter_by(space_id="space_system").first()
+                if not system_space:
+                    system_space = FounderSpace(
+                        space_id="space_system",
+                        name="System Space",
+                        space_type="system",
+                        identity_id=identity_id or 'system',
+                    )
+                    _db.session.add(system_space)
+                    _db.session.flush()
+                obj = FounderObject(
+                    object_id=conv_object_ref,
+                    space_id=system_space.space_id,
+                    object_type="conversation",
+                    name=messages[-1].get('content', 'Conversation')[:100] if messages else 'Conversation',
+                    created_by=identity_id or 'system',
+                )
+                _db.session.add(obj)
+                _db.session.flush()
             conv = FounderConversation(
                 conv_id=conversation_id,
-                object_id=conv_object_id or f"tenant_{tenant_id}",
+                object_id=conv_object_ref,
                 title=messages[-1].get('content', 'New conversation')[:100] if messages else 'New conversation',
                 identity_id=identity_id or 'anonymous',
                 status='active',
@@ -438,7 +463,8 @@ def chat():
                 pass
             # PHASE 3: Command lifecycle — create execution for meaningful commands
             execution_info = None
-            conversation_id = data.get('conversation_id')
+            # Don't re-read conversation_id — keep the one auto-assigned above
+            _chat_conv_id = conversation_id or data.get('conversation_id')
             try:
                 from app.ai.command_lifecycle import _is_command_message, create_execution_for_command
                 from flask import session as flask_session
@@ -578,7 +604,7 @@ def save_output():
         import uuid as _uuid
         from datetime import datetime, timezone
 
-        outcome_id = f"out_{_uuid.uuid4().hex[:12]}"
+        outcome_id = f"o{_uuid.uuid4().hex[:11]}"
         now = datetime.now(timezone.utc)
 
         outcome = Outcome(

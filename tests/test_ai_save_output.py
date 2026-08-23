@@ -54,7 +54,7 @@ class TestSaveOutput:
         data = resp.get_json()
         assert data["success"] is True
         assert data["data"]["type"] == "task"
-        assert data["data"]["outcome_id"].startswith("out_")
+        assert data["data"]["outcome_id"].startswith("o")
 
     def test_save_output_as_task(self, app, client):
         """Save output as task."""
