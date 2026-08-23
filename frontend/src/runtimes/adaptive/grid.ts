@@ -225,12 +225,123 @@ export const ADAPTIVE_STYLES = `
   object-fit: cover;
 }
 
+/* ── SHUNYA 70/20/10 Visual Rules ────────────────────────────────
+ *
+ * The SHUNYA visual language defines surface proportions:
+ *   70% Whitespace & Background — breathing room, layout structure
+ *   20% Information — data, labels, content cards
+ *   10% Controls — interactive elements (buttons, inputs, toggles)
+ *
+ * These CSS custom properties define the proportion targets and
+ * can be queried by components to enforce spatial hierarchy.
+ */
+
+:root {
+  --shunya-prop-whitespace: 0.70;
+  --shunya-prop-info: 0.20;
+  --shunya-prop-controls: 0.10;
+}
+
+.sh-visual-rule-area {
+  container-type: inline-size;
+  container-name: visual-rule;
+  position: relative;
+}
+
+/* Calculate whitespace proportion based on container padding */
+.sh-whitespace-zone {
+  flex: 0 0 auto;
+  min-width: 16px;
+}
+
+.sh-info-zone {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.sh-controls-zone {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* When container is very narrow: stack vertically and shift proportions */
+@container visual-rule (max-width: 500px) {
+  .sh-visual-rule-row {
+    flex-direction: column;
+  }
+  .sh-info-zone {
+    width: 100%;
+  }
+  .sh-controls-zone {
+    width: 100%;
+    justify-content: flex-end;
+    padding-top: 8px;
+  }
+}
+
+/* Whitespace density classes */
+.sh-density-sparse {
+  --sh-density-padding: 24px;
+  --sh-density-gap: 16px;
+}
+.sh-density-comfortable {
+  --sh-density-padding: 16px;
+  --sh-density-gap: 12px;
+}
+.sh-density-compact {
+  --sh-density-padding: 12px;
+  --sh-density-gap: 8px;
+}
+.sh-density-dense {
+  --sh-density-padding: 8px;
+  --sh-density-gap: 4px;
+}
+
+/* Apply density on components */
+.sh-density-aware {
+  padding: var(--sh-density-padding, 16px);
+  gap: var(--sh-density-gap, 12px);
+}
+
+/* Adaptive surface — injects the 70/20/10 spacing into a flex row */
+.sh-adaptive-surface {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 12px;
+  container-type: inline-size;
+  container-name: surface;
+  width: 100%;
+}
+
 /* Print */
 @media print {
   .sh-no-print { display: none !important; }
   .sh-print-only { display: block !important; }
 }
 `;
+
+/**
+ * Calculate 70/20/10 visual proportions for a given container width.
+ *
+ * Uses a remainder-distribution approach so pixel proportions always
+ * sum back to the container width (no rounding drift).
+ *
+ * Returns the recommended pixel allocations for whitespace (padding),
+ * information area, and controls area.
+ */
+export function getVisualProportions(containerWidth: number): {
+  whitespacePx: number;
+  infoPx: number;
+  controlsPx: number;
+} {
+  const whitespacePx = Math.floor(containerWidth * 0.70);
+  const infoPx = Math.floor(containerWidth * 0.20);
+  const controlsPx = containerWidth - whitespacePx - infoPx;
+  return { whitespacePx, infoPx, controlsPx };
+}
 
 /**
  * Inject adaptive styles into document head.

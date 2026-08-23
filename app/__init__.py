@@ -700,6 +700,10 @@ def create_app(config_override: dict | None = None):
     from app.content_studio.routes import content_bp
     app.register_blueprint(content_bp)
 
+    # Campaign Management API — Workstream F
+    from app.campaign.routes import campaign_bp
+    app.register_blueprint(campaign_bp)
+
     # Deployment Diagnostics API
     from app.deploy_diagnostics.routes import deploy_bp
     app.register_blueprint(deploy_bp)

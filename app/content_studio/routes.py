@@ -212,7 +212,11 @@ def evaluate_inhibition(action_type: str, context: dict) -> dict:
 
 @content_bp.route("/inhibit", methods=["POST"])
 def api_inhibit():
-    """Evaluate a proposed action via the Universal Inhibition Layer."""
+    """Evaluate a proposed action via the Universal Inhibition Layer.
+
+    Can be called with basic session auth or, for higher-sensitivity actions,
+    with canonical permission checks.
+    """
     if not _require_auth():
         return jsonify({"success": False, "error": "Authentication required"}), 401
 
@@ -239,6 +243,55 @@ def api_inhibit():
     })
 
 
+@content_bp.route("/inhibit/authz", methods=["POST"])
+def api_inhibit_authz():
+    """Evaluate inhibition via canonical permission-based auth.
+
+    Uses the `authz.decorators.require_permission` chain so that SUIL
+    integrates with the canonical authorization engine rather than
+    bypassing it. Requires the 'admin.view_audit' permission.
+    """
+    from app.authz.decorators import require_permission, _resolve_identity, _resolve_org_id
+
+    # Apply the canonical permission check inline
+    identity = _resolve_identity()
+    if not identity:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    org_id = _resolve_org_id()
+    if not org_id:
+        return jsonify({"success": False, "error": "No organization selected"}), 400
+
+    from app.authz.services import check_permission
+    if not check_permission(org_id, identity, "admin.view_audit"):
+        return jsonify({
+            "success": False,
+            "error": "Forbidden: admin.view_audit permission required",
+        }), 403
+
+    data = request.get_json(silent=True) or {}
+    action_type = data.get("action_type", "")
+    if not action_type:
+        return jsonify({"success": False, "error": "action_type is required"}), 400
+
+    context = {
+        "tenant_id": org_id,
+        "identity_id": identity,
+        **{k: v for k, v in data.items() if k not in ("action_type",)},
+    }
+
+    decision = evaluate_inhibition(action_type, context)
+
+    return jsonify({
+        "success": True,
+        "action_type": action_type,
+        "allowed": decision["allowed"],
+        "level": decision["level"],
+        "level_label": LEVELS.get(decision["level"], "UNKNOWN"),
+        "reason": decision["reason"],
+        "authz_gate": "admin.view_audit",
+    })
+
+
 @content_bp.route("/health", methods=["GET"])
 def api_health():
     """Health check."""
@@ -252,5 +305,6 @@ def api_health():
             "POST /api/v1/content/history/<id>/favorite",
             "DELETE /api/v1/content/history/<id>",
             "POST /api/v1/content/inhibit",
+            "POST /api/v1/content/inhibit/authz",
         ],
     })
