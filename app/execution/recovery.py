@@ -134,3 +134,79 @@ class RecoveryOrchestrator:
             return {"success": False, "error": f"Object #{obj_id} not found"}
 
         return {"success": False, "error": f"Unknown action: {action_type}"}
+
+    # ── Hierarchy-aware recovery (canonical contract) ────────────────
+    # RecoveryOrchestrator exposes a hierarchy fallback: when an action
+    # fails, it can build an alternative strategy and validate the result.
+    # These methods extend execute_with_retry with hierarchy semantics.
+
+    def execute_with_hierarchy(
+        self,
+        action: dict,
+        identity_id: str = "",
+        max_depth: int = 2,
+    ) -> tuple[bool, dict, list]:
+        """Execute an action with hierarchical fallback strategies.
+
+        Attempts the primary action; on failure, builds an alternative
+        strategy (_build_alternative) and retries. Validates results
+        with _validate_result. Returns (success, result, recovery_log).
+        """
+        recovery_log = []
+        current = action
+        for depth in range(max_depth + 1):
+            try:
+                success, result, retry_log = self.execute_with_retry(
+                    current, max_attempts=3
+                )
+                recovery_log.extend(retry_log)
+                if success and self._validate_result(result):
+                    return True, result, recovery_log
+                # Record the failed level before falling back
+                recovery_log.append({
+                    "level": depth + 1,
+                    "strategy": "fallback",
+                    "success": False,
+                    "error": "result validation failed",
+                    "timestamp": time.time(),
+                })
+            except Exception as e:
+                recovery_log.append({
+                    "level": depth + 1,
+                    "strategy": "fallback",
+                    "success": False,
+                    "error": str(e),
+                    "timestamp": time.time(),
+                })
+            if depth < max_depth:
+                current = self._build_alternative(action, depth)
+        return False, {"success": False, "error": "All hierarchy levels exhausted"}, recovery_log
+
+    def _build_alternative(self, action: dict, depth: int) -> dict:
+        """Build an alternative strategy for the failed action at depth.
+
+        Falls back from 'create_object' to 'update_object' semantics
+        or reduces to a simpler generic action, never bypassing the
+        canonical execution authority.
+        """
+        alt = dict(action)
+        alt["data"] = dict(action.get("data", {}))
+        if action.get("action") == "create_object" and depth == 0:
+            alt["action"] = "update_object"
+            alt["id"] = action.get("data", {}).get("id")
+        else:
+            alt["action"] = action.get("action", "update_object")
+        alt["data"]["fallback_depth"] = depth
+        return alt
+
+    def _validate_result(self, result: dict) -> bool:
+        """Validate an execution result is complete and truthful."""
+        if not isinstance(result, dict):
+            return False
+        if result.get("success") is False:
+            return False
+        data = result.get("data", {})
+        if result.get("error"):
+            return False
+        # A successful result must carry an id or explicit success marker
+        return bool(data) or result.get("success") is True

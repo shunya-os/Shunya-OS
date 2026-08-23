@@ -76,3 +76,42 @@ class Outcome(db.Model):
 
     def __repr__(self) -> str:
         return f"<Outcome {self.outcome_id}>"
+
+    # ── Lifecycle accessors (canonical contract) ─────────────────────
+    # The Outcome persists state in the `state` JSON column (single source
+    # of truth). These read-only properties expose the lifecycle fields
+    # of that JSON so consumers can use typed access without duplicating
+    # storage. Production callers writing state MUST write to state["..."].
+    # (CANONICAL_CONTRACT: state JSON = authority; properties = view.)
+
+    @property
+    def stage(self) -> str:
+        return (self.state or {}).get("stage", "pending")
+
+    @property
+    def steps(self) -> list:
+        return (self.state or {}).get("steps", [])
+
+    @property
+    def recovery_history(self) -> list:
+        return (self.state or {}).get("recovery_history", [])
+
+    @property
+    def final_summary(self) -> str:
+        return (self.state or {}).get("final_summary", "")
+
+    @property
+    def last_error(self) -> str:
+        return (self.state or {}).get("last_error", "")
+
+    @property
+    def error_count(self) -> int:
+        return (self.state or {}).get("error_count", 0)
+
+    @property
+    def expected_completion_seconds(self) -> float:
+        return (self.state or {}).get("expected_completion_seconds", 0.0)
+
+    @property
+    def actual_completion_seconds(self) -> float:
+        return (self.state or {}).get("actual_completion_seconds", 0.0)

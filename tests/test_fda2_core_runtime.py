@@ -42,8 +42,17 @@ def app_context():
     _db.init_app(app)
     
     with app.app_context():
-        # Import models to ensure they're registered before create_all
+        # Import ALL models to ensure they're registered before create_all
+        # (persons.tenant_id FK references tenants table; missing model
+        # registration caused NoReferencedTableError)
+        from app import models  # noqa
+        from app.tenant import Tenant  # noqa
+        from app.auth import TeamMember  # noqa
+        from app.models import Person  # noqa
         from app.evidence.models_db import EvidenceRecord  # noqa
+        from app.execution.models import Outcome, IdempotencyRecord  # noqa
+        from app.execution_log.models import ExecutionLog  # noqa
+        from app.objects.models import Object  # noqa
         _db.create_all()
         yield app
         session = get_session()
