@@ -542,3 +542,70 @@ def get_conversation(conv_id):
     except Exception as e:
         logger.warning(f'Get conversation error: {e}')
         return jsonify({'error': str(e)}), 500
+
+
+@ai_bp.route('/save-output', methods=['POST'])
+def save_output():
+    """Save an AI response as an actionable organisational object.
+
+    POST /api/v1/ai/save-output
+    {
+        "conversation_id": "conv_xxx",
+        "content": "AI response text to save",
+        "output_type": "task|note|proposal|document",
+        "title": "Optional title"
+    }
+
+    Creates an Outcome + ExecutionLog entry so the output is
+    discoverable through execution visibility APIs.
+    """
+    data = request.get_json(silent=True) or {}
+    conversation_id = data.get('conversation_id', '')
+    content = data.get('content', '').strip()
+    output_type = data.get('output_type', 'task')
+    title = data.get('title', '') or content[:80]
+
+    if not content:
+        return jsonify({'error': 'content is required'}), 400
+
+    from flask import session as flask_session
+    tenant_id = flask_session.get('tenant_id', flask_session.get('current_org_id', 0))
+    identity_id = str(flask_session.get('identity_id', flask_session.get('user_id', '')))
+
+    try:
+        from app.execution.models import Outcome
+        from app import db as _db
+        import uuid as _uuid
+        from datetime import datetime, timezone
+
+        outcome_id = f"out_{_uuid.uuid4().hex[:12]}"
+        now = datetime.now(timezone.utc)
+
+        outcome = Outcome(
+            outcome_id=outcome_id,
+            identity_id=identity_id or 'anonymous',
+            intention=title[:500],
+            state={
+                'type': output_type or 'task',
+                'conversation_id': conversation_id,
+                'description': content[:2000],
+                'source': 'ai_chat',
+            },
+            created_at=now,
+            updated_at=now,
+        )
+        _db.session.add(outcome)
+        _db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'outcome_id': outcome_id,
+                'type': output_type or 'task',
+                'title': title,
+                'conversation_id': conversation_id,
+            }
+        })
+    except Exception as e:
+        logger.error(f'Save output error: {e}')
+        return jsonify({'error': str(e)}), 500
