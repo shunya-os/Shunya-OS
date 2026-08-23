@@ -9,6 +9,10 @@ import pytest
 
 @pytest.fixture
 def app():
+    import os
+    # Enable CORS for test — verifies CORS headers are correctly set
+    # when cross-origin access is configured (SEC-00 §5)
+    os.environ.setdefault("CORS_ALLOWED_ORIGINS", "https://shunya.app")
     from app import create_app
     application = create_app({"TESTING": True})
     return application

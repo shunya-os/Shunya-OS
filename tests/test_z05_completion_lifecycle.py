@@ -30,7 +30,7 @@ app = create_app(config_override={
 
 results = {"pass": 0, "fail": 0, "tests": []}
 
-def test(name, passed, detail=""):
+def _record(name, passed, detail=""):
     results["tests"].append({"name": name, "passed": passed, "detail": detail})
     if passed:
         results["pass"] += 1
@@ -67,13 +67,13 @@ with app.app_context():
         "conversation_id": "conv_test_001",
     })
     data = resp.get_json(silent=True) or {}
-    test("AI chat responds 200", resp.status_code == 200, f"got {resp.status_code}")
-    test("AI chat has content", bool(data.get("content")), "empty content")
-    test("AI chat has command linkage", bool(data.get("command")), f"missing command block")
+    _record("AI chat responds 200", resp.status_code == 200, f"got {resp.status_code}")
+    _record("AI chat has content", bool(data.get("content")), "empty content")
+    _record("AI chat has command linkage", bool(data.get("command")), f"missing command block")
     if data.get("command"):
         cmd = data["command"]
-        test("Command has outcome_id", bool(cmd.get("outcome_id")), str(cmd))
-        test("Command has drilldown", bool(cmd.get("drilldown")), str(cmd))
+        _record("Command has outcome_id", bool(cmd.get("outcome_id")), str(cmd))
+        _record("Command has drilldown", bool(cmd.get("drilldown")), str(cmd))
     
     # ═══════════════════════════════════════════════════════════════
     # SCENARIO 2: Question does NOT create command (correct isolation)
@@ -83,8 +83,8 @@ with app.app_context():
         "messages": [{"role": "user", "content": "What is the status of our sales pipeline?"}],
     })
     data2 = resp2.get_json(silent=True) or {}
-    test("Question responds 200", resp2.status_code == 200)
-    test("Question has no command linkage", not data2.get("command"), f"unexpected command block: {data2.get('command')}")
+    _record("Question responds 200", resp2.status_code == 200)
+    _record("Question has no command linkage", not data2.get("command"), f"unexpected command block: {data2.get('command')}")
     
     # ═══════════════════════════════════════════════════════════════
     # SCENARIO 3: Output discoverability — check execution endpoints
@@ -93,15 +93,15 @@ with app.app_context():
     resp3 = client.get("/api/v1/execution/work")
     data3 = resp3.get_json(silent=True) or {}
     work_items = data3.get("data", {}).get("items", [])
-    test("Execution work endpoint responds 200", resp3.status_code == 200)
-    test("Work has outcome from command", any(
+    _record("Execution work endpoint responds 200", resp3.status_code == 200)
+    _record("Work has outcome from command", any(
         "Test" in str(item) or "proposal" in str(item).lower()
         for item in work_items
     ), f"got {len(work_items)} items: {json.dumps(work_items[:2])[:200]}")
     
     resp3b = client.get("/api/v1/execution/outputs")
     data3b = resp3b.get_json(silent=True) or {}
-    test("Execution outputs endpoint responds 200", resp3b.status_code == 200)
+    _record("Execution outputs endpoint responds 200", resp3b.status_code == 200)
     
     # ═══════════════════════════════════════════════════════════════
     # SCENARIO 4: Conversation persistence (refresh recovery)
@@ -113,21 +113,21 @@ with app.app_context():
     })
     data4 = resp4.get_json(silent=True) or {}
     conv_id = data4.get("data", {}).get("conversation_id")
-    test("Conversation created", bool(conv_id), str(conv_id))
+    _record("Conversation created", bool(conv_id), str(conv_id))
     
     # Send a message in the conversation
     resp4b = client.post(f"/api/v1/communication/conversations/{conv_id}/messages", json={
         "body": "Create a proposal for the new client engagement",
         "role": "user",
     })
-    test("Message posted", resp4b.status_code == 201, str(resp4b.status_code))
+    _record("Message posted", resp4b.status_code == 201, str(resp4b.status_code))
     
     # Simulate refresh: re-fetch conversation
     resp4c = client.get(f"/api/v1/communication/conversations/{conv_id}")
     data4c = resp4c.get_json(silent=True) or {}
     timeline = data4c.get("data", {}).get("timeline", [])
-    test("Refresh: conversation persists", resp4c.status_code == 200)
-    test("Refresh: message persists", len(timeline) >= 1, f"got {len(timeline)} timeline entries")
+    _record("Refresh: conversation persists", resp4c.status_code == 200)
+    _record("Refresh: message persists", len(timeline) >= 1, f"got {len(timeline)} timeline entries")
     
     # ═══════════════════════════════════════════════════════════════
     # SCENARIO 5: Intelligence ask via AI (analysis output)
@@ -137,8 +137,8 @@ with app.app_context():
         "question": "What is the current status of our sales pipeline?",
     })
     data5 = resp5.get_json(silent=True) or {}
-    test("Intelligence ask responds 200", resp5.status_code == 200, f"got {resp5.status_code}")
-    test("Intelligence has answer", bool(data5.get("answer")), "missing answer")
+    _record("Intelligence ask responds 200", resp5.status_code == 200, f"got {resp5.status_code}")
+    _record("Intelligence has answer", bool(data5.get("answer")), "missing answer")
     
     # ═══════════════════════════════════════════════════════════════
     # SCENARIO 6: Random indirect retrieval (future query)
@@ -146,9 +146,9 @@ with app.app_context():
     print("\n=== SCENARIO 6: Memory retrieval ===")
     resp6 = client.get("/api/v1/memory/entries")
     data6 = resp6.get_json(silent=True) or {}
-    test("Memory entries responds 200", resp6.status_code == 200)
+    _record("Memory entries responds 200", resp6.status_code == 200)
     entries = data6.get("data", {}).get("entries", [])
-    test("Memory has command entries from AI execution", 
+    _record("Memory has command entries from AI execution", 
          any("command" in str(e.get("key","")) for e in entries) or 
          any("outcome" in str(e.get("key","")) for e in entries) or
          any("task" in str(e.get("key","")) for e in entries),
@@ -156,7 +156,7 @@ with app.app_context():
     
     resp6b = client.get("/api/v1/memory/knowledge")
     data6b = resp6b.get_json(silent=True) or {}
-    test("Memory knowledge responds 200", resp6b.status_code == 200)
+    _record("Memory knowledge responds 200", resp6b.status_code == 200)
     
     # ═══════════════════════════════════════════════════════════════
     # SCENARIO 7: Founder AI health
@@ -164,8 +164,8 @@ with app.app_context():
     print("\n=== SCENARIO 7: Founder AI ===")
     resp7 = client.get("/api/v1/founder/ai/health")
     data7 = resp7.get_json(silent=True) or {}
-    test("Founder AI health responds 200", resp7.status_code == 200, f"got {resp7.status_code}")
-    test("Founder AI is healthy", data7.get("data", {}).get("status") == "healthy", str(data7))
+    _record("Founder AI health responds 200", resp7.status_code == 200, f"got {resp7.status_code}")
+    _record("Founder AI is healthy", data7.get("data", {}).get("status") == "healthy", str(data7))
     
     # ═══════════════════════════════════════════════════════════════
     # SUMMARY
