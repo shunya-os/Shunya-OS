@@ -15,7 +15,7 @@
 #   6. Build frontend
 #   7. Run migration check (with backup)
 #   8. Apply migration
-#   9. Restart service
+#   9. Restart service via systemctl (canonical process manager)
 #  10. Readiness check
 #  11. Health check
 #  12. Smoke test
@@ -32,6 +32,14 @@ DEPLOY_LOG="/var/log/shunya/deploy-${TIMESTAMP}.log"
 BACKUP_DIR="/var/backups/shunya/${TIMESTAMP}"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] SHUNYA deployment started: ${ENVIRONMENT}" | tee -a "${DEPLOY_LOG}"
+
+# ---- Validate target SHA format ----
+if [[ -n "${TARGET_SHA}" ]]; then
+    if ! [[ "${TARGET_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+        echo "ERROR: Invalid target SHA format: ${TARGET_SHA}" | tee -a "${DEPLOY_LOG}"
+        exit 1
+    fi
+fi
 
 # ---- Environment validation ----
 if [[ ! -f "${DEPLOY_DIR}/.env" && "${ENVIRONMENT}" == "production" ]]; then
@@ -53,12 +61,18 @@ echo "  Previous SHA: ${PREVIOUS_SHA}" | tee -a "${DEPLOY_LOG}"
 
 # ---- Step 2: Fetch canonical remote ----
 echo "[2/12] Fetching canonical remote..." | tee -a "${DEPLOY_LOG}"
-git fetch origin master 2>&1 | tee -a "${DEPLOY_LOG}"
+if ! git fetch origin master 2>&1 | tee -a "${DEPLOY_LOG}"; then
+    echo "ERROR: git fetch failed — cannot reach remote repository" | tee -a "${DEPLOY_LOG}"
+    exit 1
+fi
 
 # ---- Step 3: Checkout exact certified SHA ----
 if [[ -n "${TARGET_SHA}" ]]; then
     echo "[3/12] Checking out exact certified SHA: ${TARGET_SHA}" | tee -a "${DEPLOY_LOG}"
-    git checkout "${TARGET_SHA}" 2>&1 | tee -a "${DEPLOY_LOG}"
+    if ! git checkout "${TARGET_SHA}" 2>&1 | tee -a "${DEPLOY_LOG}"; then
+        echo "ERROR: Failed to checkout SHA ${TARGET_SHA} — SHA may not exist in repository" | tee -a "${DEPLOY_LOG}"
+        exit 1
+    fi
 else
     echo "[3/12] No target SHA provided — using remote master head" | tee -a "${DEPLOY_LOG}"
     git checkout master 2>&1 | tee -a "${DEPLOY_LOG}"
@@ -68,25 +82,43 @@ fi
 DEPLOYED_SHA=$(git rev-parse HEAD)
 echo "  Deployed SHA: ${DEPLOYED_SHA}" | tee -a "${DEPLOY_LOG}"
 
+# Verify target SHA matches deployed SHA when target was provided
+if [[ -n "${TARGET_SHA}" && "${DEPLOYED_SHA}" != "${TARGET_SHA}" ]]; then
+    echo "ERROR: Deployed SHA (${DEPLOYED_SHA}) does not match target SHA (${TARGET_SHA})" | tee -a "${DEPLOY_LOG}"
+    echo "ROLLBACK: checkout ${PREVIOUS_SHA} and restart to roll back" | tee -a "${DEPLOY_LOG}"
+    exit 1
+fi
+
 # ---- Step 4: Verify clean intended state ----
 echo "[4/12] Verifying working tree..." | tee -a "${DEPLOY_LOG}"
 if [[ -n "$(git status --porcelain)" ]]; then
     echo "WARNING: Working tree not clean after checkout:" | tee -a "${DEPLOY_LOG}"
     git status --porcelain | tee -a "${DEPLOY_LOG}"
+    echo "ERROR: Deploying from a dirty working tree is not allowed" | tee -a "${DEPLOY_LOG}"
+    exit 1
 fi
 
 # ---- Step 5: Install deterministic dependencies ----
 echo "[5/12] Installing dependencies..." | tee -a "${DEPLOY_LOG}"
 source .venv/bin/activate
-pip install --no-cache-dir -r requirements.txt 2>&1 | tee -a "${DEPLOY_LOG}"
+if ! pip install --no-cache-dir -r requirements.txt 2>&1 | tee -a "${DEPLOY_LOG}"; then
+    echo "ERROR: Dependency installation failed" | tee -a "${DEPLOY_LOG}"
+    exit 1
+fi
 
 # ---- Step 6: Build frontend ----
 echo "[6/12] Building frontend..." | tee -a "${DEPLOY_LOG}"
 if [ -d "frontend" ] && [ -f "frontend/package.json" ]; then
     (
         cd frontend
-        npm install --legacy-peer-deps 2>&1 | tee -a "${DEPLOY_LOG}"
-        npm run build 2>&1 | tee -a "${DEPLOY_LOG}"
+        if ! npm install --legacy-peer-deps 2>&1 | tee -a "${DEPLOY_LOG}"; then
+            echo "ERROR: Frontend dependency install failed" | tee -a "${DEPLOY_LOG}"
+            exit 1
+        fi
+        if ! npm run build 2>&1 | tee -a "${DEPLOY_LOG}"; then
+            echo "ERROR: Frontend build failed" | tee -a "${DEPLOY_LOG}"
+            exit 1
+        fi
     )
 else
     echo "  SKIP: No frontend directory found" | tee -a "${DEPLOY_LOG}"
@@ -104,7 +136,7 @@ if [ -f "alembic.ini" ]; then
         mkdir -p "${BACKUP_DIR}"
         if command -v pg_dump &> /dev/null; then
             source .env 2>/dev/null || true
-            pg_dump "postgresql://shunya:${DATABASE_URL_PASSWORD}@localhost:5432/shunya_os" \
+            pg_dump "postgresql://shunya:***@localhost:5432/shunya_os" \
                 > "${BACKUP_DIR}/predeploy.sql.gz" 2>/dev/null || \
                 pg_dump postgresql://shunya@localhost:5432/shunya_os \
                 | gzip > "${BACKUP_DIR}/predeploy.sql.gz" 2>/dev/null || \
@@ -118,36 +150,35 @@ fi
 # ---- Step 8: Apply migration ----
 echo "[8/12] Applying migrations..." | tee -a "${DEPLOY_LOG}"
 if [ -f "alembic.ini" ]; then
-    alembic upgrade head 2>&1 | tee -a "${DEPLOY_LOG}"
-    echo "  Migrations applied: exit $?" | tee -a "${DEPLOY_LOG}"
+    if ! alembic upgrade head 2>&1 | tee -a "${DEPLOY_LOG}"; then
+        echo "ERROR: Migration failed" | tee -a "${DEPLOY_LOG}"
+        echo "ROLLBACK: checkout ${PREVIOUS_SHA} and restart to roll back" | tee -a "${DEPLOY_LOG}"
+        exit 1
+    fi
+    echo "  Migrations applied successfully" | tee -a "${DEPLOY_LOG}"
 else
     echo "  SKIP: No alembic.ini found" | tee -a "${DEPLOY_LOG}"
 fi
 
-# ---- Step 9: Restart service ----
-echo "[9/12] Restarting application..." | tee -a "${DEPLOY_LOG}"
+# ---- Step 9: Restart service (canonical path: systemctl) ----
+echo "[9/12] Restarting application via systemctl..." | tee -a "${DEPLOY_LOG}"
+# The canonical production process manager is systemd. shunya-deploy has NOPASSWD
+# sudo for systemctl restart/stop/start/status shunya (configured via sudoers).
 if command -v systemctl &> /dev/null; then
     if sudo -n systemctl restart shunya 2>&1 | tee -a "${DEPLOY_LOG}"; then
         echo "  Restart via systemctl succeeded" | tee -a "${DEPLOY_LOG}"
     else
-        echo "  WARNING: systemctl restart failed (no sudo). Trying gunicorn kill+HUP..." | tee -a "${DEPLOY_LOG}"
-        # Fallback: kill gunicorn master directly and restart via nohup
-        PID_FILE="/var/run/shunya.pid"
-        if [ -f "$PID_FILE" ]; then
-            kill -HUP "$(cat "$PID_FILE")" 2>/dev/null || true
-        fi
-        # Direct pkill fallback
-        pkill -f "gunicorn.*5001" 2>/dev/null && sleep 3 || true
-        cd "${DEPLOY_DIR}"
-        source .venv/bin/activate 2>/dev/null
-        nohup gunicorn --bind 127.0.0.1:5001 --workers 3 --timeout 60 --access-logfile - --error-logfile - wsgi:app > /tmp/gunicorn_deploy.log 2>&1 &
-        echo "  Restart via gunicorn background fallback" | tee -a "${DEPLOY_LOG}"
+        echo "ERROR: systemctl restart shunya failed." | tee -a "${DEPLOY_LOG}"
+        echo "  Check: sudoers entry for shunya-deploy (systemctl NOPASSWD)" | tee -a "${DEPLOY_LOG}"
+        echo "  Check: systemctl status shunya for error details" | tee -a "${DEPLOY_LOG}"
+        echo "ROLLBACK: checkout ${PREVIOUS_SHA} and run: sudo systemctl restart shunya" | tee -a "${DEPLOY_LOG}"
+        exit 1
     fi
 elif command -v docker-compose &> /dev/null; then
     docker-compose up -d --build --no-deps web 2>&1 | tee -a "${DEPLOY_LOG}"
 else
-    echo "  WARNING: No known restart mechanism. Reload gunicorn manually."
-    echo "  kill -HUP $(cat /var/run/shunya.pid 2>/dev/null || echo '<pid>')"
+    echo "ERROR: No known production process manager (systemctl not found)" | tee -a "${DEPLOY_LOG}"
+    exit 1
 fi
 
 # ---- Step 10: Readiness check ----
@@ -186,6 +217,7 @@ echo "[12/12] Running smoke test..." | tee -a "${DEPLOY_LOG}"
 GIT_COMMIT_IN_HEALTH=$(echo "${HEALTH_RESPONSE}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('git_commit',''))" 2>/dev/null || echo "")
 if [ -n "${GIT_COMMIT_IN_HEALTH}" ] && [ "${GIT_COMMIT_IN_HEALTH}" != "${DEPLOYED_SHA}" ]; then
     echo "ERROR: Deployed build mismatch. Health reports ${GIT_COMMIT_IN_HEALTH}, repo at ${DEPLOYED_SHA}" | tee -a "${DEPLOY_LOG}"
+    echo "ROLLBACK: checkout ${PREVIOUS_SHA} and restart to roll back" | tee -a "${DEPLOY_LOG}"
     exit 1
 fi
 echo "  Build provenance verified: ${DEPLOYED_SHA}" | tee -a "${DEPLOY_LOG}"

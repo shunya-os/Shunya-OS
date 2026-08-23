@@ -1,0 +1,15 @@
+# SHUNYA Production Sudoers Configuration
+#
+# Install this file so the deploy user can restart the production service
+# without interactive password prompts (required for CI/CD deploys).
+#
+# Installation:
+#   sudo cp infrastructure/scripts/shunya-sudoers /etc/sudoers.d/shunya-deploy
+#   sudo chmod 440 /etc/sudoers.d/shunya-deploy
+#   sudo visudo -c -f /etc/sudoers.d/shunya-deploy
+#
+# Verify:
+#   sudo -l -U shunya-deploy
+#   Should show: (ALL) NOPASSWD: /usr/bin/systemctl * shunya
+
+shunya-deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart shunya, /usr/bin/systemctl stop shunya, /usr/bin/systemctl start shunya, /usr/bin/systemctl status shunya

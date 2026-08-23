@@ -7,6 +7,10 @@ on:
       - completed
     branches: [main, master]
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
 jobs:
   deploy:
     name: Deploy to Production
@@ -29,6 +33,7 @@ jobs:
           script: |
             cd /home/shunya-deploy/shunya_os
             bash infrastructure/scripts/deploy.sh production ${{ github.event.workflow_run.head_sha }}
+          script_stop: true
 
       - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.3
