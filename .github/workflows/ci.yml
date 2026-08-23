@@ -16,6 +16,7 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: |
+          set -o pipefail
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-cov
@@ -37,6 +38,7 @@ jobs:
           "
       - name: Run verification tests
         run: |
+          set -o pipefail
           PYTHONPATH=$PWD python -m pytest \
             core/relationship_intelligence/verify_ucp02.py \
             core/financial_intelligence/verify_ucp03.py \
@@ -59,6 +61,7 @@ jobs:
             -v --tb=short -q
       - name: Verify provider adapters import
         run: |
+          set -o pipefail
           PYTHONPATH=$PWD python -c "
           from adapters import DOCUMENT_ADAPTERS, IMAGE_ADAPTERS, INFRA_ADAPTERS
           print(f'Adapters: doc={len(DOCUMENT_ADAPTERS)}, img={len(IMAGE_ADAPTERS)}, infra={len(INFRA_ADAPTERS)}')
@@ -79,5 +82,13 @@ jobs:
         env:
           DISABLE_RATE_LIMIT: "1"
           FLASK_ENV: testing
+          SHUNYA_AI_PROVIDERS: "local"
         run: |
-          PYTHONPATH=$PWD python -m pytest tests/ -q --tb=short 2>&1 | tail -10
+          set -o pipefail
+          PYTHONPATH=$PWD python -m pytest tests/ -q --tb=short
+      - name: Frontend build
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          npm install --legacy-peer-deps
+          npm run build
