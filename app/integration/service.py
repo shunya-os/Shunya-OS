@@ -771,16 +771,22 @@ Topic/Task: {prompt}
 Generate the content now:"""
 
     try:
-        # Try using the SHUNYA AI provider
-        from app.ai.provider import get_ai_response
-        result = get_ai_response(
-            system_prompt=system_prompt,
-            user_prompt=full_prompt,
-            max_tokens=min(word_count * 4, 2048),
+        # Try using the SHUNYA AI provider chain directly
+        from app.ai.provider import resolve_provider
+        provider = resolve_provider()
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": full_prompt},
+        ]
+        result = provider.complete(
+            messages=messages,
             temperature=0.7,
+            max_tokens=min(word_count * 4, 2048),
         )
         if result and result.get("content"):
             return {"success": True, "content": result["content"], "error": None}
+        if result and result.get("finish_reason") == "error":
+            return {"success": False, "content": None, "error": result.get("error", "Provider error")}
         return {"success": False, "content": None, "error": "AI provider returned empty response"}
     except ImportError:
         # Fallback: try the AI chat route
