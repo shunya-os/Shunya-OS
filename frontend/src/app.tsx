@@ -201,11 +201,29 @@ function AppShell() {
     }
   };
 
-  const handleEnterApp = () => {
+  const handleEnterApp = async () => {
     const saved = SessionManager.load();
     if (saved) {
       bootstrap();
     } else {
+      // Try restoring from backend Flask session cookie
+      try {
+        const r = await fetch('/api/v1/auth/session', { credentials: 'include' });
+        if (r.ok) {
+          const data = await r.json();
+          if (data.authenticated) {
+            SessionManager.save({
+              identityId: data.identity_id || '',
+              email: data.email || '',
+              name: data.name || '',
+              orgId: String(data.org_id || ''),
+              orgName: data.org_name || '',
+            });
+            bootstrap();
+            return;
+          }
+        }
+      } catch { /* No backend session — show login */ }
       setPhase('login');
     }
   };
@@ -226,8 +244,33 @@ function AppShell() {
       } else {
         setPhase('onboarding');
       }
+    } else {
+      // Try restoring from backend Flask session cookie
+      (async () => {
+        try {
+          const r = await fetch('/api/v1/auth/session', { credentials: 'include' });
+          if (r.ok) {
+            const data = await r.json();
+            if (data.authenticated) {
+              SessionManager.save({
+                identityId: data.identity_id || '',
+                email: data.email || '',
+                name: data.name || '',
+                orgId: String(data.org_id || ''),
+                orgName: data.org_name || '',
+              });
+              if (isOnboardingComplete()) {
+                bootstrap();
+              } else {
+                setPhase('onboarding');
+              }
+              return;
+            }
+          }
+        } catch { /* No backend session — stay on public page */ }
+        // Otherwise stay on public homepage
+      })();
     }
-    // Otherwise stay on public homepage
   }, []);
 
   // ── Auth Router ──

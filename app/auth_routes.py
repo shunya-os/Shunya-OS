@@ -426,3 +426,69 @@ def gmail_disconnect(source_id):
     else:
         flash("Could not disconnect account", "error")
     return redirect(url_for("main.settings"))
+
+
+@auth_bp.route("/api/v1/auth/session", methods=["GET"])
+def session_restore():
+    """Return current session identity from Flask session cookie.
+
+    This endpoint is called on page load to restore the user's identity
+    across tab/refresh boundaries. The Flask signed cookie persists
+    across browser sessions within the cookie lifetime.
+
+    Returns:
+        200: { authenticated: true, identity_id, org_id, org_name, email, name }
+        401: { authenticated: false }
+    """
+    import json
+    from app.models import Organization, OrgMember
+
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"authenticated": False}), 401
+
+    from app.auth import TeamMember
+    member = db.session.get(TeamMember, user_id)
+    if not member or not member.is_active:
+        session.clear()
+        return jsonify({"authenticated": False}), 401
+
+    # Resolve identity_id and current_org_id (mirrors _resolve_identity_session)
+    identity_id = session.get("identity_id", "")
+    current_org_id = session.get("current_org_id", 0)
+    org_name = ""
+
+    if not identity_id:
+        # Try resolving from OrgMember
+        org_members = OrgMember.query.filter_by(email=member.email, is_active=True).all()
+        if org_members:
+            org_counts = {}
+            for om in org_members:
+                cnt = OrgMember.query.filter_by(
+                    organization_id=om.organization_id, is_active=True
+                ).count()
+                org_counts[om.organization_id] = cnt
+            best_org_id = max(org_counts, key=org_counts.get)
+            identity_id = next(
+                om.identity_id
+                for om in org_members
+                if om.organization_id == best_org_id
+            )
+            current_org_id = best_org_id
+            session["identity_id"] = identity_id
+            session["current_org_id"] = current_org_id
+
+    if current_org_id:
+        org = db.session.get(Organization, current_org_id)
+        if org:
+            org_name = org.name
+
+    return jsonify({
+        "authenticated": True,
+        "identity_id": identity_id,
+        "user_id": user_id,
+        "org_id": current_org_id,
+        "org_name": org_name,
+        "email": member.email,
+        "name": member.name,
+    })
