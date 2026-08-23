@@ -85,10 +85,9 @@ instance/
 # Uploaded media
 media/
 
-# Coverage, logs, audit, invoices
+# Coverage, logs, invoices
 .coverage
 logs/
-audit/
 !frontend/src/components/audit/
 axe-results/
 axe-*.mjs

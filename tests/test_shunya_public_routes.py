@@ -1,17 +1,10 @@
-"""Route tests for SHUNYA public audit PDF endpoints (shunya_public.py)."""
+"""Route tests for SHUNYA public audit PDF endpoints (shunya_public.py).
+
+NOTE: These tests use the full conftest.py app fixture rather than a minimal
+Flask app, ensuring the application blueprints are properly registered and
+the audit/ directory is accessible relative to the project root.
+"""
 import pytest
-from flask import Flask
-from app.shunya_public import shunya_bp
-
-
-@pytest.fixture()
-def client():
-    app = Flask(__name__)
-    app.secret_key = "test"
-    app.register_blueprint(shunya_bp)
-    with app.test_client() as c:
-        yield c
-
 
 AUDIT_PDFS = [
     "/audit/lx06",
@@ -28,7 +21,7 @@ AUDIT_PDFS = [
 @pytest.mark.parametrize("path", AUDIT_PDFS)
 def test_audit_pdf_serves_valid_pdf(client, path):
     r = client.get(path)
-    assert r.status_code == 200
+    assert r.status_code == 200, f"Expected 200 for {path}, got {r.status_code}"
     assert r.mimetype == "application/pdf"
     assert r.data[:4] == b"%PDF"
     assert len(r.data) > 1000
@@ -51,7 +44,7 @@ GENERIC_PDFS = [
 @pytest.mark.parametrize("path", GENERIC_PDFS)
 def test_generic_audit_route_serves_cdr(client, path):
     r = client.get(path)
-    assert r.status_code == 200
+    assert r.status_code == 200, f"Expected 200 for {path}, got {r.status_code}"
     assert r.mimetype == "application/pdf"
     assert r.data[:4] == b"%PDF"
     assert len(r.data) > 1000

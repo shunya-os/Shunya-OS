@@ -13,6 +13,32 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Redis is required for realtime/cross-worker delivery certification tests.
+    # PostgreSQL on port 5433 is required for test_prod06_process_isolation
+    # (dedicated test PG cluster with CREATEDB privilege).
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shunya
+          POSTGRES_DB: shunya_test_prod06
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U shunya -d shunya_test_prod06"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -88,6 +114,7 @@ jobs:
           DISABLE_RATE_LIMIT: "1"
           FLASK_ENV: testing
           SHUNYA_AI_PROVIDERS: "local"
+          REDIS_URL: "redis://127.0.0.1:6379"
         run: |
           set -o pipefail
           PYTHONPATH=$PWD python -m pytest tests/ -q --tb=short
