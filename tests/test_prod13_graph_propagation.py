@@ -24,6 +24,8 @@ def test_a_to_b_to_c_propagation(app, client):
     with app.app_context():
         # Create three objects
         r_a = client.post('/api/v1/objects/', json={'type': 'entity', 'state': {}})
+        a_data = r_a.get_json()
+        a_id = a_data.get('object_id') or a_data.get('id')
         a_id = r_a.get_json()['id']
         r_b = client.post('/api/v1/objects/', json={
             'type': 'entity',

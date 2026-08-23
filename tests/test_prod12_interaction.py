@@ -23,7 +23,7 @@ def test_multi_object_interaction(app, client):
         r = client.post('/api/v1/objects/', json={'type': 'entity', 'state': {}})
         assert r.status_code in (200, 201), f"Create A failed: {r.get_json()}"
         a_data = r.get_json()
-        a_id = a_data['id']
+        a_id = a_data.get('object_id') or a_data.get('id')
         print(f"\n=== STEP 1: Created Object A (id={a_id}) ===")
         print(f"Initial state: {json.dumps(a_data.get('state', {}), indent=2)}")
 

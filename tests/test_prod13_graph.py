@@ -14,7 +14,7 @@ sys.path.insert(0, '.')
 def _create(client, state):
     r = client.post('/api/v1/objects/', json={'type': 'entity', 'state': state})
     assert r.status_code in (200, 201), f"Create failed: {r.get_json()}"
-    return r.get_json()['id']
+    return r.get_json().get('object_id') or r.get_json().get('id')
 
 
 def _print(label, obj):
