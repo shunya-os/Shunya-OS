@@ -111,7 +111,7 @@ echo "[6/12] Building frontend..." | tee -a "${DEPLOY_LOG}"
 if [ -d "frontend" ] && [ -f "frontend/package.json" ]; then
     (
         cd frontend
-        if ! npm install --legacy-peer-deps 2>&1 | tee -a "${DEPLOY_LOG}"; then
+        if ! npm ci 2>&1 | tee -a "${DEPLOY_LOG}"; then
             echo "ERROR: Frontend dependency install failed" | tee -a "${DEPLOY_LOG}"
             exit 1
         fi

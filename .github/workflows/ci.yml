@@ -1,10 +1,14 @@
-name: CI
+name: CI-CD
 
 on:
   push:
-    branches: ['main', 'master']
+    branches: [main, master]
   pull_request:
-    branches: ['main', 'master']
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -22,6 +26,7 @@ jobs:
           pip install pytest pytest-cov
       - name: Verify all modules compile
         run: |
+          set -o pipefail
           python -c "
           import py_compile, glob, sys
           files = glob.glob('core/**/*.py', recursive=True) + glob.glob('governance/verification/*.py', recursive=True)
@@ -90,12 +95,15 @@ jobs:
         working-directory: frontend
         run: |
           set -o pipefail
-          npm install --legacy-peer-deps
+          npm ci
       - name: Frontend lint
         working-directory: frontend
         run: |
           set -o pipefail
-          npx eslint . --max-warnings 500
+          # Baseline: 451 warnings (0 errors) as of commit cb0c8aa.
+          # All warnings are @typescript-eslint/no-explicit-any and no-console.
+          # --max-warnings 451 prevents warning regression; 0 errors always fail.
+          npx eslint . --max-warnings 451
       - name: Frontend typecheck
         working-directory: frontend
         run: |
@@ -124,3 +132,77 @@ jobs:
             exit 1
           fi
           echo "No committed .env secrets"
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: test
+    if: ${{ github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' }}
+    # Production deployment is serialized — no cancel-in-progress.
+    # A newer push must wait for the current deployment to complete
+    # before it can deploy, preventing race conditions and mid-flight
+    # cancellation of a production rollout.
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Record certified SHA
+        run: |
+          echo "CI certified SHA: ${{ github.sha }}"
+          echo "CI certified branch: ${{ github.ref }}"
+          echo "Triggering event: ${{ github.event_name }}"
+          echo "CERTIFIED_SHA=${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /home/shunya-deploy/shunya_os
+            bash infrastructure/scripts/deploy.sh production ${{ github.sha }}
+          script_stop: true
+
+      - name: Verify local health SHA
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /home/shunya-deploy/shunya_os
+            DEPLOYED_SHA=$(curl -fsS http://127.0.0.1:5001/health | python3 -c "import sys,json; print(json.load(sys.stdin)['git_commit'])")
+            CERTIFIED_SHA="${{ github.sha }}"
+            echo "Certified SHA: ${CERTIFIED_SHA}"
+            echo "Deployed (local health) SHA: ${DEPLOYED_SHA}"
+            if [ "${DEPLOYED_SHA}" != "${CERTIFIED_SHA}" ]; then
+              echo "ERROR: Deployed local commit does not match CI-certified commit"
+              exit 1
+            fi
+            echo "LOCAL HEALTH PROVENANCE: VERIFIED"
+
+      - name: Verify public health SHA
+        run: |
+          set -o pipefail
+          PUBLIC_HEALTH=$(curl -fsS https://shunyaos.com/health 2>/dev/null || echo '{"error":"unreachable"}')
+          echo "Public health response: ${PUBLIC_HEALTH}"
+          PUBLIC_SHA=$(echo "${PUBLIC_HEALTH}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('git_commit',''))")
+          if [ -z "${PUBLIC_SHA}" ]; then
+            echo "WARNING: Public health endpoint unreachable or missing git_commit — check DNS/nginx"
+            exit 1
+          fi
+          echo "Public health SHA: ${PUBLIC_SHA}"
+          if [ "${PUBLIC_SHA}" != "${{ github.sha }}" ]; then
+            echo "ERROR: Public health SHA does not match CI-certified SHA"
+            exit 1
+          fi
+          echo "PUBLIC HEALTH PROVENANCE: VERIFIED"
+
+      - name: Final provenance check
+        run: |
+          echo "=== RELEASE PROVENANCE ==="
+          echo "CI_CERTIFIED_SHA:     ${{ github.sha }}"
+          echo "=== DEPLOYMENT VERIFIED ==="

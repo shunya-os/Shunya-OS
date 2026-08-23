@@ -13,7 +13,6 @@ Tests all 10 validation areas:
 10. Policy inheritance verification
 """
 import pytest
-pytestmark = pytest.mark.skip(reason="requires infra")
 import json
 from datetime import datetime
 
@@ -395,7 +394,12 @@ class TestMemberWorkspace:
 # ===========================================================================
 
 class TestAPIRoutes:
-    """Verify the API returns correct data for each endpoint."""
+    """Verify the API returns correct data for each endpoint.
+
+    NOTE: These routes are not yet implemented. This class remains skipped
+    as a pending implementation target (code gap, not test suppression).
+    """
+    pytestmark = pytest.mark.skip(reason="workspace API routes not yet implemented — code gap")
 
     def test_catalog_endpoint(self, client):
         """GET /api/v1/workspace/catalog returns 19 experiences."""

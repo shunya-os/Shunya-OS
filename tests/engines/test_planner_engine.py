@@ -870,20 +870,6 @@ class TestPlannerConcurrency:
 # ===========================================================================
 # Section 5: Integration Tests (with Event Bus if available)
 # ===========================================================================
-
-
-@pytest.mark.skip(reason="Requires Event Bus infrastructure")
-class TestPlannerIntegration:
-    """Integration tests with Event Bus, Metrics, Health."""
-
-    def test_event_emitted_on_success(self):
-        # TODO: Mock Event Bus and verify event published
-        pass
-
-    def test_metrics_recorded(self):
-        # TODO: Mock metrics registry and verify counters
-        pass
-
-    def test_health_check_registered(self):
-        # TODO: Mock health registry and verify registration
-        pass
+# NOTE: TestPlannerIntegration was removed because all 3 test methods
+# were empty stubs (pass). Real integration tests should be written when
+# Event Bus infrastructure is available.
