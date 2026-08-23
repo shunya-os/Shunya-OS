@@ -1,4 +1,5 @@
-"""PROD-13: Relational execution graph propagation validation.
+"""
+PROD-13: Relational execution graph propagation validation.
 
 Chain: A → B → C (A triggers B, B triggers C).
 
@@ -22,11 +23,13 @@ def test_a_to_b_to_c_propagation(app, client):
     from app.runtime.loop import run_cycle
 
     with app.app_context():
+        # Open execution gate for engine primitive testing
+        from app.execution_engine.engine import open_execution_gate, close_execution_gate
+        open_execution_gate()
+
         # Create three objects
         r_a = client.post('/api/v1/objects/', json={'type': 'entity', 'state': {}})
-        a_data = r_a.get_json()
-        a_id = a_data.get('object_id') or a_data.get('id')
-        a_id = r_a.get_json()['id']
+        a_id = r_a.get_json()['id']  # Integer PK from legacy Object model
         r_b = client.post('/api/v1/objects/', json={
             'type': 'entity',
             'state': {'relations': [{'type': 'depends_on', 'target_id': a_id}]},
@@ -38,7 +41,14 @@ def test_a_to_b_to_c_propagation(app, client):
         })
         c_id = r_c.get_json()['id']
 
-        print(f"\nObjects: A={a_id}  B={b_id}  C={c_id}")
+        # Reset states to empty for engine primitive testing
+        a = Object.query.get(a_id)
+        b = Object.query.get(b_id)
+        c = Object.query.get(c_id)
+        a.state = {}
+        b.state = {}
+        c.state = {}
+        db.session.commit()
 
         # Wire the execution graph: A triggers B, B triggers C
         create_relation(a_id, b_id, "triggers")
@@ -98,3 +108,5 @@ def test_a_to_b_to_c_propagation(app, client):
         print(f"  • C evolved: {json.dumps(c.state)}")
         print(f"  • ObjectRelation rows: 2 (A→B, B→C)")
         print(f"  • All state changes in 1 cycle: {summary['actions_taken']} actions")
+
+        close_execution_gate()

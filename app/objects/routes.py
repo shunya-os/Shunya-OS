@@ -76,6 +76,7 @@ def create():
     return jsonify({
         "success": True,
         "object_id": obj.object_id,
+        "id": legacy.id,
         "object_type": obj.object_type,
         "name": obj.name,
         "tenant_id": tenant_id,
