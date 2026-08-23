@@ -166,6 +166,11 @@ class TestWhatsAppWebhookIngestion:
 def app_context():
     """Provide a Flask app context for webhook tests."""
     from app import create_app
-    app = create_app()
+    app = create_app({
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "SECRET_KEY": "test-secret",
+        "DISABLE_RATE_LIMIT": "true",
+    })
     with app.app_context() as ctx:
         yield ctx

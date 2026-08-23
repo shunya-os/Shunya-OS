@@ -7,7 +7,12 @@ from flask import Flask, g
 @pytest.fixture
 def app():
     from app import create_app
-    application = create_app({"TESTING": True})
+    application = create_app({
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "SECRET_KEY": "test-secret",
+        "DISABLE_RATE_LIMIT": "true",
+    })
     return application
 
 

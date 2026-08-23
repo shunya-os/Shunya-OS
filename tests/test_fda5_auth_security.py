@@ -14,7 +14,12 @@ def app():
     # when cross-origin access is configured (SEC-00 §5)
     os.environ.setdefault("CORS_ALLOWED_ORIGINS", "https://shunya.app")
     from app import create_app
-    application = create_app({"TESTING": True})
+    application = create_app({
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "SECRET_KEY": "test-secret",
+        "DISABLE_RATE_LIMIT": "true",
+    })
     return application
 
 
