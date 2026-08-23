@@ -252,6 +252,14 @@ def resolve_provider_configs() -> list[ProviderConfig]:
       4. Anthropic (priority 40)
       5. Local (priority 100, always available)
     """
+    # When SHUNYA_AI_PROVIDERS=local, return ONLY the local provider
+    if os.getenv("SHUNYA_AI_PROVIDERS", "") == "local":
+        return [ProviderConfig(
+            name="local",
+            model="local",
+            priority=100,
+        )]
+    
     configs: list[ProviderConfig] = []
 
     # Groq (free tier, highest priority)
