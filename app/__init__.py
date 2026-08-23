@@ -696,6 +696,10 @@ def create_app(config_override: dict | None = None):
     from app.activation import activation_bp
     app.register_blueprint(activation_bp)
 
+    # Content Studio 4.0 API
+    from app.content_studio.routes import content_bp
+    app.register_blueprint(content_bp)
+
     # ACTIVATION-01 — UI at /x/, API at /api/v2/
     _ACTIVATION_FRONTEND = os.path.join(os.path.dirname(__file__), "..", "frontend", "app")
 
