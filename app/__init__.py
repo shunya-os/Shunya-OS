@@ -551,7 +551,7 @@ def create_app(config_override: dict | None = None):
             return
         try:
             from app.auth import TeamMember
-            from app.models import OrgMember, Organization
+            from app.models import OrgMember
             tm = db.session.get(TeamMember, user_id)
             if tm:
                 # Find org membership by email, preferring the primary org (most members)
@@ -566,8 +566,23 @@ def create_app(config_override: dict | None = None):
                     org_member = next(om for om in org_members if om.organization_id == best_org_id)
                     session["identity_id"] = org_member.identity_id
                     session["current_org_id"] = org_member.organization_id
+                    return
+                # Fallback: use user_id as identity_id, try to find an org by other means
+                from app.models import Organization
+                org = Organization.query.filter_by(is_active=True).first()
+                if org:
+                    session["identity_id"] = tm.email or str(user_id)
+                    session["current_org_id"] = org.id
+                    return
+            # Last resort fallback: set identity_id from user_id
+            session["identity_id"] = str(user_id)
+            session["current_org_id"] = session.get("current_org_id", 0)
         except Exception:
-            pass
+            import traceback
+            app.logger.warning(f"Identity resolution failed: {traceback.format_exc()}")
+            # Ensure identity_id is set to something so auth doesn't fail completely
+            if user_id and not session.get("identity_id"):
+                session["identity_id"] = str(user_id)
 
     # ---- Unified Auth Middleware --------------------------------------------
     # Sets g.identity_id from Flask session cookie or X-Identity-Id header

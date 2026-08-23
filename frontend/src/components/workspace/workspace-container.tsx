@@ -77,11 +77,20 @@ export function WorkspaceContainer() {
 
   // Emit workspace lifecycle events when object workspace is active
   useEffect(() => {
-    if (!active || active.identity.type !== 'object') return;
+    if (!active) return;
     const oid = active.identity.objectId;
     const otype = active.identity.objectType;
-    if (oid && otype && active.status === 'loading') {
-      bus.emit({ type: 'ObjectLoaded', objectType: otype, objectId: oid, data: {} });
+    if (active.status === 'loading') {
+      if (active.identity.type === 'object' && oid && otype) {
+        bus.emit({ type: 'ObjectLoaded', objectType: otype, objectId: oid, data: {} });
+      } else {
+        // Domain workspaces (people, admin, conversations, etc.) don't wait for
+        // ObjectLoaded/TimelineLoaded events — transition directly to active
+        // after a brief microtask to let the component render.
+        setTimeout(() => {
+          useWorkspaceStore.getState().transitionTo(active.identity.id, 'active');
+        }, 50);
+      }
     }
   }, [active?.identity.id, active?.identity.objectId, active?.identity.type, active?.status]);
 
