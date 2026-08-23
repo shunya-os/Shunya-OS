@@ -224,9 +224,9 @@ async function testReducedMotion(page, url, label) {
               count++;
             }
           }
-        } catch { }
+        } catch { /* intentionally empty */ }
       }
-    } catch { }
+    } catch { /* intentionally empty */ }
     return count;
   });
   log(`  CSS animation/transition rules: ${animCount}`);
@@ -342,7 +342,7 @@ async function testColorContrast(page, url, label) {
             results.push({ color, bg, fontSize, text: text.substring(0, 40), tag: el.tagName });
           }
         }
-      } catch {}
+      } catch { /* intentionally empty */ }
     }
     return results;
   });

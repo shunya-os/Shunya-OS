@@ -146,7 +146,7 @@ function getKeyFields(obj: EntityRecord): { label: string; value: string }[] {
       if (data.document_type) fields.push({ label: 'Type', value: data.document_type });
       if (data.status) fields.push({ label: 'Status', value: data.status });
       break;
-    default:
+    default: {
       let count = 0;
       for (const [key, val] of Object.entries(data)) {
         if (count >= 2) break;
@@ -156,6 +156,7 @@ function getKeyFields(obj: EntityRecord): { label: string; value: string }[] {
         }
       }
       break;
+    }
   }
   return fields.slice(0, 3);
 }

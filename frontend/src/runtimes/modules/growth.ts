@@ -94,7 +94,7 @@ async function discoverCampaigns(): Promise<Record<string, any>> {
       try {
         const intel = await json<{ success: boolean; intelligence: IntelResponse }>(`/intelligence/${c.id}`);
         if (intel.success) intelMap[c.id] = intel.intelligence;
-      } catch {}
+      } catch { /* intentionally empty */ }
     }
     data.intelligenceMap = intelMap;
 

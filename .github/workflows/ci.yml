@@ -86,9 +86,41 @@ jobs:
         run: |
           set -o pipefail
           PYTHONPATH=$PWD python -m pytest tests/ -q --tb=short
-      - name: Frontend build
+      - name: Frontend dependency install
         working-directory: frontend
         run: |
           set -o pipefail
           npm install --legacy-peer-deps
+      - name: Frontend lint
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          npx eslint . --max-warnings 500
+      - name: Frontend typecheck
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          npx tsc -b --noEmit
+      - name: Frontend tests
+        working-directory: frontend
+        run: |
+          set -o pipefail
+          npx vitest run
+      - name: Frontend production build
+        working-directory: frontend
+        run: |
+          set -o pipefail
           npm run build
+      - name: Python dependency security audit
+        run: |
+          set -o pipefail
+          pip install pip-audit
+          pip-audit
+      - name: Secret scan — committed .env check
+        run: |
+          set -o pipefail
+          if git ls-files | grep -E '\.env$|\.env\.' | grep -v '\.env\.example'; then
+            echo "ERROR: .env file committed to repository"
+            exit 1
+          fi
+          echo "No committed .env secrets"
