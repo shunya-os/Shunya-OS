@@ -7,7 +7,7 @@ OAuth → fetch → normalize → IdentityService → provenance → evidence.
 import base64
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from email import policy
 from email.parser import BytesParser
 from typing import Optional
@@ -65,7 +65,7 @@ class GmailAdapter(EmailProvider):
             if not creds.get("token") or not creds.get("refresh_token"):
                 logger.error("Gmail: missing OAuth credentials")
                 self._error_message = "Missing OAuth credentials"
-                self._last_failure = datetime.utcnow()
+                self._last_failure = datetime.now(timezone.utc)
                 return False
 
             # Build Google API credentials and service
@@ -90,12 +90,12 @@ class GmailAdapter(EmailProvider):
                     logger.warning("Gmail: google-api-python-client not installed; using mock service")
                     self._service = _MockGmailService(creds)
 
-            self._last_success = datetime.utcnow()
+            self._last_success = datetime.now(timezone.utc)
             self._error_message = None
             return True
 
         except Exception as e:
-            self._last_failure = datetime.utcnow()
+            self._last_failure = datetime.now(timezone.utc)
             self._error_message = str(e)
             logger.error(f"Gmail connect failed: {e}")
             return False
@@ -180,10 +180,10 @@ class GmailAdapter(EmailProvider):
             )
             google_creds.refresh(Request())
             creds["token"] = google_creds.token
-            self._last_success = datetime.utcnow()
+            self._last_success = datetime.now(timezone.utc)
             return True
         except Exception as e:
-            self._last_failure = datetime.utcnow()
+            self._last_failure = datetime.now(timezone.utc)
             self._error_message = str(e)
             logger.error(f"Gmail auth refresh failed: {e}")
             return False

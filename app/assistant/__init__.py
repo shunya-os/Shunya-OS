@@ -2,7 +2,7 @@
 SHUNYA — Relationship-Aware Assistant (Phase 16, computation-only)
 """
 import hashlib, json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -46,14 +46,14 @@ class AssistantService:
         if idem in self._idempotency:
             return {"duplicate": True}
         self._idempotency.add(idem)
-        sid = hashlib.sha256(f"{tenant_id}:{person_id}:{datetime.utcnow().isoformat()}".encode()).hexdigest()[:16]
+        sid = hashlib.sha256(f"{tenant_id}:{person_id}:{datetime.now(timezone.utc).isoformat()}".encode()).hexdigest()[:16]
         self._sessions[sid] = {
             "session_id": sid,
             "tenant_id": tenant_id,
             "person_id": person_id,
             "context_snapshot": context_snapshot or {},
             "relationship_refs": relationship_refs or [],
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         return {"session_id": sid}
 
@@ -81,7 +81,7 @@ class AssistantService:
             return self._err("session_not_found", tenant_id)
 
         assistance_id = hashlib.sha256(
-            f"{session_id}:{datetime.utcnow().isoformat()}".encode()
+            f"{session_id}:{datetime.now(timezone.utc).isoformat()}".encode()
         ).hexdigest()[:16]
 
         # Build recommendation from available intelligence
@@ -132,7 +132,7 @@ class AssistantService:
                 "growth": growth_refs is not None,
                 "brand": brand_refs is not None,
             },
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
         self._assistance[assistance_id] = result
         return result
@@ -172,4 +172,4 @@ class AssistantService:
 
     def _err(self, reason: str, tenant_id: int = 1) -> dict:
         return {"error": reason, "tenant_id": tenant_id,
-                "timestamp": datetime.utcnow().isoformat()}
+                "timestamp": datetime.now(timezone.utc).isoformat()}

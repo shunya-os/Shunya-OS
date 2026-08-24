@@ -6,7 +6,7 @@ Always present. Always learning. Never boring.
 """
 
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -19,7 +19,7 @@ class CompanionEngine:
     def greet(self, employee_name: str, hour: int = None, 
               team_metric: str = "", yesterday_wins: int = 0) -> dict:
         if hour is None:
-            hour = datetime.utcnow().hour
+            hour = datetime.now(timezone.utc).hour
         
         if hour < 5:
             time_phrase = "burning the midnight oil"
@@ -50,7 +50,7 @@ class CompanionEngine:
     def banter(self, employee_name: str, hour: int = None) -> str:
         """Context-aware banter to lighten the mood."""
         if hour is None:
-            hour = datetime.utcnow().hour
+            hour = datetime.now(timezone.utc).hour
 
         banters = [
             f"Another Monday? Don't worry {employee_name}, I filtered out 14 spam leads for you.",

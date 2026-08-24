@@ -9,7 +9,7 @@ Every file is linked to a lead for context.
 import os
 import uuid
 import mimetypes
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import url_for
 
 from app import db
@@ -69,7 +69,7 @@ class MediaGallery:
         """Store a file and create a MediaFile record."""
         ext = os.path.splitext(filename)[1] or ".bin"
         stored_name = f"{uuid.uuid4().hex}{ext}"
-        subdir = datetime.utcnow().strftime("%Y/%m")
+        subdir = datetime.now(timezone.utc).strftime("%Y/%m")
         dest_dir = os.path.join(UPLOAD_DIR, subdir)
         os.makedirs(dest_dir, exist_ok=True)
         dest_path = os.path.join(dest_dir, stored_name)

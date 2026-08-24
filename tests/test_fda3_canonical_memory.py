@@ -977,7 +977,7 @@ class TestMemoryDeleteExportRetention:
             value="very old expired data",
             memory_type="temporal",
             status=MemoryStatus.ACTIVE,
-            created_at=datetime.utcnow() - timedelta(days=400),
+            created_at=datetime.now(timezone.utc) - timedelta(days=400),
         )
         svc._session.add(old)
         svc._session.commit()
@@ -995,7 +995,7 @@ class TestMemoryDeleteExportRetention:
             value="this should be expired by retention",
             memory_type="temporal",
             status=MemoryStatus.ACTIVE,
-            created_at=datetime.utcnow() - timedelta(days=400),
+            created_at=datetime.now(timezone.utc) - timedelta(days=400),
         )
         svc._session.add(old)
         svc._session.commit()

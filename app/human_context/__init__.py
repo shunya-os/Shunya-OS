@@ -2,7 +2,7 @@
 SHUNYA — Human Context Service (Phase 5)
 """
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from app import db
 from app.human_context.models import (
@@ -87,7 +87,7 @@ class HumanContextService:
 
         proposal.status = ProposalStatus.COMMITTED
         proposal.approved_by = approved_by
-        proposal.approved_at = datetime.utcnow()
+        proposal.approved_at = datetime.now(timezone.utc)
         self._session.commit()
 
         return {"success": True, "item_id": item.id, "status": ContextStatus.ACTIVE}
@@ -141,9 +141,9 @@ class HumanContextService:
             source_object_id=source_object_id,
             assertion_type=assertion_type,
             status=ContextStatus.ACTIVE,
-            valid_from=datetime.utcnow(),
+            valid_from=datetime.now(timezone.utc),
             valid_until=valid_until,
-            observed_at=datetime.utcnow(),
+            observed_at=datetime.now(timezone.utc),
             created_by=created_by,
         )
         self._session.add(item)
@@ -182,7 +182,7 @@ class HumanContextService:
                                at_time: Optional[datetime] = None,
                                tenant_id: Optional[int] = None) -> list[dict]:
         """Get effective context for a Person, resolving scope precedence."""
-        now = at_time or datetime.utcnow()
+        now = at_time or datetime.now(timezone.utc)
 
         q = self._session.query(HumanContextItem).filter_by(
             person_id=person_id, status=ContextStatus.ACTIVE,

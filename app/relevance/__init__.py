@@ -1,7 +1,7 @@
 """
 SHUNYA — Relevance / Attention (Phase 13, computation-only)
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Attention categories
@@ -181,7 +181,7 @@ class RelevanceService:
 
     def _eval_temporal_relevance(self, context: dict, signal: dict) -> dict:
         """Is the signal timely?"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         signal_time = signal.get("observed_at")
         if signal_time is None:
             return {"contributing": False, "reason": "temporal_relevance: no_timestamp", "weight": 0}
@@ -283,7 +283,7 @@ class RelevanceService:
             "evidence": evidence,
             "precedence_score": precedence,
             "evaluation_state": evaluation_state,
-            "computed_at": datetime.utcnow().isoformat(),
+            "computed_at": datetime.now(timezone.utc).isoformat(),
             "version": self._version,
             "principal_id": principal_id,
             "tenant_id": tenant_id,

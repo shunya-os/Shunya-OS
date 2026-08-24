@@ -2,7 +2,7 @@
 SHUNYA — Internal-First Knowledge Resolution (Phase 11, computation-only)
 """
 import hashlib, json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Resolution categories
@@ -123,7 +123,7 @@ class FreshnessRequirementEvaluator:
         has_freshness_topic = bool(topics & FRESHNESS_SENSITIVE_TOPICS)
 
         # Historical as_of preserves historical context
-        if as_of and as_of < datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0):
+        if as_of and as_of < datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0):
             return {
                 "freshness_required": False,
                 "level": FreshnessLevel.STABLE,
@@ -250,7 +250,7 @@ class KnowledgeResolutionService:
             "context_fingerprint": wc.get("fingerprint", ""),
             "policy_version": self._resolution_version,
             "as_of": as_of.isoformat() if isinstance(as_of, datetime) else None,
-            "evaluated_at": datetime.utcnow().isoformat(),
+            "evaluated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def _build_external_requirement(self, topics, fresh, suff, tenant_id):

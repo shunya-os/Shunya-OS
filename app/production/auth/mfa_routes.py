@@ -10,7 +10,7 @@ import hmac
 import secrets
 import struct
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import jsonify, request, session
 from werkzeug.exceptions import BadRequest
@@ -91,7 +91,7 @@ def mfa_setup():
         existing.secret = secret
         existing.enabled = False
         existing.recovery_codes = recovery_codes
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = datetime.now(timezone.utc)
     else:
         config = MFAConfig(
             user_id=user_id,
@@ -134,7 +134,7 @@ def mfa_verify():
         raise BadRequest("Invalid verification code")
 
     config.enabled = True
-    config.updated_at = datetime.utcnow()
+    config.updated_at = datetime.now(timezone.utc)
     db.session.commit()
 
     return jsonify({
@@ -160,7 +160,7 @@ def mfa_disable():
         raise BadRequest("Invalid password")
 
     config.enabled = False
-    config.updated_at = datetime.utcnow()
+    config.updated_at = datetime.now(timezone.utc)
     db.session.commit()
 
     return jsonify({
@@ -192,7 +192,7 @@ def mfa_challenge():
             codes.remove(recovery_code)
             config.recovery_codes = codes
             config.enabled = False
-            config.updated_at = datetime.utcnow()
+            config.updated_at = datetime.now(timezone.utc)
             db.session.commit()
             session["user_id"] = user.id
             return jsonify({

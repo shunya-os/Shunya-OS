@@ -7,7 +7,7 @@ import os
 import subprocess
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, jsonify
 
 deploy_bp = Blueprint("deploy_diagnostics", __name__, url_prefix="/api/v1/deploy")
@@ -58,7 +58,7 @@ def deployment_status():
     env_present = os.path.exists(os.path.join(repo_dir, ".env"))
     
     result = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "git": {
             "head": head.get("stdout", "").strip(),
             "origin_master": origin.get("stdout", "").strip(),

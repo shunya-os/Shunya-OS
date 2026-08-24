@@ -8,7 +8,7 @@ team CRUD (superadmin only), and route protection middleware.
 import functools
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g, jsonify
 from app import db, limiter
 from app.auth import TeamMember, UserRole, AuthLayer
@@ -96,7 +96,7 @@ def login_page():
         user = TeamMember.query.filter_by(email=email, is_active=True).first()
         if user and user.check_password(password):
             session["user_id"] = user.id
-            user.last_login = datetime.utcnow()
+            user.last_login = datetime.now(timezone.utc)
             user.generate_token()
             db.session.commit()
 
@@ -136,7 +136,7 @@ def login_page():
         user = TeamMember.query.filter_by(email=email, is_active=True).first()
         if user and user.check_password(password):
             session["user_id"] = user.id
-            user.last_login = datetime.utcnow()
+            user.last_login = datetime.now(timezone.utc)
             user.generate_token()
             db.session.commit()
 

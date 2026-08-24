@@ -15,7 +15,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from flask import Blueprint, g, jsonify, request
@@ -143,7 +143,7 @@ def subscribe():
         existing.auth = auth
         existing.subscription_json = subscription_json
         existing.user_agent = user_agent or existing.user_agent
-        existing.last_used_at = datetime.utcnow()
+        existing.last_used_at = datetime.now(timezone.utc)
         existing.is_active = True
     else:
         sub = PushSubscription(
@@ -153,7 +153,7 @@ def subscribe():
             auth=auth,
             subscription_json=subscription_json,
             user_agent=user_agent,
-            last_used_at=datetime.utcnow(),
+            last_used_at=datetime.now(timezone.utc),
         )
         db.session.add(sub)
 
@@ -246,7 +246,7 @@ def send_notification():
                     "body": body,
                     "url": url,
                     "tag": tag,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }),
                 vapid_private_key=priv_key,
                 vapid_claims={
@@ -254,7 +254,7 @@ def send_notification():
                 },
             )
             sent_count += 1
-            sub.last_used_at = datetime.utcnow()
+            sub.last_used_at = datetime.now(timezone.utc)
         except Exception as exc:
             logger.warning("Push failed for sub %d: %s", sub.id, exc)
             # If the push service returns 410 Gone, the subscription is dead
@@ -319,11 +319,11 @@ def mark_read():
         NotificationRecord.query.filter(
             NotificationRecord.id.in_(ids),
             NotificationRecord.identity_id == identity_id,
-        ).update({"is_read": True, "read_at": datetime.utcnow()}, synchronize_session=False)
+        ).update({"is_read": True, "read_at": datetime.now(timezone.utc)}, synchronize_session=False)
     else:
         NotificationRecord.query.filter_by(
             identity_id=identity_id, is_read=False
-        ).update({"is_read": True, "read_at": datetime.utcnow()}, synchronize_session=False)
+        ).update({"is_read": True, "read_at": datetime.now(timezone.utc)}, synchronize_session=False)
 
     db.session.commit()
     return jsonify({"success": True})

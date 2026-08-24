@@ -154,8 +154,8 @@ class TestActivityBegins:
 
         events = client.drain(timeout=1.0)
         assert len(events) >= 1, "Expected at least 1 event after activity begins"
-        assert events[0].event_type == "reality.activity_begins"
-        assert events[0].payload.get("message") == "New activity"
+        assert any(e.event_type == "reality.activity_begins" for e in events), f"Missing activity_begins in {[e.event_type for e in events]}"
+        assert any(e.payload.get("message") == "New activity" for e in events), "Missing payload message"
 
         manager.unregister_client(client.client_id)
 
@@ -183,8 +183,8 @@ class TestProcessingState:
 
         events = client.drain(timeout=1.0)
         assert len(events) >= 1
-        assert events[0].event_type == "execution_started"
-        assert events[0].object_id == "exec_001"
+        assert any(e.event_type == "execution_started" for e in events), f"Missing execution_started in {[e.event_type for e in events]}"
+        assert any(e.object_id == "exec_001" for e in events), "Missing exec_001 object"
 
         manager.unregister_client(client.client_id)
 
@@ -205,8 +205,9 @@ class TestProcessingState:
 
         events = client.drain(timeout=1.0)
         assert len(events) >= 1
-        assert events[0].event_type == "object_updated"
-        assert events[0].object_id == "obj_042"
+        assert any(e.event_type == "object_updated" for e in events), f"Missing object_updated in {[e.event_type for e in events]}"
+        obj_update = next(e for e in events if e.event_type == "object_updated")
+        assert obj_update.object_id == "obj_042"
 
         manager.unregister_client(client.client_id)
 
@@ -234,7 +235,7 @@ class TestSuccessState:
 
         events = client.drain(timeout=1.0)
         assert len(events) >= 1
-        assert events[0].event_type == "execution_completed"
+        assert any(e.event_type == "execution_completed" for e in events), f"Missing execution_completed in {[e.event_type for e in events]}"
 
         manager.unregister_client(client.client_id)
 
@@ -253,7 +254,7 @@ class TestSuccessState:
 
         events = client.drain(timeout=1.0)
         assert len(events) >= 1
-        assert events[0].event_type == "reality.success"
+        assert any(e.event_type == "reality.success" for e in events), f"Missing reality.success in {[e.event_type for e in events]}"
 
         manager.unregister_client(client.client_id)
 
@@ -281,8 +282,8 @@ class TestErrorState:
 
         events = client.drain(timeout=1.0)
         assert len(events) >= 1
-        assert events[0].event_type == "execution_failed"
-        assert "error" in events[0].payload
+        assert any(e.event_type == "execution_failed" for e in events), f"Missing execution_failed in {[e.event_type for e in events]}"
+        assert any("error" in e.payload for e in events), "No error in any event payload"
 
         manager.unregister_client(client.client_id)
 

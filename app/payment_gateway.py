@@ -8,7 +8,7 @@ the mock store with API calls — the interface stays the same.
 
 import uuid
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -92,7 +92,7 @@ class PaymentGateway:
             "status": "created",
             "verified": False,
             "transaction_id": None,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "paid_at": None,
         }
         _payment_store[payment_id] = record
@@ -143,7 +143,7 @@ class PaymentGateway:
             record["status"] = "paid"
             record["verified"] = True
             record["transaction_id"] = _generate_transaction_id()
-            record["paid_at"] = datetime.utcnow().isoformat()
+            record["paid_at"] = datetime.now(timezone.utc).isoformat()
 
         return {
             "verified": record["verified"],
@@ -210,7 +210,7 @@ class PaymentGateway:
             "payment_id": payment_id,
             "amount": round(refund_amount, 2),
             "status": "processed",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         _refund_store[refund_id] = refund_record
 

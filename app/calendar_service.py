@@ -6,7 +6,7 @@ and Tasks (with due_date) into a single event stream with color coding.
 """
 
 import re
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 
 from app import db
@@ -51,7 +51,7 @@ def _parse_lead_dates(dates_str: str | None) -> tuple[Optional[date], Optional[d
         month = MONTH_NAMES.get(month_name.lower()[:3])
         if not month:
             return None, None
-        year = int(year_str) if year_str else datetime.utcnow().year
+        year = int(year_str) if year_str else datetime.now(timezone.utc).year
         try:
             start = date(year, month, int(day_start))
             end = date(year, month, int(day_end))
@@ -70,7 +70,7 @@ def _parse_lead_dates(dates_str: str | None) -> tuple[Optional[date], Optional[d
         month_end = MONTH_NAMES.get(mon_end.lower()[:3])
         if not month_start or not month_end:
             return None, None
-        year = int(year_str) if year_str else datetime.utcnow().year
+        year = int(year_str) if year_str else datetime.now(timezone.utc).year
         try:
             start = date(year, month_start, int(day_start))
             end = date(year, month_end, int(day_end))
@@ -85,7 +85,7 @@ def _parse_lead_dates(dates_str: str | None) -> tuple[Optional[date], Optional[d
         month = MONTH_NAMES.get(month_name.lower()[:3])
         if not month:
             return None, None
-        year = int(year_str) if year_str else datetime.utcnow().year
+        year = int(year_str) if year_str else datetime.now(timezone.utc).year
         try:
             dt = date(year, month, int(day_str))
             return dt, dt

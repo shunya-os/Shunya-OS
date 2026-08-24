@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from datetime import datetime
+from datetime import datetime, timezone
 from app.commitments.service import create_commitment, update_status
 from app.commitments.models import Commitment
 
@@ -50,7 +50,7 @@ def list_commitments():
     for c in q.all():
         overdue = False
         if c.due_at and c.status not in ("completed", "failed"):
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             due = c.due_at
             if due.tzinfo:
                 due = due.replace(tzinfo=None)
@@ -77,7 +77,7 @@ def get_commitment(commitment_id):
     c = Commitment.query.get_or_404(commitment_id)
     overdue = False
     if c.due_at and c.status not in ("completed", "failed"):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         due = c.due_at
         if due.tzinfo:
             due = due.replace(tzinfo=None)

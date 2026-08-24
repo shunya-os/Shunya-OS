@@ -6,7 +6,7 @@ Compression: gzip for text, lossless PNG optimize for images.
 from abc import ABC, abstractmethod
 from typing import Optional
 import os, uuid, gzip, io, logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from PIL import Image
@@ -84,7 +84,7 @@ class LocalStorageProvider(StorageProvider):
         compressed_bytes, stored_ext, compress_meta = self._compress(file_bytes, filename, content_type)
 
         stored_name = f"{uuid.uuid4().hex}.{stored_ext}"
-        date_prefix = datetime.utcnow().strftime("%Y/%m/%d")
+        date_prefix = datetime.now(timezone.utc).strftime("%Y/%m/%d")
         rel_dir = os.path.join(date_prefix)
         abs_dir = os.path.join(self.base_dir, rel_dir)
         os.makedirs(abs_dir, exist_ok=True)
@@ -99,7 +99,7 @@ class LocalStorageProvider(StorageProvider):
             "filename": filename,
             "content_type": content_type,
             "size": len(compressed_bytes),
-            "stored_at": datetime.utcnow().isoformat(),
+            "stored_at": datetime.now(timezone.utc).isoformat(),
             "compression": compress_meta,
         }
 

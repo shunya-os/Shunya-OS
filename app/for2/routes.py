@@ -3,7 +3,7 @@
 import json
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import jsonify, render_template, request, session, redirect, url_for
 
 from app import db
@@ -328,7 +328,7 @@ def api_invite_member(org_id: int):
         role=role,
         token=token,
         invited_by=_get_current_identity(),
-        expires_at=datetime.utcnow() + timedelta(days=7),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7),
     )
     db.session.add(invitation)
     db.session.commit()
@@ -346,7 +346,7 @@ def api_invite_member(org_id: int):
     )
     db.session.add(new_member)
     invitation.status = "accepted"
-    invitation.accepted_at = datetime.utcnow()
+    invitation.accepted_at = datetime.now(timezone.utc)
     db.session.commit()
 
     return jsonify({

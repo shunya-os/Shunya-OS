@@ -8,7 +8,7 @@ outbound messaging, and dashboard summary engine.
 import os
 import re
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from app import db
@@ -253,7 +253,7 @@ def format_inquiry_reply(parsed: dict, code: str) -> str:
 
 def _cached_or_new_code(session) -> str:
     """Generate an inquiry code with Redis/memory cache (1-hour TTL)."""
-    cache_key = f"next_inquiry_code:{datetime.utcnow().date().isoformat()}"
+    cache_key = f"next_inquiry_code:{datetime.now(timezone.utc).date().isoformat()}"
     try:
         from app.cache import get as cache_get, set as cache_set
         cached = cache_get(cache_key)
@@ -292,7 +292,7 @@ def get_summary(period: str = "today") -> dict:
 
     from app.models import Lead, Payment
 
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     q_leads = db.session.query(func.count(Lead.id))
     q_revenue = db.session.query(func.coalesce(func.sum(Payment.amount), 0))
     q_supplier = db.session.query(func.coalesce(func.sum(Payment.amount), 0))

@@ -5,7 +5,7 @@ import json
 import hashlib
 import hmac
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from app.communication.adapter import (
     CommunicationAdapter, AdapterCapabilities, NormalizedMessage, AttachmentData,
 )
@@ -80,7 +80,7 @@ class WhatsAppOfficialAdapter(CommunicationAdapter):
                 message_type=msg_type,
                 is_group=False,
                 is_inbound=True,
-                original_timestamp=datetime.utcnow(),
+                original_timestamp=datetime.now(timezone.utc),
                 attachments=attachments,
             )
             messages.append(normalized)

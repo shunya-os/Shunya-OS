@@ -3,7 +3,7 @@ SHUNYA — Message Normalizer (Phase 3)
 Normalizes raw provider payloads into canonical ExternalMessage format.
 Structural only — no Person, Relationship, Lead, LLM or intelligence inference.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from app import db
 from app.communication.models import (
@@ -37,7 +37,7 @@ class MessageNormalizer:
             provider_chat_id=provider_chat_id,
             conversation_type=conversation_type,
             subject=subject,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
         )
         self._session.add(conv)
         self._session.flush()
@@ -110,14 +110,14 @@ class MessageNormalizer:
             direction="inbound" if normalized.is_inbound else "outbound",
             provider_thread_id=normalized.provider_thread_id,
             original_timestamp=normalized.original_timestamp,
-            received_at=datetime.utcnow(),
+            received_at=datetime.now(timezone.utc),
         )
         self._session.add(msg)
         self._session.flush()
 
         # Update conversation metadata
         conv.message_count = (conv.message_count or 0) + 1
-        conv.latest_message_at = datetime.utcnow()
+        conv.latest_message_at = datetime.now(timezone.utc)
 
         # Create attachment references (metadata only)
         for att in normalized.attachments:

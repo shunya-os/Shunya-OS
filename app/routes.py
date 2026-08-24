@@ -7,7 +7,7 @@ All mutating operations log to ActivityLog for audit trail.
 
 import os
 import pdfkit
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, g, session
 from app import db
 from app.models import (
@@ -613,7 +613,7 @@ def lead_edit(lead_id):
                 setattr(lead, attr, val)
         if f.get("budget"):
             lead.budget = float(f["budget"])
-        lead.updated_at = datetime.utcnow()
+        lead.updated_at = datetime.now(timezone.utc)
         db.session.commit()
         _log_activity(lead_id, "updated", "Lead details updated")
         flash("Lead updated", "success")
@@ -843,7 +843,7 @@ def payment_complete():
         amount=payment_data["amount"],
         method="online",
         ref_number=verification["transaction_id"],
-        paid_at=datetime.utcnow(),
+        paid_at=datetime.now(timezone.utc),
         notes=f"Online payment via {gw.PROVIDER}. Gateway ID: {payment_id}",
     )
     db.session.add(p)
@@ -998,7 +998,7 @@ def invoice_pdf(invoice_id):
 @main.route("/reports")
 def reports():
     from sqlalchemy import func, extract
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
 
     # Destination counts
     dest_counts = (
@@ -1647,7 +1647,7 @@ def documents_upload():
     # Save file
     upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "documents")
     os.makedirs(upload_dir, exist_ok=True)
-    safe_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{f.filename}"
+    safe_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{f.filename}"
     file_path = os.path.join(upload_dir, safe_name)
     try:
         f.save(file_path)
@@ -1720,7 +1720,7 @@ def api_documents_extract():
 
     upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "documents")
     os.makedirs(upload_dir, exist_ok=True)
-    safe_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{f.filename}"
+    safe_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{f.filename}"
     file_path = os.path.join(upload_dir, safe_name)
     try:
         f.save(file_path)

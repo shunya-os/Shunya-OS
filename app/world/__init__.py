@@ -2,7 +2,7 @@
 SHUNYA — World Intelligence (Phase 12, computation-only + fake provider)
 """
 import hashlib, json, uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Source type registry
@@ -269,13 +269,13 @@ class WorldIntelligenceService:
             "attempts": attempts or [],
             "sources": [{"url": s.get("url"), "title": s.get("title"),
                          "source_type": s.get("source_type", "general_web"),
-                         "retrieved_at": datetime.utcnow().isoformat()} for s in (sources or [])],
+                         "retrieved_at": datetime.now(timezone.utc).isoformat()} for s in (sources or [])],
             "observations": [{"text": o.get("text"), "locator": o.get("locator"),
                               "source_url": o.get("source_url")} for o in (observations or [])],
             "coverage": coverage or {},
             "intent": self._minimizer.minimize(requirement) if requirement else {},
             "policy_version": self._version,
-            "evaluated_at": datetime.utcnow().isoformat(),
+            "evaluated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def inspect(self, result: dict) -> dict:

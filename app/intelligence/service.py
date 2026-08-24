@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app import db
@@ -134,7 +134,7 @@ def get_learning_summary(identity_id: str) -> dict[str, Any]:
     """Get a summary of learning activity."""
     total = LearningEvent.query.filter_by(identity_id=identity_id).count()
     today = LearningEvent.query.filter_by(identity_id=identity_id).filter(
-        LearningEvent.created_at >= datetime.utcnow() - timedelta(days=1)
+        LearningEvent.created_at >= datetime.now(timezone.utc) - timedelta(days=1)
     ).count()
     corrections = LearningEvent.query.filter_by(
         identity_id=identity_id, learning_type="correction"
@@ -161,7 +161,7 @@ def detect_anomalies(identity_id: str) -> list[dict[str, Any]]:
     - Objects with no conversations (orphans)
     """
     anomalies: list[dict[str, Any]] = []
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     threshold_14d = now - timedelta(days=14)
     threshold_7d = now - timedelta(days=7)
 
@@ -280,7 +280,7 @@ def resolve_anomaly(anomaly_id: int) -> bool:
     if not anomaly:
         return False
     anomaly.status = "resolved"
-    anomaly.resolved_at = datetime.utcnow()
+    anomaly.resolved_at = datetime.now(timezone.utc)
     db.session.commit()
     return True
 

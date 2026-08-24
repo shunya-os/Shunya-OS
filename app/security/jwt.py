@@ -13,7 +13,7 @@ Usage:
     payload = verify_token(access, "my-secret")
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt
 
@@ -36,8 +36,8 @@ def create_access_token(identity_id: str, secret_key: str) -> str:
     return jwt.encode(
         {
             "sub": identity_id,
-            "iat": datetime.utcnow(),
-            "exp": datetime.utcnow() + timedelta(minutes=15),
+            "iat": datetime.now(timezone.utc),
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
             "type": "access",
         },
         secret_key,
@@ -63,8 +63,8 @@ def create_refresh_token(identity_id: str, secret_key: str) -> str:
     return jwt.encode(
         {
             "sub": identity_id,
-            "iat": datetime.utcnow(),
-            "exp": datetime.utcnow() + timedelta(days=7),
+            "iat": datetime.now(timezone.utc),
+            "exp": datetime.now(timezone.utc) + timedelta(days=7),
             "type": "refresh",
         },
         secret_key,

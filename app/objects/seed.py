@@ -11,7 +11,7 @@ Usage:
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app import db
 from app.objects.legacy_models import ShunyaObject
 
@@ -21,7 +21,7 @@ def _oid() -> str:
 
 
 def _now() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def _days(n: int) -> datetime:

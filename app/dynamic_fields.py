@@ -7,7 +7,7 @@ Values are stored as JSON and rendered dynamically in forms and detail views.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app import db
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Index, ForeignKey
@@ -98,7 +98,7 @@ class DynamicFieldManager:
         existing = DynamicFieldValue.query.filter_by(field_id=field_id, entity_id=entity_id).first()
         if existing:
             existing.value = json.dumps(value) if not isinstance(value, str) else value
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = datetime.now(timezone.utc)
         else:
             existing = DynamicFieldValue(
                 field_id=field_id, entity_id=entity_id,

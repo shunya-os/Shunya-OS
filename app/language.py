@@ -79,7 +79,7 @@ class LanguageEngine:
         """Generate a greeting in the user's language."""
         if hour is None:
             from datetime import datetime
-            hour = datetime.utcnow().hour
+            hour = datetime.now(timezone.utc).hour
         
         period = 0 if hour < 12 else 1 if hour < 17 else 2
         greets = self.GREETINGS.get(self.lang, self.GREETINGS["en"])

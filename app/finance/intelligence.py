@@ -4,7 +4,7 @@ Transforms SHUNYA from accounting platform into AI Financial OS.
 All intelligence derives from canonical data. No legacy dependencies.
 """
 
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from decimal import Decimal
 from collections import defaultdict
 from app import db
@@ -426,7 +426,7 @@ def cfo_explain(org_id, question):
 def executive_cfo_workspace(org_id):
     """Complete executive financial workspace."""
     return {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "financial_health": overall_profitability(org_id),
         "cash_position": cash_flow_forecast(org_id, 30),
         "working_capital": compute_working_capital(org_id),

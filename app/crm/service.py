@@ -13,7 +13,7 @@ No new models. No parallel stores. Uses existing:
 """
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app import db
@@ -253,7 +253,7 @@ def assign_lead(lead: Lead, owner: str, tenant_id: int) -> Lead:
     """Assign a lead to an owner. Records on timeline."""
     old_owner = lead.assigned_to
     lead.assigned_to = owner
-    lead.updated_at = datetime.utcnow()
+    lead.updated_at = datetime.now(timezone.utc)
 
     # Record on relationship timeline
     if lead.person_id:
@@ -289,7 +289,7 @@ def qualify_lead_and_update(lead: Lead, tenant_id: int) -> QualificationResult:
             )
     else:
         lead.stage = result.reason
-    lead.updated_at = datetime.utcnow()
+    lead.updated_at = datetime.now(timezone.utc)
     db.session.commit()
     return result
 
@@ -301,7 +301,7 @@ def qualify_lead_and_update(lead: Lead, tenant_id: int) -> QualificationResult:
 
 def check_sla(lead: Lead) -> dict:
     """Check if a lead is within SLA. Returns SLA status."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     elapsed = now - lead.created_at
     within_sla = elapsed < timedelta(hours=DEFAULT_SLA_HOURS)
     escalated = elapsed > timedelta(hours=ESCALATION_SLA_HOURS)
@@ -379,7 +379,7 @@ def create_opportunity(lead: Lead, tenant_id: int, title: str = "") -> Proposal:
     )
     db.session.add(proposal)
     lead.stage = "opportunity"
-    lead.updated_at = datetime.utcnow()
+    lead.updated_at = datetime.now(timezone.utc)
     db.session.commit()
 
     if lead.person_id:
@@ -403,7 +403,7 @@ def convert_to_customer(lead: Lead, tenant_id: int) -> Optional[Customer]:
     if lead.status != LeadStatus.CONVERTED.value:
         lead.status = LeadStatus.CONVERTED.value
         lead.stage = "customer"
-        lead.updated_at = datetime.utcnow()
+        lead.updated_at = datetime.now(timezone.utc)
 
     customer = Customer(
         name=lead.customer_name or "",
@@ -436,7 +436,7 @@ def mark_lost(lead: Lead, reason: str, tenant_id: int) -> Lead:
     lead.status = LeadStatus.CANCELLED.value
     lead.stage = "lost"
     lead.outcome = reason
-    lead.updated_at = datetime.utcnow()
+    lead.updated_at = datetime.now(timezone.utc)
 
     if lead.person_id:
         _add_timeline_entry(
@@ -462,7 +462,7 @@ def reassign_unattended_leads(tenant_id: int, new_owner: str) -> list[Lead]:
 
     No lead may disappear because an owner fails to act.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     deadline = now - timedelta(hours=ESCALATION_SLA_HOURS)
     unattended = Lead.query.filter(
         Lead.status.in_([LeadStatus.NEW.value, LeadStatus.IN_PROGRESS.value]),

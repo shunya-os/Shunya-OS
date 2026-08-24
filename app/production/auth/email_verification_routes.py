@@ -5,7 +5,7 @@ Uses persistent EmailVerificationToken model.
 """
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import jsonify, request
 from werkzeug.exceptions import BadRequest, NotFound
@@ -49,7 +49,7 @@ def request_verification():
         token=token,
         user_id=user.id,
         email=email,
-        expires_at=datetime.utcnow() + timedelta(hours=24),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
         verified=False,
     )
     db.session.add(ver)
@@ -70,7 +70,7 @@ def verify_email(token: str):
         raise NotFound("Invalid or expired verification token")
     if ver.verified:
         raise NotFound("Token has already been used")
-    if datetime.utcnow() > ver.expires_at:
+    if datetime.now(timezone.utc) > ver.expires_at:
         db.session.delete(ver)
         db.session.commit()
         raise NotFound("Verification token has expired")

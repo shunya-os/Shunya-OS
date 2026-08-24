@@ -8,7 +8,7 @@ SHUNYA policy ALWAYS takes precedence over the underlying LLM's permissiveness.
 import re
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ class SafetyVerdict:
         self.level = level
         self.action = action
         self.blocked_pattern = blocked_pattern
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         return {

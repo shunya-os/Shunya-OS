@@ -3,7 +3,7 @@
 Constitutional principle: Financial truth is immutable. Corrections create new events.
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from decimal import Decimal
 import json
 from app import db
@@ -196,7 +196,7 @@ def _reverse_journal(journal_entry_id, organization_id, created_by, reason=""):
         return result
 
     original.status = "reversed"
-    original.reversed_at = datetime.utcnow()
+    original.reversed_at = datetime.now(timezone.utc)
     original.reversed_by = created_by
     reversal_id = result["journal_entry"]["id"]
     original.reversal_of = reversal_id

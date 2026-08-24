@@ -2,7 +2,7 @@
 SHUNYA — Artifact & Document Generation (Phase 14B, computation-only)
 """
 import hashlib, json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Artifact lifecycle states
@@ -79,13 +79,13 @@ class ArtifactService:
 
         # Generate artifact identity
         artifact_id = hashlib.sha256(
-            f"{tenant_id}:{artifact_type}:{idem_key}:{datetime.utcnow().isoformat()}".encode()
+            f"{tenant_id}:{artifact_type}:{idem_key}:{datetime.now(timezone.utc).isoformat()}".encode()
         ).hexdigest()[:16]
 
         # Source snapshot
         source_snapshot = {
             "source_hash": hashlib.sha256(json.dumps(source_context, sort_keys=True).encode()).hexdigest()[:16],
-            "source_timestamp": datetime.utcnow().isoformat(),
+            "source_timestamp": datetime.now(timezone.utc).isoformat(),
             "source_tenant": tenant_id,
         }
 
@@ -99,7 +99,7 @@ class ArtifactService:
             "request_id": idem_key,
             "tenant_id": tenant_id,
             "created_by": principal_id,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "version": self._version,
         }
 
@@ -184,14 +184,14 @@ class ArtifactService:
         if artifact["state"] != ArtifactState.READY_FOR_REVIEW:
             return self._error("cannot_approve_non_reviewable", artifact.get("tenant_id"), principal_id)
         artifact["state"] = ArtifactState.APPROVED
-        artifact["approved_at"] = datetime.utcnow().isoformat()
+        artifact["approved_at"] = datetime.now(timezone.utc).isoformat()
         return artifact
 
     def handoff_to_action(self, artifact: dict, principal_id: Optional[str] = None) -> dict:
         if artifact["state"] != ArtifactState.APPROVED:
             return self._error("cannot_handoff_non_approved", artifact.get("tenant_id"), principal_id)
         artifact["state"] = ArtifactState.HANDED_TO_ACTION
-        artifact["handed_off_at"] = datetime.utcnow().isoformat()
+        artifact["handed_off_at"] = datetime.now(timezone.utc).isoformat()
         return artifact
 
     def supersede(self, artifact: dict, new_artifact_id: str, principal_id: Optional[str] = None) -> dict:
@@ -235,4 +235,4 @@ class ArtifactService:
 
     def _error(self, reason: str, tenant_id: int = 1, principal_id: Optional[str] = None) -> dict:
         return {"error": reason, "tenant_id": tenant_id, "principal_id": principal_id,
-                "timestamp": datetime.utcnow().isoformat()}
+                "timestamp": datetime.now(timezone.utc).isoformat()}

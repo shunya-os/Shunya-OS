@@ -10,7 +10,7 @@ Removal target: when app/founder/routes.py is fully migrated to the UIR.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app import db
@@ -57,14 +57,14 @@ def process_message(conv_id: str, user_message: str, space_id: str | None = None
                     conv_id=conv_id,
                     role="user",
                     content=user_message,
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 db.session.add(msg)
                 reply = FounderMessage(
                     conv_id=conv_id,
                     role="assistant",
                     content=response_text,
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 db.session.add(reply)
                 db.session.commit()

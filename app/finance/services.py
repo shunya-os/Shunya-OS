@@ -1,5 +1,5 @@
 """FOR-2D: Finance Intelligence — Services."""
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from decimal import Decimal
 import json
 from app import db
@@ -94,7 +94,7 @@ def record_payment(organization_id, invoice_id, amount, payment_date, method="",
     inv.paid_amount = new_paid
     if new_paid >= inv.total_amount:
         inv.status = "paid"
-        inv.paid_at = datetime.utcnow()
+        inv.paid_at = datetime.now(timezone.utc)
 
     cash = Account.query.filter_by(organization_id=organization_id, code="1000").first()
     ar = Account.query.filter_by(organization_id=organization_id, code="1100").first()

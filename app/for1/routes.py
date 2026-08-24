@@ -3,7 +3,7 @@
 import json
 import uuid
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import jsonify, render_template, request, session, url_for, current_app, redirect
 
 from app import db
@@ -97,7 +97,7 @@ def for1_dashboard():
     auth_err = _require_auth()
     if auth_err:
         return auth_err
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     # Quick stats
     total_leads = Lead.query.count()
     pending_proposals = Proposal.query.filter_by(status="draft").count()
@@ -279,10 +279,10 @@ def api_update_proposal_status(proposal_id: int):
     old_status = proposal.status
     proposal.status = new_status
     if new_status == "sent":
-        proposal.sent_at = datetime.utcnow()
+        proposal.sent_at = datetime.now(timezone.utc)
         proposal.sent_via = data.get("sent_via", "link")
     elif new_status == "accepted":
-        proposal.accepted_at = datetime.utcnow()
+        proposal.accepted_at = datetime.now(timezone.utc)
 
     db.session.commit()
 
@@ -501,7 +501,7 @@ def api_lead_create():
     if not data.get("customer_name"):
         return jsonify({"error": "customer_name required"}), 400
     lead = Lead(customer_name=data["customer_name"], status="new")
-    lead.code = f"L{datetime.utcnow().strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:4]}"
+    lead.code = f"L{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:4]}"
     lead.source = data.get("source", "api")
     db.session.add(lead)
     db.session.commit()

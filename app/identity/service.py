@@ -344,7 +344,7 @@ class IdentityService(IdentityResolutionInterface):
                 "merged_from": secondary.id,
                 "merged_into": primary.id,
                 "reason": reason,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
             existing_meta["merge_provenance"] = merge_prov
             pi.metadata_json = json.dumps(existing_meta)
@@ -358,7 +358,7 @@ class IdentityService(IdentityResolutionInterface):
         if secondary.id not in merged:
             merged.append(secondary.id)
         meta["merged_identities"] = merged
-        meta["last_merge"] = datetime.utcnow().isoformat()
+        meta["last_merge"] = datetime.now(timezone.utc).isoformat()
         meta["last_merge_reason"] = reason
         primary.metadata_json = json.dumps(meta)
 
@@ -386,7 +386,7 @@ class IdentityService(IdentityResolutionInterface):
                     "merged_from": secondary_id,
                     "merged_into": primary_id,
                     "reason": reason,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
             )
         )
@@ -419,7 +419,7 @@ class IdentityService(IdentityResolutionInterface):
             metadata_json=json.dumps({
                 "split_from": identity_id,
                 "split_reason": reason,
-                "split_at": datetime.utcnow().isoformat(),
+                "split_at": datetime.now(timezone.utc).isoformat(),
             }),
         )
         self._session.add(new_person)
@@ -443,7 +443,7 @@ class IdentityService(IdentityResolutionInterface):
             "new_identity_id": new_person.id,
             "claim_ids": claim_ids,
             "reason": reason,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         })
         meta["split_history"] = splits
         person.metadata_json = json.dumps(meta)
@@ -556,5 +556,5 @@ class IdentityService(IdentityResolutionInterface):
             pi = PersonIdentity.query.filter_by(
                 identity_value=normalized).first()
         if pi:
-            return Person.query.get(pi.person_id)
+            return db.session.get(Person, pi.person_id)
         return None

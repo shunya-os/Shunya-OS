@@ -2,7 +2,7 @@
 SHUNYA — Closed Learning Loop (Phase 15, computation-only)
 """
 import hashlib, json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Learning target states
@@ -78,7 +78,7 @@ class OutcomeObservation:
         self.outcome_type = outcome_type
         self.value = value
         self.observed_at = observed_at
-        self.recorded_at = recorded_at or datetime.utcnow().isoformat()
+        self.recorded_at = recorded_at or datetime.now(timezone.utc).isoformat()
         self.evidence_source = evidence_source
         self.evidence_id = evidence_id
         self.trust = trust
@@ -148,7 +148,7 @@ class LearningSignal:
         self.state = state
         self.provenance = provenance
         self.sensitivity = sensitivity
-        self.generated_at = datetime.utcnow().isoformat()
+        self.generated_at = datetime.now(timezone.utc).isoformat()
         self.superseded_at = None
 
     def to_dict(self) -> dict:
@@ -230,7 +230,7 @@ class ClosedLearningLoop:
             tenant_id=tenant_id,
             outcome_type=outcome_type,
             value=value,
-            observed_at=observed_at or datetime.utcnow().isoformat(),
+            observed_at=observed_at or datetime.now(timezone.utc).isoformat(),
             evidence_source=evidence_source,
             evidence_id=evidence_id,
             trust=trust,
@@ -292,14 +292,14 @@ class ClosedLearningLoop:
 
         eval_record = {
             "evaluation_id": hashlib.sha256(
-                f"{tenant_id}:{target_id}:{criterion_version}:{len(obs_list)}:{datetime.utcnow().isoformat()}".encode()
+                f"{tenant_id}:{target_id}:{criterion_version}:{len(obs_list)}:{datetime.now(timezone.utc).isoformat()}".encode()
             ).hexdigest()[:16],
             "target_id": target_id,
             "criterion_id": criterion.criterion_id,
             "criterion_version": criterion.version,
             "observations_count": len(obs_list),
             "result": result,
-            "evaluated_at": datetime.utcnow().isoformat(),
+            "evaluated_at": datetime.now(timezone.utc).isoformat(),
             "tenant_id": tenant_id,
         }
         self._evaluation_history.append(eval_record)
@@ -401,7 +401,7 @@ class ClosedLearningLoop:
         confidence = min(0.95, max(0.1, (total / 10) * 0.5 + 0.5))
 
         signal_id = hashlib.sha256(
-            f"{tenant_id}:{target_id}:{condition_signature}:{datetime.utcnow().isoformat()}".encode()
+            f"{tenant_id}:{target_id}:{condition_signature}:{datetime.now(timezone.utc).isoformat()}".encode()
         ).hexdigest()[:16]
 
         signal = LearningSignal(
@@ -429,7 +429,7 @@ class ClosedLearningLoop:
             return self._error("observation_not_found", tenant_id)
         if obs.tenant_id != tenant_id:
             return self._error("tenant_mismatch", tenant_id)
-        obs.superseded_at = datetime.utcnow().isoformat()
+        obs.superseded_at = datetime.now(timezone.utc).isoformat()
         return {"invalidated": True, "observation_id": observation_id}
 
     # ------------------------------------------------------------------
@@ -467,4 +467,4 @@ class ClosedLearningLoop:
         return [s.to_dict() for s in self._signals.values() if s.tenant_id == tenant_id]
 
     def _error(self, reason: str, tenant_id: int = 1) -> dict:
-        return {"error": reason, "tenant_id": tenant_id, "timestamp": datetime.utcnow().isoformat()}
+        return {"error": reason, "tenant_id": tenant_id, "timestamp": datetime.now(timezone.utc).isoformat()}

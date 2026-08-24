@@ -18,7 +18,7 @@ import hashlib
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -178,7 +178,7 @@ class ImmutableKnowledgeStore:
         # Supersede current version
         current = _current_fact(self._session, fact_key)
         if current:
-            current.superseded_at = datetime.utcnow()
+            current.superseded_at = datetime.now(timezone.utc)
             self._session.add(current)
 
         # Insert new version

@@ -2,7 +2,7 @@
 SHUNYA — Automation & Trigger Engine (Phase 14A, computation-only)
 """
 import hashlib, json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 # Trigger types
@@ -59,7 +59,7 @@ class AutomationService:
             return self._error("invalid_trigger_type", tenant_id, principal_id)
 
         trigger_id = hashlib.sha256(
-            f"{tenant_id}:{trigger_type}:{json.dumps(config, sort_keys=True)}:{datetime.utcnow().isoformat()}".encode()
+            f"{tenant_id}:{trigger_type}:{json.dumps(config, sort_keys=True)}:{datetime.now(timezone.utc).isoformat()}".encode()
         ).hexdigest()[:16]
 
         return {
@@ -69,7 +69,7 @@ class AutomationService:
             "state": TriggerState.ACTIVE,
             "tenant_id": tenant_id,
             "created_by": principal_id,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "version": self._version,
         }
 
@@ -113,7 +113,7 @@ class AutomationService:
         if trigger.get("state") != TriggerState.ACTIVE:
             return {"state": MatchState.SUPPRESSED, "trigger_id": trigger.get("trigger_id")}
 
-        n = now or datetime.utcnow()
+        n = now or datetime.now(timezone.utc)
         config = trigger.get("config", {})
         cadence_hours = config.get("cadence_hours", 24)
         last_run = config.get("last_run_at")
@@ -214,7 +214,7 @@ class AutomationService:
 
         # Idempotency
         idem_key = match_result.get("idempotency_key") or \
-            hashlib.sha256(f"{trigger['trigger_id']}:{datetime.utcnow().isoformat()}".encode()).hexdigest()
+            hashlib.sha256(f"{trigger['trigger_id']}:{datetime.now(timezone.utc).isoformat()}".encode()).hexdigest()
         if idem_key in self._executed_keys:
             return self._error("duplicate_execution", tenant_id, principal_id)
 
@@ -242,4 +242,4 @@ class AutomationService:
 
     def _error(self, reason: str, tenant_id: int = 1, principal_id: Optional[str] = None) -> dict:
         return {"error": reason, "tenant_id": tenant_id, "principal_id": principal_id,
-                "timestamp": datetime.utcnow().isoformat()}
+                "timestamp": datetime.now(timezone.utc).isoformat()}

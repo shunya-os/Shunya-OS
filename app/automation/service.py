@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app import db
@@ -262,7 +262,7 @@ def _execute_action(rule: AutomationRule,
 
         # Update rule execution count
         rule.execution_count = (rule.execution_count or 0) + 1
-        rule.last_executed_at = datetime.utcnow()
+        rule.last_executed_at = datetime.now(timezone.utc)
 
         # Log execution
         log = AutomationLog(

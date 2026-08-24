@@ -7,7 +7,7 @@ Checks: package health, required layers, governance policies, DB schema, version
 
 import importlib
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from app import db
@@ -22,7 +22,7 @@ class DoctorReport:
         self.warnings = 0
 
     def add(self, name: str, status: str, detail: str = ""):
-        self.checks.append({"check": name, "status": status, "detail": detail, "timestamp": datetime.utcnow().isoformat()})
+        self.checks.append({"check": name, "status": status, "detail": detail, "timestamp": datetime.now(timezone.utc).isoformat()})
         if status == "pass": self.passed += 1
         elif status == "fail": self.failed += 1
         else: self.warnings += 1

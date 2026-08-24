@@ -7,7 +7,7 @@ Integrates with CompanionEngine for celebration messages.
 """
 
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app import db
@@ -72,7 +72,7 @@ class CelebrationEngine:
         Returns list of celebration dicts with type, title, message, icon, animation, lead_id, user.
         Does NOT auto-record; returns detected wins for the caller to decide.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         one_hour_ago = now - timedelta(hours=1)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -209,7 +209,7 @@ class CelebrationEngine:
     def get_celebration_count_since(self, since: Optional[datetime] = None) -> int:
         """Count celebrations since a given time (default: today at midnight)."""
         if since is None:
-            since = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            since = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         return Celebration.query.filter(Celebration.created_at >= since).count()
 
     # ------------------------------------------------------------------
@@ -223,7 +223,7 @@ class CelebrationEngine:
         Returns list of newly recorded celebrations.
         """
         detected = self.detect_wins()
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         one_hour_ago = now - timedelta(hours=1)
         recorded = []
 

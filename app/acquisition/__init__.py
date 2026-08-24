@@ -2,7 +2,7 @@
 SHUNYA — Acquisition Source & Paid Lead Intake (Phase 14D, computation-only)
 """
 import hashlib, json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Authenticity states
@@ -114,7 +114,7 @@ class RawIntakeEvidence:
                  payload_hash: Optional[str] = None):
         self.source_id = source_id
         self.raw_payload = raw_payload
-        self.received_at = received_at or datetime.utcnow().isoformat()
+        self.received_at = received_at or datetime.now(timezone.utc).isoformat()
         self.external_event_id = external_event_id
         self.authenticity = authenticity
         self.payload_hash = payload_hash or hashlib.sha256(
@@ -146,7 +146,7 @@ class AcquisitionIntakeEnvelope:
         self.commercial_fields = commercial_fields
         self.consent = consent
         self.state = state
-        self.created_at = datetime.utcnow().isoformat()
+        self.created_at = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         return {
@@ -253,7 +253,7 @@ class AcquisitionService:
             "identity_result": identity_result,
             "evidence": evidence.to_dict(),
             "tenant_id": tenant_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Handoff to lead/commercial-interest
@@ -314,7 +314,7 @@ class AcquisitionService:
         consent = raw_payload.get("consent")
 
         intake_id = hashlib.sha256(
-            f"{source.source_id}:{evidence.payload_hash}:{datetime.utcnow().isoformat()}".encode()
+            f"{source.source_id}:{evidence.payload_hash}:{datetime.now(timezone.utc).isoformat()}".encode()
         ).hexdigest()[:16]
 
         envelope = AcquisitionIntakeEnvelope(
@@ -390,5 +390,5 @@ class AcquisitionService:
             "tenant_id": tenant_id,
             "state": IntakeState.FAILED,
             "evidence": evidence,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }

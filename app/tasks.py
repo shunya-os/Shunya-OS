@@ -5,7 +5,7 @@ Encapsulates all task/checklist CRUD behind a clean class facade.
 Used by routes.py and available for programmatic access.
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Optional
 from app import db
 from app.models import TaskList, Task
@@ -100,7 +100,7 @@ class TaskManager:
 
         task.status = new_status
         if new_status == "completed":
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
         else:
             task.completed_at = None
         db.session.commit()

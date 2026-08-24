@@ -3,7 +3,7 @@ ImportProposal — reviewable summary of an intake session before governed commi
 """
 import json
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from app import db
 from app.models import IntakeSession, IntakeCandidate
@@ -40,7 +40,7 @@ class ImportProposalBuilder:
 
         # Increment proposal version
         session.proposal_version = (session.proposal_version or 0) + 1
-        session.proposal_generated_at = datetime.utcnow()
+        session.proposal_generated_at = datetime.now(timezone.utc)
 
         proposal = {
             "session_id": session.id,

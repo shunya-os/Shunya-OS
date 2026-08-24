@@ -8,7 +8,7 @@ Unit 1 of 10 — foundation layer.
 import os
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask, g, request, jsonify, session, redirect, url_for, current_app, send_from_directory, abort
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
@@ -337,7 +337,7 @@ def _seed_default_workspaces():
         {"id": "spc_custom", "name": "Custom", "workspace_type": "custom", "icon": "⭐", "color": "#F59E0B", "description": "Custom project workspace"},
     ]
     for ws_data in defaults:
-        existing = Workspace.query.get(ws_data["id"])
+        existing = db.session.query(Workspace).filter_by(id=ws_data["id"]).first()
         if not existing:
             ws = Workspace(
                 id=ws_data["id"],
@@ -1190,7 +1190,7 @@ a:hover{background:#4338ca}
         return {
             "brand": "SHUNYA OS",
             "assistant_identity": "AI@shunyaos.com",
-            "year": datetime.utcnow().year,
+            "year": datetime.now(timezone.utc).year,
             "current_user": user,
             "is_admin": user and user.role == "admin",
             "is_manager": user and user.role == "manager",

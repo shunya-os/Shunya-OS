@@ -5,7 +5,7 @@ Connects to the canonical /api/v1/leads blueprint.
 from flask import Blueprint, request, jsonify, session
 from app import db
 from app.models import Lead, LeadStatus
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.crm.service import (
     create_lead_with_identity, assign_lead, qualify_lead_and_update,
     check_sla, create_follow_up, create_opportunity,
@@ -129,7 +129,7 @@ def api_create_followup(lead_id: int):
     data = request.get_json(silent=True) or {}
     from dateutil import parser as dt_parser
     due = (dt_parser.parse(data.get("due_date")) if data.get("due_date")
-           else datetime.utcnow() + timedelta(days=1))
+           else datetime.now(timezone.utc) + timedelta(days=1))
     task = create_follow_up(
         lead=lead, title=data.get("title", "Follow-up"),
         due_date=due, assigned_to=data.get("assigned_to", lead.assigned_to or ""),

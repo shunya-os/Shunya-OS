@@ -5,7 +5,7 @@ The kernel classes remain frozen — this is a storage adapter, not a kernel cha
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app import db
 from app.kernel.identity import (
@@ -330,7 +330,7 @@ class IdentityRepository:
 
         for m in identity.auth_methods:
             if m.method_type == method_type and m.identifier == identifier:
-                m.verified_at = datetime.utcnow().isoformat()
+                m.verified_at = datetime.now(timezone.utc).isoformat()
                 self._sync_to_db(identity)
                 return True
         return False
@@ -389,7 +389,7 @@ class IdentityRepository:
                 for m in identity.auth_methods
             ]
             model.auth_methods_json = json.dumps(methods)
-            model.updated_at = datetime.utcnow()
+            model.updated_at = datetime.now(timezone.utc)
         else:
             model = SHUNYAIdentityModel.from_kernel(identity)
             db.session.add(model)

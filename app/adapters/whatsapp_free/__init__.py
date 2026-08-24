@@ -3,7 +3,7 @@ SHUNYA — WhatsApp Free Connect Adapter (Phase 3, receive-only, EXPERIMENTAL)
 Bridge-client pattern: communicates with a sidecar bridge process.
 """
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from app.communication.adapter import (
     CommunicationAdapter, AdapterCapabilities, NormalizedMessage, AttachmentData,
 )
@@ -49,7 +49,7 @@ class WhatsAppFreeAdapter(CommunicationAdapter):
             message_type=data.get("type", "text"),
             is_group=data.get("is_group", False),
             is_inbound=True,
-            original_timestamp=datetime.utcnow(),
+            original_timestamp=datetime.now(timezone.utc),
             attachments=[
                 AttachmentData(
                     provider_media_id=a.get("id", ""),

@@ -1,7 +1,7 @@
 """FOR-2D.4: Financial Evidence Engine — Models and Services."""
 
 import os, json, uuid, re
-from datetime import datetime
+from datetime import datetime, timezone
 from app import db
 from sqlalchemy import Index
 
@@ -120,7 +120,7 @@ def transition_evidence(evidence_id, org_id, actor, target_status, note=""):
         return {"error": f"Cannot transition from {ev.status} to {target_status}"}
     old = ev.status; ev.status = target_status
     if target_status == "verified":
-        ev.verified_by = actor; ev.verified_at = datetime.utcnow()
+        ev.verified_by = actor; ev.verified_at = datetime.now(timezone.utc)
     if target_status == "rejected":
         ev.rejected_reason = note
     from app.relationship.integration import record_event

@@ -4,7 +4,7 @@ Configurable approval engine, segregation of duties, delegation, period controls
 All built on canonical architecture. No hardcoded roles, hierarchies, or industries.
 """
 
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from decimal import Decimal
 import json
 from app import db
@@ -240,7 +240,7 @@ def resolve_approval(approval_id, org_id, actor, action, note=""):
         if ar.current_level >= ar.levels:
             ar.status = "approved"
             ar.resolved_by = actor
-            ar.resolved_at = datetime.utcnow()
+            ar.resolved_at = datetime.now(timezone.utc)
             ar.resolution = "approved"
             ar.resolution_note = note
             event_type = "approval.granted"
@@ -250,7 +250,7 @@ def resolve_approval(approval_id, org_id, actor, action, note=""):
     elif action == "rejected":
         ar.status = "rejected"
         ar.resolved_by = actor
-        ar.resolved_at = datetime.utcnow()
+        ar.resolved_at = datetime.now(timezone.utc)
         ar.resolution = "rejected"
         ar.resolution_note = note
         event_type = "approval.rejected"
@@ -293,7 +293,7 @@ def revoke_delegation(delegation_id, org_id, revoked_by):
     if not d or d.organization_id != org_id:
         return {"error": "Delegation not found"}
     d.is_active = False
-    d.revoked_at = datetime.utcnow()
+    d.revoked_at = datetime.now(timezone.utc)
     d.revoked_by = revoked_by
     sys_rel = get_system_rel(org_id)
     record_event(relationship_id=sys_rel.id, organization_id=org_id,
@@ -316,11 +316,11 @@ def transition_period(period_id, org_id, target_status, actor, reason=""):
     old = p.status
     p.status = target_status
     if target_status == "soft_closed":
-        p.closed_by = actor; p.closed_at = datetime.utcnow()
+        p.closed_by = actor; p.closed_at = datetime.now(timezone.utc)
     elif target_status == "hard_closed":
-        p.closed_by = actor; p.closed_at = datetime.utcnow()
+        p.closed_by = actor; p.closed_at = datetime.now(timezone.utc)
     elif target_status == "reopened":
-        p.reopened_by = actor; p.reopened_at = datetime.utcnow(); p.reopen_reason = reason
+        p.reopened_by = actor; p.reopened_at = datetime.now(timezone.utc); p.reopen_reason = reason
     sys_rel = get_system_rel(org_id)
     record_event(relationship_id=sys_rel.id, organization_id=org_id,
         event_type=f"period.{target_status}",
@@ -350,7 +350,7 @@ def get_audit_dashboard(org_id):
     sod_violations = 0  # Tracked via explicit checks
     # Overdue approvals (pending > 48h)
     overdue = ApprovalRequest.query.filter_by(organization_id=org_id, status="pending").filter(
-        ApprovalRequest.requested_at < datetime.utcnow() - timedelta(hours=48)).count()
+        ApprovalRequest.requested_at < datetime.now(timezone.utc) - timedelta(hours=48)).count()
     # Recently closed periods
     recent_periods = FinancialPeriod.query.filter_by(organization_id=org_id).filter(
         FinancialPeriod.closed_at != None).order_by(FinancialPeriod.closed_at.desc()).limit(5).all()
@@ -375,7 +375,7 @@ def get_ai_governance_insights(org_id):
     today = date.today()
     # 1. Approval delays
     stalled = ApprovalRequest.query.filter_by(organization_id=org_id, status="pending").filter(
-        ApprovalRequest.requested_at < datetime.utcnow() - timedelta(hours=48)).count()
+        ApprovalRequest.requested_at < datetime.now(timezone.utc) - timedelta(hours=48)).count()
     if stalled > 0:
         insights.append({"type": "approval_delays", "severity": "warning",
             "message": f"{stalled} approval(s) pending over 48 hours",

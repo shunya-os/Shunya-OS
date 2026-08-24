@@ -4,7 +4,7 @@ End-to-end golden scenario + 10 failure scenarios.
 All tests exercise the canonical /api/v1/crm path.
 """
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta, timezone
 
 
 def _setup_crm_auth(client):
@@ -85,7 +85,7 @@ class TestCRMLifecycle:
 
         # 5. FOLLOW-UP
         from app.models import Task
-        due = (datetime.utcnow() + timedelta(days=2)).isoformat()
+        due = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
         resp = client.post(f"/api/v1/crm/leads/{lead_id}/follow-up", json={
             "title": "Send proposal details", "due_date": due,
             "assigned_to": "agent_1",
@@ -212,7 +212,7 @@ class TestCRMLifecycle:
                 code=next_inquiry_code(db.session),
                 source="api", customer_name="Old Lead",
                 status="new",
-                created_at=datetime.utcnow() - timedelta(hours=72),
+                created_at=datetime.now(timezone.utc) - timedelta(hours=72),
             )
             db.session.add(old_lead)
             db.session.commit()
@@ -234,10 +234,10 @@ class TestCRMLifecycle:
             set_lead_tenant_id(1)
             for i in range(3):
                 l = Lead(
-                    code=f"SLA_TEST_{i}_{datetime.utcnow().timestamp()}",
+                    code=f"SLA_TEST_{i}_{datetime.now(timezone.utc).timestamp()}",
                     source="api", customer_name=f"Unattended-{i}",
                     status="new", assigned_to="old_agent",
-                    created_at=datetime.utcnow() - timedelta(hours=72),
+                    created_at=datetime.now(timezone.utc) - timedelta(hours=72),
                 )
                 db.session.add(l)
             db.session.commit()
@@ -258,7 +258,7 @@ class TestCRMLifecycle:
             "source": "api",
         })
         lead_id = resp.get_json()["lead"]["id"]
-        due = (datetime.utcnow() + timedelta(days=1)).isoformat()
+        due = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
         r1 = client.post(f"/api/v1/crm/leads/{lead_id}/follow-up", json={
             "title": "First call", "due_date": due, "assigned_to": "agent_1",
         })
@@ -454,7 +454,7 @@ class TestCRMEndToEnd:
         assert r.status_code == 200
 
         # Follow-up
-        due = (datetime.utcnow() + timedelta(days=1)).isoformat()
+        due = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
         r = client.post(f"/api/v1/crm/leads/{lid}/follow-up", json={
             "title": "Call", "due_date": due, "assigned_to": "agent_1",
         })

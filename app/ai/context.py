@@ -7,7 +7,7 @@ conversation, object, space, relationships, and recent activity.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app import db
@@ -44,7 +44,7 @@ def assemble_context(object_id: str | None = None,
         "conversation": None,
         "recent_activity": [],
         "identity_summary": "",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     # Object context

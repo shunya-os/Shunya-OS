@@ -17,7 +17,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -84,7 +84,7 @@ class DeliveryResult:
         self.channel = channel
         self.message_id = message_id
         self.error = error
-        self.sent_at = datetime.utcnow()
+        self.sent_at = datetime.now(timezone.utc)
 
     def to_dict(self) -> dict:
         return {
@@ -297,7 +297,7 @@ class EmailAdapter(ChannelAdapter):
         # SMTP implementation placeholder — returns success for now
         # In production, use smtplib to send
         logger.info("Email::send to %s: %s", message.recipient, message.text[:60])
-        return DeliveryResult(True, ChannelType.EMAIL, message_id=f"email_{datetime.utcnow().timestamp()}")
+        return DeliveryResult(True, ChannelType.EMAIL, message_id=f"email_{datetime.now(timezone.utc).timestamp()}")
 
     def parse_inbound(self, raw: dict) -> InboundMessage | None:
         return None  # Email inbound parsing via IMAP/API
@@ -382,7 +382,7 @@ class ExecutorLayer:
     def _log_delivery(self, message: OutboundMessage, result: DeliveryResult):
         """Record delivery attempt for audit/observer."""
         self._delivery_log.append({
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "channel": message.channel.value,
             "recipient": message.recipient[-4:],  # Last 4 chars only for privacy
             "message_type": message.message_type.value,

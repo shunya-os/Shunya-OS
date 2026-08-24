@@ -2,7 +2,7 @@
 SHUNYA — Capture Enforcer (Phase 3)
 Enforces CapturePolicy and CaptureScope before message ingestion.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from app import db
 from app.communication.models import (
@@ -139,7 +139,7 @@ class CaptureEnforcer:
             return {"success": False, "error": "Scope not found"}
         scope.status = CaptureVerdict.ALLOWED
         scope.approved_by = approved_by
-        scope.approved_at = datetime.utcnow()
+        scope.approved_at = datetime.now(timezone.utc)
         scope.reason = reason or scope.reason
         self._session.commit()
         return {"success": True, "scope_id": scope.id, "status": CaptureVerdict.ALLOWED}
@@ -152,7 +152,7 @@ class CaptureEnforcer:
             return {"success": False, "error": "Scope not found"}
         scope.status = CaptureVerdict.DENIED
         scope.approved_by = approved_by
-        scope.approved_at = datetime.utcnow()
+        scope.approved_at = datetime.now(timezone.utc)
         scope.reason = reason or scope.reason
         self._session.commit()
         return {"success": True, "scope_id": scope.id, "status": CaptureVerdict.DENIED}

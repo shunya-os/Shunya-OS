@@ -1,7 +1,7 @@
 """
 SHUNYA — Evidence Runtime Distinction Service (Phase 8, computation-only)
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -89,7 +89,7 @@ class EvidenceRuntimeService:
                 explanation = "Insufficient evidence to determine position"
         return {"position_category": category, "resolution_state": resolution,
                 "explanation": explanation, "supporting_count": supporting,
-                "contradicting_count": contradicting, "evaluated_at": datetime.utcnow().isoformat()}
+                "contradicting_count": contradicting, "evaluated_at": datetime.now(timezone.utc).isoformat()}
 
     def _default_position(self):
         return self._position(PositionCategory.UNKNOWN_INSUFFICIENT, "no_service")
@@ -143,7 +143,7 @@ class EvidenceRuntimeService:
             "derivation_mechanism": derivation_mechanism,
             "reason_code": reason_code,
             "basis_current": True,
-            "evaluated_at": datetime.utcnow().isoformat(),
+            "evaluated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     # ------------------------------------------------------------------
@@ -166,5 +166,5 @@ class EvidenceRuntimeService:
             "is_plan": False,
             "is_action": False,
             "auto_execution": False,
-            "evaluated_at": datetime.utcnow().isoformat(),
+            "evaluated_at": datetime.now(timezone.utc).isoformat(),
         }

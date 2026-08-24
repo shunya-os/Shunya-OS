@@ -5,7 +5,7 @@ space selection, and pre-authentication conversation.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 
 from app import db
@@ -36,7 +36,7 @@ def home():
     if "shunya_conversation" not in session:
         session["shunya_conversation"] = []
         session["shunya_thought_count"] = 0
-    return render_template("landing.html", year=datetime.utcnow().year)
+    return render_template("landing.html", year=datetime.now(timezone.utc).year)
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +293,7 @@ def api_conversation_think():
     conv.append({
         "role": "human",
         "text": text,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     })
     session["shunya_conversation"] = conv
     session["shunya_thought_count"] = len(conv)

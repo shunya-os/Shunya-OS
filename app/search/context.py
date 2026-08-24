@@ -7,7 +7,7 @@ Used by:
   - Any future AI feature that needs user business context
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -191,7 +191,7 @@ def build_context(identity_id: str) -> str:
         lines.append(f"- {len(objs)} {label.lower()}{'s' if len(objs) != 1 else ''}")
 
     # 4. Recent activity (last 7 days)
-    week_ago = datetime.utcnow() - timedelta(days=7)
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     recent = [o for o in rows if o.updated_at and o.updated_at >= week_ago]
     if recent:
         lines.append("")

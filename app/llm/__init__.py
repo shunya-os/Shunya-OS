@@ -2,7 +2,7 @@
 SHUNYA — LLM Runtime Service (Phase 9)
 """
 import json, hashlib, uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any
 
 from app.llm.models import ModelRun
@@ -62,7 +62,7 @@ class LLMRuntimeService:
             run.status = "failed"
             run.error_class = type(e).__name__
             run.error_reason_code = self._classify_error(e)
-            run.completed_at = datetime.utcnow()
+            run.completed_at = datetime.now(timezone.utc)
             self._save(run)
             return self._normalize_response(run, None)
 
@@ -83,7 +83,7 @@ class LLMRuntimeService:
         run.usage_prompt_tokens = result.get("usage", {}).get("prompt_tokens")
         run.usage_completion_tokens = result.get("usage", {}).get("completion_tokens")
         run.usage_cost = result.get("usage", {}).get("cost")
-        run.completed_at = datetime.utcnow()
+        run.completed_at = datetime.now(timezone.utc)
         self._save(run)
 
     def _normalize_response(self, run, result) -> dict:

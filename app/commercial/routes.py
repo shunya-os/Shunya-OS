@@ -8,7 +8,7 @@ Universal commercial operations:
 - Follow-up/awareness queries
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, g
 
 from app import db
@@ -153,7 +153,7 @@ def update_opportunity(opp_id: int):
             setattr(opp, key, data[key])
 
     opp.updated_by = data.get("updated_by", g.get("user", ""))
-    opp.updated_at = datetime.utcnow()
+    opp.updated_at = datetime.now(timezone.utc)
     db.session.commit()
 
     return jsonify({"success": True, "opportunity": opp.to_dict()})

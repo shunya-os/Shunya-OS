@@ -112,8 +112,9 @@ def api_get_item(item_id: int):
         return jsonify({"success": False, "error": "Authentication required"}), 401
 
     try:
+        from app import db
         from app.integration.models import ContentGeneration
-        item = ContentGeneration.query.get(item_id)
+        item = db.session.get(ContentGeneration, item_id)
         if not item or item.identity_id != _identity_id():
             return jsonify({"success": False, "error": "Not found"}), 404
         return jsonify({"success": True, "data": item.to_dict()})
@@ -130,7 +131,7 @@ def api_toggle_favorite(item_id: int):
     try:
         from app.integration.models import ContentGeneration
         from app import db
-        item = ContentGeneration.query.get(item_id)
+        item = db.session.get(ContentGeneration, item_id)
         if not item or item.identity_id != _identity_id():
             return jsonify({"success": False, "error": "Not found"}), 404
         item.is_favorited = not item.is_favorited
@@ -149,7 +150,7 @@ def api_delete_item(item_id: int):
     try:
         from app.integration.models import ContentGeneration
         from app import db
-        item = ContentGeneration.query.get(item_id)
+        item = db.session.get(ContentGeneration, item_id)
         if not item or item.identity_id != _identity_id():
             return jsonify({"success": False, "error": "Not found"}), 404
         db.session.delete(item)

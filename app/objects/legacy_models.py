@@ -5,7 +5,7 @@ Required by existing modules (composer, reality_engine, upload, seed, pdf).
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app import db
 
@@ -152,4 +152,4 @@ def resolve_object_name(object_type: str, data: dict) -> str:
     spec = OBJECT_TYPES.get(object_type, {})
     name_field = spec.get('name_field', 'name')
     value = data.get(name_field) or data.get('name') or data.get('title') or ''
-    return str(value).strip() or f"{spec.get('name', object_type)} {datetime.utcnow().strftime('%Y-%m-%d')}"
+    return str(value).strip() or f"{spec.get('name', object_type)} {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"

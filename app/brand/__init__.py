@@ -2,7 +2,7 @@
 SHUNYA — Creative Intelligence & Brand Runtime (Phase 15B, computation-only)
 """
 import hashlib, json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -42,7 +42,7 @@ class BrandIdentity:
         self.state = state
         self.provenance = provenance
         self.version = 1
-        self.created_at = datetime.utcnow().isoformat()
+        self.created_at = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         return {"brand_id": self.brand_id, "tenant_id": self.tenant_id,
@@ -59,7 +59,7 @@ class BrandVersion:
         self.dimensions = dimensions
         self.state = state
         self.provenance = provenance
-        self.created_at = datetime.utcnow().isoformat()
+        self.created_at = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         return {"brand_id": self.brand_id, "version": self.version,
@@ -80,7 +80,7 @@ class BrandEvidence:
         self.source = source
         self.evidence_class = evidence_class
         self.provenance = provenance
-        self.recorded_at = datetime.utcnow().isoformat()
+        self.recorded_at = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         return {"evidence_id": self.evidence_id, "dimension": self.dimension,
@@ -126,7 +126,7 @@ class Creative:
         self.version = 1
         self.validation = None
         self.provenance = provenance
-        self.created_at = datetime.utcnow().isoformat()
+        self.created_at = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         return {"creative_id": self.creative_id, "creative_type": self.creative_type,
@@ -228,7 +228,7 @@ class BrandService:
         if not brand or brand.tenant_id != tenant_id:
             return self._err("brand_not_found", tenant_id)
         bv = brand_version or brand.version
-        cid = hashlib.sha256(f"{intent_id}:{brand_id}:{bv}:{datetime.utcnow().isoformat()}".encode()).hexdigest()[:16]
+        cid = hashlib.sha256(f"{intent_id}:{brand_id}:{bv}:{datetime.now(timezone.utc).isoformat()}".encode()).hexdigest()[:16]
         creative = Creative(cid, tenant_id, intent_id, intent.creative_type,
                            brand_id, bv, content, state=CreativeState.DRAFT)
         self._creatives[cid] = creative
@@ -315,4 +315,4 @@ class BrandService:
 
     def _err(self, reason: str, tenant_id: int = 1) -> dict:
         return {"error": reason, "tenant_id": tenant_id,
-                "timestamp": datetime.utcnow().isoformat()}
+                "timestamp": datetime.now(timezone.utc).isoformat()}

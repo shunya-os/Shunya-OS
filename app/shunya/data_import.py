@@ -10,7 +10,7 @@ import io
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app import db
@@ -239,7 +239,7 @@ def import_data(
                 source=LeadSource.API.value if tenant_id else LeadSource.MANUAL.value,
                 code=next_inquiry_code(db.session),
                 status="new",
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
 
             # Apply matched columns

@@ -2,7 +2,7 @@
 SHUNYA — Watch / Monitoring (Phase 12A)
 """
 import hashlib, json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 # Capability constants
@@ -106,7 +106,7 @@ class WatchService:
             "purpose_code": purpose_code,
             "state": "active",
             "created_by": created_by,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def compute_due(self, watch: dict, now: Optional[datetime] = None) -> str:
@@ -114,7 +114,7 @@ class WatchService:
             return Due.PAUSED
         if watch.get("state") == "disabled":
             return Due.DISABLED
-        n = now or datetime.utcnow()
+        n = now or datetime.now(timezone.utc)
         last_success = watch.get("last_success_at")
         if last_success is None:
             return Due.DUE  # Never run
@@ -127,7 +127,7 @@ class WatchService:
     # ------------------------------------------------------------------
     def execute_watch(self, watch: dict, principal: MachineExecutionPrincipal,
                       now: Optional[datetime] = None) -> dict:
-        n = now or datetime.utcnow()
+        n = now or datetime.now(timezone.utc)
 
         # Machine principal checks
         if not principal or principal.state != "active":

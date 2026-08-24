@@ -5,7 +5,7 @@ OAuth 2.0 flow for Gmail account connection with tenant-aware support.
 import os
 import json
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import urlencode
 
@@ -75,7 +75,7 @@ class GmailOAuthService:
                 tenant_id=tenant_id,
                 provider="gmail",
                 state=state,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             self.session.add(oauth_state)
             self.session.commit()
@@ -117,7 +117,7 @@ class GmailOAuthService:
             "access_token": tokens.get("access_token", ""),
             "refresh_token": tokens.get("refresh_token", ""),
             "expires_in": tokens.get("expires_in", 0),
-            "expires_at": datetime.utcnow() + timedelta(seconds=tokens.get("expires_in", 0)),
+            "expires_at": datetime.now(timezone.utc) + timedelta(seconds=tokens.get("expires_in", 0)),
             "email": "",  # Will be populated by get_profile
         }
 
@@ -162,7 +162,7 @@ class GmailOAuthService:
             # Update existing credentials
             existing.credential_reference = f"env:GMAIL_TOKEN_{existing.id}"
             existing.is_active = True
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = datetime.now(timezone.utc)
             self.session.commit()
             source = existing
         else:
@@ -175,7 +175,7 @@ class GmailOAuthService:
                 credential_reference=f"env:GMAIL_TOKEN_{secrets.token_hex(8)}",
                 is_active=True,
                 metadata_json=json.dumps({
-                    "oauth_connected_at": datetime.utcnow().isoformat(),
+                    "oauth_connected_at": datetime.now(timezone.utc).isoformat(),
                     "refresh_token": secrets.token_urlsafe(16),  # Store reference only in metadata
                 }),
             )
@@ -225,7 +225,7 @@ class GmailOAuthService:
         source.credential_reference = ""
         source.metadata_json = json.dumps({
             **(json.loads(source.metadata_json) if source.metadata_json else {}),
-            "disconnected_at": datetime.utcnow().isoformat(),
+            "disconnected_at": datetime.now(timezone.utc).isoformat(),
         })
         self.session.commit()
 

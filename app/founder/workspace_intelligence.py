@@ -20,7 +20,7 @@ summaries without supporting evidence. No placeholder recommendations.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app import db
@@ -45,11 +45,11 @@ from app.founder.workspace_models import (
 # ---------------------------------------------------------------------------
 
 def _now() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def _ago(**kw) -> datetime:
-    return datetime.utcnow() - timedelta(**kw)
+    return datetime.now(timezone.utc) - timedelta(**kw)
 
 
 def _time_ago(dt: datetime | None) -> str:
@@ -57,7 +57,7 @@ def _time_ago(dt: datetime | None) -> str:
         return ""
     if dt.tzinfo is not None:
         dt = dt.replace(tzinfo=None)
-    diff = datetime.utcnow() - dt
+    diff = datetime.now(timezone.utc) - dt
     if diff < timedelta(minutes=1):
         return "just now"
     if diff < timedelta(hours=1):
@@ -72,7 +72,7 @@ def _days_since(dt: datetime | None) -> float:
         return float("inf")
     if dt.tzinfo is not None:
         dt = dt.replace(tzinfo=None)
-    return max(0, (datetime.utcnow() - dt).total_seconds() / 86400)
+    return max(0, (datetime.now(timezone.utc) - dt).total_seconds() / 86400)
 
 
 # ---------------------------------------------------------------------------

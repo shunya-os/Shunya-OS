@@ -5,7 +5,7 @@ Generates structured itineraries, proposal text, and HTML proposals.
 Multi-format ready: supports text, HTML, and template-based output.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from app.shunya._legacy_reasoning import CustomerProfile
 
@@ -48,7 +48,7 @@ class ItineraryPlan:
         self.currency: str = "INR"
         self.tax_notes: list[str] = []
         self.disclaimers: list[str] = []
-        self.generated_at = datetime.utcnow()
+        self.generated_at = datetime.now(timezone.utc)
         self.template_name: str = "standard"
 
     def add_day(self, day: ItineraryDay):

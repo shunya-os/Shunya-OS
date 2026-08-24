@@ -4,7 +4,7 @@ Force-logout all sessions for a user.
 """
 
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import jsonify, request, session
 from werkzeug.exceptions import NotFound
@@ -99,8 +99,8 @@ def track_device():
         "user_id": g.user.id,
         "user_agent": ua[:200],
         "ip_address": ip,
-        "last_seen": datetime.utcnow().isoformat(),
+        "last_seen": datetime.now(timezone.utc).isoformat(),
         "created_at": _devices.get(session_token, {}).get(
-            "created_at", datetime.utcnow().isoformat()
+            "created_at", datetime.now(timezone.utc).isoformat()
         ),
     }

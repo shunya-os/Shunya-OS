@@ -17,7 +17,7 @@ Architecture:
   → EXECUTION → OUTCOME/EVIDENCE → MEMORY/LEARNING → FUTURE CONTEXT
 """
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timezone
 from typing import Any, Optional
 
 from app import db
@@ -126,7 +126,7 @@ def _should_expire(memory: MemoryRecord) -> bool:
     if not memory.created_at:
         return False
     days = _get_retention_days(memory.memory_type)
-    age = (datetime.utcnow() - memory.created_at).days
+    age = (datetime.now(timezone.utc) - memory.created_at).days
     return age > days
 
 
@@ -188,7 +188,7 @@ class MemoryService:
                     "privacy": privacy}
         cand.status = CandidateStatus.APPROVED
         cand.approved_by = approved_by
-        cand.approved_at = datetime.utcnow()
+        cand.approved_at = datetime.now(timezone.utc)
         self._session.commit()
         return {"success": True, "status": CandidateStatus.APPROVED}
 
@@ -216,7 +216,7 @@ class MemoryService:
             creation_mechanism=cand.creation_mechanism,
             truth_classification=cand.truth_classification or "memory",
             status=MemoryStatus.ACTIVE,
-            effective_from=datetime.utcnow(),
+            effective_from=datetime.now(timezone.utc),
         )
         self._session.add(mem)
         self._session.flush()
@@ -281,7 +281,7 @@ class MemoryService:
             creation_mechanism=creation_mechanism,
             truth_classification=truth_classification,
             status=MemoryStatus.ACTIVE,
-            effective_from=datetime.utcnow(),
+            effective_from=datetime.now(timezone.utc),
             injection_checked=True,
             **kw,
         )
@@ -350,7 +350,7 @@ class MemoryService:
             provenance_source_id=provenance_source_id,
             provenance_role=provenance_role,
             creation_mechanism=creation_mechanism,
-            observed_at=datetime.utcnow(),
+            observed_at=datetime.now(timezone.utc),
         )
         self._session.add(prov)
         return prov
@@ -607,7 +607,7 @@ class MemoryService:
             "tenant_id": tenant_id,
             "count": len(result),
             "format": format,
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
             "records": result,
         }
 
@@ -639,7 +639,7 @@ class MemoryService:
                     "memory_key": m.memory_key,
                     "memory_type": m.memory_type,
                     "created_at": m.created_at.isoformat() if m.created_at else None,
-                    "days_old": (datetime.utcnow() - m.created_at).days,
+                    "days_old": (datetime.now(timezone.utc) - m.created_at).days,
                 })
                 if not dry_run:
                     m.status = MemoryStatus.EXPIRED

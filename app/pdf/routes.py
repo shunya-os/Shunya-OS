@@ -9,7 +9,7 @@ GET  /api/v1/pdf/proposal/<proposal_id>  — Generate branded proposal PDF
 GET  /api/v1/pdf/invoice/<invoice_id>   — Generate branded invoice PDF
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request, send_file
 from weasyprint import HTML
@@ -160,7 +160,7 @@ def _build_proposal_html(proposal: ShunyaObject) -> str:
             </div>
             <div class="info-col">
                 <p class="label">Date</p>
-                <p>{datetime.utcnow().strftime('%B %d, %Y')}</p>
+                <p>{datetime.now(timezone.utc).strftime('%B %d, %Y')}</p>
             </div>
         </div>
     </div>
@@ -192,7 +192,7 @@ def _build_invoice_html(invoice: ShunyaObject) -> str:
     invoice_number = data.get("invoice_number", f"INV-{invoice.id}")
     amount = data.get("amount", 0)
     currency = data.get("currency", "USD")
-    issue_date = data.get("issue_date", datetime.utcnow().strftime("%Y-%m-%d"))
+    issue_date = data.get("issue_date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     due_date = data.get("due_date", "")
     status = data.get("status", "draft")
     items = data.get("items", [])

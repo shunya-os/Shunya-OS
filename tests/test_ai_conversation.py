@@ -147,7 +147,7 @@ class TestConversationPersistence:
                 content=f"Order msg {i}",
             )
             # Override created_at to test ordering
-            msg.created_at = datetime.utcnow() + timedelta(hours=delay)
+            msg.created_at = datetime.now(timezone.utc) + timedelta(hours=delay)
             db.session.add(msg)
         db.session.commit()
         msgs = FounderMessage.query.filter_by(conv_id=conv_id).order_by(

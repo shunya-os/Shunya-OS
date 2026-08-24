@@ -1,6 +1,6 @@
 """Workspace Experience Framework — Models, Constants, and Services."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from app import db
 from sqlalchemy import Index
 
@@ -84,7 +84,7 @@ def set_policy(org_id, level, experience_key, setting, level_id=None, created_by
         experience_key=experience_key).first()
     if existing:
         existing.setting = setting
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = datetime.now(timezone.utc)
     else:
         p = WorkspacePolicy(organization_id=org_id, level=level, level_id=level_id,
             experience_key=experience_key, setting=setting, created_by=created_by)

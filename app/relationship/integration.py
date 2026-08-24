@@ -4,7 +4,7 @@ This module provides integration hooks that other domains call to emit timeline 
 and update AI memory when business events occur.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from app import db
 from app.relationship.models import (
     TimelineEntry, RelationshipMemory,
@@ -56,11 +56,11 @@ def update_ai_memory_from_event(relationship_id: int, organization_id: int,
     data["recent_events"].append({
         "type": event_type,
         "summary": summary_fragment,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     })
     # Keep last 20 events
     data["recent_events"] = data["recent_events"][-20:]
 
     memory.memory_json = json.dumps(data)
-    memory.last_ai_update = datetime.utcnow()
+    memory.last_ai_update = datetime.now(timezone.utc)
     db.session.add(memory)

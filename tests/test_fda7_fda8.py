@@ -43,7 +43,7 @@ class TestProvenance:
         src = WebSource(
             url="https://example.com",
             title="Test",
-            retrieved_at=datetime.utcnow(),
+            retrieved_at=datetime.now(timezone.utc),
             provider="duckduckgo",
             snippet="test content",
             freshness=Freshness.UNKNOWN,
@@ -94,9 +94,9 @@ class TestConflictHandling:
         from datetime import datetime
         engine = WebResearchEngine()
         sources = [
-            WebSource(url="https://a.com", title="A", retrieved_at=datetime.utcnow(),
+            WebSource(url="https://a.com", title="A", retrieved_at=datetime.now(timezone.utc),
                       snippet="Product X is great"),
-            WebSource(url="https://b.com", title="B", retrieved_at=datetime.utcnow(),
+            WebSource(url="https://b.com", title="B", retrieved_at=datetime.now(timezone.utc),
                       snippet="Product X has issues"),
         ]
         detected, conflicts = engine._detect_conflicts(sources)
@@ -109,7 +109,7 @@ class TestConflictHandling:
         from datetime import datetime
         engine = WebResearchEngine()
         sources = [
-            WebSource(url="https://a.com", title="A", retrieved_at=datetime.utcnow(),
+            WebSource(url="https://a.com", title="A", retrieved_at=datetime.now(timezone.utc),
                       snippet="Product X is great"),
         ]
         detected, conflicts = engine._detect_conflicts(sources)

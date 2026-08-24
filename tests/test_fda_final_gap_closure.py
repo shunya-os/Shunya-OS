@@ -5,7 +5,7 @@ No weakened assertions. No session-echo tests. No query-only substitutes.
 """
 import pytest
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class TestTenantIsolation:
@@ -169,7 +169,7 @@ class TestExecutionAuthority:
                 space_id="spc_exec_auth",
                 name="Exec Auth Test Space",
                 identity_id="system",
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             db.session.add(space)
             db.session.flush()
@@ -181,7 +181,7 @@ class TestExecutionAuthority:
                 object_type="invoice",
                 status="active",
                 created_by="system",
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             db.session.add(obj)
             db.session.commit()

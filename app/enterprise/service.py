@@ -5,7 +5,7 @@ Immutable audit trail, RBAC enforcement, team/role management, tenant isolation.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app import db
@@ -157,7 +157,7 @@ def invite_member(
         role_id=role_id,
         status="active",
         invited_by=invited_by,
-        joined_at=datetime.utcnow(),
+        joined_at=datetime.now(timezone.utc),
     )
     db.session.add(member)
     db.session.commit()

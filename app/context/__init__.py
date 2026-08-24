@@ -2,7 +2,7 @@
 SHUNYA — Context Fusion + WORKSPACE_CONTEXT (Phase 10, computation-only)
 """
 import hashlib, json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # ---------------------------------------------------------------------------
@@ -276,7 +276,7 @@ class ContextFusionService:
             "total_items": total_used,
             "budget": {"total_max": max_items, "total_used": total_used,
                        "per_section_max": per_section_budget},
-            "fingerprint": "", "built_at": datetime.utcnow().isoformat(),
+            "fingerprint": "", "built_at": datetime.now(timezone.utc).isoformat(),
         }
         result["fingerprint"] = self._compute_fingerprint(result)
         return result

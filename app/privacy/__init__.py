@@ -2,7 +2,7 @@
 SHUNYA — Privacy, Sensitivity & Memory Eligibility Service (Phase 4)
 """
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from app import db
 from app.privacy.models import (
@@ -219,7 +219,7 @@ class PrivacyService:
         for p in policies:
             if not p.source_type or p.source_type == source_type:
                 if p.decision == RetentionDecision.RETAIN_UNTIL and p.retention_days:
-                    due = datetime.utcnow() + timedelta(days=p.retention_days)
+                    due = datetime.now(timezone.utc) + timedelta(days=p.retention_days)
                     return {"retention_decision": RetentionDecision.RETAIN_UNTIL,
                             "due_at": due.isoformat(), "reason": "policy"}
                 return {"retention_decision": p.decision, "reason": "policy"}
@@ -283,7 +283,7 @@ class PrivacyService:
 
         fr.status = ForgetRequestStatus.APPROVED
         fr.approved_by = approved_by
-        fr.approved_at = datetime.utcnow()
+        fr.approved_at = datetime.now(timezone.utc)
         self._session.commit()
 
         # Immediately apply restriction to block new memory
@@ -354,7 +354,7 @@ class PrivacyService:
                 return {"success": False, "error": "System non-overridable: cannot approve"}
         item.status = "approved"
         item.reviewed_by = reviewed_by
-        item.reviewed_at = datetime.utcnow()
+        item.reviewed_at = datetime.now(timezone.utc)
         item.review_note = note
         self._session.commit()
         return {"success": True, "status": "approved"}
@@ -369,7 +369,7 @@ class PrivacyService:
         if tenant_id is not None and item.tenant_id != tenant_id:
             return {"success": False, "error": "Review item not found"}
         item.reviewed_by = reviewed_by
-        item.reviewed_at = datetime.utcnow()
+        item.reviewed_at = datetime.now(timezone.utc)
         item.review_note = note
         self._session.commit()
         return {"success": True, "status": "denied"}

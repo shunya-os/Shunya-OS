@@ -5,7 +5,7 @@ Now uses DB-backed PasswordResetToken model instead of in-memory store.
 """
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import jsonify, request
 from werkzeug.exceptions import BadRequest, NotFound
@@ -41,7 +41,7 @@ def forgot_password():
         token=token,
         user_id=user.id,
         email=email,
-        expires_at=datetime.utcnow() + timedelta(hours=1),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
         used=False,
     )
     db.session.add(reset)
@@ -64,7 +64,7 @@ def verify_reset_token(token: str):
     if reset.used:
         raise NotFound("Reset token has already been used")
 
-    if datetime.utcnow() > reset.expires_at:
+    if datetime.now(timezone.utc) > reset.expires_at:
         db.session.delete(reset)
         db.session.commit()
         raise NotFound("Reset token has expired")
@@ -86,7 +86,7 @@ def reset_password(token: str):
     if reset.used:
         raise NotFound("Reset token has already been used")
 
-    if datetime.utcnow() > reset.expires_at:
+    if datetime.now(timezone.utc) > reset.expires_at:
         db.session.delete(reset)
         db.session.commit()
         raise NotFound("Reset token has expired")

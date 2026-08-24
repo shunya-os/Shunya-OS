@@ -1,7 +1,7 @@
 """
 SHUNYA — Persistent Plans & Governed Action (Phase 14, computation-only)
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Plan lifecycle states
@@ -74,7 +74,7 @@ class PlanningService:
         action_type = self._determine_action(attention_result)
 
         plan = {
-            "plan_id": hashlib.sha256(f"{tenant_id}:{datetime.utcnow().isoformat()}:{str(reasons)}".encode()).hexdigest()[:16],
+            "plan_id": hashlib.sha256(f"{tenant_id}:{datetime.now(timezone.utc).isoformat()}:{str(reasons)}".encode()).hexdigest()[:16],
             "tenant_id": tenant_id,
             "state": plan_state,
             "priority": priority,
@@ -82,7 +82,7 @@ class PlanningService:
             "reasons": reasons,
             "precedence_score": precedence,
             "action_type": action_type,
-            "proposed_at": datetime.utcnow().isoformat(),
+            "proposed_at": datetime.now(timezone.utc).isoformat(),
             "approved_at": None,
             "completed_at": None,
             "principal_id": principal_id,
@@ -114,7 +114,7 @@ class PlanningService:
         if plan.get("state") != PlanState.PROPOSED:
             return self._error("cannot_approve_non_proposed", plan.get("tenant_id"), principal_id)
         plan["state"] = PlanState.APPROVED
-        plan["approved_at"] = datetime.utcnow().isoformat()
+        plan["approved_at"] = datetime.now(timezone.utc).isoformat()
         return plan
 
     def reject_plan(self, plan: dict, reason: str = "", principal_id: Optional[str] = None) -> dict:
@@ -134,7 +134,7 @@ class PlanningService:
         if plan.get("state") != PlanState.ACTIVE:
             return self._error("cannot_complete_inactive", plan.get("tenant_id"), principal_id)
         plan["state"] = PlanState.COMPLETED
-        plan["completed_at"] = datetime.utcnow().isoformat()
+        plan["completed_at"] = datetime.now(timezone.utc).isoformat()
         return plan
 
     def supersede_plan(self, plan: dict, new_plan_id: str, principal_id: Optional[str] = None) -> dict:
@@ -190,7 +190,7 @@ class PlanningService:
             "error": reason,
             "tenant_id": tenant_id,
             "principal_id": principal_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 

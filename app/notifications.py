@@ -12,7 +12,7 @@ Usage:
                             user_id=1, lead_id=42)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from app import db
 from app.models import Notification, NotificationType, ActivityLog
@@ -69,7 +69,7 @@ class NotificationManager:
             icon=icon,
             link=link,
             is_read=False,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         db.session.add(notif)
         db.session.commit()

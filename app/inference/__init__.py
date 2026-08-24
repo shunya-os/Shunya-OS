@@ -6,7 +6,7 @@ Does NOT make permanent model placement decisions.
 Does NOT call providers.
 """
 import hashlib, json, uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Control decision states
@@ -55,7 +55,7 @@ class InferenceControlPolicy:
         self.model_substitution_allowed = model_substitution_allowed
         self.max_cost_class = max_cost_class
         self.data_sensitivity_ceiling = data_sensitivity_ceiling
-        self.effective_at = effective_at or datetime.utcnow().isoformat()
+        self.effective_at = effective_at or datetime.now(timezone.utc).isoformat()
         self.superseded_at = superseded_at
         self.provenance = provenance
 

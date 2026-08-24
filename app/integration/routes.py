@@ -6,7 +6,7 @@ social media, ad campaigns, content generation, and proxy services.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request, session
 
@@ -351,7 +351,7 @@ def api_publish_post(post_id: int):
 
     result = simulate_platform_post(post.platform, post.content)
     post.status = "published"
-    post.published_at = datetime.utcnow()
+    post.published_at = datetime.now(timezone.utc)
     from app import db
     db.session.commit()
 

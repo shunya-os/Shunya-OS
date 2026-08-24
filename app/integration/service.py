@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app import db
@@ -83,7 +83,7 @@ def mark_as_read(notification_id: int) -> bool:
     if not notif:
         return False
     notif.is_read = True
-    notif.read_at = datetime.utcnow()
+    notif.read_at = datetime.now(timezone.utc)
     db.session.commit()
     return True
 
@@ -93,7 +93,7 @@ def mark_all_as_read(identity_id: str) -> int:
     notifs = Notification.query.filter_by(
         identity_id=identity_id, is_read=False
     ).all()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for n in notifs:
         n.is_read = True
         n.read_at = now
@@ -889,7 +889,7 @@ from datetime import timedelta
 def get_cached_media(provider: str, query: str, max_age_minutes: int = 60) -> list[dict[str, Any]] | None:
     """Get cached media results if they exist and are fresh."""
     qhash = hashlib.sha256(query.lower().strip().encode("utf-8")).hexdigest()
-    expire_before = datetime.utcnow() - timedelta(minutes=max_age_minutes)
+    expire_before = datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)
     cached = CachedMedia.query.filter_by(
         provider=provider, query_hash=qhash
     ).filter(CachedMedia.created_at >= expire_before).first()
@@ -901,7 +901,7 @@ def get_cached_media(provider: str, query: str, max_age_minutes: int = 60) -> li
 def set_cached_media(provider: str, query: str, data: list[dict[str, Any]], count: int, ttl_minutes: int = 60) -> None:
     """Store media results in cache."""
     qhash = hashlib.sha256(query.lower().strip().encode("utf-8")).hexdigest()
-    expires_at = datetime.utcnow() + timedelta(minutes=ttl_minutes)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=ttl_minutes)
     # Remove old cache entry for same query
     CachedMedia.query.filter_by(provider=provider, query_hash=qhash).delete()
     cached = CachedMedia(

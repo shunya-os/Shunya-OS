@@ -4,7 +4,7 @@ Validates that every journal entry balances (total debits = total credits).
 Once posted, entries are immutable. Adjustments via reversing entries.
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from decimal import Decimal
 from app import db
 from app.finance.models import Account, LedgerEntry, JournalEntry
@@ -86,7 +86,7 @@ def create_journal_entry(organization_id: int, entry_date: date, lines: list,
         reference_type=reference_type,
         reference_id=reference_id,
         created_by=created_by,
-        posted_at=datetime.utcnow(),
+        posted_at=datetime.now(timezone.utc),
     )
     db.session.add(journal)
     db.session.flush()

@@ -15,7 +15,7 @@ Responsibilities:
 from __future__ import annotations
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -365,7 +365,7 @@ class GovernanceLayer:
             for fmt in ("%d %b %Y", "%d %B %Y", "%d %b", "%d %B", "%d/%m/%Y", "%Y-%m-%d"):
                 try:
                     d = dt.strptime(first_date, fmt)
-                    return (d - datetime.utcnow()).days
+                    return (d - datetime.now(timezone.utc)).days
                 except ValueError:
                     continue
         except Exception:
@@ -381,7 +381,7 @@ class GovernanceLayer:
     def _audit(self, verdict: GovernanceVerdict, context: dict):
         """Record governance decision for audit trail."""
         self._audit_log.append({
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "approved": verdict.approved,
             "confidence": verdict.confidence,
             "blocking": len(verdict.blocking_policies),

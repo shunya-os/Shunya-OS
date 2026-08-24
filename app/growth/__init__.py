@@ -2,7 +2,7 @@
 SHUNYA — Growth & Campaign Intelligence (Phase 15A, computation-only)
 """
 import hashlib, json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Campaign lifecycle
@@ -35,7 +35,7 @@ class GrowthInitiative:
         self.state = state
         self.provenance = provenance
         self.source_refs = []
-        self.created_at = datetime.utcnow().isoformat()
+        self.created_at = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         return {"campaign_id": self.campaign_id, "tenant_id": self.tenant_id,
@@ -50,7 +50,7 @@ class GrowthObjective:
         self.description = description
         self.metric = metric
         self.provenance = provenance
-        self.effective_at = datetime.utcnow().isoformat()
+        self.effective_at = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         return {"campaign_id": self.campaign_id, "version": self.version,
@@ -86,7 +86,7 @@ class GrowthTouchpoint:
         self.occurred_at = occurred_at
         self.identity_ref = identity_ref
         self.provenance = provenance
-        self.recorded_at = datetime.utcnow().isoformat()
+        self.recorded_at = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict:
         return {"tp_id": self.tp_id, "campaign_id": self.campaign_id,
@@ -197,7 +197,7 @@ class GrowthIntelligenceService:
         self._idempotency.add(idem)
         tid = hashlib.sha256(idem.encode()).hexdigest()[:16]
         tp = GrowthTouchpoint(tid, campaign_id, tenant_id, source_ref, tp_type,
-                            occurred_at or datetime.utcnow().isoformat(),
+                            occurred_at or datetime.now(timezone.utc).isoformat(),
                             identity_ref=identity_ref)
         self._touchpoints[tid] = tp
         return {"touchpoint_id": tid}
@@ -249,4 +249,4 @@ class GrowthIntelligenceService:
 
     def _err(self, reason: str, tenant_id: int = 1) -> dict:
         return {"error": reason, "tenant_id": tenant_id,
-                "timestamp": datetime.utcnow().isoformat()}
+                "timestamp": datetime.now(timezone.utc).isoformat()}

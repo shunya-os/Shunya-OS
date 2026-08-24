@@ -11,7 +11,7 @@ This closes the compounding loop:
 from __future__ import annotations
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -155,7 +155,7 @@ class ObserverLayer:
 
     def get_anomalies(self, since_hours: int = 24) -> list[dict]:
         """Get observations flagged as unsuccessful (anomalies)."""
-        since = datetime.utcnow() - timedelta(hours=since_hours)
+        since = datetime.now(timezone.utc) - timedelta(hours=since_hours)
         obs = (
             self._session.query(Observation)
             .filter(Observation.success == False, Observation.created_at >= since)
@@ -166,7 +166,7 @@ class ObserverLayer:
 
     def get_discrepancies(self, since_hours: int = 24) -> list[dict]:
         """Get observations where reality differed from expectation."""
-        since = datetime.utcnow() - timedelta(hours=since_hours)
+        since = datetime.now(timezone.utc) - timedelta(hours=since_hours)
         obs = (
             self._session.query(Observation)
             .filter(Observation.discrepancy != "", Observation.created_at >= since)
@@ -245,7 +245,7 @@ class LearningLayer:
 
     def analyze_batch(self, since_hours: int = 1) -> list[LearningEntry]:
         """Analyze all recent observations that haven't been analyzed yet."""
-        since = datetime.utcnow() - timedelta(hours=since_hours)
+        since = datetime.now(timezone.utc) - timedelta(hours=since_hours)
         analyzed_ids = set(
             r[0] for r in
             self._session.query(LearningEntry.observation_id)
@@ -289,7 +289,7 @@ class LearningLayer:
                     created_by="learning_layer",
                 )
                 entry.applied = True
-                entry.applied_at = datetime.utcnow()
+                entry.applied_at = datetime.now(timezone.utc)
                 self._session.commit()
                 return True
             except Exception:

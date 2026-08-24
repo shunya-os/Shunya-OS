@@ -5,7 +5,7 @@ Business logic for the Relationship domain.
 
 import json
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Optional, List
 
 from app import db
@@ -252,7 +252,7 @@ def update_ai_memory(relationship_id: int, memory_data: dict,
     if health_score is not None:
         memory.health_score = min(100, max(0, health_score))
 
-    memory.last_ai_update = datetime.utcnow()
+    memory.last_ai_update = datetime.now(timezone.utc)
     db.session.commit()
     return memory
 
@@ -387,7 +387,7 @@ def merge_relationships(primary_id: int, secondary_id: int,
         detection_method="manual",
         confidence=100,
         resolved_by=merged_by,
-        resolved_at=datetime.utcnow(),
+        resolved_at=datetime.now(timezone.utc),
     )
     db.session.add(group)
 

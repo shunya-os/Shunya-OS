@@ -12,7 +12,7 @@ import json
 import os
 import uuid
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -170,7 +170,7 @@ class BrandingEngine:
     def generate_welcome(self, employee_name: str, hour: int = None) -> dict:
         """Generate a personalized welcome message with voice intent."""
         if hour is None:
-            hour = datetime.utcnow().hour
+            hour = datetime.now(timezone.utc).hour
 
         if hour < 12:
             greeting = "Good morning"
