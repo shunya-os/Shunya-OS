@@ -9,6 +9,7 @@
  * Warm glass-morphism design, inline CSS.
  */
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { MediaGenerator } from './media-generator';
 import {
   FileText,
   Hash,
@@ -20,6 +21,7 @@ import {
   Layout,
   RefreshCw,
   History,
+  Image,
   BookOpen,
   Copy,
   Check,
@@ -45,6 +47,7 @@ export type ContentFormat =
   | 'ad'
   | 'landing'
   | 'repurpose'
+  | 'media'
   | 'history';
 
 export type BrandVoice = 'professional' | 'casual' | 'luxury' | 'technical' | 'friendly';
@@ -262,6 +265,7 @@ const FORMAT_TABS: { value: ContentFormat; icon: React.ReactNode; label: string 
   { value: 'ad', icon: <Megaphone size={12} />, label: 'Ad Copy' },
   { value: 'landing', icon: <Layout size={12} />, label: 'Landing Page' },
   { value: 'repurpose', icon: <RefreshCw size={12} />, label: 'Repurpose' },
+  { value: 'media', icon: <Image size={12} />, label: 'Media' },
   { value: 'history', icon: <History size={12} />, label: 'History' },
 ];
 
@@ -1407,6 +1411,13 @@ export function ContentStudio() {
                         : 'Generate'}
               </span>
             </button>
+          </div>
+        )}
+
+        {/* ── Media Tab ── */}
+        {activeFormat === 'media' && (
+          <div className="cs-tab-panel">
+            <MediaGenerator />
           </div>
         )}
 

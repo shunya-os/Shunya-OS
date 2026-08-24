@@ -70,9 +70,9 @@ export default [
       'no-console': 'off',
     },
   },
-  // Node scripts (scripts/check-source-integrity.js)
+  // Node scripts (scripts/check-source-integrity.js, scripts/eslint-governance-check.mjs)
   {
-    files: ['scripts/**/*.js', '*.mjs'],
+    files: ['scripts/**/*.js', 'scripts/**/*.mjs', '*.mjs'],
     languageOptions: {
       globals: {
         ...globals.node,

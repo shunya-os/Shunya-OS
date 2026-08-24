@@ -127,10 +127,8 @@ jobs:
         working-directory: frontend
         run: |
           set -o pipefail
-          # Baseline: 452 warnings (0 errors) as of commit 912a16c.
-          # All warnings are @typescript-eslint/no-explicit-any and no-console.
-          # --max-warnings 452 prevents warning regression; 0 errors always fail.
-          npx eslint . --max-warnings 452
+          # Zero-new-warning governance: baseline stored in .eslint-baseline.json
+          node scripts/eslint-governance-check.mjs
       - name: Frontend typecheck
         working-directory: frontend
         run: |
