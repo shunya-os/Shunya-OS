@@ -17,7 +17,7 @@ Architecture:
   → EXECUTION → OUTCOME/EVIDENCE → MEMORY/LEARNING → FUTURE CONTEXT
 """
 import json
-from datetime import datetime, timezone, timezone
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app import db
@@ -126,7 +126,7 @@ def _should_expire(memory: MemoryRecord) -> bool:
     if not memory.created_at:
         return False
     days = _get_retention_days(memory.memory_type)
-    age = (datetime.now(timezone.utc) - memory.created_at).days
+    age = (datetime.utcnow() - memory.created_at).days
     return age > days
 
 
@@ -639,7 +639,7 @@ class MemoryService:
                     "memory_key": m.memory_key,
                     "memory_type": m.memory_type,
                     "created_at": m.created_at.isoformat() if m.created_at else None,
-                    "days_old": (datetime.now(timezone.utc) - m.created_at).days,
+                    "days_old": (datetime.utcnow() - m.created_at).days,
                 })
                 if not dry_run:
                     m.status = MemoryStatus.EXPIRED

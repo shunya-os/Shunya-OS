@@ -970,14 +970,14 @@ class TestMemoryDeleteExportRetention:
 
     def test_apply_retention_dry_run(self, svc):
         """Dry-run retention reports without modifying."""
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         # Create an old record by directly setting created_at
         old = MemoryRecord(
             memory_key="old_memory",
             value="very old expired data",
             memory_type="temporal",
             status=MemoryStatus.ACTIVE,
-            created_at=datetime.now(timezone.utc) - timedelta(days=400),
+            created_at=datetime.utcnow() - timedelta(days=400),
         )
         svc._session.add(old)
         svc._session.commit()
@@ -989,13 +989,13 @@ class TestMemoryDeleteExportRetention:
 
     def test_apply_retention_actually_expires(self, svc):
         """Retention actually expires old memories."""
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         old = MemoryRecord(
             memory_key="old_memory_expire",
             value="this should be expired by retention",
             memory_type="temporal",
             status=MemoryStatus.ACTIVE,
-            created_at=datetime.now(timezone.utc) - timedelta(days=400),
+            created_at=datetime.utcnow() - timedelta(days=400),
         )
         svc._session.add(old)
         svc._session.commit()

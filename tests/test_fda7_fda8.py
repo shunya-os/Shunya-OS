@@ -39,7 +39,7 @@ class TestProvenance:
     def test_web_source_has_provenance(self):
         """WebSource carries URL, retrieved_at, provider, freshness."""
         from core.web_intelligence import WebSource, Freshness
-        from datetime import datetime
+        from datetime import datetime, timezone
         src = WebSource(
             url="https://example.com",
             title="Test",
@@ -91,7 +91,7 @@ class TestConflictHandling:
     def test_conflict_detection(self):
         """Multiple sources with different claims → conflict detected."""
         from core.web_intelligence import WebResearchEngine, WebSource
-        from datetime import datetime
+        from datetime import datetime, timezone
         engine = WebResearchEngine()
         sources = [
             WebSource(url="https://a.com", title="A", retrieved_at=datetime.now(timezone.utc),
@@ -106,7 +106,7 @@ class TestConflictHandling:
     def test_no_conflict_for_single_source(self):
         """Single source → no conflict."""
         from core.web_intelligence import WebResearchEngine, WebSource
-        from datetime import datetime
+        from datetime import datetime, timezone
         engine = WebResearchEngine()
         sources = [
             WebSource(url="https://a.com", title="A", retrieved_at=datetime.now(timezone.utc),
@@ -122,7 +122,7 @@ class TestCitations:
     def test_format_citation(self):
         """Citation includes URL, title, dates, provider."""
         from core.web_intelligence import WebResearchEngine, WebSource, Freshness
-        from datetime import datetime
+        from datetime import datetime, timezone
         src = WebSource(
             url="https://example.com/article",
             title="Test Article",

@@ -132,7 +132,7 @@ class TestConversationPersistence:
     def test_conversation_messages_ordered_by_created_at(self, app, client):
         """Messages are returned in chronological order."""
         from app.founder.models import FounderConversation, FounderMessage
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         conv_id = f"conv_order_{uuid.uuid4().hex[:8]}"
         conv = FounderConversation(
             conv_id=conv_id, object_id="tenant_1",
