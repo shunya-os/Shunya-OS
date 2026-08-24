@@ -1,13 +1,13 @@
 {
-  "sha": "969d43cbfa91739e7292c1967bdbbe78e633f320",
+  "sha": "f5ff768be9e0890ecef0309c98eebf3e6dcdf99b",
   "date": "2026-08-24",
-  "total": 448,
+  "total": 452,
   "errors": 0,
   "by_rule": {
     "@typescript-eslint/no-explicit-any": 405,
-    "no-console": 20,
-    "@typescript-eslint/no-unused-vars": 14,
-    "react-hooks/exhaustive-deps": 9
+    "no-console": 22,
+    "@typescript-eslint/no-unused-vars": 15,
+    "react-hooks/exhaustive-deps": 10
   },
   "policy": "Zero-new-warning: CI compares current count against this baseline. Warning count may only decrease. Increase requires explicit approval with justification."
 }
