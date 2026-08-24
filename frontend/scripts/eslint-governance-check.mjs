@@ -7,29 +7,23 @@
  *   - There are new errors (errors always fail)
  *   - Warning count exceeds baseline (regression)
  *   - The baseline file is missing
- *
- * To update the baseline after fixing warnings:
- *   npx eslint . --format=json > .eslint-current.json
- *   node scripts/update-eslint-baseline.js
  */
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 
 const BASELINE_PATH = new URL('../.eslint-baseline.json', import.meta.url).pathname;
-const CURRENT_PATH = '/tmp/eslint-current.json';
 
 if (!existsSync(BASELINE_PATH)) {
   console.error('❌ ESLint baseline not found at .eslint-baseline.json');
   process.exit(1);
 }
 
-// Run ESLint
-execSync(`npx eslint . --format=json --output-file=${CURRENT_PATH}`, {
-  stdio: 'inherit',
-});
+// Run ESLint and capture output. maxBuffer is large because axe-audit.mjs
+// embeds a large inline source string that inflates the JSON output.
+const stdout = execSync('npx eslint . --format=json', { encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024 });
+const current = JSON.parse(stdout);
 
 const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8'));
-const current = JSON.parse(readFileSync(CURRENT_PATH, 'utf-8'));
 
 const currentErrors = current.reduce((sum, f) => sum + f.messages.filter(m => m.severity === 2).length, 0);
 const currentWarnings = current.reduce((sum, f) => sum + f.messages.filter(m => m.severity === 1).length, 0);
