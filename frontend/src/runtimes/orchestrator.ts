@@ -62,6 +62,7 @@ export interface RuntimeRegistration {
   version: string;
   description: string;
   dependencies: string[];
+  critical: boolean;  // true = blocks workspace; false = background hydration
   eventsPublished: string[];
   eventsSubscribed: string[];
   startup: () => Promise<void>;
@@ -147,48 +148,71 @@ class Orchestrator {
 
   // ── Lifecycle ────────────────────────────────────────────────
 
-  /** Start all runtimes in dependency order. */
+  /** Start all runtimes in dependency order, critical first (blocking), then non-critical (background). */
   async startAll(): Promise<{ succeeded: string[]; failed: string[] }> {
     const order = this.resolveStartOrder();
     const succeeded: string[] = [];
     const failed: string[] = [];
     const startTime = Date.now();
 
-    for (const id of order) {
+    // Phase 1: Start critical runtimes (blocking — workspace depends on these)
+    const critical = order.filter(id => this.registry.get(id)?.registration.critical !== false);
+    for (const id of critical) {
       const instance = this.registry.get(id);
       if (!instance) continue;
+      await this._startOne(id, instance, succeeded, failed);
+    }
 
-      instance.status = 'initialising';
-      instance.health.status = 'initialising';
-      instance.health.startedAt = Date.now();
-      instance.health.retryCount = 0;
-
-      try {
-        const t0 = performance.now();
-        await instance.registration.startup();
-        const elapsed = Math.round(performance.now() - t0);
-        instance.status = 'ready';
-        instance.health.status = 'ready';
-        instance.health.startupMs = elapsed;
-        instance.health.lastActivity = Date.now();
-        succeeded.push(id);
-
-        bus.emit({ type: 'RuntimeReady' as any, source: id, error: '' } as any);
-      } catch (err) {
-        instance.status = 'failed';
-        instance.health.status = 'failed';
-        instance.health.lastFailure = { time: Date.now(), error: String(err) };
-        failed.push(id);
-
-        bus.emit({ type: 'RuntimeFailed' as any, source: id, error: String(err) } as any);
-        console.error(`[Orchestrator] Runtime '${id}' failed to start:`, err);
-      }
+    // Phase 2: Start non-critical runtimes in background (don't block workspace)
+    const nonCritical = order.filter(id => !critical.includes(id));
+    if (nonCritical.length > 0) {
+      setTimeout(async () => {
+        for (const id of nonCritical) {
+          const instance = this.registry.get(id);
+          if (!instance) continue;
+          await this._startOne(id, instance, succeeded, failed);
+        }
+        const bgMs = Date.now() - startTime;
+        console.log(`[Orchestrator] Background startup complete: ${nonCritical.length} runtimes in ${bgMs}ms`);
+      }, 0);
     }
 
     const totalMs = Date.now() - startTime;
-    console.log(`[Orchestrator] Startup complete: ${succeeded.length} ready, ${failed.length} failed in ${totalMs}ms`);
-
+    console.log(`[Orchestrator] Critical startup: ${succeeded.length} ready, ${failed.length} failed in ${totalMs}ms`);
     return { succeeded, failed };
+  }
+
+  private async _startOne(
+    id: string,
+    instance: RuntimeInstance,
+    succeeded: string[],
+    failed: string[],
+  ): Promise<void> {
+    instance.status = 'initialising';
+    instance.health.status = 'initialising';
+    instance.health.startedAt = Date.now();
+    instance.health.retryCount = 0;
+
+    try {
+      const t0 = performance.now();
+      await instance.registration.startup();
+      const elapsed = Math.round(performance.now() - t0);
+      instance.status = 'ready';
+      instance.health.status = 'ready';
+      instance.health.startupMs = elapsed;
+      instance.health.lastActivity = Date.now();
+      succeeded.push(id);
+
+      bus.emit({ type: 'RuntimeReady' as any, source: id, error: '' } as any);
+    } catch (err) {
+      instance.status = 'failed';
+      instance.health.status = 'failed';
+      instance.health.lastFailure = { time: Date.now(), error: String(err) };
+      failed.push(id);
+
+      bus.emit({ type: 'RuntimeFailed' as any, source: id, error: String(err) } as any);
+      console.error(`[Orchestrator] Runtime '${id}' failed to start:`, err);
+    }
   }
 
   /** Shut down all runtimes in reverse dependency order. */

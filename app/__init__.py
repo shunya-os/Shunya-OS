@@ -653,6 +653,10 @@ def create_app(config_override: dict | None = None):
     app.register_blueprint(objects_upload_bp)
     # Production API v1 — Milestone X
     app.register_blueprint(production_bp)
+    # Workspace Experience Framework — API routes (catalog, contexts, experiences, policies)
+    from app.workspace import workspace_bp as workspace_exp_bp
+    app.register_blueprint(workspace_exp_bp)
+
     # SHUNYA Public — Milestone E1
     app.register_blueprint(shunya_bp)
 

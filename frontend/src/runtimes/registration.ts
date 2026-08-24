@@ -18,6 +18,7 @@ function reg(opts: {
   version: string;
   description: string;
   deps: string[];
+  critical?: boolean;
   pub: string[];
   sub: string[];
   start: () => Promise<void>;
@@ -30,6 +31,7 @@ function reg(opts: {
     version: opts.version,
     description: opts.description,
     dependencies: opts.deps,
+    critical: opts.critical !== false,
     eventsPublished: opts.pub,
     eventsSubscribed: opts.sub,
     startup: opts.start,
@@ -58,7 +60,7 @@ const RT = (
 ): RuntimeRegistration =>
   reg({ id, version: ver, description: desc, deps, pub, sub, start, health: () => h('ready'), state });
 
-const ALL = [
+const ALL: RuntimeRegistration[] = [
   RT(
     'state-fabric',
     '1.0',
@@ -259,6 +261,22 @@ const ALL = [
     },
   ),
 ];
+
+// Mark non-critical runtimes (background hydration — don't block workspace)
+const NON_CRITICAL = new Set([
+  'object-runtime',
+  'object-graph-runtime',
+  'timeline-runtime',
+  'intelligence-runtime',
+  'commitment-runtime',
+  'conversation-runtime',
+  'experience-engine',
+]);
+for (const r of ALL) {
+  if (NON_CRITICAL.has(r.id)) {
+    r.critical = false;
+  }
+}
 
 export function registerAllRuntimes(): void {
   ALL.forEach((r) => orchestrator.register(r));

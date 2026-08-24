@@ -179,26 +179,28 @@ function AppShell() {
   const bootstrap = async () => {
     if (bootstrapped) return;
     bootstrapped = true;
-    setPhase('booting');
-    setBootMsg('Starting platform…');
 
-    try {
-      registerAllRuntimes();
-      await orchestrator.startAll();
+    // Stage 1 — Immediate: show the workspace shell immediately
+    // The app shell, identity, and navigation render without waiting for
+    // runtimes, modules, or capabilities.
+    setPhase('ready');
+    setBootMsg(''); // Clear boot message — shell is visible
 
-      setBootMsg('Loading modules…');
-      await ModuleRegistry.loadAll();
-
-      if (ModuleRegistry.hasModules) {
-        setBootMsg('Discovering capabilities…');
-        const data = await ModuleRegistry.discoverAll();
-        await ModuleRegistry.registerAll(data);
+    // Stage 2 — Interactive: start runtimes in the background
+    // Runtimes declare their criticality, so non-critical ones don't block
+    // the workspace. The user can start navigating and working immediately.
+    setTimeout(async () => {
+      try {
+        registerAllRuntimes();
+        // startAll is non-blocking; critical runtimes initialize first,
+        // non-critical ones hydrate in the background
+        orchestrator.startAll().catch(() => {});
+        ModuleRegistry.loadAll().catch(() => {});
+        ModuleRegistry.discoverAll().then(data => ModuleRegistry.registerAll(data)).catch(() => {});
+      } catch {
+        // Stage failures never blank the workspace
       }
-
-      setPhase('ready');
-    } catch {
-      setPhase('ready');
-    }
+    }, 0);
   };
 
   const handleEnterApp = async () => {

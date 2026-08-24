@@ -99,6 +99,18 @@ def login_page():
             user.last_login = datetime.utcnow()
             user.generate_token()
             db.session.commit()
+
+            # Resolve identity_id and current_org_id for workspace continuity
+            from app.models import OrgMember, Organization
+            org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
+            if org_members:
+                # Pick the org with the most members (most active)
+                best_org = max(org_members, key=lambda om: OrgMember.query.filter_by(
+                    organization_id=om.organization_id, is_active=True
+                ).count())
+                session["identity_id"] = best_org.identity_id
+                session["current_org_id"] = best_org.organization_id
+
             return jsonify({"success": True, "redirect": url_for("workspace_routes.workspace_home")})
         return jsonify({"success": False, "error": "Invalid email or password"}), 401
 
@@ -127,6 +139,17 @@ def login_page():
             user.last_login = datetime.utcnow()
             user.generate_token()
             db.session.commit()
+
+            # Resolve identity_id and current_org_id for workspace continuity
+            from app.models import OrgMember, Organization
+            org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
+            if org_members:
+                best_org = max(org_members, key=lambda om: OrgMember.query.filter_by(
+                    organization_id=om.organization_id, is_active=True
+                ).count())
+                session["identity_id"] = best_org.identity_id
+                session["current_org_id"] = best_org.organization_id
+
             next_url = request.args.get("next") or url_for("workspace_routes.workspace_home")
             return redirect(next_url)
 
