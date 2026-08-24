@@ -413,6 +413,70 @@ def create_commitment():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ── FDA16/20: Bootstrap — lightweight workspace startup payload ────
+
+
+@workspace_api.route("/bootstrap", methods=["GET"])
+def workspace_bootstrap():
+    """Return the minimal workspace bootstrap payload.
+
+    This is the canonical lightweight startup path for the frontend shell.
+    It returns everything needed to render the initial workspace in one
+    round-trip. Non-critical data (intelligence, analytics, full history)
+    is loaded separately via background hydration.
+
+    Returns:
+        identity: current user identity
+        org: current organization
+        workspace: workspace context
+        catalog: available experiences
+        domains: organizational domains
+    """
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    tenant = _tenant_id()
+    identity = _identity_id()
+
+    # Resolve org info
+    org_name = ""
+    org_created_at = ""
+    from app.models import Organization
+    org = Organization.query.get(tenant) if tenant else None
+    if org:
+        org_name = org.name
+        org_created_at = org.created_at.isoformat() if org.created_at else ""
+
+    # Lightweight catalog (no DB queries for experience data)
+    from app.workspace.models import EXPERIENCE_CATALOG, CONTEXT_MODES
+    catalog = [{"key": k, "label": v.get("label", k), "category": v.get("category", "")}
+               for k, v in EXPERIENCE_CATALOG.items()]
+    contexts = [{"key": k, "label": v.get("label", k)} for k, v in CONTEXT_MODES.items()]
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "identity": {"id": identity},
+            "org": {"id": tenant, "name": org_name, "created_at": org_created_at},
+            "catalog": catalog,
+            "contexts": contexts,
+            "domains": [
+                {"id": "people", "label": "People"},
+                {"id": "conversations", "label": "Conversations"},
+                {"id": "work", "label": "Work"},
+                {"id": "commercial", "label": "Commercial"},
+                {"id": "marketing", "label": "Marketing"},
+                {"id": "sales", "label": "Sales"},
+                {"id": "knowledge", "label": "Knowledge"},
+                {"id": "outputs", "label": "Outputs"},
+                {"id": "memory", "label": "Memory"},
+                {"id": "content", "label": "Content"},
+                {"id": "entities", "label": "Entities"},
+            ],
+        }
+    })
+
+
 # ── FDA16/20: Health ────────────────────────────────────────────────
 
 

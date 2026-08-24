@@ -17,33 +17,35 @@
  * WORLD: Remaining organization is always accessible, never hidden
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLivingStore } from '../living-workspace/living-store';
 import { useWorkspaceStore } from '../../runtimes/workspace/store';
 import { useActiveWorkspace } from '../../hooks/workspace-hooks';
-import { ObjectWorkspaceViewer } from '../workspace/object-workspace-viewer';
-import { AdminPanel } from '../workspace/admin-panel';
-import { ImportExportPanel } from '../import-export/import-export-panel';
-import { ContactDiscovery } from '../contacts/contact-discovery';
-import { CommitmentWorkspace } from '../commitment/commitment-workspace';
-import { ConversationWorkspace } from '../conversation/conversation-workspace';
-import { CommercialWorkspace } from '../commercial/commercial-workspace';
-import { RelationshipWorkspace } from '../relationship/relationship-workspace';
-import { MarketingDashboard } from '../marketing/marketing-dashboard';
-import { SalesPipeline } from '../sales/sales-pipeline';
-import { ExecutionWorkspace } from '../work/execution-workspace';
-import { TasksWorkspace } from '../work/tasks-workspace';
-import { OutputsBrowser } from '../outputs/outputs-browser';
-import { OrganizationBrowser } from '../organization/organization-browser';
-import { LeadManagement } from '../sales/lead-management';
-import { CommandToActionBridge } from '../actions/command-to-action-bridge';
-import { MemoryBrowser } from '../memory/memory-browser';
-import { ContentStudio } from '../content/content-studio';
-import { EntityManager } from '../entities/entity-manager';
-import { SettingsPanel } from '../settings/settings-panel';
-import { SearchBar } from '../search/universal-search';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
+
+// Code-split heavy workspace components — loaded on first use, not on initial boot
+const ObjectWorkspaceViewer = lazy(() => import('../workspace/object-workspace-viewer').then(m => ({ default: m.ObjectWorkspaceViewer })));
+const AdminPanel = lazy(() => import('../workspace/admin-panel').then(m => ({ default: m.AdminPanel })));
+const ImportExportPanel = lazy(() => import('../import-export/import-export-panel').then(m => ({ default: m.ImportExportPanel })));
+const ContactDiscovery = lazy(() => import('../contacts/contact-discovery').then(m => ({ default: m.ContactDiscovery })));
+const CommitmentWorkspace = lazy(() => import('../commitment/commitment-workspace').then(m => ({ default: m.CommitmentWorkspace })));
+const ConversationWorkspace = lazy(() => import('../conversation/conversation-workspace').then(m => ({ default: m.ConversationWorkspace })));
+const CommercialWorkspace = lazy(() => import('../commercial/commercial-workspace').then(m => ({ default: m.CommercialWorkspace })));
+const RelationshipWorkspace = lazy(() => import('../relationship/relationship-workspace').then(m => ({ default: m.RelationshipWorkspace })));
+const MarketingDashboard = lazy(() => import('../marketing/marketing-dashboard').then(m => ({ default: m.MarketingDashboard })));
+const SalesPipeline = lazy(() => import('../sales/sales-pipeline').then(m => ({ default: m.SalesPipeline })));
+const ExecutionWorkspace = lazy(() => import('../work/execution-workspace').then(m => ({ default: m.ExecutionWorkspace })));
+const TasksWorkspace = lazy(() => import('../work/tasks-workspace').then(m => ({ default: m.TasksWorkspace })));
+const OutputsBrowser = lazy(() => import('../outputs/outputs-browser').then(m => ({ default: m.OutputsBrowser })));
+const OrganizationBrowser = lazy(() => import('../organization/organization-browser').then(m => ({ default: m.OrganizationBrowser })));
+const LeadManagement = lazy(() => import('../sales/lead-management').then(m => ({ default: m.LeadManagement })));
+const CommandToActionBridge = lazy(() => import('../actions/command-to-action-bridge').then(m => ({ default: m.CommandToActionBridge })));
+const MemoryBrowser = lazy(() => import('../memory/memory-browser').then(m => ({ default: m.MemoryBrowser })));
+const ContentStudio = lazy(() => import('../content/content-studio').then(m => ({ default: m.ContentStudio })));
+const EntityManager = lazy(() => import('../entities/entity-manager').then(m => ({ default: m.EntityManager })));
+const SettingsPanel = lazy(() => import('../settings/settings-panel').then(m => ({ default: m.SettingsPanel })));
+const SearchBar = lazy(() => import('../search/universal-search').then(m => ({ default: m.SearchBar })));
 
 // ═══════════════════════════════════════════════════════════════════
 // DOMAIN DEFINITIONS — Universal organizational domains
@@ -1016,13 +1018,15 @@ export function PrimaryWorkspace({ loading: _loading }: { loading?: boolean }) {
 
         {/* CENTER — DomainWorkspaceRouter handles ALL workspace types */}
         <main className="pw-layout-center" role="main">
-          <DomainWorkspaceRouter />
+          <Suspense fallback={<div className="pw-loading"><div className="pw-loading-shimmer" /><p className="pw-loading-text">Loading…</p></div>}>
+            <DomainWorkspaceRouter />
+          </Suspense>
         </main>
       </div>
 
       {/* Command + Voice — always at bottom */}
-      <IntegratedCommand />
-      <SearchBar />
+      <Suspense fallback={null}><IntegratedCommand /></Suspense>
+      <Suspense fallback={null}><SearchBar /></Suspense>
     </div>
   );
 }
