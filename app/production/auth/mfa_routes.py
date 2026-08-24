@@ -91,7 +91,7 @@ def mfa_setup():
         existing.secret = secret
         existing.enabled = False
         existing.recovery_codes = recovery_codes
-        existing.updated_at = datetime.now(timezone.utc)
+        existing.updated_at = datetime.utcnow()
     else:
         config = MFAConfig(
             user_id=user_id,
@@ -134,7 +134,7 @@ def mfa_verify():
         raise BadRequest("Invalid verification code")
 
     config.enabled = True
-    config.updated_at = datetime.now(timezone.utc)
+    config.updated_at = datetime.utcnow()
     db.session.commit()
 
     return jsonify({
@@ -160,7 +160,7 @@ def mfa_disable():
         raise BadRequest("Invalid password")
 
     config.enabled = False
-    config.updated_at = datetime.now(timezone.utc)
+    config.updated_at = datetime.utcnow()
     db.session.commit()
 
     return jsonify({
@@ -192,7 +192,7 @@ def mfa_challenge():
             codes.remove(recovery_code)
             config.recovery_codes = codes
             config.enabled = False
-            config.updated_at = datetime.now(timezone.utc)
+            config.updated_at = datetime.utcnow()
             db.session.commit()
             session["user_id"] = user.id
             return jsonify({

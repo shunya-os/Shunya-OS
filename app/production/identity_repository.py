@@ -330,7 +330,7 @@ class IdentityRepository:
 
         for m in identity.auth_methods:
             if m.method_type == method_type and m.identifier == identifier:
-                m.verified_at = datetime.now(timezone.utc).isoformat()
+                m.verified_at = datetime.utcnow().isoformat()
                 self._sync_to_db(identity)
                 return True
         return False
@@ -389,7 +389,7 @@ class IdentityRepository:
                 for m in identity.auth_methods
             ]
             model.auth_methods_json = json.dumps(methods)
-            model.updated_at = datetime.now(timezone.utc)
+            model.updated_at = datetime.utcnow()
         else:
             model = SHUNYAIdentityModel.from_kernel(identity)
             db.session.add(model)

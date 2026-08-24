@@ -99,8 +99,8 @@ def track_device():
         "user_id": g.user.id,
         "user_agent": ua[:200],
         "ip_address": ip,
-        "last_seen": datetime.now(timezone.utc).isoformat(),
+        "last_seen": datetime.utcnow().isoformat(),
         "created_at": _devices.get(session_token, {}).get(
-            "created_at", datetime.now(timezone.utc).isoformat()
+            "created_at", datetime.utcnow().isoformat()
         ),
     }

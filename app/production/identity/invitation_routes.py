@@ -103,7 +103,7 @@ def create_invitation(org_id: int):
         org_id=org_id,
         email=email,
         role=role,
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=48),
+        expires_at=datetime.utcnow() + timedelta(hours=48),
     )
     db.session.add(invitation)
     db.session.commit()
@@ -124,7 +124,7 @@ def get_invitation(token: str):
     if inv.accepted_at:
         raise NotFound("Invitation has already been accepted")
 
-    if datetime.now(timezone.utc) > inv.expires_at:
+    if datetime.utcnow() > inv.expires_at:
         raise NotFound("Invitation has expired")
 
     return jsonify({
@@ -143,7 +143,7 @@ def accept_invitation(token: str):
     if inv.accepted_at:
         raise NotFound("Invitation has already been accepted")
 
-    if datetime.now(timezone.utc) > inv.expires_at:
+    if datetime.utcnow() > inv.expires_at:
         raise NotFound("Invitation has expired")
 
     data = _require_json()
@@ -173,7 +173,7 @@ def accept_invitation(token: str):
     db.session.commit()
 
     # Mark invitation as accepted
-    inv.accepted_at = datetime.now(timezone.utc)
+    inv.accepted_at = datetime.utcnow()
     db.session.commit()
 
     return jsonify({

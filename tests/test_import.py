@@ -331,12 +331,12 @@ class TestImportData:
         for idx, row in enumerate(rows):
             try:
                 # Generate a unique code using current timestamp for simplicity
-                code = f"TEST{datetime.now(timezone.utc).strftime('%H%M%S')}{idx:02d}"
+                code = f"TEST{datetime.utcnow().strftime('%H%M%S')}{idx:02d}"
                 lead = self.IsoLead(
                     source="api" if tenant_id else "manual",
                     code=code,
                     status="new",
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.utcnow(),
                 )
                 for match in report["matched_columns"]:
                     value = row.get(match.source_column, "").strip()
