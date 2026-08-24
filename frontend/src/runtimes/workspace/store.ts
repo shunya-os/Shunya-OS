@@ -99,6 +99,19 @@ export const useWorkspaceStore = create<StoreState & WorkspaceActions>((set, get
     }
   });
 
+  // Safety timeout: any workspace stuck in 'loading' for >15s transitions to 'error'
+  // This prevents indefinite loading spinners when events fail to arrive.
+  setInterval(() => {
+    const now = Date.now();
+    for (const w of get().workspaces) {
+      if (w.status === 'loading' && now - w.identity.lastAccessed > 15000) {
+        const id = w.identity.id;
+        set((s) => transitionTo(s, id, 'error'));
+        bus.emit({ type: 'WorkspaceError', workspaceId: id, error: 'Loading timed out. The data source may be unavailable.' });
+      }
+    }
+  }, 5000);
+
   return {
     workspaces: [],
     activeId: null,
@@ -124,7 +137,35 @@ export const useWorkspaceStore = create<StoreState & WorkspaceActions>((set, get
 
       const ws = createWorkspace(name, type, opts);
       const id = ws.identity.id;
-      set((s) => ({ workspaces: [...s.workspaces, { ...ws, status: 'loading' as WorkspaceStatus }], activeId: id }));
+
+      // Determine if this workspace type is a domain panel that renders
+      // immediately without requiring async data loading via ObjectLoaded
+      // or TimelineLoaded events. Domain panels are self-contained — they
+      // fetch their own data internally. The workspace store must not keep
+      // them stuck in 'loading' waiting for events that never arrive.
+      const DOMAIN_TYPES = new Set([
+        'people', 'admin', 'import-export', 'contact-discovery', 'settings',
+        'home', 'conversation', 'commitment', 'search', 'document', 'proposals',
+        'calendar', 'analytics', 'audit', 'email', 'comparison', 'music',
+      ]);
+      const DOMAIN_OBJECT_IDS = new Set([
+        'commercial', 'marketing', 'sales', 'relationships', 'memory',
+        'content', 'entities', 'outputs', 'knowledge', 'work', 'tasks',
+        'actions', 'leads', 'operations', 'people', 'finance',
+      ]);
+
+      const isDomainType = DOMAIN_TYPES.has(type) ||
+        (type === 'object' && opts?.objectId && DOMAIN_OBJECT_IDS.has(opts.objectId)) ||
+        (type === 'object' && !opts?.objectId && !opts?.objectType);
+
+      if (isDomainType) {
+        // Domain workspaces render immediately — no async data wait
+        set((s) => ({ workspaces: [...s.workspaces, { ...ws, status: 'active' as WorkspaceStatus }], activeId: id }));
+      } else {
+        // Object workspaces wait for ObjectLoaded/TimelineLoaded events
+        set((s) => ({ workspaces: [...s.workspaces, { ...ws, status: 'loading' as WorkspaceStatus }], activeId: id }));
+      }
+
       get().persist();
       bus.emit({ type: 'WorkspaceOpened', workspaceId: id, objectType: opts?.objectType, objectId: opts?.objectId });
       return id;
