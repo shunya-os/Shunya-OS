@@ -482,6 +482,9 @@ def create_app(config_override: dict | None = None):
         IntegrationConnection, SocialAccount, ScheduledPost, AdCampaign,
     )
 
+    # Media model — ZGC-PR-10 canonical media asset with runtime state
+    from app.media.models import MediaAsset  # noqa: F401
+
     # ---- Register ALL models before auto-create tables -------------------
     # Models imported later (evidence, memory, communication, document, etc.)
     # are registered here so db.create_all() creates their tables.
@@ -707,6 +710,10 @@ def create_app(config_override: dict | None = None):
     # Campaign Management API — Workstream F
     from app.campaign.routes import campaign_bp
     app.register_blueprint(campaign_bp)
+
+    # Media Generation API — ZGC-PR-10
+    from app.media.routes import media_bp
+    app.register_blueprint(media_bp)
 
     # Deployment Diagnostics API
     from app.deploy_diagnostics.routes import deploy_bp

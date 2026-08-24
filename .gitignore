@@ -83,7 +83,7 @@ backups/
 instance/
 
 # Uploaded media
-media/
+media/uploads/
 
 # Coverage, logs, invoices
 .coverage
