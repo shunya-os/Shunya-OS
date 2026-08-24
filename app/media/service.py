@@ -39,18 +39,21 @@ def _get_hf_token() -> Optional[str]:
 def _check_hf_available() -> bool:
     """Check whether Hugging Face inference is available.
 
-    Uses a lightweight token validation without requiring a specific model.
+    Uses a lightweight token validation by attempting to generate a tiny
+    probe image (1x1) — avoids depending on model-status endpoints that
+    may not exist on all InferenceClient versions.
     """
     token = _get_hf_token()
     if not token:
         return False
     try:
         from huggingface_hub import InferenceClient
+        from io import BytesIO
 
         client = InferenceClient(token=token)
-        # Just verify the token by checking the whoami endpoint
-        client.get_model_status(HF_MODEL)
-        return True
+        # Probe with a minimal prompt — if the API returns an image the token works
+        image = client.text_to_image("test", model=HF_MODEL)
+        return image is not None
     except Exception:
         return False
 
@@ -94,7 +97,7 @@ def _save_image_file(raw_bytes: bytes, identity_id: str) -> str:
     if not path.exists():
         path.write_bytes(raw_bytes)
         logger.info("Saved media asset: %s (%d bytes)", path, len(raw_bytes))
-    return f"/media/uploads/{identity_id}/{filename}"
+    return f"/api/v1/media/uploads/{identity_id}/{filename}"
 
 
 def _transform_to_visual_brief(business_context: dict, raw_prompt: str) -> str:
