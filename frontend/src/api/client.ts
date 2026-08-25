@@ -6,9 +6,36 @@
 
 const BASE = '/api/v1';
 
+/**
+ * Get workspace context from the workspace store and return headers.
+ * Uses dynamic import() to avoid circular dependency at module init.
+ * This ensures every API call carries the current workspace context.
+ */
+async function getWorkspaceHeaders(): Promise<Record<string, string>> {
+  try {
+    const { useWorkspaceStore } = await import('../runtimes/workspace/store');
+    const state = useWorkspaceStore.getState();
+    const active = state.activeId ? state.getWorkspace(state.activeId) : null;
+    if (active) {
+      const headers: Record<string, string> = {};
+      if (active.identity.objectId) {
+        headers['X-Workspace-Id'] = active.identity.objectId;
+      }
+      if (active.identity.type) {
+        headers['X-Workspace-Type'] = active.identity.type;
+      }
+      return headers;
+    }
+  } catch {
+    // Workspace store not available yet — skip headers
+  }
+  return {};
+}
+
 async function req<T>(path: string, opts?: RequestInit): Promise<T> {
+  const wsHeaders = await getWorkspaceHeaders();
   const r = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+    headers: { 'Content-Type': 'application/json', ...wsHeaders, ...opts?.headers },
     credentials: 'include',
     ...opts,
   });

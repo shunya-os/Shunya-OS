@@ -1121,6 +1121,42 @@ a:hover{background:#4338ca}
 </html>'''
         return html, 404
 
+    # ---- Workspace Context Middleware (runs before auth check) ------------
+    @app.before_request
+    def _resolve_workspace_context():
+        """Resolve workspace context for every request, including /api/ paths.
+
+        Sets g.workspace_context, g.workspace_type, g.workspace_id, g.capabilities.
+        Reads X-Workspace-Id header first, falls back to session.
+        """
+        try:
+            from app.workspace.models import resolve_context
+
+            ws_header = request.headers.get("X-Workspace-Id")
+            ws_type_header = request.headers.get("X-Workspace-Type")
+
+            if ws_header:
+                ctx = resolve_context(workspace_id=ws_header)
+            else:
+                ctx = resolve_context()
+
+            g.workspace_context = ctx
+            if ctx.current_workspace:
+                g.workspace_type = ctx.workspace_type.value
+                g.workspace_id = ctx.current_workspace.workspace_id
+                g.capabilities = ctx.capabilities
+
+            # Sync header to session for downstream code
+            if ws_header and ctx.current_workspace:
+                session["current_workspace_id"] = ctx.current_workspace.workspace_id
+                session["current_workspace_type"] = ctx.workspace_type.value
+                session.modified = True
+        except Exception:
+            g.workspace_context = None
+            g.workspace_type = None
+            g.workspace_id = None
+            g.capabilities = None
+
     # ---- Auth Middleware ----------------------------------------------------
     @app.before_request
     def _check_auth():
@@ -1164,20 +1200,8 @@ a:hover{background:#4338ca}
             return redirect(url_for("auth.login_page"))
         g.user = user
 
-        # Resolve workspace context for authenticated requests
-        try:
-            from app.workspace.models import resolve_context, Workspace
-            ctx = resolve_context()
-            g.workspace_context = ctx
-            if ctx.current_workspace:
-                g.workspace_type = ctx.workspace_type.value
-                g.workspace_id = ctx.current_workspace.workspace_id
-                g.capabilities = ctx.capabilities
-        except Exception:
-            g.workspace_context = None
-            g.workspace_type = None
-            g.workspace_id = None
-            g.capabilities = None
+        # Note: workspace context is resolved in _resolve_workspace_context
+        # (registered before this handler) and set on g. for all paths.
 
     @app.context_processor
     def inject_globals():
