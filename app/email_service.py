@@ -2,17 +2,23 @@
 SHUNYA Email Service — notification delivery for verification, reset, onboarding.
 
 Architecture:
-  - In development: prints verification URLs to logs (user can click the printed link)
-  - In production: sends via SMTP (env SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS)
-  - Fallback: logs the URL to stdout for demo/testing environments
+  - Uses email_core.py (canonical send path) which checks is_human_triggered=True
+  - In production: sends via SMTP when EMAIL_USER/EMAIL_PASSWORD are configured
+  - Falls back to logging when unconfigured
+
+  Required env vars for production delivery:
+    EMAIL_USER=<your-gmail-or-smtp-user>
+    EMAIL_PASSWORD=<your-gmail-app-password-or-smtp-password>
+    EMAIL_HOST=smtp.gmail.com (default)
+    EMAIL_PORT=587 (default)
+    EMAIL_FROM=<from-address> (defaults to EMAIL_USER)
+    SHUNYA_BASE_URL=https://your-domain.com
 
 All email rendering uses plain-text templates.
 """
 
 import os
 import logging
-import smtplib
-from email.mime.text import MIMEText
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -20,47 +26,18 @@ logger = logging.getLogger(__name__)
 BASE_URL = os.environ.get("SHUNYA_BASE_URL", os.environ.get("PUBLIC_URL", "http://127.0.0.1:5001"))
 
 
-def _get_smtp_config() -> Optional[dict]:
-    """Read SMTP config from environment. Returns None if not configured."""
-    host = os.environ.get("SMTP_HOST") or os.environ.get("MAIL_HOST") or os.environ.get("EMAIL_HOST")
-    if not host:
-        return None
-    return {
-        "host": host,
-        "port": int(os.environ.get("SMTP_PORT") or os.environ.get("MAIL_PORT", "587")),
-        "user": os.environ.get("SMTP_USER") or os.environ.get("MAIL_USER", ""),
-        "password": os.environ.get("SMTP_PASS") or os.environ.get("MAIL_PASSWORD", ""),
-        "from": os.environ.get("SMTP_FROM") or "shunya@shunyaos.com",
-        "tls": os.environ.get("SMTP_TLS", "true").lower() == "true",
-    }
-
-
 def send_email(to: str, subject: str, body: str) -> bool:
-    """Send an email. Logs the content if SMTP not configured."""
-    smtp = _get_smtp_config()
-    if smtp:
-        try:
-            msg = MIMEText(body, "plain", "utf-8")
-            msg["Subject"] = subject
-            msg["From"] = smtp["from"]
-            msg["To"] = to
-            with smtplib.SMTP(smtp["host"], smtp["port"], timeout=15) as server:
-                if smtp["tls"]:
-                    server.starttls()
-                if smtp["user"] and smtp["password"]:
-                    server.login(smtp["user"], smtp["password"])
-                server.send_message(msg)
-            logger.info("Email sent to %s: %s", to, subject)
-            return True
-        except Exception as e:
-            logger.warning("Failed to send email to %s: %s", to, e)
-            # Fall through to logging
-    # Fallback: log the email content (works for dev/demo)
-    logger.info("=== EMAIL TO: %s ===", to)
-    logger.info("Subject: %s", subject)
-    logger.info("Body:\n%s", body)
-    logger.info("=== END EMAIL ===")
-    return True
+    """Send an email via the canonical email_core path (is_human_triggered=True)."""
+    from app.communication.email_core import send as core_send
+    result = core_send(to, subject, body, is_human_triggered=True)
+    status = result.get("status", "failed")
+    if status == "sent":
+        return True
+    if status == "logged":
+        logger.info("Email logged (not sent): %s — %s", to, subject)
+        return True
+    logger.warning("Email send returned status=%s: %s", status, result.get("error", ""))
+    return status in ("sent", "logged")
 
 
 # ── Template Builders ──────────────────────────────────────────────────

@@ -88,10 +88,36 @@ export const api = {
     }),
 
   /** Ask the intelligence engine a question. */
-  askIntelligence: (question: string) =>
+  ask: (question: string) =>
     req<{ success: boolean; answer?: string; error?: string }>('/intelligence/ask', {
       method: 'POST', body: JSON.stringify({ question }),
     }),
+
+  // ── Workspace API ──
+
+  /** List workspaces for the current identity. */
+  listWorkspaces: () =>
+    req<{ success: boolean; data: { workspaces: any[] } }>('/workspace'),
+
+  /** Create a new workspace. */
+  createWorkspace: (name: string, workspaceType: string, description?: string) =>
+    req<{ success: boolean; data: any }>('/workspace', {
+      method: 'POST', body: JSON.stringify({ name, workspace_type: workspaceType, description }),
+    }),
+
+  /** Switch to a different workspace. */
+  switchWorkspace: (workspaceId: string) =>
+    req<{ success: boolean; data: { workspace: any } }>('/workspace/switch', {
+      method: 'POST', body: JSON.stringify({ workspace_id: workspaceId }),
+    }),
+
+  /** Get current workspace context. */
+  getWorkspaceContext: () =>
+    req<{ success: boolean; data: { workspace_id: string; workspace_name: string; workspace_type: string; capabilities: string[] } }>('/workspace/context'),
+
+  /** Get workspace types. */
+  getWorkspaceTypes: () =>
+    req<{ success: boolean; data: { types: { type: string; name: string; description: string }[] } }>('/workspace/types'),
 
   /** Create a business object. */
   createObject: (name: string, objectType: string) =>
