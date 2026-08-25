@@ -1,11 +1,3 @@
-"""Workspace Experience Framework — Blueprint registration."""
-from flask import Blueprint
+"""Workspace module — canonical workspace model, API, and context resolution."""
 
-workspace_bp = Blueprint("workspace_exp", __name__)
-
-
-def register_routes():
-    from app.workspace import routes  # noqa: F401
-
-
-register_routes()
+from app.workspace.routes import workspace_bp

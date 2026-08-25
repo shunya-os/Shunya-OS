@@ -490,6 +490,10 @@ def create_app(config_override: dict | None = None):
     # Phase 0 — Foundation: Workspace + Universal Object
     from app.objects.legacy_models import Workspace, ShunyaObject  # noqa: F401
 
+    # Canonical Workspace Model — personal/business/team/project contexts
+    from app.workspace.models import Workspace as CanonicalWorkspace  # noqa: F401
+    from app.workspace.models import WorkspaceMembership  # noqa: F401
+
     # Integration models — ContentGeneration, CachedMedia, etc.
     from app.integration.models import (  # noqa: F401
         ContentGeneration, CachedMedia, CachedEmail,
@@ -1155,6 +1159,21 @@ a:hover{background:#4338ca}
             session.clear()
             return redirect(url_for("auth.login_page"))
         g.user = user
+
+        # Resolve workspace context for authenticated requests
+        try:
+            from app.workspace.models import resolve_context, Workspace
+            ctx = resolve_context()
+            g.workspace_context = ctx
+            if ctx.current_workspace:
+                g.workspace_type = ctx.workspace_type.value
+                g.workspace_id = ctx.current_workspace.workspace_id
+                g.capabilities = ctx.capabilities
+        except Exception:
+            g.workspace_context = None
+            g.workspace_type = None
+            g.workspace_id = None
+            g.capabilities = None
 
     @app.context_processor
     def inject_globals():

@@ -360,25 +360,42 @@ def api_verify_email():
 def _ensure_personal_workspace(member):
     """Create a Personal Workspace for the verified user if none exists."""
     try:
-        from app.founder.models import FounderSpace
-        existing = FounderSpace.query.filter_by(
-            identity_id=str(member.id),
-            space_type="personal",
+        from app.workspace.models import Workspace, WorkspaceMembership, WorkspaceType
+        existing = Workspace.query.filter_by(
+            owner_identity_id=str(member.id),
+            workspace_type=WorkspaceType.PERSONAL.value,
             status="active"
         ).first()
         if existing:
+            session["current_workspace_id"] = existing.workspace_id
+            session["current_workspace_type"] = existing.workspace_type
             return
 
         import uuid
-        space = FounderSpace(
-            space_id=f"pers_{uuid.uuid4().hex[:12]}",
-            identity_id=str(member.id),
+        ws = Workspace(
+            workspace_id=f"ws_{uuid.uuid4().hex[:12]}",
             name=f"{member.name}'s Personal",
-            space_type="personal",
+            workspace_type=WorkspaceType.PERSONAL.value,
+            owner_identity_id=str(member.id),
             status="active",
         )
-        db.session.add(space)
+        db.session.add(ws)
+        db.session.flush()
+
+        membership = WorkspaceMembership(
+            workspace_id=ws.id,
+            identity_id=str(member.id),
+            email=member.email,
+            name=member.name,
+            role="owner",
+            is_active=True,
+        )
+        db.session.add(membership)
         db.session.commit()
+
+        # Set session context
+        session["current_workspace_id"] = ws.workspace_id
+        session["current_workspace_type"] = ws.workspace_type
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning("Failed to create personal workspace: %s", e)
