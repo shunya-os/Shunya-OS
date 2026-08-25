@@ -91,8 +91,11 @@ def test_verify_email_creates_personal_workspace_and_logs_in(client):
     data = resp.get_json()
     assert data["success"] and data.get("personal_workspace") is True
 
-    from app.founder.models import FounderSpace
-    space = FounderSpace.query.filter_by(identity_id=str(member.id), space_type="personal").first()
+    from app.workspace.models import Workspace, WorkspaceType
+    space = Workspace.query.filter_by(
+        owner_identity_id=str(member.id),
+        workspace_type=WorkspaceType.PERSONAL.value,
+    ).first()
     assert space is not None
     assert space.status == "active"
 
