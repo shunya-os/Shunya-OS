@@ -11,7 +11,7 @@ import secrets
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g, jsonify
 from app import db, limiter
-from app.auth import TeamMember, UserRole, AuthLayer
+from app.auth import TeamMember, UserRole, AuthLayer, PasswordResetToken
 
 auth_bp = Blueprint("auth", __name__)
 auth = AuthLayer()
@@ -260,7 +260,7 @@ def inject_auth_globals():
 @auth_bp.route("/api/v1/auth/signup", methods=["POST"])
 @limiter.limit("5 per hour")  # Strict rate limiting for signup
 def api_signup():
-    """Create a new user account. Returns identity_id on success."""
+    """Create a new user account. Sends verification email. Does NOT log in."""
     data = request.get_json(silent=True) or {}
     name = data.get("name", "").strip()
     email = data.get("email", "").strip().lower()
@@ -269,53 +269,37 @@ def api_signup():
     if not name or not email or not password:
         return jsonify({"success": False, "error": "Name, email, and password are required."}), 400
 
+    if len(password) < 8:
+        return jsonify({"success": False, "error": "Password must be at least 8 characters."}), 400
+
     if TeamMember.query.filter_by(email=email).first():
         return jsonify({"success": False, "error": "An account with this email already exists."}), 409
 
     member = TeamMember(name=name, email=email, role=UserRole.ADMIN.value, is_active=True)
     member.set_password(password)
-    # Generate verify token — auto-verify in dev mode
+
+    # Generate verification token with expiry
     member.verify_token = secrets.token_hex(32)
-    if os.environ.get("FLASK_ENV") == "development" or os.environ.get("DEV_VERIFY") == "true":
-        member.verified = True
-        member.verify_token = None
+
+    # DO NOT auto-verify in production. Ever.
+    # The user must click the verification link.
+    member.verified = False
+
     db.session.add(member)
     db.session.commit()
 
-    # Create OrgMember and assign default role for authorization
-    try:
-        from app.models import OrgMember, Organization
-        primary_org = Organization.query.first()
-        if primary_org:
-            om = OrgMember(
-                organization_id=primary_org.id,
-                identity_id=member.email,
-                name=member.name,
-                email=member.email,
-                role="member",
-                is_active=True,
-            )
-            db.session.add(om)
-            db.session.flush()
-            from app.authz.models import Role, OrgMemberRole
-            default_role = Role.query.filter_by(organization_id=primary_org.id, name="member").first()
-            if default_role:
-                db.session.add(OrgMemberRole(
-                    organization_id=primary_org.id,
-                    member_id=om.id,
-                    role_id=default_role.id,
-                    granted_by="system",
-                ))
-        db.session.commit()
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Failed to create OrgMember for %s: %s", email, str(e))
-        db.session.rollback()
+    # Send verification email (logs URL in dev, SMTP in production)
+    from app.email_service import build_verification_email, send_email
+    subject, body = build_verification_email(email, member.verify_token)
+    send_email(email, subject, body)
 
-    session["user_id"] = member.id
-    session.modified = True
-
-    return jsonify({"success": True, "identity_id": str(member.id), "verified": member.verified}), 201
+    # Do NOT set session["user_id"] — verification required first
+    return jsonify({
+        "success": True,
+        "identity_id": str(member.id),
+        "verified": False,
+        "message": "Account created! Check your email to verify your address."
+    }), 201
 
 
 # ---------------------------------------------------------------------------
@@ -332,22 +316,22 @@ def api_request_verification():
         return jsonify({"success": False, "error": "Email is required."}), 400
     member = TeamMember.query.filter_by(email=email).first()
     if not member:
-        return jsonify({"success": False, "error": "Account not found."}), 404
+        # Do NOT reveal whether email exists (security)
+        return jsonify({"success": True, "message": "If the account exists, a verification email has been sent."}), 200
     if member.verified:
         return jsonify({"success": True, "message": "Email already verified."}), 200
     member.verify_token = secrets.token_hex(32)
     db.session.commit()
-    # In dev mode, print the verify URL
-    verify_url = f"/auth/verify-email?token={member.verify_token}"
-    if os.environ.get("FLASK_ENV") == "development" or os.environ.get("DEV_VERIFY") == "true":
-        print(f"[DEV] Verify URL: {verify_url}")
-    # In production, send email via mail service
+    # Send verification email via canonical service
+    from app.email_service import build_verification_email, send_email
+    subject, body = build_verification_email(email, member.verify_token)
+    send_email(email, subject, body)
     return jsonify({"success": True, "message": "Verification email sent."}), 200
 
 
 @auth_bp.route("/api/v1/auth/verify-email", methods=["POST"])
 def api_verify_email():
-    """Verify email address with a token."""
+    """Verify email address with a token. Auto-creates Personal Workspace on success."""
     data = request.get_json(silent=True) or {}
     token = data.get("token", "").strip()
     if not token:
@@ -358,7 +342,142 @@ def api_verify_email():
     member.verified = True
     member.verify_token = None
     db.session.commit()
-    return jsonify({"success": True, "message": "Email verified successfully."}), 200
+
+    # Auto-create Personal Workspace for every verified user
+    _ensure_personal_workspace(member)
+
+    # Log the user in after successful verification
+    session["user_id"] = member.id
+    session.modified = True
+
+    return jsonify({
+        "success": True,
+        "message": "Email verified successfully. Welcome to SHUNYA.",
+        "personal_workspace": True,
+    }), 200
+
+
+def _ensure_personal_workspace(member):
+    """Create a Personal Workspace for the verified user if none exists."""
+    try:
+        from app.founder.models import FounderSpace
+        existing = FounderSpace.query.filter_by(
+            identity_id=str(member.id),
+            space_type="personal",
+            status="active"
+        ).first()
+        if existing:
+            return
+
+        import uuid
+        space = FounderSpace(
+            space_id=f"pers_{uuid.uuid4().hex[:12]}",
+            identity_id=str(member.id),
+            name=f"{member.name}'s Personal",
+            space_type="personal",
+            status="active",
+        )
+        db.session.add(space)
+        db.session.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Failed to create personal workspace: %s", e)
+        db.session.rollback()
+
+
+# ── Forgot Password ───────────────────────────────────────────────────
+
+
+@auth_bp.route("/api/v1/auth/forgot-password", methods=["POST"])
+@limiter.limit("3 per hour")  # Strict rate limiting
+def api_forgot_password():
+    """Request a password reset email. No account enumeration."""
+    data = request.get_json(silent=True) or {}
+    email = data.get("email", "").strip().lower()
+    if not email:
+        return jsonify({"success": False, "error": "Email is required."}), 400
+
+    member = TeamMember.query.filter_by(email=email).first()
+    if not member:
+        # Do NOT reveal whether email exists
+        return jsonify({
+            "success": True,
+            "message": "If an account exists with this email, a password reset link has been sent."
+        }), 200
+
+    # Invalidate any existing reset tokens for this user
+    PasswordResetToken.query.filter_by(user_id=member.id, used=False).update({"used": True})
+    db.session.flush()
+
+    # Create new reset token with 1-hour expiry
+    from datetime import datetime, timedelta
+    import secrets
+    reset_token = secrets.token_hex(32)
+    token_record = PasswordResetToken(
+        token=reset_token,
+        user_id=member.id,
+        email=email,
+        expires_at=datetime.utcnow() + timedelta(hours=1),
+        used=False,
+    )
+    db.session.add(token_record)
+    db.session.commit()
+
+    # Send reset email via canonical service
+    from app.email_service import build_reset_email, send_email
+    subject, body = build_reset_email(email, reset_token)
+    send_email(email, subject, body)
+
+    return jsonify({
+        "success": True,
+        "message": "If an account exists with this email, a password reset link has been sent."
+    }), 200
+
+
+@auth_bp.route("/api/v1/auth/reset-password", methods=["POST"])
+@limiter.limit("5 per hour")  # Strict rate limiting
+def api_reset_password():
+    """Reset password using a valid reset token."""
+    data = request.get_json(silent=True) or {}
+    token = data.get("token", "").strip()
+    password = data.get("password", "")
+
+    if not token or not password:
+        return jsonify({"success": False, "error": "Token and new password are required."}), 400
+
+    if len(password) < 8:
+        return jsonify({"success": False, "error": "Password must be at least 8 characters."}), 400
+
+    # Find valid token
+    from datetime import datetime
+    reset = PasswordResetToken.query.filter_by(token=token, used=False).first()
+    if not reset:
+        return jsonify({"success": False, "error": "Invalid or expired reset token."}), 400
+
+    if reset.expires_at < datetime.utcnow():
+        reset.used = True  # Mark as used so it can't be retried even if expired
+        db.session.commit()
+        return jsonify({"success": False, "error": "Reset token has expired. Please request a new one."}), 400
+
+    # Find the user and set new password
+    member = TeamMember.query.get(reset.user_id)
+    if not member:
+        return jsonify({"success": False, "error": "Account not found."}), 404
+
+    member.set_password(password)
+
+    # Invalidate the token
+    reset.used = True
+
+    # Log out any existing sessions by regenerating api_token
+    member.generate_token()
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Password reset successful. You can now sign in with your new password."
+    }), 200
 
 
 # ---------------------------------------------------------------------------

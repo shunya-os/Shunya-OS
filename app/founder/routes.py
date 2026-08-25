@@ -143,81 +143,68 @@ def api_founder_signin():
     data = request.get_json(silent=True) or {}
     email = data.get("email", "").strip().lower()
     password = data.get("password", "")
-    name = data.get("name", "").strip()
 
     if not email or not password:
         return jsonify({"success": False, "error": "Email and password are required."}), 400
 
-    # Auto-create account on first login (founder becomes User #1)
     from app.auth import TeamMember, UserRole
-    existing = TeamMember.query.filter_by(email=email).first()
-    if not existing:
-        tm = TeamMember(
-            name=name or email.split("@")[0],
-            email=email,
-            role=UserRole.ADMIN.value if email == "admin@shunyaos.com" else UserRole.ADMIN.value,
-            is_active=True,
-        )
-        tm.set_password(password)
-        db.session.add(tm)
-        db.session.commit()
 
-    # PHASE 1: Check if a TeamMember account exists for this email
-    tm = TeamMember.query.filter_by(email=email, is_active=True).first()
-    
+    # PHASE 1: Find existing verified TeamMember
+    tm = TeamMember.query.filter_by(email=email, is_active=True, verified=True).first()
+
     if tm:
         # Existing user — MUST validate password
         if not tm.check_password(password):
             return jsonify({"success": False, "error": "Invalid email or password"}), 401
-        # Authenticated via TeamMember — use their identity
+
+        # Authenticated — resolve identity and workspace
+        session["user_id"] = tm.id
+        session.modified = True
+
         try:
             from app.models import OrgMember, Organization
             from sqlalchemy import func
-            # Find OrgMember, preferring the one in the largest org
             org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
             if org_members:
-                # Count members per org to find the primary org
                 org_counts = {}
                 for om in org_members:
                     cnt = OrgMember.query.filter_by(organization_id=om.organization_id, is_active=True).count()
                     org_counts[om.organization_id] = cnt
-                # Pick the org with most members
                 best_org_id = max(org_counts, key=org_counts.get)
                 org_member = next(om for om in org_members if om.organization_id == best_org_id)
                 identity_id = org_member.identity_id
                 session["identity_id"] = identity_id
-                session["user_id"] = tm.id
                 session["current_org_id"] = org_member.organization_id
-                
-                # Refresh session
-                session.modified = True
-                
-                response = {
+
+                return jsonify({
                     "success": True,
-                    "redirect": url_for("for2.for2_home"),
+                    "redirect": url_for("workspace_routes.workspace_home"),
                     "name": tm.name,
                     "identity_id": identity_id,
-                }
-                return jsonify(response)
-        except Exception as e:
+                })
+        except Exception:
             pass
 
-        # User authenticated but no org membership exists yet
-        session["user_id"] = tm.id
-        session.modified = True
+        # Authenticated but no org membership — personal workspace
         return jsonify({
             "success": True,
-            "redirect": url_for("workspace_routes.workspace_home"),
+            "redirect": "/",
             "name": tm.name,
-            "identity_id": "",
+            "identity_id": str(tm.id),
         })
-    
-    # PHASE 2: New user registration — gated flow
-    # Unregistered emails are NOT auto-created.
-    # Return a clear error directing them to registration.
+
+    # Check if account exists but is unverified
+    unverified = TeamMember.query.filter_by(email=email).first()
+    if unverified and not unverified.verified:
+        return jsonify({
+            "success": False,
+            "error": "Account not yet verified. Please check your email for the verification link."
+        }), 403
+
+    # PHASE 2: No account found for this email
     return jsonify({
-        "success": False, 
-        "error": "Account not found. Please check your email or contact your organization administrator to get an invitation."
+        "success": False,
+        "error": "Account not found. Please sign up first or check your email."
     }), 404
 
 
