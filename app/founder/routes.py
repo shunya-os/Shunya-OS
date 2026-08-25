@@ -76,7 +76,8 @@ def founder_home():
 def founder_login():
     if _founder_required():
         return redirect(url_for("founder.founder_home"))
-    return render_template("founder_login.html")
+    # Redirect to SPA auth login — founder_login template no longer exists
+    return redirect("/auth/login")
 
 
 @founder_bp.route("/founder/space/create")

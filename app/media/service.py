@@ -18,8 +18,15 @@ logger = logging.getLogger(__name__)
 # Uses Hugging Face serverless Inference API (free tier, no token cost)
 # with FLUX.1-schnell — fast, 4-step, 1024x1024 output.
 HF_MODEL = "black-forest-labs/FLUX.1-schnell"
-MEDIA_UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
-MEDIA_UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Upload directory — uses RUNTIME_DATA_ROOT
+from app.runtime_config import media_uploads_dir
+
+def _ensure_media_dir():
+    """Create and return the media uploads directory."""
+    p = media_uploads_dir()
+    os.makedirs(p, exist_ok=True)
+    return p
 
 # ── Aspect ratio presets ──────────────────────────────────────
 ASPECT_MAP = {
@@ -90,7 +97,8 @@ def _save_image_file(raw_bytes: bytes, identity_id: str) -> str:
     Naming: media/{identity_id}/{sha256[:16]}.png
     """
     digest = hashlib.sha256(raw_bytes).hexdigest()[:16]
-    subdir = MEDIA_UPLOAD_DIR / identity_id
+    from pathlib import Path
+    subdir = Path(_ensure_media_dir()) / identity_id
     subdir.mkdir(parents=True, exist_ok=True)
     filename = f"{digest}.png"
     path = subdir / filename

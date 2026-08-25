@@ -55,6 +55,26 @@ frontend/verify-screenshots/
 .env.audit
 infrastructure/environments/
 
+# ── Runtime Data (outside git worktree — managed via RUNTIME_DATA_ROOT) ──
+uploads/
+media/
+app/media/uploads/
+static/uploads/
+screenshots/
+reports/
+logs/
+exports/
+generated/
+temp/
+cache/
+backups/
+instance/
+axe-results/
+axe-*.mjs
+invoices/
+tasks/
+/coverage/
+
 # Generated reports (root-level)
 /ARCHITECTURE_REVIEW_REPORT.md
 /CERTIFICATION_RECOMMENDATION.md

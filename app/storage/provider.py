@@ -16,7 +16,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "static", "uploads")
+# Static uploads directory — uses RUNTIME_DATA_ROOT
+from app.runtime_config import static_uploads_dir
+UPLOAD_DIR = static_uploads_dir()
 
 TEXT_EXTS = {'txt', 'csv', 'json', 'xml', 'html', 'htm', 'css', 'js', 'md', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'log', 'svg'}
 

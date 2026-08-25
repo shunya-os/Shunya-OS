@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 media_bp = Blueprint("media", __name__, url_prefix="/api/v1/media")
 
-# Path to uploaded media files
-MEDIA_UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
+# Path to uploaded media files — uses RUNTIME_DATA_ROOT
+from app.runtime_config import media_uploads_dir
 
 
 def _identity_id() -> str:
@@ -137,7 +137,9 @@ def api_status():
 @media_bp.route("/uploads/<path:filename>", methods=["GET"])
 def serve_media(filename: str):
     """Serve generated media asset files."""
-    file_path = MEDIA_UPLOAD_DIR / filename
+    from pathlib import Path
+    media_root = media_uploads_dir()
+    file_path = Path(media_root) / filename
     if not file_path.exists():
         return jsonify({"success": False, "error": "File not found"}), 404
-    return send_from_directory(str(MEDIA_UPLOAD_DIR), filename)
+    return send_from_directory(media_root, filename)

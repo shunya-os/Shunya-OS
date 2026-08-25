@@ -15,6 +15,7 @@ from app.models import (
     LeadStatus, InvoiceStatus, next_inquiry_code,
 )
 from app.services import parse_inquiry_text, get_summary, _cached_or_new_code, format_inquiry_reply
+from app.runtime_config import uploads_dir
 
 main = Blueprint("main", __name__)
 api = Blueprint("api", __name__)
@@ -1644,8 +1645,8 @@ def documents_upload():
         flash(f"Unsupported file type: {ext}", "error")
         return redirect(url_for("main.documents_page"))
 
-    # Save file
-    upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "documents")
+    # Save file to RUNTIME_DATA_ROOT
+    upload_dir = os.path.join(uploads_dir(), "documents")
     os.makedirs(upload_dir, exist_ok=True)
     safe_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{f.filename}"
     file_path = os.path.join(upload_dir, safe_name)
@@ -1718,7 +1719,7 @@ def api_documents_extract():
     elif ext in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".tif", ".webp"):
         file_type = "image"
 
-    upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads", "documents")
+    upload_dir = os.path.join(uploads_dir(), "documents")
     os.makedirs(upload_dir, exist_ok=True)
     safe_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{f.filename}"
     file_path = os.path.join(upload_dir, safe_name)

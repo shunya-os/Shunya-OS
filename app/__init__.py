@@ -14,6 +14,9 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from jinja2 import FileSystemLoader, ChoiceLoader
 
+# ── Runtime Data Configuration ──
+from app.runtime_config import screenshots_dir, reports_dir, media_uploads_dir, uploads_dir
+
 # ---------------------------------------------------------------------------
 # Extensions (initialized without app, bound in create_app)
 # ---------------------------------------------------------------------------
@@ -929,19 +932,19 @@ def create_app(config_override: dict | None = None):
     except Exception as exc:
         app.logger.warning("Integration init: %s", exc)
 
-    # ---- Serve screenshots for coherence board ----
+    # ---- Serve screenshots from RUNTIME_DATA_ROOT ----
     @app.route("/screenshots/<path:filename>")
     def serve_screenshot(filename):
         return send_from_directory(
-            os.path.join(os.path.dirname(__file__), "..", "screenshots"),
+            screenshots_dir(),
             filename
         )
 
-    # ---- Serve generated reports as PDFs ----
+    # ---- Serve generated reports as PDFs from RUNTIME_DATA_ROOT ----
     @app.route("/reports/<path:filename>")
     def serve_report(filename):
         return send_from_directory(
-            os.path.join(os.path.dirname(__file__), "..", "reports"),
+            reports_dir(),
             filename
         )
 
