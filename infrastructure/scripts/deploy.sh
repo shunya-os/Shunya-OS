@@ -223,6 +223,17 @@ fi
 echo "  Build provenance verified: ${DEPLOYED_SHA}" | tee -a "${DEPLOY_LOG}"
 echo "  Smoke test PASSED" | tee -a "${DEPLOY_LOG}"
 
+# ---- Step 13: Record deployment provenance in immutable audit file ----
+echo "[13/12] Recording deployment provenance..." | tee -a "${DEPLOY_LOG}"
+RUNTIME_DATA_ROOT="${RUNTIME_DATA_ROOT:-${HOME}/shunya_data}"
+.venv/bin/python3 -c "
+import os; os.environ['RUNTIME_DATA_ROOT'] = '${RUNTIME_DATA_ROOT}'
+from app.release_governance import record_normal_deployment
+r = record_normal_deployment('${DEPLOYED_SHA}')
+print(f'  Release type: {r[\"release_type\"]}')
+print(f'  Git commit: {r[\"git_commit\"]}')
+" 2>&1 | tee -a "${DEPLOY_LOG}" || echo "  WARNING: Provenance recording failed (non-fatal)" | tee -a "${DEPLOY_LOG}"
+
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] SHUNYA deployment completed: ${ENVIRONMENT}" | tee -a "${DEPLOY_LOG}"
 echo "Log: ${DEPLOY_LOG}"
 echo "Previous SHA (rollback): ${PREVIOUS_SHA}"

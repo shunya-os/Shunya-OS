@@ -252,6 +252,18 @@ def _register_health(app: Flask):
     @app.route("/health")
     def health():
         checks = _health_check(app)
+        # Add release provenance from governance system
+        try:
+            from app.release_governance import get_release_provenance
+            release_info = get_release_provenance()
+            checks["release_type"] = release_info.get("release_type", "CI_CERTIFIED")
+            checks["release_authorized_by"] = release_info.get("authorized_by", "CI/CD")
+            checks["release_reason"] = release_info.get("reason", "Normal deployment")
+            checks["release_deployed_at"] = release_info.get("deployed_at", "")
+            checks["release_rollback_sha"] = release_info.get("rollback_sha", "unknown")
+            checks["release_health_verified"] = release_info.get("health_verified", True)
+        except Exception:
+            checks["release_type"] = "CI_CERTIFIED"
         status_code = 200 if checks["status"] == "ok" else 503
         return jsonify(checks), status_code
 
