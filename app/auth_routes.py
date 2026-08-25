@@ -460,7 +460,7 @@ def api_reset_password():
         return jsonify({"success": False, "error": "Reset token has expired. Please request a new one."}), 400
 
     # Find the user and set new password
-    member = TeamMember.query.get(reset.user_id)
+    member = db.session.get(TeamMember, reset.user_id)
     if not member:
         return jsonify({"success": False, "error": "Account not found."}), 404
 
