@@ -79,6 +79,27 @@ def api_onboarding_dashboard():
     })
 
 
+@onboarding_bp.route("/complete", methods=["POST"])
+def api_onboarding_complete():
+    """Mark onboarding as complete and send confirmation email."""
+    uid = session.get("identity_id") or session.get("user_id") or ""
+    org_id = session.get("current_org_id")
+    if not uid or not org_id:
+        return jsonify({"error": "Not authenticated"}), 401
+
+    from app.email_service import build_onboarding_complete_email, send_email
+    from app.auth import TeamMember
+    member = TeamMember.query.get(uid) if uid.isdigit() else TeamMember.query.filter_by(email=uid).first()
+    if member:
+        subject, body = build_onboarding_complete_email(
+            member.email,
+            f"Your Personal SHUNYA"
+        )
+        send_email(member.email, subject, body)
+
+    return jsonify({"status": "completed", "email_sent": True})
+
+
 def _is_onboarding_in_progress(org_id, uid):
     """Check if onboarding is still in progress (not all stages complete)."""
     from app.onboarding.engine import get_or_create_session

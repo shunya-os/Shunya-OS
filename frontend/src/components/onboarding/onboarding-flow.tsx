@@ -143,6 +143,8 @@ export function OnboardingFlow({ onComplete }: Props) {
       sessionStorage.removeItem(STORAGE_ORG_KEY);
       sessionStorage.removeItem(STORAGE_OBJECT_KEY);
     } catch { /* noop */ }
+    // Notify backend that onboarding is complete (fire-and-forget)
+    fetch('/api/v1/onboarding/complete', { method: 'POST', credentials: 'include' }).catch(() => {});
     onComplete();
   }, [onComplete]);
 
