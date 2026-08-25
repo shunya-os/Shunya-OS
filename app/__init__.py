@@ -913,6 +913,10 @@ def create_app(config_override: dict | None = None):
     from app.intelligence.awareness_api import awareness_bp
     app.register_blueprint(awareness_bp)
 
+    # ZGC-PR-11E: Home Intelligence Surface
+    from app.home import home_bp
+    app.register_blueprint(home_bp)
+
     # PHASE 3: System health endpoint
     from app.core.health import health_bp
     app.register_blueprint(health_bp)

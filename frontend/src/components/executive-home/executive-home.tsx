@@ -46,6 +46,7 @@ const ContentStudio = lazy(() => import('../content/content-studio').then(m => (
 const EntityManager = lazy(() => import('../entities/entity-manager').then(m => ({ default: m.EntityManager })));
 const SettingsPanel = lazy(() => import('../settings/settings-panel').then(m => ({ default: m.SettingsPanel })));
 const SearchBar = lazy(() => import('../search/universal-search').then(m => ({ default: m.SearchBar })));
+import { ShunyaHome } from './shunya-home';
 
 // ═══════════════════════════════════════════════════════════════════
 // DOMAIN DEFINITIONS — Universal organizational domains
@@ -826,8 +827,8 @@ const DOMAIN_IDS = new Set(ORGANIZATIONAL_DOMAINS.map(d => d.id));
 function DomainWorkspaceRouter() {
   const active = useActiveWorkspace();
 
-  // No active workspace → show focus
-  if (!active) return <PrimaryFocusArea />;
+  // No active workspace → show Home
+  if (!active) return <ShunyaHome />;
 
   // Loading state
   if (active.status === 'loading' || active.status === 'creating') {
@@ -852,9 +853,9 @@ function DomainWorkspaceRouter() {
     );
   }
 
-  // Home workspace → show focus area
+  // Home workspace → show Home Intelligence Surface
   if (active.identity.type === 'home') {
-    return <PrimaryFocusArea />;
+    return <ShunyaHome />;
   }
 
   // ── Type-based routing ──
@@ -997,6 +998,15 @@ export function PrimaryWorkspace({ loading: _loading }: { loading?: boolean }) {
   const [arrivalDone, setArrivalDone] = useState(false);
   const [orgCollapsed, setOrgCollapsed] = useState(false);
   const startPolling = useLivingStore((s) => s.startPolling);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+
+  // Auto-open Home workspace on first load
+  useEffect(() => {
+    const hasHome = workspaces.some(w => w.identity.type === 'home');
+    if (!hasHome) {
+      useWorkspaceStore.getState().open('Home', 'home');
+    }
+  }, []);
 
   useEffect(() => {
     const stop = startPolling();
