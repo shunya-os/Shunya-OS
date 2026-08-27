@@ -23,6 +23,8 @@ import { useLivingStore } from '../living-workspace/living-store';
 import { useWorkspaceStore } from '../../runtimes/workspace/store';
 import { useActiveWorkspace } from '../../hooks/workspace-hooks';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
+import { OperatingContextSelector } from '../workspace/context-selector';
+import { useActiveContext } from '../../hooks/use-active-context';
 
 // Code-split heavy workspace components — loaded on first use, not on initial boot
 const ObjectWorkspaceViewer = lazy(() => import('../workspace/object-workspace-viewer').then(m => ({ default: m.ObjectWorkspaceViewer })));
@@ -675,6 +677,7 @@ function PrimaryFocusArea() {
   const calm = useLivingStore((s) => s.awarenessCalm);
   const activeExecutions = useLivingStore((s) => s.activeExecutions);
   const [intention, setIntention] = useState<string | null>(null);
+  const { currentOrgId } = useActiveContext();
 
   // Wire intention endpoint on mount
   useEffect(() => {
@@ -702,6 +705,10 @@ function PrimaryFocusArea() {
           <span className="pw-focus-brand-icon">शून्य</span>
           <span className="pw-focus-brand-label">SHUNYA</span>
         </div>
+        <OperatingContextSelector
+          currentOrgId={currentOrgId}
+          onSwitchContext={(orgId) => useActiveContext.getState().switchContext(orgId)}
+        />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <PresenceIndicator mode={presenceMode} />
           {/* Mobile domain button */}

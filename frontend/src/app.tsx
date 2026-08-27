@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TokenProvider } from './tokens/token-provider';
-import { LivingWorkspace } from './components/living-workspace';
+import { PrimaryWorkspace } from './components/executive-home/executive-home';
 import { LoginPage } from './components/auth/login-page';
 import { ForgotPassword } from './components/auth/forgot-password';
 import { ResetPassword } from './components/auth/reset-password';
@@ -442,7 +442,7 @@ function AppShell() {
 function AuthenticatedWorkspace() {
   return (
     <TokenProvider>
-      <LivingWorkspace />
+      <PrimaryWorkspace />
     </TokenProvider>
   );
 }
