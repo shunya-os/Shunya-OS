@@ -16,6 +16,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_from_directory,
     session,
     url_for,
 )
@@ -126,10 +127,23 @@ def founder_object_view(object_id: str):
 
 
 @founder_bp.route("/workspace")
-def workspace():
-    """Serve the single continuous workspace shell."""
+@founder_bp.route("/workspace/")
+@founder_bp.route("/workspace/<path:subpath>")
+def workspace(subpath=None):
+    """Serve the SPA for all /workspace/* paths.
+
+    Catch-all route so the SPA (React/Vite) handles domain routing
+    (e.g. /workspace/content, /workspace/sales, /workspace/people).
+    If the SPA index.html is available in the built dist, serve it.
+    Otherwise fall back to the Jinja template for backward compat.
+    """
     if not _founder_required():
         return redirect(url_for("founder.founder_login"))
+    import os
+    frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+    index_path = os.path.join(frontend_dist, "index.html")
+    if os.path.isfile(index_path):
+        return send_from_directory(frontend_dist, "index.html")
     return render_template("workspace.html")
 
 
