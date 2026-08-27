@@ -89,6 +89,7 @@ def login_page():
                     role=UserRole.ADMIN.value,
                     is_active=True,
                 )
+                admin.verified = True
                 admin.set_password(password)
                 db.session.add(admin)
                 db.session.commit()
