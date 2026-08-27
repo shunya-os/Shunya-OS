@@ -123,3 +123,4 @@ credentials/
 
 # Local runtime data
 /data/
+.hermes/scratch/
