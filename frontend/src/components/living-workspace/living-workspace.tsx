@@ -15,6 +15,9 @@ import { CommandSurface } from './command-surface';
 import { ExecutiveBriefing } from './executive-briefing';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 import { UniversalObjectWorkspace } from './universal-object-workspace';
+import { OperatingContextSelector } from '../workspace/context-selector';
+import { useActiveContext } from '../../hooks/use-active-context';
+import { ContentStudio } from '../content/content-studio';
 
 // ── Create Object Modal ────────────────────────────────────────────
 
@@ -116,8 +119,9 @@ const Invitation: FC<{ onAccept: () => void }> = ({ onAccept }) => {
   );
 };
 
-const TopBar: FC<{ onSearch?: (q: string) => void; onCreateObject?: () => void }> = ({ onSearch, onCreateObject }) => {
+const TopBar: FC<{ onSearch?: (q: string) => void; onCreateObject?: () => void; onContentStudio?: () => void }> = ({ onSearch, onCreateObject, onContentStudio }) => {
   const { lastUpdated, observations, activeExecutions, sidebarCollapsed, toggleSidebar } = useLivingStore();
+  const { currentOrgId } = useActiveContext();
   const [searchQuery, setSearchQuery] = useState('');
   const fmt = (ts: string) => { try { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
 
@@ -128,6 +132,10 @@ const TopBar: FC<{ onSearch?: (q: string) => void; onCreateObject?: () => void }
           <span className="lw-brand-devanagari">शून्य</span>
           <span className="lw-brand-label">SHUNYA</span>
         </div>
+        <OperatingContextSelector
+          currentOrgId={currentOrgId}
+          onSwitchContext={(orgId) => useActiveContext.getState().switchContext(orgId)}
+        />
         <div className="lw-topbar-divider" />
         {/* Search input — SCU-01 RM01 */}
         <div className="lw-search">
@@ -152,6 +160,7 @@ const TopBar: FC<{ onSearch?: (q: string) => void; onCreateObject?: () => void }
         {onCreateObject && (
           <button className="lw-topbar-create" onClick={onCreateObject}>+ New</button>
         )}
+        <button className="lw-topbar-cs-btn" onClick={() => onContentStudio && onContentStudio()}>✍ Content</button>
         <span className="lw-topbar-updated">Updated {fmt(lastUpdated)}</span>
         <button className="lw-topbar-toggle" onClick={toggleSidebar}>
           <span style={{ display: 'inline-block', transform: `rotate(${sidebarCollapsed ? 0 : 180}deg)`, transition: 'transform 0.3s' }}>▸</span>
@@ -197,6 +206,7 @@ export const LivingWorkspace: FC = () => {
   const [arrivalComplete, setArrivalComplete] = useState(false);
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showContentStudio, setShowContentStudio] = useState(false);
   const [workspaceObject, setWorkspaceObject] = useState<{id: string; type: string; name: string} | null>(null);
 
   // Mark visit and start production runtimes
@@ -257,6 +267,21 @@ export const LivingWorkspace: FC = () => {
       {/* Create object modal */}
       {showCreateModal && <CreateObjectModal onClose={() => setShowCreateModal(false)} />}
 
+      {/* Content Studio overlay */}
+      {showContentStudio && (
+        <div className="lw-modal-overlay" onClick={() => setShowContentStudio(false)}>
+          <div className="lw-modal lw-modal-wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '80vh', overflow: 'auto' }}>
+            <div className="lw-modal-header">
+              <h3 className="lw-modal-title">Content Studio 4.0</h3>
+              <button className="lw-modal-close" onClick={() => setShowContentStudio(false)}>×</button>
+            </div>
+            <div className="lw-modal-body" style={{ padding: '20px' }}>
+              <ContentStudio />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Universal Object Workspace — same component for all object types */}
       {workspaceObject && (
         <UniversalObjectWorkspace
@@ -277,7 +302,7 @@ export const LivingWorkspace: FC = () => {
       )}
 
       {/* TopBar with search and create */ }
-      <TopBar onSearch={handleSearch} onCreateObject={() => setShowCreateModal(true)} />
+      <TopBar onSearch={handleSearch} onCreateObject={() => setShowCreateModal(true)} onContentStudio={() => setShowContentStudio(true)} />
 
       {/* Main workspace body */}
       <div className="lw-workspace-body">
