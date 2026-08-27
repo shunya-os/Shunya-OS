@@ -259,6 +259,28 @@ def api_switch_organization(org_id: int):
     return jsonify({"success": True, "organization_id": org_id})
 
 
+@for2_bp.route("/api/v1/for2/organizations/switch/personal", methods=["POST"])
+def api_switch_personal():
+    """Switch to personal workspace context — clears organization context."""
+    uid = _get_current_identity()
+    if not uid:
+        return jsonify({"error": "Authentication required"}), 401
+
+    # Clear organization context
+    session.pop("current_org_id", None)
+
+    # Find or create personal workspace
+    from app.founder.models import FounderSpace
+    personal = FounderSpace.query.filter_by(
+        identity_id=uid, space_type="personal", status="active"
+    ).first()
+    if personal:
+        session["current_workspace_id"] = personal.space_id
+        session["current_workspace_type"] = "personal"
+
+    return jsonify({"success": True, "message": "Switched to personal workspace"})
+
+
 # ── API: Members & Invitations ─────────────────────────────────────────
 
 

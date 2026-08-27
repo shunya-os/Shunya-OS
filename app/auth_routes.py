@@ -93,28 +93,35 @@ def login_page():
                 db.session.add(admin)
                 db.session.commit()
 
+        # Phase 1: Verify the user exists and password is correct (regardless of verified status)
         user = TeamMember.query.filter_by(email=email, is_active=True).first()
-        if user and user.check_password(password):
-            session["user_id"] = user.id
-            user.last_login = datetime.now(timezone.utc)
-            user.generate_token()
-            db.session.commit()
+        if not user or not user.check_password(password):
+            return jsonify({"success": False, "error": "Invalid email or password"}), 401
 
-            # Resolve identity_id and current_org_id for workspace continuity
-            from app.models import OrgMember, Organization
-            org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
-            if org_members:
-                # Pick the org with the most members (most active)
-                best_org = max(org_members, key=lambda om: OrgMember.query.filter_by(
-                    organization_id=om.organization_id, is_active=True
-                ).count())
-                session["identity_id"] = best_org.identity_id
-                session["current_org_id"] = best_org.organization_id
+        # Phase 2: Gate on email verification — unverified accounts cannot log in
+        if not user.verified:
+            return jsonify({"success": False, "error": "Please verify your email before logging in."}), 403
 
-            return jsonify({"success": True, "redirect": url_for("workspace_routes.workspace_home")})
-        return jsonify({"success": False, "error": "Invalid email or password"}), 401
+        # Phase 3: Authenticated — create session
+        session["user_id"] = user.id
+        user.last_login = datetime.now(timezone.utc)
+        user.generate_token()
+        db.session.commit()
 
-    # Handle form POST (legacy)
+        # Resolve identity_id and current_org_id for workspace continuity
+        from app.models import OrgMember, Organization
+        org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
+        if org_members:
+            # Pick the org with the most members (most active)
+            best_org = max(org_members, key=lambda om: OrgMember.query.filter_by(
+                organization_id=om.organization_id, is_active=True
+            ).count())
+            session["identity_id"] = best_org.identity_id
+            session["current_org_id"] = best_org.organization_id
+
+        return jsonify({"success": True, "redirect": url_for("workspace_routes.workspace_home")})
+ 
+             # Handle form POST (legacy)
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
@@ -133,25 +140,33 @@ def login_page():
                 db.session.add(admin)
                 db.session.commit()
 
+        # Phase 1: Verify credentials (regardless of verified status)
         user = TeamMember.query.filter_by(email=email, is_active=True).first()
-        if user and user.check_password(password):
-            session["user_id"] = user.id
-            user.last_login = datetime.now(timezone.utc)
-            user.generate_token()
-            db.session.commit()
+        if not user or not user.check_password(password):
+            return jsonify({"success": False, "error": "Invalid email or password"}), 401
 
-            # Resolve identity_id and current_org_id for workspace continuity
-            from app.models import OrgMember, Organization
-            org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
-            if org_members:
-                best_org = max(org_members, key=lambda om: OrgMember.query.filter_by(
-                    organization_id=om.organization_id, is_active=True
-                ).count())
-                session["identity_id"] = best_org.identity_id
-                session["current_org_id"] = best_org.organization_id
+        # Phase 2: Gate on email verification
+        if not user.verified:
+            return jsonify({"success": False, "error": "Please verify your email before logging in."}), 403
 
-            next_url = request.args.get("next") or url_for("workspace_routes.workspace_home")
-            return redirect(next_url)
+        # Phase 3: Authenticated — create session
+        session["user_id"] = user.id
+        user.last_login = datetime.now(timezone.utc)
+        user.generate_token()
+        db.session.commit()
+
+        # Resolve identity_id and current_org_id for workspace continuity
+        from app.models import OrgMember, Organization
+        org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
+        if org_members:
+            best_org = max(org_members, key=lambda om: OrgMember.query.filter_by(
+                organization_id=om.organization_id, is_active=True
+            ).count())
+            session["identity_id"] = best_org.identity_id
+            session["current_org_id"] = best_org.organization_id
+
+        next_url = request.args.get("next") or url_for("workspace_routes.workspace_home")
+        return redirect(next_url)
 
         flash("Invalid email or password", "error")
         return redirect(url_for("main.index"))
