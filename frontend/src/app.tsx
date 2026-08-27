@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TokenProvider } from './tokens/token-provider';
-import { PrimaryWorkspace } from './components/executive-home/executive-home';
+import { LivingWorkspace } from './components/living-workspace';
 import { LoginPage } from './components/auth/login-page';
 import { ForgotPassword } from './components/auth/forgot-password';
 import { ResetPassword } from './components/auth/reset-password';
@@ -18,6 +18,7 @@ import { authStyles } from './components/auth/auth-styles';
 import { useWorkspaceHydration } from './hooks/workspace-hooks';
 import { useWorkspaceStore } from './runtimes/workspace/store';
 import { bus } from './runtimes/event-bus';
+import { useActiveContext } from './hooks/use-active-context';
 
 type Phase = 'public' | 'login' | 'onboarding' | 'booting' | 'ready';
 
@@ -179,6 +180,9 @@ function AppShell() {
   const bootstrap = async () => {
     if (bootstrapped) return;
     bootstrapped = true;
+
+    // Stage 0 — Context: initialize active organization context from backend session
+    useActiveContext.getState().init();
 
     // Stage 1 — Immediate: show the workspace shell immediately
     // The app shell, identity, and navigation render without waiting for
@@ -438,7 +442,7 @@ function AppShell() {
 function AuthenticatedWorkspace() {
   return (
     <TokenProvider>
-      <PrimaryWorkspace />
+      <LivingWorkspace />
     </TokenProvider>
   );
 }
