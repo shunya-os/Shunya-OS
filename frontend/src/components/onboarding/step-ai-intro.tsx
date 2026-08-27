@@ -37,7 +37,7 @@ export function StepAiIntro({ onNext, onBack }: Props) {
     setAnswer('');
 
     try {
-      const resp = await api.askIntelligence(question.trim());
+      const resp = await api.ask(question.trim());
       if (resp.success && resp.answer) {
         setAnswer(resp.answer);
         setDemoPhase('success');
