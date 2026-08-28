@@ -50,7 +50,7 @@ export const DocumentBrowser: FC = () => {
     setLoading(true);
     setError('');
     try {
-      const r = await fetch('/api/v1/documents?limit=50', { credentials: 'include' });
+      const r = await fetch('/api/v1/workspace/documents?limit=50', { credentials: 'include' });
       const data = await r.json();
       if (data.success) {
         setDocuments(data.documents || []);
@@ -71,7 +71,7 @@ export const DocumentBrowser: FC = () => {
   useEffect(() => { load(); }, [load]);
 
   const handleOpen = (doc: Document) => {
-    window.open(`/api/v1/documents/serve/${doc.id}`, '_blank');
+    window.open(`/api/v1/workspace/documents/serve/${doc.id}`, '_blank');
   };
 
   return (

@@ -31,7 +31,7 @@ def _get_context():
 
 # ── List Documents ───────────────────────────────────────────────
 
-@documents_bp.route("/api/v1/documents", methods=["GET"])
+@documents_bp.route("/api/v1/workspace/documents", methods=["GET"])
 def list_documents():
     auth = _require_auth()
     if not auth:
@@ -41,12 +41,9 @@ def list_documents():
     limit = request.args.get("limit", 50, type=int)
 
     try:
-        if ctx["context_type"] == "organization" and ctx["current_org_id"]:
-            docs = Document.query.filter_by(tenant_id=ctx["current_org_id"])\
-                .order_by(Document.created_at.desc()).limit(limit).all()
-        else:
-            docs = Document.query.filter_by(uploaded_by=ctx["identity_id"])\
-                .order_by(Document.created_at.desc()).limit(limit).all()
+        docs = Document.query\
+            .filter_by(uploaded_by=ctx["identity_id"])\
+            .order_by(Document.created_at.desc()).limit(limit).all()
 
         results = []
         for d in docs:
@@ -66,7 +63,7 @@ def list_documents():
 
 # ── Serve Document File ──────────────────────────────────────────
 
-@documents_bp.route("/api/v1/documents/serve/<int:doc_id>", methods=["GET"])
+@documents_bp.route("/api/v1/workspace/documents/serve/<int:doc_id>", methods=["GET"])
 def serve_document(doc_id):
     auth = _require_auth()
     if not auth:
@@ -138,7 +135,6 @@ def ingest_file():
         file_type=file_type,
         classification="ingested",
         uploaded_by=ctx["identity_id"],
-        tenant_id=ctx["current_org_id"] if ctx["context_type"] == "organization" else None,
         created_at=datetime.now(timezone.utc),
     )
     db.session.add(doc)
@@ -161,7 +157,7 @@ def ingest_file():
 
 # ── Document Detail ──────────────────────────────────────────────
 
-@documents_bp.route("/api/v1/documents/<int:doc_id>", methods=["GET"])
+@documents_bp.route("/api/v1/workspace/documents/<int:doc_id>", methods=["GET"])
 def document_detail(doc_id):
     auth = _require_auth()
     if not auth:
