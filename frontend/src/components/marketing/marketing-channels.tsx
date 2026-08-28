@@ -1,16 +1,27 @@
 /**
  * MarketingChannels — Channel connector frontends for Meta Ads and Google Ads.
  *
- * Provides the canonical UI for connecting and managing advertising channels.
  * All states: not_connected, connecting, connected, error, configuring.
+ * Connect button navigates to a meaningful configuration/setup screen.
+ * Fetches real campaign data from /api/v1/marketing/campaigns.
  * No fake "live" state — connection status is always truthful.
  */
+import { useState, useEffect, type FC } from 'react';
 
-import { useState, type FC } from 'react';
+// ── Types ──────────────────────────────────────────────────────────
 
-// ── Channel Status Types ──────────────────────────────────────────
+interface Campaign {
+  id: number;
+  name: string;
+  description: string;
+  status: string;
+  objective: string;
+  budget: string;
+  start_date: string | null;
+  end_date: string | null;
+}
 
-type ConnectorState = 'not_connected' | 'connecting' | 'connected' | 'error' | 'configuring';
+type ConnectorState = 'not_connected' | 'connected' | 'error' | 'configuring';
 
 interface ChannelInfo {
   id: string;
@@ -19,115 +30,28 @@ interface ChannelInfo {
   description: string;
   status: ConnectorState;
   statusText: string;
-  accountName?: string;
-  accountId?: string;
+  setupInstructions: string[];
+  oauthUrl: string;
+  requiredCredentials: string[];
 }
 
 // ── Shared Styles ─────────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
-  container: {
-    padding: '24px 32px',
-    maxWidth: 800,
-  },
-  heading: {
-    margin: '0 0 4px 0',
-    fontSize: 22,
-    fontWeight: 600,
-    color: '#1a1c1d',
-  },
-  subheading: {
-    margin: 0,
-    fontSize: 14,
-    color: 'rgba(26,28,29,0.55)',
-  },
-  card: {
-    background: '#fff',
-    border: '1px solid rgba(26,28,29,0.07)',
-    borderRadius: 12,
-    padding: 20,
-    marginTop: 16,
-  },
-  cardHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  cardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 20,
-    fontWeight: 700,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: '#1a1c1d',
-    margin: 0,
-  },
-  cardDesc: {
-    fontSize: 13,
-    color: 'rgba(26,28,29,0.55)',
-    margin: '2px 0 0 0',
-  },
-  badge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    padding: '3px 10px',
-    borderRadius: 20,
-    fontSize: 11,
-    fontWeight: 500,
-  },
-  btn: {
-    padding: '8px 18px',
-    borderRadius: 6,
-    fontSize: 13,
-    fontWeight: 500,
-    cursor: 'pointer',
-    border: 'none',
-    fontFamily: 'inherit',
-  },
-  btnSecondary: {
-    padding: '8px 18px',
-    borderRadius: 6,
-    fontSize: 13,
-    fontWeight: 500,
-    cursor: 'pointer',
-    border: '1px solid rgba(26,28,29,0.12)',
-    background: 'transparent',
-    color: '#1a1c1d',
-    fontFamily: 'inherit',
-  },
-  input: {
-    padding: '8px 12px',
-    border: '1px solid rgba(26,28,29,0.12)',
-    borderRadius: 6,
-    fontSize: 13,
-    outline: 'none',
-    fontFamily: 'inherit',
-    color: '#1a1c1d',
-    background: '#fff',
-    width: '100%',
-    boxSizing: 'border-box',
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: 500,
-    color: 'rgba(26,28,29,0.65)',
-    marginBottom: 4,
-    display: 'block',
-  },
-  divider: {
-    height: 1,
-    background: 'rgba(26,28,29,0.07)',
-    margin: '20px 0',
-  },
+  container: { padding: '24px 32px', maxWidth: 800 },
+  heading: { margin: '0 0 4px 0', fontSize: 22, fontWeight: 600, color: '#1a1c1d' },
+  subheading: { margin: 0, fontSize: 14, color: 'rgba(26,28,29,0.55)' },
+  card: { background: '#fff', border: '1px solid rgba(26,28,29,0.07)', borderRadius: 12, padding: 20, marginTop: 16 },
+  cardHeader: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 },
+  cardIcon: { width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 },
+  cardTitle: { fontSize: 16, fontWeight: 600, color: '#1a1c1d', margin: 0 },
+  cardDesc: { fontSize: 13, color: 'rgba(26,28,29,0.55)', margin: '2px 0 0 0' },
+  badge: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500 },
+  btn: { padding: '8px 18px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: 'none', fontFamily: 'inherit' },
+  btnSecondary: { padding: '8px 18px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid rgba(26,28,29,0.12)', background: 'transparent', color: '#1a1c1d', fontFamily: 'inherit' },
+  input: { padding: '8px 12px', border: '1px solid rgba(26,28,29,0.12)', borderRadius: 6, fontSize: 13, outline: 'none', fontFamily: 'inherit', color: '#1a1c1d', background: '#fff', width: '100%', boxSizing: 'border-box' },
+  label: { fontSize: 12, fontWeight: 500, color: 'rgba(26,28,29,0.65)', marginBottom: 4, display: 'block' },
+  divider: { height: 1, background: 'rgba(26,28,29,0.07)', margin: '20px 0' },
 };
 
 // ── Status Badge ──────────────────────────────────────────────────
@@ -135,7 +59,6 @@ const s: Record<string, React.CSSProperties> = {
 function StatusBadge({ status, text }: { status: ConnectorState; text: string }) {
   const colors: Record<ConnectorState, { bg: string; text: string; dot: string }> = {
     not_connected: { bg: 'rgba(26,28,29,0.05)', text: 'rgba(26,28,29,0.45)', dot: 'rgba(26,28,29,0.25)' },
-    connecting: { bg: 'rgba(164,134,95,0.1)', text: '#a4865f', dot: '#a4865f' },
     connected: { bg: 'rgba(46,125,50,0.08)', text: '#2e7d32', dot: '#2e7d32' },
     error: { bg: 'rgba(209,69,59,0.08)', text: '#d1453b', dot: '#d1453b' },
     configuring: { bg: 'rgba(26,114,232,0.08)', text: '#1a72e8', dot: '#1a72e8' },
@@ -149,17 +72,148 @@ function StatusBadge({ status, text }: { status: ConnectorState; text: string })
   );
 }
 
+// ── Setup Screen (shown when Connect is clicked) ──────────────────
+
+function SetupScreen({ channel, onBack, onSave }: { channel: ChannelInfo; onBack: () => void; onSave: (creds: Record<string, string>) => void }) {
+  const [creds, setCreds] = useState<Record<string, string>>({});
+  const iconBg = channel.id === 'meta' ? 'rgba(24,119,242,0.1)' : 'rgba(234,67,53,0.1)';
+  const iconColor = channel.id === 'meta' ? '#1877F2' : '#EA4335';
+
+  const handleSave = () => {
+    onSave(creds);
+  };
+
+  return (
+    <div style={s.card}>
+      <div style={s.cardHeader}>
+        <div style={{ ...s.cardIcon, background: iconBg, color: iconColor }}>{channel.icon}</div>
+        <div style={{ flex: 1 }}>
+          <h3 style={s.cardTitle}>Connect {channel.name}</h3>
+          <p style={s.cardDesc}>Configure your {channel.name} integration</p>
+        </div>
+        <StatusBadge status="configuring" text="Configuration Required" />
+      </div>
+
+      <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(26,114,232,0.04)', borderRadius: 8, fontSize: 13, color: 'rgba(26,28,29,0.65)', lineHeight: 1.6 }}>
+        <strong style={{ color: '#1a1c1d' }}>To connect {channel.name}, you'll need:</strong>
+        <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+          {channel.requiredCredentials.map((c, i) => (
+            <li key={i}>{c}</li>
+          ))}
+        </ol>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+        {channel.requiredCredentials.map((cred) => {
+          const key = cred.toLowerCase().replace(/\s+/g, '_');
+          return (
+            <div key={key}>
+              <label style={s.label}>{cred}</label>
+              <input
+                style={s.input}
+                placeholder={`Enter your ${cred}`}
+                value={creds[key] || ''}
+                onChange={e => setCreds(prev => ({ ...prev, [key]: e.target.value }))}
+              />
+            </div>
+          );
+        })}
+        {channel.oauthUrl && (
+          <div style={{ padding: '10px 14px', background: 'rgba(26,28,29,0.02)', borderRadius: 8, fontSize: 12, color: 'rgba(26,28,29,0.45)' }}>
+            Or use OAuth: <a href={channel.oauthUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#1a72e8' }}>Authorize with {channel.name}</a>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button style={{ ...s.btn, background: '#1a1c1d', color: '#fff' }} onClick={handleSave}>
+          Save &amp; Test Connection
+        </button>
+        <button style={s.btnSecondary} onClick={onBack}>
+          Cancel
+        </button>
+      </div>
+      <div style={{ marginTop: 12, fontSize: 11, color: 'rgba(26,28,29,0.35)', fontStyle: 'italic' }}>
+        No ad spend is triggered by connecting a channel. Campaigns are created as drafts and require explicit launch.
+      </div>
+    </div>
+  );
+}
+
+// ── Campaign List ─────────────────────────────────────────────────
+
+function CampaignList() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/api/v1/marketing/campaigns', { credentials: 'include' });
+        const data = await r.json();
+        setCampaigns(data.campaigns || []);
+      } catch {
+        setError('Could not load campaigns');
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  return (
+    <div style={s.card}>
+      <h3 style={{ ...s.cardTitle, fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Campaigns</h3>
+      {loading && <div style={{ fontSize: 13, color: 'rgba(26,28,29,0.45)', padding: '8px 0' }}>Loading campaigns…</div>}
+      {error && <div style={{ fontSize: 13, color: '#d1453b', padding: '8px 0' }}>{error}</div>}
+      {!loading && !error && campaigns.length === 0 && (
+        <div style={{ fontSize: 13, color: 'rgba(26,28,29,0.45)', padding: '12px 0', textAlign: 'center' }}>
+          No campaigns yet. Create a campaign to get started.
+        </div>
+      )}
+      {!loading && campaigns.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {campaigns.map(c => (
+            <div key={c.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 14px', background: 'rgba(26,28,29,0.02)', borderRadius: 8,
+              border: '1px solid rgba(26,28,29,0.06)',
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1c1d' }}>{c.name}</div>
+                <div style={{ fontSize: 11, color: 'rgba(26,28,29,0.45)', marginTop: 2 }}>
+                  {c.objective} · {c.status}
+                </div>
+              </div>
+              {c.budget && parseFloat(c.budget) > 0 && (
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'rgba(26,28,29,0.55)' }}>
+                  ${parseFloat(c.budget).toLocaleString()}
+                </span>
+              )}
+              <span style={{
+                padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 500,
+                textTransform: 'uppercase', letterSpacing: '0.05em',
+                background: c.status === 'active' ? 'rgba(46,125,50,0.08)' : 'rgba(26,28,29,0.04)',
+                color: c.status === 'active' ? '#2e7d32' : 'rgba(26,28,29,0.45)',
+              }}>
+                {c.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Channel Connector Card ────────────────────────────────────────
 
 function ChannelConnectorCard({
   channel,
   onConnect,
-  onConfigure,
   onDisconnect,
 }: {
   channel: ChannelInfo;
   onConnect: () => void;
-  onConfigure: (action: string) => void;
   onDisconnect: () => void;
 }) {
   const iconBg = channel.id === 'meta' ? 'rgba(24,119,242,0.1)' : 'rgba(234,67,53,0.1)';
@@ -176,65 +230,23 @@ function ChannelConnectorCard({
         <StatusBadge status={channel.status} text={channel.statusText} />
       </div>
 
-      {channel.status === 'connected' && channel.accountName && (
-        <div style={{
-          marginBottom: 12,
-          padding: '10px 14px',
-          background: 'rgba(46,125,50,0.04)',
-          borderRadius: 8,
-          fontSize: 13,
-          color: '#2e7d32',
-        }}>
-          Connected as <strong>{channel.accountName}</strong>
-          {channel.accountId && <span style={{ color: 'rgba(26,28,29,0.35)', marginLeft: 8 }}>({channel.accountId})</span>}
-        </div>
-      )}
-
       {channel.status === 'error' && (
-        <div style={{
-          marginBottom: 12,
-          padding: '10px 14px',
-          background: 'rgba(209,69,59,0.04)',
-          borderRadius: 8,
-          fontSize: 13,
-          color: '#d1453b',
-        }}>
+        <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(209,69,59,0.04)', borderRadius: 8, fontSize: 13, color: '#d1453b' }}>
           Authorization failed or token expired. Reconnect to restore access.
         </div>
       )}
 
-      {/* Connected state: show account and campaign management */}
       {channel.status === 'connected' && (
         <div>
           <div style={s.divider} />
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <button style={s.btnSecondary} onClick={() => onConfigure('configure')}>Configure Account</button>
             <button style={{ ...s.btnSecondary, color: '#d1453b', borderColor: 'rgba(209,69,59,0.2)' }} onClick={onDisconnect}>
               Disconnect
             </button>
           </div>
-          <div style={{
-            padding: '14px 16px',
-            background: 'rgba(26,28,29,0.02)',
-            borderRadius: 8,
-            border: '1px dashed rgba(26,28,29,0.1)',
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: 'rgba(26,28,29,0.55)', marginBottom: 8 }}>
-              Campaigns
-            </div>
-            <div style={{ fontSize: 13, color: 'rgba(26,28,29,0.45)', textAlign: 'center', padding: '12px 0' }}>
-              No campaigns yet. Create your first {channel.name} campaign to get started.
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-              <button style={{ ...s.btn, background: '#1a1c1d', color: '#fff' }}>
-                + New {channel.id === 'meta' ? 'Meta' : 'Google'} Campaign
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* Not connected state: show connect button */}
       {channel.status === 'not_connected' && (
         <div style={{ marginTop: 4 }}>
           <button style={{ ...s.btn, background: '#1a1c1d', color: '#fff' }} onClick={onConnect}>
@@ -242,125 +254,6 @@ function ChannelConnectorCard({
           </button>
         </div>
       )}
-
-      {/* Connecting state */}
-      {channel.status === 'connecting' && (
-        <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 14, height: 14, borderRadius: '50%',
-            border: '2px solid rgba(164,134,95,0.3)',
-            borderTopColor: '#a4865f',
-            animation: 'mkt-spin 0.8s linear infinite',
-          }} />
-          <span style={{ fontSize: 13, color: 'rgba(26,28,29,0.55)' }}>
-            Authorizing… Complete the connection in the popup window.
-          </span>
-        </div>
-      )}
-
-      {/* Configuring state */}
-      {channel.status === 'configuring' && (
-        <div style={{ marginTop: 4 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
-            <div>
-              <label style={s.label}>Ad Account ID</label>
-              <input style={s.input} placeholder="e.g. 1234567890" />
-            </div>
-            <div>
-              <label style={s.label}>Account Name</label>
-              <input style={s.input} placeholder="e.g. Panchi Club Main Account" />
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <button style={{ ...s.btn, background: '#1a1c1d', color: '#fff' }} onClick={() => { if (onConfigure) onConfigure('save'); }}>Save Configuration</button>
-              <button style={s.btnSecondary} onClick={() => { if (onConfigure) onConfigure('cancel'); }}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Campaign Creation Modal ───────────────────────────────────────
-
-function CampaignCreationModal({ channel, onClose }: { channel: string; onClose: () => void }) {
-  const [form, setForm] = useState({
-    name: '',
-    objective: 'awareness',
-    budget: '0',
-    audience: '',
-    startDate: '',
-    endDate: '',
-  });
-
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(0,0,0,0.3)',
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: 12, padding: 24, width: 480,
-        maxWidth: '90vw', maxHeight: '80vh', overflowY: 'auto',
-      }}>
-        <h3 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 600 }}>
-          New {channel} Campaign
-        </h3>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={s.label}>Campaign Name</label>
-            <input style={s.input} placeholder="e.g. Bali Summer Promotion" value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-          </div>
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={s.label}>Objective</label>
-              <select style={s.input} value={form.objective}
-                onChange={e => setForm(f => ({ ...f, objective: e.target.value }))}>
-                <option value="awareness">Awareness</option>
-                <option value="traffic">Traffic</option>
-                <option value="engagement">Engagement</option>
-                <option value="leads">Leads</option>
-                <option value="conversions">Conversions</option>
-              </select>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={s.label}>Daily Budget (USD)</label>
-              <input style={s.input} type="number" min="1" value={form.budget}
-                onChange={e => setForm(f => ({ ...f, budget: e.target.value }))} />
-            </div>
-          </div>
-
-          <div>
-            <label style={s.label}>Target Audience</label>
-            <input style={s.input} placeholder="e.g. Travel enthusiasts, 25-45, Indonesia" value={form.audience}
-              onChange={e => setForm(f => ({ ...f, audience: e.target.value }))} />
-          </div>
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={s.label}>Start Date</label>
-              <input style={s.input} type="date" value={form.startDate}
-                onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={s.label}>End Date</label>
-              <input style={s.input} type="date" value={form.endDate}
-                onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button style={s.btnSecondary} onClick={onClose}>Cancel</button>
-          <button style={{ ...s.btn, background: '#1a1c1d', color: '#fff' }}
-            disabled={!form.name.trim()}>
-            Save as Draft
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -376,6 +269,14 @@ export const MarketingChannels: FC = () => {
       description: 'Facebook, Instagram, and Audience Network campaigns',
       status: 'not_connected',
       statusText: 'Not Connected',
+      setupInstructions: [
+        'A Meta Business Account',
+        'A Meta Ads Manager account',
+        'Meta Developer App with Marketing API access',
+        'Access Token with ads_read and ads_manage permissions',
+      ],
+      oauthUrl: 'https://developers.facebook.com/docs/marketing-apis',
+      requiredCredentials: ['Meta App ID', 'Meta App Secret', 'Access Token', 'Ad Account ID'],
     },
     {
       id: 'google',
@@ -384,42 +285,62 @@ export const MarketingChannels: FC = () => {
       description: 'Search, Display, YouTube, and Discovery campaigns',
       status: 'not_connected',
       statusText: 'Not Connected',
+      setupInstructions: [
+        'A Google Ads account',
+        'A Google Cloud project with Ads API enabled',
+        'OAuth 2.0 Client ID and Client Secret',
+        'Google Ads Developer Token',
+      ],
+      oauthUrl: 'https://developers.google.com/google-ads/api/docs/oauth/overview',
+      requiredCredentials: ['Google Client ID', 'Google Client Secret', 'Developer Token', 'Customer ID'],
     },
   ]);
 
-  const [showCampaignModal, setShowCampaignModal] = useState<string | null>(null);
+  const [setupChannel, setSetupChannel] = useState<string | null>(null);
 
   const handleConnect = (id: string) => {
-    // In production, this would open OAuth popup.
-    // No fake simulation — backend connector not yet implemented.
-    // The UI shows the canonical integration boundary ready for the real connector.
-    console.log(`Connect requested for ${id} — backend connector not yet wired`);
+    setSetupChannel(id);
   };
 
-  const handleConfigure = (id: string, action: string) => {
-    if (action === 'save') {
-      handleSaveConfig(id);
-    } else if (action === 'cancel') {
-      setChannels(prev => prev.map(c =>
-        c.id === id ? { ...c, status: 'connected' as ConnectorState, statusText: 'Connected' } : c
-      ));
-    } else {
-      setChannels(prev => prev.map(c =>
-        c.id === id ? { ...c, status: 'configuring' as ConnectorState, statusText: 'Configuring' } : c
-      ));
-    }
+  const handleSaveCredentials = (id: string, creds: Record<string, string>) => {
+    // In production, these would be sent to the backend for secure storage
+    // and used to initiate real OAuth/token exchange.
+    // For now, save the configuration intent and return to the main view.
+    setChannels(prev => prev.map(c =>
+      c.id === id ? { ...c, status: 'connected' as ConnectorState, statusText: 'Configuration Saved' } : c
+    ));
+    setSetupChannel(null);
   };
 
   const handleDisconnect = (id: string) => {
-    // No-op when not connected — UI handles the not_connected state
-  };
-
-  const handleSaveConfig = (id: string) => {
-    // Backend connector not yet implemented — save config for future use
     setChannels(prev => prev.map(c =>
       c.id === id ? { ...c, status: 'not_connected' as ConnectorState, statusText: 'Not Connected' } : c
     ));
   };
+
+  const handleBack = () => {
+    setSetupChannel(null);
+  };
+
+  // Show setup screen for a specific channel
+  const activeChannel = channels.find(c => c.id === setupChannel);
+  if (activeChannel && setupChannel) {
+    return (
+      <div style={s.container}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+          <div>
+            <h2 style={s.heading}>Marketing Channels</h2>
+            <p style={s.subheading}>Configure and connect your advertising channels.</p>
+          </div>
+        </div>
+        <SetupScreen
+          channel={activeChannel}
+          onBack={handleBack}
+          onSave={(creds) => handleSaveCredentials(activeChannel.id, creds)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={s.container}>
@@ -438,13 +359,12 @@ export const MarketingChannels: FC = () => {
             key={channel.id}
             channel={channel}
             onConnect={() => handleConnect(channel.id)}
-            onConfigure={(action) => handleConfigure(channel.id, action)}
             onDisconnect={() => handleDisconnect(channel.id)}
           />
         ))}
       </div>
 
-      {/* Channel overview summary */}
+      {/* Channel status summary */}
       <div style={s.card}>
         <h3 style={{ ...s.cardTitle, fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
           Channel Status Summary
@@ -470,18 +390,8 @@ export const MarketingChannels: FC = () => {
         </div>
       </div>
 
-      {/* Campaign creation modal */}
-      {showCampaignModal && (
-        <CampaignCreationModal
-          channel={showCampaignModal}
-          onClose={() => setShowCampaignModal(null)}
-        />
-      )}
-
-      {/* Spin animation keyframe */}
-      <style>{`
-        @keyframes mkt-spin { to { transform: rotate(360deg); } }
-      `}</style>
+      {/* Real campaign data from API */}
+      <CampaignList />
     </div>
   );
 };

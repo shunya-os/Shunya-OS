@@ -726,6 +726,10 @@ def create_app(config_override: dict | None = None):
     from app.content_studio.routes import content_bp
     app.register_blueprint(content_bp)
 
+    # Image Provider Abstraction — configurable model routing
+    from app.content_studio.provider_routes import provider_bp
+    app.register_blueprint(provider_bp)
+
     # Document Management API — SPA document serving, ingestion
     from app.documents_api import documents_bp
     app.register_blueprint(documents_bp)
