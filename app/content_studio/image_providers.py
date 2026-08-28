@@ -4,7 +4,6 @@ Content Studio — Image Generation Provider Abstraction.
 Provides configurable model routing with Economy/Standard/Premium tiers.
 This replaces the hardcoded FLUX.1-schnell dependency with a provider registry.
 """
-import os
 import logging
 from enum import Enum
 from dataclasses import dataclass, field

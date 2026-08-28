@@ -25,7 +25,7 @@ def list_providers():
 @provider_bp.route("/generate", methods=["POST"])
 def generate_image():
     """Generate an image using the specified tier or provider."""
-    from app.media.service import _save_image_file, _get_hf_token
+    from app.media.service import _save_image_file
 
     data = request.get_json() or {}
     prompt = data.get("prompt", "").strip()
