@@ -234,6 +234,11 @@ export const useWorkspaceStore = create<StoreState & WorkspaceActions>((set, get
         set((s) => transitionTo(s, id, 'loading'));
       }
       set((s) => ({ ...s, activeId: id }));
+      // Push URL state for proper back/forward navigation
+      const objectId = ws.identity.objectId;
+      if (objectId && !objectId.startsWith('_')) {
+        window.history.pushState({ workspaceId: objectId }, '', `/workspace/${objectId}`);
+      }
     },
 
     transitionTo: (id, status) => {

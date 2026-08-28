@@ -119,6 +119,8 @@ function OrganizationalOrientation({ collapsed, onToggle }: { collapsed: boolean
       objectType: domain.id,
       objectId: domain.id,
     });
+    // Push URL for proper back/forward and panel routing
+    window.history.pushState({ workspaceId: domain.id }, '', `/workspace/${domain.id}`);
   }, []);
 
   return (
@@ -628,6 +630,8 @@ function MobileDomainNav() {
       objectType: domain.id,
       objectId: domain.id,
     });
+    // Push URL for proper back/forward and panel routing
+    window.history.pushState({ workspaceId: domain.id }, '', `/workspace/${domain.id}`);
     setOpen(false);
   }, []);
 

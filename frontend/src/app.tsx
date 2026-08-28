@@ -158,9 +158,29 @@ function AppShell() {
 
   useEffect(() => {
     const handler = (e: PopStateEvent) => {
-      const wsId = e.state?.workspaceId;
-      if (wsId) {
-        useWorkspaceStore.getState().activate(wsId);
+      const wsObjectId = e.state?.workspaceId;
+      if (wsObjectId) {
+        const ws = useWorkspaceStore.getState().workspaces.find(w => w.identity.objectId === wsObjectId);
+        if (ws) {
+          useWorkspaceStore.getState().activate(ws.identity.id);
+        } else {
+          // Workspace not open yet — open it via URL
+          const path = window.location.pathname;
+          const match = path.match(/^\/workspace\/([^/]+)/);
+          if (match) {
+            const id = match[1];
+            const DOMAIN_IDS = ['people', 'sales', 'marketing', 'finance', 'commercial',
+              'operations', 'knowledge', 'outputs', 'memory', 'relationships',
+              'content', 'entities', 'documents', 'work', 'conversations', 'leads',
+              'actions', 'tasks'];
+            if (DOMAIN_IDS.includes(id)) {
+              useWorkspaceStore.getState().open(
+                id.charAt(0).toUpperCase() + id.slice(1), 'object',
+                { objectType: id, objectId: id }
+              );
+            }
+          }
+        }
       } else {
         const home = useWorkspaceStore.getState().workspaces.find(w => w.identity.type === 'home');
         if (home) useWorkspaceStore.getState().activate(home.identity.id);
