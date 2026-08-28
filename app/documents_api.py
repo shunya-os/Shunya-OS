@@ -2,17 +2,13 @@
 Document API routes for the SPA workspace.
 Provides document serving, listing, and ingestion endpoints.
 """
+# flake8: noqa: F401 — lazy imports to avoid circular import with app/__init__.py
 import os
-import json
 from datetime import datetime, timezone
-from flask import Blueprint, jsonify, request, send_file, session, g
-
-from app import db
-from app.models import Document
+from flask import Blueprint, jsonify, request, send_file, session
 
 documents_bp = Blueprint("documents_api", __name__)
 
-# ── Helpers ──────────────────────────────────────────────────────
 
 def _require_auth():
     user_id = session.get("user_id")
@@ -21,18 +17,22 @@ def _require_auth():
         return None
     return {"user_id": user_id, "identity_id": identity_id}
 
+
 def _get_context():
-    """Determine active context from session."""
     return {
         "identity_id": session.get("identity_id", ""),
         "current_org_id": session.get("current_org_id"),
         "context_type": "organization" if session.get("current_org_id") else "personal",
     }
 
+
 # ── List Documents ───────────────────────────────────────────────
 
 @documents_bp.route("/api/v1/workspace/documents", methods=["GET"])
 def list_documents():
+    from app import db
+    from app.models import Document
+
     auth = _require_auth()
     if not auth:
         return jsonify({"success": False, "error": "Authentication required"}), 401
@@ -65,6 +65,9 @@ def list_documents():
 
 @documents_bp.route("/api/v1/workspace/documents/serve/<int:doc_id>", methods=["GET"])
 def serve_document(doc_id):
+    from app import db
+    from app.models import Document
+
     auth = _require_auth()
     if not auth:
         return jsonify({"success": False, "error": "Authentication required"}), 401
@@ -76,7 +79,6 @@ def serve_document(doc_id):
     if not doc.file_path or not os.path.isfile(doc.file_path):
         return jsonify({"success": False, "error": "File not found on disk"}), 404
 
-    # Determine MIME type
     mime_map = {
         ".pdf": "application/pdf",
         ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -99,6 +101,9 @@ def serve_document(doc_id):
 
 @documents_bp.route("/api/v1/founder/ingest", methods=["POST"])
 def ingest_file():
+    from app import db
+    from app.models import Document
+
     auth = _require_auth()
     if not auth:
         return jsonify({"success": False, "error": "Authentication required"}), 401
@@ -112,7 +117,6 @@ def ingest_file():
 
     ctx = _get_context()
 
-    # Save to runtime data
     from app.runtime_config import uploads_dir
     upload_dir = os.path.join(uploads_dir(), "documents")
     os.makedirs(upload_dir, exist_ok=True)
@@ -124,11 +128,9 @@ def ingest_file():
     except Exception as e:
         return jsonify({"success": False, "error": f"Failed to save file: {e}"}), 500
 
-    # Extract basic info
     ext = os.path.splitext(f.filename)[1].lower()
     file_type = "pdf" if ext == ".pdf" else ("xlsx" if ext == ".xlsx" else "csv" if ext == ".csv" else "text")
 
-    # Create document record
     doc = Document(
         filename=f.filename,
         file_path=file_path,
@@ -140,7 +142,6 @@ def ingest_file():
     db.session.add(doc)
     db.session.commit()
 
-    # Build summary
     file_size = os.path.getsize(file_path)
     summary = f"File '{f.filename}' ({file_type}, {file_size:,} bytes) saved to your {ctx['context_type']} workspace."
 
@@ -159,6 +160,9 @@ def ingest_file():
 
 @documents_bp.route("/api/v1/workspace/documents/<int:doc_id>", methods=["GET"])
 def document_detail(doc_id):
+    from app import db
+    from app.models import Document
+
     auth = _require_auth()
     if not auth:
         return jsonify({"success": False, "error": "Authentication required"}), 401
