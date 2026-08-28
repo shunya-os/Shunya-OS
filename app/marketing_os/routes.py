@@ -10,15 +10,17 @@ mkt_bp = Blueprint("marketing_os", __name__, url_prefix="/api/v1/marketing")
 
 @mkt_bp.route("/campaigns", methods=["GET"])
 def list_campaigns():
-    tenant_id = request.args.get("tenant_id", 1, type=int)
+    from flask import session
+    tenant_id = session.get("current_org_id") or request.args.get("tenant_id", 1, type=int)
     camps = mo.list_campaigns(tenant_id)
     return jsonify({"campaigns": camps})
 
 
 @mkt_bp.route("/campaigns", methods=["POST"])
 def create_campaign():
+    from flask import session
     data = request.get_json() or {}
-    tenant_id = data.get("tenant_id", 1)
+    tenant_id = session.get("current_org_id") or data.get("tenant_id", 1)
     start = datetime.fromisoformat(data["start_date"]) if data.get("start_date") else None
     end = datetime.fromisoformat(data["end_date"]) if data.get("end_date") else None
     camp = mo.create_campaign(
