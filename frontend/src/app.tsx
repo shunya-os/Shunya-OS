@@ -184,6 +184,25 @@ function AppShell() {
     // Stage 0 — Context: initialize active organization context from backend session
     useActiveContext.getState().init();
 
+    // Stage 0.5 — URL-based workspace activation
+    // Parse the current path to determine which workspace to activate
+    const path = window.location.pathname;
+    const match = path.match(/^\/workspace\/([^/]+)/);
+    if (match) {
+      const wsId = match[1];
+      // Check if this is a domain workspace (people, sales, marketing, documents, etc.)
+      const DOMAIN_IDS = ['people', 'sales', 'marketing', 'finance', 'commercial',
+        'operations', 'knowledge', 'outputs', 'memory', 'relationships',
+        'content', 'entities', 'documents', 'work', 'conversations', 'leads',
+        'actions', 'tasks'];
+      if (DOMAIN_IDS.includes(wsId)) {
+        useWorkspaceStore.getState().open(wsId.charAt(0).toUpperCase() + wsId.slice(1), 'object', {
+          objectType: wsId,
+          objectId: wsId,
+        });
+      }
+    }
+
     // Stage 1 — Immediate: show the workspace shell immediately
     // The app shell, identity, and navigation render without waiting for
     // runtimes, modules, or capabilities.
