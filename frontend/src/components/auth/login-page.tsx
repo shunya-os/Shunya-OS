@@ -44,6 +44,10 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
       if (resp.success) {
         const session: Session = { identityId: resp.identity_id || '', email: email.trim().toLowerCase() };
         SessionManager.save(session);
+        // If user already has workspace/org, skip onboarding
+        if (resp.onboarding_complete) {
+          window.sessionStorage.setItem('shunya_onboarding_complete', 'true');
+        }
         onLogin(session);
       } else {
         setPhase('error');

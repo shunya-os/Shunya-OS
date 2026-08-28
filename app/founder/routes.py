@@ -190,11 +190,17 @@ def api_founder_signin():
                 session["identity_id"] = identity_id
                 session["current_org_id"] = org_member.organization_id
 
+                # Check if user has completed onboarding (has personal workspace and org)
+                from app.founder.models import FounderSpace
+                has_personal = FounderSpace.query.filter_by(identity_id=identity_id, space_type="personal", status="active").first() is not None
+                has_org = FounderSpace.query.filter_by(identity_id=identity_id, space_type="organization", status="active").first() is not None
+
                 return jsonify({
                     "success": True,
                     "redirect": url_for("workspace_routes.workspace_home"),
                     "name": tm.name,
                     "identity_id": identity_id,
+                    "onboarding_complete": has_personal or has_org,
                 })
         except Exception:
             pass

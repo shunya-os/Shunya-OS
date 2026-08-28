@@ -35,7 +35,7 @@ const CommitmentWorkspace = lazy(() => import('../commitment/commitment-workspac
 const ConversationWorkspace = lazy(() => import('../conversation/conversation-workspace').then(m => ({ default: m.ConversationWorkspace })));
 const CommercialWorkspace = lazy(() => import('../commercial/commercial-workspace').then(m => ({ default: m.CommercialWorkspace })));
 const RelationshipWorkspace = lazy(() => import('../relationship/relationship-workspace').then(m => ({ default: m.RelationshipWorkspace })));
-const MarketingDashboard = lazy(() => import('../marketing/marketing-dashboard').then(m => ({ default: m.MarketingDashboard })));
+const MarketingChannels = lazy(() => import('../marketing/marketing-channels').then(m => ({ default: m.MarketingChannels })));
 const SalesPipeline = lazy(() => import('../sales/sales-pipeline').then(m => ({ default: m.SalesPipeline })));
 const ExecutionWorkspace = lazy(() => import('../work/execution-workspace').then(m => ({ default: m.ExecutionWorkspace })));
 const TasksWorkspace = lazy(() => import('../work/tasks-workspace').then(m => ({ default: m.TasksWorkspace })));
@@ -929,9 +929,13 @@ function DomainWorkspaceRouter() {
     if (active.identity.objectId === 'relationships') {
       return <div className="pw-panel-container"><RelationshipWorkspace /></div>;
     }
-    // Marketing — dashboard overview
+    // Marketing — dashboard overview with channels
     if (active.identity.objectId === 'marketing') {
-      return <div className="pw-panel-container"><MarketingDashboard /></div>;
+      return (
+        <div className="pw-panel-container">
+          <MarketingChannels />
+        </div>
+      );
     }
     // Sales — real pipeline viewer
     if (active.identity.objectId === 'sales') {

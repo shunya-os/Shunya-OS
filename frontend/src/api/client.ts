@@ -22,7 +22,7 @@ async function req<T>(path: string, opts?: RequestInit): Promise<T> {
 
 export const api = {
   signin: (email: string, password: string) =>
-    req<{ success: boolean; name?: string; identity_id?: string; redirect?: string; error?: string }>('/founder/signin', {
+    req<{ success: boolean; name?: string; identity_id?: string; redirect?: string; onboarding_complete?: boolean; error?: string }>('/founder/signin', {
       method: 'POST', body: JSON.stringify({ email, password }),
     }),
 
