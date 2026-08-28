@@ -185,6 +185,66 @@ export const onboardingStyles = `
 .sh-onboarding-summary-text { font-size: 0.85rem; color: #ccc; }
 .sh-onboarding-summary-text strong { color: #fff; }
 
+/* ── Purpose Choices ──────────────────────────────────────── */
+.sh-purpose-choices {
+  width: 100%; display: flex; flex-direction: column; gap: 8px;
+}
+.sh-purpose-choice {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 12px 16px;
+  background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 8px;
+  color: #e0e0e0; font-size: 0.9rem; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s; font-family: inherit;
+  text-align: left;
+}
+.sh-purpose-choice:hover { border-color: #D4A84B; background: #1e1e2a; }
+.sh-purpose-choice:focus-visible { outline: 2px solid #D4A84B; outline-offset: 2px; }
+.sh-purpose-choice-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; flex-shrink: 0;
+  background: rgba(212, 168, 75, 0.1);
+}
+.sh-purpose-choice-text {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.sh-purpose-choice-title {
+  font-weight: 500; color: #fff; font-size: 0.9rem;
+}
+.sh-purpose-choice-desc {
+  font-size: 0.78rem; color: #888;
+}
+
+/* ── Feature list (welcome step) ──────────────────────────── */
+.sh-onboarding-features {
+  width: 100%; display: flex; flex-direction: column; gap: 8px;
+}
+.sh-onboarding-feature {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.03); border-radius: 6px;
+  font-size: 0.85rem; color: #ccc;
+}
+.sh-onboarding-feature-icon {
+  font-size: 1rem; width: 24px; text-align: center; flex-shrink: 0;
+}
+.sh-onboarding-note {
+  font-size: 0.8rem; color: #777; text-align: center; line-height: 1.5;
+  padding: 8px 12px;
+  background: rgba(212, 168, 75, 0.05); border-radius: 6px;
+  width: 100%;
+}
+.sh-onboarding-desc {
+  font-size: 0.78rem; color: #888; margin-top: 4px;
+}
+.sh-onboarding-field textarea {
+  width: 100%; padding: 10px 14px; min-height: 80px; resize: vertical;
+  background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 6px;
+  color: #e0e0e0; font-size: 0.95rem; outline: none; transition: border-color 0.2s;
+  font-family: inherit; line-height: 1.5;
+}
+.sh-onboarding-field textarea:focus { border-color: #D4A84B; }
+
 /* ── Animations ────────────────────────────────────────────── */
 .sh-onb-fade-in { animation: sh-onb-fade-in 0.5s ease-out both; }
 @keyframes sh-onb-fade-in {

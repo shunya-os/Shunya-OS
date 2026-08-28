@@ -1,37 +1,25 @@
 /**
- * OnboardingFlow — Main onboarding orchestration component.
+ * OnboardingFlow — Redesigned onboarding.
  *
- * Steps: Welcome → Organization Setup → AI Introduction → First Object → Complete
- *
- * Features:
- * - Step indicator at top (Step 1 of 5 style)
- * - sessionStorage progress persistence (survives page refresh)
- * - Back navigation between steps
- * - Keyboard navigation (Tab, Enter, Escape)
- * - API error handling with retry options
- * - Sets completion flag after finishing
+ * Steps: Welcome → Purpose → Complete
+ * The "Create Object" step is removed. Purpose step offers meaningful choices
+ * that connect the user's real work to their personal SHUNYA workspace.
  */
-
 import { useState, useEffect, useCallback } from 'react';
 import { StepWelcome } from './step-welcome';
-import { StepOrganization } from './step-organization';
-import { StepAiIntro } from './step-ai-intro';
-import { StepFirstObject } from './step-first-object';
+import { StepPurpose } from './step-purpose';
 import { StepComplete } from './step-complete';
 
 interface Props {
   onComplete: () => void;
 }
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 3;
 const STORAGE_STEP_KEY = 'shunya_onboarding_step';
 const STORAGE_COMPLETE_KEY = 'shunya_onboarding_complete';
 const STORAGE_ORG_KEY = 'shunya_onboarding_org';
-const STORAGE_OBJECT_KEY = 'shunya_onboarding_object';
 
-const STEP_LABELS = ['Welcome', 'Organization', 'AI', 'First Object', 'Complete'];
-
-// ── Helpers ──
+const STEP_LABELS = ['Welcome', 'Purpose', 'Complete'];
 
 function loadSavedStep(): number {
   try {
@@ -46,28 +34,6 @@ function loadSavedStep(): number {
 
 function saveStep(step: number) {
   try { sessionStorage.setItem(STORAGE_STEP_KEY, String(step)); } catch { /* noop */ }
-}
-
-function saveOrgInfo(info: { orgId: string; orgName: string }) {
-  try { sessionStorage.setItem(STORAGE_ORG_KEY, JSON.stringify(info)); } catch { /* noop */ }
-}
-
-function loadOrgInfo(): { orgId: string; orgName: string } | null {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_ORG_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-function saveObjectInfo(info: { objectId: string; objectType: string; objectName: string }) {
-  try { sessionStorage.setItem(STORAGE_OBJECT_KEY, JSON.stringify(info)); } catch { /* noop */ }
-}
-
-function loadObjectInfo(): { objectId: string; objectType: string; objectName: string } | null {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_OBJECT_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
 }
 
 export function setOnboardingComplete() {
@@ -86,69 +52,38 @@ export function clearOnboardingProgress() {
   try {
     sessionStorage.removeItem(STORAGE_STEP_KEY);
     sessionStorage.removeItem(STORAGE_ORG_KEY);
-    sessionStorage.removeItem(STORAGE_OBJECT_KEY);
     sessionStorage.removeItem(STORAGE_COMPLETE_KEY);
   } catch { /* noop */ }
 }
 
-// ── Component ──
-
 export function OnboardingFlow({ onComplete }: Props) {
   const [step, setStep] = useState<number>(() => loadSavedStep());
-  const [orgInfo, setOrgInfo] = useState<{ orgId: string; orgName: string } | null>(() => loadOrgInfo());
-  const [objectInfo, setObjectInfo] = useState<{ objectId: string; objectType: string; objectName: string } | null>(() => loadObjectInfo());
+  const [purposeResult, setPurposeResult] = useState<{ action: string; detail?: string } | null>(null);
 
-  // Persist step changes
-  useEffect(() => {
-    saveStep(step);
-  }, [step]);
-
-  // Persist org info changes
-  useEffect(() => {
-    if (orgInfo) saveOrgInfo(orgInfo);
-  }, [orgInfo]);
-
-  // Persist object info changes
-  useEffect(() => {
-    if (objectInfo) saveObjectInfo(objectInfo);
-  }, [objectInfo]);
+  useEffect(() => { saveStep(step); }, [step]);
 
   const handleNext = useCallback(() => {
-    if (step < TOTAL_STEPS - 1) {
-      setStep(prev => prev + 1);
-    }
+    if (step < TOTAL_STEPS - 1) setStep(prev => prev + 1);
   }, [step]);
 
   const handleBack = useCallback(() => {
-    if (step > 0) {
-      setStep(prev => prev - 1);
-    }
+    if (step > 0) setStep(prev => prev - 1);
   }, [step]);
 
-  const handleOrgCreated = useCallback((info: { orgId: string; orgName: string }) => {
-    setOrgInfo(info);
-    handleNext();
-  }, [handleNext]);
-
-  const handleObjectCreated = useCallback((info: { objectId: string; objectType: string; objectName: string }) => {
-    setObjectInfo(info);
+  const handlePurposeComplete = useCallback((result: { action: string; detail?: string }) => {
+    setPurposeResult(result);
     handleNext();
   }, [handleNext]);
 
   const handleComplete = useCallback(() => {
     setOnboardingComplete();
-    // Clear progress data since it's now complete
     try {
       sessionStorage.removeItem(STORAGE_STEP_KEY);
       sessionStorage.removeItem(STORAGE_ORG_KEY);
-      sessionStorage.removeItem(STORAGE_OBJECT_KEY);
     } catch { /* noop */ }
-    // Notify backend that onboarding is complete (fire-and-forget)
     fetch('/api/v1/onboarding/complete', { method: 'POST', credentials: 'include' }).catch(() => {});
     onComplete();
   }, [onComplete]);
-
-  // ── Render Step ──
 
   const renderStep = () => {
     switch (step) {
@@ -156,30 +91,16 @@ export function OnboardingFlow({ onComplete }: Props) {
         return <StepWelcome onNext={handleNext} />;
       case 1:
         return (
-          <StepOrganization
-            onNext={handleOrgCreated}
+          <StepPurpose
+            onNext={handlePurposeComplete}
             onBack={handleBack}
+            onSkip={() => handlePurposeComplete({ action: 'empty' })}
           />
         );
       case 2:
         return (
-          <StepAiIntro
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        );
-      case 3:
-        return (
-          <StepFirstObject
-            onNext={handleObjectCreated}
-            onBack={handleBack}
-          />
-        );
-      case 4:
-        return (
           <StepComplete
-            orgInfo={orgInfo}
-            objectInfo={objectInfo}
+            purposeResult={purposeResult}
             onComplete={handleComplete}
           />
         );
@@ -187,8 +108,6 @@ export function OnboardingFlow({ onComplete }: Props) {
         return <StepWelcome onNext={handleNext} />;
     }
   };
-
-  // ── Step Indicator ──
 
   const renderStepIndicator = () => (
     <div className="sh-onboarding-steps" role="navigation" aria-label="Onboarding progress">
@@ -214,5 +133,4 @@ export function OnboardingFlow({ onComplete }: Props) {
   );
 }
 
-// Re-export helpers for use in app.tsx
 export { STORAGE_COMPLETE_KEY };

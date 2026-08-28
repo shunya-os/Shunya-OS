@@ -151,7 +151,7 @@ export const useWorkspaceStore = create<StoreState & WorkspaceActions>((set, get
       const DOMAIN_OBJECT_IDS = new Set([
         'commercial', 'marketing', 'sales', 'relationships', 'memory',
         'content', 'entities', 'outputs', 'knowledge', 'work', 'tasks',
-        'actions', 'leads', 'operations', 'people', 'finance',
+        'actions', 'leads', 'operations', 'people', 'finance', 'documents',
       ]);
 
       const isDomainType = DOMAIN_TYPES.has(type) ||

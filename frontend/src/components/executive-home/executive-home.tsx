@@ -36,6 +36,7 @@ const ConversationWorkspace = lazy(() => import('../conversation/conversation-wo
 const CommercialWorkspace = lazy(() => import('../commercial/commercial-workspace').then(m => ({ default: m.CommercialWorkspace })));
 const RelationshipWorkspace = lazy(() => import('../relationship/relationship-workspace').then(m => ({ default: m.RelationshipWorkspace })));
 const MarketingChannels = lazy(() => import('../marketing/marketing-channels').then(m => ({ default: m.MarketingChannels })));
+const DocumentBrowser = lazy(() => import('../documents/document-browser').then(m => ({ default: m.DocumentBrowser })));
 const SalesPipeline = lazy(() => import('../sales/sales-pipeline').then(m => ({ default: m.SalesPipeline })));
 const ExecutionWorkspace = lazy(() => import('../work/execution-workspace').then(m => ({ default: m.ExecutionWorkspace })));
 const TasksWorkspace = lazy(() => import('../work/tasks-workspace').then(m => ({ default: m.TasksWorkspace })));
@@ -77,6 +78,7 @@ const ORGANIZATIONAL_DOMAINS: Domain[] = [
   { id: 'relationships', label: 'Relationships', icon: '◈', description: 'Connections between people and entities', wsType: 'object' },
   { id: 'content', label: 'Content', icon: '✎', description: 'AI content generation studio', wsType: 'object' },
   { id: 'entities', label: 'Entities', icon: '◈', description: 'Dynamic entity type system', wsType: 'object' },
+  { id: 'documents', label: 'Documents', icon: '📄', description: 'Uploaded files, documents, and records', wsType: 'object' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════
@@ -972,6 +974,10 @@ function DomainWorkspaceRouter() {
     // Entities — dynamic entity type system
     if (active.identity.objectId === 'entities') {
       return <div className="pw-panel-container"><EntityManager /></div>;
+    }
+    // Documents — browse uploaded files
+    if (active.identity.objectId === 'documents') {
+      return <div className="pw-panel-container"><DocumentBrowser /></div>;
     }
     // Knowledge — browsing
     // If the objectId is a domain concept (finance, marketing, etc.), show domain overview
