@@ -603,17 +603,18 @@ def api_ask():
     # ── Stage 6: Persist as memory record ────────────────────────────
     answer_text = gov_result.get("content", "") or ""
     if answer_text:
-        import hashlib
-        from app.memory_api.store import store_ai_memory
         try:
+            import hashlib
+            from app.memory_api.store import store_ai_memory
             store_ai_memory(
                 tenant_id=tenant.get("tenant_id", 0),
                 memory_key=hashlib.md5(question.encode("utf-8")).hexdigest(),
                 value=answer_text,
                 summary=question[:200],
             )
-        except Exception:
-            pass  # memory storage is non-critical
+            open("/tmp/memory_debug.log","a").write(f"STORED: key={hashlib.md5(question.encode('utf-8')).hexdigest()}, value_len={len(answer_text)}\n")
+        except Exception as e:
+            open("/tmp/memory_debug.log","a").write(f"FAILED: {e}\n")
 
     return jsonify({
         "success": True,
