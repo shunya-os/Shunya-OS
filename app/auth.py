@@ -55,6 +55,8 @@ class TeamMember(db.Model):
     person_id = Column(Integer, db.ForeignKey("persons.id"), nullable=True)
     person = db.relationship("Person", backref="team_members", lazy="select")
 
+    identity_id = Column(String(64), nullable=True, index=True)
+
     def set_password(self, password: str):
         salt = secrets.token_hex(16)
         self.password_hash = f"{salt}${hashlib.sha256((salt + password).encode()).hexdigest()}"

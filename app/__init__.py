@@ -579,23 +579,43 @@ def create_app(config_override: dict | None = None):
             from app.models import OrgMember
             tm = db.session.get(TeamMember, user_id)
             if tm:
-                # Find org membership by email, preferring the primary org (most members)
-                org_members = OrgMember.query.filter_by(email=tm.email, is_active=True).all()
-                if org_members:
-                    # Count members per org
-                    org_counts = {}
-                    for om in org_members:
-                        cnt = OrgMember.query.filter_by(organization_id=om.organization_id, is_active=True).count()
-                        org_counts[om.organization_id] = cnt
-                    best_org_id = max(org_counts, key=org_counts.get)
-                    org_member = next(om for om in org_members if om.organization_id == best_org_id)
-                    session["identity_id"] = org_member.identity_id
-                    session["current_org_id"] = org_member.organization_id
+                # RESOLUTION ORDER:
+                # 1. TeamMember.identity_id is canonical (linked to SHUNYAIdentity)
+                # 2. Org membership provides current_org_id
+                # 3. Email-based fallback only if no canonical identity exists
+                
+                # Resolve identity_id — canonical source is TeamMember.identity_id
+                if not identity_id:
+                    if tm.identity_id:
+                        identity_id = tm.identity_id
+                        session["identity_id"] = identity_id
+                    elif tm.email:
+                        # Legacy fallback: try OrgMember first, then email
+                        pass  # handled below with OrgMember
+                
+                # Resolve current_org_id from OrgMember (if not already set)
+                if not current_org_id:
+                    org_members = OrgMember.query.filter_by(email=tm.email, is_active=True).all()
+                    if org_members:
+                        org_counts = {}
+                        for om in org_members:
+                            cnt = OrgMember.query.filter_by(organization_id=om.organization_id, is_active=True).count()
+                            org_counts[om.organization_id] = cnt
+                        best_org_id = max(org_counts, key=org_counts.get)
+                        org_member = next(om for om in org_members if om.organization_id == best_org_id)
+                        # Set identity_id from canonical source first, fall back to org_member
+                        if not session.get("identity_id"):
+                            session["identity_id"] = org_member.identity_id
+                        session["current_org_id"] = org_member.organization_id
+                        return
+                    
+                    # No org membership — set sentinel
+                    session["current_org_id"] = 0
+                    
+                    # Final fallback for identity_id
+                    if not session.get("identity_id"):
+                        session["identity_id"] = tm.email or str(user_id)
                     return
-                # Fallback: use TeamMember data as identity
-                session["identity_id"] = tm.email or str(user_id)
-                session["current_org_id"] = 0
-                return
             # Last resort fallback: set identity_id from user_id
             session["identity_id"] = identity_id or str(user_id)
             if not session.get("current_org_id"):

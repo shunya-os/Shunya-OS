@@ -108,6 +108,7 @@ def api_create_identity():
         email=email,
         role="admin",
         is_active=True,
+        identity_id=identity.identity_id,  # Link to canonical identity
     )
     legacy_user.set_password(password)
     legacy_user.generate_token()

@@ -23,7 +23,8 @@ def _ensure_person_for_team_member(tm: TeamMember):
 
     Creates a Person if tm.person_id is None and no Person exists
     with tm.email as canonical_name. Links the Person back to the
-    TeamMember for future lookups.
+    TeamMember for future lookups. Also ensures canonical identity_id
+    is set on the TeamMember.
     """
     if tm.person_id is not None:
         existing = db.session.get(Person, tm.person_id)
@@ -142,21 +143,32 @@ def login_page():
         # Auto-create canonical Person record if missing
         _ensure_person_for_team_member(user)
 
+        # Ensure canonical identity_id — create one if missing
+        if not user.identity_id:
+            from app.production.identity_repository import IdentityRepository
+            repo = IdentityRepository()
+            existing_id = repo.find_by_auth("email", email)
+            if existing_id:
+                user.identity_id = existing_id.identity_id
+            else:
+                identity = repo.create(display_name=user.name, primary_email=email)
+                repo.add_auth_method(identity.identity_id, "email", email, is_primary=True)
+                user.identity_id = identity.identity_id
+
         db.session.commit()
 
-        # Resolve identity_id and current_org_id for workspace continuity
+        # Resolve identity_id from TeamMember.identity_id (canonical)
+        if user.identity_id:
+            session["identity_id"] = user.identity_id
+        # Resolve current_org_id from OrgMember
         from app.models import OrgMember, Organization
         org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
         if org_members:
-            # Pick the org with the most members (most active)
             best_org = max(org_members, key=lambda om: OrgMember.query.filter_by(
                 organization_id=om.organization_id, is_active=True
             ).count())
-            session["identity_id"] = best_org.identity_id
             session["current_org_id"] = best_org.organization_id
         else:
-            # No org membership — use TeamMember email as identity fallback
-            session["identity_id"] = email
             session["current_org_id"] = 0
 
         return jsonify({"success": True, "redirect": url_for("workspace_routes.workspace_home")})
@@ -197,20 +209,36 @@ def login_page():
         # Auto-create canonical Person record if missing
         _ensure_person_for_team_member(user)
 
+        # Ensure canonical identity_id — create one if missing
+        if not user.identity_id:
+            from app.production.identity_repository import IdentityRepository
+            repo = IdentityRepository()
+            existing_id = repo.find_by_auth("email", email)
+            if existing_id:
+                user.identity_id = existing_id.identity_id
+            else:
+                identity = repo.create(display_name=user.name, primary_email=email)
+                repo.add_auth_method(identity.identity_id, "email", email, is_primary=True)
+                user.identity_id = identity.identity_id
+
         db.session.commit()
 
         # Resolve identity_id and current_org_id for workspace continuity
+        # Resolve identity_id from TeamMember.identity_id (canonical)
+        if user.identity_id:
+            session["identity_id"] = user.identity_id
         from app.models import OrgMember, Organization
         org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
         if org_members:
             best_org = max(org_members, key=lambda om: OrgMember.query.filter_by(
                 organization_id=om.organization_id, is_active=True
             ).count())
-            session["identity_id"] = best_org.identity_id
+            if not session.get("identity_id"):
+                session["identity_id"] = best_org.identity_id
             session["current_org_id"] = best_org.organization_id
         else:
-            # No org membership — use TeamMember email as identity fallback
-            session["identity_id"] = email
+            if not session.get("identity_id"):
+                session["identity_id"] = email
             session["current_org_id"] = 0
 
         next_url = request.args.get("next") or url_for("workspace_routes.workspace_home")
