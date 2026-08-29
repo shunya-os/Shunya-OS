@@ -365,10 +365,26 @@ class IdentityRepository:
 
     def get_profile(self, identity_id: str) -> dict | None:
         """Get public profile for an identity."""
-        model = SHUNYAIdentityModel.query.filter_by(identity_id=identity_id).first()
-        if not model:
+        # Use self.get() which falls back to kernel store —
+        # same pattern as get_auth_methods()
+        identity = self.get(identity_id)
+        if not identity:
             return None
-        return model.to_dict()
+        return {
+            "identity_id": identity.identity_id,
+            "display_name": identity.display_name,
+            "primary_email": identity.primary_email,
+            "status": identity.status,
+            "auth_methods": [
+                {
+                    "type": m.method_type,
+                    "identifier": m.identifier[:3] + "***" + m.identifier[-4:] if "@" in m.identifier else "***",
+                    "is_primary": m.is_primary,
+                    "verified": m.verified_at is not None,
+                }
+                for m in identity.auth_methods
+            ],
+        }
 
     def _sync_to_db(self, identity: SHUNYAIdentity) -> None:
         """Sync a kernel identity back to the database."""
