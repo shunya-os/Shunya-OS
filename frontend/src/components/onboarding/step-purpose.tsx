@@ -120,7 +120,6 @@ export function StepPurpose({ onNext, onBack, onSkip }: Props) {
   const handleBack = () => {
     if (phase !== 'choice') {
       setPhase('choice');
-      setSelected(null);
     } else {
       onBack();
     }

@@ -209,15 +209,18 @@ function CampaignList() {
 
 function ChannelConnectorCard({
   channel,
+  credentials,
   onConnect,
   onDisconnect,
 }: {
   channel: ChannelInfo;
+  credentials?: Record<string, string>;
   onConnect: () => void;
   onDisconnect: () => void;
 }) {
   const iconBg = channel.id === 'meta' ? 'rgba(24,119,242,0.1)' : 'rgba(234,67,53,0.1)';
   const iconColor = channel.id === 'meta' ? '#1877F2' : '#EA4335';
+  const accountName = credentials?.['Ad Account ID'] || credentials?.['Customer ID'] || '';
 
   return (
     <div style={s.card}>
@@ -238,6 +241,11 @@ function ChannelConnectorCard({
 
       {channel.status === 'connected' && (
         <div>
+          {accountName && (
+            <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(46,125,50,0.04)', borderRadius: 8, fontSize: 13, color: '#2e7d32' }}>
+              Connected as <strong>{channel.name}</strong> — {accountName}
+            </div>
+          )}
           <div style={s.divider} />
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
             <button style={{ ...s.btnSecondary, color: '#d1453b', borderColor: 'rgba(209,69,59,0.2)' }} onClick={onDisconnect}>
@@ -297,15 +305,16 @@ export const MarketingChannels: FC = () => {
   ]);
 
   const [setupChannel, setSetupChannel] = useState<string | null>(null);
+  const [savedCredentials, setSavedCredentials] = useState<Record<string, Record<string, string>>>({});
 
   const handleConnect = (id: string) => {
     setSetupChannel(id);
   };
 
   const handleSaveCredentials = (id: string, creds: Record<string, string>) => {
-    // In production, these would be sent to the backend for secure storage
-    // and used to initiate real OAuth/token exchange.
-    // For now, save the configuration intent and return to the main view.
+    // Store credentials in local state so they are ready for backend OAuth/token exchange
+    // when the connector is implemented. Currently saved as configuration intent.
+    setSavedCredentials(prev => ({ ...prev, [id]: creds }));
     setChannels(prev => prev.map(c =>
       c.id === id ? { ...c, status: 'connected' as ConnectorState, statusText: 'Configuration Saved' } : c
     ));
@@ -358,6 +367,7 @@ export const MarketingChannels: FC = () => {
           <ChannelConnectorCard
             key={channel.id}
             channel={channel}
+            credentials={savedCredentials[channel.id]}
             onConnect={() => handleConnect(channel.id)}
             onDisconnect={() => handleDisconnect(channel.id)}
           />
