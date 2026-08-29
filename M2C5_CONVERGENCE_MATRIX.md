@@ -71,8 +71,8 @@
 | F-03 | FakeGmailClient | app/adapters/gmail/client.py:104 | STUB | No-op Gmail client for testing | Wire real client or remove | MEDIUM |
 | F-04 | _MockGmailService | app/integration/gmail_adapter.py:360 | MOCK | Simulates Gmail API responses | Replace with real adapter | HIGH |
 | F-05 | _mock_proposal_response | app/for1/engine.py:59 | MOCK | Generates fake proposal content | Replace with real AI generation | HIGH |
-| F-06 | InMemoryKnowledgeRepository | app/shunya/knowledge_store/repository.py:56 | IN-MEMORY | Default store — no persistence | Wire SQL repo as default | HIGH |
-| F-07 | InMemoryStore (graph) | app/graph_universal/__init__.py:27 | IN-MEMORY | No persistent graph storage | Add PG-backed store | MEDIUM |
+| F-06 | InMemoryKnowledgeRepository | app/shunya/knowledge_store/repository.py:56 | RESOLVED in 3403972 | SqlKnowledgeRepository created and set as production default; falls back to InMemory only when no Flask app context | HIGH |
+| F-07 | InMemoryStore (graph) | app/graph_universal/__init__.py:27 | IN-MEMORY | No persistent graph storage | MEDIUM |
 | F-08 | InMemoryEdgeStore, InMemoryNodeStore | app/graph/edge.py, node.py | IN-MEMORY | No persistent graph storage | Add PG-backed store | MEDIUM |
 | F-09 | InMemoryEvidenceStore | app/evidence/models.py:388 | IN-MEMORY | Evidence in memory only | Wire SQL-backed store | HIGH |
 | F-10 | Context assembly — all InMemory adapters | core/intelligence/context_assembly/engine.py | IN-MEMORY | Memory, knowledge, timeline, evidence, relationships all in memory | Wire SQL-backed adapters | HIGH |
