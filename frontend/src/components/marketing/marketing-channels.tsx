@@ -239,6 +239,25 @@ function ChannelConnectorCard({
         </div>
       )}
 
+      {channel.status === 'configuring' && (
+        <div>
+          {accountName && (
+            <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(26,114,232,0.04)', borderRadius: 8, fontSize: 13, color: '#1a72e8' }}>
+              Configuration saved for <strong>{accountName}</strong>. Authorization required to connect.
+            </div>
+          )}
+          <div style={s.divider} />
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <button style={{ ...s.btn, background: '#1a72e8', color: '#fff' }} onClick={onConnect}>
+              Authorize {channel.name}
+            </button>
+            <button style={{ ...s.btnSecondary, color: '#d1453b', borderColor: 'rgba(209,69,59,0.2)' }} onClick={onDisconnect}>
+              Clear Configuration
+            </button>
+          </div>
+        </div>
+      )}
+
       {channel.status === 'connected' && (
         <div>
           {accountName && (
@@ -312,11 +331,12 @@ export const MarketingChannels: FC = () => {
   };
 
   const handleSaveCredentials = (id: string, creds: Record<string, string>) => {
-    // Store credentials in local state so they are ready for backend OAuth/token exchange
-    // when the connector is implemented. Currently saved as configuration intent.
+    // Store credentials in local state ready for backend OAuth/token exchange
+    // when the connector is implemented. Status remains 'configuring' because
+    // no real authorization has occurred — credentials are saved but not validated.
     setSavedCredentials(prev => ({ ...prev, [id]: creds }));
     setChannels(prev => prev.map(c =>
-      c.id === id ? { ...c, status: 'connected' as ConnectorState, statusText: 'Configuration Saved' } : c
+      c.id === id ? { ...c, status: 'configuring' as ConnectorState, statusText: 'Configured — Authorization Required' } : c
     ));
     setSetupChannel(null);
   };
@@ -325,6 +345,11 @@ export const MarketingChannels: FC = () => {
     setChannels(prev => prev.map(c =>
       c.id === id ? { ...c, status: 'not_connected' as ConnectorState, statusText: 'Not Connected' } : c
     ));
+    setSavedCredentials(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   const handleBack = () => {
