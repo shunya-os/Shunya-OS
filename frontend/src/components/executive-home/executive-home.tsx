@@ -47,6 +47,7 @@ const CommandToActionBridge = lazy(() => import('../actions/command-to-action-br
 const MemoryBrowser = lazy(() => import('../memory/memory-browser').then(m => ({ default: m.MemoryBrowser })));
 const ContentStudio = lazy(() => import('../content/content-studio').then(m => ({ default: m.ContentStudio })));
 const EntityManager = lazy(() => import('../entities/entity-manager').then(m => ({ default: m.EntityManager })));
+const KnowledgeBrowser = lazy(() => import('../knowledge/knowledge-browser-panel').then(m => ({ default: m.KnowledgeBrowserPanel })));
 const SettingsPanel = lazy(() => import('../settings/settings-panel').then(m => ({ default: m.SettingsPanel })));
 const SearchBar = lazy(() => import('../search/universal-search').then(m => ({ default: m.SearchBar })));
 
@@ -980,6 +981,10 @@ function DomainWorkspaceRouter() {
     // Documents — browse uploaded files
     if (active.identity.objectId === 'documents') {
       return <div className="pw-panel-container"><DocumentBrowser /></div>;
+    }
+    // Knowledge — browse entities SHUNYA knows about
+    if (active.identity.objectId === 'knowledge') {
+      return <div className="pw-panel-container"><KnowledgeBrowser /></div>;
     }
     // Knowledge — browsing
     // If the objectId is a domain concept (finance, marketing, etc.), show domain overview
