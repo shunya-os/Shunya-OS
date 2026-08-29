@@ -1,0 +1,242 @@
+# SHUNYA SYSTEM TRUTH MANIFEST v1.0
+# Authority: M2C.5 §3 — Master Control Artifact
+# Format: YAML (machine-readable)
+# Date: 2026-08-29
+# Git SHA: 74722a5
+# Status: LIVE — this is the authoritative inventory of every SHUNYA capability
+
+manifest:
+  version: "1.0"
+  repository: "shunya_os"
+  git: "74722a5 (main, pushed to origin)"
+  supersedes: "CANONICAL_MANIFEST.yaml, CANONICAL_ARCHITECTURE.md"
+
+# ============================================
+# CONCEPTS — Every first-class capability
+# ============================================
+concepts:
+
+  organization:
+    canonical_owner: "app/models.py::Organization (tablename: organizations)"
+    status: ACTIVE
+    rows: 1
+    api: "GET /api/v1/founder/profile, /api/v1/auth/session"
+    ui: "Executive Home context bar"
+    duplicates:
+      - "app/tenant.py::Tenant (tablename: tenants) — LEGACY: contains 32 rows, 5 distinct orgs, same concept different table"
+    action: "Mark Tenant as LEGACY_READ_ONLY. All new writes use organizations."
+
+  auth_identity:
+    canonical_owner: "app/auth.py::TeamMember (tablename: team_members)"
+    status: ACTIVE
+    rows: 8
+    api: "/api/v1/auth/signin, /api/v1/auth/signup, /api/v1/auth/session, /api/v1/founder/signin"
+    ui: "Login, Signup, Forgot/Reset Password, Session management"
+    duplicates: []
+    notes: "SHA-256 password hashing. Should upgrade to bcrypt."
+
+  kernel_identity:
+    canonical_owner: "app/production/identity_repository.py::SHUNYAIdentityModel (tablename: shunya_identities)"
+    status: ACTIVE
+    rows: 2
+    api: "Loaded at boot (2 persisted identities)"
+    duplicates: []
+    notes: "sid_ format identity IDs used by Executive Home responses. Coexists with TeamMember — different purpose."
+
+  business_person:
+    canonical_owner: "app/models.py::Person (tablename: persons)"
+    status: EMPTY — needs seeding
+    rows: 0
+    api: "MISSING — no CRUD endpoint"
+    ui: "People workspace — empty"
+    duplicates: []
+    action: "Seed from team_members. Wire to People UI."
+
+  object:
+    canonical_owner: "app/models.py::Object (tablename: objects)"
+    status: ACTIVE
+    rows: 41
+    api: "POST /api/v1/objects (404), GET limited"
+    ui: "Entity workspace — empty"
+    duplicates:
+      - "app/founder/models.py::FounderObject (tablename: founder_objects) — TRANSITIONAL: 44 rows, used by Executive Home"
+      - "app/objects/models.py::sh_objects — TRANSITIONAL: 4 rows"
+      - "canonical_objects — EMPTY: 0 rows, DEPRECATED"
+      - "sh_uop_objects — EMPTY: 0 rows, DEPRECATED"
+    action: "Consolidate to objects table. Migrate founder_objects → objects. Make objects the single canonical write path."
+
+  document:
+    canonical_owner: "app/models.py::Document (tablename: documents)"
+    status: ACTIVE
+    rows: 15
+    api: "GET /api/v1/workspace/documents, POST /api/v1/founder/ingest"
+    ui: "Documents workspace — 15 visible ✅"
+    duplicates:
+      - "app/document/models.py::DocumentRecord — EMPTY: 0 rows"
+      - "app/models.py::KnowledgeDocument (tablename: knowledge_documents) — EMPTY: 0 rows"
+    action: "Deprecate DocumentRecord. Keep Document as canonical. KnowledgeDocument lives separately for extracted knowledge."
+
+  commitment:
+    canonical_owner: "app/commitments/models.py::Commitment (tablename: commitments)"
+    status: ACTIVE
+    rows: 5
+    api: "GET /api/v1/commitments (returns data)"
+    ui: "Work/Commitments workspace — data not wired to UI"
+    duplicates: []
+    action: "Wire commitment data to CommitmentWorkspace UI component."
+
+  invoice:
+    canonical_owner: "app/finance/models.py::FinInvoice (tablename: fin_invoices)"
+    status: ACTIVE — no API
+    rows: 20
+    api: "MISSING — GET /api/v1/finance/overview → 404"
+    ui: "Finance workspace — showing Commitments instead"
+    duplicates:
+      - "app/models.py::Invoice (tablename: invoices) — LEGACY: 0 rows, empty table"
+    action: "Build finance API surface. Deprecate invoices table. Wire 20 seeded invoices to UI."
+
+  evidence:
+    canonical_owner: "evidence_records"
+    status: ACTIVE — minimal
+    rows: 1
+    api: "Created by AI pipeline"
+    duplicates: []
+    action: "Wire evidence creation into all consequential actions."
+
+  memory:
+    canonical_owner: "memory_records (tablename: memory_records)"
+    status: EMPTY
+    rows: 0
+    api: "GET /api/v1/memory/entries → empty"
+    ui: "Memory workspace — empty"
+    duplicates:
+      - "knowledge_entries — EMPTY: 0 rows (separate concern: extracted knowledge vs memory)"
+    action: "Wire memory recording from document → identity → fact extraction pipeline."
+
+  relationship:
+    canonical_owner: "relationships (tablename: relationships OR rel_relationships)"
+    status: EMPTY — both empty
+    rows: 0
+    duplicates:
+      - "rel_relationships — empty, same schema"
+      - "object_relations — empty"
+    action: "Pick ONE canonical store. Deprecate others."
+
+  ai_context:
+    canonical_owner: "app/intelligence/routes.py::/ask pipeline"
+    status: ACTIVE — works
+    evidence_count: 5
+    has_company_data: true
+    api: "POST /api/v1/intelligence/ask"
+    ui: "Command bar, AI chat"
+    duplicates: []
+    action: "Extend to 7+ evidence sources. Add web research. Add citation UI."
+
+  voice:
+    canonical_owner: "MISSING"
+    status: RED — 404 on any voice endpoint
+    api: "NONE"
+    ui: "Button renders on command bar, calls nonexistent endpoint"
+    action: "Either implement legitimate voice pipeline or remove the button."
+
+  finance_api:
+    canonical_owner: "MISSING"
+    status: RED
+    tables: fin_invoices(20), fin_ledger(0), fin_payments(0), fin_accounts(0), fin_budgets(0)
+    api: "NONE"
+    ui: "Finance surface renders Commitments (wrong)"
+    action: "Wire fin_invoices to API. Build ledger/payment/budget endpoints."
+
+  sales_pipeline:
+    canonical_owner: "app/leads/ (leads table)"
+    status: RED — data exists, UI empty
+    rows: 6
+    api: "LEADS API exists"
+    ui: "SalesPipeline component renders empty tabs"
+    action: "Wire lead data to SalesPipeline UI."
+
+# ============================================
+# DECISIONS — Canonical Ownership Lock
+# ============================================
+decisions:
+  - concept: object_system
+    canonical: "objects (app/models.py)"
+    deprecated: ["canonical_objects", "sh_uop_objects"]
+    transitional: ["founder_objects", "sh_objects"]
+    note: "founder_objects still needed by Executive Home until migration"
+    migration: "Create migration to redirect founder_object reads to objects"
+
+  - concept: identity_system
+    canonical_auth: "team_members"
+    canonical_kernel: "shunya_identities"
+    canonical_business: "persons (empty — needs seeding)"
+    deprecated: []
+    note: "Three valid purposes — not competing"
+
+  - concept: invoice_system
+    canonical: "fin_invoices"
+    deprecated: ["invoices (app/models.py)"]
+    action: "Keep fin_* as canonical. Drop legacy invoices table."
+
+  - concept: relationship_system
+    canonical: "relationships (app/models.py)"
+    deprecated: ["rel_relationships"]
+    transitional: ["object_relations"]
+    action: "Deprecate rel_relationships. Keep relationships as single canonical store."
+
+  - concept: memory_system
+    canonical: "memory_records"
+    deprecated: []
+    action: "Single canonical memory store. All memory writes go here."
+
+# ============================================
+# RED ZONES — Broken capabilities requiring immediate action
+# ============================================
+red_zones:
+  - domain: Finance
+    severity: P1
+    symptom: "20 invoices in DB, 0 API, wrong UI"
+    root_cause: "Code exists but never wired to surface"
+    requires: "API route + UI component + authorization"
+
+  - domain: Knowledge/Memory
+    severity: P1
+    symptom: "4 knowledge tables, all empty. Memory workspace empty."
+    root_cause: "Pipeline never completed — extraction exists but storage path was never populated"
+    requires: "Wire document extraction → memory_records → UI"
+
+  - domain: Voice
+    severity: P1
+    symptom: "Dead button calling 404 endpoint"
+    root_cause: "Never implemented"
+    requires: "Build or remove — current state is actively misleading"
+
+  - domain: Sales Pipeline
+    severity: P1
+    symptom: "6 leads in DB, empty UI"
+    root_cause: "Frontend component exists but not wired to API"
+    requires: "Wire lead API to SalesPipeline component"
+
+  - domain: People/Person
+    severity: P1
+    symptom: "0 persons, empty People surface"
+    root_cause: "Person model exists but no code creates Person records during signup/onboarding"
+    requires: "Wire person creation into auth + onboarding flow"
+
+  - domain: Operations/Outputs
+    severity: P2
+    symptom: "Pages time out"
+    root_cause: "Component loading hangs — likely missing dependency or infinite render"
+    requires: "Debug and fix render path"
+
+  - domain: Mobile
+    severity: P1
+    symptom: "Not tested — UNKNOWN status"
+    root_cause: "No responsive testing performed"
+    requires: "Full mobile audit at 390x844"
+
+  - domain: Nginx/TLS
+    severity: P0 (production)
+    symptom: "SSL cert permission denied — sudo required"
+    root_cause: "LetsEncrypt cert owned by root, web process cannot read"
+    requires: "sudo to fix cert permissions"

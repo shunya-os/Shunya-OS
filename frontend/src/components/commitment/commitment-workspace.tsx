@@ -85,6 +85,7 @@ function daysRelative(dateStr: string | null): number | null {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'rgba(26,28,29,0.35)',
+  active: '#a4865f',
   in_progress: '#a4865f',
   completed: '#2e7d32',
   failed: '#d1453b',
@@ -92,10 +93,11 @@ const STATUS_COLORS: Record<string, string> = {
   blocked: '#e65100',
 };
 
-const STATUS_OPTIONS = ['pending', 'in_progress', 'completed', 'failed', 'cancelled'];
+const STATUS_OPTIONS = ['active', 'pending', 'in_progress', 'completed', 'failed', 'cancelled'];
 
 /** Cycle order for click-to-cycle: pending → in_progress → completed → (loop back to pending for re-open) */
 const STATUS_CYCLE: Record<string, string> = {
+  active: 'completed',
   pending: 'in_progress',
   in_progress: 'completed',
   completed: 'pending',

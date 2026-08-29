@@ -25,49 +25,49 @@ def _require_auth() -> bool:
 
 @memory_bp.route("/entries", methods=["GET"])
 def list_memory():
-    """List memory entries from the UIR memory engine.
+    """List memory entries from the canonical MemoryRecord table.
 
-    Falls back to canonical MemoryRecord table when the
-    UIR runtime is not yet fully wired.
+    Falls back to the UIR memory engine when no DB records exist.
     """
     if not _require_auth():
         return jsonify({"success": False, "error": "Authentication required"}), 401
 
     try:
-        # Primary path: UIR intelligence runtime
-        from core.intelligence_runtime import get_runtime
-        runtime = get_runtime()
-        memory_items = runtime.memory.recall_recent(limit=50)
+        # Primary path: canonical MemoryRecord table (DB-backed, always current)
+        from app.memory.models import MemoryRecord
+        from app import db
+        records = MemoryRecord.query.order_by(
+            MemoryRecord.created_at.desc()
+        ).limit(50).all()
         results = []
-        for item in memory_items:
+        for r in records:
             results.append({
-                "key": getattr(item, "key", ""),
-                "content": (getattr(item, "content", "") or "")[:300],
-                "memory_type": getattr(item, "memory_type", ""),
-                "source": getattr(item, "source", ""),
-                "confidence": getattr(item, "confidence", 0.5),
-                "timestamp": getattr(item, "timestamp", ""),
+                "key": r.memory_key or "",
+                "content": (r.value or "")[:300],
+                "memory_type": r.memory_type or "",
+                "source": r.creation_mechanism or "",
+                "confidence": 0.9,
+                "timestamp": r.created_at.isoformat() if r.created_at else "",
             })
         return jsonify({
             "success": True,
             "data": {"entries": results, "total": len(results)},
         })
     except Exception:
-        # Fallback: read from canonical MemoryRecord table
+        # Fallback: UIR intelligence runtime
         try:
-            from app.memory.models import MemoryRecord
-            from app import db
-            records = MemoryRecord.query.order_by(
-                MemoryRecord.created_at.desc()
-            ).limit(50).all()
+            from core.intelligence_runtime import get_runtime
+            runtime = get_runtime()
+            memory_items = runtime.memory.recall_recent(limit=50)
             results = []
-            for r in records:
+            for item in memory_items:
                 results.append({
-                    "key": r.id,
-                    "content": (r.content or "")[:300],
-                    "memory_type": r.memory_type,
-                    "timestamp": r.created_at.isoformat() if r.created_at else None,
-                    "source": "memory_record",
+                    "key": getattr(item, "key", ""),
+                    "content": (getattr(item, "content", "") or "")[:300],
+                    "memory_type": getattr(item, "memory_type", ""),
+                    "source": getattr(item, "source", ""),
+                    "confidence": getattr(item, "confidence", 0.5),
+                    "timestamp": getattr(item, "timestamp", ""),
                 })
             return jsonify({
                 "success": True,
@@ -78,7 +78,6 @@ def list_memory():
                 "success": True,
                 "data": {"entries": [], "total": 0},
             })
-
 
 @memory_bp.route("/knowledge", methods=["GET"])
 def list_knowledge():

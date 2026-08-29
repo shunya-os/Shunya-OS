@@ -600,6 +600,18 @@ def api_ask():
             "latency_ms": total_latency,
         }), 500 if gov_result.get("paid_blocked") else 200
 
+    # ── Stage 6: Persist as memory record ────────────────────────────
+    answer_text = gov_result.get("content", "")
+    if answer_text:
+        import hashlib
+        from app.memory_api.store import store_ai_memory
+        store_ai_memory(
+            tenant_id=tenant.get("tenant_id", 0),
+            memory_key=hashlib.md5(question.encode("utf-8")).hexdigest(),
+            value=answer_text,
+            summary=question[:200],
+        )
+
     return jsonify({
         "success": True,
         "answer": gov_result.get("content", ""),
