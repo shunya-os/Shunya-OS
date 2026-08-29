@@ -606,11 +606,15 @@ def api_ask():
         try:
             import hashlib
             from app.memory_api.store import store_ai_memory
-            # Rollback any stale transaction before memory write
-            from app import db
-            db.session.rollback()
+            # Resolve real tenant_id from authenticated user (tenant.key from pipeline is org_id, not tenant_id)
+            from app.auth import TeamMember
+            uid = session.get("user_id") or g.get("user_id")
+            tm_tenant_id = None
+            if uid:
+                tm = TeamMember.query.get(uid)
+                tm_tenant_id = tm.tenant_id if tm else None
             rec = store_ai_memory(
-                tenant_id=tenant.get("tenant_id", 0),
+                tenant_id=tm_tenant_id,
                 memory_key=hashlib.md5(question.encode("utf-8")).hexdigest(),
                 value=answer_text,
                 summary=question[:200],
