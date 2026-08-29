@@ -415,11 +415,13 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
             ...s.observations,
             {
               id: `obs-${Date.now()}`,
-              type: 'action_completed',
-              label: `${actionLabel} — completed`,
-              detail: result.message || result.explanation || '',
+              title: `${actionLabel} — completed`,
+              description: result.message || result.explanation || '',
+              type: 'insight' as const,
+              confidence: 0.9,
+              evidence: result.explanation || '',
+              source: 'shunya-execution',
               timestamp: timestamp(),
-              acknowledged: false,
             },
           ],
         }));

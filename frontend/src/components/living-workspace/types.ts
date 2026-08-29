@@ -80,13 +80,16 @@ export interface Execution {
   id: string;
   label: string;
   description: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'awaiting_approval';
-  progress: number; // 0.0 - 1.0
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'awaiting_approval' | 'error';
+  progress: number;
   started_at?: string;
   completed_at?: string;
   outcome?: string;
   error?: string;
   subtasks?: Execution[];
+  currentStage?: string;
+  stages?: string[];
+  result?: string;
 }
 
 // ── Living Object ── A business object as a continuously evolving story
