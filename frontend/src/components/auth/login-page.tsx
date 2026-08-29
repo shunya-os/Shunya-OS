@@ -47,6 +47,7 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
         // If user already has workspace/org, skip onboarding
         if (resp.onboarding_complete) {
           window.sessionStorage.setItem('shunya_onboarding_complete', 'true');
+          window.localStorage.setItem('shunya_onboarding_complete', 'true');
         }
         onLogin(session);
       } else {

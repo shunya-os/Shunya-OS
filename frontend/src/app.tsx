@@ -304,6 +304,11 @@ function AppShell() {
                 orgId: String(data.org_id || ''),
                 orgName: data.org_name || '',
               });
+              // Set onboarding complete flag if backend confirms it
+              if (data.onboarding_complete) {
+                sessionStorage.setItem('shunya_onboarding_complete', 'true');
+                localStorage.setItem('shunya_onboarding_complete', 'true');
+              }
               if (isOnboardingComplete()) {
                 bootstrap();
               } else {

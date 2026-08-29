@@ -37,15 +37,24 @@ function saveStep(step: number) {
 }
 
 export function setOnboardingComplete() {
-  try { sessionStorage.setItem(STORAGE_COMPLETE_KEY, 'true'); } catch { /* noop */ }
+  try {
+    sessionStorage.setItem(STORAGE_COMPLETE_KEY, 'true');
+    localStorage.setItem(STORAGE_COMPLETE_KEY, 'true');
+  } catch { /* noop */ }
 }
 
 export function isOnboardingComplete(): boolean {
-  try { return sessionStorage.getItem(STORAGE_COMPLETE_KEY) === 'true'; } catch { return false; }
+  try {
+    return sessionStorage.getItem(STORAGE_COMPLETE_KEY) === 'true' ||
+           localStorage.getItem(STORAGE_COMPLETE_KEY) === 'true';
+  } catch { return false; }
 }
 
 export function clearOnboardingFlag() {
-  try { sessionStorage.removeItem(STORAGE_COMPLETE_KEY); } catch { /* noop */ }
+  try {
+    sessionStorage.removeItem(STORAGE_COMPLETE_KEY);
+    localStorage.removeItem(STORAGE_COMPLETE_KEY);
+  } catch { /* noop */ }
 }
 
 export function clearOnboardingProgress() {

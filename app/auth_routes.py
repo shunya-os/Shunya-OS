@@ -616,6 +616,7 @@ def session_restore():
         401: { authenticated: false }
     """
     import json
+    from app.founder.models import FounderObject
     from app.models import Organization, OrgMember
 
     user_id = session.get("user_id")
@@ -658,6 +659,11 @@ def session_restore():
         if org:
             org_name = org.name
 
+    # Determine if onboarding is complete — has personal workspace or org membership
+    has_personal = False
+    if identity_id:
+        has_personal = FounderObject.query.filter_by(created_by=identity_id).first() is not None
+
     return jsonify({
         "authenticated": True,
         "identity_id": identity_id,
@@ -666,4 +672,5 @@ def session_restore():
         "org_name": org_name,
         "email": member.email,
         "name": member.name,
+        "onboarding_complete": bool(current_org_id) or has_personal,
     })
