@@ -352,6 +352,69 @@ def get_workload():
 
 
 # =========================================================================
+# People — Canonical Person Records from persons table
+# =========================================================================
+
+
+@people_bp.route("/persons", methods=["GET"])
+def list_persons():
+    """List canonical Person records for the current tenant.
+
+    Returns Person identity data from the persons table, filtered by
+    tenant_id. Includes TeamMember linkage when available.
+    """
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    if not _require_people_permission():
+        return jsonify({"success": False, "error": "Insufficient permissions"}), 403
+
+    from app.models import Person
+
+    persons = Person.query.filter_by(
+        tenant_id=_tenant_id()
+    ).order_by(Person.canonical_name).all()
+
+    from app.auth import TeamMember
+
+    result = []
+    for p in persons:
+        tm = TeamMember.query.filter_by(person_id=p.id).first()
+        entry = p.to_dict()
+        entry["team_member"] = {
+            "id": tm.id,
+            "email": tm.email,
+            "role": tm.role,
+            "is_active": tm.is_active,
+        } if tm else None
+        result.append(entry)
+
+    return jsonify({
+        "success": True,
+        "data": result,
+    })
+
+
+@people_bp.route("/persons/<int:person_id>", methods=["GET"])
+def get_person(person_id: int):
+    """Get a specific Person record."""
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    if not _require_people_permission():
+        return jsonify({"success": False, "error": "Insufficient permissions"}), 403
+
+    from app.models import Person
+
+    person = Person.query.filter_by(id=person_id, tenant_id=_tenant_id()).first()
+    if not person:
+        return jsonify({"success": False, "error": "Person not found"}), 404
+
+    return jsonify({
+        "success": True,
+        "data": person.to_dict(),
+    })
+
+
+# =========================================================================
 # FDA23 — Attendance / Leave
 # =========================================================================
 

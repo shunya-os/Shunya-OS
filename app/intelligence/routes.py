@@ -601,28 +601,30 @@ def api_ask():
         }), 500 if gov_result.get("paid_blocked") else 200
 
     # ── Stage 6: Persist as memory record ────────────────────────────
-    answer_text = gov_result.get("content", "")
+    answer_text = gov_result.get("content", "") or ""
     if answer_text:
         import hashlib
         from app.memory_api.store import store_ai_memory
-        store_ai_memory(
-            tenant_id=tenant.get("tenant_id", 0),
-            memory_key=hashlib.md5(question.encode("utf-8")).hexdigest(),
-            value=answer_text,
-            summary=question[:200],
-        )
+        try:
+            store_ai_memory(
+                tenant_id=tenant.get("tenant_id", 0),
+                memory_key=hashlib.md5(question.encode("utf-8")).hexdigest(),
+                value=answer_text,
+                summary=question[:200],
+            )
+        except Exception:
+            pass  # memory storage is non-critical
 
     return jsonify({
         "success": True,
-        "answer": gov_result.get("content", ""),
+        "answer": answer_text,
         "deterministic": gov_result.get("deterministic", False),
         "model_invoked": gov_result.get("model_invoked", False),
         "tenant": tenant,
         "evidence_used": evidence_used,
-        "routing": gov_result.get("routing", {}),
         "pipeline": pipeline_stages,
         "latency_ms": total_latency,
-    })
+    }), 500 if gov_result.get("paid_blocked") else 200
 
 
 # ---------------------------------------------------------------------------

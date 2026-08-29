@@ -7,6 +7,7 @@ All mutating operations log to ActivityLog for audit trail.
 
 import os
 import pdfkit
+import logging
 from datetime import datetime, date, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, g, session
 from app import db
@@ -16,6 +17,8 @@ from app.models import (
 )
 from app.services import parse_inquiry_text, get_summary, _cached_or_new_code, format_inquiry_reply
 from app.runtime_config import uploads_dir
+
+logger = logging.getLogger(__name__)
 
 main = Blueprint("main", __name__)
 api = Blueprint("api", __name__)
@@ -1689,6 +1692,16 @@ def documents_upload():
     try:
         db.session.add(doc)
         db.session.commit()
+
+        # Extract entities → knowledge_facts with provenance
+        try:
+            from app.document.extraction_pipeline import store_document_facts
+            fact_count = store_document_facts(doc.id)
+            if fact_count:
+                logger.debug("Extracted %d knowledge_facts from document %s", fact_count, doc.id)
+        except Exception as ext_err:
+            logger.warning("Entity extraction for doc %s failed: %s", doc.id, ext_err)
+
         if doc.lead_id:
             _log_activity(doc.lead_id, "document_uploaded",
                           f"Document '{doc.filename}' uploaded ({doc.classification})")
@@ -1925,6 +1938,103 @@ def workspace_stats():
     """Get workspace runtime statistics."""
     api = WorkspaceAPI()
     return jsonify(api.stats())
+
+
+# ── Document → Knowledge Fact Extraction API ────────────────────────────
+
+
+@api.route("/documents/<int:doc_id>/extract-facts", methods=["POST"])
+def api_extract_document_facts(doc_id: int):
+    """Extract entities from a document and store as knowledge_facts."""
+    from app.document.extraction_pipeline import store_document_facts
+
+    try:
+        count = store_document_facts(doc_id)
+        if count == 0:
+            doc = Document.query.get(doc_id)
+            if not doc:
+                return jsonify({"success": False, "error": "Document not found"}), 404
+            if not (doc.extracted_text or "").strip():
+                return jsonify({
+                    "success": False,
+                    "error": "Document has no extracted text to process",
+                    "document_id": doc_id,
+                    "filename": doc.filename,
+                }), 400
+            return jsonify({
+                "success": True,
+                "message": "No entities found in document text",
+                "document_id": doc_id,
+                "facts_stored": 0,
+            })
+        return jsonify({
+            "success": True,
+            "message": f"Extracted {count} knowledge facts",
+            "document_id": doc_id,
+            "facts_stored": count,
+        })
+    except Exception as e:
+        logger.exception("Failed to extract facts from document %s", doc_id)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api.route("/documents/backfill-facts", methods=["POST"])
+def api_backfill_document_facts():
+    """Backfill knowledge_facts from all documents with extracted text."""
+    from app.document.extraction_pipeline import backfill_all_documents
+
+    try:
+        results = backfill_all_documents()
+        return jsonify({
+            "success": True,
+            "message": (
+                f"Processed {results['processed']}/{results['total_docs']} docs, "
+                f"stored {results['facts_stored']} facts, "
+                f"{results['skipped_no_text']} skipped (no text), "
+                f"{len(results['errors'])} errors"
+            ),
+            **results,
+        })
+    except Exception as e:
+        logger.exception("Backfill failed")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api.route("/knowledge-facts", methods=["GET"])
+def api_list_knowledge_facts():
+    """List knowledge facts, optionally filtered by domain or category."""
+    from app.shunya.knowledge_store import KnowledgeFact
+
+    domain = request.args.get("domain", "")
+    category = request.args.get("category", "")
+    limit = min(int(request.args.get("limit", 50)), 200)
+    offset = int(request.args.get("offset", 0))
+
+    q = db.session.query(KnowledgeFact).filter(KnowledgeFact.superseded_at.is_(None))
+    if domain:
+        q = q.filter(KnowledgeFact.domain == domain)
+    if category:
+        q = q.filter(KnowledgeFact.category == category)
+    total = q.count()
+    facts = q.order_by(KnowledgeFact.created_at.desc()).offset(offset).limit(limit).all()
+
+    return jsonify({
+        "success": True,
+        "total": total,
+        "facts": [f.to_dict() for f in facts],
+    })
+
+
+@api.route("/knowledge-facts/stats", methods=["GET"])
+def api_knowledge_facts_stats():
+    """Get knowledge_facts statistics."""
+    from app.shunya.knowledge_store import ImmutableKnowledgeStore
+
+    store = ImmutableKnowledgeStore()
+    return jsonify({
+        "success": True,
+        **store.stats(),
+    })
 
 
 # ── Z-15: Legacy module routes → serve SPA instead of Jinja2 templates ──

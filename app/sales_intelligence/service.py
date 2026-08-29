@@ -135,7 +135,8 @@ def pipeline_health(tenant_id: int) -> dict:
 
     stages = {}
     for l in all_leads:
-        s = l.stage or "new"
+        # Use stage if set, fall back to status for meaningful pipeline grouping
+        s = l.stage or l.status or "new"
         stages[s] = stages.get(s, 0) + 1
 
     # Aging analysis

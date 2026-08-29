@@ -12,9 +12,40 @@ from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g, jsonify
 from app import db, limiter
 from app.auth import TeamMember, UserRole, AuthLayer, PasswordResetToken
+from app.models import Person
 
 auth_bp = Blueprint("auth", __name__)
 auth = AuthLayer()
+
+
+def _ensure_person_for_team_member(tm: TeamMember):
+    """Ensure a canonical Person record exists for this TeamMember.
+
+    Creates a Person if tm.person_id is None and no Person exists
+    with tm.email as canonical_name. Links the Person back to the
+    TeamMember for future lookups.
+    """
+    if tm.person_id is not None:
+        existing = db.session.get(Person, tm.person_id)
+        if existing:
+            return existing
+    existing = Person.query.filter_by(canonical_name=tm.email).first()
+    if existing:
+        tm.person_id = existing.id
+        db.session.add(tm)
+        return existing
+    person = Person(
+        name=tm.name,
+        canonical_name=tm.email,
+        preferred_name=tm.name.split()[0] if tm.name else tm.email.split("@")[0],
+        tenant_id=tm.tenant_id,
+        status="active",
+    )
+    db.session.add(person)
+    db.session.flush()
+    tm.person_id = person.id
+    db.session.add(tm)
+    return person
 
 # Paths that don't require authentication
 PUBLIC_PATHS = {"/health", "/login", "/logout", "/telegram/webhook",
@@ -107,6 +138,10 @@ def login_page():
         session["user_id"] = user.id
         user.last_login = datetime.now(timezone.utc)
         user.generate_token()
+
+        # Auto-create canonical Person record if missing
+        _ensure_person_for_team_member(user)
+
         db.session.commit()
 
         # Resolve identity_id and current_org_id for workspace continuity
@@ -158,6 +193,10 @@ def login_page():
         session["user_id"] = user.id
         user.last_login = datetime.now(timezone.utc)
         user.generate_token()
+
+        # Auto-create canonical Person record if missing
+        _ensure_person_for_team_member(user)
+
         db.session.commit()
 
         # Resolve identity_id and current_org_id for workspace continuity

@@ -26,14 +26,16 @@ def next_action(lead_id):
 
 @sales_bp.route("/pipeline", methods=["GET"])
 def pipeline():
-    tenant_id = request.args.get("tenant_id", 1, type=int)
+    from flask import session
+    tenant_id = session.get("current_org_id") or request.args.get("tenant_id", 89, type=int)
     result = si.pipeline_health(tenant_id)
     return jsonify(result)
 
 
 @sales_bp.route("/forecast", methods=["GET"])
 def forecast():
-    tenant_id = request.args.get("tenant_id", 1, type=int)
+    from flask import session
+    tenant_id = session.get("current_org_id") or request.args.get("tenant_id", 89, type=int)
     months = request.args.get("months", 3, type=int)
     result = si.forecast(tenant_id, months)
     return jsonify(result)
@@ -47,6 +49,7 @@ def salesperson(agent_id):
 
 @sales_bp.route("/conversion", methods=["GET"])
 def conversion():
-    tenant_id = request.args.get("tenant_id", 1, type=int)
+    from flask import session
+    tenant_id = session.get("current_org_id") or request.args.get("tenant_id", 89, type=int)
     result = si.conversion_analysis(tenant_id)
     return jsonify(result)

@@ -1,6 +1,22 @@
-/** FDA23 — People Panel: Members, Workload, Attendance, Training, Policy Acks */
+/** FDA23 — People Panel: Members, Workload, Attendance, Training, Policy Acks, Persons */
 
 import { useState, useEffect, type FC } from 'react';
+
+interface PersonData {
+  id: number;
+  tenant_id: number | null;
+  canonical_name: string;
+  preferred_name: string;
+  status: string;
+  created_at: string | null;
+  updated_at: string | null;
+  team_member: {
+    id: number;
+    email: string;
+    role: string;
+    is_active: boolean;
+  } | null;
+}
 
 async function api<T>(path: string, opts?: RequestInit) {
   try {
@@ -9,7 +25,7 @@ async function api<T>(path: string, opts?: RequestInit) {
   } catch { return { success: false, error: 'Network error' }; }
 }
 
-type Tab = 'members' | 'workload' | 'attendance' | 'training' | 'policies';
+type Tab = 'members' | 'persons' | 'workload' | 'attendance' | 'training' | 'policies';
 
 export const PeoplePanel: FC = () => {
   const [tab, setTab] = useState<Tab>('members');
@@ -18,23 +34,26 @@ export const PeoplePanel: FC = () => {
   const [attendance, setAttendance] = useState<any[]>([]);
   const [trainings, setTrainings] = useState<any[]>([]);
   const [policies, setPolicies] = useState<any[]>([]);
+  const [persons, setPersons] = useState<PersonData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const load = async () => {
     setLoading(true); setError('');
-    const [m, w, a, t, p] = await Promise.all([
+    const [m, w, a, t, p, ps] = await Promise.all([
       api<any[]>('/api/v1/people/members'),
       api<any>('/api/v1/people/workload'),
       api<any[]>('/api/v1/people/attendance'),
       api<any[]>('/api/v1/people/training'),
       api<any[]>('/api/v1/people/policies'),
+      api<PersonData[]>('/api/v1/people/persons'),
     ]);
     if (m.success) setMembers(m.data || []);
     if (w.success) setWorkload(w.data);
     if (a.success) setAttendance(a.data || []);
     if (t.success) setTrainings(t.data || []);
     if (p.success) setPolicies(p.data || []);
+    if (ps.success) setPersons(ps.data || []);
     setLoading(false);
   };
 
@@ -52,6 +71,7 @@ export const PeoplePanel: FC = () => {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'members', label: 'Members' },
+    { key: 'persons', label: 'Persons' },
     { key: 'workload', label: 'Workload' },
     { key: 'attendance', label: 'Attendance' },
     { key: 'training', label: 'Training' },
@@ -75,6 +95,25 @@ export const PeoplePanel: FC = () => {
           {members.map(m => (
             <div key={m.id} className="wksp-admin-row"><strong>{m.name}</strong> — {m.role} <span className="wksp-muted">{m.email}</span></div>
           ))}
+        </div>
+      )}
+
+      {!loading && tab === 'persons' && (
+        <div className="wksp-admin-section">
+          <h3>Canonical Persons ({persons.length})</h3>
+          {persons.length === 0 && <p className="wksp-muted">No Person records found for this tenant.</p>}
+          <div className="wksp-persons-list">
+            {persons.map(p => (
+              <div key={p.id} className="wksp-admin-row">
+                <strong>{p.preferred_name || p.canonical_name.split('@')[0]}</strong>
+                {' '}&mdash; {p.canonical_name}
+                <span className="wksp-muted"> | status: {p.status}</span>
+                {p.team_member && (
+                  <span className="wksp-muted"> | role: {p.team_member.role}</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
