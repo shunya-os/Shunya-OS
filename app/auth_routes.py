@@ -615,7 +615,6 @@ def session_restore():
         200: { authenticated: true, identity_id, org_id, org_name, email, name }
         401: { authenticated: false }
     """
-    import json
     from app.founder.models import FounderObject
     from app.models import Organization, OrgMember
 
