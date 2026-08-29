@@ -120,7 +120,7 @@ class Provenance:
 # Identity ID Generation
 # ---------------------------------------------------------------------------
 
-_IDENTITY_ID_PATTERN = re.compile(r"^sid_[0-9a-f]{32}$")
+_IDENTITY_ID_PATTERN = re.compile(r"^sid_[0-9a-f]{24,32}$")
 
 
 def _generate_identity_id() -> str:
