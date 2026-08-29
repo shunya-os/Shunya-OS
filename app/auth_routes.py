@@ -119,6 +119,10 @@ def login_page():
             ).count())
             session["identity_id"] = best_org.identity_id
             session["current_org_id"] = best_org.organization_id
+        else:
+            # No org membership — use TeamMember email as identity fallback
+            session["identity_id"] = email
+            session["current_org_id"] = 0
 
         return jsonify({"success": True, "redirect": url_for("workspace_routes.workspace_home")})
  
@@ -165,6 +169,10 @@ def login_page():
             ).count())
             session["identity_id"] = best_org.identity_id
             session["current_org_id"] = best_org.organization_id
+        else:
+            # No org membership — use TeamMember email as identity fallback
+            session["identity_id"] = email
+            session["current_org_id"] = 0
 
         next_url = request.args.get("next") or url_for("workspace_routes.workspace_home")
         return redirect(next_url)
@@ -652,6 +660,12 @@ def session_restore():
             current_org_id = best_org_id
             session["identity_id"] = identity_id
             session["current_org_id"] = current_org_id
+        else:
+            # No org membership — use email as identity fallback
+            identity_id = member.email or str(user_id)
+            current_org_id = 0
+            session["identity_id"] = identity_id
+            session["current_org_id"] = 0
 
     if current_org_id:
         org = db.session.get(Organization, current_org_id)

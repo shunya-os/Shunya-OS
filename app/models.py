@@ -457,6 +457,7 @@ class Document(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, nullable=False)
     lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=True, index=True)
     filename = db.Column(db.String(500), nullable=False)
     file_path = db.Column(db.String(1000), nullable=False)

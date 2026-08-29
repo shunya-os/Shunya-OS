@@ -566,10 +566,13 @@ def create_app(config_override: dict | None = None):
     # whenever session["user_id"] is present.
     @app.before_request
     def _resolve_identity_session():
-        if session.get("identity_id"):
-            return  # Already resolved
         user_id = session.get("user_id")
         if not user_id:
+            return
+        identity_id = session.get("identity_id")
+        current_org_id = session.get("current_org_id")
+        # Skip if both identity and org are already properly resolved
+        if identity_id and current_org_id:
             return
         try:
             from app.auth import TeamMember
@@ -589,22 +592,21 @@ def create_app(config_override: dict | None = None):
                     session["identity_id"] = org_member.identity_id
                     session["current_org_id"] = org_member.organization_id
                     return
-                # Fallback: use user_id as identity_id, try to find an org by other means
-                from app.models import Organization
-                org = Organization.query.filter_by(is_active=True).first()
-                if org:
-                    session["identity_id"] = tm.email or str(user_id)
-                    session["current_org_id"] = org.id
-                    return
+                # Fallback: use TeamMember data as identity
+                session["identity_id"] = tm.email or str(user_id)
+                session["current_org_id"] = 0
+                return
             # Last resort fallback: set identity_id from user_id
-            session["identity_id"] = str(user_id)
-            session["current_org_id"] = session.get("current_org_id", 0)
+            session["identity_id"] = identity_id or str(user_id)
+            if not session.get("current_org_id"):
+                session["current_org_id"] = 0
         except Exception:
             import traceback
             app.logger.warning(f"Identity resolution failed: {traceback.format_exc()}")
             # Ensure identity_id is set to something so auth doesn't fail completely
             if user_id and not session.get("identity_id"):
                 session["identity_id"] = str(user_id)
+                session.setdefault("current_org_id", 0)
 
     # ---- Unified Auth Middleware --------------------------------------------
     # Sets g.identity_id from Flask session cookie or X-Identity-Id header

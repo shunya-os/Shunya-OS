@@ -102,22 +102,19 @@ def verify_release_provenance(expected_sha=None):
 
     try:
         with open(provenance_path) as f:
-            records = json.load(f)
-        if not isinstance(records, list):
-            check("Release provenance is a list", False, "expected list of records")
+            record = json.load(f)
+        if not isinstance(record, dict):
+            check("Release provenance is a dict", False, f"got {type(record).__name__}")
             return
-        if len(records) == 0:
-            check("Release provenance has records", False, "empty list")
-            return
-        last = records[-1]
-        check("Release provenance has git_commit", "git_commit" in last)
-        check("Release provenance has release_type", "release_type" in last)
-        check("Release provenance has timestamp", "timestamp" in last)
-        if expected_sha and last.get("git_commit"):
+        check("Release provenance has git_commit", "git_commit" in record)
+        check("Release provenance has release_type", "release_type" in record)
+        check("Release provenance has deployed_at", "deployed_at" in record)
+        check("Release provenance has build_id", "build_id" in record)
+        if expected_sha and record.get("git_commit"):
             check(
                 f"Release provenance SHA matches expected ({expected_sha[:8]}...)",
-                last["git_commit"] == expected_sha,
-                f"provenance has {last['git_commit'][:8] if last['git_commit'] else 'None'}"
+                record["git_commit"] == expected_sha,
+                f"provenance has {record['git_commit'][:8] if record['git_commit'] else 'None'}"
             )
     except (json.JSONDecodeError, OSError) as e:
         check("Release provenance is readable", False, str(e))
@@ -177,8 +174,8 @@ def run_smoke_tests(base_url, expected_sha=None):
     print("-" * 40)
     for ep in REQUIRED_ENDPOINTS:
         status, body = fetch_endpoint(base_url, ep)
-        # Most endpoints require auth — 401 is acceptable for smoke test
-        expected = "reachable" if status in (200, 401) else False
+        # Most endpoints require auth or specific methods — accept 200/401/405 as reachable
+        expected = "reachable" if status in (200, 401, 405) else False
         check(
             f"Endpoint {ep} responds (got HTTP {status})",
             expected,

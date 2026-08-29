@@ -206,11 +206,13 @@ def api_founder_signin():
             pass
 
         # Authenticated but no org membership — personal workspace
+        session["identity_id"] = session.get("identity_id") or tm.email or str(tm.id)
+        session.setdefault("current_org_id", 0)
         return jsonify({
             "success": True,
             "redirect": "/",
             "name": tm.name,
-            "identity_id": str(tm.id),
+            "identity_id": session["identity_id"],
         })
 
     # Check if account exists but is unverified

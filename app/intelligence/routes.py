@@ -258,6 +258,12 @@ def api_ask():
     from app import db as _db
     from sqlalchemy import text as _text
 
+    # Rollback any aborted transaction from safety governance check
+    try:
+        _db.session.rollback()
+    except Exception:
+        pass
+
     # ── Gather business context (company-first truth) ───────────────
     # Includes: organization profile, objects, documents, commitments,
     # memory, financial data — so the AI answers with real context.
@@ -441,7 +447,7 @@ def api_ask():
         if learnings:
             learn_details = []
             for l in learnings:
-                snippet = (l.ai_response or "")[:150]
+                snippet = (l.trigger_summary or "")[:150]
                 if snippet:
                     learn_details.append(snippet)
             company_evidence.append({
@@ -566,6 +572,7 @@ def api_ask():
         query=question,
         session_id=tenant.get("identity_id", ""),
         paid_allowed=True,
+        context=context,
     )
 
     pipeline_stages.append({

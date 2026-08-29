@@ -1,6 +1,7 @@
 """
 Document API routes for the SPA workspace.
 Provides document serving, listing, and ingestion endpoints.
+All document data is tenant-scoped.
 """
 # flake8: noqa: F401 — lazy imports to avoid circular import with app/__init__.py
 import os
@@ -18,9 +19,37 @@ def _require_auth():
     return {"user_id": user_id, "identity_id": identity_id}
 
 
+def _resolve_tenant_id() -> int | None:
+    """Resolve the current user's tenant_id from session context.
+
+    Canonical order:
+    1. TeamMember lookup by session user_id (most authoritative)
+    2. session['current_org_id'] mapped via organization.legacy_tenant_id
+    """
+    from app import db
+    from app.auth import TeamMember
+
+    user_id = session.get("user_id")
+    if user_id:
+        tm = db.session.get(TeamMember, int(user_id))
+        if tm and tm.tenant_id:
+            return int(tm.tenant_id)
+
+    org_id = session.get("current_org_id")
+    if org_id:
+        from app.models import Organization
+        org = db.session.get(Organization, int(org_id))
+        if org and org.legacy_tenant_id:
+            return int(org.legacy_tenant_id)
+
+    return None
+
+
 def _get_context():
+    tid = _resolve_tenant_id()
     return {
         "identity_id": session.get("identity_id", ""),
+        "tenant_id": tid,
         "current_org_id": session.get("current_org_id"),
         "context_type": "organization" if session.get("current_org_id") else "personal",
     }
@@ -32,6 +61,7 @@ def _get_context():
 def list_documents():
     from app import db
     from app.models import Document
+    import sqlalchemy as sa
 
     auth = _require_auth()
     if not auth:
@@ -40,10 +70,17 @@ def list_documents():
     ctx = _get_context()
     limit = request.args.get("limit", 50, type=int)
 
+    tid = ctx.get("tenant_id")
     try:
-        docs = Document.query\
-            .filter_by(uploaded_by=ctx["identity_id"])\
-            .order_by(Document.created_at.desc()).limit(limit).all()
+        if tid:
+            docs = Document.query \
+                .filter(sa.text("tenant_id = :tid")).params(tid=tid) \
+                .order_by(Document.created_at.desc()).limit(limit).all()
+        else:
+            # Personal scope — filter by uploader identity
+            docs = Document.query \
+                .filter_by(uploaded_by=ctx["identity_id"]) \
+                .order_by(Document.created_at.desc()).limit(limit).all()
 
         results = []
         for d in docs:
@@ -67,12 +104,22 @@ def list_documents():
 def serve_document(doc_id):
     from app import db
     from app.models import Document
+    import sqlalchemy as sa
 
     auth = _require_auth()
     if not auth:
         return jsonify({"success": False, "error": "Authentication required"}), 401
 
-    doc = db.session.get(Document, doc_id)
+    tid = _resolve_tenant_id()
+    if tid:
+        doc = Document.query \
+            .filter(Document.id == doc_id, sa.text("tenant_id = :tid")).params(tid=tid) \
+            .first()
+    else:
+        doc = Document.query \
+            .filter(Document.id == doc_id, Document.uploaded_by == session.get("identity_id", "")) \
+            .first()
+
     if not doc:
         return jsonify({"success": False, "error": "Document not found"}), 404
 
@@ -116,6 +163,9 @@ def ingest_file():
         return jsonify({"success": False, "error": "Empty file"}), 400
 
     ctx = _get_context()
+    tid = ctx.get("tenant_id")
+    if not tid:
+        return jsonify({"success": False, "error": "No tenant context — cannot determine document scope"}), 403
 
     from app.runtime_config import uploads_dir
     upload_dir = os.path.join(uploads_dir(), "documents")
@@ -136,6 +186,7 @@ def ingest_file():
         file_path=file_path,
         file_type=file_type,
         classification="ingested",
+        tenant_id=tid,
         uploaded_by=ctx["identity_id"],
         created_at=datetime.now(timezone.utc),
     )
@@ -164,7 +215,6 @@ except Exception as e:
             extracted_text = pdf_result.stdout.strip()
             if extracted_text and not extracted_text.startswith("[extraction"):
                 analysis_summary = f"PDF extracted: {len(extracted_text)} characters. "
-                # Generate a brief summary of key content
                 if len(extracted_text) > 100:
                     sentences = extracted_text.replace('\\n', ' ').split('. ')
                     key_points = [s.strip() for s in sentences if len(s.strip()) > 30][:3]
@@ -210,12 +260,22 @@ except Exception as e:
 def document_detail(doc_id):
     from app import db
     from app.models import Document
+    import sqlalchemy as sa
 
     auth = _require_auth()
     if not auth:
         return jsonify({"success": False, "error": "Authentication required"}), 401
 
-    doc = db.session.get(Document, doc_id)
+    tid = _resolve_tenant_id()
+    if tid:
+        doc = Document.query \
+            .filter(Document.id == doc_id, sa.text("tenant_id = :tid")).params(tid=tid) \
+            .first()
+    else:
+        doc = Document.query \
+            .filter(Document.id == doc_id, Document.uploaded_by == session.get("identity_id", "")) \
+            .first()
+
     if not doc:
         return jsonify({"success": False, "error": "Document not found"}), 404
 

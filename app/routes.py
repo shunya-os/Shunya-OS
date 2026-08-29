@@ -1676,7 +1676,16 @@ def documents_upload():
         structured_data=structured_json,
         classification=result.get("classification", "other"),
         uploaded_by=getattr(g, "user", ""),
+        tenant_id=getattr(g, "user", "").tenant_id if hasattr(getattr(g, "user", ""), "tenant_id") else None,
     )
+    # Resolve tenant_id from session if not available on g.user
+    if doc.tenant_id is None:
+        from app.auth import TeamMember
+        user_id = session.get("user_id")
+        if user_id:
+            tm = TeamMember.query.get(int(user_id))
+            if tm and tm.tenant_id:
+                doc.tenant_id = tm.tenant_id
     try:
         db.session.add(doc)
         db.session.commit()
