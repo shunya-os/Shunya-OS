@@ -23,13 +23,14 @@
 
 | Finding | Original Evidence | Current Status | Current Evidence | Fix Required | Priority |
 |---------|------------------|---------------|-----------------|-------------|----------|
-| Two identity systems (TeamMember + SHUNYAIdentity) | Signup creates both; no convergence path | DUPLICATED | team_members=10, shunya_identities=2, persons=10 — three separate stores | Consolidate to one canonical identity authority | LAUNCH BLOCKER |
-| Signup creates TeamMember AND identity but no link | auth_routes.py + shunya_public.py both create separate records | PARTIAL | api_create_identity creates both but they're not linked by FK | Wire identity_id into TeamMember schema | LAUNCH BLOCKER |
-| Password reset uses TeamMember only | /forgot-password → TeamMember email | PARTIAL | Tests pass (31/31 auth) but doesn't touch kernel identity | Password reset must resolve through canonical identity | LAUNCH BLOCKER |
+| Two identity systems (TeamMember + SHUNYAIdentity) | Signup creates both; no convergence path | RESOLVED | Sha efda28e. All 10 team_members now have identity_id FK to shunya_identities. Login resolves through canonical identity. | — | LAUNCH BLOCKER |
+| Signup creates TeamMember AND identity but no link | auth_routes.py + shunya_public.py both create separate records | RESOLVED | api_create_identity stores identity_id on TeamMember at creation. Login auto-creates identity for members missing one. | — | LAUNCH BLOCKER |
+| Password reset uses TeamMember only | /forgot-password → TeamMember email | PARTIAL | Tests pass (31/31 auth) but password reset still uses TeamMember email (valid since identity_id is now linked) | Wire password reset to use canonical identity lookup | HIGH |
 | Invitation acceptance resolves to TeamMember, not canonical identity | org_invitations=0 — never tested | GENUINELY MISSING | No invitation flow exists | Build invitation→identity path | HIGH |
 | No OAuth identity resolution | /auth/google, /auth/github routes missing | GENUINELY MISSING | No OAuth backend routes | Implement OAuth flow | HIGH |
-| No identity merge/conflict semantics | No merge endpoints, no duplicate detection | GENUINELY MISSING | persons=10 but no person_identities=0 | Build merge/conflict resolution | HIGH |
-| Persons table finally seeded but identity graph absent | Phase B seeded 10 persons | PARTIAL | persons=10, person_identities=0 | Wire Person→TeamMember→SHUNYAIdentity links | HIGH |
+| No identity merge/conflict semantics | No merge endpoints, no duplicate detection | GENUINELY MISSING | persons=10, person_identities=0 | Build merge/conflict resolution | HIGH |
+| Persons table finally seeded but identity graph absent | Phase B seeded 10 persons | PARTIAL | persons=10, person_identities=0. Person→TeamMember links exist via person_id | Wire Person→TeamMember→SHUNYAIdentity links | HIGH |
+| _resolve_identity_session overwrites identity_id with email | Middleware sets session["identity_id"] = tm.email when no org membership | RESOLVED | Middleware now prioritizes TeamMember.identity_id over email. Resolution order: identity_id → OrgMember → email fallback | — | LAUNCH BLOCKER |
 
 ## 2. ORGANIZATION / TENANT CONVERGENCE (§3)
 
