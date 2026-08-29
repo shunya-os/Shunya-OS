@@ -140,10 +140,58 @@ def ingest_file():
         created_at=datetime.now(timezone.utc),
     )
     db.session.add(doc)
+    db.session.flush()
+
+    # Extract content for immediate analysis
+    extracted_text = ""
+    analysis_summary = ""
+    try:
+        if file_type == "pdf":
+            import subprocess
+            pdf_result = subprocess.run(
+                ["python3", "-c", f"""
+import sys; sys.path.insert(0, '{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}')
+try:
+    import pdfplumber
+    with pdfplumber.open('{file_path}') as pdf:
+        text = ' '.join(page.extract_text() or '' for page in pdf.pages)
+        print(text[:5000] if text else 'No text could be extracted from this PDF.')
+except Exception as e:
+    print(f'[extraction limited: {{e}}]')
+"""],
+                capture_output=True, text=True, timeout=15,
+            )
+            extracted_text = pdf_result.stdout.strip()
+            if extracted_text and not extracted_text.startswith("[extraction"):
+                analysis_summary = f"PDF extracted: {len(extracted_text)} characters. "
+                # Generate a brief summary of key content
+                if len(extracted_text) > 100:
+                    sentences = extracted_text.replace('\\n', ' ').split('. ')
+                    key_points = [s.strip() for s in sentences if len(s.strip()) > 30][:3]
+                    if key_points:
+                        analysis_summary += "Key content: " + "; ".join(key_points) + "."
+        elif file_type == "csv":
+            with open(file_path, 'r', errors='replace') as csvf:
+                lines = csvf.readlines()
+                extracted_text = ''.join(lines[:50])
+                header = lines[0].strip() if lines else ""
+                row_count = len(lines) - 1
+                analysis_summary = f"CSV with {row_count} data rows. Columns: {header}"
+        elif file_type == "text":
+            with open(file_path, 'r', errors='replace') as txtf:
+                extracted_text = txtf.read(5000)
+                word_count = len(extracted_text.split())
+                analysis_summary = f"Text file: approximately {word_count} words."
+    except Exception as ext_err:
+        analysis_summary = f"File stored. Content analysis limited: {ext_err}"
+
+    doc.extracted_text = extracted_text
     db.session.commit()
 
     file_size = os.path.getsize(file_path)
     summary = f"File '{f.filename}' ({file_type}, {file_size:,} bytes) saved to your {ctx['context_type']} workspace."
+    if analysis_summary:
+        summary += f" {analysis_summary}"
 
     return jsonify({
         "success": True,

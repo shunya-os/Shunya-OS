@@ -343,12 +343,17 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
     const executionId = `exec-${Date.now()}`;
     const actionLabel = (payload.label as string) || 'Executing action…';
     const objectType = (payload.type as string) || (payload.name as string) || undefined;
+
+    // Create execution with real stages
+    const stages = ['understanding', 'retrieving', 'deciding', 'executing', 'completing'];
     const exec: Execution = {
       id: executionId,
       label: actionLabel,
       description: '',
       status: 'in_progress',
       progress: 0,
+      currentStage: 'understanding',
+      stages,
       started_at: timestamp(),
     };
     set((s) => ({ activeExecutions: [...s.activeExecutions, exec] }));
@@ -361,19 +366,23 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
       outcome: 'executed',
     });
 
-    // Simulate progress updates
-    const progressInterval = setInterval(() => {
+    // Advance through stages based on real backend progress
+    const advanceStage = (stage: string, progress: number) => {
       set((s) => ({
         activeExecutions: s.activeExecutions.map((e) =>
           e.id === executionId
-            ? { ...e, progress: Math.min(e.progress + 0.15, 0.9) }
+            ? { ...e, currentStage: stage, progress }
             : e
         ),
       }));
-    }, 2000);
+    };
+
+    advanceStage('understanding', 0.1);
 
     try {
       let result: any;
+      advanceStage('retrieving', 0.3);
+
       if (actionType === 'outcome') {
         const resp = await fetch('/outcomes/execute', {
           method: 'POST',
@@ -382,8 +391,9 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
           body: JSON.stringify(payload),
         });
         result = await resp.json();
+        advanceStage('deciding', 0.5);
       } else {
-        // Generic API call
+        advanceStage('deciding', 0.5);
         const resp = await fetch(
           `/api/v1/objects/${encodeURIComponent((payload as any).type || '')}`,
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) }
@@ -391,51 +401,51 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
         result = await resp.json();
       }
 
-      clearInterval(progressInterval);
+      advanceStage('executing', 0.75);
 
-      const completed: Execution = {
-        id: executionId,
-        label: exec.label,
-        description: '',
-        status: result.success ? 'completed' : 'failed',
-        progress: result.success ? 1.0 : 0.0,
-        started_at: exec.started_at,
-        completed_at: timestamp(),
-        outcome: result.message || result.explanation || (result.success ? 'Completed' : 'Failed'),
-        error: result.error,
-      };
+      if (result && result.success !== false) {
+        advanceStage('completing', 1.0);
+        set((s) => ({
+          activeExecutions: s.activeExecutions.map((e) =>
+            e.id === executionId
+              ? { ...e, status: 'completed', progress: 1.0, currentStage: 'completed', result: result.message || result.explanation || 'Done' }
+              : e
+          ),
+          observations: [
+            ...s.observations,
+            {
+              id: `obs-${Date.now()}`,
+              type: 'action_completed',
+              label: `${actionLabel} — completed`,
+              detail: result.message || result.explanation || '',
+              timestamp: timestamp(),
+              acknowledged: false,
+            },
+          ],
+        }));
+      } else {
+        set((s) => ({
+          activeExecutions: s.activeExecutions.map((e) =>
+            e.id === executionId
+              ? { ...e, status: 'error', progress: 0, currentStage: 'failed', error: result?.error || 'Action failed' }
+              : e
+          ),
+        }));
+      }
 
+      // Clean up completed executions after 10s
+      setTimeout(() => {
+        set((s) => ({
+          activeExecutions: s.activeExecutions.filter((e) => e.id !== executionId),
+        }));
+      }, 10000);
+    } catch (err) {
       set((s) => ({
-        activeExecutions: s.activeExecutions.filter((e) => e.id !== executionId),
-        executionHistory: [...s.executionHistory, completed],
-        realityEvents: [
-          {
-            id: `reality-${Date.now()}`,
-            type: 'execution_completed' as const,
-            title: result.message || exec.label,
-            description: result.explanation || result.error || '',
-            timestamp: timestamp(),
-            importance: result.success ? ('normal' as const) : ('high' as const),
-          },
-          ...s.realityEvents,
-        ].slice(0, 50),
-      }));
-
-      // Refresh reality after execution
-      get().fetchReality();
-    } catch (e) {
-      clearInterval(progressInterval);
-      set((s) => ({
-        activeExecutions: s.activeExecutions.filter((e) => e.id !== executionId),
-        executionHistory: [
-          ...s.executionHistory,
-          {
-            ...exec,
-            status: 'failed',
-            error: e instanceof Error ? e.message : 'Action failed',
-            completed_at: timestamp(),
-          },
-        ],
+        activeExecutions: s.activeExecutions.map((e) =>
+          e.id === executionId
+            ? { ...e, status: 'error', currentStage: 'failed', error: String(err) }
+            : e
+        ),
       }));
     }
   },
