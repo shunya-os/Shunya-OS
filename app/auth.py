@@ -38,6 +38,7 @@ class UserRole(str, Enum):
 class TeamMember(db.Model):
     __tablename__ = "team_members"
     id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, nullable=False, default=1)
     name = Column(String(120), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
     phone = Column(String(30))

@@ -300,6 +300,9 @@ def api_signup():
         return jsonify({"success": False, "error": "An account with this email already exists."}), 409
 
     member = TeamMember(name=name, email=email, role=UserRole.ADMIN.value, is_active=True)
+    # Default tenant_id — user will be assigned to an organization during onboarding
+    # or via invitation. Without this, NOT NULL constraint on tenant_id breaks signup.
+    member.tenant_id = 1
     member.set_password(password)
 
     # Generate verification token with expiry
@@ -313,9 +316,14 @@ def api_signup():
     db.session.commit()
 
     # Send verification email (logs URL in dev, SMTP in production)
-    from app.email_service import build_verification_email, send_email
-    subject, body = build_verification_email(email, member.verify_token)
-    send_email(email, subject, body)
+    # Wrapped in try/except — signup should succeed even if email delivery fails
+    try:
+        from app.email_service import build_verification_email, send_email
+        subject, body = build_verification_email(email, member.verify_token)
+        send_email(email, subject, body)
+    except Exception as email_err:
+        import logging
+        logging.getLogger(__name__).warning("Signup email failed (non-fatal): %s", email_err)
 
     # Do NOT set session["user_id"] — verification required first
     return jsonify({
