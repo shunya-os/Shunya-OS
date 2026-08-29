@@ -1,6 +1,6 @@
 """SHUNYA — Memory Store: Persist AI interaction memory into memory_records.
 
-Provides a simple `store_ai_memory()` function that INSERTs into the
+Provides a simple store_ai_memory() function that INSERTs into the
 canonical memory_records table. Designed for /ask and other AI endpoints
 so the Memory workspace shows data.
 """
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def store_ai_memory(
-    tenant_id: int | None,
+    tenant_id: int | str | None,
     *,
     memory_type: str = "ai_interaction",
     memory_key: str,
@@ -26,32 +26,20 @@ def store_ai_memory(
 ) -> MemoryRecord | None:
     """Persist an AI interaction as a memory_record.
 
-    Parameters
-    ----------
-    tenant_id : int | None
-        The tenant (organization) this memory belongs to.
-        Pass ``None`` or 0 when the tenant relationship is uncertain —
-        the column is nullable in the database.
-    memory_type : str
-        Type of memory (default ``ai_interaction``).
-    memory_key : str
-        Unique-ish key for dedup / lookup (e.g. hash of the question).
-    value : str
-        The answer / body of the memory (e.g. the AI's response).
-    summary : str
-        Short human-readable label (e.g. the question, truncated).
-    scope_type : str
-        Scope of the memory (default ``organization``).
-
-    Returns
-    -------
-    MemoryRecord | None
-        The newly created record, or *None* on failure.
+    Handles string tenant_id values (common in API responses).
+    Catches all exceptions and logs them — memory storage is non-critical.
     """
     try:
-        # Normalise tenant_id: treat 0 / falsy the same as None to
-        # avoid FK violations when the value doesn't exist in tenants.
-        resolved_tenant = tenant_id if tenant_id else None
+        # Normalise tenant_id: convert string to int, 0/falsy to None
+        resolved_tenant = None
+        if tenant_id:
+            try:
+                resolved_tenant = int(tenant_id)
+            except (ValueError, TypeError):
+                resolved_tenant = None
+
+        # Rollback any stale transaction before creating new record
+        db.session.rollback()
 
         record = MemoryRecord(
             tenant_id=resolved_tenant,
