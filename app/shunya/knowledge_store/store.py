@@ -43,7 +43,20 @@ class KnowledgeStore:
         health_registry: Any = None,
         event_bus: Any = None,
     ) -> None:
-        self._repo = repository or InMemoryKnowledgeRepository()
+        # Use DB-backed repository when Flask app context is available,
+        # falling back to InMemory for development/testing.
+        if repository is not None:
+            self._repo = repository
+        else:
+            try:
+                from flask import current_app
+                if current_app:
+                    from app.shunya.knowledge_store.sql_repository import SqlKnowledgeRepository
+                    self._repo = SqlKnowledgeRepository()
+                else:
+                    self._repo = InMemoryKnowledgeRepository()
+            except Exception:
+                self._repo = InMemoryKnowledgeRepository()
         self._version_history = version_history or VersionHistory()
         self._logger = logger
         self._metrics = metrics_registry
