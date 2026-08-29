@@ -438,11 +438,18 @@ class InferenceGovernanceService:
         query: str,
         session_id: str = "",
         paid_allowed: bool | None = None,
+        context: str = "",
     ) -> dict:
         """Process a query through the FDA10 inference pipeline.
 
         Pipeline:
         CLASSIFY → POLICY → SELECT → EXECUTE → OBSERVE
+
+        Parameters
+        ----------
+        context : str
+            Company/organization context to include as system prompt
+            so the AI can answer with contextual knowledge.
         """
         start = time.monotonic()
         record = ObservabilityRecord()
@@ -527,6 +534,7 @@ class InferenceGovernanceService:
                 input_text=query,
                 session_id=session_id,
                 provider_hint=route.get("suggested_provider", ""),
+                system_prompt=context,
             )
 
             response = orch.process(request)

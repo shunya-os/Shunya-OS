@@ -258,26 +258,149 @@ def api_ask():
     from app import db as _db
     from sqlalchemy import text as _text
 
-    # Gather business context (company-first truth)
+    # ── Gather business context (company-first truth) ───────────────
+    # Includes: organization profile, objects, documents, commitments,
+    # memory, financial data — so the AI answers with real context.
+
+    # 1) Organization profile (name, type, brand, contact)
     try:
-        total_objects = _db.session.execute(
-            _text("SELECT COUNT(*) FROM founder_objects WHERE status='active'")
-        ).scalar() or 0
-        if total_objects > 0:
+        from app.models import Organization
+        org = _db.session.query(Organization).first()
+        if org:
+            org_fields = []
+            if org.name:
+                org_fields.append(f"Organization: {org.name}")
+            if org.business_type:
+                org_fields.append(f"Type: {org.business_type}")
+            if org.brand_description:
+                org_fields.append(f"Description: {org.brand_description}")
+            if org.brand_tagline:
+                org_fields.append(f"Tagline: {org.brand_tagline}")
+            if org.website:
+                org_fields.append(f"Website: {org.website}")
+            if org.email:
+                org_fields.append(f"Email: {org.email}")
+            if org.phone:
+                org_fields.append(f"Phone: {org.phone}")
+            if org.city and org.country:
+                org_fields.append(f"Location: {org.city}, {org.country}")
+            if org_fields:
+                company_evidence.append({
+                    "content": "; ".join(org_fields),
+                    "source": "company_db/organization",
+                    "semantic": "FACT",
+                    "classification": "company_truth",
+                    "confidence": 0.98,
+                })
+                evidence_semantic_states.add("FACT")
+                has_company_data = True
+    except Exception as exc:
+        logger.warning("Failed to query organization: %s", exc)
+
+    # 2) Founder objects — detailed list with names, types, content
+    try:
+        objects = _db.session.execute(
+            _text("SELECT name, object_type, content FROM founder_objects WHERE status='active' ORDER BY updated_at DESC LIMIT 20")
+        ).fetchall()
+        if objects:
+            obj_details = []
+            for obj in objects:
+                name, obj_type, content = obj
+                snippet = (content or "")[:300].replace("\n", " ")
+                obj_details.append(f"{name} ({obj_type})")
             company_evidence.append({
-                "content": f"Total objects: {total_objects}",
+                "content": f"Objects ({len(objects)}): {' | '.join(obj_details)}",
                 "source": "company_db/founder_objects",
                 "semantic": "FACT",
                 "classification": "company_truth",
                 "confidence": 0.95,
             })
             evidence_semantic_states.add("FACT")
+            has_company_data = True
     except Exception as exc:
         logger.warning("Failed to query founder_objects: %s", exc)
 
-    # Financial data
+    # 3) Knowledge documents (brochures, SOPs, contracts, itineraries)
     try:
-        from app.finance.models import FinInvoice as Invoice, FinancePayment as Payment
+        from app.models import KnowledgeDocument
+        docs = _db.session.query(KnowledgeDocument).order_by(
+            KnowledgeDocument.created_at.desc()
+        ).limit(15).all()
+        if docs:
+            doc_details = []
+            for d in docs:
+                tags = ", ".join(d.tags) if isinstance(d.tags, list) else d.tags
+                summary = (d.summary or "")[:200]
+                part = d.title
+                if summary:
+                    part += f": {summary}"
+                if tags:
+                    part += f" [{tags}]"
+                doc_details.append(part)
+            company_evidence.append({
+                "content": f"Documents ({len(doc_details)}): {' | '.join(doc_details)}",
+                "source": "company_db/knowledge_documents",
+                "semantic": "FACT",
+                "classification": "company_truth",
+                "confidence": 0.95,
+            })
+            evidence_semantic_states.add("FACT")
+            has_company_data = True
+    except Exception as exc:
+        logger.warning("Failed to query knowledge_documents: %s", exc)
+
+    # 4) Commitments — what's been promised
+    try:
+        from app.commitments.models import Commitment
+        commitments = _db.session.query(Commitment).order_by(
+            Commitment.updated_at.desc()
+        ).limit(15).all()
+        if commitments:
+            cmt_details = []
+            status_map = {}
+            for c in commitments:
+                status_str = c.status or "unknown"
+                status_map[status_str] = status_map.get(status_str, 0) + 1
+                cmt_details.append(f"{c.title} ({c.status})")
+            summary_counts = "; ".join(f"{k}: {v}" for k, v in status_map.items())
+            company_evidence.append({
+                "content": f"Commitments ({len(commitments)}): {summary_counts}. Details: {' | '.join(cmt_details[:8])}",
+                "source": "company_db/commitments",
+                "semantic": "FACT",
+                "classification": "company_truth",
+                "confidence": 0.95,
+            })
+            evidence_semantic_states.add("FACT")
+            has_company_data = True
+    except Exception as exc:
+        logger.warning("Failed to query commitments: %s", exc)
+
+    # 5) Memory records — stored knowledge about people, relationships
+    try:
+        from app.memory.models import MemoryRecord
+        mems = _db.session.query(MemoryRecord).filter(
+            MemoryRecord.status == "active"
+        ).order_by(MemoryRecord.updated_at.desc()).limit(20).all()
+        if mems:
+            mem_details = []
+            for m in mems:
+                val = (m.value or "")[:200]
+                mem_details.append(f"{m.memory_key}: {val}")
+            company_evidence.append({
+                "content": f"Memory ({len(mems)} items): {' | '.join(mem_details)}",
+                "source": "company_db/memory_records",
+                "semantic": "FACT",
+                "classification": "company_truth",
+                "confidence": 0.90,
+            })
+            evidence_semantic_states.add("FACT")
+            has_company_data = True
+    except Exception as exc:
+        logger.warning("Failed to query memory_records: %s", exc)
+
+    # 6) Financial data — invoices
+    try:
+        from app.finance.models import FinInvoice as Invoice
         invoice_count = _db.session.query(Invoice).count() if hasattr(Invoice, '__table__') else 0
         if invoice_count > 0:
             company_evidence.append({
@@ -288,9 +411,11 @@ def api_ask():
                 "confidence": 0.95,
             })
             evidence_semantic_states.add("FACT")
+            has_company_data = True
     except Exception as exc:
         logger.warning("Failed to query invoices: %s", exc)
 
+    # 7) Leads
     try:
         from app.models import Lead
         lead_count = _db.session.query(Lead).count() if hasattr(Lead, '__table__') else 0
@@ -303,8 +428,33 @@ def api_ask():
                 "confidence": 0.95,
             })
             evidence_semantic_states.add("FACT")
+            has_company_data = True
     except Exception as exc:
         logger.warning("Failed to query leads: %s", exc)
+
+    # 8) Learning events — what the AI has learned from corrections
+    try:
+        from app.intelligence.models import LearningEvent
+        learnings = _db.session.query(LearningEvent).order_by(
+            LearningEvent.created_at.desc()
+        ).limit(10).all()
+        if learnings:
+            learn_details = []
+            for l in learnings:
+                snippet = (l.ai_response or "")[:150]
+                if snippet:
+                    learn_details.append(snippet)
+            company_evidence.append({
+                "content": f"Learning ({len(learnings)} events): {' | '.join(learn_details)}",
+                "source": "company_db/learning_events",
+                "semantic": "FACT",
+                "classification": "company_truth",
+                "confidence": 0.85,
+            })
+            evidence_semantic_states.add("FACT")
+            has_company_data = True
+    except Exception as exc:
+        logger.warning("Failed to query learning_events: %s", exc)
 
     # If no company evidence found, mark semantic state as UNKNOWN
     if not has_company_data:
