@@ -606,13 +606,16 @@ def api_ask():
         try:
             import hashlib
             from app.memory_api.store import store_ai_memory
-            store_ai_memory(
+            # Rollback any stale transaction before memory write
+            from app import db
+            db.session.rollback()
+            rec = store_ai_memory(
                 tenant_id=tenant.get("tenant_id", 0),
                 memory_key=hashlib.md5(question.encode("utf-8")).hexdigest(),
                 value=answer_text,
                 summary=question[:200],
             )
-            open("/tmp/memory_debug.log","a").write(f"STORED: key={hashlib.md5(question.encode('utf-8')).hexdigest()}, value_len={len(answer_text)}\n")
+            open("/tmp/memory_debug.log","a").write(f"STORED: key={hashlib.md5(question.encode('utf-8')).hexdigest()}, value_len={len(answer_text)}, rec={rec}\n")
         except Exception as e:
             open("/tmp/memory_debug.log","a").write(f"FAILED: {e}\n")
 
