@@ -97,6 +97,26 @@ def permission_required(resource: str, action: str = "read"):
     return decorator
 
 
+def _ensure_personal_workspace_for_user(user):
+    """Auto-create a personal workspace for the user if one doesn't exist."""
+    identity_id = str(getattr(user, 'identity_id', '') or user.id)
+    from app.founder.models import FounderSpace
+    existing = FounderSpace.query.filter_by(
+        identity_id=identity_id, space_type="personal", status="active"
+    ).first()
+    if not existing:
+        import uuid
+        space = FounderSpace(
+            space_id=f"personal_{uuid.uuid4().hex[:16]}",
+            name=f"{user.name}'s Workspace",
+            space_type="personal",
+            description="Personal workspace",
+            identity_id=identity_id,
+        )
+        db.session.add(space)
+        db.session.commit()
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -156,6 +176,9 @@ def login_page():
                 user.identity_id = identity.identity_id
 
         db.session.commit()
+
+        # ===== Auto-create personal workspace on first login =====
+        _ensure_personal_workspace_for_user(user)
 
         # Resolve identity_id from TeamMember.identity_id (canonical)
         if user.identity_id:
@@ -222,6 +245,9 @@ def login_page():
                 user.identity_id = identity.identity_id
 
         db.session.commit()
+
+        # ===== Auto-create personal workspace on first login =====
+        _ensure_personal_workspace_for_user(user)
 
         # Resolve identity_id and current_org_id for workspace continuity
         # Resolve identity_id from TeamMember.identity_id (canonical)

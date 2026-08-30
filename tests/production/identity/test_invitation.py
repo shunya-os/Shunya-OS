@@ -34,11 +34,9 @@ def logged_in_client(app, client, admin_user):
 
 @pytest.fixture(scope="function")
 def org(app, _db):
-    from app.tenant import Tenant, TenantTheme
-    o = Tenant(company_name="Invite Org", slug="invite-org", is_active=True)
+    from app.models import Organization
+    o = Organization(name="Invite Org", slug="invite-org", is_active=True)
     _db.session.add(o)
-    _db.session.flush()
-    _db.session.add(TenantTheme(tenant_id=o.id))
     _db.session.commit()
     return o
 
@@ -74,10 +72,11 @@ class TestInviteCreate:
         assert resp.status_code == 400
 
     def test_create_duplicate_user(self, logged_in_client, _db, org):
-        from app.auth import TeamMember
-        u = TeamMember(name="Existing", email="exists@test.com",
-                       role="agent", is_active=True)
-        u.set_password("pass123456")
+        from app.models import OrgMember
+        u = OrgMember(
+            organization_id=org.id, identity_id="test_dup",
+            name="Existing", email="exists@test.com", role="member",
+        )
         _db.session.add(u)
         _db.session.commit()
         resp = logged_in_client.post(

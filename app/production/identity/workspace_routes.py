@@ -10,7 +10,7 @@ from werkzeug.exceptions import NotFound, BadRequest
 
 from app import db
 from app.auth_routes import login_required
-from app.tenant import Tenant
+from app.models import Organization
 from app.production.identity import identity_bp
 from app.production.identity.workspace_model import Workspace
 
@@ -24,11 +24,11 @@ def _generate_slug(name: str) -> str:
     return slug[:120] or "workspace"
 
 
-def _ensure_unique_slug(tenant_id: int, base_slug: str) -> str:
+def _ensure_unique_slug(org_id: int, base_slug: str) -> str:
     """Append counter if slug already exists in this org."""
     slug = base_slug
     counter = 1
-    while Workspace.query.filter_by(tenant_id=tenant_id, slug=slug).first() is not None:
+    while Workspace.query.filter_by(tenant_id=org_id, slug=slug).first() is not None:
         suffix = str(counter)
         max_base = 120 - len(suffix) - 1
         slug = f"{base_slug[:max_base]}-{suffix}"
@@ -36,9 +36,9 @@ def _ensure_unique_slug(tenant_id: int, base_slug: str) -> str:
     return slug
 
 
-def _get_org_or_404(org_id: int) -> Tenant:
+def _get_org_or_404(org_id: int) -> Organization:
     """Get an active org or 404."""
-    org = db.session.get(Tenant, org_id)
+    org = db.session.get(Organization, org_id)
     if not org or not org.is_active:
         raise NotFound("Organization not found")
     return org

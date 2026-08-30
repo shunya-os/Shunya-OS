@@ -38,11 +38,9 @@ def logged_in_client(app, client, admin_user):
 
 @pytest.fixture(scope="function")
 def org(app, _db):
-    from app.tenant import Tenant, TenantTheme
-    o = Tenant(company_name="Workspace Test Org", slug="ws-test-org", is_active=True)
+    from app.models import Organization
+    o = Organization(name="Workspace Test Org", slug="ws-test-org", is_active=True)
     _db.session.add(o)
-    _db.session.flush()
-    _db.session.add(TenantTheme(tenant_id=o.id))
     _db.session.commit()
     return o
 
@@ -139,12 +137,11 @@ class TestWorkspaceGet:
         assert resp.status_code == 404
 
     def test_get_wrong_org(self, logged_in_client, _db, org):
-        from app.tenant import Tenant, TenantTheme
+        from app.models import Organization
         from app.production.identity.workspace_model import Workspace
-        other_org = Tenant(company_name="Other", slug="other", is_active=True)
+        other_org = Organization(name="Other", slug="other", is_active=True)
         _db.session.add(other_org)
         _db.session.flush()
-        _db.session.add(TenantTheme(tenant_id=other_org.id))
         ws = Workspace(tenant_id=other_org.id, name="Hidden", slug="hidden")
         _db.session.add(ws)
         _db.session.commit()

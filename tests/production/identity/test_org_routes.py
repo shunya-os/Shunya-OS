@@ -44,18 +44,15 @@ def logged_in_client(app, client, admin_user):
 
 @pytest.fixture(scope="function")
 def test_org(app, _db):
-    """Create a sample organization (Tenant) for tests."""
-    from app.tenant import Tenant, TenantTheme
-    org = Tenant(
-        company_name="Test Org Inc",
+    """Create a sample organization for tests."""
+    from app.models import Organization
+    org = Organization(
+        name="Test Org Inc",
         slug="test-org-inc",
         business_type="travel",
         is_active=True,
     )
     _db.session.add(org)
-    _db.session.flush()
-    theme = TenantTheme(tenant_id=org.id)
-    _db.session.add(theme)
     _db.session.commit()
     return org
 
@@ -109,14 +106,12 @@ class TestOrgCreate:
             json={
                 "company_name": "Full Test Corp",
                 "business_type": "healthcare",
-                "plan": "pro",
                 "max_team_members": 50,
             },
         )
         assert resp.status_code == 201
         data = resp.get_json()
         assert data["data"]["business_type"] == "healthcare"
-        assert data["data"]["plan"] == "pro"
         assert data["data"]["max_team_members"] == 50
 
     def test_create_org_missing_name(self, logged_in_client):
@@ -187,11 +182,11 @@ class TestOrgUpdate:
         """Should allow partial updates."""
         resp = logged_in_client.put(
             f"/api/v1/orgs/{test_org.id}",
-            json={"plan": "enterprise"},
+            json={"business_type": "retail"},
         )
         assert resp.status_code == 200
         data = resp.get_json()
-        assert data["data"]["plan"] == "enterprise"
+        assert data["data"]["business_type"] == "retail"
         assert data["data"]["company_name"] == "Test Org Inc"
 
     def test_update_org_not_found(self, logged_in_client):
@@ -213,8 +208,8 @@ class TestOrgDelete:
         data = resp.get_json()
         assert data["data"]["status"] == "deactivated"
 
-        from app.tenant import Tenant
-        org = _db.session.get(Tenant, test_org.id)
+        from app.models import Organization
+        org = _db.session.get(Organization, test_org.id)
         assert org is not None
         assert org.is_active is False
 
