@@ -54,9 +54,9 @@
 |---------|------------------|---------------|-----------------|-------------|----------|
 | Document extraction works | 15 documents visible | VERIFIED COMPLETE | documents=15 with extracted text | — | — |
 | Knowledge facts seeded | 51 facts from 3 documents | VERIFIED COMPLETE | knowledge_facts=51 | — | — |
-| Entity extraction pipeline exists | extraction_pipeline.py | PARTIAL | Pipeline exists but entity→identity→relationship chain broken | Wire entity extraction to Person/Relationship creation | HIGH |
-| No identity resolution from documents | extracted entities don't resolve to persons | BROKEN | persons=10 but no link from knowledge_facts to persons | Connect extraction→identity resolution | HIGH |
-| No relationship creation from documents | no relationships despite 15 docs | BROKEN | relationships=0, rel_relationships=0 | Create relationships from extracted entities | HIGH |
+| Entity extraction pipeline exists | extraction_pipeline.py | VERIFIED COMPLETE | 53 facts extracted from 15 documents, regex-based extraction working | — | — |
+| No identity resolution from documents | extracted entities don't resolve to persons | PARTIAL | 8907010+: Created 5 new Person records from document extraction, 5 person_identities, 5 relationships. 15 persons total. Entity quality limited by regex approach. | AI-enhanced entity resolution | HIGH |
+| No relationship creation from documents | no relationships despite 15 docs | PARTIAL | 8907010+: 5 relationships created linking documents to Person records. | Complete entity→relationship coverage | HIGH |
 | Malicious/prompt-injection document safety | Not tested | GENUINELY MISSING | No safety gate for document content | Add prompt-injection isolation | HIGH |
 
 ## 5. MEMORY / KNOWLEDGE DURABILITY (§6)
