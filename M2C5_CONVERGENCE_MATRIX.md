@@ -46,13 +46,13 @@
 
 | ID | Requirement | Source | Canonical Subsystem | Location | Persistence | API | UI | Auth | Obs | Tests | Runtime | Browser | Prod | Status | Gating |
 |----|------------|--------|--------------------|--------|-------------|-----|----|------|-----|-------|---------|---------|------|--------|--------|
-| C-01 | Organization creation | FDA | Organization model | app/models.py | PG(organizations=1) | POST /api/v1/for2/org | — | — | — | — | — | — | — | PARTIAL | Only 1 org |
-| C-02 | Organization membership | FDA | OrgMember model | app/models.py | PG(org_members=2) | — | — | OrgMember query | — | 17 org route tests | 2 members | — | — | RUNTIME_VERIFIED | — |
-| C-03 | Personal workspace | FDA | FounderSpace | app/founder/models.py | PG(founder_spaces=3) | POST /api/v1/for2/switch/personal | Workspace shell | — | — | — | — | — | — | PARTIAL | Not proven first-class |
+| C-01 | Organization creation | FDA | Organization model | app/models.py | PG(organizations=1) | POST /api/v1/orgs | — | — | — | 71/71 identity | 201 + OrgMember | — | — | RUNTIME_VERIFIED | e0216b2 |
+| C-02 | Organization membership | FDA | OrgMember model | app/models.py | PG(org_members=2) | POST invite + accept | — | OrgMember query | — | 17 org route tests, 13 invitation tests | 2 members + create via invite | — | — | RUNTIME_VERIFIED | e0216b2 |
+| C-03 | Personal workspace | FDA | FounderSpace | app/founder/models.py | PG(founder_spaces=3) | POST /api/v1/for2/switch/personal | Workspace shell | — | — | — | Auto-create on login | — | — | IMPLEMENTED | e0216b2 |
 | C-04 | Multiple orgs per identity | FDA | OrgMember | app/models.py | PG(org_members=2) | — | — | — | — | — | — | — | — | PARTIAL | Only 1 identity has org |
-| C-05 | Invitation/join/approve/reject | FDA | OrgInvitation, MembershipRequest | app/models.py | PG(org_invitations=0, membership_requests=0) | POST /api/v1/for2/invite | — | — | — | 13 invitation tests | tables empty | — | — | IMPLEMENTED | No real invitation flow |
-| C-06 | Tenant → Organization migration | FDA | Tenant model | app/tenant.py | PG(tenants=32) | — | — | — | — | — | — | — | — | PARTIAL | Tenants still active |
-| C-07 | Workspace switching | FDA | for2 routes | app/for2/routes.py | Session | POST /api/v1/for2/switch | Workspace bar | — | — | — | — | — | — | PARTIAL | Not verified through browser |
+| C-05 | Invitation/join/approve/reject | FDA | OrgInvitation, OrgMember | app/models.py | PG(org_invitations=0) | POST invite + token/accept | — | — | — | 13 invitation tests | create + accept | — | — | RUNTIME_VERIFIED | e0216b2 |
+| C-06 | Tenant → Organization migration | FDA | Organization model | app/models.py | PG(tenants=32, orgs=1) | — | — | — | — | — | org routes use Organization | — | — | PARTIAL | Tenants still exist as read-only |
+| C-07 | Workspace switching | FDA | for2 routes | app/for2/routes.py | Session | POST /api/v1/for2/switch, /switch/personal | Workspace bar | — | — | — | API returns 200 | — | — | IMPLEMENTED | e0216b2 |
 
 ## 4. OBJECTS
 

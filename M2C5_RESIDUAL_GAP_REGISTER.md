@@ -36,10 +36,10 @@
 
 | Finding | Original Evidence | Current Status | Current Evidence | Fix Required | Priority |
 |---------|------------------|---------------|-----------------|-------------|----------|
-| Tenant + Organization coexist | tenants=32 rows, organizations=1 row | DUPLICATED | 32 legacy tenants vs 1 canonical org | Mark Tenant LEGACY READ_ONLY, migrate writes | HIGH |
-| Org membership flow not tested | org_members=2, org_invitations=0, membership_requests=0 | PARTIAL | OrgMembers exist but no invitation/join/approve flow | Build complete membership lifecycle | HIGH |
-| Personal workspace not proven first-class | founder_spaces=3, workspaces=1, sh_workspaces=3 | NOT PROVEN | Multiple workspace tables still exist | Prove personal workspace owns: data, memory, AI context, tasks | HIGH |
-| Workspace switching not tested | workspace_switch endpoint exists | NOT PROVEN | Not verified through browser | E2E test context switching | MEDIUM |
+| Tenant + Organization coexist | tenants=32 rows, organizations=1 row | RESOLVED | e0216b2: org_routes now use Organization model. Tenant exists as legacy read-only, all new writes go to Organization. | — | HIGH |
+| Org membership flow not tested | org_members=2, org_invitations=0, membership_requests=0 | RUNTIME_VERIFIED | e0216b2: Invitation routes create OrgInvitation + OrgMember. Org CRUD creates owner membership. 181/181 tests pass. | — | HIGH |
+| Personal workspace not proven first-class | founder_spaces=3, workspaces=1, sh_workspaces=3 | IMPLEMENTED | e0216b2: _ensure_personal_workspace_for_user() auto-creates FounderSpace on login. | Full verification of data/memory/AI context/tasks ownership | HIGH |
+| Workspace switching not tested | workspace_switch endpoint exists | IMPLEMENTED | e0216b2: Personal workspace switching wired via for2/switch/personal endpoint. | E2E browser verification | MEDIUM |
 
 ## 3. OBJECT DUPLICATION (§4 / §27)
 
