@@ -1,5 +1,5 @@
-# M2C.5 — LIVE RESIDUAL-GAP REGISTER
-## Date: 2026-08-29 | SHA: d97cc6e | Deployed: d97cc6e
+# M2C.5 — LIVE RESIDUAL-GAP REGISTER (UPDATED)
+## Date: 2026-08-30 | SHA: fd757d8 | Deployed: fd757d8
 ## Authority: Consolidated Residual-Gap & Certification Directive (§1)
 
 ### Status Legend
@@ -282,31 +282,33 @@
 
 | Classification | Count |
 |---------------|-------|
-| VERIFIED COMPLETE | 8 |
-| RESOLVED | 2 |
-| PARTIAL | 10 |
+| VERIFIED COMPLETE | 10 |
+| RESOLVED | 6 |
+| RUNTIME_VERIFIED | 2 |
+| IMPLEMENTED | 2 |
+| PARTIAL | 12 |
 | BACKEND_ONLY | 2 |
 | UI_ONLY | 1 |
-| DISCONNECTED | 4 |
-| DUPLICATED | 8 |
+| DISCONNECTED | 3 |
+| DUPLICATED | 7 |
 | BROKEN | 5 |
-| GENUINELY MISSING | 28 |
-| NOT PROVEN | 14 |
+| GENUINELY MISSING | 26 |
+| NOT PROVEN | 12 |
 | ENVIRONMENT BLOCKED | 2 |
 | DEGRADED | 1 |
-| **TOTAL FINDINGS** | **85** |
+| **TOTAL FINDINGS** | **91** |
 
-## LAUNCH BLOCKERS (12)
+## LAUNCH BLOCKERS (11 — down from 12)
 
-1. Identity — dual systems, no canonical authority
-2. Signup — creates two unlinked records
-3. Password reset — doesn't use canonical identity
-4. Memory — no tenant isolation
-5. Finance — no API, no payment chain, wrong UI
-6. Auth roles — table empty
-7. Auth permissions — table missing
-8. User roles — table missing
-9. No permission enforcement middleware
-10. Tenant isolation not proven
-11. No prompt injection protection
-12. No backup/restore evidence
+1. ~~Identity — dual systems~~ → RESOLVED (efda28e, 351c7fc)
+2. ~~Signup — creates two unlinked records~~ → RESOLVED (efda28e)
+3. Password reset — doesn't use canonical identity (PARTIAL)
+4. Memory/knowledge — no tenant isolation (GENUINELY MISSING)
+5. Finance — no API, no payment chain, wrong UI (LAUNCH BLOCKER)
+6. Auth roles — table empty (GENUINELY MISSING)
+7. Auth permissions — table missing (GENUINELY MISSING)
+8. User roles — table missing (GENUINELY MISSING)
+9. No permission enforcement middleware (GENUINELY MISSING)
+10. Tenant isolation not proven (NOT PROVEN)
+11. No prompt injection protection (NOT PROVEN)
+12. No backup/restore evidence (GENUINELY MISSING)
