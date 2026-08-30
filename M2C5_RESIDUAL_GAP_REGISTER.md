@@ -45,8 +45,8 @@
 
 | Finding | Original Evidence | Current Status | Current Evidence | Fix Required | Priority |
 |---------|------------------|---------------|-----------------|-------------|----------|
-| 5 competing object systems | objects=41, founder_objects=44, sh_objects=4, canonical_objects=0, sh_uop_objects=0 | DUPLICATED | Three active stores (41+44+4=89 rows total) | Consolidate to objects as canonical | HIGH |
-| FounderObject still used by Executive Home | Executive Home queries founder_objects | DISCONNECTED | 44 rows in transitional store not migrated | Migrate founder_objects→objects | HIGH |
+| 5 competing object systems | objects=41, founder_objects=44, sh_objects=4, canonical_objects=0, sh_uop_objects=0 | PARTIAL | e82e7c2+: Migration wrote 85 objects to canonical UOPObject. Canonical access layer created (app/objects/canonical.py). Dual-write not yet wired to all creation paths. | Wire all creation paths (upload, AI, onboard) through canonical layer | HIGH |
+| FounderObject still used by Executive Home | Executive Home queries founder_objects | PARTIAL | e82e7c2+: Migration done (44 FO → UOP). Executive Home still reads founder_objects. Canonical read helper created. | Update Executive Home to query UOPObject | HIGH |
 
 ## 4. UPLOAD → KNOWLEDGE → IDENTITY → AI PIPELINE (§5)
 
