@@ -426,6 +426,16 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const clearErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showError = (_kind: 'unsupported' | 'permission' | 'generic', msg: string) => {
+    setError(msg);
+    // Auto-clear after 6s so the error doesn't become permanent on screen
+    if (clearErrorTimer.current) clearTimeout(clearErrorTimer.current);
+    clearErrorTimer.current = setTimeout(() => {
+      setError(null);
+    }, 6000);
+  };
 
   const toggleListening = useCallback(() => {
     if (listening) {
@@ -434,7 +444,7 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
       return;
     }
     if (!HAS_SPEECH) {
-      setError('Voice input is not supported in this browser.');
+      showError('unsupported', 'Voice input is not supported in this browser.');
       return;
     }
     setError(null);
@@ -456,7 +466,19 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
     };
 
     recognition.onerror = (event: any) => {
-      setError(`Voice error: ${event.error}`);
+      const code = event.error;
+      if (code === 'not-allowed' || code === 'service-not-allowed') {
+        showError('permission', 'Microphone permission is required for voice input. Click the audio icon in your browser address bar to allow access.');
+      } else if (code === 'audio-capture') {
+        showError('permission', 'No microphone detected. Connect a microphone and try again.');
+      } else if (code === 'network') {
+        showError('generic', 'Voice recognition requires a network connection. Check your connection and try again.');
+      } else if (code === 'aborted') {
+        // User cancelled — not an error
+        return;
+      } else {
+        showError('generic', `Voice input unavailable (${code}).`);
+      }
       setListening(false);
     };
 

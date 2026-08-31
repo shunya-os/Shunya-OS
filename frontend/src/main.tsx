@@ -1,10 +1,28 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import '@mantine/core/styles.css';
+import { MantineProvider, createTheme } from '@mantine/core';
 import { App } from './app';
 import { injectAdaptiveStyles } from './runtimes/adaptive';
 
 // Inject adaptive surface styles at bootstrap
 injectAdaptiveStyles();
+
+// SHUNYA theme — calm, restrained, premium
+const shunyaTheme = createTheme({
+  primaryColor: 'violet',
+  defaultRadius: 'sm',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+  colors: {
+    dark: [
+      '#C1C2C5', '#A6A7AB', '#909296', '#5C5F66',
+      '#373A40', '#2C2E33', '#25262B', '#1A1B1E',
+      '#141517', '#101113',
+    ],
+  },
+  defaultGradient: { deg: 135, from: '#6C63FF', to: '#A4865F' },
+  respectReducedMotion: true,
+});
 
 // Global error capture for headless browser debugging
 const errorLog: Array<{ msg: string; stack: string; source: string }> = [];
@@ -93,9 +111,11 @@ try {
   const rootEl = document.getElementById('root');
   if (rootEl) {
     ReactDOM.createRoot(rootEl).render(
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>,
+      <MantineProvider theme={shunyaTheme} defaultColorScheme="dark">
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </MantineProvider>,
     );
 
     // Register service worker for PWA support
