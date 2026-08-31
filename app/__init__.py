@@ -928,6 +928,13 @@ def create_app(config_override: dict | None = None):
     from app.intelligence.routes import intelligence_bp
     app.register_blueprint(intelligence_bp)
 
+    # ZGC-PR-17 — Canonical Cross-Boundary Intelligence Security Boundary (FDA9/FDA10)
+    # Registers the canonical execution-authority gate: /api/v1/cross-boundary/*
+    # Enforces tenant identity → company-first truth → evidence lineage →
+    # execution authority → idempotent execution for AI actions.
+    from core.intelligence_runtime.cross_boundary_routes import cb_bp
+    app.register_blueprint(cb_bp)
+
     # M9 — Enterprise Ready
     from app.enterprise.routes import enterprise_bp
     app.register_blueprint(enterprise_bp)
