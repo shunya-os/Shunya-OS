@@ -89,20 +89,20 @@ The following items from `M2C5_RESIDUAL_GAP_REGISTER.md` and `SHUNYA_ZERO_GAP_RE
 
 | Gate | Status | Evidence |
 |------|--------|----------|
-| Compile | ✅ GREEN | CI run #33392258209 — all modules compile |
-| Focused tests | ✅ GREEN | CI run #33392258209 — verification suite passes |
-| Full backend tests | ✅ GREEN | CI run #33392258209 — canonical test suite: 4926/4926 passed, 0 failed |
-| Frontend tests | ✅ GREEN | CI run #33392258209 — frontend tests pass |
-| Typecheck | ✅ GREEN | CI run #33392258209 — frontend typecheck pass |
-| Lint | ✅ GREEN | CI run #33392258209 — frontend lint pass |
-| Security | ✅ GREEN | CI run #33392258209 — dependency audit, secret scan pass |
-| Migration verification | ✅ GREEN | CI run #33392258209 — R9 migration tests (14/14 previous) |
+| Compile | ✅ GREEN | CI run #33394224689 — all modules compile |
+| Focused tests | ✅ GREEN | CI run #33394224689 — verification suite passes |
+| Full backend tests | ✅ GREEN | CI run #33394224689 — canonical test suite: 4926/4926 passed, 0 failed |
+| Frontend tests | ✅ GREEN | CI run #33394224689 — frontend tests pass |
+| Typecheck | ✅ GREEN | CI run #33394224689 — frontend typecheck pass |
+| Lint | ✅ GREEN | CI run #33394224689 — frontend lint pass |
+| Security | ✅ GREEN | CI run #33394224689 — dependency audit, secret scan pass |
+| Migration verification | ✅ GREEN | CI run #33394224689 — R9 migration tests pass |
 | Browser E2E | 🟡 NOT IN CI | Not part of CI pipeline |
-| Build | ✅ GREEN | CI run #33392258209 — frontend production build pass |
-| Deploy | 🔴 BLOCKED | Previous deploy: clean tree required (now fixed — docs committed) |
-| Health | 🟡 PENDING | Current run #33393982365 in progress |
-| Production smoke | 🟡 PENDING | Current run #33393982365 in progress |
-| Evidence | 🟡 PENDING | Current run #33393982365 in progress |
+| Build | ✅ GREEN | CI run #33394224689 — frontend production build pass |
+| Deploy | ✅ GREEN | CI run #33394224689 — deploy via SSH success |
+| Health | ✅ GREEN | SHA 3478c35 — both local + public health verified |
+| Production smoke | ✅ GREEN | All 7 deploy steps passed (certify→deploy→verify local→verify public→provenance) |
+| Evidence | ✅ GREEN | Committed at ZGC-PR-15-REGISTER.md + ZGC-PR-15-RECONCILIATION.md |
 
 ---
 
@@ -123,11 +123,14 @@ The following items from `M2C5_RESIDUAL_GAP_REGISTER.md` and `SHUNYA_ZERO_GAP_RE
 
 | Property | Value |
 |----------|-------|
-| Running SHA | a19f1e8 |
-| HEAD (pushed) | 7effde4 |
-| CI run (current) | #33392258209 — IN PROGRESS |
-| CI run (last green) | #33366077609 — a19f1e8 |
-| Origin/main SHA | 16a73ce |
-| Origin/master SHA | 7effde4 (just pushed) |
-| Production parity | NO — 7effde4 ahead of a19f1e8 by 9+3 commits (12 commits) |
-| Deploy type | CI_CERTIFIED required for next deploy |
+| Running SHA | **3478c35** (match confirmed) |
+| HEAD (pushed) | 3478c35 |
+| CI run (final) | ⬆️ #33394224689 — **SUCCESS** |
+| CI run (last green before fix) | #33366077609 — a19f1e8 |
+| Origin/main SHA | 3478c35 (synced with origin/master) |
+| Origin/master SHA | 3478c35 |
+| Production SHA | 3478c35 ✅ |
+| Production parity | **YES** — all 4 SHAs match |
+| Deploy type | CI_CERTIFIED |
+| Release deployed at | 2026-08-31T13:14:26 UTC |
+| Release authorized by | CI/CD |
