@@ -3,16 +3,15 @@ SHUNYA Email Service — notification delivery for verification, reset, onboardi
 
 Architecture:
   - Uses email_core.py (canonical send path) which checks is_human_triggered=True
-  - In production: sends via SMTP when EMAIL_USER/EMAIL_PASSWORD are configured
+  - Creates durable EmailRecord for every send attempt
+  - In production: sends via Resend when EMAIL_PROVIDER=resend + RESEND_API_KEY set
   - Falls back to logging when unconfigured
 
   Required env vars for production delivery:
-    EMAIL_USER=<your-gmail-or-smtp-user>
-    EMAIL_PASSWORD=<your-gmail-app-password-or-smtp-password>
-    EMAIL_HOST=smtp.gmail.com (default)
-    EMAIL_PORT=587 (default)
-    EMAIL_FROM=<from-address> (defaults to EMAIL_USER)
-    SHUNYA_BASE_URL=https://your-domain.com
+    EMAIL_PROVIDER=resend
+    RESEND_API_KEY=<production-key>  (set by founder on production machine)
+    RESEND_FROM=SHUNYA <hello@shunyaos.com>
+    SHUNYA_BASE_URL=https://shunyaos.com
 
 All email rendering uses plain-text templates.
 """
@@ -26,18 +25,44 @@ logger = logging.getLogger(__name__)
 BASE_URL = os.environ.get("SHUNYA_BASE_URL", os.environ.get("PUBLIC_URL", "http://127.0.0.1:5001"))
 
 
-def send_email(to: str, subject: str, body: str) -> bool:
-    """Send an email via the canonical email_core path (is_human_triggered=True)."""
+def send_email(
+    to: str,
+    subject: str,
+    body: str,
+    notification_type: str = "notify",
+    business_event_id: str = None,
+    category: str = "operational",
+    tenant_id: int = None,
+    identity_id: str = None,
+) -> dict:
+    """Send an email via the canonical email_core path.
+
+    Creates a durable EmailRecord with full lifecycle tracking.
+
+    Returns the full result dict from email_core.send() including:
+      status (accepted|logged|failed|blocked|exhausted|unconfigured)
+      record_id
+      provider_id (when available)
+    """
     from app.communication.email_core import send as core_send
-    result = core_send(to, subject, body, is_human_triggered=True)
-    status = result.get("status", "failed")
-    if status == "sent":
-        return True
-    if status == "logged":
-        logger.info("Email logged (not sent): %s — %s", to, subject)
-        return True
-    logger.warning("Email send returned status=%s: %s", status, result.get("error", ""))
-    return status in ("sent", "logged")
+
+    # Generate business_event_id if not provided
+    if not business_event_id:
+        import uuid
+        business_event_id = f"{notification_type}:{uuid.uuid4().hex[:16]}"
+
+    result = core_send(
+        recipient=to,
+        subject=subject,
+        body=body,
+        notification_type=notification_type,
+        business_event_id=business_event_id,
+        category=category,
+        tenant_id=tenant_id,
+        identity_id=identity_id,
+        is_human_triggered=True,
+    )
+    return result
 
 
 # ── Template Builders ──────────────────────────────────────────────────

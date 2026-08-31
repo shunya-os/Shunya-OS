@@ -49,6 +49,7 @@ def app():
         from app import models  # noqa: F401
         from app.tenant import Tenant  # noqa: F401
         from app.communication import models as _comm_models  # noqa: F401
+        from app.communication.email_models import EmailRecord  # noqa: F401
         from app.privacy import models as _privacy_models  # noqa: F401
         from app.human_context import models as _hc_models  # noqa: F401
         from app.memory import models as _mem_models  # noqa: F401
