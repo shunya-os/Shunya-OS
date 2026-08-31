@@ -413,23 +413,50 @@ def chat():
             logger.warning(f'AI web search integration failed: {e}')
             # Non-critical — continue with the original messages
 
-    # ── Canonical Inference via Orchestrator ──
-    # Uses the InferenceOrchestrator (classify→policy→select→execute→observe)
-    # as the primary routing path. Falls back to direct provider chain on failure.
+    # ── Canonical SHUNYAAI Kernel Inference ──
+    # Primary path: IntelligenceRuntime kernel (intent→context→memory→retrieval→reasoning→planning)
+    # Secondary: InferenceOrchestrator (classify→policy→select→execute→observe)
+    # Tertiary: direct provider chain (resilience fallback)
     fallback_used = False
     last_error = ''
     result = None
     p = None  # provider reference for side effects
 
-    # Extract the last user message for the orchestrator
+    # Extract the last user message for the kernel
     input_text = ''
     for m in reversed(messages):
         if m.get('role') == 'user':
             input_text = m.get('content', '')
             break
 
-    # Try canonical orchestrator first
+    # 1) Try the canonical IntelligenceRuntime kernel first (single orchestration layer)
     if input_text:
+        try:
+            from core.intelligence_runtime.integration import ask as kernel_ask
+            kernel_resp = kernel_ask(
+                query=input_text,
+                session_id=conversation_id or 'ai_chat',
+                module_key='',
+                workspace='',
+                object_type=data.get('object_type', ''),
+                object_id=data.get('object_id', ''),
+            )
+            if kernel_resp and kernel_resp.get('content'):
+                result = {
+                    'content': kernel_resp['content'],
+                    'model': kernel_resp.get('model', 'shunyaai-kernel'),
+                    'provider': kernel_resp.get('provider', 'shunyaai'),
+                    'usage': {},
+                    'finish_reason': 'stop',
+                    '_kernel_trace': kernel_resp.get('trace'),
+                }
+                p = type('ProviderRef', (), {'name': 'shunyaai', 'model': 'kernel'})()
+        except Exception as e:
+            last_error = str(e)
+            logger.warning(f'SHUNYAAI kernel failed, falling back to orchestrator: {last_error}')
+
+    # 2) Fallback: InferenceOrchestrator (canonical routing)
+    if result is None and input_text:
         try:
             from core.inference_orchestrator import (
                 get_orchestrator, OrchestratorRequest,
@@ -463,7 +490,7 @@ def chat():
             last_error = str(e)
             logger.warning(f'Orchestrator failed, falling back to provider chain: {last_error}')
 
-    # Fallback: try providers in order
+    # 3) Fallback: try providers in order
     if result is None:
         provider = _registry.resolve()
         chain = _registry.chain
@@ -586,6 +613,8 @@ def chat():
     }
     if result.get('_orchestrator_pipeline'):
         response_data['orchestrator_pipeline'] = result['_orchestrator_pipeline']
+    if result.get('_kernel_trace'):
+        response_data['kernel_trace'] = result['_kernel_trace']
     if execution_info:
         response_data['command'] = {
             'outcome_id': execution_info.get('outcome_id'),
