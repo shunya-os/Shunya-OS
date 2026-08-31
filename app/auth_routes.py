@@ -413,7 +413,10 @@ def api_signup():
     try:
         from app.email_service import build_verification_email, send_email
         subject, body = build_verification_email(email, member.verify_token)
-        send_email(email, subject, body)
+        send_email(to=email, subject=subject, body=body,
+                   notification_type="email_verification",
+                   business_event_id=f"verify:{member.id}:{member.verify_token[:8]}",
+                   category="security")
     except Exception as email_err:
         import logging
         logging.getLogger(__name__).warning("Signup email failed (non-fatal): %s", email_err)
@@ -450,7 +453,10 @@ def api_request_verification():
     # Send verification email via canonical service
     from app.email_service import build_verification_email, send_email
     subject, body = build_verification_email(email, member.verify_token)
-    send_email(email, subject, body)
+    send_email(to=email, subject=subject, body=body,
+               notification_type="email_verification",
+               business_event_id=f"verify:{member.id}:{member.verify_token[:8]}",
+               category="security")
     return jsonify({"success": True, "message": "Verification email sent."}), 200
 
 
@@ -568,7 +574,10 @@ def api_forgot_password():
     # Send reset email via canonical service
     from app.email_service import build_reset_email, send_email
     subject, body = build_reset_email(email, reset_token)
-    send_email(email, subject, body)
+    send_email(to=email, subject=subject, body=body,
+               notification_type="password_reset",
+               business_event_id=f"pw_reset:{member.id}:{reset_token[:8]}",
+               category="security")
 
     return jsonify({
         "success": True,

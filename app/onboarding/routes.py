@@ -1,6 +1,7 @@
 """Universal Business Discovery — API Routes."""
 
 from flask import jsonify, request, session
+from datetime import datetime, timezone
 from app import db
 from app.onboarding import onboarding_bp
 from app.onboarding.engine import (
@@ -95,7 +96,10 @@ def api_onboarding_complete():
             member.email,
             f"Your Personal SHUNYA"
         )
-        send_email(member.email, subject, body)
+        send_email(to=member.email, subject=subject, body=body,
+                   notification_type="onboarding_complete",
+                   business_event_id=f"onboarding:{member.id}",
+                   category="operational")
 
     return jsonify({"status": "completed", "email_sent": True})
 
