@@ -454,17 +454,18 @@ class TestApiRoutes:
             db.session.add(admin)
             db.session.commit()
             admin_id = admin.id
-        with client.session_transaction() as s:
-            s["current_org_id"] = 1
-            s["user_id"] = admin_id
-        resp = client.post(
-            "/api/v1/commercial/opportunities",
-            json={"title": "API Opp", "estimated_value": 50000},
-        )
-        assert resp.status_code == 201
-        data = resp.get_json()
-        assert data["success"]
-        assert data["opportunity"]["title"] == "API Opp"
+            with client.session_transaction() as s:
+                s["current_org_id"] = 1
+                s["user_id"] = admin_id
+                s["identity_id"] = "admin@test.com"
+            resp = client.post(
+                "/api/v1/commercial/opportunities",
+                json={"title": "API Opp", "estimated_value": 50000},
+            )
+            assert resp.status_code == 201
+            data = resp.get_json()
+            assert data["success"]
+            assert data["opportunity"]["title"] == "API Opp"
 
     def test_get_intelligence_api(self, app, client):
         with app.app_context():
@@ -476,14 +477,15 @@ class TestApiRoutes:
             db.session.add(admin)
             db.session.commit()
             admin_id = admin.id
-        with client.session_transaction() as s:
-            s["current_org_id"] = 1
-            s["user_id"] = admin_id
-        resp = client.get("/api/v1/commercial/intelligence")
-        assert resp.status_code == 200
-        data = resp.get_json()
-        assert data["success"]
-        assert "intelligence" in data
+            with client.session_transaction() as s:
+                s["current_org_id"] = 1
+                s["user_id"] = admin_id
+                s["identity_id"] = "admin@test.com"
+            resp = client.get("/api/v1/commercial/intelligence")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["success"]
+            assert "intelligence" in data
 
     def test_list_opportunities_authorized(self, app, client):
         with app.app_context():
@@ -495,12 +497,13 @@ class TestApiRoutes:
             db.session.add(admin)
             db.session.commit()
             admin_id = admin.id
-        with client.session_transaction() as s:
-            s["current_org_id"] = 1
-            s["user_id"] = admin_id
-        resp = client.get("/api/v1/commercial/opportunities")
-        assert resp.status_code == 200
-        assert resp.get_json()["success"]
+            with client.session_transaction() as s:
+                s["current_org_id"] = 1
+                s["user_id"] = admin_id
+                s["identity_id"] = "admin@test.com"
+            resp = client.get("/api/v1/commercial/opportunities")
+            assert resp.status_code == 200
+            assert resp.get_json()["success"]
 
 
 # ══════════════════════════════════════════════════════════════════════

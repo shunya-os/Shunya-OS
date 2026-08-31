@@ -799,6 +799,7 @@ class Organization(db.Model):
     timezone = db.Column(db.String(60), default="UTC")
     currency = db.Column(db.String(10), default="INR")
     date_format = db.Column(db.String(20), default="DD/MM/YYYY")
+    plan = db.Column(db.String(30), default="free")
     is_active = db.Column(db.Boolean, default=True)
     max_members = db.Column(db.Integer, default=10)
     ai_enabled = db.Column(db.Boolean, default=True)
@@ -823,6 +824,7 @@ class Organization(db.Model):
             "website": self.website, "city": self.city, "country": self.country,
             "currency": self.currency, "timezone": self.timezone,
             "is_active": self.is_active, "max_members": self.max_members,
+            "plan": self.plan,
             "ai_enabled": self.ai_enabled,
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,

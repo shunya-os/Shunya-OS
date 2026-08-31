@@ -106,12 +106,14 @@ class TestOrgCreate:
             json={
                 "company_name": "Full Test Corp",
                 "business_type": "healthcare",
+                "plan": "pro",
                 "max_team_members": 50,
             },
         )
         assert resp.status_code == 201
         data = resp.get_json()
         assert data["data"]["business_type"] == "healthcare"
+        assert data["data"]["plan"] == "pro"
         assert data["data"]["max_team_members"] == 50
 
     def test_create_org_missing_name(self, logged_in_client):

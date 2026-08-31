@@ -81,7 +81,7 @@ def _org_to_dict(org: Organization) -> dict:
         "timezone": org.timezone or "UTC",
         "currency": org.currency or "INR",
         "is_active": org.is_active,
-        "plan": "free",
+        "plan": org.plan or "free",
         "max_team_members": org.max_members,
         "created_at": org.created_at.isoformat() if org.created_at else None,
         "theme": {},
@@ -144,6 +144,7 @@ def create_org():
         country=country,
         timezone=timezone,
         currency=currency,
+        plan=data.get("plan", "free"),
         is_active=True,
         max_members=data.get("max_team_members", 10),
     )
