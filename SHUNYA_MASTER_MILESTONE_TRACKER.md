@@ -7,27 +7,27 @@
 ## MACHINE-READABLE STATE (fast re-entry for AI agents)
 
 ```
-CURRENT_MILESTONE=G3
-CURRENT_SUBMILESTONE=SHUNYAAI_UNIFICATION
+CURRENT_WORKSTREAM=G3_SHUNYAAI_UNIFICATION
 STATUS=ACTIVE
 NEXT_SUBMILESTONE=PHASE1_CRITICAL_CONNECTIVITY
-NEXT_MILESTONE_GATE=G1_CANONICAL_CONVERGENCE
+ARCHITECTURAL_PREREQUISITE=G1_CANONICAL_CONVERGENCE
 PROJECT_CLOSURE=NOT_READY
 
-BLOCKERS=G1_OPEN_(identity_duplicates,orphan_engines);G3_5_AI_PATHS_NOT_UNIFIED;G3_2_PROVIDER_CHAINS;G3_CROSSBOUNDARY_BLUEPRINT_UNREGISTERED;G3_UIR_BLUEPRINT_UNREGISTERED;G3_14_UNREACHABLE_ENGINES;G3_LEARNING_LOOP_MISSING;G10_FRONTEND_NOT_WIRED
+BLOCKERS=G1_CONVERGENCE_(identity_duplicates,orphan_engines,object_stores);G3_5_AI_PATHS_NOT_UNIFIED;G3_2_PROVIDER_CHAINS;G3_CROSSBOUNDARY_BLUEPRINT_UNREGISTERED;G3_UIR_BLUEPRINT_UNREGISTERED;G3_14_UNREACHABLE_ENGINES;G3_LEARNING_LOOP_MISSING;G10_FRONTEND_NOT_WIRED
 
-LAST_COMMIT_SHA=2ebbd3f840dc0c83a2b886325b99b426d200a7f4
+LAST_COMMIT_SHA=eb60c9e07a53408327024d49661b4ebd00ee8f42
 LAST_CI_STATUS=GREEN
-LAST_CI_RUN=33394224689
-LAST_PRODUCTION_SHA=3478c35
-LAST_DEPLOY_DATE=2026-08-31
-LAST_VERIFIED_SHA=3478c35
+LAST_CI_RUN=33396491245
+LAST_PRODUCTION_SHA=eb60c9e
+LAST_DEPLOY_DATE=2026-09-01
+LAST_VERIFIED_SHA=eb60c9e
 
-TRACKER_VERSION=1.0.0
+TRACKER_VERSION=1.1.0
 CREATED=2026-09-01
+UPDATED=2026-09-01
 MAINTAINED_BY=Hermes Agent (PERMANENT GOVERNANCE DIRECTIVE)
 
-DIRECTIVES_REGISTERED=ZGC-PR-15_(CLOSED);ZGC-PR-16A_(ANALYZED)
+DIRECTIVES_REGISTERED=ZGC-PR-15_(CLOSED);ZGC-PR-16A_(ANALYZED);ZGC-PR-17_(ACTIVE)
 
 KNOWN_ORPHAN_ENGINE_COUNT=17
 KNOWN_ORPHAN_AI_PATH_COUNT=5
@@ -96,7 +96,12 @@ Gate: All production code traceable to constitutional governance.
 
 ## G1 — CORE OS / CANONICAL ARCHITECTURE CONVERGENCE
 
-**STATUS: OPEN**
+**STATUS: PREREQUISITE WORKSTREAM (within G3 execution)**
+
+**NOTE:** G1 is NOT a separate future milestone. It is the canonical architecture
+prerequisite being resolved as part of the current G3 SHUNYAAI convergence.
+G1 convergence ensures canonical data foundations so G3 intelligence operates
+on a single authoritative data reality.
 
 Gate: ONE canonical production authority for each core OS concept.
 
@@ -159,9 +164,13 @@ Gate: Upload → Extraction → Knowledge → Identity → Relationship → Prov
 
 ---
 
-## G3 — SHUNYAAI INTELLIGENCE OPERATING LAYER (CURRENT FOCUS)
+## G3 — SHUNYAAI INTELLIGENCE OPERATING LAYER (CURRENT WORKSTREAM)
 
-**STATUS: ACTIVE — MAJOR FRAGMENTATION**
+**STATUS: ACTIVE — CONVERGENCE IN PROGRESS**
+
+**NOTE:** G1 canonical architecture convergence is prerequisite work inside this
+G3 execution. The current WORKSTREAM is G3_SHUNYAAI_UNIFICATION. Every phase
+updates both G1 and G3 progress.
 
 Gate: ONE SHUNYAAI Intelligence Operating Layer with one entry point, one orchestration, one context model, one authorization boundary, one capability registry, one model/provider router, one controlled learning loop.
 
@@ -477,9 +486,10 @@ Every directive maps against the tracker.
 
 | Directive | Date | Milestone | Status | Outcome |
 |-----------|------|-----------|--------|---------|
-| ZGC-PR-15 | 2026-08-31 | G0, G11 | CLOSED | Auth bypass fixed, CI green, deployed |
-| ZGC-PR-16A | 2026-09-01 | G3 | ANALYZED | 14-section deliverable produced at docs/ZGC-PR-16A_UNIVERSAL_INTELLIGENCE_FABRIC.md |
-| Master Milestone Control | 2026-09-01 | ALL | ACTIVE | This file created |
+|| ZGC-PR-15 | 2026-08-31 | G0, G11 | CLOSED | Auth bypass fixed, CI green, deployed |
+|| ZGC-PR-16A | 2026-09-01 | G3 | ANALYZED | 14-section deliverable at docs/ZGC-PR-16A_UNIVERSAL_INTELLIGENCE_FABRIC.md |
+|| Master Milestone Control | 2026-09-01 | ALL | ACTIVE | This file created |
+|| ZGC-PR-17 | 2026-09-01 | G1, G3 | ACTIVE | G1/G3 convergence: canonical ownership, AI entry points, provider chains, engine connectivity, auth, frontend wiring |
 
 ---
 
