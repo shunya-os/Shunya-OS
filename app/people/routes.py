@@ -60,23 +60,24 @@ def _require_auth() -> bool:
 def _require_people_permission() -> bool:
     """People data requires dedicated people.view permission.
 
-    Org owners and admins are automatically authorized.
+    Org owners are automatically authorized.
+    All other roles are checked via canonical check_permission.
     """
     from app.auth import UserRole
     from app.authz.services import check_permission
 
-    # Org owners and admins bypass permission check
+    # Org owners bypass permission check
     org_id = _tenant_id()
     identity_id = _identity_id()
     if not org_id or not identity_id:
         return False
 
-    # Check if user is org owner or admin
+    # Check if user is org owner
     from app.models import OrgMember
     om = OrgMember.query.filter_by(
         organization_id=org_id, identity_id=identity_id, is_active=True
     ).first()
-    if om and om.role in ("owner", "admin"):
+    if om and om.role == "owner":
         return True
 
     return check_permission(org_id, identity_id, "people.view")
