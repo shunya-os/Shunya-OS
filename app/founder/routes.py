@@ -226,8 +226,8 @@ def api_founder_signin():
     # PHASE 2: No account found for this email
     return jsonify({
         "success": False,
-        "error": "Account not found. Please sign up first or check your email."
-    }), 404
+        "error": "Invalid email or password"
+    }), 401
 
 
 # ---------------------------------------------------------------------------
