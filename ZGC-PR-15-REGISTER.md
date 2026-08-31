@@ -68,6 +68,21 @@ The following items from `M2C5_RESIDUAL_GAP_REGISTER.md` and `SHUNYA_ZERO_GAP_RE
 | 7 | ZGC-N07 | Audit runtime persistence | NOT_STARTED | `app/adapters/os_adapter.py:151` — TODO |
 | 8 | ZGC-N08 | graph_universal/ execution_intelligence/ execution_runtime/ stubs | DUPLICATE | 3 archived modules with no-op stubs |
 
+### Defect Ledger Cross-Reference (from DEFECT_LEDGER.md — 22 defects: 14 FIXED, 8 OPEN)
+
+| Defect | Severity | Description | Current Status | ZGC-PR-15 Action |
+|--------|----------|-------------|---------------|------------------|
+| D04 | HIGH | Org: "0 Total Members" | OPEN | People bypass fixed — verify 0 members is correct when no members exist |
+| D05 | HIGH | Commitments: "Could not load" | OPEN | Pre-existing product gap — not in scope of auth/CI convergence |
+| D06 | MEDIUM | Finance: "planned / not yet implemented" | OPEN | Pre-existing product gap |
+| D07 | MEDIUM | Outputs: "0 Total Outputs" while assets exist | OPEN | Pre-existing product gap |
+| D08 | MEDIUM | Memory: 0 entries despite observed activity | OPEN | Pre-existing product gap |
+| D09 | MEDIUM | Home: raw system events as observations | OPEN | Pre-existing product gap |
+| D10 | MEDIUM | 5100 orphan process | OPEN | Pre-existing infrastructure issue |
+| D12 | MEDIUM | Password reset tokens stored as plaintext | OPEN | Security issue — not in scope of auth model fix |
+| D13 | HIGH | No webhook secret configured | BLOCKED EXTERNAL | Requires founder action in Resend dashboard |
+| D14 | MEDIUM | Email delivery state not exposed to UI | OPEN | Pre-existing product gap |
+
 ---
 
 ## CI/CD RELEASE GATE STATUS
