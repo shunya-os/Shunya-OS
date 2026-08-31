@@ -50,7 +50,10 @@ class EmailProvider(CommunicationProvider):
             _os.environ[k] = v
 
         try:
-            result = core_send(to, subject, message, cc=cc, is_human_triggered=True)
+            result = core_send(recipient=to, subject=subject, body=message, cc=cc,
+                       is_human_triggered=True,
+                       notification_type="email_provider_legacy",
+                       business_event_id=f"legacy:{to}:{abs(hash(subject))}")
             return result
         finally:
             # Restore original env vars

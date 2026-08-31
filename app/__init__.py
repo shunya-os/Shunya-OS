@@ -672,6 +672,12 @@ def create_app(config_override: dict | None = None):
     # Entity API — PROD-49
     from app.api.entity_routes import entity_bp
     app.register_blueprint(entity_bp)
+    # Email webhook endpoint — Resend delivery events (bounce/complaint/delivery)
+    from app.communication.email_webhook import email_webhook_bp
+    try:
+        app.register_blueprint(email_webhook_bp)
+    except ValueError:
+        pass  # Already registered (test isolation)
     # Webhook API — PROD-56
     from app.api.webhook_routes import webhook_bp
     app.register_blueprint(webhook_bp)
@@ -905,7 +911,10 @@ def create_app(config_override: dict | None = None):
 
     # FDA23 — People / Internal Operations API
     from app.people.routes import people_bp
-    app.register_blueprint(people_bp)
+    try:
+        app.register_blueprint(people_bp)
+    except ValueError:
+        pass  # Already registered (test isolation)
 
     # FDA25 — Import / Export / Migration API
     from app.import_export.routes import import_bp
