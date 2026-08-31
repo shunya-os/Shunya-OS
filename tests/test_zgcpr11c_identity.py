@@ -62,7 +62,7 @@ def test_non_existent_credentials_denied(client):
     resp = client.post("/api/v1/founder/signin", json={
         "email": "ghost@x.com", "password": "whatever123!"
     })
-    assert resp.status_code == 404
+    assert resp.status_code == 401
     assert resp.get_json()["success"] is False
 
 

@@ -31,8 +31,17 @@ from app import create_app
 
 @pytest.fixture(scope="module")
 def app():
-    application = create_app()
+    application = create_app(config_override={
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "SECRET_KEY": "test-secret",
+        "DISABLE_RATE_LIMIT": "true",
+        "WTF_CSRF_ENABLED": False,
+    })
     with application.app_context():
+        from app import models  # noqa: F401
+        from app.auth import TeamMember  # noqa: F401
+        from app.founder.models import FounderObject, FounderSpace  # noqa: F401
         db.create_all()
         yield application
 
@@ -53,20 +62,21 @@ def target_table(app):
     db.session.rollback()
     db.session.execute(db.text(f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY,
             identity_hash VARCHAR(64) UNIQUE NOT NULL,
             source_name VARCHAR(255),
             source_pk_value VARCHAR(255),
             source_table VARCHAR(255),
             tenant_id INTEGER DEFAULT 1,
             status VARCHAR(32) DEFAULT 'active',
-            migrated_at TIMESTAMP DEFAULT NOW()
+            migrated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """))
     db.session.execute(db.text(f"DELETE FROM {table_name}"))
     db.session.commit()
     yield table_name
     # Cleanup
+    db.session.rollback()
     db.session.execute(db.text(f"DROP TABLE IF EXISTS {table_name}"))
     db.session.commit()
 
