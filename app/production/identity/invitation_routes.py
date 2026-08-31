@@ -197,6 +197,10 @@ def accept_invitation(token: str):
     )
     db.session.add(member)
 
+    # Ensure default roles exist for this organization (safe no-op if already seeded)
+    from app.authz.services import seed_default_roles
+    seed_default_roles(inv.organization_id)
+
     # Mark invitation as accepted
     inv.accepted_at = datetime.utcnow()
     inv.status = "accepted"

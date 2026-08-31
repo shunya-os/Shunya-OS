@@ -164,6 +164,10 @@ def create_org():
         )
         db.session.add(member)
 
+    # Seed default roles for this organization
+    from app.authz.services import seed_default_roles
+    seed_default_roles(org.id)
+
     db.session.commit()
 
     return jsonify({

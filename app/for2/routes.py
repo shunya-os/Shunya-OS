@@ -185,6 +185,11 @@ def api_create_organization():
         designation="Owner",
     )
     db.session.add(member)
+
+    # Seed default roles for this organization
+    from app.authz.services import seed_default_roles
+    seed_default_roles(org.id)
+
     db.session.commit()
 
     session["current_org_id"] = org.id
