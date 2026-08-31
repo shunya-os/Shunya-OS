@@ -770,6 +770,10 @@ def create_app(config_override: dict | None = None):
     from app.media.routes import media_bp
     app.register_blueprint(media_bp)
 
+    # Knowledge API — document knowledge extraction and search
+    from app.documents_knowledge.routes import doc_knowledge_bp
+    app.register_blueprint(doc_knowledge_bp)
+
     # Deployment Diagnostics API
     from app.deploy_diagnostics.routes import deploy_bp
     app.register_blueprint(deploy_bp)

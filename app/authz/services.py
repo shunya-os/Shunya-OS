@@ -17,11 +17,17 @@ def seed_default_roles(organization_id: int):
 
 
 def check_permission(organization_id: int, identity_id: str, permission: str) -> bool:
-    """Canonical authorization check. Every domain calls this."""
+    """Canonical authorization check. Every domain calls this.
+
+    Org owners and admins hold all permissions—bypasses the role assignment check.
+    """
     from app.models import OrgMember
     member = OrgMember.query.filter_by(organization_id=organization_id, identity_id=identity_id, is_active=True).first()
     if not member:
         return False
+    # Org owners and admins hold all permissions
+    if member.role in ("owner", "admin"):
+        return True
     assignments = OrgMemberRole.query.filter_by(organization_id=organization_id, member_id=member.id).all()
     import json
     for a in assignments:
