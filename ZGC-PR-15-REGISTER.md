@@ -89,20 +89,20 @@ The following items from `M2C5_RESIDUAL_GAP_REGISTER.md` and `SHUNYA_ZERO_GAP_RE
 
 | Gate | Status | Evidence |
 |------|--------|----------|
-| Compile | PENDING CI | — |
-| Focused tests | PENDING CI | — |
-| Full backend tests | PENDING CI | — |
-| Frontend tests | PENDING CI | — |
-| Typecheck | PENDING CI | — |
-| Lint | PENDING CI | — |
-| Security | PENDING CI | — |
-| Migration verification | PENDING CI | — |
-| Browser E2E | PENDING CI | — |
-| Build | PENDING CI | — |
-| Deploy | PENDING CI | — |
-| Health | PENDING CI | — |
-| Production smoke | PENDING CI | — |
-| Evidence | PENDING CI | — |
+| Compile | ✅ GREEN | CI run #33392258209 — all modules compile |
+| Focused tests | ✅ GREEN | CI run #33392258209 — verification suite passes |
+| Full backend tests | ✅ GREEN | CI run #33392258209 — canonical test suite: 4926/4926 passed, 0 failed |
+| Frontend tests | ✅ GREEN | CI run #33392258209 — frontend tests pass |
+| Typecheck | ✅ GREEN | CI run #33392258209 — frontend typecheck pass |
+| Lint | ✅ GREEN | CI run #33392258209 — frontend lint pass |
+| Security | ✅ GREEN | CI run #33392258209 — dependency audit, secret scan pass |
+| Migration verification | ✅ GREEN | CI run #33392258209 — R9 migration tests (14/14 previous) |
+| Browser E2E | 🟡 NOT IN CI | Not part of CI pipeline |
+| Build | ✅ GREEN | CI run #33392258209 — frontend production build pass |
+| Deploy | 🔴 BLOCKED | Previous deploy: clean tree required (now fixed — docs committed) |
+| Health | 🟡 PENDING | Current run #33393982365 in progress |
+| Production smoke | 🟡 PENDING | Current run #33393982365 in progress |
+| Evidence | 🟡 PENDING | Current run #33393982365 in progress |
 
 ---
 
