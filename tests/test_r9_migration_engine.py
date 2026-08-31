@@ -49,6 +49,8 @@ def engine():
 def target_table(app):
     """Create a temporary canonical target table for testing."""
     table_name = "test_canonical_objects"
+    # Rollback any aborted transaction from prior tests
+    db.session.rollback()
     db.session.execute(db.text(f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
             id SERIAL PRIMARY KEY,
