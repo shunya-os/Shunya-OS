@@ -100,6 +100,23 @@ def load_milestone_tracker() -> dict:
     return {}
 
 
+def validate_execution_principle() -> dict:
+    """Check that the final execution principle is encoded in the constitution."""
+    constitution_path = REPO_ROOT / "docs/governance" / "SHUNYA_EXECUTION_INTEGRITY_CONSTITUTION.md"
+    if not constitution_path.exists():
+        return {"status": "FAIL", "detail": "Constitution file not found"}
+    content = constitution_path.read_text()
+    checks = {}
+    checks["rule_0_present"] = "## Rule 0" in content
+    checks["build_prove_challenge_fix_close"] = "BUILD IT. PROVE IT. CHALLENGE IT. FIX IT. THEN CLOSE IT." in content
+    checks["never_build_test_declare"] = "Build it → test it → declare it done." in content
+    all_pass = all(checks.values())
+    return {
+        "status": "PASS" if all_pass else "FAIL",
+        "detail": "Checks: " + ", ".join(f"{k}: {'✓' if v else '✗'}" for k, v in checks.items())
+    }
+
+
 def validate_milestone(milestone_id: str, ci_mode: bool = False) -> dict:
     """
     Validate a single milestone against all mechanical gates.
@@ -107,7 +124,9 @@ def validate_milestone(milestone_id: str, ci_mode: bool = False) -> dict:
     """
     results = {}
 
-    # --- Required evidence files ---
+    # --- Final Execution Principle ---
+    principle = validate_execution_principle()
+    results["final_execution_principle"] = principle
     milestone_file = REQUIRED_EVIDENCE_DIR / f"{milestone_id}_evidence.yaml"
     results["evidence_file_exists"] = {
         "status": "PASS" if milestone_file.exists() else "FAIL",

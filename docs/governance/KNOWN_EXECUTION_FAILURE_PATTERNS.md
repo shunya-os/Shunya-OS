@@ -84,6 +84,26 @@ Architectural completion requires a new suite of tests that exercise the *intend
 
 ---
 
+### Failure 6: Build → Test → Declare without push + remote verification
+
+**Incident:**
+G1.1-R1 was declared PASS in the milestone tracker before the commit was pushed to remote and before remote SHA was verified. Closure was asserted based on local state alone. The working tree was clean and tests passed locally, but `HEAD != origin/master` and `git push` had not been executed.
+
+**Correct Principle:**
+Closure without remote verification is not closure. Completion requires:
+- tests PASS
+- validator PASS
+- working tree CLEAN
+- commit
+- push
+- remote SHA verified (HEAD == origin/master)
+- PART N self-rejection checklist complete
+
+**Fix Applied:**
+Reset tracker to UNVERIFIED. Completed push + remote verification. The execution integrity constitution now includes Rule 0 (Final Execution Principle) and Rule 7 (Git Truth) to prevent recurrence.
+
+---
+
 ## Generic Patterns (All Phases)
 
 ### Pattern: Implementation-only closure

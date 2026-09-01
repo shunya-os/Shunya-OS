@@ -7,6 +7,30 @@
 
 ---
 
+## Rule 0 — THE FINAL EXECUTION PRINCIPLE
+
+**BUILD IT. PROVE IT. CHALLENGE IT. FIX IT. THEN CLOSE IT.**
+
+This is the single governing discipline of all SHUNYA development. Every phase, every milestone, every commit operates under this cycle:
+
+| Step | Requirement |
+|------|-------------|
+| **BUILD IT** | Implement the intended architecture against the verified contract |
+| **PROVE IT** | Exercise the real system journey; collect evidence at every layer |
+| **CHALLENGE IT** | Conduct self-adversarial review (Rule 4). Ask what could be wrong. Attack your own assumptions |
+| **FIX IT** | Remediate every discovered gap before proceeding to closure |
+| **THEN CLOSE IT** | Only after BUILD→PROVE→CHALLENGE→FIX are complete, and all gates pass, declare closure |
+
+Never:
+
+```
+Build it → test it → declare it done.
+```
+
+A passing test suite after a build is the *beginning* of verification, not the end. Closure without challenge is false closure.
+
+---
+
 ## Rule 1 — GREEN IS NOT COMPLETE
 
 A passing test suite is evidence only. Never declare architectural completion solely because:

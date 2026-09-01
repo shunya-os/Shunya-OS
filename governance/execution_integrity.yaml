@@ -2,7 +2,14 @@
 # Every future Hermes/GPT execution MUST read and enforce these rules.
 # Status: RATIFIED — G1.1-R1
 
+# THE FINAL EXECUTION PRINCIPLE
+# BUILD IT. PROVE IT. CHALLENGE IT. FIX IT. THEN CLOSE IT.
+# Never: Build it → test it → declare it done.
+# This governs every phase, milestone, and closure declaration.
+
 execution_integrity:
+  final_execution_principle_encoded: true
+  build_prove_challenge_fix_then_close: true
   green_tests_are_not_completion: true
   migrations_must_be_executed: true
   production_consumers_must_be_verified: true
