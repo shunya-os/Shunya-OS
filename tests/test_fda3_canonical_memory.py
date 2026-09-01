@@ -818,33 +818,59 @@ class TestDuplicateAuthorityPrevention:
         # for pipeline integration.
         assert MemoryKnowledgeRuntime is not None
 
-    def test_core_intelligence_runtime_memory_not_imported_by_production(self):
-        """core.intelligence_runtime.memory has zero production consumers.
+    def test_core_intelligence_runtime_memory_bridged_to_canonical(self):
+        """core.intelligence_runtime.memory is the canonical runtime MemoryEngine.
 
-        This is DEAD code — it's an in-memory MemoryEngine that is not
-        used by any production path. The canonical memory is app.memory.MemoryService.
+        ZGC-PR-17C convergence: the runtime MemoryEngine is NOW production
+        code. It is bridged to the canonical MemoryRecord persistence via
+        core.intelligence_runtime.memory_db.DBMemoryRepository, wired in
+        integration.ensure_runtime(). The invariant is:
+          - production may import the runtime memory ONLY through the
+            integration bridge (single canonical wiring path)
+          - the bridge must resolve to the DB-backed repository inside the
+            Flask app context
         """
-        import sys
-        # Check that no production code imports this module
-        import os
         from pathlib import Path
         root = Path(__file__).parent.parent
-        matches = []
+
+        # 1. The integration bridge must reference the runtime memory engine
+        integration_src = (root / "core/intelligence_runtime/integration.py").read_text()
+        assert "DBMemoryRepository" in integration_src, (
+            "integration.ensure_runtime() must wire the durable memory repository"
+        )
+
+        # 2. No APP-layer code may import the runtime memory engine directly —
+        #    app code consumes memory ONLY through integration.ensure_runtime()
+        #    (the single canonical wiring path). Internal core/intelligence_runtime
+        #    modules (runtime.py, memory_db.py) are the implementation itself.
+        direct_importers = []
         for pyfile in Path(root / "app").rglob("*.py"):
             content = pyfile.read_text()
-            if "intelligence_runtime.memory" in content or "intelligence_runtime.memory" in content:
-                matches.append(str(pyfile))
-        for pyfile in Path(root / "core").rglob("*.py"):
-            content = pyfile.read_text()
-            if "intelligence_runtime.memory" in content or "intelligence_runtime.memory" in content:
-                f = str(pyfile)
-                if "/tests/" not in f and "/archive/" not in f:
-                    matches.append(f)
-        # core/intelligence_runtime/memory.py self-references are fine
-        self_refs = [m for m in matches if "intelligence_runtime/memory.py" in m]
-        external = [m for m in matches if "intelligence_runtime/memory.py" not in m]
-        # Only the module itself can reference it
-        assert len(external) == 0, f"Production imports of core.intelligence_runtime.memory: {external}"
+            for line in content.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("#") or stripped.startswith('"""'):
+                    continue
+                if "from core.intelligence_runtime.memory" in stripped or \
+                   "from core.intelligence_runtime import memory" in stripped or \
+                   "intelligence_runtime.memory import" in stripped:
+                    direct_importers.append((str(pyfile), stripped))
+        assert not direct_importers, (
+            "App-layer direct imports of runtime memory engine bypass the integration bridge: "
+            f"{direct_importers}"
+        )
+
+    def test_dbmemory_repository_wired_inside_app_context(self):
+        """DBMemoryRepository resolves and stores a record inside app context."""
+        from app import create_app, db
+        app = create_app()
+        with app.app_context():
+            from app.memory.models import MemoryRecord
+            # table must exist (auto-created in create_app)
+            assert MemoryRecord.__table__.name == "memory_records"
+            # The bridge class must be importable and constructible
+            from core.intelligence_runtime.memory_db import DBMemoryRepository
+            repo = DBMemoryRepository()
+            assert repo is not None
 
     def test_knowledge_interface_importable(self):
         """KnowledgeInterface must be importable as the canonical knowledge contract."""

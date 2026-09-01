@@ -413,150 +413,235 @@ def chat():
             logger.warning(f'AI web search integration failed: {e}')
             # Non-critical — continue with the original messages
 
-    # Get all available providers (resolved chain)
-    provider = _registry.resolve()
-    chain = _registry.chain
-
-    # Try providers in order, falling back on error
+    # ── Canonical SHUNYAAI Kernel Inference ──
+    # Primary path: IntelligenceRuntime kernel (intent→context→memory→retrieval→reasoning→planning)
+    # Secondary: InferenceOrchestrator (classify→policy→select→execute→observe)
+    # Tertiary: direct provider chain (resilience fallback)
     fallback_used = False
     last_error = ''
+    result = None
+    p = None  # provider reference for side effects
 
-    for p in chain:
-        if not p.is_available():
-            continue
+    # Extract the last user message for the kernel
+    input_text = ''
+    for m in reversed(messages):
+        if m.get('role') == 'user':
+            input_text = m.get('content', '')
+            break
 
+    # 1) Try the canonical IntelligenceRuntime kernel first (single orchestration layer)
+    if input_text:
         try:
-            result = p.complete(messages, temperature=temperature, max_tokens=max_tokens)
-            if result.get('finish_reason') == 'error':
-                last_error = result.get('error', 'Provider error')
-                logger.warning(f'AI provider {p.name} failed: {last_error}')
-                fallback_used = True
-                continue
-            # PHASE 2A: Evidence log for AI response
-            try:
-                from app.evidence.service import log_evidence
-                log_evidence(
-                    action="ai_response",
-                    source=p.name,
-                    confidence=0.92 if not fallback_used else 0.65,
-                    evidence_type="ai",
-                    inputs={"model": getattr(p, 'model', 'unknown'), "messages_count": len(messages)},
-                    outputs={
-                        "finish_reason": result.get('finish_reason', 'stop'),
-                        "fallback_used": fallback_used,
-                    },
-                )
-                from app import db
-                db.session.commit()
-            except Exception:
-                pass
-            # PHASE 2C: Cortex observation for AI response
-            try:
-                from app.intelligence.cortex_bridge import observe_ai_response
-                observe_ai_response(
-                    provider=p.name,
-                    model=getattr(p, 'model', 'unknown'),
-                    confidence=0.92 if not fallback_used else 0.65,
-                    fallback_used=fallback_used,
-                )
-            except Exception:
-                pass
-            # PHASE 3: Command lifecycle — create execution for meaningful commands
-            execution_info = None
-            # Don't re-read conversation_id — keep the one auto-assigned above
-            _chat_conv_id = conversation_id or data.get('conversation_id')
-            try:
-                from app.ai.command_lifecycle import _is_command_message, create_execution_for_command
-                from flask import session as flask_session
-                last_user_msg = ''
-                for m in reversed(messages):
-                    if m.get('role') == 'user':
-                        last_user_msg = m.get('content', '')
-                        break
-                is_cmd, action_type = _is_command_message(last_user_msg)
-                if is_cmd:
-                    execution_info = create_execution_for_command(
-                        user_message=last_user_msg,
-                        ai_response=result.get('content', ''),
-                        conversation_id=conversation_id,
-                        tenant_id=flask_session.get('tenant_id', 0),
-                        identity_id=str(flask_session.get('user_id', '')),
-                    )
-            except Exception as e:
-                logger.warning(f'AI command lifecycle error: {e}')
-
-            # PHASE 4: Create Outcome record for this chat turn
-            chat_outcome_id = None
-            try:
-                from app.execution.models import Outcome as _Outcome
-                from app import db as _db3
-                import uuid as _uuid3
-                from datetime import datetime, timezone
-
-                chat_outcome_id = f"o{_uuid3.uuid4().hex[:11]}"
-                chat_outcome = _Outcome(
-                    outcome_id=chat_outcome_id,
-                    identity_id=flask_session.get('identity_id', flask_session.get('user_id', 'anonymous')),
-                    intention=last_user_msg[:500] if last_user_msg else 'AI chat',
-                    state={
-                        'type': 'chat_response',
-                        'source': 'ai_chat',
-                        'source_id': conversation_id,
-                        'conversation_id': conversation_id,
-                        'description': (result.get('content', '') or '')[:2000],
-                    },
-                    created_at=datetime.now(timezone.utc),
-                    updated_at=datetime.now(timezone.utc),
-                )
-                _db3.session.add(chat_outcome)
-                _db3.session.commit()
-            except Exception as e_out:
-                logger.warning(f'Chat outcome persistence error: {e_out}')
-                chat_outcome_id = None
-
-            response_data = {
-                'content': result.get('content', ''),
-                'model': result.get('model', getattr(p, 'model', 'unknown')),
-                'provider': p.name,
-                'usage': result.get('usage', {}),
-                'finish_reason': result.get('finish_reason', 'stop'),
-                'fallback': fallback_used,
-                'outcome_id': chat_outcome_id,
-            }
-            if execution_info:
-                response_data['command'] = {
-                    'outcome_id': execution_info.get('outcome_id'),
-                    'task_id': execution_info.get('task_id'),
-                    'drilldown': execution_info.get('drilldown'),
+            from core.intelligence_runtime.integration import ask as kernel_ask
+            kernel_resp = kernel_ask(
+                query=input_text,
+                session_id=conversation_id or 'ai_chat',
+                module_key='',
+                workspace='',
+                object_type=data.get('object_type', ''),
+                object_id=data.get('object_id', ''),
+                identity_id=str(flask_session.get('identity_id', '')),
+                tenant_id=str(flask_session.get('current_org_id', flask_session.get('tenant_id', ''))),
+                user_role=str(flask_session.get('user_role', '')),
+                workspace_type='organization' if flask_session.get('current_org_id') else 'personal',
+            )
+            if kernel_resp and kernel_resp.get('content'):
+                result = {
+                    'content': kernel_resp['content'],
+                    'model': kernel_resp.get('model', 'shunyaai-kernel'),
+                    'provider': kernel_resp.get('provider', 'shunyaai'),
+                    'usage': {},
+                    'finish_reason': 'stop',
+                    '_kernel_trace': kernel_resp.get('trace'),
                 }
-            # Persist AI response to conversation
-            response_data['conversation_id'] = conversation_id
-            try:
-                from app.founder.models import FounderMessage
-                from app import db as _db2
-                ai_content = result.get('content', '')
-                if ai_content:
-                    fm = FounderMessage(
-                        conv_id=conversation_id,
-                        role='assistant',
-                        content=ai_content[:5000],
-                    )
-                    _db2.session.add(fm)
-                    _db2.session.commit()
-            except Exception as e_ai:
-                logger.warning(f'Conversation persistence (AI msg): {e_ai}')
-            return jsonify(response_data)
+                p = type('ProviderRef', (), {'name': 'shunyaai', 'model': 'kernel'})()
         except Exception as e:
             last_error = str(e)
-            logger.warning(f'AI provider {p.name} exception: {last_error}')
-            fallback_used = True
-            continue
+            logger.warning(f'SHUNYAAI kernel failed, falling back to orchestrator: {last_error}')
 
-    return jsonify({
-        'error': f'All providers unavailable. Last error: {last_error}',
-        'model': 'none',
-        'fallback': True,
-    }), 503
+    # 2) Fallback: InferenceOrchestrator (canonical routing)
+    if result is None and input_text:
+        try:
+            from core.inference_orchestrator import (
+                get_orchestrator, OrchestratorRequest,
+            )
+            orch = get_orchestrator()
+            orch_request = OrchestratorRequest(
+                input_text=input_text,
+                session_id=conversation_id or 'ai_chat',
+                temperature=temperature,
+                max_tokens=max_tokens,
+                request_type='chat',
+            )
+            orch_response = orch.process(orch_request)
+            if orch_response.success:
+                result = {
+                    'content': orch_response.content or '',
+                    'model': orch_response.model or 'unknown',
+                    'provider': orch_response.provider or 'orchestrator',
+                    'usage': orch_response.usage or {},
+                    'finish_reason': orch_response.finish_reason or 'stop',
+                    '_orchestrator_pipeline': (
+                        [s.to_dict() for s in orch_response.pipeline]
+                        if orch_response.pipeline else []
+                    ),
+                }
+                p = type('ProviderRef', (), {'name': 'orchestrator', 'model': orch_response.model or 'unknown'})()
+            else:
+                last_error = orch_response.error or 'Orchestrator returned no success'
+                logger.warning(f'Orchestrator fell through: {last_error}')
+        except Exception as e:
+            last_error = str(e)
+            logger.warning(f'Orchestrator failed, falling back to provider chain: {last_error}')
+
+    # 3) Fallback: try providers in order
+    if result is None:
+        provider = _registry.resolve()
+        chain = _registry.chain
+        for p in chain:
+            if not p.is_available():
+                continue
+            try:
+                result = p.complete(messages, temperature=temperature, max_tokens=max_tokens)
+                if result.get('finish_reason') == 'error':
+                    last_error = result.get('error', 'Provider error')
+                    logger.warning(f'AI provider {p.name} failed: {last_error}')
+                    fallback_used = True
+                    result = None
+                    continue
+                break
+            except Exception as e:
+                last_error = str(e)
+                logger.warning(f'AI provider {p.name} exception: {last_error}')
+                fallback_used = True
+                result = None
+                continue
+
+    if result is None:
+        return jsonify({
+            'error': f'All providers unavailable. Last error: {last_error}',
+            'model': 'none',
+            'fallback': True,
+        }), 503
+
+    # ── Side Effects (preserved after canonical inference) ──
+    # PHASE 2A: Evidence log for AI response
+    try:
+        from app.evidence.service import log_evidence
+        log_evidence(
+            action="ai_response",
+            source=result.get('provider', p.name if p else 'unknown'),
+            confidence=0.92 if not fallback_used else 0.65,
+            evidence_type="ai",
+            inputs={"model": result.get('model', 'unknown'), "messages_count": len(messages)},
+            outputs={
+                "finish_reason": result.get('finish_reason', 'stop'),
+                "fallback_used": fallback_used,
+            },
+        )
+        from app import db
+        db.session.commit()
+    except Exception:
+        pass
+    # PHASE 2C: Cortex observation for AI response
+    try:
+        from app.intelligence.cortex_bridge import observe_ai_response
+        observe_ai_response(
+            provider=result.get('provider', 'unknown'),
+            model=result.get('model', 'unknown'),
+            confidence=0.92 if not fallback_used else 0.65,
+            fallback_used=fallback_used,
+        )
+    except Exception:
+        pass
+    # PHASE 3: Command lifecycle — create execution for meaningful commands
+    execution_info = None
+    _chat_conv_id = conversation_id or data.get('conversation_id')
+    try:
+        from app.ai.command_lifecycle import _is_command_message, create_execution_for_command
+        from flask import session as flask_session
+        last_user_msg = ''
+        for m in reversed(messages):
+            if m.get('role') == 'user':
+                last_user_msg = m.get('content', '')
+                break
+        is_cmd, action_type = _is_command_message(last_user_msg)
+        if is_cmd:
+            execution_info = create_execution_for_command(
+                user_message=last_user_msg,
+                ai_response=result.get('content', ''),
+                conversation_id=conversation_id,
+                tenant_id=flask_session.get('tenant_id', 0),
+                identity_id=str(flask_session.get('user_id', '')),
+            )
+    except Exception as e:
+        logger.warning(f'AI command lifecycle error: {e}')
+
+    # PHASE 4: Create Outcome record for this chat turn
+    chat_outcome_id = None
+    try:
+        from app.execution.models import Outcome as _Outcome
+        from app import db as _db3
+        import uuid as _uuid3
+        from datetime import datetime, timezone
+
+        chat_outcome_id = f"o{_uuid3.uuid4().hex[:11]}"
+        chat_outcome = _Outcome(
+            outcome_id=chat_outcome_id,
+            identity_id=flask_session.get('identity_id', flask_session.get('user_id', 'anonymous')),
+            intention=last_user_msg[:500] if last_user_msg else 'AI chat',
+            state={
+                'type': 'chat_response',
+                'source': 'ai_chat',
+                'source_id': conversation_id,
+                'conversation_id': conversation_id,
+                'description': (result.get('content', '') or '')[:2000],
+            },
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        _db3.session.add(chat_outcome)
+        _db3.session.commit()
+    except Exception as e_out:
+        logger.warning(f'Chat outcome persistence error: {e_out}')
+        chat_outcome_id = None
+
+    response_data = {
+        'content': result.get('content', ''),
+        'model': result.get('model', 'unknown'),
+        'provider': result.get('provider', 'unknown'),
+        'usage': result.get('usage', {}),
+        'finish_reason': result.get('finish_reason', 'stop'),
+        'fallback': fallback_used,
+        'outcome_id': chat_outcome_id,
+    }
+    if result.get('_orchestrator_pipeline'):
+        response_data['orchestrator_pipeline'] = result['_orchestrator_pipeline']
+    if result.get('_kernel_trace'):
+        response_data['kernel_trace'] = result['_kernel_trace']
+    if execution_info:
+        response_data['command'] = {
+            'outcome_id': execution_info.get('outcome_id'),
+            'task_id': execution_info.get('task_id'),
+            'drilldown': execution_info.get('drilldown'),
+        }
+    # Persist AI response to conversation
+    response_data['conversation_id'] = conversation_id
+    try:
+        from app.founder.models import FounderMessage
+        from app import db as _db2
+        ai_content = result.get('content', '')
+        if ai_content:
+            fm = FounderMessage(
+                conv_id=conversation_id,
+                role='assistant',
+                content=ai_content[:5000],
+            )
+            _db2.session.add(fm)
+            _db2.session.commit()
+    except Exception as e_ai:
+        logger.warning(f'Conversation persistence (AI msg): {e_ai}')
+    return jsonify(response_data)
 
 
 @ai_bp.route('/conversations', methods=['GET'])

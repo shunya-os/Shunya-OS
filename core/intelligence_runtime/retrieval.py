@@ -16,6 +16,7 @@ class RetrievalLayer:
         self._object_provider = None
         self._internet_provider = None
         self._memory_provider = None
+        self._knowledge_provider = None
 
     def set_graph_provider(self, fn: Callable) -> None:
         self._graph_provider = fn
@@ -28,6 +29,9 @@ class RetrievalLayer:
 
     def set_memory_provider(self, fn: Callable) -> None:
         self._memory_provider = fn
+
+    def set_knowledge_provider(self, fn: Callable) -> None:
+        self._knowledge_provider = fn
 
     def retrieve(self, query: str, module_key: str = "",
                  max_results: int = 10) -> list[RetrievedEvidence]:
@@ -99,6 +103,17 @@ class RetrievalLayer:
             except Exception:
                 pass
 
+        # 5. Knowledge (UCP-04 — canonical knowledge intelligence)
+        if self._knowledge_provider:
+            for item in self._knowledge_provider(query):
+                evidence.append(RetrievedEvidence(
+                    source="knowledge",
+                    content=str(item.get("content", item.get("summary", ""))),
+                    relevance=item.get("relevance", 0.6),
+                    confidence=item.get("confidence", 0.7),
+                    metadata=item.get("metadata", {}),
+                ))
+
         # Sort by relevance and limit
         evidence.sort(key=lambda e: -e.relevance)
         return evidence[:max_results]
@@ -108,3 +123,4 @@ class RetrievalLayer:
         self._object_provider = None
         self._internet_provider = None
         self._memory_provider = None
+        self._knowledge_provider = None

@@ -15,10 +15,36 @@ from app.kernel.models import UOPObject
 
 
 def get_canonical_object(object_id: str) -> dict | None:
-    """Get an object from the canonical store, falling back to FounderObject."""
+    """Get an object from the canonical store, falling back to legacy stores.
+
+    Resolution order: UOPObject (canonical) → ShunyaObject (legacy compat) →
+    FounderObject (legacy compat).
+    """
     obj = UOPObject.query.filter_by(object_id=object_id).first()
     if obj:
         return obj.to_protocol_dict()
+
+    # Fallback to ShunyaObject (sh_objects — workspace/reality_engine compat)
+    from app.objects.legacy_models import ShunyaObject
+    so = ShunyaObject.query.filter_by(object_id=object_id).first()
+    if so:
+        return {
+            "object_id": so.object_id,
+            "tenant_id": 1,
+            "space_id": so.workspace_id or "",
+            "object_type": so.object_type,
+            "name": so.name,
+            "status": so.status,
+            "version": 1,
+            "confidence": 1.0,
+            "created_at": so.created_at.isoformat() if so.created_at else "",
+            "updated_at": so.updated_at.isoformat() if so.updated_at else "",
+            "created_by": so.created_by or "",
+            "updated_by": "",
+            "evidence": [],
+            "relationships": [],
+            "metadata": so.data or {},
+        }
 
     # Fallback to FounderObject
     from app.founder.models import FounderObject
@@ -101,32 +127,71 @@ def create_canonical_object(
     metadata: dict = None,
     evidence: list = None,
     relationships: list = None,
+    workspace_id: str = "",
 ) -> dict:
-    """Create an object in both canonical and legacy stores."""
+    """Create an object in ALL active stores — canonical primary with legacy mirrors.
+
+    Canonical: UOPObject (sh_uop_objects) — kernel UniversalObject protocol.
+    Legacy mirrors: ShunyaObject (sh_objects) — workspace/reality_engine consumer.
+                     FounderObject (founder_objects) — founder journey / AI consumer.
+    During migration all three are written. New consumers target UOPObject.
+    Legacy mirrors are read-only post-migration.
+    """
     now = datetime.now(timezone.utc).isoformat()
 
-    # Write to canonical store
-    uop = UOPObject(
-        object_id=object_id,
-        tenant_id=tenant_id,
-        space_id=space_id,
-        object_type=object_type,
-        name=name,
-        status="active",
-        version=1,
-        confidence=1.0,
-        created_at=now,
-        updated_at=now,
-        created_by=created_by,
-        updated_by=created_by,
-        evidence_json=json.dumps(evidence or []),
-        relationships_json=json.dumps(relationships or []),
-        metadata_json=json.dumps(metadata or {}),
-        is_archived=False,
-    )
-    db.session.add(uop)
+    # 1. Write to canonical store (UOPObject — kernel protocol)
+    existing_uop = UOPObject.query.filter_by(object_id=object_id).first()
+    if existing_uop:
+        # Update existing — upsert semantics
+        existing_uop.name = name
+        existing_uop.object_type = object_type
+        existing_uop.space_id = space_id
+        existing_uop.tenant_id = tenant_id
+        existing_uop.updated_at = now
+        existing_uop.updated_by = created_by
+        existing_uop.status = "active"
+        existing_uop.metadata_json = json.dumps(metadata or {})
+        existing_uop.evidence_json = json.dumps(evidence or [])
+        existing_uop.relationships_json = json.dumps(relationships or [])
+        uop = existing_uop
+    else:
+        uop = UOPObject(
+            object_id=object_id,
+            tenant_id=tenant_id,
+            space_id=space_id,
+            object_type=object_type,
+            name=name,
+            status="active",
+            version=1,
+            confidence=1.0,
+            created_at=now,
+            updated_at=now,
+            created_by=created_by,
+            updated_by=created_by,
+            evidence_json=json.dumps(evidence or []),
+            relationships_json=json.dumps(relationships or []),
+            metadata_json=json.dumps(metadata or {}),
+            is_archived=False,
+        )
+        db.session.add(uop)
 
-    # Also write to legacy FounderObject for backward compat
+    # 2. Write to legacy ShunyaObject (sh_objects) — workspace/reality_engine compat
+    from app.objects.legacy_models import ShunyaObject
+    existing_sh = ShunyaObject.query.filter_by(object_id=object_id).first()
+    if not existing_sh:
+        w_id = workspace_id or space_id or "spc_default"
+        sh = ShunyaObject(
+            object_id=object_id,
+            workspace_id=w_id,
+            object_type=object_type,
+            name=name,
+            status="active",
+            data=metadata or {},
+            created_by=created_by,
+        )
+        db.session.add(sh)
+
+    # 3. Write to legacy FounderObject (founder_objects) — founder journey/AI compat
     from app.founder.models import FounderObject
     existing_fo = FounderObject.query.filter_by(object_id=object_id).first()
     if not existing_fo:

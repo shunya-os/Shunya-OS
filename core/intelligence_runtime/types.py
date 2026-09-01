@@ -98,6 +98,12 @@ class ContextFrame:
     recent_history: list[str] = field(default_factory=list)
     current_task: str = ""
     query_params: dict = field(default_factory=dict)
+    # Identity & authorization context (G3 convergence)
+    identity_id: str = ""
+    tenant_id: str = ""
+    user_role: str = ""
+    workspace_type: str = ""  # "personal" or "organization"
+    identity_profile: dict = field(default_factory=dict)  # Decision style, goals, preferences
 
     def to_dict(self) -> dict:
         return {
@@ -108,6 +114,10 @@ class ContextFrame:
             "conversation_id": self.conversation_id,
             "recent_history": self.recent_history[-5:],
             "current_task": self.current_task,
+            "identity_id": self.identity_id,
+            "tenant_id": self.tenant_id,
+            "user_role": self.user_role,
+            "workspace_type": self.workspace_type,
         }
 
 
