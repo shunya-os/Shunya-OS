@@ -27,13 +27,15 @@ def _ensure_org_and_user(app, email: str, org_id: int, org_name: str = "Test Org
             text("SELECT id FROM organizations WHERE id = :oid"), {"oid": org_id}
         ).first()
         if not org:
+            from datetime import datetime, timezone
             db.session.execute(
-                text("INSERT INTO organizations (id, name, slug) VALUES (:oid, :name, :slug)"),
-                {"oid": org_id, "name": org_name, "slug": f"test-org-{org_id}"},
+                text("INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (:oid, :name, :slug, :now, :now)"),
+                {"oid": org_id, "name": org_name, "slug": f"test-org-{org_id}", "now": datetime.now(timezone.utc)},
             )
             db.session.commit()
 
         # Create TeamMember if it doesn't exist
+        tm_id = None
         tm = db.session.execute(
             text("SELECT id FROM team_members WHERE email = :e"), {"e": email}
         ).first()
@@ -49,6 +51,7 @@ def _ensure_org_and_user(app, email: str, org_id: int, org_name: str = "Test Org
                 {"e": email, "n": email.split("@")[0], "ph": "test_hash", "r": role, "a": True, "t": org_id},
             )
             tm_id = result.scalar()
+            db.session.commit()
 
         # Create OrgMember if it doesn't exist
         om = db.session.execute(
@@ -63,7 +66,7 @@ def _ensure_org_and_user(app, email: str, org_id: int, org_name: str = "Test Org
                 """),
                 {"e": email, "n": email.split("@")[0], "o": org_id, "r": role, "a": True, "iid": email},
             )
-        db.session.commit()
+            db.session.commit()
 
         return tm_id, org_id
 

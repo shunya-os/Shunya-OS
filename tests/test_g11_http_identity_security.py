@@ -42,6 +42,7 @@ def _ensure_test_user(app, email: str, org_id: int, role: str = "member"):
                 {"e": email, "n": email.split("@")[0], "ph": "test_hash", "r": role, "a": True, "t": org_id},
             )
             tm_id = result.scalar()
+            db.session.commit()
 
         # Check if OrgMember exists
         om = db.session.execute(

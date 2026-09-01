@@ -12,9 +12,17 @@ PROD-17: Autonomous execution loop — commitments.
 The same cycle processes all commitments: gap-aware decision from the
 latest observation, then applies it. Continuous processing, one cycle.
 
-ACTIVATION-R2: Single source of truth — Object model only.
-Lead and Entity legacy models removed from loop execution.
-All entity processing uses Object (app/objects/models.py).
+| ACTIVATION-R2: Single source of truth — Object model only.
+| Lead and Entity legacy models removed from loop execution.
+| All entity processing uses Object (app/objects/models.py).
+|
+| NOTE: This loop reads from the `objects` table (legacy PROD-05 model),
+| which is the execution engine's working memory — state machine instances
+| for the autonomous execution loop. This is DISTINCT from `sh_objects`
+| (the canonical business object store for invoices, customers, etc.).
+| These are two separate concepts with different purposes.
+| Migrating the loop to sh_objects would require the execution engine
+| to support full business object semantics, which is a future phase.
 """
 
 import time
