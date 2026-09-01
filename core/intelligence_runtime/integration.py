@@ -465,21 +465,51 @@ def ask(query: str, session_id: str = "", module_key: str = "",
     result["latency_ms"] = latency_ms
     result["capability_context"] = capability_context
 
-    # ── Execution Chain — record every interaction for auditability ──
+    # ── Execution Chain — governed lifecycle ──
+    # Determine if this is a read or action query based on capability routing
     try:
-        from core.execution_chain import record_full_chain
-        # Determine if the query is an action (capability permits execution)
         is_action = capability_context.get("can_execute", False)
-        chain_result = record_full_chain(
-            query=query,
-            action_type="execute" if is_action else None,
-            identity_id=identity_id or "anonymous",
-            tenant_id=int(tenant_id) if tenant_id and tenant_id != "" else 0,
-            confidence=response.trace.confidence if response.trace else 0.5,
-            response_summary=(result.get("content") or result.get("response") or "")[:500],
-            success=True,
-        )
-        result["execution_chain"] = chain_result
+        is_write = capability_context.get("can_write", False)
+
+        if is_action or is_write:
+            from core.execution_chain import (
+                record_action_chain, complete_action_chain,
+                deny_action_chain,
+            )
+            # Initiate — state starts as REQUESTED, never auto-completed
+            chain_result = record_action_chain(
+                query=query,
+                action_type="execute" if is_action else "write",
+                identity_id=identity_id or "anonymous",
+                tenant_id=int(tenant_id) if tenant_id and tenant_id != "" else 0,
+                confidence=response.trace.confidence if response.trace else 0.5,
+                object_id=int(object_id) if object_id and object_id != "" else None,
+            )
+            # After runtime processing, complete with the actual outcome
+            # The IntelligenceResponse always has content (errors are handled
+            # internally by the runtime and reflected in the response).
+            chain_has_actions = bool(response.actions)
+            completion = complete_action_chain(
+                exec_id=chain_result.get("execution_id"),
+                outcome="succeeded" if chain_has_actions else "failed",
+                response_summary=(result.get("content") or result.get("response") or "")[:500],
+                identity_id=identity_id or "anonymous",
+                tenant_id=int(tenant_id) if tenant_id and tenant_id != "" else 0,
+                state={"has_actions": chain_has_actions},
+                observation_id=chain_result.get("observation_id"),
+            )
+            chain_result.update(completion)
+            result["execution_chain"] = chain_result
+        else:
+            from core.execution_chain import record_read_chain
+            chain_result = record_read_chain(
+                query=query,
+                identity_id=identity_id or "anonymous",
+                tenant_id=int(tenant_id) if tenant_id and tenant_id != "" else 0,
+                confidence=response.trace.confidence if response.trace else 0.5,
+                response_summary=(result.get("content") or result.get("response") or "")[:500],
+            )
+            result["execution_chain"] = chain_result
     except Exception as chain_err:
         import logging
         logging.getLogger(__name__).warning(f"Execution chain recording failed: {chain_err}")

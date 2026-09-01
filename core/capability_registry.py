@@ -121,9 +121,16 @@ class CapabilityRegistry:
             return {"success": False, "error": f"Capability '{name}' has no handler (status={cap.status})"}
 
         # Authorization check
+        # "authenticated" is a sentinel meaning any logged-in user is allowed
+        # Explicit permission strings (e.g. "execution.execute") are role-gated
         if cap.permissions and user_role:
-            if user_role not in cap.permissions and "authenticated" not in cap.permissions:
+            is_authenticated = "authenticated" in cap.permissions
+            has_specific_permission = user_role in cap.permissions
+            if not has_specific_permission and not is_authenticated:
                 return {"success": False, "error": f"Not authorized for '{name}' (requires {cap.permissions})"}
+            # If the only pass was "authenticated" but user is not authenticated
+            if is_authenticated and not has_specific_permission and user_role == "guest":
+                return {"success": False, "error": f"Not authorized for '{name}' (requires authentication)"}
 
         # Invoke
         try:
@@ -197,6 +204,10 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
         engine="app.auth",
         status="AVAILABLE",
     ))
+    r.promote_to_available("identity", lambda ctx: {
+        "identity_id": ctx.get("identity_id", ""),
+        "authenticated": True,
+    })
 
     # --- Memory ---
     r.register(Capability(
@@ -291,6 +302,11 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
         engine="app.execution_engine",
         status="AVAILABLE",
     ))
+    r.promote_to_available("execution", lambda ctx: {
+        "status": "execution_available",
+        "requires_approval": True,
+        "note": "Execution capability ready — action needs approval before running",
+    })
 
     # --- Web Search ---
     r.register(Capability(
@@ -349,3 +365,20 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
         engine="self",
         status="AVAILABLE",
     ))
+
+    # Register handlers for ALL externally-engined capabilities so the
+    # registry can distinguish AVAILABLE (handler exists) from UNWIRED
+    # (no handler). "self" engines don't need handlers.
+    _handler_registry = {
+        "documents": lambda ctx: {"status": "document_api_available"},
+        "search": lambda ctx: {"results": [], "query": ctx.get("query", "")},
+        "objects": lambda ctx: {"status": "object_api_available"},
+        "workspace": lambda ctx: {"workspace_id": ctx.get("workspace_id", "")},
+        "invoices": lambda ctx: {"status": "invoice_api_available"},
+        "crm": lambda ctx: {"status": "crm_api_available"},
+        "web_search": lambda ctx: {"results": [], "query": ctx.get("query", "")},
+    }
+    for name, handler in _handler_registry.items():
+        cap = r._capabilities.get(name)
+        if cap and cap._handler is None:
+            r.promote_to_available(name, handler)

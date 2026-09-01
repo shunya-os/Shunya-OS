@@ -25,36 +25,61 @@ from sqlalchemy import Column, Integer, String, Text, Float, DateTime, Boolean, 
 
 
 class Observation(db.Model):
-    """Record of what actually happened — execution outcome."""
+    """Record of what actually happened — execution outcome.
+
+    CANONICAL MODEL (reconciled with DB schema):
+    Matches the actual physical schema in PostgreSQL.
+    """
 
     __tablename__ = "observations"
     __table_args__ = (Index("ix_obs_lead_action", "lead_id", "action"), Index("ix_obs_created", "created_at"))
 
     id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, nullable=False, default=0)
+    subject_type = Column(String(30), nullable=False)
+    subject_id = Column(Integer, nullable=False)
+    event = Column(String(60), nullable=False)
+    source = Column(String(30), nullable=False)
+    observer = Column(String(60), nullable=True)
+    expected_state = Column(Text, nullable=True)
+    actual_state = Column(Text, nullable=True)
+    delta = Column(String(255), nullable=True)
+    severity = Column(String(20), nullable=True)
+    confidence = Column(String(20), nullable=True)  # DB is VARCHAR(20), not Float
+    metadata_json = Column(db.JSON, nullable=True)  # DB is JSONB
+    created_at = Column(DateTime, nullable=True)
+    action = Column(String(255), nullable=True)
+    channel = Column(String(255), nullable=True)
+    discrepancy = Column(Text, nullable=True)
+    expected_outcome = Column(Text, nullable=True)
+    actual_outcome = Column(Text, nullable=True)
     lead_id = Column(Integer, nullable=True, index=True)
-    action = Column(String(60), nullable=False)      # proposal_sent, payment_received, booking_made
-    expected_outcome = Column(Text, default="")       # What was predicted/planned
-    actual_outcome = Column(Text, default="")          # What actually happened
-    discrepancy = Column(Text, default="")             # Difference between expected and actual
-    success = Column(Boolean, default=True)           # Did it go as planned?
-    confidence = Column(Float, default=1.0)           # Observer's confidence in this observation
-    channel = Column(String(30), default="internal")  # whatsapp, telegram, email, internal
-    metadata_json = Column(Text, default="{}")         # Extra context as JSON
-    created_at = Column(DateTime, default=datetime.utcnow)
+    success = Column(db.Boolean, nullable=True)
 
     def to_dict(self) -> dict:
+        import json
         return {
             "id": self.id,
-            "lead_id": self.lead_id,
+            "tenant_id": self.tenant_id,
+            "subject_type": self.subject_type,
+            "subject_id": self.subject_id,
+            "event": self.event,
+            "source": self.source,
+            "observer": self.observer,
+            "expected_state": self.expected_state,
+            "actual_state": self.actual_state,
+            "delta": self.delta,
+            "severity": self.severity,
+            "confidence": self.confidence,
+            "metadata": self.metadata_json if isinstance(self.metadata_json, dict) else {},
+            "created_at": self.created_at.isoformat() if self.created_at else None,
             "action": self.action,
+            "channel": self.channel,
+            "discrepancy": self.discrepancy,
             "expected_outcome": self.expected_outcome,
             "actual_outcome": self.actual_outcome,
-            "discrepancy": self.discrepancy,
+            "lead_id": self.lead_id,
             "success": self.success,
-            "confidence": self.confidence,
-            "channel": self.channel,
-            "metadata": json.loads(self.metadata_json or "{}"),
-            "created_at": self.created_at.isoformat(),
         }
 
 
@@ -112,7 +137,17 @@ class ObserverLayer:
                 channel: str = "internal",
                 success: bool = True,
                 confidence: float = 1.0,
-                metadata: dict = None) -> Observation:
+                metadata: dict = None,
+                # Execution-chain fields (optional)
+                tenant_id: int = None,
+                subject_type: str = None,
+                subject_id: int = None,
+                event: str = None,
+                source: str = None,
+                observer: str = None,
+                severity: str = None,
+                expected_state: str = None,
+                actual_state: str = None) -> Observation:
         """
         Record an observation.
 
@@ -122,6 +157,15 @@ class ObserverLayer:
             expected: What was expected/predicted (optional)
             success: Did it go as planned?
             confidence: Observer's confidence (0-1)
+            tenant_id: Tenant isolation field
+            subject_type: Type of subject being observed
+            subject_id: ID of subject being observed
+            event: Event name for the observation
+            source: Source system identifier
+            observer: Observer identifier
+            severity: Severity level (info, warning, error)
+            expected_state: Expected state in execution chain context
+            actual_state: Actual state in execution chain context
         """
         discrepancy = ""
         if expected and outcome and expected != outcome:
@@ -136,7 +180,17 @@ class ObserverLayer:
             success=success,
             confidence=min(1.0, max(0.0, confidence)),
             channel=channel,
-            metadata_json=json.dumps(metadata or {}),
+            metadata_json=metadata or {},
+            # Execution-chain fields (pass through)
+            tenant_id=tenant_id,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            event=event or action[:60],
+            source=source,
+            observer=observer,
+            severity=severity or "info",
+            expected_state=expected_state or "",
+            actual_state=actual_state or "",
         )
         self._session.add(obs)
         self._session.commit()
