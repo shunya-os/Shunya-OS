@@ -321,7 +321,7 @@ Gate: ONE SHUNYAAI Intelligence Operating Layer with one entry point, one orches
 - ~~Prove each engine is invocable with real inputs~~ **DONE (10 tests)**
 - ~~Build real end-to-end SHUNYAAI request traversing multiple intelligence stages~~ **DONE (pipeline: 7/8 stages, 162ms)**
 - ~~Wire the execution chain into the actual app/ask() endpoint~~ **DONE (app/intelligence/routes.py Stage 7)**
-- Connect observation → memory ingestion (loop-closing)
+- ~~Connect observation → memory ingestion (loop-closing)~~ **DONE (core/observation_memory_bridge.py)**
 - Wire the SHUNYAAI pipeline into the production api_ask() route (currently only in core.ask())
 - Canonical object convergence → identity convergence → data-path convergence
 
