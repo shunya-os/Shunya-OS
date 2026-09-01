@@ -13,9 +13,9 @@ NEXT_SUBMILESTONE=FCR-02_EVIDENCE_CHAIN_TRUTH
 ARCHITECTURAL_PREREQUISITE=G1_CANONICAL_CONVERGENCE
 PROJECT_CLOSURE=NOT_READY
 
-BLOCKERS=LB01_4_OBJECT_STORES;LB02_3_IDENTITY_TABLES;LB03_COMMAND_PALETTE_CLIENT_ONLY;LB04_EXECUTIVE_HOME_PARTIAL;LB06_8_DOMAINS_ZERO_DATA;LB07_18_ENGINES_NOT_WIRED
+BLOCKERS=LB01_4_OBJECT_STORES;LB02_3_IDENTITY_TABLES;LB03_COMMAND_PALETTE_CLIENT_ONLY;LB04_EXECUTIVE_HOME_PARTIAL;LB06_8_DOMAINS_ZERO_DATA
 
-LAST_COMMIT_SHA=9376702
+LAST_COMMIT_SHA=95777c9
 LAST_CI_STATUS=GREEN
 LAST_CI_RUN=33474695911
 LAST_PRODUCTION_SHA=26c68bd
@@ -149,13 +149,14 @@ The execution chain lifecycle statuses replace the old binary "completed/not com
 | documents | AVAILABLE/INTEGRATED | ✅ | authenticated | Test-verified |
 | search | AVAILABLE/INTEGRATED | ✅ | authenticated | Test-verified |
 | objects | AVAILABLE/INTEGRATED | ✅ | authenticated | Test-verified |
-| perception | UNWIRED | ❌ | none | Never |
-| reasoning | UNWIRED | ❌ | none | Never |
-| planning | UNWIRED | ❌ | none | Never |
-| decision | UNWIRED | ❌ | none | Never |
-| reflection | UNWIRED | ❌ | none | Never |
-| learning | UNWIRED | ❌ | none | Never |
-| confidence | UNWIRED | ❌ | none | Never |
+| perception | AVAILABLE/INTEGRATED | ✅ | none | Test-verified |
+| reasoning | AVAILABLE/INTEGRATED | ✅ | none | Test-verified |
+| planning | AVAILABLE/INTEGRATED | ✅ | none | Test-verified |
+| decision | AVAILABLE/INTEGRATED | ✅ | none | Test-verified |
+| reflection | AVAILABLE/INTEGRATED | ✅ | none | Test-verified |
+| learning | AVAILABLE/INTEGRATED | ✅ | none | Test-verified |
+| confidence | AVAILABLE/INTEGRATED | ✅ | none | Test-verified |
+| context_assembly | AVAILABLE/INTEGRATED | ✅ | none | Test-verified |
 | relationships | UNWIRED | ❌ | authenticated | Never |
 | finance | UNWIRED | ❌ | finance.read | Never |
 | operations | UNWIRED | ❌ | authenticated | Never |
@@ -309,8 +310,9 @@ Gate: ONE SHUNYAAI Intelligence Operating Layer with one entry point, one orches
 | Test data is clearly marked | ✅ VERIFIED | Synthetic records identifiable by source_type |
 
 **What remains for FCR-02 closure:**
-- Wire 8 intelligence engines into the capability registry with handlers
-- Build real end-to-end SHUNYAAI request traversing intelligence stages
+- ~~Wire 8 intelligence engines into the capability registry~~ **DONE**
+- ~~Prove each engine is invocable with real inputs~~ **DONE (10 tests)**
+- Build real end-to-end SHUNYAAI request traversing multiple intelligence stages (perception→reasoning→planning→decision)
 - Connect observation → memory ingestion (loop-closing)
 - Wire the execution chain into the actual app/ask() endpoint
 
@@ -323,7 +325,7 @@ Gate: ONE SHUNYAAI Intelligence Operating Layer with one entry point, one orches
 | O-03 | /api/v1/ai/chat → app/ai/provider.py | AI PATH (bypasses orchestrator) | DUPLICATE |
 | O-04 | POST /search/ai/analyze | AI PATH (separate context→search→AI) | DUPLICATE |
 | O-05 | M8 /api/v1/intelligence/ask | AI PATH (own FDA9/FDA10 pipeline) | DUPLICATE of O-02 |
-| O-06 | 8 Intelligence Engines (core/intelligence/) | ENGINE | Standalone, no caller |
+| O-06 | ~~8 Intelligence Engines (core/intelligence/)~~ | ~~ENGINE~~ | **RESOLVED — wired into capability registry** |
 | O-07 | CognitiveRuntime (core/cognitive_runtime/) | RUNTIME | No consumer |
 | O-08 | PlanningRuntime (core/planning_runtime/) | RUNTIME | No consumer |
 | O-09 | AutomationRuntime (core/automation_runtime/) | RUNTIME | No consumer |

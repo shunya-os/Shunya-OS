@@ -465,6 +465,29 @@ def ask(query: str, session_id: str = "", module_key: str = "",
     result["latency_ms"] = latency_ms
     result["capability_context"] = capability_context
 
+    # ── SHUNYAAI Intelligence Pipeline ──
+    # Run the 8-engine pipeline alongside the existing runtime
+    # to enrich the response with per-engine intelligence stage results.
+    try:
+        from core.shunyaai_pipeline import get_pipeline
+        pipeline = get_pipeline()
+        pipe_result = pipeline.run(
+            user_input=query,
+            identity_id=identity_id or "",
+            tenant_id=str(tenant_id) if tenant_id else "",
+            workspace=workspace or "",
+            session_id=session_id or "",
+        )
+        result["intelligence_pipeline"] = pipe_result.to_dict()
+        result["intelligence_stages"] = pipe_result.stages_completed
+        # Use the pipeline's response text if the runtime didn't produce one
+        if not result.get("content") and not result.get("response"):
+            result["content"] = pipe_result.final_output.get("response_text", "")
+    except Exception as pipe_err:
+        import logging
+        logging.getLogger(__name__).warning(f"Intelligence pipeline failed: {pipe_err}")
+        result["intelligence_pipeline"] = {"error": str(pipe_err)}
+
     # ── Execution Chain — governed lifecycle ──
     # Determine if this is a read or action query based on capability routing
     try:
