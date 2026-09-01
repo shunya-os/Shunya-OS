@@ -29,7 +29,7 @@ TARGET_SHA="${2:-}"
 DEPLOY_DIR="/home/shunya-deploy/shunya_os"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DEPLOY_LOG="/var/log/shunya/deploy-${TIMESTAMP}.log"
-BACKUP_DIR="/var/backups/shunya/${TIMESTAMP}"
+BACKUP_DIR="/home/shunya-deploy/backups/shunya/${TIMESTAMP}"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] SHUNYA deployment started: ${ENVIRONMENT}" | tee -a "${DEPLOY_LOG}"
 
