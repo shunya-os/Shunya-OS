@@ -14,7 +14,7 @@ valid_statuses:
 milestones:
   G1.1-R1:
     title: "G1.1 — Identity + Object Convergence"
-    status: UNVERIFIED
+    status: PASS
     phase: G1
     description: >
       Canonical identity resolution, object store convergence, org/workspace chain,
