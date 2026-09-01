@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify, session
-from app import db
 from app.objects.legacy_models import Workspace
 from core.object_service import get_object_service
 
@@ -24,19 +23,17 @@ def _resolve_tenant_id() -> int | None:
 @objects_bp.route("/", methods=["POST"])
 def create():
     """Create a business object through the canonical object authority.
+    Authentication happens before any object operation."""
+    # AUTH: reject unauthenticated before any DB mutation
+    identity_id = session.get("identity_id") or session.get("user_id")
+    if not identity_id:
+        return jsonify({"error": "Authentication required", "success": False}), 401
+    if isinstance(identity_id, int):
+        identity_id = str(identity_id)
 
-    Request (SPA frontend):
-        { "name": "Q4 Strategy Doc", "object_type": "Document" }
-    Returns:
-        { "success": true, "object_id": "uuid", "id": 123, "object_type": "Document", "organization_id": 7 }
-    """
     data = request.json or {}
     name = data.get("name", data.get("object_type", "Object"))
     object_type = data.get("object_type", data.get("type", "generic"))
-
-    identity_id = session.get("identity_id") or session.get("user_id") or "system"
-    if identity_id and isinstance(identity_id, int):
-        identity_id = str(identity_id)
 
     organization_id = _resolve_tenant_id()
 
@@ -53,7 +50,6 @@ def create():
     workspace_id = workspace.id if workspace else "spc_default"
 
     # Create through the canonical object authority (core/object_service.py)
-    # This writes to sh_objects with proper organization_id, workspace_id chain
     svc = get_object_service()
     obj = svc.create(
         object_type=object_type,
@@ -76,17 +72,20 @@ def create():
 
 @objects_bp.route("/<int:object_id>", methods=["PATCH"])
 def update(object_id):
-    """Update a canonical object (tenant-scoped). Routes through canonical service."""
+    """Update a canonical object (tenant-scoped). Routes through canonical service.
+    Authentication happens before any object operation."""
+    identity_id = session.get("identity_id") or session.get("user_id")
+    if not identity_id:
+        return jsonify({"error": "Authentication required", "success": False}), 401
+
     from app.authz.decorators import _resolve_org_id
     org_id = _resolve_org_id()
     svc = get_object_service()
-    # Check existence + verify it's in the correct org
     existing = svc.get(object_id)
     if not existing:
         return jsonify({"error": "Not found"}), 404
     if org_id and existing.get("organization_id") and existing["organization_id"] != org_id:
         return jsonify({"error": "Forbidden"}), 403
-    # Update through canonical service (which enforces org isolation)
     updates = request.json or {}
     ok = svc.update(object_id, organization_id=org_id or 0, **updates)
     if not ok:

@@ -75,29 +75,23 @@ def set_session(client, email: str, org_id: int, app):
 
 class TestUnauthenticated:
     def test_unauthenticated_http_rejected(self, client):
-        """Without session, request should be rejected.
-        The canonical service requires organization_id; without a session,
-        _resolve_tenant_id() returns None → organization_id=0.
-        In PostgreSQL the FK constraint rejects organization_id=0 (no such org).
-        In SQLite (CI) no FK enforcement, so the object is created with org_id=0.
-        Either way: no valid production object should be created with a real org.
-        """
-        from sqlalchemy.exc import IntegrityError
-        try:
-            resp = client.post("/api/v1/objects/", json={
-                "name": "Hacker", "object_type": "malicious",
-            })
-            data = resp.get_json() or {}
-            org_id = data.get("organization_id")
-            # In SQLite/CI without FK enforcement, the request returns 200
-            # but organization_id must be 0 (not a real org)
-            assert org_id == 0 or org_id is None, \
-                f"Unauthenticated request must not produce a valid org_id: {data}"
-        except IntegrityError:
-            # PostgreSQL FK constraint rejects org_id=0 — this IS the correct
-            # rejection path for production. The request is blocked at the
-            # database level because no organization with id=0 exists.
-            pass
+        """Without session, request must be rejected with 401 before any DB mutation.
+        Authentication happens before any object operation."""
+        resp = client.post("/api/v1/objects/", json={
+            "name": "Hacker", "object_type": "malicious",
+        })
+        assert resp.status_code == 401, \
+            f"Unauthenticated request must return 401, got {resp.status_code}"
+        data = resp.get_json() or {}
+        assert data.get("success") is False, "Must not claim success"
+        assert "Authentication required" in str(data.get("error", "")), \
+            "Must provide clear auth error message"
+
+    def test_unauthenticated_patch_rejected(self, client):
+        """Without session, PATCH must also be rejected before mutation."""
+        resp = client.patch("/api/v1/objects/1", json={"name": "Hack"})
+        assert resp.status_code == 401, \
+            f"Unauthenticated PATCH must return 401, got {resp.status_code}"
 
 
 class TestValidUserHttp:
