@@ -136,8 +136,12 @@ class IntelligenceRuntime:
         self.reasoning.wire_llm_provider(fn)
 
     def wire_conversation_persistence(self, save_fn: Callable, load_fn: Callable) -> None:
-        """Wire DB persistence for conversation survival across restarts."""
+        """Wire a DB persistence provider for conversation history."""
         self.conversation.set_persistence_provider(save_fn, load_fn)
+
+    def wire_knowledge_provider(self, fn: Callable) -> None:
+        """Wire a knowledge search provider."""
+        self.retrieval.set_knowledge_provider(fn)
 
     def wire_action(self, action_key: str, handler: Callable) -> None:
         self.executor.register(action_key, handler)

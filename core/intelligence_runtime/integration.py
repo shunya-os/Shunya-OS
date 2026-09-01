@@ -143,10 +143,64 @@ def ensure_runtime() -> None:
         ctx = runtime.context.get(session_id)
         return ctx.active_module or ""
 
+    # ── Knowledge Intelligence Provider (UCP-04) ──
+    def _knowledge_search(query: str) -> list[dict]:
+        """Search knowledge objects via canonical KnowledgeIntelligence (UCP-04)."""
+        try:
+            from core.knowledge_intelligence.engine import KnowledgeIntelligenceEngine
+            from core.knowledge_intelligence.models import Knowledge
+
+            results = []
+            knowledge_list = []
+            try:
+                from app import db
+                from app.models import KnowledgeDocument
+                rows = db.session.query(KnowledgeDocument).order_by(
+                    KnowledgeDocument.updated_at.desc()
+                ).limit(50).all()
+                for r in rows:
+                    tags = []
+                    if r.tags:
+                        tags = [t.strip() for t in r.tags.split(",") if t.strip()]
+                    knowledge_list.append(Knowledge(
+                        title=r.title or "",
+                        statement=r.extracted_text or r.summary or "",
+                        summary=r.summary or "",
+                        tags=tags,
+                        domain=r.category or "",
+                        is_active=True,
+                        confidence_score=0.9,
+                    ))
+            except Exception:
+                pass
+
+            if knowledge_list:
+                engine = KnowledgeIntelligenceEngine()
+                search_results = engine.search(knowledge_list, query, max_results=5)
+                for sr in search_results:
+                    results.append({
+                        "content": sr.summary[:300] if sr.summary else sr.title,
+                        "source": f"knowledge_intelligence/{sr.knowledge_id}",
+                        "relevance": sr.relevance_score,
+                        "confidence": sr.confidence_score,
+                        "metadata": {
+                            "title": sr.title,
+                            "knowledge_type": sr.knowledge_type,
+                            "summary": sr.summary,
+                        },
+                    })
+            return results
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Knowledge search failed: {e}")
+            return []
+
     runtime.wire_graph_provider(_graph_search)
     runtime.wire_object_provider(_object_search)
     runtime.wire_memory_provider(_memory_search)
     runtime.wire_internet_provider(_internet_search)
+    runtime.wire_knowledge_provider(_knowledge_search)
 
     # ── LLM Provider (with FDA8 model orchestration) ──
     def _model_orchestrated_complete(messages: list[dict], temperature: float = 0.7,
