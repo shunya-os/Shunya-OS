@@ -58,10 +58,44 @@ class CapabilityRegistry:
     def find(self, query: str) -> list[Capability]:
         """Find capabilities matching a natural-language query."""
         q = query.lower()
-        return [
-            c for c in self._capabilities.values()
-            if q in c.name.lower() or q in c.purpose.lower()
-        ]
+        # Extract meaningful keywords from the query
+        stop_words = {'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been',
+                      'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
+                      'would', 'could', 'should', 'may', 'might', 'shall', 'can',
+                      'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from',
+                      'as', 'into', 'through', 'during', 'before', 'after',
+                      'above', 'below', 'between', 'out', 'off', 'over', 'under',
+                      'again', 'further', 'then', 'once', 'here', 'there', 'when',
+                      'where', 'why', 'how', 'all', 'each', 'every', 'both',
+                      'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor',
+                      'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very',
+                      'just', 'because', 'but', 'and', 'or', 'if', 'while',
+                      'what', 'which', 'who', 'whom', 'this', 'that', 'these',
+                      'those', 'about', 'up', 'my', 'me', 'i', 'it', 'its',
+                      'show', 'tell', 'find', 'get', 'list', 'view', 'see',
+                      'create', 'new', 'make', 'add', 'update', 'edit', 'delete',
+                      'remove', 'search', 'look', 'want', 'need', 'please', 'help'}
+        keywords = [w for w in q.split() if w not in stop_words and len(w) > 2]
+
+        matched = []
+        for c in self._capabilities.values():
+            c_name = c.name.lower()
+            c_purpose = c.purpose.lower()
+            # Direct substring match
+            if q in c_name or q in c_purpose:
+                matched.append(c)
+                continue
+            # Keyword match — any query keyword appears in capability name or purpose
+            for kw in keywords:
+                if kw in c_name or kw in c_purpose:
+                    matched.append(c)
+                    break
+                # Check if keyword is a stem/substring of any word in name or purpose
+                c_words = set(c_name.split('_') + c_purpose.split())
+                if any(kw in w or w in kw for w in c_words):
+                    matched.append(c)
+                    break
+        return matched
 
     def route(self, query: str) -> list[Capability]:
         """Route a query to the most relevant capabilities."""
@@ -99,7 +133,7 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
     # --- Memory ---
     r.register(Capability(
         name="memory",
-        purpose="Store and retrieve user/workspace memory",
+        purpose="Store and retrieve user/workspace memory, remember user preferences, recall past conversations",
         permissions=["authenticated"],
         can_read=True, can_write=True, can_execute=False,
         engine="app.memory",
@@ -109,11 +143,11 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
     # --- Knowledge ---
     r.register(Capability(
         name="knowledge",
-        purpose="Query and reason over ingested knowledge",
+        purpose="Query and reason over ingested knowledge, documents, customer information, facts",
         permissions=["authenticated"],
         can_read=True, can_write=False, can_execute=False,
         engine="core.knowledge_intelligence",
-        status="UNWIRED",
+        status="AVAILABLE",  # Wired via _knowledge_search in integration.py
     ))
 
     # --- Documents ---
@@ -253,7 +287,7 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
     # --- CRM ---
     r.register(Capability(
         name="crm",
-        purpose="Lead management, CRM lifecycle, follow-up",
+        purpose="Lead management, customer relationships, CRM lifecycle, follow-up, sales pipeline",
         permissions=["authenticated", "crm.read"],
         can_read=True, can_write=True, can_execute=False,
         engine="app.crm",
@@ -273,7 +307,7 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
     # --- Workspace ---
     r.register(Capability(
         name="workspace",
-        purpose="Workspace context, switching, and isolation",
+        purpose="Workspace context, organization awareness, switching, isolation, personal and org spaces",
         permissions=["authenticated"],
         can_read=True, can_write=False, can_execute=False,
         engine="app.workspace",

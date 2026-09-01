@@ -359,20 +359,60 @@ def ensure_runtime() -> None:
 
 # ── Unified Consumer API ──────────────────────────────────────────────────
 
+
+def _get_capability_context(query: str, identity_id: str = "",
+                            tenant_id: str = "", workspace_type: str = "") -> dict:
+    """Resolve relevant capabilities for a query via the capability registry.
+
+    Returns capability routing info that enriches the runtime processing
+    context so SHUNYAAI knows which capabilities are relevant and available.
+    """
+    try:
+        from core.capability_registry import get_registry
+        registry = get_registry()
+        matched = registry.route(query)
+        return {
+            "matched_capabilities": [c.name for c in matched],
+            "capability_count": len(matched),
+            "available_count": sum(1 for c in matched if c.status == "AVAILABLE"),
+            "unwired_count": sum(1 for c in matched if c.status == "UNWIRED"),
+            "can_execute": any(c.can_execute for c in matched),
+            "can_write": any(c.can_write for c in matched),
+        }
+    except Exception:
+        return {
+            "matched_capabilities": [],
+            "capability_count": 0,
+            "available_count": 0,
+            "unwired_count": 0,
+            "can_execute": False,
+            "can_write": False,
+        }
+
+
 def ask(query: str, session_id: str = "", module_key: str = "",
         workspace: str = "", object_type: str = "", object_id: str = "",
         explain: bool = False,
         identity_id: str = "", tenant_id: str = "",
         user_role: str = "", workspace_type: str = "") -> dict[str, Any]:
     """Single entry point for every intelligence request in SHUNYA.
-    
+
     Every surface calls this function. No alternative path exists.
     Identity context is passed through to the reasoning layer so
     SHUNYAAI knows who the user is and where they are.
+
+    Capability routing: every query is matched against the capability
+    registry to determine which SHUNYA capabilities are relevant.
     """
     ensure_runtime()
     runtime = get_runtime()
     start = time.time()
+
+    # ── Capability Routing ──
+    # Resolve relevant capabilities before processing so the runtime
+    # knows which engines to invoke for this particular query.
+    capability_context = _get_capability_context(
+        query, identity_id, tenant_id, workspace_type)
 
     # Update context
     if module_key:
@@ -397,6 +437,11 @@ def ask(query: str, session_id: str = "", module_key: str = "",
     if ctx_updates:
         runtime.context.update(session_id, **ctx_updates)
 
+    # Inject capability routing into the context so the runtime's
+    # retrieval and reasoning layers can use it.
+    runtime.context.update(session_id,
+                           _capability_context=capability_context)
+
     # Process through runtime
     response = runtime.process(
         user_input=query,
@@ -418,6 +463,7 @@ def ask(query: str, session_id: str = "", module_key: str = "",
 
     result = response.to_dict()
     result["latency_ms"] = latency_ms
+    result["capability_context"] = capability_context
 
     if explain and response.trace:
         from core.intelligence_runtime.explain import ExplainabilityEngine
