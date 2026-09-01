@@ -20,33 +20,34 @@ import uuid
 
 @pytest.fixture(scope="module")
 def obj_app():
+    import os
+    os.environ["DATABASE_URL"] = "sqlite:///:memory:"
     from app import create_app, db
     application = create_app({"TESTING": True, "WTF_CSRF_ENABLED": False})
     with application.app_context():
+        db.create_all()
+        # Create required workspace for FK constraint
+        from sqlalchemy import text
+        db.session.execute(
+            text("""INSERT OR IGNORE INTO sh_workspaces (id, name, workspace_type, created_by)
+                    VALUES ('spc_default', 'Default', 'personal', 'system')""")
+        )
+        db.session.commit()
         yield application
+        db.session.remove()
 
 
 @pytest.fixture(autouse=True)
 def clean_obj(obj_app):
+    """Clean test data — module-scoped test, each test gets its own data."""
     from app import db
-    db.session.rollback()
     from sqlalchemy import text
-    # Cascade delete all object stores (FK order matters)
-    db.session.execute(text("DELETE FROM founder_messages"))
-    db.session.execute(text("DELETE FROM founder_conversations"))
-    db.session.execute(text("DELETE FROM founder_objects"))
-    db.session.execute(text("DELETE FROM sh_uop_objects"))
     db.session.execute(text("DELETE FROM sh_objects"))
+    db.session.execute(text("DELETE FROM sh_uop_objects"))
+    db.session.execute(text("DELETE FROM founder_objects"))
+    db.session.execute(text("DELETE FROM founder_conversations"))
+    db.session.execute(text("DELETE FROM founder_messages"))
     db.session.execute(text("DELETE FROM objects"))
-    # Ensure required workspace exists for FK constraint
-    ws = db.session.execute(
-        text("SELECT id FROM sh_workspaces WHERE id = 'spc_default'")
-    ).first()
-    if not ws:
-        db.session.execute(
-            text("""INSERT INTO sh_workspaces (id, name, workspace_type, created_by)
-                    VALUES ('spc_default', 'Default', 'personal', 'system')""")
-        )
     db.session.commit()
     yield
 
@@ -90,10 +91,12 @@ class TestObjectConvergence:
         from sqlalchemy import text
 
         # Ensure organization exists for FK constraint
+        from datetime import datetime, timezone
         db.session.execute(
-            text("""INSERT INTO organizations (id, name, slug)
-                    VALUES (2, 'Test Org', 'test-org-2')
-                    ON CONFLICT (id) DO NOTHING""")
+            text("""INSERT INTO organizations (id, name, slug, created_at, updated_at)
+                    VALUES (2, 'Test Org', 'test-org-2', :now, :now)
+                    ON CONFLICT (id) DO NOTHING"""),
+            {"now": datetime.now(timezone.utc)},
         )
         db.session.commit()
 

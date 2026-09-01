@@ -51,9 +51,9 @@ class ObjectService:
                 "updated_at": now,
             }
         )
-        self.db.session.commit()
         obj_id = result.scalar()
-        # Also fetch the generated object_id (UUID string)
+        self.db.session.commit()
+        # Fetch the generated object_id (UUID string)
         from sqlalchemy import text as _text
         row = self.db.session.execute(
             _text("SELECT object_id FROM sh_objects WHERE id = :id"), {"id": obj_id}
