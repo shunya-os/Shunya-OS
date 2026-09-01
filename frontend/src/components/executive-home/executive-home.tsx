@@ -51,6 +51,10 @@ const KnowledgeBrowser = lazy(() => import('../knowledge/knowledge-browser-panel
 const SettingsPanel = lazy(() => import('../settings/settings-panel').then(m => ({ default: m.SettingsPanel })));
 const SearchBar = lazy(() => import('../search/universal-search').then(m => ({ default: m.SearchBar })));
 
+// ── NEW: Finance & Operations Workspaces ──
+const FinanceWorkspace = lazy(() => import('../finance/finance-workspace').then(m => ({ default: m.FinanceWorkspace })));
+const OperationsWorkspace = lazy(() => import('../operations/operations-workspace').then(m => ({ default: m.OperationsWorkspace })));
+
 // ═══════════════════════════════════════════════════════════════════
 // DOMAIN DEFINITIONS — Universal organizational domains
 // ═══════════════════════════════════════════════════════════════════
@@ -816,16 +820,15 @@ function DomainOverview({ domain }: { domain: Domain }) {
             <div className="pw-domain-empty">
               <p>This area is set up in SHUNYA but no data exists yet.</p>
               <p className="pw-domain-empty-hint">
-                {domain.id === 'finance' && 'Financial tracking is planned. Ask SHUNYA to record financial information.'}
+                {domain.id === 'finance' && 'Financial tracking is active. Click above to open the Finance workspace.'}
                 {domain.id === 'commercial' && 'Commercial capability (G4) exists. Data will appear as relationships and opportunities are created.'}
                 {domain.id === 'marketing' && 'Marketing capability (G5) exists. Campaigns and growth intelligence will appear here.'}
                 {domain.id === 'sales' && 'Sales bridges to commercial execution. Pipeline will appear as opportunities are created.'}
-                {domain.id === 'operations' && 'Operations tracking is planned. Connect systems to populate operational data.'}
+                {domain.id === 'operations' && 'Operations tracking is active. Click above to open the Operations workspace.'}
                 {domain.id === 'knowledge' && 'Knowledge objects will appear here as documents and references are added.'}
                 {domain.id === 'outputs' && 'Outputs from SHUNYA work will appear here once work is completed.'}
                 {domain.id === 'memory' && 'SHUNYA remembers your organization permanently. Memory features are being built.'}
                 {domain.id === 'relationships' && 'Relationship graph capability exists. Data will appear as relationships are identified.'}
-                {(domain.id === 'finance' || domain.id === 'operations') && ' This capability is not yet implemented.'}
               </p>
             </div>
           )}
@@ -1003,6 +1006,14 @@ function DomainWorkspaceRouter() {
     // Documents — browse uploaded files
     if (active.identity.objectId === 'documents') {
       return <div className="pw-panel-container"><DocumentBrowser /></div>;
+    }
+    // Finance — full financial workspace with ledger, invoices, payments
+    if (active.identity.objectId === 'finance') {
+      return <div className="pw-panel-container"><FinanceWorkspace /></div>;
+    }
+    // Operations — commitments, tasks, executions, outcomes
+    if (active.identity.objectId === 'operations') {
+      return <div className="pw-panel-container"><OperationsWorkspace /></div>;
     }
     // Knowledge — browse entities SHUNYA knows about
     if (active.identity.objectId === 'knowledge') {

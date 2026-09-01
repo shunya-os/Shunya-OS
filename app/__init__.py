@@ -943,6 +943,18 @@ def create_app(config_override: dict | None = None):
     from app.ubme import ubme_bp
     app.register_blueprint(ubme_bp)
 
+    # G1 — Knowledge API (frontend knowledge-browser-panel.tsx backend)
+    from app.knowledge.api import knowledge_bp
+    app.register_blueprint(knowledge_bp)
+
+    # G1 — Universal Search (canonical internal search across all objects)
+    from app.search.universal_search import search_bp as universal_search_bp
+    app.register_blueprint(universal_search_bp)
+
+    # G1 — Calendar API (frontend calendar-panel.tsx backend)
+    from app.calendar.api import calendar_bp
+    app.register_blueprint(calendar_bp)
+
     # PLP Cycle 2C — Universal Intelligence Runtime
     # (integrated into app/intelligence/routes.py at /api/v1/intelligence)
     # Legacy app/intelligence_routes.py removed — single canonical path.

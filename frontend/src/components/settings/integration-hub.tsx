@@ -1,8 +1,8 @@
 /**
- * Integration Hub 2.0 — Integration Hub
+ * Integration Hub — Real backend API integration.
  *
- * 12 mock service connectors with connect/disconnect, localStorage state,
- * mock OAuth flow popup, and last sync timestamp.
+ * Fetches providers and configs from /api/v1/integration/* instead of
+ * mock localStorage. Handles loading, empty, error, and disconnected states.
  * Warm glass-morphism design matching the SHUNYA OS aesthetic.
  */
 
@@ -22,42 +22,90 @@ import {
 
 // ── Types ──
 
-interface ConnectorState {
-  connected: boolean;
-  error: boolean;
-  lastSync: string; // ISO timestamp
-}
-
-interface Connector {
+interface Provider {
   id: string;
   name: string;
+  type: string;
+  icon: string;
   description: string;
-  emoji: string;
+  free: boolean;
   category: string;
+  docs_url: string;
+}
+
+interface Config {
+  id: number;
+  identity_id: string;
+  provider: string;
+  label: string;
+  is_active: boolean;
+  has_config: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+// ── API helpers (follow api.client.ts pattern) ──
+
+const BASE = '/api/v1/integration';
+
+async function apiReq<T>(path: string, opts?: RequestInit): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+    credentials: 'include',
+    ...opts,
+  });
+  if (r.status >= 500) {
+    throw new Error(`Server error (${r.status}). Please try again.`);
+  }
+  return r.json() as Promise<T>;
+}
+
+async function fetchProviders(): Promise<Provider[]> {
+  const res = await apiReq<{ success: boolean; data: Provider[] }>('/providers');
+  return res.data ?? [];
+}
+
+async function fetchConfigs(): Promise<Config[]> {
+  const res = await apiReq<{ success: boolean; data: Config[] }>('/configs');
+  return res.data ?? [];
+}
+
+async function connectProvider(provider: string): Promise<Config> {
+  const res = await apiReq<{ success: boolean; data: Config }>(
+    `/configs/${encodeURIComponent(provider)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        config_value: 'connected_via_hub',
+        label: provider,
+      }),
+    },
+  );
+  return res.data;
+}
+
+async function disconnectProvider(provider: string): Promise<void> {
+  await apiReq<{ success: boolean }>(
+    `/configs/${encodeURIComponent(provider)}`,
+    { method: 'DELETE' },
+  );
+}
+
+async function syncProvider(): Promise<void> {
+  // Trigger sync via the integrations v2 endpoint
+  await apiReq<{ results: unknown[] }>('/../integrations/sync', {
+    method: 'POST',
+  });
 }
 
 // ── Constants ──
 
-const CONNECTORS: Connector[] = [
-  { id: 'gmail', name: 'Gmail', description: 'Send and read emails via Gmail API', emoji: '📧', category: 'Communication' },
-  { id: 'google-calendar', name: 'Google Calendar', description: 'Sync events, meetings, and reminders', emoji: '📅', category: 'Productivity' },
-  { id: 'slack', name: 'Slack', description: 'Post messages and notifications to channels', emoji: '💬', category: 'Communication' },
-  { id: 'notion', name: 'Notion', description: 'Sync pages, databases, and notes', emoji: '📝', category: 'Productivity' },
-  { id: 'trello', name: 'Trello', description: 'Manage boards, cards, and workflows', emoji: '📋', category: 'Productivity' },
-  { id: 'github', name: 'GitHub', description: 'Track issues, PRs, and commits', emoji: '🐙', category: 'Dev Tools' },
-  { id: 'stripe', name: 'Stripe', description: 'Process payments and view transactions', emoji: '💳', category: 'Finance' },
-  { id: 'paypal', name: 'PayPal', description: 'Send invoices and manage payments', emoji: '🅿️', category: 'Finance' },
-  { id: 'shopify', name: 'Shopify', description: 'Manage products, orders, and inventory', emoji: '🛍️', category: 'E-Commerce' },
-  { id: 'twitter', name: 'Twitter / X', description: 'Post tweets and monitor mentions', emoji: '🐦', category: 'Social' },
-  { id: 'linkedin', name: 'LinkedIn', description: 'Share posts and manage your network', emoji: '💼', category: 'Social' },
-  { id: 'whatsapp', name: 'WhatsApp', description: 'Send messages and media via WhatsApp', emoji: '📱', category: 'Communication' },
-];
+const CATEGORIES = ['All', 'Media & Design', 'AI & Content', 'Developer Tools', 'Data & Analytics', 'Communication', 'Productivity', 'Finance', 'Other'];
 
-const STORAGE_KEY = 'shunya_connectors';
+// ── Helpers ──
 
-const CATEGORIES = ['All', 'Communication', 'Productivity', 'Dev Tools', 'Finance', 'E-Commerce', 'Social'];
-
-function formatTimeAgo(isoStr: string): string {
+function formatTimeAgo(isoStr: string | null | undefined): string {
+  if (!isoStr) return 'never';
   try {
     const diff = Date.now() - new Date(isoStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -72,122 +120,117 @@ function formatTimeAgo(isoStr: string): string {
   }
 }
 
-function loadStates(): Record<string, ConnectorState> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Record<string, ConnectorState>;
-  } catch { /* ignore */ }
-  return {};
+function getCategory(providerType: string): string {
+  const mapping: Record<string, string> = {
+    stock_media: 'Media & Design',
+    ai_content: 'AI & Content',
+    developer_tools: 'Developer Tools',
+    data_analytics: 'Data & Analytics',
+    communication: 'Communication',
+    productivity: 'Productivity',
+    finance: 'Finance',
+  };
+  return mapping[providerType] || 'Other';
 }
 
-function saveStates(states: Record<string, ConnectorState>) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(states));
-  } catch { /* ignore */ }
-}
-
-// ── Mock OAuth Popup ──
-
-function MockOAuthPopup({ connector, onDone, onCancel }: {
-  connector: Connector;
-  onDone: () => void;
-  onCancel: () => void;
-}) {
-  // Auto-proceed after a short delay to simulate OAuth flow
-  useEffect(() => {
-    const t = setTimeout(onDone, 1800);
-    return () => clearTimeout(t);
-  }, [onDone]);
-
-  return (
-    <div className="ih-oauth-overlay">
-      <div className="ih-oauth-panel">
-        <div className="ih-oauth-header">
-          <span className="ih-oauth-emoji">{connector.emoji}</span>
-          <span className="ih-oauth-title">Connect {connector.name}</span>
-          <button className="ih-oauth-close" onClick={onCancel} aria-label="Cancel">
-            <XCircle size={16} />
-          </button>
-        </div>
-        <div className="ih-oauth-body">
-          <div className="ih-oauth-spinner" />
-          <span className="ih-oauth-text">Authenticating with {connector.name}...</span>
-        </div>
-        <div className="ih-oauth-footer">
-          <span className="ih-oauth-hint">This is a mock OAuth flow for demonstration.</span>
-        </div>
-      </div>
-    </div>
-  );
+function getProviderIcon(icon: string): string {
+  // Backend returns emoji icons, use as-is
+  return icon || '🔌';
 }
 
 // ── Main Component ──
 
 export function IntegrationHub() {
-  const [states, setStates] = useState<Record<string, ConnectorState>>(() => loadStates());
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [configs, setConfigs] = useState<Config[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [connectingId, setConnectingId] = useState<string | null>(null);
-  const [showOAuth, setShowOAuth] = useState<string | null>(null);
+  const [actionProvider, setActionProvider] = useState<string | null>(null);
+  const [syncProviderId, setSyncProviderId] = useState<string | null>(null);
 
-  // Persist state changes
+  // Build a lookup map: provider id -> Config
+  const configMap = new Map<string, Config>();
+  configs.forEach(c => configMap.set(c.provider, c));
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [prov, confs] = await Promise.all([
+        fetchProviders(),
+        fetchConfigs(),
+      ]);
+      setProviders(prov);
+      setConfigs(confs);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load integrations');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial load
   useEffect(() => {
-    saveStates(states);
-  }, [states]);
+    loadData();
+  }, [loadData]);
 
-  const handleConnect = useCallback((id: string) => {
-    setShowOAuth(id);
+  const handleConnect = useCallback(async (providerId: string) => {
+    setActionProvider(providerId);
+    try {
+      const cfg = await connectProvider(providerId);
+      setConfigs(prev => {
+        const next = prev.filter(c => c.provider !== providerId);
+        next.push(cfg);
+        return next;
+      });
+    } catch (err: any) {
+      setError(err?.message || 'Failed to connect');
+    } finally {
+      setActionProvider(null);
+    }
   }, []);
 
-  const handleOAuthDone = useCallback(() => {
-    if (!showOAuth) return;
-    setStates(prev => ({
-      ...prev,
-      [showOAuth]: {
-        connected: true,
-        error: false,
-        lastSync: new Date().toISOString(),
-      },
-    }));
-    setShowOAuth(null);
-    setConnectingId(null);
-  }, [showOAuth]);
-
-  const handleOAuthCancel = useCallback(() => {
-    setShowOAuth(null);
-    setConnectingId(null);
+  const handleDisconnect = useCallback(async (providerId: string) => {
+    setActionProvider(providerId);
+    try {
+      await disconnectProvider(providerId);
+      setConfigs(prev => prev.filter(c => c.provider !== providerId));
+    } catch (err: any) {
+      setError(err?.message || 'Failed to disconnect');
+    } finally {
+      setActionProvider(null);
+    }
   }, []);
 
-  const handleDisconnect = useCallback((id: string) => {
-    setStates(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+  const handleSync = useCallback(async () => {
+    // Use the provider that triggered the sync
+    setSyncProviderId(actionProvider);
+    try {
+      await syncProvider();
+      // Refresh configs to get updated timestamps
+      const confs = await fetchConfigs();
+      setConfigs(confs);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sync');
+    } finally {
+      setSyncProviderId(null);
+    }
   }, []);
 
-  const handleSync = useCallback((id: string) => {
-    setConnectingId(id);
-    setTimeout(() => {
-      setStates(prev => ({
-        ...prev,
-        [id]: {
-          ...prev[id],
-          lastSync: new Date().toISOString(),
-        },
-      }));
-      setConnectingId(null);
-    }, 800);
-  }, []);
-
-  const filteredConnectors = CONNECTORS.filter(c => {
-    const matchCategory = filter === 'All' || c.category === filter;
-    const matchSearch = !searchQuery.trim() || c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.description.toLowerCase().includes(searchQuery.toLowerCase());
+  // Filter and merge providers with config status
+  const filteredProviders = providers.filter(p => {
+    const matchCategory = filter === 'All' || getCategory(p.type) === filter || p.category === filter;
+    const matchSearch = !searchQuery.trim()
+      || p.name.toLowerCase().includes(searchQuery.toLowerCase())
+      || p.description.toLowerCase().includes(searchQuery.toLowerCase())
+      || p.id.toLowerCase().includes(searchQuery.toLowerCase());
     return matchCategory && matchSearch;
   });
 
-  const connectedCount = CONNECTORS.filter(c => states[c.id]?.connected).length;
-  const errorCount = CONNECTORS.filter(c => states[c.id]?.error).length;
+  const connectedCount = configs.filter(c => c.is_active).length;
+  const errorState = error !== null;
 
   return (
     <div className="ih2-container">
@@ -198,7 +241,7 @@ export function IntegrationHub() {
             <Zap size={18} />
           </div>
           <div>
-            <div className="ih2-header-title">Integration Hub 2.0</div>
+            <div className="ih2-header-title">Integration Hub</div>
             <div className="ih2-header-sub">Connect your favorite tools and services</div>
           </div>
         </div>
@@ -206,14 +249,17 @@ export function IntegrationHub() {
           <span className="ih2-badge ih2-badge-connected">
             <Plug size={10} /> {connectedCount} Connected
           </span>
-          {errorCount > 0 && (
+          {errorState && (
             <span className="ih2-badge ih2-badge-error">
-              <AlertCircle size={10} /> {errorCount} Error
+              <AlertCircle size={10} /> Error
             </span>
           )}
           <span className="ih2-badge ih2-badge-total">
-            {CONNECTORS.length} Total
+            {providers.length} Available
           </span>
+          <button className="ih2-refresh-btn" onClick={loadData} disabled={loading} title="Refresh">
+            <RefreshCw size={12} className={loading ? 'ih2-spin' : ''} />
+          </button>
         </div>
       </div>
 
@@ -241,109 +287,123 @@ export function IntegrationHub() {
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="ih2-grid">
-        {filteredConnectors.map(conn => {
-          const state = states[conn.id];
-          const isConnected = state?.connected ?? false;
-          const isError = state?.error ?? false;
-          const isConnecting = connectingId === conn.id;
-          const showOAuthNow = showOAuth === conn.id;
-
-          return (
-            <div key={conn.id} className={`ih2-card ${isConnected ? 'ih2-card-connected' : ''}`}>
-              <div className="ih2-card-top">
-                <span className="ih2-card-emoji">{conn.emoji}</span>
-                <div className="ih2-card-info">
-                  <span className="ih2-card-name">{conn.name}</span>
-                  <span className="ih2-card-desc">{conn.description}</span>
-                </div>
-              </div>
-
-              {/* Status */}
-              <div className="ih2-card-status-row">
-                {isConnected ? (
-                  <span className="ih2-status ih2-status-connected">
-                    <CheckCircle2 size={12} /> Connected
-                  </span>
-                ) : isError ? (
-                  <span className="ih2-status ih2-status-error">
-                    <AlertCircle size={12} /> Error
-                  </span>
-                ) : (
-                  <span className="ih2-status ih2-status-disconnected">
-                    <XCircle size={12} /> Disconnected
-                  </span>
-                )}
-              </div>
-
-              {/* Last sync */}
-              {isConnected && state?.lastSync && (
-                <div className="ih2-card-sync">
-                  <Clock size={10} />
-                  <span>Synced {formatTimeAgo(state.lastSync)}</span>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="ih2-card-actions">
-                {isConnected ? (
-                  <>
-                    <button
-                      className="ih2-btn ih2-btn-sync"
-                      onClick={() => handleSync(conn.id)}
-                      disabled={isConnecting}
-                    >
-                      <RefreshCw size={12} className={isConnecting ? 'ih2-spin' : ''} />
-                      {isConnecting ? 'Syncing...' : 'Sync'}
-                    </button>
-                    <button
-                      className="ih2-btn ih2-btn-disconnect"
-                      onClick={() => handleDisconnect(conn.id)}
-                    >
-                      <Unplug size={12} /> Disconnect
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      className="ih2-btn ih2-btn-connect"
-                      onClick={() => handleConnect(conn.id)}
-                    >
-                      <ExternalLink size={12} /> Connect
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Mock OAuth popup */}
-              {showOAuthNow && (
-                <MockOAuthPopup
-                  connector={conn}
-                  onDone={handleOAuthDone}
-                  onCancel={handleOAuthCancel}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Empty */}
-      {filteredConnectors.length === 0 && (
-        <div className="ih2-empty">
-          <Search size={28} style={{ opacity: 0.2, color: '#1A1C1D' }} />
-          <span className="ih2-empty-text">No connectors match your criteria.</span>
-          <button className="ih2-empty-btn" onClick={() => { setFilter('All'); setSearchQuery(''); }}>
-            Clear Filters
-          </button>
+      {/* Loading */}
+      {loading && (
+        <div className="ih2-status-block">
+          <div className="ih2-loading-spinner" />
+          <span className="ih2-status-text">Loading integrations...</span>
         </div>
       )}
 
-      {/* Simulated connections disclaimer */}
-      <div className="ih2-simulated-note">
-        ⚡ All connections are simulated for demonstration. Real API integrations coming soon.
-      </div>
+      {/* Error */}
+      {!loading && error && (
+        <div className="ih2-status-block">
+          <AlertCircle size={20} style={{ color: '#B91C1C', opacity: 0.6 }} />
+          <span className="ih2-status-text" style={{ color: '#B91C1C' }}>{error}</span>
+          <button className="ih2-retry-btn" onClick={loadData}>Retry</button>
+        </div>
+      )}
+
+      {/* Empty */}
+      {!loading && !error && filteredProviders.length === 0 && (
+        <div className="ih2-empty">
+          <Search size={28} style={{ opacity: 0.2, color: '#1A1C1D' }} />
+          <span className="ih2-empty-text">
+            {providers.length === 0
+              ? 'No integrations available from the backend.'
+              : 'No connectors match your criteria.'}
+          </span>
+          {providers.length === 0 && (
+            <button className="ih2-empty-btn" onClick={loadData}>Try Again</button>
+          )}
+          {providers.length > 0 && (
+            <button className="ih2-empty-btn" onClick={() => { setFilter('All'); setSearchQuery(''); }}>
+              Clear Filters
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Grid */}
+      {!loading && !error && filteredProviders.length > 0 && (
+        <div className="ih2-grid">
+          {filteredProviders.map(prov => {
+            const cfg = configMap.get(prov.id);
+            const isConnected = cfg?.is_active ?? false;
+            const isBusy = actionProvider === prov.id;
+            const isSyncing = syncProviderId === prov.id;
+            const lastSync = cfg?.updated_at ?? cfg?.created_at ?? null;
+
+            return (
+              <div key={prov.id} className={`ih2-card ${isConnected ? 'ih2-card-connected' : ''}`}>
+                <div className="ih2-card-top">
+                  <span className="ih2-card-emoji">{getProviderIcon(prov.icon)}</span>
+                  <div className="ih2-card-info">
+                    <span className="ih2-card-name">{prov.name}</span>
+                    <span className="ih2-card-desc">{prov.description}</span>
+                    {prov.free && <span className="ih2-card-free-badge">Free</span>}
+                  </div>
+                </div>
+
+                {/* Status + Category */}
+                <div className="ih2-card-status-row">
+                  {isConnected ? (
+                    <span className="ih2-status ih2-status-connected">
+                      <CheckCircle2 size={12} /> Connected
+                    </span>
+                  ) : (
+                    <span className="ih2-status ih2-status-disconnected">
+                      <XCircle size={12} /> Disconnected
+                    </span>
+                  )}
+                  <span className="ih2-card-cat-badge">{getCategory(prov.type)}</span>
+                </div>
+
+                {/* Last sync */}
+                {isConnected && lastSync && (
+                  <div className="ih2-card-sync">
+                    <Clock size={10} />
+                    <span>Synced {formatTimeAgo(lastSync)}</span>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="ih2-card-actions">
+                  {isConnected ? (
+                    <>
+                      <button
+                        className="ih2-btn ih2-btn-sync"
+                        onClick={() => handleSync()}
+                        disabled={isBusy || isSyncing}
+                      >
+                        <RefreshCw size={12} className={isSyncing ? 'ih2-spin' : ''} />
+                        {isSyncing ? 'Syncing...' : 'Sync'}
+                      </button>
+                      <button
+                        className="ih2-btn ih2-btn-disconnect"
+                        onClick={() => handleDisconnect(prov.id)}
+                        disabled={isBusy || isSyncing}
+                      >
+                        <Unplug size={12} />
+                        {isBusy ? 'Disconnecting...' : 'Disconnect'}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="ih2-btn ih2-btn-connect"
+                      onClick={() => handleConnect(prov.id)}
+                      disabled={isBusy || isSyncing}
+                    >
+                      <ExternalLink size={12} />
+                      {isBusy ? 'Connecting...' : 'Connect'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <style>{ih2Css}</style>
     </div>
@@ -361,11 +421,14 @@ const ih2Css = `
 .ih2-header-icon { width: 36px; height: 36px; border-radius: 10px; background: rgba(164,134,95,0.10); color: #A4865F; display: flex; align-items: center; justify-content: center; }
 .ih2-header-title { font-size: 15px; font-weight: 600; color: #1A1C1D; }
 .ih2-header-sub { font-size: 11px; color: rgba(26,28,29,0.45); margin-top: 1px; }
-.ih2-header-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.ih2-header-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .ih2-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 500; }
 .ih2-badge-connected { background: rgba(45,106,79,0.08); color: #2D6A4F; }
 .ih2-badge-error { background: rgba(185,28,28,0.08); color: #B91C1C; }
 .ih2-badge-total { background: rgba(26,28,29,0.04); color: rgba(26,28,29,0.5); }
+.ih2-refresh-btn { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; border: 1px solid rgba(26,28,29,0.08); background: transparent; color: rgba(26,28,29,0.45); cursor: pointer; font-family: inherit; transition: all 0.15s; padding: 0; }
+.ih2-refresh-btn:hover { color: #1A1C1D; border-color: rgba(26,28,29,0.15); }
+.ih2-refresh-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* Toolbar */
 .ih2-toolbar { display: flex; flex-direction: column; gap: 8px; }
@@ -378,6 +441,13 @@ const ih2Css = `
 .ih2-cat-btn:hover { border-color: rgba(26,28,29,0.06); background: rgba(255,255,255,0.4); color: #1A1C1D; }
 .ih2-cat-active { background: rgba(108,74,226,0.06) !important; border-color: rgba(108,74,226,0.15) !important; color: #6C4AE2 !important; }
 
+/* Loading / Error blocks */
+.ih2-status-block { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 48px 20px; }
+.ih2-loading-spinner { width: 28px; height: 28px; border: 3px solid rgba(108,74,226,0.12); border-top-color: #6C4AE2; border-radius: 50%; animation: ih2-rotate 0.7s linear infinite; }
+.ih2-status-text { font-size: 13px; color: rgba(26,28,29,0.55); }
+.ih2-retry-btn { padding: 6px 14px; border: 1px solid rgba(108,74,226,0.2); border-radius: 8px; background: rgba(108,74,226,0.04); font-size: 11px; font-weight: 500; color: #6C4AE2; cursor: pointer; font-family: inherit; }
+.ih2-retry-btn:hover { background: rgba(108,74,226,0.1); }
+
 /* Grid */
 .ih2-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
 .ih2-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: rgba(255,255,255,0.5); backdrop-filter: blur(4px); border: 1px solid rgba(26,28,29,0.04); border-radius: 14px; transition: all 0.15s; position: relative; }
@@ -389,12 +459,14 @@ const ih2Css = `
 .ih2-card-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ih2-card-name { font-size: 13px; font-weight: 600; color: #1A1C1D; }
 .ih2-card-desc { font-size: 10px; color: rgba(26,28,29,0.45); line-height: 1.4; }
+.ih2-card-free-badge { font-size: 9px; font-weight: 600; color: #2D6A4F; background: rgba(45,106,79,0.08); padding: 1px 6px; border-radius: 4px; display: inline-block; width: fit-content; margin-top: 2px; }
 
 .ih2-card-status-row { display: flex; align-items: center; gap: 8px; }
 .ih2-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 500; }
 .ih2-status-connected { background: rgba(45,106,79,0.08); color: #2D6A4F; }
 .ih2-status-error { background: rgba(185,28,28,0.08); color: #B91C1C; }
 .ih2-status-disconnected { background: rgba(26,28,29,0.04); color: rgba(26,28,29,0.4); }
+.ih2-card-cat-badge { font-size: 9px; font-weight: 500; color: rgba(26,28,29,0.35); padding: 2px 6px; border-radius: 4px; background: rgba(26,28,29,0.03); margin-left: auto; }
 
 .ih2-card-sync { display: flex; align-items: center; gap: 5px; font-size: 10px; color: rgba(26,28,29,0.35); }
 
@@ -411,27 +483,11 @@ const ih2Css = `
 .ih2-spin { animation: ih2-rotate 0.8s linear infinite; }
 @keyframes ih2-rotate { to { transform: rotate(360deg); } }
 
-/* OAuth Popup */
-.ih-oauth-overlay { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.2); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; }
-.ih-oauth-panel { width: 340px; background: rgba(255,255,255,0.95); backdrop-filter: blur(16px); border: 1px solid rgba(26,28,29,0.06); border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
-.ih-oauth-header { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid rgba(26,28,29,0.04); }
-.ih-oauth-emoji { font-size: 22px; }
-.ih-oauth-title { font-size: 14px; font-weight: 600; color: #1A1C1D; flex: 1; }
-.ih-oauth-close { background: transparent; border: none; cursor: pointer; color: rgba(26,28,29,0.3); padding: 4px; border-radius: 6px; display: flex; }
-.ih-oauth-close:hover { color: #B91C1C; background: rgba(185,28,28,0.06); }
-.ih-oauth-body { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px 16px; }
-.ih-oauth-spinner { width: 28px; height: 28px; border: 3px solid rgba(108,74,226,0.12); border-top-color: #6C4AE2; border-radius: 50%; animation: ih2-rotate 0.7s linear infinite; }
-.ih-oauth-text { font-size: 13px; color: rgba(26,28,29,0.6); font-weight: 500; }
-.ih-oauth-footer { padding: 10px 16px; border-top: 1px solid rgba(26,28,29,0.04); display: flex; justify-content: center; }
-.ih-oauth-hint { font-size: 10px; color: rgba(26,28,29,0.3); }
-
 /* Empty */
 .ih2-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 20px; }
 .ih2-empty-text { font-size: 13px; color: rgba(26,28,29,0.3); }
 .ih2-empty-btn { padding: 6px 14px; border: 1px solid rgba(108,74,226,0.2); border-radius: 8px; background: rgba(108,74,226,0.04); font-size: 11px; font-weight: 500; color: #6C4AE2; cursor: pointer; font-family: inherit; }
 .ih2-empty-btn:hover { background: rgba(108,74,226,0.1); }
-
-.ih2-simulated-note { font-size: 11px; color: rgba(26,28,29,0.3); text-align: center; padding: 6px; border-top: 1px solid rgba(26,28,29,0.04); margin-top: 4px; }
 
 @media (max-width: 768px) {
   .ih2-grid { grid-template-columns: 1fr; }
