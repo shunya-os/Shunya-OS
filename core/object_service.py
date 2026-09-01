@@ -24,10 +24,12 @@ class ObjectService:
 
     def create(self, object_type: str, name: str, organization_id: int,
                data: Optional[dict] = None, created_by: Optional[str] = None,
-               status: str = "active", workspace_id: str = "spc_business") -> dict:
+               status: str = "active", workspace_id: str = "spc_business",
+               object_id: Optional[str] = None) -> dict:
         """Create a canonical object. Returns the created record."""
         from sqlalchemy import text
         now = datetime.now(timezone.utc)
+        oid = object_id or str(uuid.uuid4())
         result = self.db.session.execute(
             text("""
                 INSERT INTO sh_objects
@@ -37,7 +39,7 @@ class ObjectService:
                 RETURNING id
             """),
             {
-                "oid": str(uuid.uuid4()),
+                "oid": oid,
                 "object_type": object_type,
                 "name": name,
                 "status": status,

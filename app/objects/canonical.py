@@ -1,36 +1,32 @@
 """
-§4 — Canonical object access layer.
+Canonical object access layer — routes through core/object_service.py.
 
-Provides read/write access to objects through the canonical UOPObject store,
-with transparent fallback to FounderObject for backward compatibility.
+NEW objects go through the canonical object service (sh_objects).
+READ operations read from sh_objects first, with fallback to legacy stores
+(UOPObject, FounderObject) for historical data.
 
-This is the consolidation layer: writers write to both stores during migration,
-readers read from the canonical store (UOPObject) first, with fallback.
+This is a migration compatibility layer. NEW consumers should use
+core/object_service.py directly.
 """
 
 import json
 from datetime import datetime, timezone
 from app import db
-from app.kernel.models import UOPObject
+from core.object_service import get_object_service
 
 
 def get_canonical_object(object_id: str) -> dict | None:
     """Get an object from the canonical store, falling back to legacy stores.
 
-    Resolution order: UOPObject (canonical) → ShunyaObject (legacy compat) →
+    Resolution order: sh_objects (canonical) → UOPObject (migration compat) →
     FounderObject (legacy compat).
     """
-    obj = UOPObject.query.filter_by(object_id=object_id).first()
-    if obj:
-        return obj.to_protocol_dict()
-
-    # Fallback to ShunyaObject (sh_objects — workspace/reality_engine compat)
     from app.objects.legacy_models import ShunyaObject
     so = ShunyaObject.query.filter_by(object_id=object_id).first()
     if so:
         return {
             "object_id": so.object_id,
-            "tenant_id": 1,
+            "tenant_id": so.organization_id or 1,
             "space_id": so.workspace_id or "",
             "object_type": so.object_type,
             "name": so.name,
@@ -44,9 +40,16 @@ def get_canonical_object(object_id: str) -> dict | None:
             "evidence": [],
             "relationships": [],
             "metadata": so.data or {},
+            "organization_id": so.organization_id,
         }
 
-    # Fallback to FounderObject
+    # Fallback to UOPObject (sh_uop_objects — migration compat)
+    from app.kernel.models import UOPObject
+    uop = UOPObject.query.filter_by(object_id=object_id).first()
+    if uop:
+        return uop.to_protocol_dict()
+
+    # Fallback to FounderObject (founder_objects — legacy compat)
     from app.founder.models import FounderObject
     fo = FounderObject.query.filter_by(object_id=object_id).first()
     if fo:
@@ -70,38 +73,23 @@ def get_canonical_object(object_id: str) -> dict | None:
     return None
 
 
-def list_canonical_objects(space_id: str = "", object_type: str = "", limit: int = 50) -> list[dict]:
+def list_canonical_objects(space_id: str = "", object_type: str = "",
+                           limit: int = 50) -> list[dict]:
     """List objects from canonical store with optional filters."""
-    query = UOPObject.query.filter(UOPObject.is_archived == False)
-    if space_id:
-        query = query.filter(UOPObject.space_id == space_id)
+    from app.objects.legacy_models import ShunyaObject
+    query = ShunyaObject.query.filter(ShunyaObject.is_deleted == False)
     if object_type:
-        query = query.filter(UOPObject.object_type == object_type)
-    results = query.order_by(UOPObject.updated_at.desc()).limit(limit).all()
-
-    # Supplement with FounderObject results for coverage
-    from app.founder.models import FounderObject
-    fo_query = FounderObject.query.filter(FounderObject.status == "active")
-    if space_id:
-        fo_query = fo_query.filter(FounderObject.space_id == space_id)
-    if object_type:
-        fo_query = fo_query.filter(FounderObject.object_type == object_type)
-    fo_results = fo_query.order_by(FounderObject.updated_at.desc()).limit(limit).all()
-
-    # Merge — UOPObject results first, then supplement with FO results not already in UOP
-    existing_ids = {r["object_id"] for r in [obj.to_protocol_dict() for obj in results]}
-    for fo in fo_results:
-        if fo.object_id not in existing_ids:
-            results.append(fo)
+        query = query.filter(ShunyaObject.object_type == object_type)
+    results = query.order_by(ShunyaObject.updated_at.desc()).limit(limit).all()
 
     return [
-        r.to_protocol_dict() if isinstance(r, UOPObject) else {
+        {
             "object_id": r.object_id,
-            "tenant_id": 1,
-            "space_id": r.space_id or "",
-            "object_type": r.object_type or "Document",
-            "name": r.name or "Untitled",
-            "status": r.status or "active",
+            "tenant_id": r.organization_id or 1,
+            "space_id": r.workspace_id or "",
+            "object_type": r.object_type,
+            "name": r.name,
+            "status": r.status,
             "version": 1,
             "confidence": 1.0,
             "created_at": r.created_at.isoformat() if r.created_at else "",
@@ -110,7 +98,8 @@ def list_canonical_objects(space_id: str = "", object_type: str = "", limit: int
             "updated_by": "",
             "evidence": [],
             "relationships": [],
-            "metadata": {"migrated": False},
+            "metadata": r.data or {},
+            "organization_id": r.organization_id,
         }
         for r in results
     ]
@@ -129,82 +118,71 @@ def create_canonical_object(
     relationships: list = None,
     workspace_id: str = "",
 ) -> dict:
-    """Create an object in ALL active stores — canonical primary with legacy mirrors.
+    """Create an object through the canonical object service.
 
-    Canonical: UOPObject (sh_uop_objects) — kernel UniversalObject protocol.
-    Legacy mirrors: ShunyaObject (sh_objects) — workspace/reality_engine consumer.
-                     FounderObject (founder_objects) — founder journey / AI consumer.
-    During migration all three are written. New consumers target UOPObject.
-    Legacy mirrors are read-only post-migration.
+    Routes through core/object_service.py → sh_objects.
+    Legacy writes to UOPObject and FounderObject are removed —
+    new consumers should read from sh_objects via get_canonical_object().
     """
-    now = datetime.now(timezone.utc).isoformat()
-
-    # 1. Write to canonical store (UOPObject — kernel protocol)
-    existing_uop = UOPObject.query.filter_by(object_id=object_id).first()
-    if existing_uop:
-        # Update existing — upsert semantics
-        existing_uop.name = name
-        existing_uop.object_type = object_type
-        existing_uop.space_id = space_id
-        existing_uop.tenant_id = tenant_id
-        existing_uop.updated_at = now
-        existing_uop.updated_by = created_by
-        existing_uop.status = "active"
-        existing_uop.metadata_json = json.dumps(metadata or {})
-        existing_uop.evidence_json = json.dumps(evidence or [])
-        existing_uop.relationships_json = json.dumps(relationships or [])
-        uop = existing_uop
-    else:
-        uop = UOPObject(
-            object_id=object_id,
-            tenant_id=tenant_id,
-            space_id=space_id,
-            object_type=object_type,
-            name=name,
-            status="active",
-            version=1,
-            confidence=1.0,
-            created_at=now,
-            updated_at=now,
-            created_by=created_by,
-            updated_by=created_by,
-            evidence_json=json.dumps(evidence or []),
-            relationships_json=json.dumps(relationships or []),
-            metadata_json=json.dumps(metadata or {}),
-            is_archived=False,
-        )
-        db.session.add(uop)
-
-    # 2. Write to legacy ShunyaObject (sh_objects) — workspace/reality_engine compat
     from app.objects.legacy_models import ShunyaObject
-    existing_sh = ShunyaObject.query.filter_by(object_id=object_id).first()
-    if not existing_sh:
-        w_id = workspace_id or space_id or "spc_default"
-        sh = ShunyaObject(
-            object_id=object_id,
-            workspace_id=w_id,
-            object_type=object_type,
-            name=name,
-            status="active",
-            data=metadata or {},
-            created_by=created_by,
-        )
-        db.session.add(sh)
+    from app import db
 
-    # 3. Write to legacy FounderObject (founder_objects) — founder journey/AI compat
-    from app.founder.models import FounderObject
-    existing_fo = FounderObject.query.filter_by(object_id=object_id).first()
-    if not existing_fo:
-        fo = FounderObject(
-            object_id=object_id,
-            space_id=space_id,
-            object_type=object_type,
-            name=name,
-            content=content or "",
-            status="active",
-            created_by=created_by,
-        )
-        db.session.add(fo)
+    # Check if object already exists — if so, update in place (upsert)
+    existing = ShunyaObject.query.filter_by(object_id=object_id).first()
+    if existing:
+        existing.name = name
+        existing.object_type = object_type
+        existing.data = metadata or {}
+        existing.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return {
+            "object_id": object_id,
+            "tenant_id": tenant_id,
+            "space_id": space_id,
+            "object_type": object_type,
+            "name": name,
+            "status": "active",
+            "version": 1,
+            "confidence": 1.0,
+            "created_at": existing.created_at.isoformat() if existing.created_at else "",
+            "updated_at": existing.updated_at.isoformat() if existing.updated_at else "",
+            "created_by": existing.created_by or created_by,
+            "updated_by": created_by,
+            "evidence": evidence or [],
+            "relationships": relationships or [],
+            "metadata": metadata or {},
+            "organization_id": existing.organization_id or tenant_id,
+        }
 
-    db.session.commit()
-    return uop.to_protocol_dict()
+    svc = get_object_service()
+    org_id = tenant_id if tenant_id and tenant_id > 0 else 1
+    w_id = workspace_id or space_id or "spc_default"
+
+    obj = svc.create(
+        object_type=object_type,
+        name=name,
+        organization_id=org_id,
+        data=metadata or {},
+        created_by=created_by,
+        workspace_id=w_id,
+        object_id=object_id,
+    )
+
+    return {
+        "object_id": obj.get("object_id", object_id),
+        "tenant_id": org_id,
+        "space_id": space_id,
+        "object_type": object_type,
+        "name": name,
+        "status": "active",
+        "version": 1,
+        "confidence": 1.0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": created_by,
+        "updated_by": created_by,
+        "evidence": evidence or [],
+        "relationships": relationships or [],
+        "metadata": metadata or {},
+        "organization_id": org_id,
+    }
