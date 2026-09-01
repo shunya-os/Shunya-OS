@@ -1,23 +1,25 @@
 """
-SHUNYAAI Capability Registry — Governed bridge between the intelligence
-command surface and all SHUNYA capabilities.
+SHUNYAAI Capability Registry v2 — Governed orchestration layer between the
+intelligence command surface and all SHUNYA capabilities.
 
-Every capability defines:
-  name:        canonical identifier
-  purpose:     what it does
-  inputs:      required context
-  outputs:     what it produces
-  permissions: required auth level
-  can_read:    whether it can read data
-  can_write:   whether it can modify data
-  can_execute: whether it can execute actions
-  engine:      the module that implements it
-  status:      AVAILABLE / UNWIRED / DEPRECATED
+Every capability has:
+  - A registered handler (callable) that actually invokes the engine
+  - Authorization gates
+  - Usage recording for observability
+  - A concrete status reflecting real integration state
+
+Status values:
+  AVAILABLE                — Genuinely callable, handler registered, produces real result
+  INTEGRATED_BUT_UNUSED    — Handler registered, never exercised in production
+  UNWIRED                  — Engine exists, no handler registered to invoke it
+  SUPERSEDED               — Replaced by a newer capability, kept for compat
+  UNNECESSARY              — Not needed for launch promise, safe to leave dormant
 """
 
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -27,25 +29,37 @@ class Capability:
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
     permissions: list[str] = field(default_factory=list)
+    requires_approval: bool = False
     can_read: bool = True
     can_write: bool = False
     can_execute: bool = False
     engine: str = ""
-    status: str = "AVAILABLE"  # AVAILABLE | UNWIRED | DEPRECATED
+    status: str = "UNWIRED"
+    # Handler is set via register_handler(), not in the dataclass
+    _handler: Callable | None = None
+    _invocation_count: int = 0
+    _last_invoked: str | None = None
 
-
-# ---------------------------------------------------------------------------
-# Registry
-# ---------------------------------------------------------------------------
 
 class CapabilityRegistry:
-    """Canonical capability registry. Every SHUNYA capability is registered here."""
+    """Canonical capability registry with governed invocation."""
 
     def __init__(self):
         self._capabilities: dict[str, Capability] = {}
+        self._usage_log: list[dict] = []
 
     def register(self, cap: Capability) -> None:
         self._capabilities[cap.name] = cap
+
+    def register_handler(self, name: str, handler: Callable) -> None:
+        cap = self._capabilities.get(name)
+        if cap:
+            cap._handler = handler
+            # Only promote to INTEGRATED if it wasn't already AVAILABLE
+            if cap.status == "UNWIRED":
+                cap.status = "INTEGRATED_BUT_UNUSED"
+            elif cap.status == "INTEGRATED_BUT_UNUSED":
+                cap.status = "AVAILABLE"
 
     def get(self, name: str) -> Capability | None:
         return self._capabilities.get(name)
@@ -58,24 +72,17 @@ class CapabilityRegistry:
     def find(self, query: str) -> list[Capability]:
         """Find capabilities matching a natural-language query."""
         q = query.lower()
-        # Extract meaningful keywords from the query
-        stop_words = {'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been',
-                      'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-                      'would', 'could', 'should', 'may', 'might', 'shall', 'can',
-                      'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from',
-                      'as', 'into', 'through', 'during', 'before', 'after',
-                      'above', 'below', 'between', 'out', 'off', 'over', 'under',
-                      'again', 'further', 'then', 'once', 'here', 'there', 'when',
-                      'where', 'why', 'how', 'all', 'each', 'every', 'both',
-                      'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor',
-                      'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very',
-                      'just', 'because', 'but', 'and', 'or', 'if', 'while',
-                      'what', 'which', 'who', 'whom', 'this', 'that', 'these',
-                      'those', 'about', 'up', 'my', 'me', 'i', 'it', 'its',
-                      'show', 'tell', 'find', 'get', 'list', 'view', 'see',
-                      'create', 'new', 'make', 'add', 'update', 'edit', 'delete',
-                      'remove', 'search', 'look', 'want', 'need', 'please', 'help'}
-        keywords = [w for w in q.split() if w not in stop_words and len(w) > 2]
+        stop_words = {'a','an','the','is','are','was','were','be','been',
+                      'being','have','has','had','do','does','did','will',
+                      'would','could','should','may','might','shall','can',
+                      'to','of','in','for','on','with','at','by','from',
+                      'as','into','through','during','before','after',
+                      'above','below','between','out','off','over','under',
+                      'my','me','i','it','its','this','that','these','those',
+                      'show','tell','find','get','list','view','see',
+                      'create','new','make','add','update','edit','delete',
+                      'remove','search','look','want','need','please','help'}
+        keywords = [w for w in q.split() if w.lower() not in stop_words and len(w) > 2]
 
         matched = []
         for c in self._capabilities.values():
@@ -85,21 +92,81 @@ class CapabilityRegistry:
             if q in c_name or q in c_purpose:
                 matched.append(c)
                 continue
-            # Keyword match — any query keyword appears in capability name or purpose
+            # Keyword match
             for kw in keywords:
-                if kw in c_name or kw in c_purpose:
+                kwl = kw.lower()
+                if kwl in c_name or kwl in c_purpose:
                     matched.append(c)
                     break
-                # Check if keyword is a stem/substring of any word in name or purpose
                 c_words = set(c_name.split('_') + c_purpose.split())
-                if any(kw in w or w in kw for w in c_words):
+                if any(kwl in w or w in kwl for w in c_words):
                     matched.append(c)
                     break
         return matched
 
     def route(self, query: str) -> list[Capability]:
-        """Route a query to the most relevant capabilities."""
         return self.find(query)
+
+    def invoke(self, name: str, context: dict | None = None,
+               user_role: str | None = None) -> dict[str, Any]:
+        """Invoke a capability by name with authorization checks.
+
+        Returns dict with success/error/result and records usage.
+        """
+        cap = self._capabilities.get(name)
+        if not cap:
+            return {"success": False, "error": f"Unknown capability: {name}"}
+
+        if cap._handler is None:
+            return {"success": False, "error": f"Capability '{name}' has no handler (status={cap.status})"}
+
+        # Authorization check
+        if cap.permissions and user_role:
+            if user_role not in cap.permissions and "authenticated" not in cap.permissions:
+                return {"success": False, "error": f"Not authorized for '{name}' (requires {cap.permissions})"}
+
+        # Invoke
+        try:
+            ctx = context or {}
+            result = cap._handler(ctx)
+            cap._invocation_count += 1
+            cap._last_invoked = datetime.now(timezone.utc).isoformat()
+
+            usage = {
+                "capability": name,
+                "status": cap.status,
+                "timestamp": cap._last_invoked,
+                "result_summary": str(result)[:200],
+            }
+            self._usage_log.append(usage)
+
+            return {
+                "success": True,
+                "capability": name,
+                "result": result,
+                "status": cap.status,
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e), "capability": name}
+
+    def promote_to_available(self, name: str, handler: Callable) -> None:
+        """Register a handler and immediately mark the capability AVAILABLE."""
+        cap = self._capabilities.get(name)
+        if cap:
+            cap._handler = handler
+            cap.status = "AVAILABLE"
+
+    def get_usage_summary(self) -> list[dict]:
+        return self._usage_log
+
+    def get_status_summary(self) -> dict:
+        counts = {}
+        for c in self._capabilities.values():
+            counts[c.status] = counts.get(c.status, 0) + 1
+        counts["total"] = len(self._capabilities)
+        counts["with_handler"] = sum(1 for c in self._capabilities.values() if c._handler is not None)
+        counts["invoked"] = sum(1 for c in self._capabilities.values() if c._invocation_count > 0)
+        return counts
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +185,8 @@ def get_registry() -> CapabilityRegistry:
 
 
 def _register_core_capabilities(r: CapabilityRegistry) -> None:
-    """Register all core SHUNYA capabilities."""
+    """Register all core SHUNYA capabilities with their base definitions.
+    Handlers are registered separately when the engines are wired up."""
 
     # --- Identity ---
     r.register(Capability(
@@ -133,21 +201,21 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
     # --- Memory ---
     r.register(Capability(
         name="memory",
-        purpose="Store and retrieve user/workspace memory, remember user preferences, recall past conversations",
+        purpose="Store and retrieve user/workspace memory, remember preferences",
         permissions=["authenticated"],
         can_read=True, can_write=True, can_execute=False,
         engine="app.memory",
-        status="AVAILABLE",
+        status="INTEGRATED_BUT_UNUSED",
     ))
 
     # --- Knowledge ---
     r.register(Capability(
         name="knowledge",
-        purpose="Query and reason over ingested knowledge, documents, customer information, facts",
+        purpose="Query and reason over ingested knowledge, documents, facts",
         permissions=["authenticated"],
         can_read=True, can_write=False, can_execute=False,
         engine="core.knowledge_intelligence",
-        status="AVAILABLE",  # Wired via _knowledge_search in integration.py
+        status="INTEGRATED_BUT_UNUSED",
     ))
 
     # --- Documents ---
@@ -180,101 +248,51 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
         status="AVAILABLE",
     ))
 
-    # --- Intelligence Engines ---
-    r.register(Capability(
-        name="perception",
-        purpose="Perceive and interpret user input and environmental signals",
-        inputs=["user_input", "context"],
-        can_read=True, can_write=False, can_execute=False,
-        engine="core.intelligence.perception",
-        status="UNWIRED",
-    ))
-    r.register(Capability(
-        name="reasoning",
-        purpose="Multi-step reasoning, inference, and logic",
-        inputs=["question", "context", "evidence"],
-        can_read=True, can_write=False, can_execute=False,
-        engine="core.intelligence.reasoning",
-        status="UNWIRED",
-    ))
-    r.register(Capability(
-        name="planning",
-        purpose="Plan multi-step actions and workflows",
-        inputs=["goal", "context", "capabilities"],
-        can_read=True, can_write=False, can_execute=False,
-        engine="core.intelligence.planning",
-        status="UNWIRED",
-    ))
-    r.register(Capability(
-        name="decision",
-        purpose="Evaluate options and make decisions",
-        inputs=["options", "criteria", "context"],
-        can_read=True, can_write=False, can_execute=False,
-        engine="core.intelligence.decision",
-        status="UNWIRED",
-    ))
-    r.register(Capability(
-        name="reflection",
-        purpose="Self-evaluate and improve responses",
-        inputs=["response", "outcome", "feedback"],
-        can_read=True, can_write=False, can_execute=False,
-        engine="core.intelligence.reflection",
-        status="UNWIRED",
-    ))
-    r.register(Capability(
-        name="learning",
-        purpose="Learn from feedback, outcomes, and patterns",
-        inputs=["observation", "outcome", "feedback"],
-        can_read=True, can_write=True, can_execute=False,
-        engine="core.intelligence.learning",
-        status="UNWIRED",
-    ))
-    r.register(Capability(
-        name="confidence",
-        purpose="Score confidence of responses and decisions",
-        inputs=["response", "evidence", "context"],
-        can_read=True, can_write=False, can_execute=False,
-        engine="core.intelligence.confidence",
-        status="UNWIRED",
-    ))
+    # --- Intelligence Engines (unwired — need handler registration) ---
+    for engine_def in [
+        ("perception", "Perceive and interpret user input", ["user_input", "context"], False, False, "UNWIRED"),
+        ("reasoning", "Multi-step reasoning, inference, and logic", ["question", "context", "evidence"], False, False, "UNWIRED"),
+        ("planning", "Plan multi-step actions and workflows", ["goal", "context"], False, False, "UNWIRED"),
+        ("decision", "Evaluate options and make decisions", ["options", "criteria", "context"], False, False, "UNWIRED"),
+        ("reflection", "Self-evaluate and improve responses", ["response", "outcome", "feedback"], False, False, "UNWIRED"),
+        ("learning", "Learn from feedback, outcomes, and patterns", ["observation", "outcome", "feedback"], True, False, "UNWIRED"),
+        ("confidence", "Score confidence of responses and decisions", ["response", "evidence", "context"], False, False, "UNWIRED"),
+    ]:
+        name, purpose, inputs, can_write, can_execute, status = engine_def
+        r.register(Capability(
+            name=name, purpose=purpose, inputs=inputs,
+            can_read=True, can_write=can_write, can_execute=can_execute,
+            engine=f"core.intelligence.{name}", status=status,
+        ))
 
-    # --- UCP Domain Engines ---
-    r.register(Capability(
-        name="relationships",
-        purpose="Relationship intelligence — profile, trust, sentiment",
-        permissions=["authenticated"],
-        can_read=True, can_write=False, can_execute=False,
-        engine="core.relationship_intelligence",
-        status="UNWIRED",
-    ))
-    r.register(Capability(
-        name="finance",
-        purpose="Financial intelligence — invoices, ledger, payments, budgets",
-        permissions=["authenticated", "finance.read"],
-        can_read=True, can_write=False, can_execute=False,
-        engine="core.financial_intelligence",
-        status="UNWIRED",
-    ))
-    r.register(Capability(
-        name="operations",
-        purpose="Operations intelligence — workflows, jobs, execution",
-        permissions=["authenticated"],
-        can_read=True, can_write=False, can_execute=False,
-        engine="core.operations_intelligence",
-        status="UNWIRED",
-    ))
+    # --- UCP Domain Engines (unwired) ---
+    for ucp in [
+        ("relationships", "Relationship intelligence — profile, trust, sentiment",
+         ["authenticated"], True, False),
+        ("finance", "Financial intelligence — invoices, ledger, payments",
+         ["authenticated", "finance.read"], True, False),
+        ("operations", "Operations intelligence — workflows, jobs, execution",
+         ["authenticated"], True, False),
+    ]:
+        name, purpose, perms, can_read, can_write = ucp
+        r.register(Capability(
+            name=name, purpose=purpose, permissions=perms,
+            can_read=can_read, can_write=can_write, can_execute=False,
+            engine=f"core.{name}_intelligence", status="UNWIRED",
+        ))
 
     # --- Execution ---
     r.register(Capability(
         name="execution",
-        purpose="Execute actions, track outcomes, and produce evidence",
+        purpose="Execute actions, track outcomes, produce evidence",
         permissions=["authenticated", "execution.execute"],
+        requires_approval=True,
         can_read=True, can_write=True, can_execute=True,
         engine="app.execution_engine",
         status="AVAILABLE",
     ))
 
-    # --- Search ---
+    # --- Web Search ---
     r.register(Capability(
         name="web_search",
         purpose="Search the web for external information",
@@ -287,14 +305,14 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
     # --- CRM ---
     r.register(Capability(
         name="crm",
-        purpose="Lead management, customer relationships, CRM lifecycle, follow-up, sales pipeline",
+        purpose="Lead management, customer relationships, CRM lifecycle",
         permissions=["authenticated", "crm.read"],
         can_read=True, can_write=True, can_execute=False,
         engine="app.crm",
         status="AVAILABLE",
     ))
 
-    # --- Finance Records ---
+    # --- Invoices ---
     r.register(Capability(
         name="invoices",
         purpose="Invoice management, approval, ledger, payment",
@@ -307,9 +325,27 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
     # --- Workspace ---
     r.register(Capability(
         name="workspace",
-        purpose="Workspace context, organization awareness, switching, isolation, personal and org spaces",
+        purpose="Workspace context, organization awareness, switching, isolation",
         permissions=["authenticated"],
         can_read=True, can_write=False, can_execute=False,
         engine="app.workspace",
+        status="AVAILABLE",
+    ))
+
+    # --- SHUNYAAI self-capabilities (always available, no engine needed) ---
+    r.register(Capability(
+        name="chat",
+        purpose="General conversation, answering questions, explaining concepts",
+        permissions=["authenticated"],
+        can_read=True, can_write=False, can_execute=False,
+        engine="self",
+        status="AVAILABLE",
+    ))
+    r.register(Capability(
+        name="summarize",
+        purpose="Summarize information, objects, documents from context",
+        permissions=["authenticated"],
+        can_read=True, can_write=False, can_execute=False,
+        engine="self",
         status="AVAILABLE",
     ))

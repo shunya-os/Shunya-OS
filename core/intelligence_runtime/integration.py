@@ -465,6 +465,26 @@ def ask(query: str, session_id: str = "", module_key: str = "",
     result["latency_ms"] = latency_ms
     result["capability_context"] = capability_context
 
+    # ── Execution Chain — record every interaction for auditability ──
+    try:
+        from core.execution_chain import record_full_chain
+        # Determine if the query is an action (capability permits execution)
+        is_action = capability_context.get("can_execute", False)
+        chain_result = record_full_chain(
+            query=query,
+            action_type="execute" if is_action else None,
+            identity_id=identity_id or "anonymous",
+            tenant_id=int(tenant_id) if tenant_id and tenant_id != "" else 0,
+            confidence=response.trace.confidence if response.trace else 0.5,
+            response_summary=(result.get("content") or result.get("response") or "")[:500],
+            success=True,
+        )
+        result["execution_chain"] = chain_result
+    except Exception as chain_err:
+        import logging
+        logging.getLogger(__name__).warning(f"Execution chain recording failed: {chain_err}")
+        result["execution_chain"] = {"error": str(chain_err)}
+
     if explain and response.trace:
         from core.intelligence_runtime.explain import ExplainabilityEngine
         result["explanation"] = ExplainabilityEngine.explain_response(response)
