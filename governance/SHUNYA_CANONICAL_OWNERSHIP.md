@@ -4,7 +4,7 @@
 
 **Created:** 2026-09-01 (ZGC-PR-17.1)
 **Maintained by:** Hermes Agent (PERMANENT GOVERNANCE)
-**Version:** 1.1.0 (corrected 2026-09-01)
+**Version:** 1.2.0 (corrected 2026-09-01, G1.1-R2 audit findings applied)
 
 ---
 
@@ -31,13 +31,13 @@
 | TeamMember | `app/auth.py` | **CANONICAL** | Primary auth model, Flask session bridge |
 | OrgMember | `app/models.py` | **CANONICAL** | Organization membership, links identity to org |
 | SHUNYAIdentity | `app/production/identity_repository.py` | **DUPLICATE** | Consolidate identity resolution into TeamMember |
-| identity_runtime | `core/identity_runtime.py` | **ORPHAN** | No consumer — evaluate for removal or wire as adapter |
-| identity_engine | `core/identity_engine.py` | **DUPLICATE** | Competes with TeamMember — consolidate |
+| identity_runtime | `core/identity_runtime.py` | **ORPHAN** | YES (5 callers) — convert to thin adapter over app/auth.py TeamMember, or REMOVE per G1.1-R2 audit |
+| identity_engine | `core/identity_engine.py` | **REMOVE** | Fully duplicated by TeamMember + app/context/ — remove per G1.1-R2 audit |
 | IdentityRepository | `app/production/identity_repository.py` | **DUPLICATE** | Competes with TeamMember |
-| IdentityInterface | `core/identity_interface.py` | **ORPHAN** | No consumer |
+| IdentityInterface | `core/identity_interface.py` | **ORPHAN** | Tests-only (8 of 11 callers are tests) — move to tests/ or adapt if consumer emerges per G1.1-R2 audit |
 | Session identity resolution | `app/__init__.py` (before_request) | **CANONICAL** | The unified g.identity_id middleware |
 
-**Convergence:** TeamMember + OrgMember = CANONICAL. `identity_runtime.py` and `identity_engine.py` should be evaluated. If they add value not in TeamMember (e.g., external identity providers), convert to adapters. Otherwise, remove.
+**Convergence:** TeamMember + OrgMember = CANONICAL. `identity_runtime.py` should be converted to a thin adapter over app/auth.py TeamMember. `identity_engine.py` marked for **REMOVE** — fully duplicated by TeamMember + app/context/ per G1.1-R2 audit. `IdentityInterface` moved to tests/ (no production consumer).
 
 ### User
 
@@ -138,20 +138,20 @@
 | Implementation | Location | Classification | Action |
 |---------------|----------|---------------|--------|
 | MemoryRecord (app/memory/) | `app/memory/models.py` | **CANONICAL** | Persistent DB memory |
-| MemoryEngine (runtime) | `core/intelligence_runtime/memory.py` | **ORPHAN** | In-memory, not persistent — connect to MemoryRecord |
-| MemoryRuntime | `core/memory_knowledge_runtime/` | **ORPHAN** | No consumer |
+| MemoryEngine (runtime) | `core/intelligence_runtime/memory.py` | **CANONICAL** | Runtime memory — 230 callers, IS the canonical in-memory memory engine. Bridged to MemoryRecord via memory_db.py. Apply pending migration zgc_pr_17c_durable_memory_fields |
+| MemoryRuntime | `core/memory_knowledge_runtime/` | **ORPHAN** | No consumer — concept split across UCP-04 and app/memory/. DECOMMISSION per G1.1-R2 audit |
 | MemoryAPI | `app/memory_api/` | **CANONICAL** | Memory REST API |
 
-**Convergence:** MemoryRecord = CANONICAL persistence. MemoryEngine should be connected to use MemoryRecord as its backing store. MemoryRuntime evaluated.
+**Convergence:** MemoryRecord = CANONICAL persistence. MemoryEngine = CANONICAL runtime memory (classification corrected per G1.1-R2 audit — 230 callers, IS the runtime memory). Bridge via memory_db.py exists; apply pending migration zgc_pr_17c_durable_memory_fields. MemoryRuntime to be DECOMMISSIONED (concept split across UCP-04 and app/memory/).
 
 ### Event
 
 | Implementation | Location | Classification | Action |
 |---------------|----------|---------------|--------|
 | Events (CIR) | `app/events/` | **CANONICAL** | Delta events, SSE |
-| Event system | `core/event/` | **ORPHAN** | No consumer — evaluate wiring |
+| Event system | `core/event/` | **TEST-ONLY** | Explicitly quarantined as test-only by its own `__init__.py`. Only test callers. Remove from production per G1.1-R2 audit |
 
-**Convergence:** app/events/ = CANONICAL. core/event/ evaluated for wiring.
+**Convergence:** app/events/ = CANONICAL. core/event/ reclassified to TEST-ONLY per G1.1-R2 audit — explicitly quarantined production code; keep as test utility only.
 
 ### Observation
 
@@ -197,10 +197,10 @@
 | Implementation | Location | Classification | Action |
 |---------------|----------|---------------|--------|
 | Execution (execution_engine/) | `app/execution_engine/models.py` | **CANONICAL** | Execution lifecycle |
-| ExecutionRuntime | `core/execution_runtime/` | **ORPHAN** | No consumer |
-| Execution (execution/) | `app/execution/models.py` | **DUPLICATE** | Outcome model overlaps with execution_engine |
+| ExecutionRuntime | `core/execution_runtime/` | **ORPHAN** | No consumer — 8 UCP callers but none wired to production. DECOMMISSION and rewire to app/execution_engine/ per G1.1-R2 audit |
+| Execution (execution/) | `app/execution/models.py` | **COMPATIBILITY** | NOT a competing execution engine — Outcome is user-facing outcome recording. Wraps execution_engine per G1.1-R2 audit |
 
-**Convergence:** execution_engine = CANONICAL. core/execution_runtime/ evaluated. execution/models.py Outcome = CANONICAL for outcomes.
+**Convergence:** execution_engine = CANONICAL for execution process. core/execution_runtime/ DECOMMISSIONED — 8 UCP callers rewire to app/execution_engine/ per G1.1-R2 audit. execution/models.py Outcome reclassified to **COMPATIBILITY** — it is user-facing outcome recording, NOT a competing execution engine.
 
 ### Evidence
 
@@ -232,7 +232,7 @@
 | ContinuousLoop | `app/runtime/loop.py` | **CANONICAL** | Background execution loop |
 | ExecutionIntelligence | `app/execution_intelligence/` | **REMOVE** | Archived stub |
 
-**Convergence:** execution_engine + ContinuousLoop = CANONICAL. core/execution_runtime/ evaluated. execution_intelligence/ removed.
+**Convergence:** execution_engine + ContinuousLoop = CANONICAL. core/execution_runtime/ DECOMMISSIONED — phantom dependency chain (8 UCP callers not wired to production) per G1.1-R2 audit. execution_intelligence/ removed.
 
 ### Audit
 
@@ -279,12 +279,12 @@ M8 `/api/v1/intelligence/ask` stays as company-first executive intelligence but 
 | Implementation | Location | Classification | Action |
 |---------------|----------|---------------|--------|
 | IntelligenceRuntime | `core/intelligence_runtime/` | **CANONICAL** | Kernel runtime — intent, context, memory, retrieval, reasoning, planner, execution, conversation, suggestions, explain |
-| 8 Intelligence Engines | `core/intelligence/{perception,context_assembly,reasoning,planning,decision,reflection,learning,confidence}` | **ORPHAN** | Standalone, no consumer — wire into learning loop |
-| CognitiveRuntime | `core/cognitive_runtime/` | **ORPHAN** | No consumer — evaluate wiring |
+| 8 Intelligence Engines | `core/intelligence/{perception,context_assembly,reasoning,planning,decision,reflection,learning,confidence}` | **ORPHAN** | Orchestrated by CognitiveRuntime (CANONICAL). Wire into learning loop as CognitiveRuntime plugins per G1.1-R2 audit |
+| CognitiveRuntime | `core/cognitive_runtime/` | **CANONICAL** | Canonical orchestrator for the 8 intelligence engines — feeds into IntelligenceRuntime per G1.1-R2 audit |
 | M8 Intelligence service | `app/intelligence/service.py` | **CANONICAL** | Executive intelligence service |
 | MixedRouter | `app/intelligence/mixed_router.py` | **DUPLICATE** | Parallel routing abstraction — converge into orchestrator |
 
-**Convergence:** IntelligenceRuntime = CANONICAL kernel. 8 engines wired into learning loop. MixedRouter evaluated for convergence.
+**Convergence:** IntelligenceRuntime = CANONICAL kernel. CognitiveRuntime = CANONICAL orchestrator for the 8 intelligence engines (classification corrected per G1.1-R2 audit). The 8 engines wired as CognitiveRuntime plugins. MixedRouter evaluated for convergence.
 
 ### Memory / Knowledge / Conversation Relationship
 
@@ -327,11 +327,12 @@ M8 `/api/v1/intelligence/ask` stays as company-first executive intelligence but 
 || **CONNECT** (memory → DB, conversation → DB) | 2 | HIGH (code exists, migration pending) |
 || **WIRE** (UCP engines into SHUNYAAI retrieval) | 10 | MEDIUM |
 || **CONVERT** (app/ai/provider.py → orchestrator adapter) | 1 | HIGH |
-|| **CONSOLIDATE** (object stores, identity) | 2 | HIGH |
+|| **CONSOLIDATE** (object stores) | 1 | HIGH |
 || **MIGRATE** (FounderObject → sh_objects, KnowledgeDocument → DocumentRecord) | 2 | MEDIUM |
-|| **EVALUATE** (orphan runtimes) | 5 | MEDIUM |
-|| **REMOVE** (execution_intelligence stub) | 1 | LOW |
-|| **WIRE** (8 intelligence engines → learning loop) | 1 | MEDIUM |
+|| **DECOMMISSION** (execution_runtime, planning_runtime, memory_knowledge_runtime, workspace_runtime) | 4 | HIGH (phantom dependency chains) |
+|| **REMOVE** (identity_engine, execution_intelligence stub, core/event/ from production) | 3 | MEDIUM |
+|| **REVISE CLASSIFICATION** (MemoryEngine→CANONICAL, CognitiveRuntime→CANONICAL, core/event/→TEST-ONLY, Outcome→COMPATIBILITY) | 4 | HIGH (corrects ownership map) |
+|| **WIRE** (8 intelligence engines → CognitiveRuntime plugins) | 1 | MEDIUM |
 
 ---
 
