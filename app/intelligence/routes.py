@@ -558,6 +558,73 @@ def api_ask():
             "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
         })
 
+    # ── Stage 4.5: SHUNYAAI Intelligence Pipeline ──────────────────
+    # Run the 8-engine pipeline to enrich evidence with structured
+    # reasoning, planning, and decision context before the LLM call.
+    pipeline_stage_start = time.monotonic()
+    shunyaai_pipeline_result = None
+    try:
+        from core.shunyaai_pipeline import get_pipeline
+        pipeline = get_pipeline()
+        pipe_result = pipeline.run(
+            user_input=question,
+            identity_id=tenant.get("identity_id", ""),
+            tenant_id=str(tenant.get("tenant_id", "")),
+            workspace=tenant.get("workspace", ""),
+            session_id=tenant.get("identity_id", "anon"),
+        )
+        shunyaai_pipeline_result = pipe_result
+
+        # Inject pipeline reasoning into company evidence so the LLM
+        # receives structured context: perception observation, reasoning
+        # conclusion, plan, decision options.
+        conclusion = pipe_result.final_output.get("conclusion", "")
+        if conclusion:
+            company_evidence.append({
+                "content": f"SHUNYAAI reasoning: {conclusion[:500]}",
+                "source": "shunyaai_pipeline/reasoning",
+                "semantic": "INFERENCE",
+                "classification": "company_truth",
+                "confidence": 0.80,
+            })
+            evidence_semantic_states.add("INFERENCE")
+
+        plan_steps = pipe_result.final_output.get("plan", {}).get("steps", [])
+        if plan_steps:
+            steps_text = "; ".join([s.get("action", s.get("description", ""))[:100] for s in plan_steps])
+            company_evidence.append({
+                "content": f"SHUNYAAI plan ({len(plan_steps)} steps): {steps_text[:500]}",
+                "source": "shunyaai_pipeline/planning",
+                "semantic": "INFERENCE",
+                "classification": "company_truth",
+                "confidence": 0.75,
+            })
+            evidence_semantic_states.add("INFERENCE")
+
+        pipeline_stages.append({
+            "stage": "shunyaai_pipeline",
+            "status": "completed",
+            "stages_completed": pipe_result.stages_completed,
+            "total_stages": 8,
+            "stages_detail": {
+                name: {
+                    "confidence": info.get("confidence", 0.0),
+                    "latency_ms": info.get("latency_ms", 0.0),
+                    "error": info.get("error"),
+                }
+                for name, info in pipe_result.stages.items()
+            },
+            "duration_ms": round((time.monotonic() - pipeline_stage_start) * 1000, 1),
+        })
+    except Exception as pipe_err:
+        logger.warning(f"SHUNYAAI pipeline failed: {pipe_err}")
+        pipeline_stages.append({
+            "stage": "shunyaai_pipeline",
+            "status": "error",
+            "error": str(pipe_err)[:200],
+            "duration_ms": round((time.monotonic() - pipeline_stage_start) * 1000, 1),
+        })
+
     # ── Stage 5: Inference Governance (deterministic-first + capability routing + orchestrator) ──
     stage_start = time.monotonic()
     from core.inference_governance import InferenceGovernanceService, reset_governance_service
@@ -628,6 +695,9 @@ def api_ask():
     # Action queries produce full decision → execution → evidence → observation → outcome chain.
     chain_result = None
     try:
+        # Rollback any stale transaction from inference governance
+        _db.session.rollback()
+
         from core.execution_chain import record_read_chain, record_action_chain, complete_action_chain
         chain_action_type = data.get("action", "").strip()
         if execute and chain_action_type:

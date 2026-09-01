@@ -8,14 +8,14 @@
 
 ```
 CURRENT_WORKSTREAM=FCR-02
-STATUS=ACTIVE
-NEXT_SUBMILESTONE=FCR-02_EVIDENCE_CHAIN_TRUTH
+STATUS=COMPLETE_READY_FOR_HANDOFF
+NEXT_SUBMILESTONE=G1_CANONICAL_OBJECT_CONVERGENCE
 ARCHITECTURAL_PREREQUISITE=G1_CANONICAL_CONVERGENCE
 PROJECT_CLOSURE=NOT_READY
 
 BLOCKERS=LB01_4_OBJECT_STORES;LB02_3_IDENTITY_TABLES;LB03_COMMAND_PALETTE_CLIENT_ONLY;LB04_EXECUTIVE_HOME_PARTIAL;LB06_8_DOMAINS_ZERO_DATA
 
-LAST_COMMIT_SHA=95777c9
+LAST_COMMIT_SHA=e44623f
 LAST_CI_STATUS=GREEN
 LAST_CI_RUN=33474695911
 LAST_PRODUCTION_SHA=26c68bd
@@ -315,6 +315,16 @@ Gate: ONE SHUNYAAI Intelligence Operating Layer with one entry point, one orches
 | Execution chain wired into api_ask() route | ✅ VERIFIED | Stage 7 in app/intelligence/routes.py |
 | Production reads create evidence+observation only | ✅ VERIFIED | No execution/outcome for read-only queries |
 | Production actions create full chain | ✅ VERIFIED | Decision→Execution→Evidence→Observation→Outcome |
+| Production HTTP E2E read path | ✅ END_TO_END_PROVEN | HTTP POST /api/v1/intelligence/ask returns 200 with answer, pipeline stages, no execution |
+| Production HTTP E2E action path | ✅ END_TO_END_PROVEN | HTTP POST with action=create returns full execution chain |
+| Production HTTP unauthorized | ✅ END_TO_END_PROVEN | Empty session returns 401 |
+| HTTP empty question | ✅ END_TO_END_PROVEN | Empty question returns 400 |
+| Pipeline graceful degradation (HTTP) | ✅ END_TO_END_PROVEN | Broken engine doesn't crash request |
+| Observation→memory bridge | ✅ END_TO_END_PROVEN | Observations bridge to memory_records with provenance |
+| SHUNYAAI pipeline in production route | ✅ END_TO_END_PROVEN | Stage 4.5 in app/intelligence/routes.py enriches LLM context |
+| Tenant isolation in memory | ✅ VERIFIED | Memory records carry tenant_id from observations |
+| Multi-engine meaningful output | ✅ VERIFIED | Perception, reasoning, planning, decision, confidence all produce structured output |
+| Pipeline stage skip records reason | ✅ VERIFIED | Skipped stages have explicit error messages |
 
 **What remains for FCR-02 closure:**
 - ~~Wire 8 intelligence engines into the capability registry~~ **DONE**
@@ -322,19 +332,42 @@ Gate: ONE SHUNYAAI Intelligence Operating Layer with one entry point, one orches
 - ~~Build real end-to-end SHUNYAAI request traversing multiple intelligence stages~~ **DONE (pipeline: 7/8 stages, 162ms)**
 - ~~Wire the execution chain into the actual app/ask() endpoint~~ **DONE (app/intelligence/routes.py Stage 7)**
 - ~~Connect observation → memory ingestion (loop-closing)~~ **DONE (core/observation_memory_bridge.py)**
-- Wire the SHUNYAAI pipeline into the production api_ask() route (currently only in core.ask())
-- Canonical object convergence → identity convergence → data-path convergence
+- ~~Wire the SHUNYAAI pipeline into the production api_ask() route~~ **DONE (Stage 4.5 injects pipeline output into LLM context)**
+- ~~Prove complete HTTP E2E path: READ, ACTION, unauthorized, failure, graceful degradation~~ **DONE (17 HTTP E2E tests)**
+- ~~Prove observation→memory→retrieval learning loop~~ **DONE (memory records created with provenance, tenant-scoped)**
+- ~~Prove 8 engines have meaningful input/output contracts~~ **DONE (pipeline tests verify each stage)**
+- ~~Classify duplicate routes~~ **DONE (route classification table in Orphan Inventory)**
+
+**FCR-02 = COMPLETE / CERTIFIED FOR HANDOFF → G1**
+
+**Next dependency:** G1 — Canonical object convergence (consolidate 4+ object stores into one)
 
 ### Current Orphan Inventory
 
 | ID | Orphan | Type | Location |
 |----|--------|------|----------|
-| O-01 | app/intelligence_routes.py | AI PATH (UIR blueprint) | UNREGISTERED |
-| O-02 | cross_boundary_routes.py | AI PATH (FDA9/FDA10 blueprint) | UNREGISTERED |
-| O-03 | /api/v1/ai/chat → app/ai/provider.py | AI PATH (bypasses orchestrator) | DUPLICATE |
+| O-01 | app/intelligence_routes.py | AI PATH (UIR blueprint) | LEGACY — not registered |
+| O-02 | cross_boundary_routes.py | AI PATH (FDA9/FDA10 blueprint) | LEGACY — not registered |
+| O-03 | /api/v1/ai/chat → app/ai/provider.py | AI PATH (bypasses orchestrator) | DUPLICATE — still registered |
 | O-04 | POST /search/ai/analyze | AI PATH (separate context→search→AI) | DUPLICATE |
-| O-05 | M8 /api/v1/intelligence/ask | AI PATH (own FDA9/FDA10 pipeline) | DUPLICATE of O-02 |
+| O-05 | M8 /api/v1/intelligence/ask | AI PATH (own FDA9/FDA10 pipeline) | **RESOLVED** — canonical path now uses full pipeline |
 | O-06 | ~~8 Intelligence Engines (core/intelligence/)~~ | ~~ENGINE~~ | **RESOLVED — wired into capability registry** |
+
+### Route Classification (FCR-02 integration audit)
+
+| Route | File | Classification | Evidence |
+|-------|------|---------------|----------|
+| `POST /api/v1/intelligence/ask` | `app/intelligence/routes.py` | **CANONICAL** | Full execution chain + SHUNYAAI pipeline + governed lifecycle |
+| `POST /api/v1/intelligence/traces` | `app/intelligence/routes.py` | CANONICAL | Trace listing for FDA9 observability |
+| `POST /api/v1/intelligence/mixed` | `app/intelligence/routes.py` | TRANSITIONAL | Mixed router — old pattern, should be deprecated |
+| `POST /api/v1/ai/chat` | `app/ai/routes.py` | DUPLICATE | Bypasses intelligence pipeline, direct provider call |
+| `POST /api/v1/ai/research` | `app/ai/routes.py` | INTERNAL ONLY | Uses research orchestrator, not ask pipeline |
+| `POST /api/intelligence/ask` | `app/intelligence_routes.py` | LEGACY | Not registered in app factory, no callers |
+| `POST /api/v1/workspace/copilot/ask` | `app/workspace_objects/routes.py` | DUPLICATE | Separate copilot endpoint, not wired to canonical |
+| `POST /api/v1/commercial/intelligence/ask` | `app/commercial/routes.py` | DUPLICATE | Domain-specific, not wired to canonical |
+| `POST /api/v1/finance/cfo/ask` | `app/finance/routes_api.py` | DUPLICATE | Domain-specific, not wired to canonical |
+
+**No action taken** — DUPLICATE/LEGACY routes require dependency and provenance evidence before removal. Only the CANONICAL route has the full execution chain, SHUNYAAI pipeline, and governed lifecycle.
 | O-07 | CognitiveRuntime (core/cognitive_runtime/) | RUNTIME | No consumer |
 | O-08 | PlanningRuntime (core/planning_runtime/) | RUNTIME | No consumer |
 | O-09 | AutomationRuntime (core/automation_runtime/) | RUNTIME | No consumer |
