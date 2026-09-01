@@ -50,8 +50,12 @@ def check_git_state() -> dict:
     head = sh("git rev-parse HEAD")
     result["local_head"] = head if head else "UNKNOWN"
 
-    # Check remote
-    remote = sh("git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null")
+    # Check remote — use current branch's upstream
+    current_branch = sh("git rev-parse --abbrev-ref HEAD")
+    if current_branch and current_branch != "HEAD":
+        remote = sh(f"git rev-parse origin/{current_branch} 2>/dev/null")
+    else:
+        remote = sh("git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null")
     result["remote_head"] = remote if remote else "UNKNOWN"
 
     dirty = sh("git status --porcelain")
