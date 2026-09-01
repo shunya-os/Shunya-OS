@@ -4,7 +4,7 @@
 
 **Created:** 2026-09-01 (ZGC-PR-17.1)
 **Maintained by:** Hermes Agent (PERMANENT GOVERNANCE)
-**Version:** 1.0.0
+**Version:** 1.1.0 (corrected 2026-09-01)
 
 ---
 
@@ -264,15 +264,15 @@
 | `/api/v1/ai/chat` | `app/ai/routes.py` | **CANONICAL** | Frontend's primary AI entry point |
 | `/api/v1/intelligence/ask` | `app/intelligence/routes.py` | **CANONICAL** | Executive intelligence, company-first pipeline |
 | `/api/intelligence/ask` | `app/intelligence_routes.py` | **ORPHAN** | UIR blueprint UNREGISTERED — keep as internal API, not a public surface |
-| `/api/v1/cross-boundary/ask` | `cross_boundary_routes.py` | **ORPHAN** | FDA9/FDA10 boundary UNREGISTERED — register as security gate |
+|| `/api/v1/cross-boundary` | `core/intelligence_runtime/cross_boundary_routes.py` | **CANONICAL** | FDA9/FDA10 security boundary — REGISTERED via cb_bp at app.__init__:935 |
 | `/search/ai/analyze` | `app/search/routes.py` | **COMPATIBILITY** | Search-specific adapter — acceptable |
 
-**Convergence:** `/api/v1/ai/chat` = CANONICAL front door. Internally delegates to:
-1. `core.intelligence_runtime.integration.ask()` (canonical kernel)
-2. InferenceOrchestrator (canonical provider routing)
-3. CrossBoundaryIntelligenceService (canonical auth boundary)
+**Convergence:** `/api/v1/ai/chat` = CANONICAL front door. Internally delegates to (3-tier fallback):
+1. `core.intelligence_runtime.integration.ask()` (SHUNYAAI kernel — primary)
+2. InferenceOrchestrator (canonical provider routing — secondary)
+3. app/ai/provider.py registry (direct provider chain — tertiary resilience)
 
-M8 `/api/v1/intelligence/ask` stays as company-first executive intelligence but delegates its model call through the orchestrator. `/api/v1/cross-boundary/ask` registered as the canonical security boundary for execution authorization.
+M8 `/api/v1/intelligence/ask` stays as company-first executive intelligence but delegates its model call through the orchestrator. `/api/v1/cross-boundary` (cb_bp) IS registered as the canonical security boundary for execution authorization at app.__init__:935. `app/intelligence_routes.py` (UIR blueprint) remains UNREGISTERED — legacy file exists but blueprint is explicitly not mounted per app.__init__:948 comment "removed — single canonical path."
 
 ### Intelligence Runtimes
 
@@ -290,13 +290,14 @@ M8 `/api/v1/intelligence/ask` stays as company-first executive intelligence but 
 
 | Implementation | Location | Classification | Action |
 |---------------|----------|---------------|--------|
-| MemoryEngine (runtime) | `core/intelligence_runtime/memory.py` | **CANONICAL** | In-memory 4-tier memory |
-| MemoryRecord (DB) | `app/memory/models.py` | **CANONICAL** | Persistent memory |
-| ConversationRuntime | `core/intelligence_runtime/conversation.py` | **CANONICAL** | 50-message rolling window |
+|| MemoryEngine (runtime) | `core/intelligence_runtime/memory.py` | **CANONICAL** | In-memory 4-tier memory, connected to DB via memory_db.py bridge |
+|| MemoryRecord (DB) | `app/memory/models.py` | **CANONICAL** | Persistent DB memory — bridge via app/memory_api/memory_db.py |
+|| ConversationRuntime | `core/intelligence_runtime/conversation.py` | **CANONICAL** | 50-message rolling window |
+|| MemoryRuntime | `core/memory_knowledge_runtime/` | **ORPHAN** | No consumer — evaluate |
 | ExternalConversation (DB) | `app/communication/models.py` | **CANONICAL** | Persistent conversation |
 | KnowledgeIntelligence (UCP-04) | `core/knowledge_intelligence/` | **CANONICAL** | Knowledge graph, gaps |
 
-**Convergence:** Runtime memory + DB memory = connected (MemoryEngine uses MemoryRecord as backing store). Runtime conversation + DB conversation = connected (ConversationRuntime uses ExternalConversation as backing store). Knowledge wired into retrieval.
+**Convergence:** Runtime memory + DB memory = connected (MemoryEngine uses MemoryRecord as backing store via app/memory_api/memory_db.py durable bridge). Migration `zgc_pr_17c_durable_memory_fields` exists but NOT YET APPLIED to production DB (alembic head at 0013, not at latest). ConversationRuntime + DB conversation = connected. Knowledge wired into retrieval.
 
 ---
 
@@ -319,17 +320,18 @@ M8 `/api/v1/intelligence/ask` stays as company-first executive intelligence but 
 
 ## Summary of Convergence Actions
 
-| Action | Count | Priority |
-|--------|-------|----------|
-| **REGISTER** (blueprints) | 2 | CRITICAL |
-| **CONNECT** (memory → DB, conversation → DB) | 2 | HIGH |
-| **WIRE** (UCP engines into SHUNYAAI retrieval) | 10 | MEDIUM |
-| **CONVERT** (app/ai/provider.py → orchestrator adapter) | 1 | HIGH |
-| **CONSOLIDATE** (object stores, identity) | 2 | HIGH |
-| **MIGRATE** (FounderObject → sh_objects, KnowledgeDocument → DocumentRecord) | 2 | MEDIUM |
-| **EVALUATE** (orphan runtimes) | 5 | MEDIUM |
-| **REMOVE** (execution_intelligence stub) | 1 | LOW |
-| **WIRE** (8 intelligence engines → learning loop) | 1 | MEDIUM |
+|| Action | Count | Priority |
+||--------|-------|----------|
+|| **REGISTER** (blueprints) | 0 | CRITICAL (cross_boundary now registered; intelligence_routes intentionally suppressed) |
+|| **APPLY** (DB migration) | 1 | HIGH (zgc_pr_17c_durable_memory_fields not applied) |
+|| **CONNECT** (memory → DB, conversation → DB) | 2 | HIGH (code exists, migration pending) |
+|| **WIRE** (UCP engines into SHUNYAAI retrieval) | 10 | MEDIUM |
+|| **CONVERT** (app/ai/provider.py → orchestrator adapter) | 1 | HIGH |
+|| **CONSOLIDATE** (object stores, identity) | 2 | HIGH |
+|| **MIGRATE** (FounderObject → sh_objects, KnowledgeDocument → DocumentRecord) | 2 | MEDIUM |
+|| **EVALUATE** (orphan runtimes) | 5 | MEDIUM |
+|| **REMOVE** (execution_intelligence stub) | 1 | LOW |
+|| **WIRE** (8 intelligence engines → learning loop) | 1 | MEDIUM |
 
 ---
 
