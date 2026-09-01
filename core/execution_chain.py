@@ -380,6 +380,18 @@ def record_read_chain(
     )
     result["observation_id"] = obs_id
 
+    # Bridge observation → memory (loop-closing) for read queries
+    if obs_id is not None:
+        try:
+            from core.observation_memory_bridge import observation_to_memory
+            observation_to_memory(
+                obs_id,
+                tenant_id=tenant_id,
+                identity_id=identity_id,
+            )
+        except Exception as bridge_err:
+            logger.warning(f"Read observation→memory bridge failed: {bridge_err}")
+
     return result
 
 
@@ -511,6 +523,18 @@ def complete_action_chain(
                     obs.discrepancy = f"Operation failed: {(state or {}).get('error', 'unknown')}"[:1000]
                 db.session.commit()
                 result["observation_updated"] = True
+
+                # Bridge observation → memory (loop-closing)
+                try:
+                    from core.observation_memory_bridge import observation_to_memory
+                    bridged = observation_to_memory(
+                        observation_id,
+                        tenant_id=tenant_id,
+                        identity_id=identity_id,
+                    )
+                    result["memory_bridged"] = bridged
+                except Exception as bridge_err:
+                    logger.warning(f"Observation→memory bridge failed: {bridge_err}")
         except Exception as e:
             db.session.rollback()
             logger.warning(f"complete_action_chain: observation update failed: {e}")
