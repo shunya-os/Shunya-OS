@@ -18,11 +18,21 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column(
-        "organizations",
-        sa.Column("plan", sa.String(30), server_default="free", nullable=True),
-    )
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = [c["name"] for c in inspector.get_columns("organizations")]
+    if "plan" not in columns:
+        op.add_column(
+            "organizations",
+            sa.Column("plan", sa.String(30), server_default="free", nullable=True),
+        )
+    else:
+        print("  SKIP: organizations.plan already exists")
 
 
 def downgrade():
-    op.drop_column("organizations", "plan")
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = [c["name"] for c in inspector.get_columns("organizations")]
+    if "plan" in columns:
+        op.drop_column("organizations", "plan")
