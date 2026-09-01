@@ -89,7 +89,7 @@ export const api = {
 
   /** Ask the intelligence engine a question. */
   ask: (question: string) =>
-    req<{ success: boolean; answer?: string; error?: string }>('/intelligence/ask', {
+    req<{ success: boolean; answer?: string; error?: string }>('/api/v1/intelligence/ask', {
       method: 'POST', body: JSON.stringify({ question }),
     }),
 

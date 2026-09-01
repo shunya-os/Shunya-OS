@@ -840,8 +840,8 @@ def create_app(config_override: dict | None = None):
 
     # Execution Runtime — business execution, outcome ownership, recovery
     from app.execution.models import Outcome  # noqa: F401
-    from app.execution.routes import execution_bp
-    app.register_blueprint(execution_bp)
+    from app.execution.routes import execution_bp as execution_outcomes_bp
+    app.register_blueprint(execution_outcomes_bp)
 
     # Execution Visibility — unified work/output API
     from app.execution_visibility.routes import execution_visibility_bp
