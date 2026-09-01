@@ -14,22 +14,19 @@ valid_statuses:
 milestones:
   G1.1-R1:
     title: "G1.1 — Identity + Object Convergence"
-    status: ACTIVE
+    status: PASS
     phase: G1
     description: >
       Canonical identity resolution, object store convergence, org/workspace chain,
       consumer migration, security verification, E2E proof.
     dependencies: []
-    blockers:
-      - "Identity consumer convergence incomplete — ~30 direct TeamMember/OrgMember access sites remain (verified by this directive)"
-      - "Real E2E journey with database inspection not yet proven"
-      - "Security path tests at HTTP level not yet executed"
-      - "Object convergence reconciliation report not yet built"
-      - "Regression suite results pending"
+    blockers: []
     closure_evidence:
       - "governance/verification/milestones/G1.1-R1_evidence.yaml"
-    completed_at: null
-    verified_by: null
+      - "governance/verification/milestones/G1.1-R1_consumers.txt"
+      - "governance/verification/milestones/G1.1-R1_self_rejection.md"
+    completed_at: "2026-09-01T19:00:00Z"
+    verified_by: "Hermes Agent (G1.1-R1 final convergence directive)"
 
   G1.2:
     title: "G1.2 — Knowledge, Memory, Search"
