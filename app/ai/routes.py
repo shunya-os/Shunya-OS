@@ -440,6 +440,10 @@ def chat():
                 workspace='',
                 object_type=data.get('object_type', ''),
                 object_id=data.get('object_id', ''),
+                identity_id=str(flask_session.get('identity_id', '')),
+                tenant_id=str(flask_session.get('current_org_id', flask_session.get('tenant_id', ''))),
+                user_role=str(flask_session.get('user_role', '')),
+                workspace_type='organization' if flask_session.get('current_org_id') else 'personal',
             )
             if kernel_resp and kernel_resp.get('content'):
                 result = {

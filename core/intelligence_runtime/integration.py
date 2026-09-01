@@ -230,10 +230,14 @@ def ensure_runtime() -> None:
 
 def ask(query: str, session_id: str = "", module_key: str = "",
         workspace: str = "", object_type: str = "", object_id: str = "",
-        explain: bool = False) -> dict[str, Any]:
+        explain: bool = False,
+        identity_id: str = "", tenant_id: str = "",
+        user_role: str = "", workspace_type: str = "") -> dict[str, Any]:
     """Single entry point for every intelligence request in SHUNYA.
     
     Every surface calls this function. No alternative path exists.
+    Identity context is passed through to the reasoning layer so
+    SHUNYAAI knows who the user is and where they are.
     """
     ensure_runtime()
     runtime = get_runtime()
@@ -248,6 +252,19 @@ def ask(query: str, session_id: str = "", module_key: str = "",
         runtime.context.update(session_id, active_object_type=object_type)
     if object_id:
         runtime.context.update(session_id, active_object_id=object_id)
+
+    # Identity & authorization context (G3 convergence)
+    ctx_updates = {}
+    if identity_id:
+        ctx_updates["identity_id"] = identity_id
+    if tenant_id:
+        ctx_updates["tenant_id"] = tenant_id
+    if user_role:
+        ctx_updates["user_role"] = user_role
+    if workspace_type:
+        ctx_updates["workspace_type"] = workspace_type
+    if ctx_updates:
+        runtime.context.update(session_id, **ctx_updates)
 
     # Process through runtime
     response = runtime.process(
