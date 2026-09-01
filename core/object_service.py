@@ -51,7 +51,13 @@ class ObjectService:
         )
         self.db.session.commit()
         obj_id = result.scalar()
-        return {"id": obj_id, "object_type": object_type, "name": name, "status": status, "organization_id": organization_id}
+        # Also fetch the generated object_id (UUID string)
+        from sqlalchemy import text as _text
+        row = self.db.session.execute(
+            _text("SELECT object_id FROM sh_objects WHERE id = :id"), {"id": obj_id}
+        ).first()
+        object_id = row[0] if row else ""
+        return {"id": obj_id, "object_id": object_id, "object_type": object_type, "name": name, "status": status, "organization_id": organization_id}
 
     def get(self, obj_id: int) -> Optional[dict]:
         """Get an object by ID."""

@@ -64,6 +64,7 @@ class ShunyaObject(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     object_id = db.Column(db.String(36), unique=True, nullable=False, default=_generate_object_id)
     workspace_id = db.Column(db.String(20), db.ForeignKey('sh_workspaces.id'), nullable=False)
+    organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=True, index=True)
     object_type = db.Column(db.String(50), nullable=False)
     name = db.Column(db.String(500), nullable=False)
     status = db.Column(db.String(30), default='active')
@@ -76,6 +77,7 @@ class ShunyaObject(db.Model):
     def to_dict(self):
         return {
             'id': self.id, 'object_id': self.object_id, 'workspace_id': self.workspace_id,
+            'organization_id': self.organization_id,
             'object_type': self.object_type, 'name': self.name, 'status': self.status,
             'data': self.data or {}, 'created_by': self.created_by,
             'created_at': self.created_at.isoformat() if self.created_at else None,

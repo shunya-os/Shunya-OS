@@ -128,9 +128,11 @@ class IdentityResolutionService:
         except Exception:
             pass
 
-        # Fallback: team_members.tenant_id
-        if org_id is None:
-            org_id = team_tenant_id
+        # IMPORTANT: Do NOT fall back to team_members.tenant_id as organization_id.
+        # Legacy tenant_id values (e.g. 89, 90) do not correspond to real
+        # organization IDs. If org_members resolution fails, org_id must
+        # remain None — the caller must handle unresolved identity context.
+        # This prevents silent data corruption from legacy tenant→org mapping.
 
         return CanonicalIdentity(
             team_member_id=team_member_id,
