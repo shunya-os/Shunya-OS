@@ -258,6 +258,8 @@ class TestTenantFallbackRegression:
         """User with NO OrgMember entry must have org_id=None (no fallback to tenant_id)."""
         with app.app_context():
             from sqlalchemy import text
+            import uuid
+            unique_email = f"no-org-member-{uuid.uuid4().hex[:8]}@example.com"
             # Create a TeamMember with NO corresponding OrgMember
             db.session.execute(
                 text("""
@@ -265,37 +267,41 @@ class TestTenantFallbackRegression:
                     VALUES (:e, :n, :ph, :r, :a, :t)
                     RETURNING id
                 """),
-                {"e": "no-org-member@example.com", "n": "no-org", "ph": "test_hash", "r": "member", "a": True, "t": 999},
+                {"e": unique_email, "n": "no-org", "ph": "test_hash", "r": "member", "a": True, "t": 999},
             )
             db.session.commit()
 
             from core.identity_resolution import get_identity_service
             svc = get_identity_service()
-            identity = svc.resolve_by_email("no-org-member@example.com")
+            identity = svc.resolve_by_email(unique_email)
             assert identity is not None, "Must still resolve identity"
             assert identity.org_id is None, \
                 f"org_id must be None when no OrgMember exists (got {identity.org_id})"
+            db.session.rollback()
 
     def test_legacy_tenant_id_not_used_as_org(self, app):
         """User with tenant_id=89 but no OrgMember: org_id must NOT be 89."""
         with app.app_context():
             from sqlalchemy import text
+            import uuid
+            unique_email = f"legacy-user-{uuid.uuid4().hex[:8]}@example.com"
             db.session.execute(
                 text("""
                     INSERT INTO team_members (email, name, password_hash, role, is_active, tenant_id)
                     VALUES (:e, :n, :ph, :r, :a, :t)
                     RETURNING id
                 """),
-                {"e": "legacy-user@example.com", "n": "legacy", "ph": "test_hash", "r": "member", "a": True, "t": 89},
+                {"e": unique_email, "n": "legacy", "ph": "test_hash", "r": "member", "a": True, "t": 89},
             )
             db.session.commit()
 
             from core.identity_resolution import get_identity_service
             svc = get_identity_service()
-            identity = svc.resolve_by_email("legacy-user@example.com")
+            identity = svc.resolve_by_email(unique_email)
             assert identity is not None
             assert identity.org_id is None, \
                 f"Must NOT fall back to tenant_id=89 as org_id (got {identity.org_id})"
+            db.session.rollback()
 
 
 class TestNegativeArchitecture:
