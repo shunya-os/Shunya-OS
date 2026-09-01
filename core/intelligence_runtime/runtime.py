@@ -50,6 +50,7 @@ class IntelligenceRuntime:
         self.suggestions = SuggestionsEngine()
         self.explain = ExplainabilityEngine()
         self._identity_profile_provider: Callable | None = None
+        self.learning_loop = None
 
     # ── Processing Pipeline ──────────────────────────────────────────────
 
