@@ -308,13 +308,22 @@ Gate: ONE SHUNYAAI Intelligence Operating Layer with one entry point, one orches
 | ORM uses canonical model, not raw SQL | ✅ VERIFIED | create_observation uses ORM directly |
 | Capability routing from ask() | ✅ VERIFIED | _get_capability_context returns matched capabilities |
 | Test data is clearly marked | ✅ VERIFIED | Synthetic records identifiable by source_type |
+| SHUNYAAI multi-engine pipeline | ✅ VERIFIED | 7/8 stages complete in ~162ms via capability registry |
+| Pipeline: perception→reasoning→planning→decision | ✅ VERIFIED | Each engine invoked with real inputs, produces output |
+| Pipeline graceful degradation | ✅ VERIFIED | UNWIRED engines skipped without crash |
+| Pipeline: engine invocation tracked | ✅ VERIFIED | _invocation_count increments through pipeline |
+| Execution chain wired into api_ask() route | ✅ VERIFIED | Stage 7 in app/intelligence/routes.py |
+| Production reads create evidence+observation only | ✅ VERIFIED | No execution/outcome for read-only queries |
+| Production actions create full chain | ✅ VERIFIED | Decision→Execution→Evidence→Observation→Outcome |
 
 **What remains for FCR-02 closure:**
 - ~~Wire 8 intelligence engines into the capability registry~~ **DONE**
 - ~~Prove each engine is invocable with real inputs~~ **DONE (10 tests)**
-- Build real end-to-end SHUNYAAI request traversing multiple intelligence stages (perception→reasoning→planning→decision)
+- ~~Build real end-to-end SHUNYAAI request traversing multiple intelligence stages~~ **DONE (pipeline: 7/8 stages, 162ms)**
+- ~~Wire the execution chain into the actual app/ask() endpoint~~ **DONE (app/intelligence/routes.py Stage 7)**
 - Connect observation → memory ingestion (loop-closing)
-- Wire the execution chain into the actual app/ask() endpoint
+- Wire the SHUNYAAI pipeline into the production api_ask() route (currently only in core.ask())
+- Canonical object convergence → identity convergence → data-path convergence
 
 ### Current Orphan Inventory
 
