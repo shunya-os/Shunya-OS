@@ -118,6 +118,10 @@ jobs:
         run: |
           set -o pipefail
           PYTHONPATH=$PWD python -m pytest tests/ -q --tb=short
+      - name: Shunya execution-integrity milestone validation
+        run: |
+          set -o pipefail
+          PYTHONPATH=$PWD python3 scripts/validate_milestone.py --all --ci
       - name: Frontend dependency install
         working-directory: frontend
         run: |

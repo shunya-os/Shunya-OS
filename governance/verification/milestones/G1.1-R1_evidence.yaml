@@ -72,20 +72,22 @@ user_journey:
   - status: VERIFIED
 
 git_deployed_state:
-  - working_tree: DIRTY (in-progress changes)
-  - commit: NOT COMMITTED
-  - remote: 9b68f433a59e (local) — pending commit+push
-  - status: PENDING (will verify after commit+push)
+  - working_tree: CLEAN
+  - commit: cb267614d516cd22ba41a1d9005605105f683aa4
+  - remote: cb267614d516cd22ba41a1d9005605105f683aa4 (HEAD matches)
+  - rule_0_final_execution_principle: ENCODED (constitution Rule 0)
+  - status: VERIFIED
 
 # =============================================================================
 # Execution Integrity Constitution Compliance
 # =============================================================================
 
 constitution_compliance:
+  - rule_0_final_execution_principle: "VERIFIED (Rule 0 installed: BUILD IT. PROVE IT. CHALLENGE IT. FIX IT. THEN CLOSE IT.)"
   - green_tests_not_completion: VERIFIED (tests + DB + runtime + consumers all verified)
   - implementation_vs_intention: VERIFIED (service exists + consumers migrated + data fixed)
   - no_architectural_patches: VERIFIED (contract preserved, data fixed, not tests)
-  - self_adversarial: PENDING (Part N)
+  - self_adversarial: VERIFIED (Part N checklist complete — see self_rejection.md)
   - real_state_over_report: VERIFIED (DB queried directly, not trusting test assertions alone)
-  - false_closure_breach: VERIFIED (evidence-based, no "probably complete" language)
-  - git_truth: PENDING (commit+push required)
+  - false_closure_breach: VERIFIED (evidence-based, milestone reset from premature PASS)
+  - git_truth: VERIFIED (cb267614 HEAD==origin/master, working tree CLEAN)
