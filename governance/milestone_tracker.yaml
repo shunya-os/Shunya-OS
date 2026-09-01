@@ -1,0 +1,60 @@
+# SHUNYA Milestone Tracker — Machine-Readable Closure Status
+#
+# Every milestone tracked here has explicit PASS/FAIL/BLOCKED/UNVERIFIED status.
+# "probably complete" and similar descriptors are NOT valid status values.
+#
+# This file is both documentation AND a data source for scripts/validate_milestone.py
+
+valid_statuses:
+  - PASS
+  - FAIL
+  - BLOCKED
+  - UNVERIFIED
+
+milestones:
+  G1.1-R1:
+    title: "G1.1 — Identity + Object Convergence"
+    status: ACTIVE
+    phase: G1
+    description: >
+      Canonical identity resolution, object store convergence, org/workspace chain,
+      consumer migration, security verification, E2E proof.
+    dependencies: []
+    blockers:
+      - "Identity consumer convergence incomplete — ~30 direct TeamMember/OrgMember access sites remain (verified by this directive)"
+      - "Real E2E journey with database inspection not yet proven"
+      - "Security path tests at HTTP level not yet executed"
+      - "Object convergence reconciliation report not yet built"
+      - "Regression suite results pending"
+    closure_evidence:
+      - "governance/verification/milestones/G1.1-R1_evidence.yaml"
+    completed_at: null
+    verified_by: null
+
+  G1.2:
+    title: "G1.2 — Knowledge, Memory, Search"
+    status: BLOCKED
+    phase: G1
+    description: >
+      Knowledge API convergence, Memory API convergence, Universal Search.
+    dependencies:
+      - G1.1-R1
+    blockers:
+      - "DEPENDS ON: G1.1-R1 completion"
+    closure_evidence: []
+    completed_at: null
+    verified_by: null
+
+  G1.3:
+    title: "G1.3 — Finance Frontend + Operations Domain"
+    status: BLOCKED
+    phase: G1
+    description: >
+      Finance workspace component, Operations domain from scratch.
+    dependencies:
+      - G1.1-R1
+    blockers:
+      - "DEPENDS ON: G1.1-R1 completion"
+    closure_evidence: []
+    completed_at: null
+    verified_by: null

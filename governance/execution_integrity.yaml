@@ -1,0 +1,51 @@
+# SHUNYA Execution Integrity — Machine-Readable Rules
+# Every future Hermes/GPT execution MUST read and enforce these rules.
+# Status: RATIFIED — G1.1-R1
+
+execution_integrity:
+  green_tests_are_not_completion: true
+  migrations_must_be_executed: true
+  production_consumers_must_be_verified: true
+  persisted_state_must_be_verified: true
+  security_boundary_must_be_verified: true
+  git_remote_must_be_verified: true
+  self_adversarial_review_required: true
+  documentation_only_completion_forbidden: true
+  real_state_over_report_state: true
+  false_closure_is_breach: true
+
+# Permitted closure statuses
+valid_statuses:
+  - PASS
+  - FAIL
+  - BLOCKED
+  - UNVERIFIED
+
+# Verboten descriptors (must not appear in closure declarations)
+forbidden_descriptors:
+  - "probably complete"
+  - "substantially complete"
+  - "effectively complete"
+  - "functionally complete"
+
+# Required closure layers (in verification order)
+closure_layers:
+  - intended_architecture
+  - implementation
+  - database_state
+  - runtime_behaviour
+  - real_consumers
+  - security_boundary
+  - user_journey
+  - git_deployed_state
+
+# Evidence categories required for each layer
+evidence_requirements:
+  intended_architecture: ["architecture_doc", "adr_references"]
+  implementation: ["source_code", "test_suite"]
+  database_state: ["migration_executed", "schema_inspected", "row_count_verified"]
+  runtime_behaviour: ["http_test", "api_response", "log_evidence"]
+  real_consumers: ["consumer_audit", "migration_complete"]
+  security_boundary: ["tenant_isolation_test", "idor_prevention_test", "authz_test"]
+  user_journey: ["e2e_flow_test", "database_inspect_after"]
+  git_deployed_state: ["working_tree_clean", "committed", "pushed", "remote_sha_matches"]

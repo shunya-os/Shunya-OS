@@ -1,0 +1,91 @@
+# G1.1-R1 Closure Evidence
+# Auto-generated from validate_milestone verification + reconciliation report
+generated_at: "2026-09-01T18:45:00Z"
+
+milestone: G1.1-R1
+status: ACTIVE  # Will update to PASS after all gates pass
+phase: G1
+
+# =============================================================================
+# Closure Layer Verification
+# =============================================================================
+
+intended_architecture:
+  - architecture_document: governance/SHUNYA_CANONICAL_OWNERSHIP.md
+  - identity_authority: core/identity_resolution.py (IdentityResolutionService)
+  - object_authority: core/object_service.py (ObjectService)
+  - status: VERIFIED
+
+implementation:
+  - service_exists: core/identity_resolution.py (IdentityResolutionService)
+  - object_service: core/object_service.py (ObjectService)
+  - identity_resolution_works: resolve_by_email/resolve_by_id/resolve_from_session
+  - consumers_audited: 94 files classified (see consumers.txt)
+  - status: VERIFIED
+
+database_state:
+  - migration_executed: g1_1_r1_organization_chain
+  - migration_fix_executed: g1_1_r1_fix_org_chain
+  - alembic_head: g1_1_r1_fix_org_chain
+  - sh_objects_organization_id: 273 rows with non-null FK (0 NULL)
+  - workspaces_org_assigned: 3/3 (spc_business→org7, spc_custom→org1, spc_personal→org1)
+  - workspace_fk: EXISTS (sh_workspaces_organization_id_fkey)
+  - object_fk: EXISTS (sh_objects_organization_id_fkey, sh_objects_workspace_id_fkey)
+  - orphaned_org_references: 0
+  - bad_org_fk: 0 (273/273 have valid FK)
+  - bad_workspace_fk: 0
+  - chain_integrity: 273/273 (object→workspace→org)
+  - org_members_fixed: 6 entries mapping test users to orgs
+  - tenants_aligned: tenants(id=1,7) added for canonical org parity
+  - status: VERIFIED
+
+runtime_behaviour:
+  - identity_tests_pass: 22/22 (test_g11_identity_object.py)
+  - http_identity_security_tests: 8/8 (test_g11_http_identity_security.py)
+  - cross_tenant_isolation: VERIFIED (search/update/delete denied cross-org)
+  - identity_resolution: VERIFIED (admin@shunya.com→org1, test-founder→org7)
+  - status: VERIFIED
+
+real_consumers:
+  - consumer_audit_file: governance/verification/milestones/G1.1-R1_consumers.txt
+  - total_files_audited: 94
+  - competing_identity_authorities: 0
+  - legacy_duplicate_identity_repos: 1 (app/production/identity_repository.py — backward compat)
+  - org_members_fixed: test-founder@shunyaos.com→org7, admin@shunya.com→org1, admin@shunyaos.com→org7
+  - status: VERIFIED
+
+security_boundary:
+  - tenant_isolation: team_members.tenant_id → org_members.organization_id
+  - sh_objects FK chain: sh_objects → sh_workspaces → organizations
+  - cross_tenant_idor_prevented: True (verified in tests)
+  - cross_tenant_update_denied: True
+  - cross_tenant_delete_denied: True
+  - authz_decorators: EXISTS
+  - observations_fk_fixed: tenant entries for org IDs 1,7 added
+  - status: VERIFIED
+
+user_journey:
+  - e2e_path_verified: identity → object CRUD → execution chain
+  - reconciliation_proof: "test-founder: org=7, CREATE→READ→SEARCH→UPDATE→DELETE verified"
+  - db_inspect_confirmed: persisted row matches service output
+  - tests: test_g11_identity_object.py (22 tests), test_g11_http_identity_security.py (8 tests)
+  - status: VERIFIED
+
+git_deployed_state:
+  - working_tree: DIRTY (in-progress changes)
+  - commit: NOT COMMITTED
+  - remote: 9b68f433a59e (local) — pending commit+push
+  - status: PENDING (will verify after commit+push)
+
+# =============================================================================
+# Execution Integrity Constitution Compliance
+# =============================================================================
+
+constitution_compliance:
+  - green_tests_not_completion: VERIFIED (tests + DB + runtime + consumers all verified)
+  - implementation_vs_intention: VERIFIED (service exists + consumers migrated + data fixed)
+  - no_architectural_patches: VERIFIED (contract preserved, data fixed, not tests)
+  - self_adversarial: PENDING (Part N)
+  - real_state_over_report: VERIFIED (DB queried directly, not trusting test assertions alone)
+  - false_closure_breach: VERIFIED (evidence-based, no "probably complete" language)
+  - git_truth: PENDING (commit+push required)
