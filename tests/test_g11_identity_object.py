@@ -110,7 +110,7 @@ class TestObjectConvergence:
             obj = svc.create(
                 object_type="test",
                 name="Convergence Test Object",
-                tenant_id=89,
+                organization_id=89,
                 data={"key": "value"},
             )
             assert obj["id"] > 0
@@ -124,7 +124,7 @@ class TestObjectConvergence:
             obj = svc.create(
                 object_type="test",
                 name="Get Test",
-                tenant_id=89,
+                organization_id=89,
             )
             retrieved = svc.get(obj["id"])
             assert retrieved is not None
@@ -134,23 +134,23 @@ class TestObjectConvergence:
         """Prove objects in different tenants remain isolated."""
         with app.app_context():
             svc = get_object_service()
-            obj_a = svc.create(object_type="test", name="Tenant A Object", tenant_id=89)
-            obj_b = svc.create(object_type="test", name="Tenant B Object", tenant_id=90)
+            obj_a = svc.create(object_type="test", name="Tenant A Object", organization_id=89)
+            obj_b = svc.create(object_type="test", name="Tenant B Object", organization_id=90)
 
             # Search in tenant 89 should NOT find tenant B's object
-            results = svc.search("Tenant B", tenant_id=89)
+            results = svc.search("Tenant B", organization_id=89)
             matches = [r for r in results if r["id"] == obj_b["id"]]
             assert len(matches) == 0, "Tenant 89 should not see Tenant B's object"
 
             # Tenant B should find its own
-            results_b = svc.search("Tenant B", tenant_id=90)
+            results_b = svc.search("Tenant B", organization_id=90)
             assert len(results_b) > 0
 
     def test_update_object(self, app):
         """Prove object update works."""
         with app.app_context():
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Update Test", tenant_id=89)
+            obj = svc.create(object_type="test", name="Update Test", organization_id=89)
             ok = svc.update(obj["id"], 89, name="Updated Name")
             assert ok, "Update should succeed"
             retrieved = svc.get(obj["id"])
@@ -160,16 +160,16 @@ class TestObjectConvergence:
         """Prove cross-tenant update is denied."""
         with app.app_context():
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Cross Tenant Test", tenant_id=89)
-            ok = svc.update(obj["id"], tenant_id=99999, name="Should Not Work")
+            obj = svc.create(object_type="test", name="Cross Tenant Test", organization_id=89)
+            ok = svc.update(obj["id"], organization_id=99999, name="Should Not Work")
             assert not ok, "Cross-tenant update must be denied"
 
     def test_delete_object(self, app):
         """Prove object soft-delete works."""
         with app.app_context():
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Delete Test", tenant_id=89)
-            ok = svc.delete(obj["id"], tenant_id=89)
+            obj = svc.create(object_type="test", name="Delete Test", organization_id=89)
+            ok = svc.delete(obj["id"], organization_id=89)
             assert ok, "Delete should succeed"
             retrieved = svc.get(obj["id"])
             assert retrieved["status"] == "archived"
@@ -178,22 +178,22 @@ class TestObjectConvergence:
         """Prove cross-tenant delete is denied."""
         with app.app_context():
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Cross Delete Test", tenant_id=89)
-            ok = svc.delete(obj["id"], tenant_id=99999)
+            obj = svc.create(object_type="test", name="Cross Delete Test", organization_id=89)
+            ok = svc.delete(obj["id"], organization_id=99999)
             assert not ok, "Cross-tenant delete must be denied"
 
     def test_search_objects(self, app):
         """Prove object search works within tenant."""
         with app.app_context():
             svc = get_object_service()
-            svc.create(object_type="lead", name="Acme Corp Lead", tenant_id=89)
-            svc.create(object_type="lead", name="Beta Corp Lead", tenant_id=89)
-            svc.create(object_type="customer", name="Acme Corp Customer", tenant_id=89)
+            svc.create(object_type="lead", name="Acme Corp Lead", organization_id=89)
+            svc.create(object_type="lead", name="Beta Corp Lead", organization_id=89)
+            svc.create(object_type="customer", name="Acme Corp Customer", organization_id=89)
 
-            leads = svc.search("Acme", tenant_id=89)
+            leads = svc.search("Acme", organization_id=89)
             assert len(leads) >= 2, f"Should find Acme objects: {len(leads)}"
 
-            by_type = svc.get_by_type("lead", tenant_id=89)
+            by_type = svc.get_by_type("lead", organization_id=89)
             assert len(by_type) >= 2
 
 
@@ -267,14 +267,14 @@ class TestIdentityObjectSecurity:
             svc = get_object_service()
 
             # Tenant 89 creates
-            obj = svc.create(object_type="test", name="Security Test", tenant_id=89)
+            obj = svc.create(object_type="test", name="Security Test", organization_id=89)
 
             # Direct ID-based read: object exists, but cross-tenant is policy
             retrieved = svc.get(obj["id"])
             assert retrieved is not None, "Object should exist"
 
             # Search from different tenant shouldn't find it by name
-            results = svc.search("Security Test", tenant_id=90)
+            results = svc.search("Security Test", organization_id=90)
             matches = [r for r in results if r["name"] == "Security Test"]
             assert len(matches) == 0, "Tenant 90 must not find Tenant 89's objects"
 

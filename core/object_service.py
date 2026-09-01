@@ -2,8 +2,8 @@
 SHUNYA Canonical Object Service — one production object authority.
 
 Singular write path for all canonical objects. Reads from sh_objects.
+Organization/tenant isolation enforced via real organization_id column.
 Migration sources: objects, founder_objects, sh_uop_objects.
-Tenant isolation is enforced via data->>'organization_id' in JSONB.
 """
 
 import json
@@ -11,8 +11,6 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-
-from flask import session, g
 
 logger = logging.getLogger(__name__)
 
@@ -24,18 +22,18 @@ class ObjectService:
         from app import db
         self.db = db
 
-    def create(self, object_type: str, name: str, tenant_id: int,
+    def create(self, object_type: str, name: str, organization_id: int,
                data: Optional[dict] = None, created_by: Optional[str] = None,
                status: str = "active", workspace_id: str = "spc_business") -> dict:
         """Create a canonical object. Returns the created record."""
         from sqlalchemy import text
         now = datetime.now(timezone.utc)
-        payload = dict(data or {})
-        payload["organization_id"] = tenant_id
         result = self.db.session.execute(
             text("""
-                INSERT INTO sh_objects (object_id, object_type, name, status, workspace_id, data, created_by, created_at, updated_at)
-                VALUES (:oid, :object_type, :name, :status, :workspace_id, :data, :created_by, :created_at, :updated_at)
+                INSERT INTO sh_objects
+                    (object_id, object_type, name, status, workspace_id, organization_id, data, created_by, created_at, updated_at)
+                VALUES
+                    (:oid, :object_type, :name, :status, :workspace_id, :organization_id, :data, :created_by, :created_at, :updated_at)
                 RETURNING id
             """),
             {
@@ -44,7 +42,8 @@ class ObjectService:
                 "name": name,
                 "status": status,
                 "workspace_id": workspace_id,
-                "data": json.dumps(payload),
+                "organization_id": organization_id,
+                "data": json.dumps(data or {}),
                 "created_by": created_by or "",
                 "created_at": now,
                 "updated_at": now,
@@ -52,7 +51,7 @@ class ObjectService:
         )
         self.db.session.commit()
         obj_id = result.scalar()
-        return {"id": obj_id, "object_type": object_type, "name": name, "status": status}
+        return {"id": obj_id, "object_type": object_type, "name": name, "status": status, "organization_id": organization_id}
 
     def get(self, obj_id: int) -> Optional[dict]:
         """Get an object by ID."""
@@ -64,47 +63,43 @@ class ObjectService:
             return None
         return self._row_to_dict(row)
 
-    def get_by_type(self, object_type: str, tenant_id: int,
+    def get_by_type(self, object_type: str, organization_id: int,
                     limit: int = 100, offset: int = 0) -> list:
-        """List objects by type within a tenant."""
+        """List objects by type within an organization."""
         from sqlalchemy import text
         rows = self.db.session.execute(
             text("""
                 SELECT * FROM sh_objects
                 WHERE object_type = :object_type
-                AND data->>'organization_id' = :org_id
+                AND organization_id = :org_id
                 ORDER BY updated_at DESC LIMIT :lim OFFSET :off
             """),
-            {"object_type": object_type, "org_id": str(tenant_id), "lim": limit, "off": offset},
+            {"object_type": object_type, "org_id": organization_id, "lim": limit, "off": offset},
         ).all()
         return [self._row_to_dict(r) for r in rows]
 
-    def search(self, query: str, tenant_id: int, limit: int = 50) -> list:
-        """Search objects by name/type within a tenant."""
+    def search(self, query: str, organization_id: int, limit: int = 50) -> list:
+        """Search objects by name/type within an organization."""
         from sqlalchemy import text
         like = f"%{query}%"
         rows = self.db.session.execute(
             text("""
                 SELECT * FROM sh_objects
                 WHERE name ILIKE :like
-                AND data->>'organization_id' = :org_id
+                AND organization_id = :org_id
                 ORDER BY updated_at DESC LIMIT :lim
             """),
-            {"like": like, "org_id": str(tenant_id), "lim": limit},
+            {"like": like, "org_id": organization_id, "lim": limit},
         ).all()
         return [self._row_to_dict(r) for r in rows]
 
-    def update(self, obj_id: int, tenant_id: int, **kwargs) -> bool:
+    def update(self, obj_id: int, organization_id: int, **kwargs) -> bool:
         """Update an object. Returns False if cross-tenant or not found."""
         from sqlalchemy import text
         row = self.db.session.execute(
             text("SELECT * FROM sh_objects WHERE id = :id"), {"id": obj_id}
         ).first()
-        if not row:
-            return False
-        # Check tenant isolation via data JSONB
-        row_data = json.loads(row.data) if isinstance(row.data, str) else (row.data or {})
-        if str(row_data.get("organization_id", "")) != str(tenant_id):
+        if not row or row.organization_id != organization_id:
             return False
 
         updates = {"updated_at": datetime.now(timezone.utc)}
@@ -115,9 +110,7 @@ class ObjectService:
         if "status" in kwargs:
             updates["status"] = kwargs["status"]
         if "data" in kwargs:
-            payload = dict(kwargs["data"])
-            payload["organization_id"] = tenant_id
-            updates["data"] = json.dumps(payload)
+            updates["data"] = json.dumps(kwargs["data"])
 
         set_clause = ", ".join(f"{k} = :{k}" for k in updates)
         updates["id"] = obj_id
@@ -127,35 +120,54 @@ class ObjectService:
         self.db.session.commit()
         return True
 
-    def delete(self, obj_id: int, tenant_id: int) -> bool:
-        """Soft-delete an object (set status=archived). Returns False if cross-tenant."""
-        return self.update(obj_id, tenant_id, status="archived")
+    def delete(self, obj_id: int, organization_id: int) -> bool:
+        """Soft-delete an object. Returns False if cross-tenant."""
+        return self.update(obj_id, organization_id, status="archived")
 
-    def count_by_type(self, tenant_id: int) -> dict:
-        """Count objects grouped by type within a tenant."""
+    def count_by_type(self, organization_id: int) -> dict:
+        """Count objects grouped by type within an organization."""
         from sqlalchemy import text
         rows = self.db.session.execute(
             text("""
                 SELECT object_type, COUNT(*) as cnt FROM sh_objects
-                WHERE data->>'organization_id' = :org_id
+                WHERE organization_id = :org_id
                 GROUP BY object_type
             """),
-            {"org_id": str(tenant_id)},
+            {"org_id": organization_id},
         ).all()
         return {r[0]: r[1] for r in rows}
 
-    def migrate_from(self, source_table: str, target_tenant_id: int = 1,
-                     type_map: Optional[dict] = None) -> int:
+    def migrate_from(self, source_table: str, organization_id: int = 1,
+                     type_map: Optional[dict] = None) -> dict:
         """Migrate records from a legacy object table into sh_objects.
-        Returns count of migrated records."""
+        Returns migration report with counts and mapping."""
         from sqlalchemy import Table, MetaData, text
 
         src_tbl = Table(source_table, MetaData(), autoload_with=self.db.engine)
         rows = self.db.session.execute(src_tbl.select()).all()
         migrated = 0
+        skipped = 0
+        mapping = []
+
         for row in rows:
             obj_type = (type_map or {}).get(source_table, source_table.replace("_", ""))
             name = getattr(row, "name", None) or getattr(row, "title", None) or str(getattr(row, "id", ""))
+            source_id = getattr(row, "id", None)
+
+            # Check if already migrated (by source_id stored in data)
+            existing = self.db.session.execute(
+                text("""
+                    SELECT id FROM sh_objects
+                    WHERE data->>'source_table' = :src_tbl
+                    AND data->>'source_id' = :src_id
+                """),
+                {"src_tbl": source_table, "src_id": str(source_id)},
+            ).first()
+            if existing:
+                mapping.append({"source_id": source_id, "canonical_id": existing[0], "action": "skipped_duplicate"})
+                skipped += 1
+                continue
+
             data = {}
             for col in row._mapping.keys():
                 if col not in ("id", "name", "title", "object_type", "tenant_id",
@@ -167,20 +179,36 @@ class ObjectService:
                     except Exception:
                         pass
 
-            row_tenant = getattr(row, "tenant_id", None) or target_tenant_id
+            # Mark provenance
+            data["source_table"] = source_table
+            data["source_id"] = str(source_id)
+
+            row_org = getattr(row, "organization_id", None) or getattr(row, "tenant_id", None) or organization_id
             row_status = getattr(row, "status", None) or "active"
             if row_status == "deleted":
                 row_status = "archived"
 
-            self.create(
-                object_type=obj_type,
-                name=str(name)[:500],
-                tenant_id=int(row_tenant) if row_tenant else target_tenant_id,
-                data=data,
-                status=row_status,
-            )
-            migrated += 1
-        return migrated
+            try:
+                obj = self.create(
+                    object_type=obj_type,
+                    name=str(name)[:500],
+                    organization_id=int(row_org) if row_org else organization_id,
+                    data=data,
+                    status=row_status,
+                )
+                mapping.append({"source_id": source_id, "canonical_id": obj["id"], "action": "migrated"})
+                migrated += 1
+            except Exception as e:
+                mapping.append({"source_id": source_id, "canonical_id": None, "action": "error", "error": str(e)})
+
+        return {
+            "source_table": source_table,
+            "total": len(rows),
+            "migrated": migrated,
+            "skipped_duplicates": skipped,
+            "errors": len(rows) - migrated - skipped,
+            "mapping": mapping,
+        }
 
     @staticmethod
     def _row_to_dict(row) -> dict:
