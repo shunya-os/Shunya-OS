@@ -49,6 +49,7 @@ class IntelligenceRuntime:
         self.conversation = ConversationRuntime()
         self.suggestions = SuggestionsEngine()
         self.explain = ExplainabilityEngine()
+        self._identity_profile_provider: Callable | None = None
 
     # ── Processing Pipeline ──────────────────────────────────────────────
 
@@ -62,14 +63,36 @@ class IntelligenceRuntime:
         ctx = self.context.update(session_id, **context_kw)
         self.context.push_history(session_id, user_input)
 
+        # Identity & tenant scoping — every memory write is owned by the
+        # authenticated identity inside its workspace/tenant (identity convergence).
+        scope_identity = getattr(ctx, "identity_id", "") or context_kw.get("identity_id", "")
+        scope_tenant = getattr(ctx, "tenant_id", "") or context_kw.get("tenant_id", "")
+
+        # Identity profile enrichment — when an identity profile provider is
+        # wired, the context frame carries the decision/communication style,
+        # goals, and preferences of the authenticated identity so reasoning
+        # is identity-aware (source: core.identity_engine.IdentityEngine).
+        if scope_identity and self._identity_profile_provider:
+            try:
+                profile = self._identity_profile_provider(scope_identity)
+                if profile:
+                    self.context.update(session_id, identity_profile=profile)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Identity profile provider failed for %s", scope_identity
+                )
+
         # 3. Store in short-term memory
         self.memory.store(
-            key=f"query_{len(self.memory.recall_recent())}",
+            key=f"query_{len(self.memory.recall_recent(identity_id=scope_identity, tenant_id=scope_tenant))}",
             content=user_input,
             memory_type=MemoryType.SHORT_TERM,
             source="user",
             confidence=intent.confidence,
             ttl_seconds=3600,
+            identity_id=scope_identity,
+            tenant_id=scope_tenant,
         )
 
         # 4. Retrieve evidence
@@ -86,12 +109,14 @@ class IntelligenceRuntime:
 
         # 8. Store response in memory
         self.memory.store(
-            key=f"response_{len(self.memory.recall_recent())}",
+            key=f"response_{len(self.memory.recall_recent(identity_id=scope_identity, tenant_id=scope_tenant))}",
             content=response.content,
             memory_type=MemoryType.SHORT_TERM,
             source="runtime",
             confidence=response.trace.confidence if response.trace else 0.5,
             ttl_seconds=3600,
+            identity_id=scope_identity,
+            tenant_id=scope_tenant,
         )
 
         # 9. Add to conversation
@@ -142,6 +167,16 @@ class IntelligenceRuntime:
     def wire_knowledge_provider(self, fn: Callable) -> None:
         """Wire a knowledge search provider."""
         self.retrieval.set_knowledge_provider(fn)
+
+    def wire_identity_profile_provider(self, fn: Callable) -> None:
+        """Wire an identity profile provider (identity intelligence).
+
+        The provider receives identity_id and returns a profile dict with
+        decision_style, communication_style, goals, preferences, etc.
+        The runtime enriches the ContextFrame with the profile so reasoning
+        is identity-aware. Source: core.identity_engine.IdentityEngine.
+        """
+        self._identity_profile_provider = fn
 
     def wire_action(self, action_key: str, handler: Callable) -> None:
         self.executor.register(action_key, handler)

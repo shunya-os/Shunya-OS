@@ -103,6 +103,7 @@ class ContextFrame:
     tenant_id: str = ""
     user_role: str = ""
     workspace_type: str = ""  # "personal" or "organization"
+    identity_profile: dict = field(default_factory=dict)  # Decision style, goals, preferences
 
     def to_dict(self) -> dict:
         return {

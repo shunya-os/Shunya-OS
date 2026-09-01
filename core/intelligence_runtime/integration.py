@@ -112,7 +112,14 @@ def ensure_runtime() -> None:
 
     # ── Memory Provider ──
     def _memory_search(query: str) -> list:
-        return runtime.memory.search(query)
+        # Identity-scoped memory retrieval — the runtime context carries the
+        # authenticated identity and tenant, and search is constrained to it.
+        ctx = runtime.context.get(runtime.context._current_session)
+        return runtime.memory.search(
+            query,
+            identity_id=getattr(ctx, "identity_id", "") if ctx else "",
+            tenant_id=getattr(ctx, "tenant_id", "") if ctx else "",
+        )
 
     # ── Internet/Web Search Provider (FDA7) ──
     def _internet_search(query: str) -> list[dict]:
@@ -201,6 +208,49 @@ def ensure_runtime() -> None:
     runtime.wire_memory_provider(_memory_search)
     runtime.wire_internet_provider(_internet_search)
     runtime.wire_knowledge_provider(_knowledge_search)
+
+    # ── Identity Profile Provider (ZGC-PR-17C identity convergence) ──
+    # Gives core.identity_engine.IdentityEngine a canonical production caller:
+    # the runtime resolves the authenticated identity's profile (decision
+    # style, goals, preferences) and enriches the ContextFrame so reasoning
+    # is identity-aware. The identity authority itself remains TeamMember
+    # (auth) + OrgMember (org membership) — this is profile intelligence,
+    # not a competing identity authority.
+    def _identity_profile(identity_id: str) -> dict:
+        from core.identity_engine import IdentityEngine
+
+        engine = IdentityEngine()
+        ident = engine.get(identity_id)
+        if not ident:
+            return {}
+        return {
+            "identity_id": identity_id,
+            "name": ident.name,
+            "decision_style": ident.decision_style,
+            "communication_style": ident.communication_style,
+            "working_style": ident.working_style,
+            "learning_style": ident.learning_style,
+            "goals": [g.to_dict() for g in ident.goals],
+            "preferences": dict(ident.preferences),
+            "constraints": list(ident.constraints),
+            "values": list(ident.values),
+        }
+
+    runtime.wire_identity_profile_provider(_identity_profile)
+
+    # ── Durable Memory Bridge (ZGC-PR-17C mandatory) ──
+    # Swap the runtime's in-memory memory store for the canonical
+    # MemoryRecord-backed repository so memories survive restart and are
+    # isolated by identity + tenant.
+    try:
+        from core.intelligence_runtime.memory_db import DBMemoryRepository
+        repo = DBMemoryRepository()
+        runtime.memory.set_repository(repo)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(
+            "DB memory repository unavailable — falling back to in-memory memory"
+        )
 
     # ── LLM Provider (with FDA8 model orchestration) ──
     def _model_orchestrated_complete(messages: list[dict], temperature: float = 0.7,
@@ -402,11 +452,13 @@ def explain_last(session_id: str, message_index: int = -1) -> dict[str, Any]:
     }
 
 
-def store_memory(key: str, content: str, source: str = "user") -> None:
-    """Store information in runtime memory."""
+def store_memory(key: str, content: str, source: str = "user",
+                 identity_id: str = "", tenant_id: str = "") -> None:
+    """Store information in runtime memory — scoped by identity and tenant."""
     ensure_runtime()
     runtime = get_runtime()
-    runtime.memory.store(key, content, MemoryType.LONG_TERM, source=source)
+    runtime.memory.store(key, content, MemoryType.LONG_TERM, source=source,
+                         identity_id=identity_id, tenant_id=tenant_id)
 
 
 def health() -> dict[str, Any]:

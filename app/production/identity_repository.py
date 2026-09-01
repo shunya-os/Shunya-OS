@@ -1,7 +1,20 @@
 """SHUNYA — Identity Persistence Bridge (Production).
 
-Bridges the kernel's SHUNYAIdentity contract with SQLAlchemy persistence.
-The kernel classes remain frozen — this is a storage adapter, not a kernel change.
+ZGC-PR-17C DEPRECATION NOTICE (identity convergence):
+  This module is a STORAGE ADAPTER for the kernel SHUNYAIdentity protocol.
+  It is NOT an identity authority and it is NOT an authentication path.
+  The canonical identity authority chain is:
+    TeamMember (app/auth.py)      → authentication (password, session)
+    OrgMember  (app/models.py)    → organization membership + authorization
+    session identity_id           → carried through every layer as the
+                                    canonical identity string
+  Authentication MUST be performed through TeamMember (app/auth.py).
+  Identity creation for login MAY use this repository as a persistence
+  adapter (dual-write bridge) — it creates shunya_identities rows that
+  back TeamMember.identity_id. Nothing here authenticates.
+  core.identity_engine (Stream D) provides identity PROFILE intelligence
+  (decision style, goals, preferences) — wired as the runtime identity
+  profile provider; also not an authority.
 """
 
 import json
