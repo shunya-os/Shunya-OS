@@ -243,8 +243,10 @@ def main():
         print(__doc__)
         return
 
-    ci_mode = "--ci" in sys.argv
-    validate_all = "--all" in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = [a for a in sys.argv[1:] if a.startswith("--")]
+    ci_mode = "--ci" in flags
+    validate_all = "--all" in flags
 
     if validate_all:
         tracker = load_milestone_tracker()
@@ -264,7 +266,11 @@ def main():
             sys.exit(1)
         return
 
-    milestone_id = sys.argv[1].strip()
+    if not args:
+        eprint("Error: milestone ID required")
+        eprint(__doc__)
+        sys.exit(1)
+    milestone_id = args[0].strip()
     if not milestone_id:
         eprint("Milestone ID required")
         sys.exit(1)
