@@ -73,8 +73,8 @@ user_journey:
 
 git_deployed_state:
   - working_tree: CLEAN
-  - commit: cb267614d516cd22ba41a1d9005605105f683aa4
-  - remote: cb267614d516cd22ba41a1d9005605105f683aa4 (HEAD matches)
+  - commit: bd10607f2e8dd9ad8e9a9ea31ac8fd205713cef8
+  - remote: bd10607f2e8dd9ad8e9a9ea31ac8fd205713cef8 (HEAD matches)
   - rule_0_final_execution_principle: ENCODED (constitution Rule 0)
   - status: VERIFIED
 
