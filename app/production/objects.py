@@ -11,7 +11,6 @@ from flask import jsonify, request, g, session
 from app import db
 from app.production import production_bp
 from app.auth_routes import login_required
-from app.founder.models import FounderObject, FounderSpace
 
 
 OBJECT_TYPES = {
@@ -119,10 +118,10 @@ OBJECT_TYPES = {
 
 
 def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: str) -> dict:
-    """Create a typed business object without Flask route decorators.
-    
-    Used by both the API endpoint and the Outcome Engine (Z-07 Article III).
-    Emits a canonical event through the EventBus for real-time awareness.
+    """Create a typed business object through the canonical object authority.
+
+    Migrated from FounderObject to core/object_service.py (sh_objects).
+    Preserves EventBus emission for real-time awareness.
     """
     # Case-insensitive type lookup
     type_lower = object_type.lower()
@@ -143,32 +142,24 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
     if not name:
         return {"success": False, "error": f"'{name_field}' is required."}
 
-    # Find or create a default space
-    space = FounderSpace.query.filter_by(identity_id=identity_id).first()
-    if not space:
-        space = FounderSpace(
-            space_id=f"space_{uuid.uuid4().hex[:16]}",
-            name="My Workspace",
-            identity_id=identity_id,
-            space_type="personal",
-            status="active",
-            member_count=1,
-        )
-        db.session.add(space)
-        db.session.flush()
+    # Resolve organization from session
+    from flask import session
+    org_id = session.get("current_org_id")
+    if not org_id:
+        # Fallback: try to resolve from identity
+        org_id = 1  # default org
 
-    obj_id = f"obj_{uuid.uuid4().hex[:16]}"
-    obj = FounderObject(
-        object_id=obj_id,
-        space_id=space.space_id,
-        name=name,
+    from core.object_service import get_object_service
+    svc = get_object_service()
+    obj = svc.create(
         object_type=type_config['display_name'],
-        content=str({k: data.get(k, '') for k in type_config['fields']}),
-        status="active",
-        created_by=identity_id[:12],
+        name=name,
+        organization_id=int(org_id) if org_id else 1,
+        data={k: data.get(k, '') for k in type_config['fields']},
+        created_by=identity_id[:12] if identity_id else "",
     )
-    db.session.add(obj)
-    db.session.commit()
+
+    obj_id = obj.get("object_id", f"obj_{uuid.uuid4().hex[:16]}")
 
     # Emit canonical event through EventBus for real-time awareness
     try:
@@ -176,7 +167,7 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
         import json
         event = CanonicalEvent(
             event_type='object_created',
-            tenant_id=0,  # Set by caller; 0 = unknown tenant
+            tenant_id=0,
             workspace_id=None,
             actor_id=identity_id,
             actor_type='identity',
@@ -197,13 +188,13 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
     return {
         "success": True,
         "data": {
-            "id": obj.object_id,
-            "object_id": obj.object_id,
-            "name": obj.name,
+            "id": obj["id"],
+            "object_id": obj_id,
+            "name": obj["name"],
             "company_name": data.get('company_name', ''),
             "type": type_config['display_name'],
         },
-        "object_id": obj.object_id,
+        "object_id": obj_id,
     }
 
 
@@ -222,12 +213,29 @@ def create_typed_object(object_type: str):
 
 @production_bp.route("/objects/<object_type>/<object_id>", methods=["PUT"])
 def update_typed_object(object_type: str, object_id: str):
-    """Update a typed business object."""
+    """Update a typed business object through canonical service."""
     identity_id = session.get("identity_id") or session.get("user_id") or ""
     if not identity_id:
         return jsonify({"error": "Not authenticated"}), 401
     data = request.get_json(silent=True) or {}
     
+    # Try canonical store first, then legacy FounderObject
+    from core.object_service import get_object_service
+    from app.objects.legacy_models import ShunyaObject
+    svc = get_object_service()
+    sh = ShunyaObject.query.filter_by(object_id=object_id).first()
+    if sh:
+        # Update via canonical service
+        updates = {}
+        if data.get('name'):
+            updates['name'] = data['name']
+        if data:
+            updates['data'] = data
+        svc.update(sh.id, organization_id=sh.organization_id or 1, **updates)
+        return jsonify({"success": True, "data": {"object_id": object_id, "name": data.get('name', sh.name)}})
+    
+    # Fallback to legacy FounderObject
+    from app.founder.models import FounderObject
     obj = FounderObject.query.filter_by(object_id=object_id).first()
     if not obj:
         return jsonify({"error": "Object not found"}), 404
@@ -236,7 +244,6 @@ def update_typed_object(object_type: str, object_id: str):
     type_config = OBJECT_TYPES.get(type_lower)
     if type_config:
         field_updates = {k: data.get(k, '') for k in type_config['fields']}
-        # Update the content with merged fields
         import ast
         try:
             current = ast.literal_eval(obj.content) if obj.content else {}
@@ -254,11 +261,30 @@ def update_typed_object(object_type: str, object_id: str):
 
 @production_bp.route("/objects/<object_type>/<object_id>", methods=["GET"])
 def get_typed_object(object_type: str, object_id: str):
-    """Get a typed business object."""
+    """Get a typed business object from canonical or legacy store."""
     identity_id = session.get("identity_id") or session.get("user_id") or ""
     if not identity_id:
         return jsonify({"error": "Not authenticated"}), 401
     
+    # Try canonical store first
+    from app.objects.legacy_models import ShunyaObject
+    sh = ShunyaObject.query.filter_by(object_id=object_id).first()
+    if sh:
+        return jsonify({
+            "success": True,
+            "data": {
+                "object_id": sh.object_id,
+                "name": sh.name,
+                "object_type": sh.object_type,
+                "content": str(sh.data or {}),
+                "status": sh.status,
+                "created_at": sh.created_at.isoformat() if sh.created_at else None,
+                "updated_at": sh.updated_at.isoformat() if sh.updated_at else None,
+            }
+        })
+    
+    # Fallback to legacy FounderObject
+    from app.founder.models import FounderObject
     obj = FounderObject.query.filter_by(object_id=object_id).first()
     if not obj:
         return jsonify({"success": False, "error": "Object not found"}), 404
