@@ -619,9 +619,43 @@ def api_ask():
                 value=answer_text,
                 summary=question[:200],
             )
-            open("/tmp/memory_debug.log","a").write(f"STORED: key={hashlib.md5(question.encode('utf-8')).hexdigest()}, value_len={len(answer_text)}, rec={rec}\n")
         except Exception as e:
-            open("/tmp/memory_debug.log","a").write(f"FAILED: {e}\n")
+            pass
+
+    # ── Stage 7: Execution Chain (governed lifecycle) ────────────────
+    # Record every ask() interaction through the governed execution chain.
+    # Read-only queries produce evidence + observation only.
+    # Action queries produce full decision → execution → evidence → observation → outcome chain.
+    chain_result = None
+    try:
+        from core.execution_chain import record_read_chain, record_action_chain, complete_action_chain
+        chain_action_type = data.get("action", "").strip()
+        if execute and chain_action_type:
+            chain_result = record_action_chain(
+                query=question,
+                action_type=chain_action_type[:60],
+                identity_id=tenant.get("identity_id", "anonymous"),
+                tenant_id=int(tenant.get("tenant_id", 0)) if tenant.get("tenant_id") else None,
+            )
+            # Complete the action chain based on the actual outcome
+            chain_completion = complete_action_chain(
+                exec_id=chain_result.get("execution_id"),
+                outcome="succeeded" if answer_text else "failed",
+                response_summary=answer_text[:500],
+                identity_id=tenant.get("identity_id", "anonymous"),
+                state={"gov_result": gov_result.get("deterministic", False)},
+                observation_id=chain_result.get("observation_id"),
+            )
+            chain_result.update(chain_completion)
+        else:
+            chain_result = record_read_chain(
+                query=question,
+                identity_id=tenant.get("identity_id", "anonymous"),
+                tenant_id=int(tenant.get("tenant_id", 0)) if tenant.get("tenant_id") else None,
+                response_summary=answer_text[:500],
+            )
+    except Exception as chain_err:
+        logger.warning(f"Execution chain recording failed: {chain_err}")
 
     return jsonify({
         "success": True,
@@ -630,7 +664,12 @@ def api_ask():
         "model_invoked": gov_result.get("model_invoked", False),
         "tenant": tenant,
         "evidence_used": evidence_used,
-        "pipeline": pipeline_stages,
+        "pipeline": pipeline_stages + ([{
+            "stage": "execution_chain",
+            "status": "recorded",
+            "chain_type": chain_result.get("chain_type", "read_only") if chain_result else "unknown",
+        }] if chain_result else []),
+        "execution_chain": chain_result,
         "latency_ms": total_latency,
     }), 500 if gov_result.get("paid_blocked") else 200
 
