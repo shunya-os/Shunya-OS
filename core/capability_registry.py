@@ -262,6 +262,7 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
     # --- Intelligence Engines (unwired — need handler registration) ---
     for engine_def in [
         ("perception", "Perceive and interpret user input", ["user_input", "context"], False, False, "UNWIRED"),
+        ("context_assembly", "Assemble context from observations, memory, knowledge", ["observation_ids", "context"], False, False, "UNWIRED"),
         ("reasoning", "Multi-step reasoning, inference, and logic", ["question", "context", "evidence"], False, False, "UNWIRED"),
         ("planning", "Plan multi-step actions and workflows", ["goal", "context"], False, False, "UNWIRED"),
         ("decision", "Evaluate options and make decisions", ["options", "criteria", "context"], False, False, "UNWIRED"),
@@ -382,3 +383,53 @@ def _register_core_capabilities(r: CapabilityRegistry) -> None:
         cap = r._capabilities.get(name)
         if cap and cap._handler is None:
             r.promote_to_available(name, handler)
+
+    # Register handlers for the 8 intelligence engines.
+    # The engines' process() is async — we use a sync wrapper that
+    # runs the async coroutine with asyncio.run() so the capability
+    # registry's synchronous invoke() contract is satisfied.
+    import asyncio
+    from core.intelligence.models import EngineInput
+
+    def _make_engine_handler(engine_name: str):
+        """Factory: returns a sync handler that instantiates the engine
+        and calls its async process() synchronously."""
+        def handler(ctx: dict) -> dict:
+            # Import the engine class dynamically
+            import importlib
+            mod = importlib.import_module(f"core.intelligence.{engine_name}")
+            engine_cls_name = f"{engine_name.capitalize()}Engine"
+            # Handle 'context_assembly' → 'ContextAssemblyEngine'
+            if engine_name == "context_assembly":
+                engine_cls_name = "ContextAssemblyEngine"
+            engine_cls = getattr(mod, engine_cls_name)
+
+            engine = engine_cls()
+            inp = EngineInput(
+                input_type=ctx.get("input_type", "process"),
+                payload=ctx.get("payload", {}),
+                context=ctx.get("context", {}),
+                trace_id=ctx.get("trace_id", ""),
+                confidence_threshold=ctx.get("confidence_threshold", 0.7),
+            )
+            # Run the process — sync or async
+            import asyncio
+            engine_result = engine.process(inp)
+            if asyncio.iscoroutine(engine_result):
+                output = asyncio.run(engine_result)
+            else:
+                output = engine_result
+            return {
+                "engine": engine_name,
+                "output_type": output.output_type,
+                "payload": output.payload,
+                "confidence": output.confidence,
+                "deterministic": output.deterministic,
+                "processing_time_ms": output.processing_time_ms,
+            }
+        return handler
+
+    for eng_name in ["perception", "context_assembly", "reasoning",
+                     "planning", "decision", "reflection",
+                     "learning", "confidence"]:
+        r.promote_to_available(eng_name, _make_engine_handler(eng_name))

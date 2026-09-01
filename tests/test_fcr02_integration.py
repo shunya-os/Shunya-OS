@@ -85,8 +85,8 @@ class TestCapabilityRegistry:
             unwired = registry.list(status="UNWIRED")
             unused = registry.list(status="INTEGRATED_BUT_UNUSED")
 
-            assert len(available) >= 10, f"Expected >=10 AVAILABLE, got {len(available)}"
-            assert len(unwired) >= 5, f"Expected >=5 UNWIRED, got {len(unwired)}"
+            assert len(available) >= 18, f"Expected >=18 AVAILABLE (8 intel engines + app caps), got {len(available)}"
+            assert len(unwired) >= 2, f"Expected >=2 UNWIRED (UCP domain engines), got {len(unwired)}"
 
             # AVAILABLE capabilities have handlers
             for c in available:
@@ -586,3 +586,197 @@ class TestSyntheticDataIntegrity:
             remaining = db.session.get(EvidenceRecord, legal_ev.id)
             assert remaining is not None, \
                 "Legal evidence must survive cleanup"
+
+
+# ---------------------------------------------------------------------------
+# Intelligence Engine Wiring (Phase 5)
+# ---------------------------------------------------------------------------
+
+class TestIntelligenceEngineWiring:
+    """Prove the 8 intelligence engines are invocable through the registry."""
+
+    def test_all_engines_registered_and_available(self, app):
+        """Prove all 8 engines have AVAILABLE status with handlers."""
+        with app.app_context():
+            from core.capability_registry import get_registry
+            registry = get_registry()
+
+            for name in ["perception", "context_assembly", "reasoning",
+                         "planning", "decision", "reflection",
+                         "learning", "confidence"]:
+                cap = registry.get(name)
+                assert cap is not None, f"{name} should be registered"
+                assert cap.status == "AVAILABLE", \
+                    f"{name} should be AVAILABLE, got {cap.status}"
+                assert cap._handler is not None, \
+                    f"{name} should have a handler"
+
+    def test_perception_engine_invocation(self, app):
+        """Prove perception engine processes input and returns observation."""
+        with app.app_context():
+            from core.capability_registry import get_registry
+            registry = get_registry()
+
+            result = registry.invoke("perception", context={
+                "input_type": "observation",
+                "payload": {
+                    "text": "Create a new lead for Acme Corp",
+                    "source": "user_input",
+                },
+                "confidence_threshold": 0.5,
+            })
+            assert result["success"], f"Perception failed: {result}"
+            payload = result.get("result", {}).get("payload", {})
+            assert "observation_id" in str(payload), \
+                f"Perception should produce observation: {payload}"
+
+    def test_reasoning_engine_invocation(self, app):
+        """Prove reasoning engine performs deductive reasoning."""
+        with app.app_context():
+            from core.capability_registry import get_registry
+            registry = get_registry()
+
+            result = registry.invoke("reasoning", context={
+                "input_type": "reasoning",
+                "payload": {
+                    "premises": [
+                        "All leads need follow-up within 24 hours",
+                        "Acme Corp is a lead",
+                    ],
+                    "reasoning_type": "deductive",
+                },
+            })
+            assert result["success"], f"Reasoning failed: {result}"
+            payload = result.get("result", {}).get("payload", "")
+            assert "conclusion" in str(payload).lower(), \
+                f"Reasoning should produce conclusion: {payload}"
+
+    def test_decision_engine_invocation(self, app):
+        """Prove decision engine creates a decision record."""
+        with app.app_context():
+            from core.capability_registry import get_registry
+            registry = get_registry()
+
+            result = registry.invoke("decision", context={
+                "input_type": "create_decision",
+                "payload": {
+                    "label": "Qualify lead Acme Corp",
+                    "description": "Determine if Acme Corp meets qualification criteria",
+                    "owner": "sales_agent",
+                },
+            })
+            assert result["success"], f"Decision failed: {result}"
+            payload = result.get("result", {}).get("payload", {})
+            assert "decision_id" in str(payload), \
+                f"Decision should produce decision_id: {payload}"
+
+    def test_planning_engine_invocation(self, app):
+        """Prove planning engine generates a plan from an objective."""
+        with app.app_context():
+            from core.capability_registry import get_registry
+            registry = get_registry()
+
+            result = registry.invoke("planning", context={
+                "input_type": "plan",
+                "payload": {
+                    "objective": "Qualify and close Acme Corp lead",
+                },
+                "confidence_threshold": 0.5,
+            })
+            assert result["success"], f"Planning failed: {result}"
+            payload = result.get("result", {}).get("payload", {})
+            assert "plan_id" in str(payload) or "steps" in str(payload), \
+                f"Planning should produce plan with steps: {payload[:200]}"
+
+    def test_reflection_engine_invocation(self, app):
+        """Prove reflection engine can reflect on outcomes."""
+        with app.app_context():
+            from core.capability_registry import get_registry
+            registry = get_registry()
+
+            result = registry.invoke("reflection", context={
+                "input_type": "reflect",
+                "payload": {
+                    "expected_outcome": {"status": "sent"},
+                    "actual_outcome": {"status": "failed"},
+                    "subject_id": "lead-123",
+                    "subject_type": "lead",
+                },
+            })
+            assert result["success"], f"Reflection failed: {result}"
+            payload = result.get("result", {}).get("payload", {})
+            assert "reflection_id" in str(payload), \
+                f"Reflection should produce reflection_id: {payload[:100]}"
+
+    def test_learning_engine_invocation(self, app):
+        """Prove learning engine detects patterns from reflections."""
+        with app.app_context():
+            from core.capability_registry import get_registry
+            registry = get_registry()
+
+            result = registry.invoke("learning", context={
+                "input_type": "reflection",
+                "payload": {
+                    "success_score": 0.4,
+                    "improvement_signals": [
+                        {"signal": "response_time_too_high", "value": 120},
+                    ],
+                    "anomalies": ["delayed_follow_up"],
+                    "subject_id": "lead-123",
+                    "subject_type": "lead",
+                },
+            })
+            assert result["success"], f"Learning failed: {result}"
+            payload = result.get("result", {}).get("payload", {})
+            assert "pattern_id" in str(payload), \
+                f"Learning should produce pattern_id: {payload[:100]}"
+
+    def test_confidence_engine_invocation(self, app):
+        """Prove confidence engine computes overall confidence score."""
+        with app.app_context():
+            from core.capability_registry import get_registry
+            registry = get_registry()
+
+            result = registry.invoke("confidence", context={
+                "input_type": "compute",
+                "payload": {
+                    "factors": [
+                        {"name": "source_reliability", "value": 0.9, "weight": 0.25},
+                        {"name": "evidence_strength", "value": 0.7, "weight": 0.3},
+                        {"name": "consistency", "value": 0.8, "weight": 0.2},
+                    ],
+                },
+            })
+            assert result["success"], f"Confidence failed: {result}"
+            payload = result.get("result", {}).get("payload", {})
+            assert "overall" in str(payload), \
+                f"Confidence should produce overall score: {payload[:100]}"
+
+    def test_engine_invocation_records_usage(self, app):
+        """Prove engine invocation increments usage counters."""
+        with app.app_context():
+            from core.capability_registry import get_registry
+            registry = get_registry()
+
+            before = registry.get("perception")._invocation_count
+            registry.invoke("perception", context={
+                "input_type": "observation",
+                "payload": {"text": "test", "source": "test"},
+                "confidence_threshold": 0.5,
+            })
+            after = registry.get("perception")._invocation_count
+            assert after == before + 1, \
+                f"Expected {before + 1}, got {after}"
+
+    def test_engine_error_returns_structured_result(self, app):
+        """Prove engine processing errors produce structured responses, not crashes."""
+        with app.app_context():
+            from core.capability_registry import get_registry
+            registry = get_registry()
+
+            # Send empty payload to planning engine — should error gracefully
+            result = registry.invoke("planning", context={})
+            assert not result["success"], \
+                "Empty planning request should fail"
+            assert "error" in result, \
+                "Error should be in result, not thrown as exception"
