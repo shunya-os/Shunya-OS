@@ -130,7 +130,7 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
         return {"success": False, "error": f"Unknown object type: {object_type}"}
 
     data = request_data
-    
+
     # Validate required fields
     for field in type_config['required']:
         if not data.get(field):
@@ -142,19 +142,18 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
     if not name:
         return {"success": False, "error": f"'{name_field}' is required."}
 
-    # Resolve organization from session
+    # Resolve organization from session — must exist
     from flask import session
     org_id = session.get("current_org_id")
     if not org_id:
-        # Fallback: try to resolve from identity
-        org_id = 1  # default org
+        return {"success": False, "error": "Organization context missing — cannot create object without an organization."}
 
     from core.object_service import get_object_service
     svc = get_object_service()
     obj = svc.create(
         object_type=type_config['display_name'],
         name=name,
-        organization_id=int(org_id) if org_id else 1,
+        organization_id=int(org_id),
         data={k: data.get(k, '') for k in type_config['fields']},
         created_by=identity_id[:12] if identity_id else "",
     )
@@ -213,91 +212,65 @@ def create_typed_object(object_type: str):
 
 @production_bp.route("/objects/<object_type>/<object_id>", methods=["PUT"])
 def update_typed_object(object_type: str, object_id: str):
-    """Update a typed business object through canonical service."""
+    """Update a typed business object through canonical service only."""
     identity_id = session.get("identity_id") or session.get("user_id") or ""
     if not identity_id:
         return jsonify({"error": "Not authenticated"}), 401
     data = request.get_json(silent=True) or {}
-    
-    # Try canonical store first, then legacy FounderObject
+
+    org_id = session.get("current_org_id")
+    if not org_id:
+        return jsonify({"error": "Organization context missing"}), 400
+
     from core.object_service import get_object_service
     from app.objects.legacy_models import ShunyaObject
     svc = get_object_service()
-    sh = ShunyaObject.query.filter_by(object_id=object_id).first()
-    if sh:
-        # Update via canonical service
-        updates = {}
-        if data.get('name'):
-            updates['name'] = data['name']
-        if data:
-            updates['data'] = data
-        svc.update(sh.id, organization_id=sh.organization_id or 1, **updates)
-        return jsonify({"success": True, "data": {"object_id": object_id, "name": data.get('name', sh.name)}})
-    
-    # Fallback to legacy FounderObject
-    from app.founder.models import FounderObject
-    obj = FounderObject.query.filter_by(object_id=object_id).first()
-    if not obj:
+    # Scope lookup to the user's organization — cross-org access blocked
+    sh = ShunyaObject.query.filter_by(
+        object_id=object_id,
+        organization_id=int(org_id),
+    ).first()
+    if not sh:
         return jsonify({"error": "Object not found"}), 404
-    
-    type_lower = object_type.lower()
-    type_config = OBJECT_TYPES.get(type_lower)
-    if type_config:
-        field_updates = {k: data.get(k, '') for k in type_config['fields']}
-        import ast
-        try:
-            current = ast.literal_eval(obj.content) if obj.content else {}
-        except:
-            current = {}
-        current.update({k: v for k, v in field_updates.items() if v})
-        obj.content = str(current)
-    
+
+    # Update via canonical service only — no legacy fallback
+    updates = {}
     if data.get('name'):
-        obj.name = data['name']
-    
-    db.session.commit()
-    return jsonify({"success": True, "data": {"object_id": obj.object_id, "name": obj.name}})
+        updates['name'] = data['name']
+    if data:
+        updates['data'] = data
+    svc.update(sh.id, organization_id=int(org_id), **updates)
+    return jsonify({"success": True, "data": {"object_id": object_id, "name": data.get('name', sh.name)}})
 
 
 @production_bp.route("/objects/<object_type>/<object_id>", methods=["GET"])
 def get_typed_object(object_type: str, object_id: str):
-    """Get a typed business object from canonical or legacy store."""
+    """Get a typed business object from canonical store only."""
     identity_id = session.get("identity_id") or session.get("user_id") or ""
     if not identity_id:
         return jsonify({"error": "Not authenticated"}), 401
-    
-    # Try canonical store first
+
+    org_id = session.get("current_org_id")
+    if not org_id:
+        return jsonify({"error": "Organization context missing"}), 400
+
     from app.objects.legacy_models import ShunyaObject
-    sh = ShunyaObject.query.filter_by(object_id=object_id).first()
-    if sh:
-        return jsonify({
-            "success": True,
-            "data": {
-                "object_id": sh.object_id,
-                "name": sh.name,
-                "object_type": sh.object_type,
-                "content": str(sh.data or {}),
-                "status": sh.status,
-                "created_at": sh.created_at.isoformat() if sh.created_at else None,
-                "updated_at": sh.updated_at.isoformat() if sh.updated_at else None,
-            }
-        })
-    
-    # Fallback to legacy FounderObject
-    from app.founder.models import FounderObject
-    obj = FounderObject.query.filter_by(object_id=object_id).first()
-    if not obj:
+    sh = ShunyaObject.query.filter_by(
+        object_id=object_id,
+        organization_id=int(org_id),
+    ).first()
+    if not sh:
         return jsonify({"success": False, "error": "Object not found"}), 404
-    
+
     return jsonify({
         "success": True,
         "data": {
-            "object_id": obj.object_id,
-            "name": obj.name,
-            "object_type": obj.object_type,
-            "content": obj.content,
-            "status": obj.status,
-            "created_at": obj.created_at.isoformat() if obj.created_at else None,
-            "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
+            "object_id": sh.object_id,
+            "name": sh.name,
+            "object_type": sh.object_type,
+            "content": str(sh.data or {}),
+            "status": sh.status,
+            "created_at": sh.created_at.isoformat() if sh.created_at else None,
+            "updated_at": sh.updated_at.isoformat() if sh.updated_at else None,
         }
     })

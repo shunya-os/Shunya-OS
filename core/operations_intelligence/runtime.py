@@ -721,20 +721,6 @@ class OperationsIntelligenceRuntime:
             if owner_id and sl_id:
                 self.update_service_level(owner_id, sl_id, actual)
 
-    def register_execution_actions(self, execution_runtime: Any) -> None:
-        try:
-            from core.execution_runtime.models import ActionContract
-        except ImportError:
-            return
-        execution_runtime.register_action("operations.analyze", ActionContract(
-            action_id="operations.analyze",
-            description="Analyze an operation with full intelligence",
-            input_schema={"type": "object", "properties": {
-                "owner_id": {"type": "string"}, "process_id": {"type": "string"},
-            }, "required": ["owner_id", "process_id"]},
-            output_schema={"type": "object"},
-        ), handler=self.analyze)
-
     def initialize(self) -> None:
         logger.info("OperationsIntelligenceRuntime initialized")
 

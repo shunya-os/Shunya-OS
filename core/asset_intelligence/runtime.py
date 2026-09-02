@@ -174,19 +174,6 @@ class AssetIntelligenceRuntime:
     def notify(self, notification: dict[str, Any]) -> None:
         pass  # Placeholder for Reality integration
 
-    def register_execution_actions(self, execution_runtime: Any) -> None:
-        try:
-            from core.execution_runtime.models import ActionContract
-        except ImportError:
-            return
-        execution_runtime.register_action("asset.analyze", ActionContract(
-            action_id="asset.analyze", description="Analyze an asset",
-            input_schema={"type": "object", "properties": {
-                "owner_id": {"type": "string"}, "asset_id": {"type": "string"},
-            }, "required": ["owner_id", "asset_id"]},
-            output_schema={"type": "object"},
-        ), handler=self.analyze_asset)
-
     def _notify(self, n: dict) -> None:
         for l in self._reality_listeners:
             try:

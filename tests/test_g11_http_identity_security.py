@@ -3,6 +3,7 @@ G1.1-R2 — HTTP-level identity path + object security tests.
 Self-contained: creates its own TeamMember/OrgMember fixtures.
 """
 import pytest
+from datetime import datetime
 
 
 @pytest.fixture(scope="module")
@@ -52,10 +53,10 @@ def _ensure_test_user(app, email: str, org_id: int, role: str = "member"):
         if not om:
             db.session.execute(
                 text("""
-                    INSERT INTO org_members (email, name, organization_id, role, is_active, identity_id)
-                    VALUES (:e, :n, :o, :r, :a, :iid)
+                    INSERT INTO org_members (email, name, organization_id, role, is_active, identity_id, joined_at)
+                    VALUES (:e, :n, :o, :r, :a, :iid, :now)
                 """),
-                {"e": email, "n": email.split("@")[0], "o": org_id, "r": role, "a": True, "iid": email},
+                {"e": email, "n": email.split("@")[0], "o": org_id, "r": role, "a": True, "iid": email, "now": datetime.utcnow()},
             )
             db.session.commit()
 

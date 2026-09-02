@@ -97,7 +97,6 @@ class ShunyaOS:
         from core.runtime_pipeline.adapters import (
             AutomationRuntimeAdapter,
             CognitiveRuntimeAdapter,
-            ExecutionRuntimeAdapter,
             MemoryKnowledgeRuntimeAdapter,
             PlanningRuntimeAdapter,
             WorkspaceRuntimeAdapter,
@@ -117,11 +116,6 @@ class ShunyaOS:
         self._cognitive_runtime = CognitiveRuntimeAdapter()
         self._runtimes["cognitive"] = self._cognitive_runtime
         self._pipeline.register(self._cognitive_runtime)
-
-        # Execution — replaces execution mock
-        self._execution_runtime = ExecutionRuntimeAdapter()
-        self._runtimes["execution"] = self._execution_runtime
-        self._pipeline.register(self._execution_runtime)
 
         # Automation — replaces automation mock
         self._automation_runtime = AutomationRuntimeAdapter()

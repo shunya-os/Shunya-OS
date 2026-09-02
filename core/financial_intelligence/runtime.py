@@ -678,63 +678,6 @@ class FinancialIntelligenceRuntime:
 
     # ── Adaptive Execution Integration ──────────────────────────────────
 
-    def register_execution_actions(self, execution_runtime: Any) -> None:
-        """Register financial actions with the Execution Runtime."""
-        try:
-            from core.execution_runtime.models import ActionContract
-        except ImportError:
-            logger.warning("ExecutionRuntime not available — skipping action registration")
-            return
-
-        # Action: assess financial health
-        execution_runtime.register_action(
-            action_id="financial.assess_health",
-            contract=ActionContract(
-                action_id="financial.assess_health",
-                description="Assess financial health for a profile",
-                input_schema={
-                    "type": "object", "properties": {
-                        "profile_id": {"type": "string"},
-                    }, "required": ["profile_id"],
-                },
-                output_schema={"type": "object"},
-            ),
-            handler=self.assess_financial_health,
-        )
-
-        # Action: detect risks
-        execution_runtime.register_action(
-            action_id="financial.detect_risks",
-            contract=ActionContract(
-                action_id="financial.detect_risks",
-                description="Detect financial risks for a profile",
-                input_schema={
-                    "type": "object", "properties": {
-                        "profile_id": {"type": "string"},
-                    }, "required": ["profile_id"],
-                },
-                output_schema={"type": "object"},
-            ),
-            handler=self.detect_risks,
-        )
-
-        # Action: forecast cash flow
-        execution_runtime.register_action(
-            action_id="financial.forecast_cash_flow",
-            contract=ActionContract(
-                action_id="financial.forecast_cash_flow",
-                description="Forecast cash flow for a profile",
-                input_schema={
-                    "type": "object", "properties": {
-                        "profile_id": {"type": "string"},
-                        "horizon_months": {"type": "integer"},
-                    }, "required": ["profile_id"],
-                },
-                output_schema={"type": "object"},
-            ),
-            handler=self.forecast_cash_flow,
-        )
-
     # ── Engine Lifecycle ────────────────────────────────────────────────
 
     def initialize(self) -> None:

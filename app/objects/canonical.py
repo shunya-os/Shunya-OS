@@ -26,7 +26,7 @@ def get_canonical_object(object_id: str) -> dict | None:
     if so:
         return {
             "object_id": so.object_id,
-            "tenant_id": so.organization_id or 1,
+            "tenant_id": so.organization_id or 0,
             "space_id": so.workspace_id or "",
             "object_type": so.object_type,
             "name": so.name,
@@ -55,7 +55,7 @@ def get_canonical_object(object_id: str) -> dict | None:
     if fo:
         return {
             "object_id": fo.object_id,
-            "tenant_id": 1,
+            "tenant_id": 0,
             "space_id": fo.space_id or "",
             "object_type": fo.object_type or "Document",
             "name": fo.name or "Untitled",
@@ -85,7 +85,7 @@ def list_canonical_objects(space_id: str = "", object_type: str = "",
     return [
         {
             "object_id": r.object_id,
-            "tenant_id": r.organization_id or 1,
+            "tenant_id": r.organization_id or 0,
             "space_id": r.workspace_id or "",
             "object_type": r.object_type,
             "name": r.name,
@@ -110,7 +110,7 @@ def create_canonical_object(
     object_type: str,
     name: str,
     space_id: str = "",
-    tenant_id: int = 1,
+    tenant_id: int = 0,
     content: str = "",
     created_by: str = "",
     metadata: dict = None,
@@ -123,9 +123,14 @@ def create_canonical_object(
     Routes through core/object_service.py → sh_objects.
     Legacy writes to UOPObject and FounderObject are removed —
     new consumers should read from sh_objects via get_canonical_object().
+
+    Callers MUST provide a valid tenant_id. 0 = unknown/legacy (no mutation).
     """
     from app.objects.legacy_models import ShunyaObject
     from app import db
+
+    if not tenant_id:
+        return {"error": "tenant_id is required — cannot create object without organization context"}
 
     # Check if object already exists — if so, update in place (upsert)
     existing = ShunyaObject.query.filter_by(object_id=object_id).first()
@@ -155,7 +160,7 @@ def create_canonical_object(
         }
 
     svc = get_object_service()
-    org_id = tenant_id if tenant_id and tenant_id > 0 else 1
+    org_id = tenant_id
     w_id = workspace_id or space_id or "spc_default"
 
     obj = svc.create(

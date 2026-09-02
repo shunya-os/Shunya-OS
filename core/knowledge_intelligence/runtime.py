@@ -343,53 +343,6 @@ class KnowledgeIntelligenceRuntime:
 
     # ── Adaptive Execution Integration ──────────────────────────────────
 
-    def register_execution_actions(self, execution_runtime: Any) -> None:
-        try:
-            from core.execution_runtime.models import ActionContract
-        except ImportError:
-            logger.warning("ExecutionRuntime not available — skipping action registration")
-            return
-
-        execution_runtime.register_action(
-            action_id="knowledge.search",
-            contract=ActionContract(
-                action_id="knowledge.search",
-                description="Semantic search across knowledge base",
-                input_schema={"type": "object", "properties": {
-                    "profile_id": {"type": "string"},
-                    "query": {"type": "string"},
-                }, "required": ["profile_id", "query"]},
-                output_schema={"type": "object"},
-            ),
-            handler=lambda **kw: self.search(**kw),
-        )
-
-        execution_runtime.register_action(
-            action_id="knowledge.detect_contradictions",
-            contract=ActionContract(
-                action_id="knowledge.detect_contradictions",
-                description="Detect contradictions in knowledge base",
-                input_schema={"type": "object", "properties": {
-                    "profile_id": {"type": "string"},
-                }, "required": ["profile_id"]},
-                output_schema={"type": "object"},
-            ),
-            handler=self.detect_contradictions,
-        )
-
-        execution_runtime.register_action(
-            action_id="knowledge.recommend",
-            contract=ActionContract(
-                action_id="knowledge.recommend",
-                description="Recommend missing knowledge",
-                input_schema={"type": "object", "properties": {
-                    "profile_id": {"type": "string"},
-                }, "required": ["profile_id"]},
-                output_schema={"type": "object"},
-            ),
-            handler=self.recommend_knowledge,
-        )
-
     # ── Engine Lifecycle ────────────────────────────────────────────────
 
     def initialize(self) -> None:

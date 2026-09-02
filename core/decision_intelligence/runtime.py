@@ -332,41 +332,6 @@ class DecisionIntelligenceRuntime:
 
     # ── Adaptive Execution Integration ──────────────────────────────────
 
-    def register_execution_actions(self, execution_runtime: Any) -> None:
-        try:
-            from core.execution_runtime.models import ActionContract
-        except ImportError:
-            logger.warning("ExecutionRuntime not available")
-            return
-
-        execution_runtime.register_action(
-            action_id="decision.evaluate",
-            contract=ActionContract(
-                action_id="decision.evaluate",
-                description="Evaluate a decision with full reasoning",
-                input_schema={"type": "object", "properties": {
-                    "profile_id": {"type": "string"},
-                    "decision_id": {"type": "string"},
-                }, "required": ["profile_id", "decision_id"]},
-                output_schema={"type": "object"},
-            ),
-            handler=self.evaluate,
-        )
-
-        execution_runtime.register_action(
-            action_id="decision.accept",
-            contract=ActionContract(
-                action_id="decision.accept",
-                description="Accept a decision recommendation",
-                input_schema={"type": "object", "properties": {
-                    "profile_id": {"type": "string"},
-                    "decision_id": {"type": "string"},
-                }, "required": ["profile_id", "decision_id"]},
-                output_schema={"type": "object"},
-            ),
-            handler=self.accept_decision,
-        )
-
     # ── Engine Lifecycle ────────────────────────────────────────────────
 
     def initialize(self) -> None:

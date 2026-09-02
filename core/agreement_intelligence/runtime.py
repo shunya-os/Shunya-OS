@@ -198,20 +198,6 @@ class AgreementIntelligenceRuntime:
             if pid and aid and oid:
                 self.update_obligation_status(pid, aid, oid, ObligationStatus.FULFILLED.value)
 
-    def register_execution_actions(self, execution_runtime: Any) -> None:
-        try:
-            from core.execution_runtime.models import ActionContract
-        except ImportError:
-            return
-        execution_runtime.register_action("agreement.analyze", ActionContract(
-            action_id="agreement.analyze",
-            description="Analyze an agreement with full intelligence",
-            input_schema={"type": "object", "properties": {
-                "profile_id": {"type": "string"}, "agreement_id": {"type": "string"},
-            }, "required": ["profile_id", "agreement_id"]},
-            output_schema={"type": "object"},
-        ), handler=self.analyze_agreement)
-
     def initialize(self) -> None:
         logger.info("AgreementIntelligenceRuntime initialized")
     def shutdown(self) -> None:

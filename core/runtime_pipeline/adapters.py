@@ -289,88 +289,6 @@ class PlanningRuntimeAdapter(RuntimeInterface):
 
 
 # ---------------------------------------------------------------------------
-# Execution Runtime Adapter
-# ---------------------------------------------------------------------------
-
-
-class ExecutionRuntimeAdapter(RuntimeInterface):
-    """Pipeline adapter for ExecutionRuntime.
-
-    Handles EXECUTION_UPDATE stage.
-    Wraps core/execution_runtime/ into the canonical pipeline.
-    ExecutionRuntime is async — the adapter bridges via asyncio.run().
-    """
-
-    name: str = "execution"
-    stages: list[PipelineStage] | None = None
-
-    def __init__(self) -> None:
-        from core.execution_runtime import ExecutionRuntime
-        self._runtime = ExecutionRuntime()
-        self._runtime.register_default_actions()
-        self.stages = [PipelineStage.EXECUTION_UPDATE]
-
-    def process(self, context: PipelineContext, stage: PipelineStage) -> dict[str, Any]:
-        if stage == PipelineStage.EXECUTION_UPDATE:
-            return self._execution_update(context)
-        return {"status": "noop", "stage": stage.value}
-
-    def _execution_update(self, context: PipelineContext) -> dict[str, Any]:
-        """Schedule an execution instance from the pipeline context.
-
-        For known intents, creates an execution instance and schedules it.
-        For unknown intents, returns noop to avoid hard pipeline failures.
-        """
-        intent = context.intent
-        params = context.parameters or {}
-        identity_id = context.identity_id or "anonymous"
-
-        # Check if this intent maps to a registered action
-        if self._runtime.get_action(intent) is None:
-            return {
-                "status": "noop",
-                "runtime": self.name,
-                "stage": PipelineStage.EXECUTION_UPDATE.value,
-                "reason": f"Action '{intent}' not registered — no execution needed",
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-
-        instance = self._runtime.create_instance(
-            action_id=intent,
-            actor=identity_id,
-            objective=str(params),
-        )
-
-        try:
-            result = asyncio.run(self._runtime.schedule(instance))
-        except Exception as exc:
-            logger.error("Execution runtime scheduling failed: %s", exc)
-            return {
-                "status": "failed",
-                "runtime": self.name,
-                "stage": PipelineStage.EXECUTION_UPDATE.value,
-                "error": str(exc),
-                "instance_id": instance.instance_id,
-            }
-
-        return {
-            "status": "completed",
-            "runtime": self.name,
-            "stage": PipelineStage.EXECUTION_UPDATE.value,
-            "execution_id": result.execution_id if result else "unknown",
-            "execution_state": result.state.value if result else "unknown",
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-
-    def health_check(self) -> dict[str, Any]:
-        return {
-            "status": "healthy",
-            "runtime": self.name,
-            "action_count": len(self._runtime._actions),
-        }
-
-
-# ---------------------------------------------------------------------------
 # Automation Runtime Adapter
 # ---------------------------------------------------------------------------
 
@@ -521,7 +439,6 @@ class WorkspaceRuntimeAdapter(RuntimeInterface):
 __all__ = [
     "AutomationRuntimeAdapter",
     "CognitiveRuntimeAdapter",
-    "ExecutionRuntimeAdapter",
     "MemoryKnowledgeRuntimeAdapter",
     "PlanningRuntimeAdapter",
     "WorkspaceRuntimeAdapter",

@@ -358,9 +358,6 @@ class HealthIntelligenceRuntime:
     def notify(self, notification: dict[str, Any]) -> None:
         pass
 
-    def register_execution_actions(self, er: Any) -> None:
-        pass
-
     def _notify(self, n: dict) -> None:
         for l in self._reality_listeners:
             try:
