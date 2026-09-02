@@ -14,7 +14,7 @@ valid_statuses:
 milestones:
   G1.1-R1:
     title: "G1.1 — Identity + Object Convergence"
-    status: UNVERIFIED
+    status: PASS
     phase: G1
     description: >
       Canonical identity resolution, object store convergence, org/workspace chain,
@@ -25,8 +25,27 @@ milestones:
       - "governance/verification/milestones/G1.1-R1_evidence.yaml"
       - "governance/verification/milestones/G1.1-R1_consumers.txt"
       - "governance/verification/milestones/G1.1-R1_self_rejection.md"
-    completed_at: "2026-09-01T19:00:00Z"
-    verified_by: "Hermes Agent (G1.1-R1 final convergence directive)"
+    completed_at: "2026-09-02T07:15:00Z"
+    verified_by: "Hermes Agent (G1.1-R4 forensic remediation directive)"
+
+  G1.1-R4:
+    title: "G1.1-R4 — Canonical Ownership Lock & Certifiable Closure"
+    status: PASS
+    phase: G1
+    description: >
+      org_id=1 fallback eliminated, FounderObject classified, canonical-first/legacy-fallback
+      removed, core/execution_runtime/ decommissioned, objects vs sh_objects proven distinct,
+      negative tests for authorization/org context, CI immutability.
+    dependencies: []
+    blockers: []
+    closure_evidence:
+      - "governance/verification/milestones/G1.1-R4_ownership_matrix.md"
+      - "governance/verification/milestones/G1.1-R4_execution_state_semantics.md"
+      - "governance/verification/milestones/G1.1-R4_execution_ownership.md"
+      - "governance/verification/milestones/G1.1-R4_founder_object_classification.md"
+      - "governance/verification/milestones/G1.1-R4_closure.md"
+    completed_at: "2026-09-02T07:15:00Z"
+    verified_by: "Hermes Agent (G1.1-R4 forensic remediation directive)"
 
   G1.2:
     title: "G1.2 — Knowledge, Memory, Search"
