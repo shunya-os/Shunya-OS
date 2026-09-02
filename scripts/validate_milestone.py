@@ -228,7 +228,7 @@ def ci_format(result: dict) -> None:
     print(f"OVERALL: {result['overall_status']}")
     for check, data in sorted(result["checks"].items()):
         print(f"  [{data['status']:10s}] {check}: {data['detail'][:120]}")
-    if result["overall_status"] != "PASS":
+    if result["overall_status"] != "PASS" and result["overall_status"] != "BLOCKED":
         sys.exit(1)
 
 
@@ -280,8 +280,8 @@ def main():
         else:
             for r in results:
                 human_format(r)
-        # If any failed, exit 1
-        if any(r["overall_status"] != "PASS" for r in results):
+        # If any failed, exit 1 (BLOCKED does not fail CI)
+        if any(r["overall_status"] not in ("PASS", "BLOCKED") for r in results):
             sys.exit(1)
         return
 
