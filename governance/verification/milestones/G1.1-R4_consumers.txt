@@ -1,0 +1,62 @@
+# G1.1-R4 Consumer Audit — Canonical Ownership & Runtime Closure
+# Generated: 2026-09-02
+# Classification of all consumers after G1.1-R4 consolidation
+
+## CANONICAL BUSINESS OBJECT AUTHORITY
+# sh_objects via ObjectService — single canonical write/read path
+
+## LEGACY FALLBACKS REMOVED (G1.1-R4)
+# app/production/objects.py: GET/PUT routes — FounderObject fallback removed
+# app/objects/canonical.py: triple-write removed, tenant_id=1 default removed
+# -> Canonical-first/legacy-fallback pattern eliminated
+
+## EXECUTION RUNTIME DECOMMISSIONED (G1.1-R4)
+# core/execution_runtime/ — full module removed from disk
+# ExecutionRuntimeAdapter — removed from pipeline (core/os.py + core/runtime_pipeline/adapters.py)
+# 10 register_execution_actions() methods — removed from intelligence runtimes
+# 2 skipped test files — removed
+# -> Canonical execution path: app/runtime/entry.py → execution_engine → OutcomeRuntime
+
+## FOUNDEROBJECT CLASSIFICATION
+# Total production callers: 9 (8 genuine founder-specific + 1 read-only compat)
+# None write canonical business objects through FounderObject
+
+### GENUINE FOUNDER-SPECIFIC (8) — Acceptable
+# app/founder/routes.py                    # Full CRUD for founder spaces/objects/conversations
+# app/auth_routes.py:103-109               # Creates FounderSpace on org creation (companion)
+# app/auth_routes.py:736-788               # Reads FounderSpace/FounderObject for personal content check
+# app/routes.py:71-104                     # Creates FounderSpace on org creation
+# app/upload/routes.py:25-137              # Document uploads in founder spaces
+# app/intelligence/service.py:17-222       # AI workspace monitoring of founder objects
+# app/intelligence/mixed_router.py:122-181 # AI context gathering from founder workspace
+# app/intelligence/routes.py:309-327       # AI context for conversational intelligence
+
+### READ-ONLY MIGRATION COMPAT (1) — Acceptable
+# app/objects/canonical.py:52-72           # Legacy data bridge for founder_objects reads only
+
+## ORGANIZATION CONTEXT FALLBACK ELIMINATED
+# app/production/objects.py:148-150        # org_id=1 fallback → deterministic rejection
+# app/objects/canonical.py:29,58,88,113,158 # or 1 fallback → or 0 (error on missing)
+# core/object_service.py:194               # organization_id fallback chain → clean
+
+## CROSS-TENANT ISOLATION ENFORCED
+# app/production/objects.py: PUT route scoped by organization_id
+# app/production/objects.py: GET route scoped by organization_id
+
+## NEGATIVE TESTS ADDED (9)
+# tests/test_g11_r4_negative.py
+# - missing org context → 400 error, no mutation
+# - missing identity → 401, no mutation
+# - cross-org access → 404 (object not found in this org)
+# - missing tenant_id → error returned
+# - non-existent object → 404 (no legacy store fallback)
+
+## CONCLUSION
+# G1.1-R4 establishes:
+# 1. Single canonical object authority (sh_objects via ObjectService)
+# 2. Single canonical execution authority (execution_engine via OutcomeRuntime)
+# 3. No silent org_id=1/tenant_id=1 fallback in production code
+# 4. Cross-tenant isolation on all object routes
+# 5. FounderObject classified as genuinely founder-specific
+# 6. core/execution_runtime/ fully decommissioned
+# 7. -973 lines net reduction (fewer authorities, fewer paths)
