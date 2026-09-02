@@ -25,7 +25,10 @@ def list_outputs():
     Returns:
       { "success": true, "data": { "items": [...] } }
     """
-    tenant_id = request.args.get("tenant_id", 1, type=int)
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 400
     items = []
 
     # 1. Proposals
@@ -137,7 +140,10 @@ def list_work_items():
     from app.models import Task
     from app.commitments.models import Commitment
 
-    tenant_id = request.args.get("tenant_id", 1, type=int)
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 400
     items: list[dict] = []
 
     # 1. Outcomes

@@ -84,9 +84,11 @@ def handle_whatsapp_incoming(payload: dict) -> tuple:
         from core.ingestion import IngestionRecord, SourceType, InformationClass
         from core.ingestion.service import get_ingestion_service
 
+        from app.authz.decorators import _resolve_org_id
+        resolved_tenant = _resolve_org_id() or 0
         record = IngestionRecord(
             idempotency_key=f"whatsapp:{msg_id}" if msg_id else "",
-            tenant_id=0,
+            tenant_id=resolved_tenant,
             source=SourceType.WEBHOOK,
             source_identity=sender,
             provider="whatsapp",

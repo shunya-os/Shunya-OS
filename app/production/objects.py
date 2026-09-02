@@ -164,9 +164,11 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
     try:
         from app.shunya.infrastructure.event_bus import CanonicalEvent, get_event_bus
         import json
+        from app.authz.decorators import _resolve_org_id
+        resolved_tenant = int(org_id)  # already validated above — never falls back to 0
         event = CanonicalEvent(
             event_type='object_created',
-            tenant_id=0,
+            tenant_id=resolved_tenant,
             workspace_id=None,
             actor_id=identity_id,
             actor_type='identity',

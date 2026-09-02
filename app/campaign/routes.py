@@ -8,6 +8,7 @@ Follows the same patterns as other SHUNYA route modules:
 """
 import logging
 from flask import Blueprint, jsonify, request, session, g
+from app.authz.decorators import _resolve_org_id
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,8 @@ def _require_auth() -> bool:
     return bool(_identity_id())
 
 
-def _tenant_id() -> int:
-    return session.get("current_org_id") or session.get("tenant_id", 0)
+def _tenant_id() -> int | None:
+    return _resolve_org_id()
 
 
 @campaign_bp.route("/providers/connect", methods=["POST"])

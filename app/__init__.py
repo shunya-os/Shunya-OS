@@ -610,7 +610,7 @@ def create_app(config_override: dict | None = None):
                         return
                     
                     # No org membership — set sentinel
-                    session["current_org_id"] = 0
+                    session["current_org_id"] = None
                     
                     # Final fallback for identity_id
                     if not session.get("identity_id"):
@@ -619,14 +619,14 @@ def create_app(config_override: dict | None = None):
             # Last resort fallback: set identity_id from user_id
             session["identity_id"] = identity_id or str(user_id)
             if not session.get("current_org_id"):
-                session["current_org_id"] = 0
+                session["current_org_id"] = None
         except Exception:
             import traceback
             app.logger.warning(f"Identity resolution failed: {traceback.format_exc()}")
             # Ensure identity_id is set to something so auth doesn't fail completely
             if user_id and not session.get("identity_id"):
                 session["identity_id"] = str(user_id)
-                session.setdefault("current_org_id", 0)
+                session.setdefault("current_org_id", None)
 
     # ---- Unified Auth Middleware --------------------------------------------
     # Sets g.identity_id from Flask session cookie or X-Identity-Id header

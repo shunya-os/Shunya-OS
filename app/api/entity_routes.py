@@ -84,7 +84,10 @@ def create_entity():
     data = request.get_json() or {}
     entity_type = data.get("type", "contact")
     entity_data = data.get("data", {})
-    tenant_id = data.get("tenant_id", 1)
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"error": "No organization context"}), 400
 
     # Look up or create entity definition
     definition = EntityDefinition.query.filter_by(

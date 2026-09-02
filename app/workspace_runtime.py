@@ -55,6 +55,7 @@ from app.orchestrator import (
     get_orchestrator, OrchestratorEngine,
     PipelineContext, PipelineResult,
 )
+from app.authz.decorators import _resolve_org_id
 
 # =========================================================================
 # Singleton
@@ -111,7 +112,7 @@ class ObjectRegistry:
     def get_types(self) -> List[str]:
         return list(self._handlers.keys())
 
-    def load(self, obj_type: str, obj_id: str, tenant_id: int = 1) -> Optional[Dict[str, Any]]:
+    def load(self, obj_type: str, obj_id: str, tenant_id: int | None = None) -> Optional[Dict[str, Any]]:
         handler = self.get_handler(obj_type)
         if not handler:
             return None
@@ -137,7 +138,7 @@ class ExecutionHandler:
     """Handler for execution (Outcome) objects — reads from canonical Outcome store."""
 
     @staticmethod
-    def load(obj_id: str, tenant_id: int = 1) -> Optional[Dict[str, Any]]:
+    def load(obj_id: str, tenant_id: int | None = None) -> Optional[Dict[str, Any]]:
         from app.execution.models import Outcome
         outcome = Outcome.query.filter_by(outcome_id=obj_id).first()
         if not outcome:
@@ -209,7 +210,7 @@ class ExecutionHandler:
 
 class CommitmentHandler:
     @staticmethod
-    def load(obj_id: str, tenant_id: int = 1) -> Optional[Dict[str, Any]]:
+    def load(obj_id: str, tenant_id: int | None = None) -> Optional[Dict[str, Any]]:
         return {"id": obj_id, "type": "commitment", "tenant_id": tenant_id,
                 "state": "active", "execution_count": 3}
 
@@ -226,7 +227,7 @@ class CommitmentHandler:
 
 class DecisionHandler:
     @staticmethod
-    def load(obj_id: str, tenant_id: int = 1) -> Optional[Dict[str, Any]]:
+    def load(obj_id: str, tenant_id: int | None = None) -> Optional[Dict[str, Any]]:
         de = get_decision_engine()
         evals = de.get_history(tenant_id)
         for e in evals:
@@ -251,7 +252,7 @@ class DecisionHandler:
 
 class PredictionHandler:
     @staticmethod
-    def load(obj_id: str, tenant_id: int = 1) -> Optional[Dict[str, Any]]:
+    def load(obj_id: str, tenant_id: int | None = None) -> Optional[Dict[str, Any]]:
         pe = get_prediction_engine()
         return {"id": obj_id, "type": "prediction", "tenant_id": tenant_id,
                 "category": "unknown", "confidence": 0.0}
@@ -264,7 +265,7 @@ class PredictionHandler:
 
 class OrganizationHandler:
     @staticmethod
-    def load(obj_id: str, tenant_id: int = 1) -> Optional[Dict[str, Any]]:
+    def load(obj_id: str, tenant_id: int | None = None) -> Optional[Dict[str, Any]]:
         oi = get_organizational_intelligence()
         return {"id": obj_id, "type": "organization", "tenant_id": tenant_id,
                 "state": "active"}
@@ -272,21 +273,21 @@ class OrganizationHandler:
 
 class EvidenceHandler:
     @staticmethod
-    def load(obj_id: str, tenant_id: int = 1) -> Optional[Dict[str, Any]]:
+    def load(obj_id: str, tenant_id: int | None = None) -> Optional[Dict[str, Any]]:
         return {"id": obj_id, "type": "evidence", "tenant_id": tenant_id,
                 "source": "system", "confidence": 0.9}
 
 
 class RelationshipHandler:
     @staticmethod
-    def load(obj_id: str, tenant_id: int = 1) -> Optional[Dict[str, Any]]:
+    def load(obj_id: str, tenant_id: int | None = None) -> Optional[Dict[str, Any]]:
         return {"id": obj_id, "type": "relationship", "tenant_id": tenant_id,
                 "state": "active"}
 
 
 class TaskHandler:
     @staticmethod
-    def load(obj_id: str, tenant_id: int = 1) -> Optional[Dict[str, Any]]:
+    def load(obj_id: str, tenant_id: int | None = None) -> Optional[Dict[str, Any]]:
         return {"id": obj_id, "type": "task", "tenant_id": tenant_id,
                 "state": "pending"}
 
@@ -304,7 +305,22 @@ class ExecutiveBridge:
     def __init__(self):
         self._ei = get_executive_engine()
 
-    def get_brief(self, tenant_id: int = 1) -> Dict[str, Any]:
+    @staticmethod
+    def _resolve_tenant(tenant_id: int | None) -> int:
+        """Resolve a tenant_id from session context if None, with fallback to 0."""
+        if tenant_id is not None:
+            return tenant_id
+        try:
+            resolved = _resolve_org_id()
+            if resolved is not None:
+                return resolved
+        except Exception:
+            pass
+        return 0
+
+    def get_brief(self, tenant_id: int | None = None) -> Dict[str, Any]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         digest = self._ei.synthesis.get_latest_digest(tenant_id)
         if digest and digest.brief:
             return digest.brief.to_dict()
@@ -312,37 +328,51 @@ class ExecutiveBridge:
         d = self._ei.synthesize(tenant_id)
         return d
 
-    def get_priorities(self, tenant_id: int = 1) -> List[Dict[str, Any]]:
+    def get_priorities(self, tenant_id: int | None = None) -> List[Dict[str, Any]]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         digest = self._ei.synthesis.get_latest_digest(tenant_id)
         if digest:
             return [p.to_dict() for p in digest.priorities]
         return []
 
-    def get_risks(self, tenant_id: int = 1) -> List[Dict[str, Any]]:
+    def get_risks(self, tenant_id: int | None = None) -> List[Dict[str, Any]]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         digest = self._ei.synthesis.get_latest_digest(tenant_id)
         if digest:
             return [r.to_dict() for r in digest.risks]
         return []
 
-    def get_opportunities(self, tenant_id: int = 1) -> List[Dict[str, Any]]:
+    def get_opportunities(self, tenant_id: int | None = None) -> List[Dict[str, Any]]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         digest = self._ei.synthesis.get_latest_digest(tenant_id)
         if digest:
             return [o.to_dict() for o in digest.opportunities]
         return []
 
-    def get_decisions(self, tenant_id: int = 1) -> List[Dict[str, Any]]:
+    def get_decisions(self, tenant_id: int | None = None) -> List[Dict[str, Any]]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         digest = self._ei.synthesis.get_latest_digest(tenant_id)
         if digest:
             return [d.to_dict() for d in digest.decisions]
         return []
 
-    def get_health(self, tenant_id: int = 1) -> Dict[str, Any]:
+    def get_health(self, tenant_id: int | None = None) -> Dict[str, Any]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         return self._ei.get_health(tenant_id)
 
-    def get_attention(self, tenant_id: int = 1) -> List[Dict[str, Any]]:
+    def get_attention(self, tenant_id: int | None = None) -> List[Dict[str, Any]]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         return self._ei.get_attention_ranking(tenant_id)
 
-    def get_narrative(self, tenant_id: int = 1) -> Dict[str, Any]:
+    def get_narrative(self, tenant_id: int | None = None) -> Dict[str, Any]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         return self._ei.get_narrative(tenant_id)
 
 
@@ -404,8 +434,23 @@ class ObjectGraphBridge:
     def __init__(self):
         self._registry = ObjectRegistry()
 
-    def get_recent(self, tenant_id: int = 1, limit: int = 10) -> List[Dict[str, Any]]:
+    @staticmethod
+    def _resolve_tenant(tenant_id: int | None) -> int:
+        """Resolve a tenant_id from session context if None, with fallback to 0."""
+        if tenant_id is not None:
+            return tenant_id
+        try:
+            resolved = _resolve_org_id()
+            if resolved is not None:
+                return resolved
+        except Exception:
+            pass
+        return 0
+
+    def get_recent(self, tenant_id: int | None = None, limit: int = 10) -> List[Dict[str, Any]]:
         """Get recent objects across all types."""
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         recent = []
         from app.execution.models import Outcome
         outcomes = Outcome.query.filter_by(identity_id=str(tenant_id)).order_by(
@@ -506,15 +551,32 @@ class WorkspaceRuntime:
     def graph(self) -> ObjectGraphBridge:
         return self._graph_bridge
 
+    # --- Tenant resolution ---
+
+    @staticmethod
+    def _resolve_tenant(tenant_id: int | None) -> int:
+        """Resolve a tenant_id from session context if None, with fallback to 0."""
+        if tenant_id is not None:
+            return tenant_id
+        try:
+            resolved = _resolve_org_id()
+            if resolved is not None:
+                return resolved
+        except Exception:
+            pass
+        return 0
+
     # --- Object focus ---
 
-    def focus_object(self, obj_type: str, obj_id: str, tenant_id: int = 1
+    def focus_object(self, obj_type: str, obj_id: str, tenant_id: int | None = None
                      ) -> Dict[str, Any]:
         """Change workspace focus to an object.
 
         Returns the full object workspace data: summary, timeline, evidence,
         reasoning, actions, linked objects, conversation context.
         """
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         obj = self._registry.load(obj_type, obj_id, tenant_id)
         if not obj:
             # Fallback: create a minimal object
@@ -606,7 +668,9 @@ class WorkspaceRuntime:
         return self._conversations[key]
 
     def send_message(self, obj_type: str, obj_id: str, text: str,
-                     tenant_id: int = 1) -> List[Dict[str, Any]]:
+                     tenant_id: int | None = None) -> List[Dict[str, Any]]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         key = f"{obj_type}:{obj_id}"
         if key not in self._conversations:
             self._conversations[key] = []
@@ -653,7 +717,9 @@ class WorkspaceRuntime:
 
     # --- Executive data ---
 
-    def get_executive_data(self, tenant_id: int = 1) -> Dict[str, Any]:
+    def get_executive_data(self, tenant_id: int | None = None) -> Dict[str, Any]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         return {
             "brief": self._exec_bridge.get_brief(tenant_id),
             "priorities": self._exec_bridge.get_priorities(tenant_id),
@@ -668,7 +734,9 @@ class WorkspaceRuntime:
     def get_object_graph(self, obj_type: str, obj_id: str) -> Dict[str, Any]:
         return self._graph_bridge.get_graph(obj_type, obj_id)
 
-    def get_recent_objects(self, tenant_id: int = 1) -> List[Dict[str, Any]]:
+    def get_recent_objects(self, tenant_id: int | None = None) -> List[Dict[str, Any]]:
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         return self._graph_bridge.get_recent(tenant_id)
 
     def get_available_types(self) -> List[str]:
@@ -687,12 +755,14 @@ class WorkspaceRuntime:
 
     # --- Streaming ---
 
-    def get_updates(self, tenant_id: int = 1,
+    def get_updates(self, tenant_id: int | None = None,
                    since_timestamp: Optional[str] = None) -> Dict[str, Any]:
         """Get runtime updates since a timestamp.
 
         The workspace subscribes to changes. No refresh button needed.
         """
+        if tenant_id is None:
+            tenant_id = self._resolve_tenant(tenant_id)
         return {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "health": self._exec_bridge.get_health(tenant_id),
@@ -723,11 +793,11 @@ class WorkspaceAPI:
     def __init__(self):
         self._runtime = get_workspace_runtime()
 
-    def focus_object(self, obj_type: str, obj_id: str, tenant_id: int = 1
+    def focus_object(self, obj_type: str, obj_id: str, tenant_id: int | None = None
                      ) -> Dict[str, Any]:
         return self._runtime.focus_object(obj_type, obj_id, tenant_id)
 
-    def get_executive_data(self, tenant_id: int = 1) -> Dict[str, Any]:
+    def get_executive_data(self, tenant_id: int | None = None) -> Dict[str, Any]:
         return self._runtime.get_executive_data(tenant_id)
 
     def get_conversation(self, obj_type: str, obj_id: str) -> Dict[str, Any]:
@@ -735,17 +805,17 @@ class WorkspaceAPI:
         return {"messages": msgs, "count": len(msgs)}
 
     def send_message(self, obj_type: str, obj_id: str, text: str,
-                     tenant_id: int = 1) -> Dict[str, Any]:
+                     tenant_id: int | None = None) -> Dict[str, Any]:
         msgs = self._runtime.send_message(obj_type, obj_id, text, tenant_id)
         return {"messages": msgs, "count": len(msgs)}
 
-    def get_updates(self, tenant_id: int = 1) -> Dict[str, Any]:
+    def get_updates(self, tenant_id: int | None = None) -> Dict[str, Any]:
         return self._runtime.get_updates(tenant_id)
 
     def get_object_graph(self, obj_type: str, obj_id: str) -> Dict[str, Any]:
         return self._runtime.get_object_graph(obj_type, obj_id)
 
-    def get_recent_objects(self, tenant_id: int = 1) -> Dict[str, Any]:
+    def get_recent_objects(self, tenant_id: int | None = None) -> Dict[str, Any]:
         items = self._runtime.get_recent_objects(tenant_id)
         return {"items": items, "count": len(items)}
 

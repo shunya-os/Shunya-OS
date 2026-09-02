@@ -6,6 +6,7 @@ Privacy-aware: people-data endpoints require stricter authorization.
 """
 
 from flask import Blueprint, jsonify, request, session, g
+from app.authz.decorators import _resolve_org_id
 
 people_bp = Blueprint("people", __name__, url_prefix="/api/v1/people")
 
@@ -49,8 +50,8 @@ def _identity_id() -> str:
     return g.get("identity_id") or session.get("identity_id") or session.get("user_id", "anonymous")
 
 
-def _tenant_id() -> int:
-    return session.get("current_org_id") or session.get("tenant_id", 0)
+def _tenant_id() -> int | None:
+    return _resolve_org_id()
 
 
 def _require_auth() -> bool:

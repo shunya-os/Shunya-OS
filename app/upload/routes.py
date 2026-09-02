@@ -66,9 +66,11 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str):
         # ── Gate 2.2: Canonical ingestion event emission ──
         try:
             from app.shunya.infrastructure.event_bus import CanonicalEvent, get_event_bus
+            from app.authz.decorators import _resolve_org_id
+            resolved_tenant = _resolve_org_id() or 0
             event = CanonicalEvent(
                 event_type="ingestion:file_upload",
-                tenant_id=0,  # Set by session context where available
+                tenant_id=resolved_tenant,
                 workspace_id=None,
                 actor_id="system",
                 actor_type="upload",

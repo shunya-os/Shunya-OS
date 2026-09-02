@@ -184,7 +184,7 @@ def evaluate_governance(action_type: str, context: dict) -> dict:
             action_type=action_type_enum,
             actor_id=str(context.get("user_id", "")),
             actor_type="user",
-            tenant_id=context.get("tenant_id", 0),
+            tenant_id=context.get("tenant_id"),  # None if no tenant — governance engine handles None
             resource_type=context.get("resource_type", ""),
             resource_id=context.get("resource_id", ""),
             payload=context.get("payload", {}),

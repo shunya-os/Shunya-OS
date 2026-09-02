@@ -30,13 +30,18 @@ g5_bp = Blueprint("g5", __name__, url_prefix="/api/v1/growth")
 
 
 def _resolve_tenant():
-    """Resolve tenant from session or request."""
+    """Resolve tenant from session — no fallback defaults.
+
+    Returns org_id from canonical session resolver, or None.
+    Caller must handle None as 'missing organization context'.
+    """
     from flask import session
-    # Check session's current_org_id first (set by signin route)
-    org_id = session.get("current_org_id")
+    from app.authz.decorators import _resolve_org_id
+    org_id = _resolve_org_id()
     if org_id:
         return org_id
-    return request.args.get("tenant_id", 1, type=int)
+    # Fallback to session tenant_id (if set explicitly) — NO default
+    return session.get("tenant_id") or None
 
 
 # ══════════════════════════════════════════════════════════════════════

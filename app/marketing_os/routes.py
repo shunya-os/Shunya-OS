@@ -10,17 +10,21 @@ mkt_bp = Blueprint("marketing_os", __name__, url_prefix="/api/v1/marketing")
 
 @mkt_bp.route("/campaigns", methods=["GET"])
 def list_campaigns():
-    from flask import session
-    tenant_id = session.get("current_org_id") or request.args.get("tenant_id", 1, type=int)
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"error": "No organization context"}), 400
     camps = mo.list_campaigns(tenant_id)
     return jsonify({"campaigns": camps})
 
 
 @mkt_bp.route("/campaigns", methods=["POST"])
 def create_campaign():
-    from flask import session
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"error": "No organization context"}), 400
     data = request.get_json() or {}
-    tenant_id = session.get("current_org_id") or data.get("tenant_id", 1)
     start = datetime.fromisoformat(data["start_date"]) if data.get("start_date") else None
     end = datetime.fromisoformat(data["end_date"]) if data.get("end_date") else None
     camp = mo.create_campaign(
@@ -37,7 +41,10 @@ def create_campaign():
 
 @mkt_bp.route("/campaigns/<int:cid>", methods=["GET", "PATCH", "DELETE"])
 def campaign(cid):
-    tenant_id = request.args.get("tenant_id", 1, type=int)
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"error": "No organization context"}), 400
     if request.method == "DELETE":
         camp = Campaign.query.filter_by(id=cid, tenant_id=tenant_id).first()
         if not camp:
@@ -59,7 +66,10 @@ def campaign(cid):
 
 @mkt_bp.route("/audiences", methods=["GET", "POST"])
 def audiences():
-    tenant_id = request.args.get("tenant_id", 1, type=int)
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"error": "No organization context"}), 400
     if request.method == "GET":
         campaign_id = request.args.get("campaign_id", type=int)
         result = mo.list_audiences(tenant_id, campaign_id)
@@ -78,7 +88,10 @@ def audiences():
 
 @mkt_bp.route("/content", methods=["GET", "POST"])
 def content():
-    tenant_id = request.args.get("tenant_id", 1, type=int)
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"error": "No organization context"}), 400
     if request.method == "GET":
         from app.marketing.models import CampaignContent
         items = CampaignContent.query.filter_by(tenant_id=tenant_id).all()
@@ -102,7 +115,10 @@ def content():
 
 @mkt_bp.route("/content/<int:cid>/approve", methods=["POST"])
 def approve_content(cid):
-    tenant_id = request.args.get("tenant_id", 1, type=int)
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"error": "No organization context"}), 400
     data = request.get_json() or {}
     result = mo.approve_content(cid, tenant_id, data.get("approver", ""))
     if not result:
@@ -112,7 +128,10 @@ def approve_content(cid):
 
 @mkt_bp.route("/capture-lead", methods=["POST"])
 def capture_lead():
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"error": "No organization context"}), 400
     data = request.get_json() or {}
-    tenant_id = data.pop("tenant_id", 1)
     result = mo.capture_lead(tenant_id, **data)
     return jsonify(result), 201

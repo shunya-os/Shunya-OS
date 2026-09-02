@@ -19,8 +19,14 @@ def _require_auth() -> bool:
     return bool(_identity_id())
 
 
-def _tenant_id() -> int:
-    return session.get("current_org_id") or session.get("tenant_id", 0)
+def _tenant_id() -> int | None:
+    """Resolve tenant from canonical session — returns None if no org context."""
+    from app.authz.decorators import _resolve_org_id
+    org_id = _resolve_org_id()
+    if org_id:
+        return org_id
+    tid = session.get("tenant_id")
+    return int(tid) if tid else None
 
 
 @content_bp.route("/generate", methods=["POST"])
