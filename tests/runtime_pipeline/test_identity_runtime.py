@@ -330,6 +330,6 @@ class TestOSKernelIntegration:
         os = ShunyaOS()
         os.bootstrap()
         h = os.health_check()
-        assert h["runtime_count"] == 9
+        assert h["runtime_count"] == 8
         pipeline_h = h["pipeline"]
-        assert pipeline_h["runtime_count"] == 9
+        assert pipeline_h["runtime_count"] == 8

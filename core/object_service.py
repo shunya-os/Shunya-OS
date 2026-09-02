@@ -93,7 +93,7 @@ class ObjectService:
         rows = self.db.session.execute(
             text("""
                 SELECT * FROM sh_objects
-                WHERE name ILIKE :like
+                WHERE LOWER(name) LIKE LOWER(:like)
                 AND organization_id = :org_id
                 ORDER BY updated_at DESC LIMIT :lim
             """),

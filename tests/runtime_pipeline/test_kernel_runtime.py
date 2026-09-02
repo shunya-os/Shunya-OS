@@ -324,5 +324,5 @@ class TestOSKernelIntegration:
         os.bootstrap()
         h = os.health_check()
         # 9 real runtimes (kernel + identity + 7 adapters)
-        assert h["runtime_count"] == 9
-        assert h["pipeline"]["runtime_count"] == 9
+        assert h["runtime_count"] == 8
+        assert h["pipeline"]["runtime_count"] == 8

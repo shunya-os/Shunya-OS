@@ -59,12 +59,13 @@ def _ensure_org_and_user(app, email: str, org_id: int, org_name: str = "Test Org
             {"e": email, "o": org_id},
         ).first()
         if not om:
+            from datetime import datetime, timezone
             db.session.execute(
                 text("""
-                    INSERT INTO org_members (email, name, organization_id, role, is_active, identity_id)
-                    VALUES (:e, :n, :o, :r, :a, :iid)
+                    INSERT INTO org_members (email, name, organization_id, role, is_active, identity_id, joined_at)
+                    VALUES (:e, :n, :o, :r, :a, :iid, :now)
                 """),
-                {"e": email, "n": email.split("@")[0], "o": org_id, "r": role, "a": True, "iid": email},
+                {"e": email, "n": email.split("@")[0], "o": org_id, "r": role, "a": True, "iid": email, "now": datetime.now(timezone.utc)},
             )
             db.session.commit()
 
