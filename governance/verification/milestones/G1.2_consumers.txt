@@ -1,0 +1,4 @@
+# G1.2 Consumer Audit — Knowledge, Memory, Search
+# Status: BLOCKED — not yet implemented
+# Depends on: G1.1-R1 completion
+# No consumers to audit as this milestone has not started.
