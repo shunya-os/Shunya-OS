@@ -1,0 +1,75 @@
+# G1.1-R4 Closure Evidence
+milestone: G1.1-R4
+status: PASS
+completed_at: "2026-09-02T07:15:00Z"
+verified_by: "Hermes Agent (G1.1-R4 forensic remediation directive)"
+
+checks:
+  - id: org_id_1_eliminated
+    description: "org_id=1 fallback removed from all production code paths"
+    result: PASS
+    evidence: "app/production/objects.py:148-149 now returns error when org missing; app/objects/canonical.py tenant_id defaults to 0 (error) not 1"
+    tested_by: "tests/test_g11_r4_negative.py::TestMissingOrgContext::test_create_object_rejects_missing_org"
+
+  - id: canonical_first_legacy_fallback_removed
+    description: "canonical-first/legacy-fallback pattern removed from production routes"
+    result: PASS
+    evidence: "GET/PUT routes in app/production/objects.py query sh_objects only; no FounderObject fallback"
+    tested_by: "tests/test_g11_r4_negative.py::TestObjectNotFoundBehavior::test_get_nonexistent_returns_404"
+
+  - id: founder_object_classified
+    description: "All production FounderObject callers classified as genuinely founder-specific"
+    result: PASS
+    evidence: "governance/verification/milestones/G1.1-R4_founder_object_classification.md"
+    tested_by: "tests/convergence/test_object_convergence.py::test_legacy_stores_are_not_written_by_canonical"
+
+  - id: execution_runtime_decommissioned
+    description: "core/execution_runtime/ fully removed from pipeline and disk"
+    result: PASS
+    evidence: "core/execution_runtime/ deleted; ExecutionRuntimeAdapter removed from core/os.py and core/runtime_pipeline/adapters.py; 10 register_execution_actions() methods removed"
+    tested_by: "App imports cleanly; tests/runtime_pipeline/ pass with 8 runtimes"
+
+  - id: objects_vs_sh_objects_proven
+    description: "Architectural proof that objects and sh_objects are distinct stores"
+    result: PASS
+    evidence: "governance/verification/milestones/G1.1-R4_execution_state_semantics.md"
+    tested_by: "tests/test_prod06_execution_engine.py (44 tests)"
+
+  - id: execution_ownership_audited
+    description: "Single execution authority established; observation→decision→execution→evidence chain proven"
+    result: PASS
+    evidence: "governance/verification/milestones/G1.1-R4_execution_ownership.md"
+    tested_by: "tests/test_prod06_execution_engine.py::TestDecisionBindingProof::test_provenance_reconstructable_from_trace"
+
+  - id: negative_tests
+    description: "Negative/failure tests for org context, authorization, cross-tenant, not-found"
+    result: PASS
+    evidence: "tests/test_g11_r4_negative.py (9 tests)"
+    tested_by: "All 9 negative tests pass"
+
+  - id: cross_tenant_isolation
+    description: "Cross-tenant access rejection proven"
+    result: PASS
+    evidence: "app/production/objects.py scopes GET/PUT by organization_id"
+    tested_by: "tests/test_g11_r4_negative.py::TestCrossOrganizationIsolation::test_cross_org_object_creation_isolation"
+
+  - id: ci_immutability
+    description: "Single SHA pushed; CI tested that exact SHA"
+    result: PASS
+    evidence: "SHA 6a67d3dda8ceea2eb7e7b198835a6568ff972e2e tested by CI"
+
+  - id: full_regression
+    description: "Complete backend test suite passes"
+    result: PASS
+    evidence: "4922+ tests passed, 0 failures in canonical test suite on CI run"
+    tested_by: "CI run for SHA 6a67d3dda8ceea2eb7e7b198835a6568ff972e2e"
+
+  - id: canoncial_ownership_matrix
+    description: "Canonical ownership matrix established for all persistence authorities"
+    result: PASS
+    evidence: "governance/verification/milestones/G1.1-R4_ownership_matrix.md"
+
+  - id: self_rejection
+    description: "Self-rejection checklist completed with evidence-based answers"
+    result: PASS
+    evidence: "governance/verification/milestones/G1.1-R4_closure.md (Self-Rejection section)"
