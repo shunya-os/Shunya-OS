@@ -4,7 +4,9 @@ Document pipeline with prompt-injection isolation.
 Documents are DATA, not AUTHORITY.
 """
 
-from flask import Blueprint, jsonify, request, session, g
+from flask import Blueprint, g, jsonify, request, session
+
+from app.authz.decorators import _resolve_org_id
 
 doc_knowledge_bp = Blueprint("doc_knowledge", __name__, url_prefix="/api/v1/knowledge")
 
@@ -13,8 +15,8 @@ def _identity_id() -> str:
     return g.get("identity_id") or session.get("identity_id") or session.get("user_id", "anonymous")
 
 
-def _tenant_id() -> int:
-    return session.get("current_org_id") or session.get("tenant_id", 0)
+def _tenant_id() -> int | None:
+    return _resolve_org_id()
 
 
 def _require_auth() -> bool:
@@ -50,8 +52,8 @@ def ingest():
     try:
         from app import db
         from app.document.models import DocumentRecord
-        from app.evidence.models_db import EvidenceRecord
         from app.documents_knowledge.service import classify_document
+        from app.evidence.models_db import EvidenceRecord
 
         classification = classify_document(title, data.get("content_type", ""))
 

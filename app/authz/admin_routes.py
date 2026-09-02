@@ -8,7 +8,9 @@ Provides admin API for:
 - Permission auditing
 """
 
-from flask import Blueprint, jsonify, request, session, g
+from flask import Blueprint, g, jsonify, request, session
+
+from app.authz.decorators import _resolve_org_id
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/v1/admin")
 
@@ -17,8 +19,8 @@ def _identity_id() -> str:
     return g.get("identity_id") or session.get("identity_id") or session.get("user_id", "anonymous")
 
 
-def _tenant_id() -> int:
-    return session.get("current_org_id") or session.get("tenant_id", 0)
+def _tenant_id() -> int | None:
+    return _resolve_org_id()
 
 
 def _require_auth() -> bool:
@@ -66,8 +68,8 @@ def admin_health():
 @admin_bp.route("/permissions", methods=["GET"])
 def list_permissions():
     """List all available permission keys."""
-    from app.authz.models import PERMISSIONS
     from app.authz.extended_models import EXTENDED_PERMISSIONS
+    from app.authz.models import PERMISSIONS
     all_perms = {**PERMISSIONS, **EXTENDED_PERMISSIONS}
     return jsonify({
         "success": True,

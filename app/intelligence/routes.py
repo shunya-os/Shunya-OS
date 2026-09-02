@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 
-from flask import Blueprint, jsonify, request, session, g
+from flask import Blueprint, g, jsonify, request, session
+
+from app.authz.decorators import _resolve_org_id
 
 intelligence_bp = Blueprint("intelligence", __name__, url_prefix="/api/v1/intelligence")
 
@@ -214,7 +215,7 @@ def api_ask():
         safety = check_safety_governance(
             text=question,
             identity_id=tenant.get("identity_id", ""),
-            tenant_id=tenant.get("tenant_id", 0),
+            tenant_id=tenant["tenant_id"],
         )
         if not safety.allowed:
             total_latency = round((time.monotonic() - start) * 1000, 1)
@@ -255,8 +256,9 @@ def api_ask():
             "latency_ms": total_latency,
         }), 503
 
-    from app import db as _db
     from sqlalchemy import text as _text
+
+    from app import db as _db
 
     # Rollback any aborted transaction from safety governance check
     try:
@@ -569,7 +571,7 @@ def api_ask():
         pipe_result = pipeline.run(
             user_input=question,
             identity_id=tenant.get("identity_id", ""),
-            tenant_id=str(tenant.get("tenant_id", "")),
+            tenant_id=str(tenant["tenant_id"] or ""),
             workspace=tenant.get("workspace", ""),
             session_id=tenant.get("identity_id", "anon"),
         )
@@ -627,7 +629,9 @@ def api_ask():
 
     # ── Stage 5: Inference Governance (deterministic-first + capability routing + orchestrator) ──
     stage_start = time.monotonic()
-    from core.inference_governance import InferenceGovernanceService, reset_governance_service
+    from core.inference_governance import (
+        InferenceGovernanceService,
+    )
 
     # Build company context for the system prompt
     context_parts = [e["content"] for e in company_evidence]
@@ -672,9 +676,10 @@ def api_ask():
     if answer_text:
         try:
             import hashlib
-            from app.memory_api.store import store_ai_memory
+
             # Resolve real tenant_id from authenticated user (tenant.key from pipeline is org_id, not tenant_id)
             from app.auth import TeamMember
+            from app.memory_api.store import store_ai_memory
             uid = session.get("user_id") or g.get("user_id")
             tm_tenant_id = None
             if uid:
@@ -686,7 +691,7 @@ def api_ask():
                 value=answer_text,
                 summary=question[:200],
             )
-        except Exception as e:
+        except Exception:
             pass
 
     # ── Stage 7: Execution Chain (governed lifecycle) ────────────────
@@ -698,7 +703,11 @@ def api_ask():
         # Rollback any stale transaction from inference governance
         _db.session.rollback()
 
-        from core.execution_chain import record_read_chain, record_action_chain, complete_action_chain
+        from core.execution_chain import (
+            complete_action_chain,
+            record_action_chain,
+            record_read_chain,
+        )
         chain_action_type = data.get("action", "").strip()
         if execute and chain_action_type:
             chain_result = record_action_chain(
@@ -757,7 +766,9 @@ def api_generate_image():
     if not prompt:
         return jsonify({"success": False, "error": "Prompt is required."}), 400
 
-    import os, requests
+    import os
+
+    import requests
 
     api_key = os.getenv("OPENROUTER_API_KEY", "")
     if not api_key:
@@ -826,7 +837,7 @@ def api_generate_image():
     except requests.exceptions.Timeout:
         return jsonify({"success": False, "error": "OpenRouter request timed out."}), 504
     except Exception as e:
-        return jsonify({"success": False, "error": f"Image generation failed: {str(e)}"}), 500
+        return jsonify({"success": False, "error": f"Image generation failed: {e!s}"}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -845,7 +856,9 @@ def api_mixed_intelligence():
         return jsonify({"success": False, "error": "Question is required."}), 400
 
     identity_id = session.get("identity_id")
-    org_id = data.get("org_id") or session.get("current_org_id")
+    org_id = data.get("org_id") or _resolve_org_id()
+    if not org_id:
+        return jsonify({"error": "No organization context"}), 400
 
     from app.intelligence.mixed_router import get_router
     router = get_router()

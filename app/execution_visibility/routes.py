@@ -10,8 +10,10 @@ Surfaces real canonical execution data from:
 No new models. No fake data. Reuses canonical architecture.
 """
 import logging
-from datetime import datetime, timezone
-from flask import Blueprint, jsonify, request, session, g
+
+from flask import Blueprint, g, jsonify, request, session
+
+from app.authz.decorators import _resolve_org_id
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +30,8 @@ def _identity_id() -> str:
     )
 
 
-def _org_id() -> int:
-    return session.get("current_org_id") or session.get("tenant_id", 0)
+def _org_id() -> int | None:
+    return _resolve_org_id()
 
 
 def _require_auth() -> bool:
@@ -102,7 +104,7 @@ def list_work():
             "due_date": t.due_date.isoformat() if t.due_date else None,
             "created_at": t.created_at.isoformat() if t.created_at else None,
             "completed_at": t.completed_at.isoformat() if t.completed_at else None,
-            "drilldown": f"/api/v1/people/tasks",
+            "drilldown": "/api/v1/people/tasks",
         })
 
     # 3. Commitments — obligations and commitments

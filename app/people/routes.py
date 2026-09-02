@@ -5,7 +5,8 @@ Uses: OrgMember, Task, Commitment, CanonicalRelationship.
 Privacy-aware: people-data endpoints require stricter authorization.
 """
 
-from flask import Blueprint, jsonify, request, session, g
+from flask import Blueprint, g, jsonify, request, session
+
 from app.authz.decorators import _resolve_org_id
 
 people_bp = Blueprint("people", __name__, url_prefix="/api/v1/people")
@@ -64,7 +65,6 @@ def _require_people_permission() -> bool:
     Org owners are automatically authorized.
     All other roles are checked via canonical check_permission.
     """
-    from app.auth import UserRole
     from app.authz.services import check_permission
 
     # Org owners bypass permission check
@@ -217,9 +217,10 @@ def get_people_tasks():
     if not _require_people_permission():
         return jsonify({"success": False, "error": "Insufficient permissions"}), 403
 
-    from app import db
-    from app.models import Task, TaskList
     from datetime import datetime, timezone
+
+    from app import db
+    from app.models import Task
 
     # Tasks across all task lists in the org scope
     tasks = db.session.query(Task).order_by(Task.created_at.desc()).limit(100).all()
@@ -312,10 +313,11 @@ def get_workload():
     if not _require_people_permission():
         return jsonify({"success": False, "error": "Insufficient permissions"}), 403
 
-    from app import db
-    from app.models import OrgMember, Task
-    from app.commitments.models import Commitment
     from datetime import datetime, timezone
+
+    from app import db
+    from app.commitments.models import Commitment
+    from app.models import OrgMember, Task
 
     members = db.session.query(OrgMember).filter_by(
         organization_id=_tenant_id(), is_active=True

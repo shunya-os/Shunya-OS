@@ -6,7 +6,8 @@ evidence chain querying, and audit export.
 
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request, session, g
+from flask import Blueprint, g, jsonify, request, session
+
 from app.authz.decorators import _resolve_org_id
 
 audit_bp = Blueprint("audit", __name__, url_prefix="/api/v1/audit")
@@ -43,7 +44,7 @@ def reconstruct(object_type: str, object_id: int):
         result = reconstruct_business_outcome(object_id, object_type, _tenant_id())
         return jsonify({"success": True, "data": result})
     except Exception as e:
-        return jsonify({"success": False, "error": f"Reconstruction failed: {str(e)}"}), 500
+        return jsonify({"success": False, "error": f"Reconstruction failed: {e!s}"}), 500
 
 
 # ---------------------------------------------------------------------------

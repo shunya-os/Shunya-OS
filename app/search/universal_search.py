@@ -10,11 +10,11 @@ Supports: exact, partial, recent, and related-object search.
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import Any
 
-from flask import Blueprint, jsonify, request, session, g
-from sqlalchemy import or_, text
+from flask import Blueprint, g, jsonify, request, session
+from sqlalchemy import or_
+
+from app.authz.decorators import _resolve_org_id
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ def global_search():
             q = db.session.query(model).filter(or_(*filters))
             # Tenant isolation where applicable
             if hasattr(model, "tenant_id"):
-                tenant_id = session.get("tenant_id") or session.get("current_org_id")
+                tenant_id = _resolve_org_id()
                 if tenant_id:
                     q = q.filter(model.tenant_id == int(tenant_id))
 

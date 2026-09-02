@@ -1,6 +1,8 @@
 """FDA25 — Universal Import / Export / Migration Routes."""
 
-from flask import Blueprint, jsonify, request, session, g
+from flask import Blueprint, g, jsonify, request, session
+
+from app.authz.decorators import _resolve_org_id
 
 import_bp = Blueprint("import_export", __name__, url_prefix="/api/v1/data")
 
@@ -9,8 +11,8 @@ def _identity_id() -> str:
     return g.get("identity_id") or session.get("identity_id") or session.get("user_id", "anonymous")
 
 
-def _tenant_id() -> int:
-    return session.get("current_org_id") or session.get("tenant_id", 0)
+def _tenant_id() -> int | None:
+    return _resolve_org_id()
 
 
 def _require_auth() -> bool:
@@ -90,8 +92,8 @@ def export_data():
     limit = min(int(body.get("limit", 1000)), 10000)
 
     try:
-        from app.import_export.service import export_records
         from app.authz.services import check_permission
+        from app.import_export.service import export_records
 
         # Check export permission
         if not check_permission(_tenant_id(), _identity_id(), "org.export_data"):

@@ -9,16 +9,18 @@ Single API surface for all workspace interactions:
 
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request, session, g
+from flask import Blueprint, g, jsonify, request, session
+
+from app.authz.decorators import _resolve_org_id
 
 workspace_api = Blueprint("workspace_api", __name__, url_prefix="/api/v1/workspace")
 
 # ── Auth helpers ────────────────────────────────────────────────────
 
 
-def _tenant_id() -> int:
+def _tenant_id() -> int | None:
     """Get the current tenant_id from session."""
-    return session.get("current_org_id") or session.get("tenant_id", 0)
+    return _resolve_org_id()
 
 
 def _identity_id() -> str:
@@ -58,7 +60,7 @@ def get_object_workspace(object_id: str):
     except Exception as e:
         return jsonify({
             "success": False,
-            "error": f"Failed to load workspace: {str(e)}",
+            "error": f"Failed to load workspace: {e!s}",
         }), 500
 
 
@@ -89,7 +91,7 @@ def get_unified_timeline():
     except Exception as e:
         return jsonify({
             "success": False,
-            "error": f"Failed to load timeline: {str(e)}",
+            "error": f"Failed to load timeline: {e!s}",
         }), 500
 
 
@@ -109,7 +111,6 @@ def get_memory_timeline():
     try:
         from app import db
         from app.memory.models import MemoryRecord
-        from app.relationship.models import RelationshipMemory
 
         memories = (
             db.session.query(MemoryRecord)
@@ -306,8 +307,9 @@ def transition_commitment(commitment_id: int):
         if evidence:
             title += f": {evidence}"
 
-        from app.relationship.models import TimelineEntry
         from datetime import datetime, timezone
+
+        from app.relationship.models import TimelineEntry
         entry = TimelineEntry(
             organization_id=_tenant_id(),
             relationship_id=c.relationship_id or 0,
@@ -359,9 +361,10 @@ def create_commitment():
         return jsonify({"success": False, "error": "title is required"}), 400
 
     try:
+        from datetime import datetime, timezone
+
         from app import db
         from app.commitments.models import Commitment
-        from datetime import datetime, timezone
 
         due_at = None
         if data.get("due_at"):
@@ -448,7 +451,7 @@ def workspace_bootstrap():
         org_created_at = org.created_at.isoformat() if org.created_at else ""
 
     # Lightweight catalog (no DB queries for experience data)
-    from app.workspace.models import EXPERIENCE_CATALOG, CONTEXT_MODES
+    from app.workspace.models import CONTEXT_MODES, EXPERIENCE_CATALOG
     catalog = [{"key": k, "label": v.get("label", k), "category": v.get("category", "")}
                for k, v in EXPERIENCE_CATALOG.items()]
     contexts = [{"key": k, "label": v.get("label", k)} for k, v in CONTEXT_MODES.items()]
