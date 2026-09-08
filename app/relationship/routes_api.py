@@ -17,6 +17,7 @@ from app.relationship.services import (
     seed_default_categories, get_categories,
 )
 from app.models import KnowledgeDocument
+from app.authz.decorators import require_permission
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ def _require_org():
 
 
 @relationship_bp.route("/api/v1/relationships", methods=["POST"])
+@require_permission("rel.create")
 def api_create_relationship():
     auth = _require_identity()
     if auth: return auth
@@ -66,6 +68,7 @@ def api_create_relationship():
 
 
 @relationship_bp.route("/api/v1/relationships/<int:rel_id>", methods=["GET"])
+@require_permission("rel.view")
 def api_get_relationship(rel_id):
     auth = _require_identity()
     if auth: return auth
@@ -80,6 +83,7 @@ def api_get_relationship(rel_id):
 
 
 @relationship_bp.route("/api/v1/relationships/<int:rel_id>", methods=["PATCH"])
+@require_permission("rel.edit")
 def api_update_relationship(rel_id):
     auth = _require_identity()
     if auth: return auth
@@ -92,6 +96,7 @@ def api_update_relationship(rel_id):
 
 
 @relationship_bp.route("/api/v1/relationships/<int:rel_id>", methods=["DELETE"])
+@require_permission("rel.delete")
 def api_archive_relationship(rel_id):
     auth = _require_identity()
     if auth: return auth
@@ -103,6 +108,7 @@ def api_archive_relationship(rel_id):
 
 
 @relationship_bp.route("/api/v1/relationships", methods=["GET"])
+@require_permission("rel.view")
 def api_list_relationships():
     auth = _require_identity()
     if auth: return auth
@@ -129,6 +135,7 @@ def api_list_relationships():
 
 
 @relationship_bp.route("/api/v1/relationships/<int:rel_id>/timeline", methods=["GET"])
+@require_permission("rel.view_timeline")
 def api_get_timeline(rel_id):
     auth = _require_identity()
     if auth: return auth
@@ -142,6 +149,7 @@ def api_get_timeline(rel_id):
 
 
 @relationship_bp.route("/api/v1/relationships/<int:rel_id>/timeline", methods=["POST"])
+@require_permission("rel.edit")
 def api_add_timeline_entry(rel_id):
     auth = _require_identity()
     if auth: return auth
@@ -169,6 +177,7 @@ def api_add_timeline_entry(rel_id):
 
 
 @relationship_bp.route("/api/v1/relationships/<int:rel_id>/memory", methods=["GET"])
+@require_permission("rel.view")
 def api_get_memory(rel_id):
     auth = _require_identity()
     if auth: return auth
@@ -179,6 +188,7 @@ def api_get_memory(rel_id):
 
 
 @relationship_bp.route("/api/v1/relationships/<int:rel_id>/memory", methods=["PATCH"])
+@require_permission("rel.edit_memory")
 def api_update_memory(rel_id):
     auth = _require_identity()
     if auth: return auth
@@ -198,6 +208,7 @@ def api_update_memory(rel_id):
 
 
 @relationship_bp.route("/api/v1/relationships/<int:rel_id>/duplicates", methods=["GET"])
+@require_permission("rel.view")
 def api_find_duplicates(rel_id):
     auth = _require_identity()
     if auth: return auth
@@ -209,6 +220,7 @@ def api_find_duplicates(rel_id):
 
 
 @relationship_bp.route("/api/v1/relationships/merge", methods=["POST"])
+@require_permission("rel.merge")
 def api_merge_relationships():
     auth = _require_identity()
     if auth: return auth
@@ -227,6 +239,7 @@ def api_merge_relationships():
 
 
 @relationship_bp.route("/api/v1/relationships/<int:rel_id>/documents", methods=["GET"])
+@require_permission("knowledge.view")
 def api_list_relationship_documents(rel_id):
     auth = _require_identity()
     if auth: return auth
@@ -240,6 +253,7 @@ def api_list_relationship_documents(rel_id):
 
 
 @relationship_bp.route("/api/v1/relationships/categories", methods=["GET"])
+@require_permission("rel.view")
 def api_get_categories():
     auth = _require_identity()
     if auth: return auth
@@ -252,6 +266,7 @@ def api_get_categories():
 
 
 @relationship_bp.route("/api/v1/relationships/categories", methods=["POST"])
+@require_permission("rel.create")
 def api_create_category():
     auth = _require_identity()
     if auth: return auth
@@ -276,6 +291,7 @@ def api_create_category():
 
 
 @relationship_bp.route("/api/v1/relationships/fields", methods=["GET"])
+@require_permission("rel.view")
 def api_list_custom_fields():
     auth = _require_identity()
     if auth: return auth
@@ -289,6 +305,7 @@ def api_list_custom_fields():
 
 
 @relationship_bp.route("/api/v1/relationships/fields", methods=["POST"])
+@require_permission("rel.create")
 def api_create_custom_field():
     auth = _require_identity()
     if auth: return auth
@@ -314,6 +331,7 @@ def api_create_custom_field():
 
 
 @relationship_bp.route("/api/v1/relationships/<int:rel_id>/intelligence", methods=["GET"])
+@require_permission("rel.view")
 def api_get_intelligence(rel_id):
     auth = _require_identity()
     if auth: return auth

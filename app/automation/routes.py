@@ -4,6 +4,7 @@ Rule CRUD, execution logs, workflow templates, and trigger API.
 """
 import json
 from flask import Blueprint, jsonify, request, session
+from app.authz.decorators import require_permission
 
 automation_bp = Blueprint("automation", __name__, url_prefix="/api/v1/automation")
 
@@ -19,6 +20,7 @@ def _funded_required() -> bool:
 # ---------------------------------------------------------------------------
 
 @automation_bp.route("/rules", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_list_rules():
     if not _funded_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -31,6 +33,7 @@ def api_list_rules():
 
 
 @automation_bp.route("/rules", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_create_rule():
     if not _funded_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -58,6 +61,7 @@ def api_create_rule():
 
 
 @automation_bp.route("/rules/<int:rule_id>", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_get_rule(rule_id: int):
     if not _funded_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -69,6 +73,7 @@ def api_get_rule(rule_id: int):
 
 
 @automation_bp.route("/rules/<int:rule_id>", methods=["PUT"])
+@require_permission("admin.manage_integrations")
 def api_update_rule(rule_id: int):
     if not _funded_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -81,6 +86,7 @@ def api_update_rule(rule_id: int):
 
 
 @automation_bp.route("/rules/<int:rule_id>/toggle", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_toggle_rule(rule_id: int):
     if not _funded_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -94,6 +100,7 @@ def api_toggle_rule(rule_id: int):
 
 
 @automation_bp.route("/rules/<int:rule_id>", methods=["DELETE"])
+@require_permission("admin.manage_integrations")
 def api_delete_rule(rule_id: int):
     if not _funded_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -107,6 +114,7 @@ def api_delete_rule(rule_id: int):
 # ---------------------------------------------------------------------------
 
 @automation_bp.route("/logs", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_list_logs():
     if not _funded_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -122,6 +130,7 @@ def api_list_logs():
 # ---------------------------------------------------------------------------
 
 @automation_bp.route("/trigger", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_trigger():
     """Manually trigger automation rule evaluation for an event."""
     if not _funded_required():
@@ -150,12 +159,14 @@ def api_trigger():
 # ---------------------------------------------------------------------------
 
 @automation_bp.route("/templates", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_list_templates():
     from app.automation.service import get_workflow_templates
     return jsonify({"success": True, "data": get_workflow_templates()})
 
 
 @automation_bp.route("/templates/<template_id>/create", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_create_from_template(template_id: str):
     if not _funded_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401

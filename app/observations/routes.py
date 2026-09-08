@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify
 from app.observations.service import record_observation, evaluate_observation
 from app.observations.models import Observation
+from app.authz.decorators import require_permission
 
 observations_bp = Blueprint("observations", __name__, url_prefix="/api/v1/observations")
 
 
 @observations_bp.route("/", methods=["POST"])
+@require_permission("knowledge.view")
 def create():
     data = request.json or {}
 
@@ -22,6 +24,7 @@ def create():
 
 
 @observations_bp.route("/<int:obs_id>/evaluate", methods=["POST"])
+@require_permission("knowledge.view")
 def evaluate(obs_id):
     obs = Observation.query.get_or_404(obs_id)
 

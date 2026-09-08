@@ -11,6 +11,7 @@ from flask import Blueprint, jsonify, request, Response, current_app, stream_wit
 from sqlalchemy import text
 
 from app import db
+from app.authz.decorators import require_permission
 
 events_bp = Blueprint("events", __name__, url_prefix="/api/v1")
 
@@ -58,6 +59,7 @@ def _get_delta_objects(since: datetime):
 
 
 @events_bp.route("/events", methods=["GET"])
+@require_permission("knowledge.view")
 def get_events():
     """
     GET /api/v1/events?since=<ISO timestamp>
@@ -93,6 +95,7 @@ def get_events():
 
 
 @events_bp.route("/events/stream", methods=["GET"])
+@require_permission("knowledge.view")
 def stream_events():
     """
     GET /api/v1/events/stream

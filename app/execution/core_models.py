@@ -92,6 +92,13 @@ class ExecutionRun(db.Model):
     # Source
     source = Column(String(30), default="user")  # user, scheduled, system
 
+    # Provider / cost telemetry (R5 §30 — NULL = not measured)
+    provider_used = Column(String(80), nullable=True)
+    model_used = Column(String(120), nullable=True)
+    est_cost_currency = Column(String(8), nullable=True)
+    est_cost_amount = Column(Float, nullable=True)
+    cost_is_estimate = Column(Boolean, nullable=True)
+
     # Link to outcome
     outcome_id = Column(String(12), nullable=True, index=True)
 
@@ -189,6 +196,11 @@ class ExecutionRun(db.Model):
             "correlation_id": self.correlation_id,
             "parent_run_id": self.parent_run_id,
             "source": self.source,
+            "provider_used": self.provider_used,
+            "model_used": self.model_used,
+            "est_cost_currency": self.est_cost_currency,
+            "est_cost_amount": self.est_cost_amount,
+            "cost_is_estimate": self.cost_is_estimate,
             "outcome_id": self.outcome_id,
             "commitment_id": self.commitment_id,
             "commitment_type": self.commitment_type,

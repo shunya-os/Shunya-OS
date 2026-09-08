@@ -5,6 +5,7 @@ which is the canonical workspace runtime.
 """
 import os
 from flask import Blueprint, send_from_directory
+from app.authz.decorators import require_permission
 
 workspace_bp = Blueprint("workspace_routes", __name__, template_folder="../templates", url_prefix="/workspace")
 
@@ -27,12 +28,14 @@ def _serve_spa():
 
 
 @workspace_bp.route("/")
+@require_permission("org.view")
 def workspace_home():
     """Serve the SPA shell -- the React SPA handles workspace routing."""
     return _serve_spa()
 
 
 @workspace_bp.route("/object/<object_id>")
+@require_permission("org.view")
 def workspace_object(object_id):
     """Serve the SPA shell -- the React SPA handles object views."""
     return _serve_spa()

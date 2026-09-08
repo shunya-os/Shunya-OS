@@ -3,6 +3,7 @@ import os, hashlib, uuid, json, logging
 from flask import Blueprint, jsonify, request, session
 from app.storage.provider import resolve_storage_provider
 from app.jobs.manager import create_job, get_job
+from app.authz.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 upload_bp = Blueprint("upload", __name__, url_prefix="/api/v1/upload")
@@ -94,6 +95,7 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str):
 
 
 @upload_bp.route("", methods=["POST"])
+@require_permission("knowledge.upload")
 def api_upload():
     """Upload a file. Returns immediately with a job ID for tracking."""
     if "file" not in request.files:
@@ -120,6 +122,7 @@ def api_upload():
 
 
 @upload_bp.route("/<job_id>/status", methods=["GET"])
+@require_permission("knowledge.view")
 def api_upload_status(job_id: str):
     """Poll upload job status."""
     job = get_job(job_id)
@@ -129,6 +132,7 @@ def api_upload_status(job_id: str):
 
 
 @upload_bp.route("", methods=["GET"])
+@require_permission("knowledge.view")
 def api_list_uploads():
     """List uploaded files from founder_objects."""
     try:

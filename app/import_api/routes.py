@@ -15,6 +15,7 @@ from core.api_contract import (
     require_tenant,
 )
 from core.import_export import CSVContactImporter, JSONDataImporter
+from app.authz.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ import_bp = Blueprint("import_api", __name__, url_prefix="/api/v1/import")
 @import_bp.route("/contacts/csv", methods=["POST"])
 @require_auth
 @require_tenant
+@require_permission("org.export_data")
 def import_contacts_csv():
     """Import contacts from CSV via the canonical CSVContactImporter."""
     from app.identity.service import IdentityService
@@ -59,6 +61,7 @@ def import_contacts_csv():
 @import_bp.route("/contacts/json", methods=["POST"])
 @require_auth
 @require_tenant
+@require_permission("org.export_data")
 def import_contacts_json():
     """Import contacts from JSON via the canonical JSONDataImporter."""
     from app.identity.service import IdentityService

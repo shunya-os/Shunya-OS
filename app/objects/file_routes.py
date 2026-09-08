@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request
 
 from app import db
 from app.objects.legacy_models import ShunyaObject
+from app.authz.decorators import require_permission
 
 file_bp = Blueprint("files", __name__, url_prefix="/api/v1/files")
 
@@ -21,6 +22,7 @@ def _error(msg: str, code: int = 400):
 
 
 @file_bp.route("", methods=["GET"])
+@require_permission("knowledge.view")
 def list_files():
     """List all uploaded files for the current workspace."""
     ws_id = request.headers.get("X-Workspace-Id")
@@ -57,6 +59,7 @@ def list_files():
 
 
 @file_bp.route("/<int:file_id>", methods=["DELETE"])
+@require_permission("knowledge.delete")
 def delete_file(file_id: int):
     """Soft-delete a file by its integer primary key."""
     file = ShunyaObject.query.get(file_id)
@@ -69,6 +72,7 @@ def delete_file(file_id: int):
 
 
 @file_bp.route("/<int:file_id>/rename", methods=["PATCH"])
+@require_permission("knowledge.edit")
 def rename_file(file_id: int):
     """Rename a file."""
     body = request.get_json() or {}

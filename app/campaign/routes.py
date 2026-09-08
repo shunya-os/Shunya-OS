@@ -10,7 +10,7 @@ import logging
 
 from flask import Blueprint, g, jsonify, request, session
 
-from app.authz.decorators import _resolve_org_id
+from app.authz.decorators import require_permission,  _resolve_org_id
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ def _tenant_id() -> int | None:
 
 
 @campaign_bp.route("/providers/connect", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_campaign_connect():
     """Connect to a campaign provider.
 
@@ -71,6 +72,7 @@ def api_campaign_connect():
 
 
 @campaign_bp.route("/providers", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_campaign_providers():
     """List registered and available campaign providers.
 
@@ -104,6 +106,7 @@ def api_campaign_providers():
 
 
 @campaign_bp.route("/create", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_campaign_create():
     """Create a campaign through a specified provider.
 
@@ -158,6 +161,7 @@ def api_campaign_create():
 
 
 @campaign_bp.route("/health", methods=["GET"])
+@require_permission("knowledge.view")
 def api_campaign_health():
     """Health check for campaign service."""
     from app.campaign.adapter import get_registry

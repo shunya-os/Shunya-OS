@@ -2,11 +2,13 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime, timezone
 from app.commitments.service import create_commitment, update_status
 from app.commitments.models import Commitment
+from app.authz.decorators import require_permission
 
 commitments_bp = Blueprint("commitments", __name__, url_prefix="/api/v1/commitments")
 
 
 @commitments_bp.route("/", methods=["POST"])
+@require_permission("task.create")
 def create():
     data = request.json or {}
 
@@ -35,6 +37,7 @@ def create():
 
 
 @commitments_bp.route("/", methods=["GET"])
+@require_permission("task.view")
 def list_commitments():
     owner = request.args.get("owner")
     status = request.args.get("status")
@@ -73,6 +76,7 @@ def list_commitments():
 
 
 @commitments_bp.route("/<int:commitment_id>", methods=["GET"])
+@require_permission("task.view")
 def get_commitment(commitment_id):
     c = Commitment.query.get_or_404(commitment_id)
     overdue = False
@@ -98,6 +102,7 @@ def get_commitment(commitment_id):
 
 
 @commitments_bp.route("/<int:commitment_id>", methods=["PATCH"])
+@require_permission("task.edit")
 def update(commitment_id):
     c = Commitment.query.get_or_404(commitment_id)
     data = request.json or {}

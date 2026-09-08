@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify
 from app.intake.service import IntakeService
+from app.authz.decorators import require_permission
 
 intake_bp = Blueprint("intake", __name__, url_prefix="/api/v1/intake")
 
 
 @intake_bp.route("/", methods=["POST"])
+@require_permission("task.create")
 def receive():
     data = request.json or {}
 
@@ -20,6 +22,7 @@ def receive():
 
 
 @intake_bp.route("/<int:signal_id>/process", methods=["POST"])
+@require_permission("task.create")
 def process(signal_id):
     from app.intake.models import IntakeSignal
 

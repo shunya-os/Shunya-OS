@@ -14,6 +14,7 @@ import logging
 import json
 from urllib.parse import quote
 from datetime import datetime, timezone
+from app.authz.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,7 @@ def _web_search(query: str, max_results: int = 8) -> list[dict]:
 
 
 @search_bp.route("/search", methods=["GET", "POST"])
+@require_permission("knowledge.search")
 def api_search():
     """Web search via DuckDuckGo.
 
@@ -153,6 +155,7 @@ def api_search():
 
 
 @search_bp.route("/ai/analyze", methods=["POST"])
+@require_permission("knowledge.search")
 def ai_analyze():
     """Company analysis — combines business data context + web search + AI.
 
@@ -548,6 +551,7 @@ def get_proactive_insights(identity_id: str) -> list[dict]:
 
 
 @search_bp.route("/ai/insights", methods=["GET"])
+@require_permission("knowledge.search")
 def api_proactive_insights():
     """Proactive AI presence — ambient insights based on user data.
 

@@ -10,6 +10,7 @@ from app import db
 from app.for2 import for2_bp
 from app.models import Organization, OrgMember, OrgInvitation, Department
 from app.tenant import Tenant
+from app.authz.decorators import require_permission
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ def for2_workspace(org_id: int):
 
 
 @for2_bp.route("/api/v1/for2/whoami", methods=["GET"])
+@require_permission("org.view")
 def api_whoami():
     """Return current identity and org context."""
     uid = _get_current_identity()
@@ -135,6 +137,7 @@ def api_whoami():
 
 
 @for2_bp.route("/api/v1/for2/organizations", methods=["POST"])
+@require_permission("org.edit")
 def api_create_organization():
     """Create a new organization. The creator becomes the owner."""
     auth = _require_identity()
@@ -197,6 +200,7 @@ def api_create_organization():
 
 
 @for2_bp.route("/api/v1/for2/organizations", methods=["GET"])
+@require_permission("org.view")
 def api_list_organizations():
     """List organizations the current identity belongs to."""
     uid = _get_current_identity()
@@ -212,6 +216,7 @@ def api_list_organizations():
 
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>", methods=["GET"])
+@require_permission("org.view")
 def api_get_organization(org_id: int):
     """Get organization details — requires membership."""
     auth = _require_identity()
@@ -227,6 +232,7 @@ def api_get_organization(org_id: int):
 
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>", methods=["PATCH"])
+@require_permission("org.edit")
 def api_update_organization(org_id: int):
     """Update organization settings."""
     auth = _require_identity()
@@ -252,6 +258,7 @@ def api_update_organization(org_id: int):
 
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>/switch", methods=["POST"])
+@require_permission("org.view")
 def api_switch_organization(org_id: int):
     """Switch the current organization context."""
     uid = _get_current_identity()
@@ -265,6 +272,7 @@ def api_switch_organization(org_id: int):
 
 
 @for2_bp.route("/api/v1/for2/organizations/switch/personal", methods=["POST"])
+@require_permission("org.view")
 def api_switch_personal():
     """Switch to personal workspace context — clears organization context."""
     uid = _get_current_identity()
@@ -290,6 +298,7 @@ def api_switch_personal():
 
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>/members", methods=["GET"])
+@require_permission("org.manage_members")
 def api_list_members(org_id: int):
     """List members of an organization — filtered by role."""
     auth = _require_identity()
@@ -326,6 +335,7 @@ def api_list_members(org_id: int):
 
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>/members", methods=["POST"])
+@require_permission("org.manage_members")
 def api_invite_member(org_id: int):
     """Invite a person to join the organization."""
     auth = _require_identity()
@@ -385,6 +395,7 @@ def api_invite_member(org_id: int):
 
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>/members/<int:member_id>", methods=["PATCH"])
+@require_permission("org.manage_members")
 def api_update_member(org_id: int, member_id: int):
     """Update a member's role or department."""
     auth = _require_identity()
@@ -407,6 +418,7 @@ def api_update_member(org_id: int, member_id: int):
 
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>/invitations", methods=["GET"])
+@require_permission("org.manage_members")
 def api_list_invitations(org_id: int):
     """List pending invitations — admin only."""
     auth = _require_identity()
@@ -425,6 +437,7 @@ def api_list_invitations(org_id: int):
 
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>/departments", methods=["POST"])
+@require_permission("org.edit")
 def api_create_department(org_id: int):
     """Create a department within an organization."""
     auth = _require_identity()
@@ -452,6 +465,7 @@ def api_create_department(org_id: int):
 
 
 @for2_bp.route("/api/v1/for2/organizations/<int:org_id>/departments", methods=["GET"])
+@require_permission("org.view")
 def api_list_departments(org_id: int):
     """List departments in an organization — requires membership."""
     auth = _require_identity()
@@ -468,6 +482,7 @@ def api_list_departments(org_id: int):
 
 
 @for2_bp.route("/api/v1/for2/seed", methods=["POST"])
+@require_permission("org.edit")
 def api_seed_demo():
     """Seed a demo organization for testing."""
     uid = _get_current_identity()

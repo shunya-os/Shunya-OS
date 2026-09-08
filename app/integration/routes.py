@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request, session
 
+from app.authz.decorators import require_permission
 from app.integration.service import (
     create_ad_campaign,
     create_notification,
@@ -77,6 +78,7 @@ def _get_identity_id() -> str | None:
 # =========================================================================
 
 @integration_bp.route("/notifications", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_get_notifications():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -87,6 +89,7 @@ def api_get_notifications():
 
 
 @integration_bp.route("/notifications/unread-count", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_unread_count():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -96,6 +99,7 @@ def api_unread_count():
 
 
 @integration_bp.route("/notifications/<int:notif_id>/read", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_mark_read(notif_id: int):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -104,6 +108,7 @@ def api_mark_read(notif_id: int):
 
 
 @integration_bp.route("/notifications/read-all", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_mark_all_read():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -117,6 +122,7 @@ def api_mark_all_read():
 # =========================================================================
 
 @integration_bp.route("/notifications/preferences", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_get_preferences():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -125,6 +131,7 @@ def api_get_preferences():
 
 
 @integration_bp.route("/notifications/preferences", methods=["PUT"])
+@require_permission("admin.manage_integrations")
 def api_update_preferences():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -146,6 +153,7 @@ def api_update_preferences():
 # =========================================================================
 
 @integration_bp.route("/connections", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_get_connections():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -154,6 +162,7 @@ def api_get_connections():
 
 
 @integration_bp.route("/connections/<provider>", methods=["DELETE"])
+@require_permission("admin.manage_integrations")
 def api_remove_connection(provider: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -167,6 +176,7 @@ def api_remove_connection(provider: str):
 # =========================================================================
 
 @integration_bp.route("/providers", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_list_providers():
     """List all available integration providers."""
     return jsonify({
@@ -176,6 +186,7 @@ def api_list_providers():
 
 
 @integration_bp.route("/configs", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_get_configs():
     """Get all API key configs for the current user."""
     if not _founder_required():
@@ -185,6 +196,7 @@ def api_get_configs():
 
 
 @integration_bp.route("/configs/<provider>", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_get_config(provider: str):
     """Get a single provider config."""
     if not _founder_required():
@@ -197,6 +209,7 @@ def api_get_config(provider: str):
 
 
 @integration_bp.route("/configs/<provider>", methods=["PUT"])
+@require_permission("admin.manage_integrations")
 def api_save_config(provider: str):
     """Save or update an API key config."""
     if not _founder_required():
@@ -214,6 +227,7 @@ def api_save_config(provider: str):
 
 
 @integration_bp.route("/configs/<provider>", methods=["DELETE"])
+@require_permission("admin.manage_integrations")
 def api_remove_config(provider: str):
     """Remove an API key config."""
     if not _founder_required():
@@ -228,6 +242,7 @@ def api_remove_config(provider: str):
 # =========================================================================
 
 @integration_bp.route("/social/accounts", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_list_social_accounts():
     """List linked social media accounts."""
     if not _founder_required():
@@ -237,6 +252,7 @@ def api_list_social_accounts():
 
 
 @integration_bp.route("/social/accounts", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_link_social_account():
     """Link a social media account."""
     if not _founder_required():
@@ -258,6 +274,7 @@ def api_link_social_account():
 
 
 @integration_bp.route("/social/accounts/<int:account_id>", methods=["DELETE"])
+@require_permission("admin.manage_integrations")
 def api_unlink_social_account(account_id: int):
     """Unlink a social media account."""
     if not _founder_required():
@@ -271,6 +288,7 @@ def api_unlink_social_account(account_id: int):
 # =========================================================================
 
 @integration_bp.route("/social/posts", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_list_posts():
     """List scheduled/published posts."""
     if not _founder_required():
@@ -284,6 +302,7 @@ def api_list_posts():
 
 
 @integration_bp.route("/social/posts", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_create_post():
     """Create a scheduled post."""
     if not _founder_required():
@@ -307,6 +326,7 @@ def api_create_post():
 
 
 @integration_bp.route("/social/posts/<int:post_id>", methods=["PUT"])
+@require_permission("admin.manage_integrations")
 def api_update_post(post_id: int):
     """Update a scheduled post."""
     if not _founder_required():
@@ -331,6 +351,7 @@ def api_update_post(post_id: int):
 
 
 @integration_bp.route("/social/posts/<int:post_id>", methods=["DELETE"])
+@require_permission("admin.manage_integrations")
 def api_delete_post(post_id: int):
     """Delete a scheduled post."""
     if not _founder_required():
@@ -340,6 +361,7 @@ def api_delete_post(post_id: int):
 
 
 @integration_bp.route("/social/posts/<int:post_id>/publish", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_publish_post(post_id: int):
     """Publish a post to its social platform (simulated)."""
     if not _founder_required():
@@ -367,6 +389,7 @@ def api_publish_post(post_id: int):
 # =========================================================================
 
 @integration_bp.route("/ads", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_list_ads():
     """List ad campaigns."""
     if not _founder_required():
@@ -380,6 +403,7 @@ def api_list_ads():
 
 
 @integration_bp.route("/ads", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_create_ad():
     """Create an ad campaign."""
     if not _founder_required():
@@ -416,6 +440,7 @@ def api_create_ad():
 
 
 @integration_bp.route("/ads/<int:campaign_id>", methods=["PUT"])
+@require_permission("admin.manage_integrations")
 def api_update_ad(campaign_id: int):
     """Update an ad campaign."""
     if not _founder_required():
@@ -428,6 +453,7 @@ def api_update_ad(campaign_id: int):
 
 
 @integration_bp.route("/ads/<int:campaign_id>", methods=["DELETE"])
+@require_permission("admin.manage_integrations")
 def api_delete_ad(campaign_id: int):
     """Delete an ad campaign."""
     if not _founder_required():
@@ -441,6 +467,7 @@ def api_delete_ad(campaign_id: int):
 # =========================================================================
 
 @integration_bp.route("/content/generate", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_generate_content():
     """Generate AI content."""
     if not _founder_required():
@@ -498,6 +525,7 @@ def api_generate_content():
 
 
 @integration_bp.route("/content/history", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_content_history():
     """List content generation history."""
     if not _founder_required():
@@ -512,6 +540,7 @@ def api_content_history():
 
 
 @integration_bp.route("/content/history/<int:content_id>/favorite", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_toggle_favorite(content_id: int):
     """Toggle favorite on a content generation."""
     if not _founder_required():
@@ -523,6 +552,7 @@ def api_toggle_favorite(content_id: int):
 
 
 @integration_bp.route("/content/save", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_save_content():
     """Save generated content to history."""
     if not _founder_required():
@@ -556,6 +586,7 @@ def api_save_content():
 
 
 @integration_bp.route("/content/history/<int:content_id>", methods=["PUT"])
+@require_permission("admin.manage_integrations")
 def api_update_content(content_id: int):
     """Update generated content of a saved record."""
     if not _founder_required():
@@ -571,6 +602,7 @@ def api_update_content(content_id: int):
 
 
 @integration_bp.route("/content/history/<int:content_id>", methods=["DELETE"])
+@require_permission("admin.manage_integrations")
 def api_delete_content(content_id: int):
     """Delete a content generation record."""
     if not _founder_required():
@@ -584,6 +616,7 @@ def api_delete_content(content_id: int):
 # =========================================================================
 
 @integration_bp.route("/proxy/unsplash", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_proxy_unsplash():
     """Proxy search to Unsplash API."""
     if not _founder_required():
@@ -603,6 +636,7 @@ def api_proxy_unsplash():
 
 
 @integration_bp.route("/proxy/pexels", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_proxy_pexels():
     """Proxy search to Pexels API."""
     if not _founder_required():
@@ -622,6 +656,7 @@ def api_proxy_pexels():
 
 
 @integration_bp.route("/proxy/pixabay", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_proxy_pixabay():
     """Proxy search to Pixabay API."""
     if not _founder_required():
@@ -641,6 +676,7 @@ def api_proxy_pixabay():
 
 
 @integration_bp.route("/proxy/tenor", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_proxy_tenor():
     """Proxy search to Tenor GIF API."""
     if not _founder_required():
@@ -660,6 +696,7 @@ def api_proxy_tenor():
 
 
 @integration_bp.route("/proxy/news", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_proxy_news():
     """Proxy search to News API."""
     if not _founder_required():
@@ -679,6 +716,7 @@ def api_proxy_news():
 
 
 @integration_bp.route("/proxy/weather", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_proxy_weather():
     """Proxy query to OpenWeather API."""
     if not _founder_required():
@@ -700,6 +738,7 @@ def api_proxy_weather():
 
 
 @integration_bp.route("/proxy/youtube", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_proxy_youtube():
     """Proxy search to YouTube Data API."""
     if not _founder_required():
@@ -719,6 +758,7 @@ def api_proxy_youtube():
 
 
 @integration_bp.route("/proxy/github", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_proxy_github():
     """Proxy search to GitHub API."""
     if not _founder_required():
@@ -736,6 +776,7 @@ def api_proxy_github():
 
 
 @integration_bp.route("/proxy/microsoft-graph", methods=["POST"])
+@require_permission("admin.manage_integrations")
 def api_proxy_microsoft_graph():
     """Proxy request to Microsoft Graph API."""
     if not _founder_required():
@@ -777,6 +818,7 @@ def get_connection_raw(identity_id: str, provider: str):
 # =========================================================================
 
 @integration_bp.route("/emails", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_list_emails():
     """List cached emails with pagination."""
     if not _founder_required():
@@ -812,6 +854,7 @@ def api_list_emails():
 
 
 @integration_bp.route("/emails/<int:email_id>", methods=["GET"])
+@require_permission("admin.manage_integrations")
 def api_get_email(email_id: int):
     """Get a single cached email with full body text."""
     if not _founder_required():

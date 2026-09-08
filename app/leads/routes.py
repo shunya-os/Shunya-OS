@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models import Lead, next_inquiry_code
+from app.authz.decorators import require_permission
 
 leads_bp = Blueprint("leads", __name__, url_prefix="/api/v1/leads")
 
 
 @leads_bp.route("/", methods=["GET"])
+@require_permission("rel.view")
 def list_leads():
     """List all leads with optional status filter."""
     status = request.args.get("status")
@@ -36,6 +38,7 @@ def list_leads():
 
 
 @leads_bp.route("/", methods=["POST"])
+@require_permission("rel.create")
 def create_lead():
     data = request.json or {}
     code = next_inquiry_code(db.session)

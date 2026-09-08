@@ -18,6 +18,7 @@ media_bp = Blueprint("media", __name__, url_prefix="/api/v1/media")
 
 # Path to uploaded media files — uses RUNTIME_DATA_ROOT
 from app.runtime_config import media_uploads_dir
+from app.authz.decorators import require_permission
 
 
 def _identity_id() -> str:
@@ -33,6 +34,7 @@ def _tenant_id() -> int:
 
 
 @media_bp.route("/generate", methods=["POST"])
+@require_permission("knowledge.upload")
 def api_generate():
     """Generate media from intent -> visual brief -> image.
 
@@ -68,6 +70,7 @@ def api_generate():
 
 
 @media_bp.route("/assets", methods=["GET"])
+@require_permission("knowledge.view")
 def api_list_assets():
     """List media assets for the authenticated user."""
     if not _require_auth():
@@ -84,6 +87,7 @@ def api_list_assets():
 
 
 @media_bp.route("/assets/<int:asset_id>", methods=["GET"])
+@require_permission("knowledge.view")
 def api_get_asset(asset_id: int):
     """Get a specific media asset."""
     if not _require_auth():
@@ -99,6 +103,7 @@ def api_get_asset(asset_id: int):
 
 
 @media_bp.route("/assets/<int:asset_id>/attach-campaign", methods=["POST"])
+@require_permission("knowledge.upload")
 def api_attach_campaign(asset_id: int):
     """Attach a media asset to a campaign."""
     if not _require_auth():
@@ -119,6 +124,7 @@ def api_attach_campaign(asset_id: int):
 
 
 @media_bp.route("/status", methods=["GET"])
+@require_permission("knowledge.view")
 def api_status():
     """Check media generation provider status."""
     from app.media.service import get_hf_status
@@ -135,6 +141,7 @@ def api_status():
 
 # ── Serve uploaded media files ──────────────────────────────
 @media_bp.route("/uploads/<path:filename>", methods=["GET"])
+@require_permission("knowledge.view")
 def serve_media(filename: str):
     """Serve generated media asset files."""
     from pathlib import Path

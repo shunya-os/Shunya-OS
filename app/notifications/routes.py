@@ -23,6 +23,7 @@ from flask import Blueprint, g, jsonify, request
 from app import db
 from app.integration.models import Notification as NotificationRecord
 from app.notifications.models import PushSubscription
+from app.authz.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +104,7 @@ def base64url_decode(data: str) -> bytes:
 
 
 @notifications_bp.route("/vapid-public-key", methods=["GET"])
+@require_permission("rel.view")
 def get_vapid_public_key():
     """Return the VAPID public key so the client can subscribe."""
     _, pub_key = _get_vapid_keys()
@@ -110,6 +112,7 @@ def get_vapid_public_key():
 
 
 @notifications_bp.route("/subscribe", methods=["POST"])
+@require_permission("rel.view")
 def subscribe():
     """Save a push subscription for the current user.
 
@@ -163,6 +166,7 @@ def subscribe():
 
 
 @notifications_bp.route("/subscribe", methods=["DELETE"])
+@require_permission("rel.view")
 def unsubscribe():
     """Remove a push subscription by endpoint."""
     endpoint = request.args.get("endpoint", "")
@@ -179,6 +183,7 @@ def unsubscribe():
 
 
 @notifications_bp.route("/send", methods=["POST"])
+@require_permission("rel.view")
 def send_notification():
     """Send a push notification to all active subscriptions for an identity.
 
@@ -273,6 +278,7 @@ def send_notification():
 
 
 @notifications_bp.route("", methods=["GET"])
+@require_permission("rel.view")
 def list_notifications():
     """List in-app notifications for the current user."""
     identity_id = getattr(g, "identity_id", None) or request.headers.get("X-Identity-Id")
@@ -302,6 +308,7 @@ def list_notifications():
 
 
 @notifications_bp.route("/mark-read", methods=["POST"])
+@require_permission("rel.view")
 def mark_read():
     """Mark notifications as read.
 
@@ -330,6 +337,7 @@ def mark_read():
 
 
 @notifications_bp.route("/unread-count", methods=["GET"])
+@require_permission("rel.view")
 def unread_count():
     """Return the number of unread notifications."""
     identity_id = getattr(g, "identity_id", None) or request.headers.get("X-Identity-Id")

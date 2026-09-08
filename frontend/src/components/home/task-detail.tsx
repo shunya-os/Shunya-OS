@@ -60,6 +60,42 @@ function SourceChip({ label, active }: { label: string; active?: boolean | null 
   );
 }
 
+/**
+ * Natural-language mapping for execution statuses and phases.
+ * Living Experience Constitution §6: technical terminology shall never
+ * leak into the user experience.
+ */
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  queued: 'Queued',
+  in_progress: 'Working',
+  completed: 'Completed',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+  blocked: 'Needs your input',
+  interpreting: 'Understanding your request',
+  context_loading: 'Loading context',
+  company_data: 'Checking company data',
+  internet_data: 'Checking internet information',
+  analysing: 'Analysing information',
+  planning: 'Forming a plan',
+  processing: 'Processing',
+  executing: 'Executing',
+  verifying: 'Verifying result',
+  completing: 'Completing',
+};
+
+function humanLabel(raw: string | null | undefined, fallback = ''): string {
+  if (!raw) return fallback;
+  const key = raw.toLowerCase();
+  if (STATUS_LABELS[key]) return STATUS_LABELS[key];
+  // snake_case → Title Case
+  return raw
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 /** Phase timeline item. */
 function PhaseRow({ phase, started_at, duration, isCurrent }: {
   phase: string;
@@ -74,7 +110,7 @@ function PhaseRow({ phase, started_at, duration, isCurrent }: {
         {!isCurrent && <div className="td-phase-line" />}
       </div>
       <div className="td-phase-body">
-        <span className="td-phase-name">{phase}</span>
+        <span className="td-phase-name">{humanLabel(phase)}</span>
         <span className="td-phase-meta">
           {started_at ? _formatTimestamp(started_at) : ''}
           {duration && duration > 0 ? ` · ${_formatDuration(duration)}` : ''}
@@ -177,7 +213,7 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
         <div className="td-header">
           <div className="td-header-left">
             <div className="td-status-badge" style={{ backgroundColor: statusColor }} />
-            <span className="td-status-label">{task.status}</span>
+            <span className="td-status-label">{humanLabel(task.status)}</span>
           </div>
           <button className="td-close" onClick={onClose} aria-label="Close detail">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -193,7 +229,7 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
 
         {task.current_phase && (
           <p className="td-phase-current-label">
-            Current phase: <strong>{task.current_phase}</strong>
+            Current phase: <strong>{humanLabel(task.current_phase)}</strong>
           </p>
         )}
 
@@ -239,7 +275,7 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
               {transitions.map((t, i) => (
                 <PhaseRow
                   key={`t-${t.id ?? i}`}
-                  phase={`${t.state_before} → ${t.state_after}`}
+                  phase={`${humanLabel(t.state_before)} → ${humanLabel(t.state_after)}`}
                   started_at={t.transitioned_at}
                   duration={0}
                   isCurrent={i === transitions.length - 1 && task.status === 'in_progress'}
@@ -266,7 +302,7 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
           <h3 className="td-section-title">Result & Outcome</h3>
           {task.outcome ? (
             <p className="td-outcome">
-              Outcome: <strong>{task.outcome}</strong>
+              Outcome: <strong>{humanLabel(task.outcome)}</strong>
             </p>
           ) : null}
           {task.result_summary ? (

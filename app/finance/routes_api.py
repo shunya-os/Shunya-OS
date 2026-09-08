@@ -28,6 +28,8 @@ from app.finance.evidence import (
     check_evidence_policy, transition_evidence, extract_evidence_intelligence,
     _store_file, STORAGE_ROOT,
 )
+from app.authz.decorators import require_permission
+
 def _get_file_path(rel_path):
     import os
     return os.path.join(STORAGE_ROOT, rel_path)
@@ -47,6 +49,7 @@ def _org():
     return session.get("current_org_id")
 
 @finance_bp.route("/seed", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_seed_accounts():
     auth = _require_auth()
     if auth: return auth
@@ -57,6 +60,7 @@ def api_seed_accounts():
     return jsonify({"success": True, "accounts": [a.to_dict() for a in accounts]})
 
 @finance_bp.route("/accounts", methods=["GET"])
+@require_permission("finance.view")
 def api_list_accounts():
     auth = _require_auth()
     if auth: return auth
@@ -66,6 +70,7 @@ def api_list_accounts():
     return jsonify({"accounts": [a.to_dict() for a in accounts]})
 
 @finance_bp.route("/invoices", methods=["POST"])
+@require_permission("finance.create_invoice")
 def api_create_invoice():
     auth = _require_auth()
     if auth: return auth
@@ -121,6 +126,7 @@ def api_create_invoice():
     return jsonify({"invoice": inv.to_dict()}), 201
 
 @finance_bp.route("/invoices", methods=["GET"])
+@require_permission("finance.view")
 def api_list_invoices():
     auth = _require_auth()
     if auth: return auth
@@ -140,6 +146,7 @@ def api_list_invoices():
     return jsonify({"invoices": invoices})
 
 @finance_bp.route("/invoices/<int:inv_id>", methods=["GET"])
+@require_permission("finance.view")
 def api_get_invoice(inv_id):
     auth = _require_auth()
     if auth: return auth
@@ -149,6 +156,7 @@ def api_get_invoice(inv_id):
     return jsonify({"invoice": inv.to_dict(), "items": [i.to_dict() for i in items]})
 
 @finance_bp.route("/payments", methods=["GET"])
+@require_permission("finance.view")
 def api_payment_list():
     """List recent payments (JSON API)."""
     auth = _require_auth()
@@ -165,6 +173,7 @@ def api_payment_list():
 
 
 @finance_bp.route("/payments", methods=["POST"])
+@require_permission("finance.record_payment")
 def api_record_payment():
     auth = _require_auth()
     if auth: return auth
@@ -179,6 +188,7 @@ def api_record_payment():
     return jsonify(result), 201
 
 @finance_bp.route("/trial-balance", methods=["GET"])
+@require_permission("finance.view")
 def api_trial_balance():
     auth = _require_auth()
     if auth: return auth
@@ -189,6 +199,7 @@ def api_trial_balance():
     return jsonify({"trial_balance": get_trial_balance(org_id, as_of_date)})
 
 @finance_bp.route("/summary", methods=["GET"])
+@require_permission("finance.view")
 def api_financial_summary():
     auth = _require_auth()
     if auth: return auth
@@ -199,6 +210,7 @@ def api_financial_summary():
     return jsonify({"summary": summary, "aging": aging})
 
 @finance_bp.route("/journal-entries", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_create_journal():
     auth = _require_auth()
     if auth: return auth
@@ -215,6 +227,7 @@ def api_create_journal():
 # ── Governance Routes ──────────────────────────────────────────────────
 
 @finance_bp.route("/invoices/<int:inv_id>/transition", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_transition_invoice(inv_id):
     auth = _require_auth()
     if auth: return auth
@@ -226,6 +239,7 @@ def api_transition_invoice(inv_id):
     return jsonify(result)
 
 @finance_bp.route("/invoices/<int:inv_id>/credit-note", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_create_credit_note(inv_id):
     auth = _require_auth()
     if auth: return auth
@@ -237,6 +251,7 @@ def api_create_credit_note(inv_id):
     return jsonify(result), 201
 
 @finance_bp.route("/states/<obj_type>", methods=["GET"])
+@require_permission("finance.view")
 def api_list_states(obj_type):
     """List valid states and transitions for an object type."""
     if obj_type == "invoice":
@@ -244,6 +259,7 @@ def api_list_states(obj_type):
     return jsonify({"error": "Unknown type"}), 400
 
 @finance_bp.route("/invoices/<int:inv_id>/history", methods=["GET"])
+@require_permission("finance.view")
 def api_invoice_history(inv_id):
     """Get full correction history for an invoice."""
     auth = _require_auth()
@@ -266,10 +282,12 @@ def api_invoice_history(inv_id):
 # ── Governance Control Routes ──────────────────────────────────────────
 
 @finance_bp.route("/approval-policies", methods=["GET"])
+@require_permission("finance.view")
 def api_approval_policies():
     return jsonify({"policies": DEFAULT_APPROVAL_POLICIES, "sod_rules": SOD_RULES})
 
 @finance_bp.route("/approval-requests", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_request_approval():
     auth = _require_auth()
     if auth: return auth
@@ -280,6 +298,7 @@ def api_request_approval():
     return jsonify(result), (400 if "error" in result else 201)
 
 @finance_bp.route("/approval-requests", methods=["GET"])
+@require_permission("finance.view")
 def api_list_approvals():
     auth = _require_auth()
     if auth: return auth
@@ -289,6 +308,7 @@ def api_list_approvals():
     return jsonify({"approval_requests": [ar.to_dict() for ar in q.order_by(ApprovalRequest.requested_at.desc()).limit(20).all()]})
 
 @finance_bp.route("/approval-requests/<int:ar_id>/resolve", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_resolve_approval(ar_id):
     auth = _require_auth()
     if auth: return auth
@@ -298,6 +318,7 @@ def api_resolve_approval(ar_id):
     return jsonify(result)
 
 @finance_bp.route("/delegations", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_create_delegation():
     auth = _require_auth()
     if auth: return auth
@@ -312,17 +333,20 @@ def api_create_delegation():
     return jsonify(result), (400 if "error" in result else 201)
 
 @finance_bp.route("/delegations", methods=["GET"])
+@require_permission("finance.view")
 def api_list_delegations():
     q = Delegation.query.filter_by(organization_id=_org())
     return jsonify({"delegations": [d.to_dict() for d in q.order_by(Delegation.created_at.desc()).limit(20).all()]})
 
 @finance_bp.route("/delegations/<int:d_id>/revoke", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_revoke_delegation(d_id):
     result = revoke_delegation(d_id, _org(), _identity())
     if "error" in result: return jsonify(result), 400
     return jsonify(result)
 
 @finance_bp.route("/periods", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_create_period():
     auth = _require_auth()
     if auth: return auth
@@ -336,11 +360,13 @@ def api_create_period():
     return jsonify({"period": p.to_dict()}), 201
 
 @finance_bp.route("/periods", methods=["GET"])
+@require_permission("finance.view")
 def api_list_periods():
     q = FinancialPeriod.query.filter_by(organization_id=_org()).order_by(FinancialPeriod.start_date.desc())
     return jsonify({"periods": [p.to_dict() for p in q.all()]})
 
 @finance_bp.route("/periods/<int:p_id>/transition", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_transition_period(p_id):
     data = request.get_json(silent=True) or {}
     result = transition_period(p_id, _org(), data.get("status",""), _identity(), data.get("reason",""))
@@ -348,6 +374,7 @@ def api_transition_period(p_id):
     return jsonify(result)
 
 @finance_bp.route("/audit-dashboard", methods=["GET"])
+@require_permission("admin.view_audit")
 def api_audit_dashboard():
     auth = _require_auth()
     if auth: return auth
@@ -356,6 +383,7 @@ def api_audit_dashboard():
     return jsonify({"dashboard": get_audit_dashboard(org_id)})
 
 @finance_bp.route("/audit-insights", methods=["GET"])
+@require_permission("admin.view_audit")
 def api_audit_insights():
     auth = _require_auth()
     if auth: return auth
@@ -366,6 +394,7 @@ def api_audit_insights():
 # ── CFO Intelligence Routes ────────────────────────────────────────────
 
 @finance_bp.route("/cfo/dashboard", methods=["GET"])
+@require_permission("finance.view")
 def api_cfo_dashboard():
     auth = _require_auth()
     if auth: return auth
@@ -374,6 +403,7 @@ def api_cfo_dashboard():
     return jsonify({"cfo": executive_cfo_workspace(org_id)})
 
 @finance_bp.route("/cfo/cash-flow", methods=["GET"])
+@require_permission("finance.view")
 def api_cfo_cash_flow():
     auth = _require_auth()
     if auth: return auth
@@ -383,6 +413,7 @@ def api_cfo_cash_flow():
     return jsonify(cash_flow_forecast(org_id, days))
 
 @finance_bp.route("/cfo/profitability", methods=["GET"])
+@require_permission("finance.view")
 def api_cfo_profitability():
     auth = _require_auth()
     if auth: return auth
@@ -393,6 +424,7 @@ def api_cfo_profitability():
         "by_proposal": profitability_by_proposal(org_id)})
 
 @finance_bp.route("/cfo/lifetime-value", methods=["GET"])
+@require_permission("finance.view")
 def api_cfo_lifetime_value():
     auth = _require_auth()
     if auth: return auth
@@ -402,6 +434,7 @@ def api_cfo_lifetime_value():
     return jsonify({"lifetime_values": lifetime_value(org_id, int(rid) if rid else None)})
 
 @finance_bp.route("/cfo/risks", methods=["GET"])
+@require_permission("finance.view")
 def api_cfo_risks():
     auth = _require_auth()
     if auth: return auth
@@ -410,6 +443,7 @@ def api_cfo_risks():
     return jsonify(risk_engine(org_id))
 
 @finance_bp.route("/cfo/opportunities", methods=["GET"])
+@require_permission("finance.view")
 def api_cfo_opportunities():
     auth = _require_auth()
     if auth: return auth
@@ -418,6 +452,7 @@ def api_cfo_opportunities():
     return jsonify(opportunity_engine(org_id))
 
 @finance_bp.route("/cfo/scenario", methods=["POST"])
+@require_permission("finance.view")
 def api_cfo_scenario():
     auth = _require_auth()
     if auth: return auth
@@ -427,6 +462,7 @@ def api_cfo_scenario():
     return jsonify(scenario_model(org_id, data.get("type",""), data.get("params",{})))
 
 @finance_bp.route("/cfo/ask", methods=["POST"])
+@require_permission("finance.view")
 def api_cfo_ask():
     auth = _require_auth()
     if auth: return auth
@@ -436,6 +472,7 @@ def api_cfo_ask():
     return jsonify(cfo_explain(org_id, data.get("question","")))
 
 @finance_bp.route("/cfo/working-capital", methods=["GET"])
+@require_permission("finance.view")
 def api_cfo_working_capital():
     auth = _require_auth()
     if auth: return auth
@@ -447,6 +484,7 @@ def api_cfo_working_capital():
 # ── Evidence Routes ────────────────────────────────────────────────────
 
 @finance_bp.route("/evidence/policies", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_create_evidence_policy():
     auth = _require_auth(); org_id = _org()
     if auth: return auth
@@ -461,11 +499,13 @@ def api_create_evidence_policy():
     return jsonify({"policy": p.to_dict()}), 201
 
 @finance_bp.route("/evidence/policies", methods=["GET"])
+@require_permission("finance.view")
 def api_list_evidence_policies():
     org_id = _org()
     return jsonify({"policies": [p.to_dict() for p in EvidencePolicy.query.filter_by(organization_id=org_id).all()]})
 
 @finance_bp.route("/evidence/upload/<ref_type>/<int:ref_id>", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_upload_evidence(ref_type, ref_id):
     auth = _require_auth(); org_id = _org()
     if auth: return auth
@@ -495,6 +535,7 @@ def api_upload_evidence(ref_type, ref_id):
     return jsonify({"evidence": ev.to_dict(), "intelligence": intelligence}), 201
 
 @finance_bp.route("/evidence/<int:ev_id>", methods=["GET"])
+@require_permission("finance.view")
 def api_get_evidence(ev_id):
     ev = db.session.get(FinancialEvidence, ev_id)
     if not ev or ev.organization_id != _org():
@@ -502,6 +543,7 @@ def api_get_evidence(ev_id):
     return jsonify({"evidence": ev.to_dict()})
 
 @finance_bp.route("/evidence/<int:ev_id>/file", methods=["GET"])
+@require_permission("finance.view")
 def api_get_evidence_file(ev_id):
     ev = db.session.get(FinancialEvidence, ev_id)
     if not ev or ev.organization_id != _org():
@@ -510,6 +552,7 @@ def api_get_evidence_file(ev_id):
         as_attachment=False, download_name=ev.original_filename)
 
 @finance_bp.route("/evidence/<int:ev_id>/transition", methods=["POST"])
+@require_permission("finance.edit_invoice")
 def api_transition_evidence(ev_id):
     auth = _require_auth(); org_id = _org()
     if auth: return auth
@@ -520,6 +563,7 @@ def api_transition_evidence(ev_id):
     return jsonify(result)
 
 @finance_bp.route("/evidence/<ref_type>/<int:ref_id>", methods=["GET"])
+@require_permission("finance.view")
 def api_list_evidence(ref_type, ref_id):
     org_id = _org(); status = request.args.get("status","")
     q = FinancialEvidence.query.filter_by(organization_id=org_id, reference_type=ref_type, reference_id=ref_id)
@@ -527,6 +571,7 @@ def api_list_evidence(ref_type, ref_id):
     return jsonify({"evidence": [e.to_dict() for e in q.order_by(FinancialEvidence.created_at.desc()).all()]})
 
 @finance_bp.route("/evidence/check/<ref_type>/<int:ref_id>", methods=["GET"])
+@require_permission("finance.view")
 def api_check_evidence_policy(ref_type, ref_id):
     amount = float(request.args.get("amount", 0))
     return jsonify(check_evidence_policy(_org(), ref_type, ref_id, amount))

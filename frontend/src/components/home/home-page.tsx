@@ -39,9 +39,36 @@ function _timeAgo(ts?: string | null): string {
 }
 
 /** Active-phase label used in SHUNYA NOW rows. */
+const PHASE_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  queued: 'Queued',
+  in_progress: 'Working',
+  completed: 'Completed',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+  blocked: 'Needs your input',
+  interpreting: 'Understanding your request',
+  context_loading: 'Loading context',
+  company_data: 'Checking company data',
+  internet_data: 'Checking internet information',
+  analysing: 'Analysing information',
+  planning: 'Forming a plan',
+  processing: 'Processing',
+  executing: 'Executing',
+  verifying: 'Verifying result',
+  completing: 'Completing',
+};
+
+function humanPhase(raw?: string | null): string {
+  if (!raw) return '';
+  const key = raw.toLowerCase();
+  if (PHASE_LABELS[key]) return PHASE_LABELS[key];
+  return raw.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 function phaseLabel(t: TaskLifecycle): string {
-  if (t.current_phase) return t.current_phase;
-  return t.status === 'in_progress' ? 'working' : t.status;
+  if (t.current_phase) return humanPhase(t.current_phase);
+  return t.status === 'in_progress' ? 'Working' : humanPhase(t.status);
 }
 
 function statusTone(t: TaskLifecycle): 'active' | 'done' | 'attention' {

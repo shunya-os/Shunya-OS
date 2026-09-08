@@ -22,6 +22,7 @@ Architecture pattern:
 from flask import Blueprint, jsonify
 from sqlalchemy import text
 from datetime import datetime, timezone, timedelta
+from app.authz.decorators import require_permission
 
 intention_bp = Blueprint("intention", __name__, url_prefix="/api/v1/intention")
 
@@ -132,6 +133,7 @@ def _collect_signals():
 
 
 @intention_bp.route("", methods=["GET"])
+@require_permission("ai.use")
 def api_intention():
     """Get the highest-confidence starting point recommendation."""
     signals = _collect_signals()

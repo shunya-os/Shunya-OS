@@ -6,6 +6,7 @@ import logging
 from flask import Blueprint, jsonify, request, session, g
 
 from app import db
+from app.authz.decorators import require_permission
 from app.workspace.models import (
     Workspace, WorkspaceMembership, WorkspaceType, WorkspaceMembership,
     create_workspace, get_workspaces_for_identity, switch_workspace,
@@ -32,6 +33,7 @@ def _require_auth():
 
 
 @workspace_bp.route("", methods=["GET"])
+@require_permission("rel.view")
 def api_list_workspaces():
     """List all workspaces the current identity belongs to."""
     uid = _require_auth()
@@ -43,6 +45,7 @@ def api_list_workspaces():
 
 
 @workspace_bp.route("", methods=["POST"])
+@require_permission("rel.create")
 def api_create_workspace():
     """Create a new workspace."""
     uid = _require_auth()
@@ -82,6 +85,7 @@ def api_create_workspace():
 
 
 @workspace_bp.route("/<workspace_id>", methods=["GET"])
+@require_permission("rel.view")
 def api_get_workspace(workspace_id):
     """Get workspace details."""
     uid = _require_auth()
@@ -106,6 +110,7 @@ def api_get_workspace(workspace_id):
 
 
 @workspace_bp.route("/switch", methods=["POST"])
+@require_permission("rel.view")
 def api_switch_workspace():
     """Switch the current workspace context."""
     uid = _require_auth()
@@ -129,6 +134,7 @@ def api_switch_workspace():
 
 
 @workspace_bp.route("/context", methods=["GET"])
+@require_permission("rel.view")
 def api_get_context():
     """Get the current authorization context (who, where, what capabilities)."""
     uid = _require_auth()
@@ -140,6 +146,7 @@ def api_get_context():
 
 
 @workspace_bp.route("/capabilities", methods=["GET"])
+@require_permission("rel.view")
 def api_get_capabilities():
     """Get available capabilities for a workspace type."""
     workspace_type = request.args.get("workspace_type", "").strip()
@@ -163,6 +170,7 @@ def api_get_capabilities():
 
 
 @workspace_bp.route("/types", methods=["GET"])
+@require_permission("rel.view")
 def api_workspace_types():
     """List all supported workspace types."""
     types = [

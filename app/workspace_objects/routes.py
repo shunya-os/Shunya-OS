@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from flask import Blueprint, g, jsonify, request, session
 
-from app.authz.decorators import _resolve_org_id
+from app.authz.decorators import require_permission,  _resolve_org_id
 
 workspace_api = Blueprint("workspace_api", __name__, url_prefix="/api/v1/workspace")
 
@@ -41,6 +41,7 @@ def _require_auth() -> bool:
 
 
 @workspace_api.route("/objects/<object_id>", methods=["GET"])
+@require_permission("rel.view")
 def get_object_workspace(object_id: str):
     """Get the unified workspace context for any object.
 
@@ -68,6 +69,7 @@ def get_object_workspace(object_id: str):
 
 
 @workspace_api.route("/timeline", methods=["GET"])
+@require_permission("rel.view")
 def get_unified_timeline():
     """Get unified timeline across all canonical sources for a context.
 
@@ -99,6 +101,7 @@ def get_unified_timeline():
 
 
 @workspace_api.route("/timeline/memory", methods=["GET"])
+@require_permission("rel.view")
 def get_memory_timeline():
     """Get memory timeline with truth classifications."""
     if not _require_auth():
@@ -145,6 +148,7 @@ def get_memory_timeline():
 
 
 @workspace_api.route("/copilot/ask", methods=["POST"])
+@require_permission("ai.use")
 def copilot_ask():
     """Ask SHUNYA a contextual question about the current object.
 
@@ -182,6 +186,7 @@ def copilot_ask():
 
 
 @workspace_api.route("/copilot/context", methods=["GET"])
+@require_permission("ai.use")
 def copilot_context():
     """Get the current copilot context for an object."""
     if not _require_auth():
@@ -203,6 +208,7 @@ def copilot_context():
 
 
 @workspace_api.route("/commitments/<int:commitment_id>", methods=["GET"])
+@require_permission("task.view")
 def get_commitment_detail(commitment_id: int):
     """Get full commitment detail with execution history."""
     if not _require_auth():
@@ -255,6 +261,7 @@ def get_commitment_detail(commitment_id: int):
 
 
 @workspace_api.route("/commitments/<int:commitment_id>/transition", methods=["POST"])
+@require_permission("task.edit")
 def transition_commitment(commitment_id: int):
     """Transition a commitment to a new state.
 
@@ -340,6 +347,7 @@ def transition_commitment(commitment_id: int):
 
 
 @workspace_api.route("/commitments", methods=["POST"])
+@require_permission("task.create")
 def create_commitment():
     """Create a new commitment.
 
@@ -420,6 +428,7 @@ def create_commitment():
 
 
 @workspace_api.route("/bootstrap", methods=["GET"])
+@require_permission("org.view")
 def workspace_bootstrap():
     """Return the minimal workspace bootstrap payload.
 

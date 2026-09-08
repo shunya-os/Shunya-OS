@@ -30,6 +30,7 @@ from app.adapters.os_adapter import (
     sign_in,
 )
 from app.founder import founder_bp
+from app.authz.decorators import require_permission
 from app.founder.models import (
     BusinessRelationship,
     FounderConversation,
@@ -236,6 +237,7 @@ def api_founder_signin():
 
 
 @founder_bp.route("/api/v1/founder/profile", methods=["GET"])
+@require_permission("org.view")
 def api_founder_profile():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -254,6 +256,7 @@ def api_founder_profile():
 
 
 @founder_bp.route("/api/v1/founder/executive-home", methods=["GET"])
+@require_permission("org.view")
 def api_executive_home():
     """Return Executive Home dashboard data assembled from the real OS pipeline.
 
@@ -268,6 +271,7 @@ def api_executive_home():
 
 
 @founder_bp.route("/api/v1/founder/pipeline/health", methods=["GET"])
+@require_permission("org.view")
 def api_pipeline_health():
     """Return real-time pipeline health from the OS.
 
@@ -286,6 +290,7 @@ def api_pipeline_health():
 
 
 @founder_bp.route("/api/v1/founder/pipeline/traces", methods=["GET"])
+@require_permission("org.view")
 def api_pipeline_traces():
     """Return recent pipeline execution traces.
 
@@ -326,6 +331,7 @@ def founder_logout():
 
 
 @founder_bp.route("/api/v1/founder/spaces", methods=["GET"])
+@require_permission("org.view")
 def api_list_spaces():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -340,6 +346,7 @@ def api_list_spaces():
 
 
 @founder_bp.route("/api/v1/founder/spaces", methods=["POST"])
+@require_permission("org.edit")
 def api_create_space():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -383,6 +390,7 @@ def api_create_space():
 
 
 @founder_bp.route("/api/v1/founder/spaces/<space_id>", methods=["GET"])
+@require_permission("org.view")
 def api_get_space(space_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -398,6 +406,7 @@ def api_get_space(space_id: str):
 
 
 @founder_bp.route("/api/v1/founder/spaces/<space_id>/objects", methods=["GET"])
+@require_permission("rel.view")
 def api_list_objects(space_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -408,6 +417,7 @@ def api_list_objects(space_id: str):
 
 
 @founder_bp.route("/api/v1/founder/spaces/<space_id>/objects", methods=["POST"])
+@require_permission("rel.create")
 def api_create_object(space_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -465,6 +475,7 @@ def api_create_object(space_id: str):
 
 
 @founder_bp.route("/api/v1/founder/objects/<object_id>", methods=["GET"])
+@require_permission("rel.view")
 def api_get_object(object_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -480,6 +491,7 @@ def api_get_object(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/focus/<object_id>", methods=["GET"])
+@require_permission("rel.view")
 def api_focus_object(object_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -533,6 +545,7 @@ def api_focus_object(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/objects/<object_id>/conversation", methods=["POST"])
+@require_permission("rel.create")
 def api_start_conversation(object_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -552,6 +565,7 @@ def api_start_conversation(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/objects/<object_id>/conversation", methods=["GET"])
+@require_permission("rel.view")
 def api_get_conversation(object_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -563,6 +577,7 @@ def api_get_conversation(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/conversations/<conv_id>/messages", methods=["POST"])
+@require_permission("rel.create")
 def api_send_message(conv_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -618,6 +633,7 @@ def api_send_message(conv_id: str):
 
 
 @founder_bp.route("/api/v1/founder/search", methods=["GET"])
+@require_permission("knowledge.search")
 def api_search():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -654,6 +670,7 @@ def api_search():
 
 
 @founder_bp.route("/api/v1/founder/executive-home-v2", methods=["GET"])
+@require_permission("org.view")
 def api_executive_home_v2():
     """Return the complete Executive Home payload.
 
@@ -675,6 +692,7 @@ def api_executive_home_v2():
 
 
 @founder_bp.route("/api/v1/founder/insights", methods=["GET"])
+@require_permission("org.view")
 def api_insights():
     """Return Executive Intelligence: derived insights, attention queue, timeline."""
     if not _founder_required():
@@ -687,6 +705,7 @@ def api_insights():
 
 
 @founder_bp.route("/api/v1/founder/timeline", methods=["GET"])
+@require_permission("org.view")
 def api_timeline():
     """Return executive timeline."""
     if not _founder_required():
@@ -699,6 +718,7 @@ def api_timeline():
 
 
 @founder_bp.route("/api/v1/founder/insights/<insight_id>/lifecycle", methods=["POST"])
+@require_permission("org.edit")
 def api_insight_lifecycle(insight_id: str):
     """Update insight lifecycle: acknowledge, resolve, dismiss."""
     if not _founder_required():
@@ -720,6 +740,7 @@ def api_insight_lifecycle(insight_id: str):
 
 
 @founder_bp.route("/api/v1/founder/morning-zero", methods=["GET"])
+@require_permission("org.view")
 def api_morning_zero():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -757,6 +778,7 @@ def api_morning_zero():
 
 
 @founder_bp.route("/api/v1/founder/relationships/types", methods=["GET"])
+@require_permission("rel.view")
 def api_rel_types():
     return jsonify({"success": True, "data": [
         {"type": "customer", "label": "Customer", "icon": "person"},
@@ -768,6 +790,7 @@ def api_rel_types():
 
 
 @founder_bp.route("/api/v1/founder/relationships", methods=["GET"])
+@require_permission("rel.view")
 def api_list_relationships():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -788,6 +811,7 @@ def api_list_relationships():
 
 
 @founder_bp.route("/api/v1/founder/relationships", methods=["POST"])
+@require_permission("rel.create")
 def api_create_relationship():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -814,6 +838,7 @@ def api_create_relationship():
 
 
 @founder_bp.route("/api/v1/founder/relationships/<rel_id>", methods=["GET"])
+@require_permission("rel.view")
 def api_get_relationship(rel_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -825,6 +850,7 @@ def api_get_relationship(rel_id: str):
 
 
 @founder_bp.route("/api/v1/founder/relationships/<rel_id>", methods=["PUT"])
+@require_permission("rel.edit")
 def api_update_relationship(rel_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -843,6 +869,7 @@ def api_update_relationship(rel_id: str):
 
 
 @founder_bp.route("/api/v1/founder/relationships/<rel_id>", methods=["DELETE"])
+@require_permission("rel.delete")
 def api_delete_relationship(rel_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -854,6 +881,7 @@ def api_delete_relationship(rel_id: str):
     return jsonify({"success": True})
 
 @founder_bp.route("/api/v1/founder/objects/types", methods=["GET"])
+@require_permission("rel.view")
 def api_list_object_types():
     """List available object types and counts."""
     if not _founder_required():
@@ -866,6 +894,7 @@ def api_list_object_types():
 
 
 @founder_bp.route("/api/v1/founder/objects", methods=["GET"])
+@require_permission("rel.view")
 def api_list_founder_objects():
     """List objects scoped to the current user's organization."""
     if not _founder_required():
@@ -891,6 +920,7 @@ def api_list_founder_objects():
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>", methods=["GET"])
+@require_permission("rel.view")
 def api_workspace_intelligence(object_id: str):
     """Return the complete workspace intelligence for an object.
 
@@ -905,6 +935,7 @@ def api_workspace_intelligence(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/summary", methods=["GET"])
+@require_permission("rel.view")
 def api_workspace_summary(object_id: str):
     """Return workspace summary for an object."""
     if not _founder_required():
@@ -914,6 +945,7 @@ def api_workspace_summary(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/ai-understanding", methods=["GET"])
+@require_permission("ai.use")
 def api_ai_understanding(object_id: str):
     """Return AI Understanding panel."""
     if not _founder_required():
@@ -923,6 +955,7 @@ def api_ai_understanding(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/relationships", methods=["GET"])
+@require_permission("rel.view")
 def api_workspace_relationships(object_id: str):
     """Return relationship intelligence for an object."""
     if not _founder_required():
@@ -932,6 +965,7 @@ def api_workspace_relationships(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/timeline", methods=["GET"])
+@require_permission("rel.view")
 def api_workspace_timeline(object_id: str):
     """Return activity timeline for an object."""
     if not _founder_required():
@@ -942,6 +976,7 @@ def api_workspace_timeline(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/conversation", methods=["GET"])
+@require_permission("rel.view")
 def api_workspace_conversation(object_id: str):
     """Return conversation workspace for an object."""
     if not _founder_required():
@@ -951,6 +986,7 @@ def api_workspace_conversation(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/next-actions", methods=["GET"])
+@require_permission("task.view")
 def api_workspace_next_actions(object_id: str):
     """Return next actions for an object."""
     if not _founder_required():
@@ -960,6 +996,7 @@ def api_workspace_next_actions(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/missing-context", methods=["GET"])
+@require_permission("task.view")
 def api_workspace_missing_context(object_id: str):
     """Return missing context for an object."""
     if not _founder_required():
@@ -969,6 +1006,7 @@ def api_workspace_missing_context(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/health", methods=["GET"])
+@require_permission("org.view")
 def api_workspace_health(object_id: str):
     """Return workspace health assessment."""
     if not _founder_required():
@@ -978,6 +1016,7 @@ def api_workspace_health(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/evidence", methods=["GET"])
+@require_permission("knowledge.view")
 def api_workspace_evidence(object_id: str):
     """Return evidence explorer for an object."""
     if not _founder_required():
@@ -987,6 +1026,7 @@ def api_workspace_evidence(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/workspace/next-actions/<int:action_id>/complete", methods=["POST"])
+@require_permission("task.complete")
 def api_complete_next_action(action_id: int):
     """Mark a next action as completed."""
     if not _founder_required():
@@ -997,6 +1037,7 @@ def api_complete_next_action(action_id: int):
 
 
 @founder_bp.route("/api/v1/founder/workspace/missing-context/<int:context_id>/dismiss", methods=["POST"])
+@require_permission("task.edit")
 def api_dismiss_missing_context(context_id: int):
     """Dismiss a missing context entry."""
     if not _founder_required():
@@ -1007,6 +1048,7 @@ def api_dismiss_missing_context(context_id: int):
 
 
 @founder_bp.route("/api/v1/founder/workspace/navigate", methods=["POST"])
+@require_permission("rel.create")
 def api_workspace_navigate():
     """Navigate between related objects, preserving context."""
     if not _founder_required():
@@ -1027,6 +1069,7 @@ def api_workspace_navigate():
 
 
 @founder_bp.route("/api/v1/founder/workspace/navigation-history", methods=["GET"])
+@require_permission("org.view")
 def api_navigation_history():
     """Return navigation history for the current identity."""
     if not _founder_required():
@@ -1042,6 +1085,7 @@ def api_navigation_history():
 
 
 @founder_bp.route("/api/v1/founder/ai/summarize/<object_id>", methods=["GET"])
+@require_permission("ai.use")
 def api_ai_summarize(object_id: str):
     """Generate an AI summary for a business object."""
     if not _founder_required():
@@ -1052,6 +1096,7 @@ def api_ai_summarize(object_id: str):
 
 
 @founder_bp.route("/api/v1/founder/ai/health", methods=["GET"])
+@require_permission("ai.use")
 def api_ai_health():
     """Return AI Copilot health status."""
     if not _founder_required():
@@ -1061,6 +1106,7 @@ def api_ai_health():
 
 
 @founder_bp.route("/api/v1/founder/ai/chat/<conv_id>", methods=["POST"])
+@require_permission("ai.use")
 def api_ai_chat(conv_id: str):
     """Send a message to the AI Copilot in an existing conversation."""
     if not _founder_required():
