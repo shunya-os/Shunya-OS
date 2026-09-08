@@ -26,7 +26,11 @@ from app.evidence.models import (
     EvidenceSource,
     Provenance,
     EvidenceStore,
-    InMemoryEvidenceStore,
+    InMemoryEvidenceStore,  # QUARANTINED — test only; use SqlEvidenceStore for production
+)
+from app.evidence.sql_store import (
+    SqlEvidenceStore,       # CANONICAL production evidence store
+    get_sql_evidence_store,
 )
 from app.evidence.provenance_enums import (
     DerivationType,

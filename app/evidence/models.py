@@ -382,11 +382,19 @@ class EvidenceStore:
 
 
 # ---------------------------------------------------------------------------
-# InMemoryEvidenceStore — development / testing implementation
+# InMemoryEvidenceStore — development / testing implementation (QUARANTINED)
 # ---------------------------------------------------------------------------
+# Production use of InMemoryEvidenceStore is prohibited. All production
+# evidence paths use SqlEvidenceStore (app/evidence/sql_store.py).
+# This class is retained only for isolated unit tests.
 
 class InMemoryEvidenceStore(EvidenceStore):
-    """In-memory evidence store for development and testing.
+    """QUARANTINED — In-memory evidence store for development and testing ONLY.
+
+    .. warning::
+       This store is QUARANTINED for production use. All production evidence
+       paths must use SqlEvidenceStore. Retained only for isolated unit tests
+       where a database connection is unavailable.
 
     Thread-safe via RLock.
     Supports version history (append-only, never rewritten).

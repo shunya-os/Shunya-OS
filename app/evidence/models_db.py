@@ -30,7 +30,7 @@ class EvidenceRecord(db.Model):
 
     __tablename__ = "evidence_records"
     __table_args__ = (
-        db.UniqueConstraint('source_type', 'source_id', name='uq_evidence_source'),
+        db.Index('ix_evidence_source_type_id', 'source_type', 'source_id'),
     )
 
     id = db.Column(db.Integer, primary_key=True)
