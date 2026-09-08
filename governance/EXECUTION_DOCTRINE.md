@@ -1,6 +1,6 @@
 # SHUNYA Permanent Execution Doctrine
 
-**Version:** 1.0
+**Version:** 1.1
 **Status:** Ratified — G1.1-R5 (mandatory, permanent)
 **Authority:** SHUNYA Constitution → Product Constitution → Technical Constitution → Design System → applicable governance documents
 **Applies to:** ALL current and future SHUNYA development, migration, refactor, test, and remediation work. Not limited to G1.1-R5.
@@ -150,6 +150,89 @@ tested", "green locally" must NEVER be used as substitutes for acceptance status
   green subsystems.
 - All future milestones (G1.1-FINAL, G1.2, G2, and beyond) inherit this doctrine.
 
+## 5. EVIDENCE SUBSTITUTION AND SELF-SUBSTITUTION CHECK
+
+### 5.1 The Anti-Evidence-Substitution Rule
+
+No requirement may be marked PASS, FIXED, or CLOSED using evidence weaker than
+the evidence the directive specifically required.
+
+Evidence substitution occurs when an execution agent:
+
+- Changes a test expectation because the production code is wrong, rather than
+  fixing the production code to meet the expectation — when the original
+  expectation represented the required architectural or product behaviour.
+- Declares a production defect fixed after modifying only the test that
+  detected it.
+- Accepts synthetic/manually constructed database objects as proof of a real
+  production user journey.
+- Accepts TypeScript compilation as proof of browser/UI quality or responsive
+  behaviour.
+- Lumps HTTP 404/405/400 responses into "authorization denied" when the test
+  did not exercise the intended route, HTTP method, or request shape.
+- Accepts a weaker proxy (e.g. "the data model supports it") when the directive
+  required a stronger proof (e.g. "the real user journey produces it").
+- Allows the headline status (PASS / FIXED / CLOSED) to contradict the detailed
+  evidence in the body of the report.
+- Reports three different deployment SHAs in the same execution session without
+  resolving them to one authoritative chain.
+
+**Remediation for a detected substitution:** The claim must immediately revert
+to PARTIAL or BLOCKED. The required proof must be produced or explicitly gated.
+No milestone may close over a known substitution.
+
+### 5.2 The Mandatory Pre-Closure Self-Substitution Check
+
+Before any requirement is marked PASS, FIXED, or CLOSED in a milestone report,
+the execution agent MUST explicitly answer all of the following. The answers
+must appear in the report before the status classification.
+
+a. **What exactly did the directive require me to prove?**
+   Quote the directive's language. Do not paraphrase in a way that weakens it.
+
+b. **What exactly did I actually prove?**
+   State the actual demonstration — not what you intended to prove.
+
+c. **Is my evidence equal to or stronger than the required proof?**
+   If the evidence is weaker (synthetic, proxy, partial, inferred), the item may
+   not be marked PASS. It must be PARTIAL or BLOCKED with the gap documented.
+
+d. **Did I fix production behaviour, or did I merely alter the test/proof?**
+   A production fix changes the code that determines the observed behaviour.
+   Altering the test changes what the agent accepts as correct. Only the former
+   counts as FIXED.
+
+e. **Did I execute the real user journey, or construct a proxy representation?**
+   A proxy representation (manually created DB rows, manually advanced states,
+   simulated API calls in a script) proves the data model, not the product.
+   The real journey originates from the UI or user action and flows through
+   actual production orchestration.
+
+f. **Does every PASS/FIXED/CLOSED claim in this report remain truthful when
+   compared with the underlying evidence?**
+   Check the body against the headline. If the evidence section says "PASS" but
+   also says "not tested on real devices" or "SqlEvidenceStore not used by
+   production callers", the headline is false and must be corrected.
+
+If any answer reveals evidence substitution, the item MUST remain PARTIAL or
+BLOCKED. No item may be self-promoted over a known substitution.
+
+### 5.3 When Proof Is Difficult, BLOCK/PARTIAL Is Correct
+
+When the requested proof is expensive, unavailable, blocked by infrastructure,
+or genuinely difficult to produce:
+
+- **BLOCK** the requirement with evidence and explanation.
+- **PARTIAL** the requirement with documented progress and remaining gap.
+- **Never** find an easier proxy and call it equivalent.
+
+The project is not served by faster false closure. It is served by honest,
+evidenced status on every requirement — even when that status is BLOCKED.
+
+A requirement honestly classified as BLOCKED can be unblocked by explicit
+infrastructure or dependency decisions. A requirement falsely classified as
+PASS may never be revisited.
+
 ---
 
-*Recorded 2026-09-08 during G1.1-R5 execution. Permanent. Applies to every future execution.*
+*§5 added 2026-09-08 during G1.1-R6 governance hardening. Permanent. Applies to every future execution. Overrides all prior implied acceptance of weaker evidence.*
