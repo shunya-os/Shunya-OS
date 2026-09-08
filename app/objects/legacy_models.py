@@ -73,6 +73,8 @@ class ShunyaObject(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_deleted = db.Column(db.Boolean, default=False)
+    content = db.Column(db.Text, nullable=True)
+    space_id = db.Column(db.String(64), nullable=True)
 
     def to_dict(self):
         return {
