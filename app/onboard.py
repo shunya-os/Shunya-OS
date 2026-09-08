@@ -17,6 +17,7 @@ os.environ["FLASK_ENV"] = "production"
 from app import create_app, db
 from app.founder.models import FounderSpace, FounderObject, FounderConversation
 from app.models import Organization, OrgMember
+from app.objects.legacy_models import ShunyaObject
 
 
 def _now() -> datetime:
@@ -78,8 +79,9 @@ def onboard(identity_id: str) -> dict:
         initial_objects = _get_initial_objects(org.business_type or "organization")
 
         for obj_data in initial_objects:
+            obj_id = f"obj_{secrets.token_hex(8)}"
             obj = FounderObject(
-                object_id=f"obj_{secrets.token_hex(8)}",
+                object_id=obj_id,
                 space_id=space_id,
                 object_type=obj_data["type"],
                 name=obj_data["name"],
@@ -89,6 +91,17 @@ def onboard(identity_id: str) -> dict:
                 created_at=_now(),
             )
             db.session.add(obj)
+            # Dual-write to ShunyaObject for migration
+            sh_obj = ShunyaObject(
+                object_id=obj_id,
+                workspace_id="migrated",
+                object_type=obj_data["type"],
+                name=obj_data["name"],
+                content=obj_data.get("content", ""),
+                created_by=identity_id,
+                space_id=space_id,
+            )
+            db.session.add(sh_obj)
             objects_created.append(obj_data["name"])
 
         db.session.commit()

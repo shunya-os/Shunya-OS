@@ -228,6 +228,7 @@ def _execute_action(rule: AutomationRule,
 
         elif action_type == "create_object":
             from app.founder.models import FounderConversation, FounderObject, FounderSpace
+            from app.objects.legacy_models import ShunyaObject
 
             # Find a space for this identity
             space = FounderSpace.query.filter_by(
@@ -254,6 +255,17 @@ def _execute_action(rule: AutomationRule,
                 created_by=rule.identity_id,
             )
             db.session.add(obj)
+            # Dual-write to ShunyaObject for migration
+            sh_obj = ShunyaObject(
+                object_id=obj_id,
+                workspace_id="migrated",
+                object_type=action_cfg.get("object_type", "Task"),
+                name=name,
+                content=content,
+                created_by=rule.identity_id,
+                space_id=space.space_id,
+            )
+            db.session.add(sh_obj)
             result["action_summary"] = f"Object created: {name} ({obj_id})"
 
         else:

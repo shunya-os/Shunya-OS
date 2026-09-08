@@ -38,6 +38,7 @@ from app.founder.models import (
     FounderObject,
     FounderSpace,
 )
+from app.objects.legacy_models import ShunyaObject
 
 # ---------------------------------------------------------------------------
 # Helpers (auth only — no business logic)
@@ -454,6 +455,17 @@ def api_create_object(space_id: str):
                     created_by=identity_id,
                 )
                 db.session.add(db_obj)
+                # Dual-write to ShunyaObject for migration
+                sh_obj = ShunyaObject(
+                    object_id=obj_id,
+                    workspace_id="migrated",
+                    object_type=object_type,
+                    name=name,
+                    content=content,
+                    created_by=identity_id,
+                    space_id=space_id,
+                )
+                db.session.add(sh_obj)
                 space.updated_at = datetime.now(timezone.utc)
                 db.session.commit()
             else:

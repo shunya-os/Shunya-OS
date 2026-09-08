@@ -319,6 +319,7 @@ def chat():
         if not conv:
             # Ensure the founder_object exists for the FK constraint
             from app.founder.models import FounderObject, FounderSpace
+            from app.objects.legacy_models import ShunyaObject
             existing_obj = FounderObject.query.filter_by(object_id=conv_object_ref).first()
             if not existing_obj:
                 # Find or create a system space
@@ -340,6 +341,17 @@ def chat():
                     created_by=identity_id or 'system',
                 )
                 _db.session.add(obj)
+                # Dual-write to ShunyaObject for migration
+                sh_obj = ShunyaObject(
+                    object_id=conv_object_ref,
+                    workspace_id="migrated",
+                    object_type="conversation",
+                    name=messages[-1].get('content', 'Conversation')[:100] if messages else 'Conversation',
+                    content="",
+                    created_by=identity_id or 'system',
+                    space_id=system_space.space_id,
+                )
+                _db.session.add(sh_obj)
                 _db.session.flush()
             conv = FounderConversation(
                 conv_id=conversation_id,

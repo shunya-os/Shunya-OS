@@ -62,6 +62,18 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str):
                 "cb": "system",
             }
         )
+        # Dual-write to sh_objects for migration
+        db.session.execute(
+            text("""INSERT INTO sh_objects (object_id, workspace_id, object_type, name, content, status, created_by, created_at, space_id)
+                    VALUES (:oid, 'migrated', 'Document', :name, :content, 'active', :cb, NOW(), :sid)"""),
+            {
+                "oid": doc_id,
+                "sid": "onb_system",
+                "name": filename,
+                "content": content,
+                "cb": "system",
+            }
+        )
         db.session.commit()
 
         # ── Gate 2.2: Canonical ingestion event emission ──

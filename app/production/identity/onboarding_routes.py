@@ -89,6 +89,7 @@ def mark_onboarding_complete():
     and auto-create foundational business objects."""
     from flask import g
     from app.founder.models import FounderObject, FounderSpace
+    from app.objects.legacy_models import ShunyaObject
     import uuid
 
     user = g.user
@@ -131,8 +132,9 @@ def mark_onboarding_complete():
                 space_id=space.space_id, object_type=obj_type
             ).first()
             if not existing:
+                obj_id = f"obj_{uuid.uuid4().hex[:16]}"
                 obj = FounderObject(
-                    object_id=f"obj_{uuid.uuid4().hex[:16]}",
+                    object_id=obj_id,
                     space_id=space.space_id,
                     name=obj_name,
                     object_type=obj_type,
@@ -141,6 +143,17 @@ def mark_onboarding_complete():
                     created_by=identity_id[:12],
                 )
                 db.session.add(obj)
+                # Dual-write to ShunyaObject for migration
+                sh_obj = ShunyaObject(
+                    object_id=obj_id,
+                    workspace_id="migrated",
+                    object_type=obj_type,
+                    name=obj_name,
+                    content="",
+                    created_by=identity_id[:12],
+                    space_id=space.space_id,
+                )
+                db.session.add(sh_obj)
 
     db.session.commit()
     return jsonify({
