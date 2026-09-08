@@ -483,11 +483,21 @@ def api_ask():
     stage_start = time.monotonic()
     evidence_used = list(company_evidence)
     has_company_data = len(company_evidence) > 0
+    # Organizational metadata alone is NOT authoritative for execution.
+    # Track "business data" separately — requires at least one entry from a
+    # business-domain source (objects, documents, commitments, memory, etc.)
+    # to authorize execution. The org-profile entry (source "company_db/organization")
+    # provides context only — it is metadata, not authority.
+    has_business_evidence = any(
+        e["source"] != "company_db/organization"
+        for e in company_evidence
+    )
     pipeline_stages.append({
         "stage": "evidence_assembly",
         "status": "success",
         "company_evidence_count": len(company_evidence),
         "has_company_data": has_company_data,
+        "has_business_evidence": has_business_evidence,
         "semantic_states": sorted(evidence_semantic_states),
         "duration_ms": round((time.monotonic() - stage_start) * 1000, 1),
     })
@@ -501,14 +511,16 @@ def api_ask():
     has_company_data = len(company_evidence) > 0
 
     # Check if evidence is from non-authoritative sources
+    # Authority requires business-domain evidence (objects, docs, commitments, etc.)
+    # Organizational metadata alone (company_db/organization) does not authorize execution.
     if evidence_classifications:
         all_non_auth = all(
             c in ExecutionAuthorityEnforcer.NON_AUTHORITY_CLASSIFICATIONS
             for c in evidence_classifications
         )
 
-        if all_non_auth and not has_company_data:
-            # Only non-authoritative evidence — execution authority denied
+        if all_non_auth or not has_business_evidence:
+            # Only non-authoritative evidence or no business-domain evidence — denied
             if execute:
                 total_latency = round((time.monotonic() - start) * 1000, 1)
                 return jsonify({

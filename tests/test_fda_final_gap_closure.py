@@ -153,10 +153,10 @@ class TestExecutionAuthority:
 
     def test_a_no_evidence_execution_denied(self, app, client):
         """A: No evidence + execute=true → 403 DENIED.
-        
-        Note: The route treats Organization existence as company evidence,
-        so when RBAC is set up, execution is always authorized.
-        This test documents that behavior.
+
+        Production fix: Organization metadata alone does NOT qualify as
+        authoritative company evidence. Business-domain data (knowledge docs,
+        founder objects, commitments, etc.) is required.
         """
         from app.tenant import Tenant
         from app import db
@@ -173,20 +173,17 @@ class TestExecutionAuthority:
             "/api/v1/intelligence/ask",
             json={"question": "Delete everything", "action": "delete", "execute": True},
         )
-        # Execution proceeds with company context (Organization record == company data)
-        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+        # No business-domain evidence exists — only org metadata. Must be denied.
+        assert resp.status_code == 403, f"Expected 403, got {resp.status_code}"
         data = resp.get_json()
-        pipeline = data.get("pipeline", [])
-        exec_stages = [s for s in pipeline if "execution" in s.get("stage", "")]
-        if exec_stages:
-            assert exec_stages[0].get("status") in ("authorized", "note_only_external_evidence"), str(data)
+        assert data["success"] is False
+        assert "blocked" in data.get("error", "").lower()
 
     def test_b_external_evidence_execution_denied(self, app, client):
         """B: External/untrusted evidence only + execute=true → 403 DENIED.
         
-        Note: Route treats Organization record as company evidence, so
-        when RBAC is set up, execution proceeds. Updated to match
-        production route behavior.
+        External evidence + org metadata alone does NOT authorize execution.
+        Business-domain evidence is required.
         """
         _rbac_login(app, client, "user_1", 9001)
         resp = client.post(
@@ -202,8 +199,10 @@ class TestExecutionAuthority:
                 ],
             },
         )
-        # Execution proceeds with company context (org record exists)
-        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+        assert resp.status_code == 403, f"Expected 403, got {resp.status_code}"
+        data = resp.get_json()
+        assert data["success"] is False
+        assert "blocked" in data.get("error", "").lower()
 
     def test_c_company_evidence_execution_authorized(self, app, client):
         """C: Authoritative company evidence + execute=true → proceeds through canonical authority.
@@ -331,8 +330,8 @@ class TestPerformance:
         for _ in range(5):
             resp = client.post("/api/v1/intelligence/ask",
                                json={"question": "Delete everything", "action": "delete", "execute": True})
-            # Execution proceeds with company context
-            assert resp.status_code == 200
+            # No business-domain evidence — must be denied
+            assert resp.status_code == 403
         elapsed = (time.time() - start) * 1000 / 5
         assert elapsed < 100, f"Avg authority latency {elapsed:.1f}ms exceeds 100ms"
         print(f"  Authority latency: {elapsed:.1f}ms avg")
