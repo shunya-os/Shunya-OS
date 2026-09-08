@@ -7,6 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, g
+from app.authz.decorators import require_permission
 
 from app.space.store import get_store, reset_store
 from app.space.renderer import get_renderer
@@ -31,6 +32,7 @@ space_bp = Blueprint("space", __name__, url_prefix="/api/v1/space")
 
 
 @space_bp.route("", methods=["POST"])
+@require_permission("knowledge.upload")
 def create_space():
     """Create a new Space for an entity."""
     data = request.get_json(silent=True) or {}
@@ -54,6 +56,7 @@ def create_space():
 
 
 @space_bp.route("/<space_id>", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space(space_id):
     """Get a Space by ID with all panels."""
     store = get_store()
@@ -68,6 +71,7 @@ def get_space(space_id):
 
 
 @space_bp.route("/<space_id>", methods=["PUT"])
+@require_permission("knowledge.upload")
 def update_space(space_id):
     """Update a Space."""
     data = request.get_json(silent=True) or {}
@@ -79,6 +83,7 @@ def update_space(space_id):
 
 
 @space_bp.route("/<space_id>", methods=["DELETE"])
+@require_permission("knowledge.upload")
 def delete_space(space_id):
     """Delete a Space."""
     store = get_store()
@@ -93,6 +98,7 @@ def delete_space(space_id):
 
 
 @space_bp.route("/<space_id>/summary", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space_summary(space_id):
     """Get a lightweight summary of a Space."""
     store = get_store()
@@ -103,6 +109,7 @@ def get_space_summary(space_id):
 
 
 @space_bp.route("", methods=["GET"])
+@require_permission("knowledge.view")
 def list_spaces():
     """List all Spaces with optional type filter."""
     store = get_store()
@@ -133,6 +140,7 @@ def list_spaces():
 
 
 @space_bp.route("/search", methods=["GET"])
+@require_permission("knowledge.view")
 def search_spaces():
     """Search across all Spaces."""
     query = request.args.get("q", "")
@@ -146,6 +154,7 @@ def search_spaces():
 
 
 @space_bp.route("/navigate", methods=["POST"])
+@require_permission("knowledge.upload")
 def navigate_to_space():
     """Navigate to a Space. Creates it if it doesn't exist."""
     data = request.get_json(silent=True) or {}
@@ -168,6 +177,7 @@ def navigate_to_space():
 
 
 @space_bp.route("/<space_id>/breadcrumb", methods=["GET"])
+@require_permission("knowledge.view")
 def get_breadcrumb(space_id):
     """Get breadcrumb trail for a Space."""
     navigator = get_navigator()
@@ -176,6 +186,7 @@ def get_breadcrumb(space_id):
 
 
 @space_bp.route("/<space_id>/tree", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space_tree(space_id):
     """Get the nested Space tree for a root Space."""
     navigator = get_navigator()
@@ -189,6 +200,7 @@ def get_space_tree(space_id):
 
 
 @space_bp.route("/<space_id>/context", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space_context(space_id):
     """Get the saved context for a Space."""
     manager = get_context_manager()
@@ -199,6 +211,7 @@ def get_space_context(space_id):
 
 
 @space_bp.route("/<space_id>/context", methods=["PUT"])
+@require_permission("knowledge.upload")
 def update_space_context(space_id):
     """Update the context for a Space."""
     data = request.get_json(silent=True) or {}
@@ -214,6 +227,7 @@ def update_space_context(space_id):
 
 
 @space_bp.route("/<space_id>/timeline", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space_timeline(space_id):
     """Get the timeline for a Space."""
     limit = request.args.get("limit", 50, type=int)
@@ -228,6 +242,7 @@ def get_space_timeline(space_id):
 
 
 @space_bp.route("/<space_id>/timeline", methods=["POST"])
+@require_permission("knowledge.upload")
 def add_timeline_event(space_id):
     """Add an event to the Space timeline."""
     data = request.get_json(silent=True) or {}
@@ -253,6 +268,7 @@ def add_timeline_event(space_id):
 
 
 @space_bp.route("/<space_id>/knowledge", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space_knowledge(space_id):
     """Get knowledge items for a Space."""
     item_type = request.args.get("item_type", "")
@@ -266,6 +282,7 @@ def get_space_knowledge(space_id):
 
 
 @space_bp.route("/<space_id>/knowledge", methods=["POST"])
+@require_permission("knowledge.upload")
 def add_knowledge_item(space_id):
     """Add a knowledge item to a Space."""
     data = request.get_json(silent=True) or {}
@@ -289,6 +306,7 @@ def add_knowledge_item(space_id):
 
 
 @space_bp.route("/<space_id>/relationships", methods=["GET"])
+@require_permission("rel.view")
 def get_space_relationships(space_id):
     """Get relationships for a Space."""
     manager = get_relationship_manager()
@@ -301,6 +319,7 @@ def get_space_relationships(space_id):
 
 
 @space_bp.route("/<space_id>/relationships/graph", methods=["GET"])
+@require_permission("rel.view")
 def get_space_relationship_graph(space_id):
     """Get the relationship graph for a Space."""
     manager = get_relationship_manager()
@@ -309,6 +328,7 @@ def get_space_relationship_graph(space_id):
 
 
 @space_bp.route("/<space_id>/relationships", methods=["POST"])
+@require_permission("rel.create")
 def add_space_relationship(space_id):
     """Add a relationship to a Space."""
     data = request.get_json(silent=True) or {}
@@ -335,6 +355,7 @@ def add_space_relationship(space_id):
 
 
 @space_bp.route("/<space_id>/commands", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space_commands(space_id):
     """Get available commands for a Space."""
     store = get_store()
@@ -347,6 +368,7 @@ def get_space_commands(space_id):
 
 
 @space_bp.route("/<space_id>/commands/<command_name>", methods=["POST"])
+@require_permission("knowledge.upload")
 def execute_space_command(space_id, command_name):
     """Execute a command on a Space."""
     store = get_store()
@@ -365,6 +387,7 @@ def execute_space_command(space_id, command_name):
 
 
 @space_bp.route("/<space_id>/plans", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space_plans(space_id):
     """Get plans for a Space."""
     store = get_store()
@@ -379,6 +402,7 @@ def get_space_plans(space_id):
 
 
 @space_bp.route("/<space_id>/plans", methods=["POST"])
+@require_permission("knowledge.upload")
 def add_space_plan(space_id):
     """Add a plan to a Space."""
     data = request.get_json(silent=True) or {}
@@ -401,6 +425,7 @@ def add_space_plan(space_id):
 
 
 @space_bp.route("/<space_id>/metrics", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space_metrics(space_id):
     """Get metrics for a Space."""
     from app.space.models import SpaceMetric
@@ -416,6 +441,7 @@ def get_space_metrics(space_id):
 
 
 @space_bp.route("/<space_id>/metrics", methods=["POST"])
+@require_permission("knowledge.upload")
 def add_space_metric(space_id):
     """Add a metric to a Space."""
     from app.space.models import SpaceMetric
@@ -441,6 +467,7 @@ def add_space_metric(space_id):
 
 
 @space_bp.route("/<space_id>/ai-understanding", methods=["GET"])
+@require_permission("knowledge.view")
 def get_ai_understanding(space_id):
     """Get the AI understanding for a Space."""
     store = get_store()
@@ -454,6 +481,7 @@ def get_ai_understanding(space_id):
 
 
 @space_bp.route("/<space_id>/ai-understanding", methods=["PUT"])
+@require_permission("knowledge.upload")
 def update_ai_understanding(space_id):
     """Update the AI understanding for a Space."""
     from app.space.models import SpaceAIUnderstanding
@@ -496,6 +524,7 @@ def update_ai_understanding(space_id):
 
 
 @space_bp.route("/<space_id>/children", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space_children(space_id):
     """Get child Spaces."""
     store = get_store()
@@ -508,6 +537,7 @@ def get_space_children(space_id):
 
 
 @space_bp.route("/<space_id>/children", methods=["POST"])
+@require_permission("knowledge.upload")
 def add_space_child(space_id):
     """Add a child Space."""
     data = request.get_json(silent=True) or {}
@@ -540,6 +570,7 @@ def add_space_child(space_id):
 
 
 @space_bp.route("/capabilities", methods=["GET"])
+@require_permission("knowledge.view")
 def list_all_capabilities():
     """List all registered capabilities."""
     from app.space.capabilities import get_registry
@@ -553,6 +584,7 @@ def list_all_capabilities():
 
 
 @space_bp.route("/<space_id>/capabilities", methods=["GET"])
+@require_permission("knowledge.view")
 def get_space_capabilities(space_id):
     """Get capabilities for a Space."""
     store = get_store()
@@ -575,6 +607,7 @@ def get_space_capabilities(space_id):
 
 
 @space_bp.route("/<space_id>/lifecycle", methods=["GET"])
+@require_permission("knowledge.view")
 def get_lifecycle(space_id):
     """Get the lifecycle state of a Space."""
     store = get_store()
@@ -595,6 +628,7 @@ def get_lifecycle(space_id):
 
 
 @space_bp.route("/<space_id>/lifecycle", methods=["PUT"])
+@require_permission("knowledge.upload")
 def transition_lifecycle(space_id):
     """Transition a Space to a new lifecycle state."""
     data = request.get_json(silent=True) or {}
@@ -620,6 +654,7 @@ def transition_lifecycle(space_id):
 
 
 @space_bp.route("/<space_id>/ai-resident", methods=["GET"])
+@require_permission("knowledge.view")
 def get_ai_resident(space_id):
     """Get the persistent AI resident state for a Space."""
     from app.space.resident import get_resident_manager
@@ -631,6 +666,7 @@ def get_ai_resident(space_id):
 
 
 @space_bp.route("/<space_id>/ai-resident", methods=["PUT"])
+@require_permission("knowledge.upload")
 def update_ai_resident(space_id):
     """Update the AI resident state for a Space."""
     data = request.get_json(silent=True) or {}
@@ -671,6 +707,7 @@ def update_ai_resident(space_id):
 
 
 @space_bp.route("/<space_id>/reason", methods=["POST"])
+@require_permission("knowledge.upload")
 def reason_about_space(space_id):
     """Run cross-Space reasoning starting from this Space."""
     data = request.get_json(silent=True) or {}
@@ -696,6 +733,7 @@ def reason_about_space(space_id):
 
 
 @space_bp.route("/reason/path", methods=["POST"])
+@require_permission("knowledge.upload")
 def find_reasoning_path():
     """Find paths between two Spaces."""
     data = request.get_json(silent=True) or {}
@@ -724,6 +762,7 @@ def find_reasoning_path():
 
 
 @space_bp.route("/<space_id>/composition", methods=["GET"])
+@require_permission("knowledge.view")
 def get_composition(space_id):
     """Get the composition summary for a Space."""
     from app.space.composition import get_composite_manager
@@ -735,6 +774,7 @@ def get_composition(space_id):
 
 
 @space_bp.route("/<space_id>/subtree", methods=["GET"])
+@require_permission("knowledge.view")
 def get_subtree(space_id):
     """Get the full subtree rooted at this Space."""
     max_depth = request.args.get("max_depth", 5, type=int)
@@ -747,6 +787,7 @@ def get_subtree(space_id):
 
 
 @space_bp.route("/<space_id>/siblings", methods=["GET"])
+@require_permission("knowledge.view")
 def get_siblings(space_id):
     """Get sibling Spaces."""
     from app.space.composition import get_composite_manager
@@ -760,6 +801,7 @@ def get_siblings(space_id):
 
 
 @space_bp.route("/<space_id>/decompose/<child_id>", methods=["POST"])
+@require_permission("knowledge.upload")
 def decompose_space(space_id, child_id):
     """Remove a child Space from its parent."""
     from app.space.composition import get_composite_manager
@@ -775,6 +817,7 @@ def decompose_space(space_id, child_id):
 
 
 @space_bp.route("/reset", methods=["POST"])
+@require_permission("org.delete")
 def reset_spaces():
     """Reset the entire Space store (testing only)."""
     reset_store()

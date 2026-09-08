@@ -3,6 +3,7 @@
 Audit trail, team management, roles, RBAC, tenant isolation.
 """
 from flask import Blueprint, jsonify, request, session
+from app.authz.decorators import require_permission
 
 enterprise_bp = Blueprint("enterprise", __name__, url_prefix="/api/v1/enterprise")
 
@@ -18,6 +19,7 @@ def _founder_required() -> bool:
 # ---------------------------------------------------------------------------
 
 @enterprise_bp.route("/audit", methods=["GET"])
+@require_permission("admin.view_audit")
 def api_query_audit():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -40,6 +42,7 @@ def api_query_audit():
 # ---------------------------------------------------------------------------
 
 @enterprise_bp.route("/roles", methods=["GET"])
+@require_permission("admin.manage_roles")
 def api_list_roles():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -54,6 +57,7 @@ def api_list_roles():
 
 
 @enterprise_bp.route("/roles", methods=["POST"])
+@require_permission("admin.manage_roles")
 def api_create_role():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -82,6 +86,7 @@ def api_create_role():
 # ---------------------------------------------------------------------------
 
 @enterprise_bp.route("/team", methods=["GET"])
+@require_permission("org.manage_members")
 def api_list_team():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -95,6 +100,7 @@ def api_list_team():
 
 
 @enterprise_bp.route("/team/invite", methods=["POST"])
+@require_permission("org.manage_members")
 def api_invite_member():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -123,6 +129,7 @@ def api_invite_member():
 
 
 @enterprise_bp.route("/team/<member_identity_id>", methods=["DELETE"])
+@require_permission("org.manage_members")
 def api_remove_member(member_identity_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -146,6 +153,7 @@ def api_remove_member(member_identity_id: str):
 # ---------------------------------------------------------------------------
 
 @enterprise_bp.route("/check-permission", methods=["POST"])
+@require_permission("admin.manage_roles")
 def api_check_permission():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401

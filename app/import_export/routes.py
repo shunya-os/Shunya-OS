@@ -1,6 +1,7 @@
 """FDA25 — Universal Import / Export / Migration Routes."""
 
 from flask import Blueprint, g, jsonify, request, session
+from app.authz.decorators import require_permission
 
 from app.authz.decorators import _resolve_org_id
 
@@ -32,6 +33,7 @@ def health():
 
 
 @import_bp.route("/import/preview", methods=["POST"])
+@require_permission("org.export_data")
 def preview():
     """Preview an import before committing. No data written."""
     if not _require_auth():
@@ -55,6 +57,7 @@ def preview():
 
 
 @import_bp.route("/import/commit", methods=["POST"])
+@require_permission("org.export_data")
 def commit():
     """Commit an import after preview. Creates records with evidence."""
     if not _require_auth():
@@ -81,6 +84,7 @@ def commit():
 
 
 @import_bp.route("/export", methods=["POST"])
+@require_permission("org.export_data")
 def export_data():
     """Export records with provenance. Respects tenant isolation."""
     if not _require_auth():

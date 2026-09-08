@@ -5,6 +5,7 @@ Reads from the canonical Universal Intelligence Runtime.
 """
 import logging
 from flask import Blueprint, jsonify, request, session, g
+from app.authz.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,7 @@ def _get_runtime_memory():
 
 
 @memory_bp.route("/entries", methods=["GET"])
+@require_permission("ai.edit_memory")
 def list_memory():
     """List memory entries from the canonical MemoryRecord table.
 
@@ -129,6 +131,7 @@ def list_memory():
 
 
 @memory_bp.route("/knowledge", methods=["GET"])
+@require_permission("knowledge.view")
 def list_knowledge():
     """List knowledge graph entries, filtered by tenant when available."""
     if not _require_auth():
@@ -191,6 +194,7 @@ def list_knowledge():
 
 
 @memory_bp.route("/entries/<int:entry_id>", methods=["GET"])
+@require_permission("ai.edit_memory")
 def get_memory_entry(entry_id: int):
     """Get a single memory entry with full detail and provenance.
 
@@ -257,6 +261,7 @@ def get_memory_entry(entry_id: int):
 
 
 @memory_bp.route("/entries/search", methods=["GET"])
+@require_permission("ai.edit_memory")
 def search_memory():
     """Search memory entries by content, key, or memory type.
 
@@ -319,6 +324,7 @@ def search_memory():
 
 
 @memory_bp.route("/entries/<int:entry_id>", methods=["DELETE"])
+@require_permission("ai.edit_memory")
 def delete_memory_entry(entry_id: int):
     """Soft-delete a memory entry by marking it as archived.
 
@@ -356,6 +362,7 @@ def delete_memory_entry(entry_id: int):
 
 
 @memory_bp.route("/provenance/<int:memory_id>", methods=["GET"])
+@require_permission("ai.edit_memory")
 def get_provenance(memory_id: int):
     """Get the full provenance chain for a memory entry.
 

@@ -50,7 +50,7 @@ export interface WorkspaceActions {
   getDirtyIds: () => string[];
 }
 
-type StoreState = { workspaces: WorkspaceState[]; activeId: string | null };
+type StoreState = { workspaces: WorkspaceState[]; activeId: string | null; hydrated: boolean };
 
 function transitionTo(s: StoreState, id: string, status: WorkspaceStatus): StoreState {
   const ws = s.workspaces.find((w) => w.identity.id === id);
@@ -64,6 +64,7 @@ function transitionTo(s: StoreState, id: string, status: WorkspaceStatus): Store
     workspaces: s.workspaces.map((w) =>
       w.identity.id === id ? { ...w, status, identity: { ...w.identity, lastAccessed: Date.now() } } : w,
     ),
+    hydrated: s.hydrated,
   };
 }
 
@@ -115,6 +116,7 @@ export const useWorkspaceStore = create<StoreState & WorkspaceActions>((set, get
   return {
     workspaces: [],
     activeId: null,
+    hydrated: false,
 
     open: (name, type, opts) => {
       const state = get();
@@ -335,7 +337,10 @@ export const useWorkspaceStore = create<StoreState & WorkspaceActions>((set, get
     hydrate: () => {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
+        if (!raw) {
+          set({ hydrated: true });
+          return;
+        }
         const data: WorkspaceState[] = JSON.parse(raw);
         const filtered = data
           .filter((w) => w.identity.pinned || Date.now() - w.identity.lastAccessed < ARCHIVE_MS)
@@ -343,8 +348,10 @@ export const useWorkspaceStore = create<StoreState & WorkspaceActions>((set, get
         set({
           workspaces: filtered,
           activeId: filtered.length > 0 ? filtered[0].identity.id : null,
+          hydrated: true,
         });
       } catch {
+        set({ hydrated: true });
         /* noop */
       }
     },

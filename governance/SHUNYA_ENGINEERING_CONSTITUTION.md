@@ -34,6 +34,8 @@ Engine Specifications   — Detailed design documents
 Implementation          — Code and configuration
     ↓
 Verification            — Proof of conformance
+|
+Execution Doctrine      — governance/EXECUTION_DOCTRINE.md (permanent product-over-green rule)
 ```
 
 The SHUNYA Constitution (`docs/canon/02_shunya_constitution.md`) is the highest authority. All downstream documents derive from it. Where this document conflicts with the Constitution, the Constitution governs. Conflict resolution follows §8 of the Governance Model.

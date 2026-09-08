@@ -30,6 +30,8 @@ from app.evidence.decision_trace import DecisionTrace  # noqa: F401
 from app.automation.models import AutomationRule  # noqa: F401
 from app.intelligence.memory_store import LearningWeight  # noqa: F401
 from app.execution.models import Outcome  # noqa: F401
+from app.execution.core_models import ExecutionRun, ExecutionStateTransition  # noqa: F401
+from app.execution.task_lifecycle import TaskLifecycle  # noqa: F401
 from app.communication.models import (  # noqa: F401
     ExternalConversation, ExternalMessage, ExternalAttachmentReference,
     MessageProposal, ExternalParticipant, CommunicationSource,

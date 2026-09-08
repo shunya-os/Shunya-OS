@@ -91,6 +91,16 @@ def _security_headers_middleware(app: Flask):
         response.headers.setdefault("X-XSS-Protection", "1; mode=block")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(self), camera=()")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none';"
+        )
         return response
 
 
@@ -512,6 +522,8 @@ def create_app(config_override: dict | None = None):
     from app.automation import models  # noqa: F401 — AutomationRule
     from app.intelligence import memory_store  # noqa: F401 — LearningWeight
     from app.execution.models import Outcome  # noqa: F401
+    from app.execution.core_models import ExecutionRun, ExecutionStateTransition  # noqa: F401
+    from app.execution.task_lifecycle import TaskLifecycle  # noqa: F401
     from app.communication.models import (  # noqa: F401
         ExternalConversation, ExternalMessage,
         ExternalAttachmentReference, MessageProposal,
@@ -639,6 +651,60 @@ def create_app(config_override: dict | None = None):
             or session.get("user_id")
             or request.headers.get("X-Identity-Id")
         )
+
+    # ---- Org Membership Middleware ------------------------------------------
+    # Ensures every authenticated user has an active org membership.
+    # Permits public routes without checking. Logs denied access.
+    @app.before_request
+    def _enforce_org_membership():
+        PUBLIC_PREFIXES = (
+            "/health", "/ready", "/live", "/metrics",
+            "/static/", "/screenshots/", "/reports/",
+            "/auth/", "/login", "/logout",
+            "/forgot-password", "/reset-password",
+            "/verify-email", "/request-verification",
+            "/change-password",
+            "/assets/", "/manifest.json", "/icon-", "/favicon", "/sw.js",
+            "/telegram/webhook",
+            "/debug", "/operator",
+        )
+        path = request.path
+        if any(path.startswith(p) for p in PUBLIC_PREFIXES):
+            return
+        if path == "/" or path == "/living":
+            return
+
+        identity = (
+            session.get("identity_id")
+            or session.get("user_id")
+            or getattr(g, "identity_id", None)
+        )
+        if not identity:
+            return  # Not authenticated — let _check_auth handle 401
+
+        # Ensure org membership is resolved
+        org_id = session.get("current_org_id")
+        if org_id is not None:
+            g.current_org_id = int(org_id) if org_id else None
+            return
+
+        # Try to resolve org from OrgMember lookup
+        try:
+            from app.models import OrgMember
+            om = OrgMember.query.filter_by(
+                identity_id=str(identity), is_active=True
+            ).first()
+            if om:
+                session["current_org_id"] = om.organization_id
+                g.current_org_id = om.organization_id
+                return
+        except Exception:
+            pass
+
+        # Authenticated but no org membership — deny
+        logger = __import__("logging").getLogger(__name__)
+        logger.info("AUTHZ DENY: identity=%s path=%s — no org membership", identity, path)
+        return jsonify({"error": "No organization membership", "detail": "User is not a member of any organization"}), 403
 
     # ---- Enterprise Security -----------------------------------------------
     # CSRF protection (Flask-WTF) — initialized here so before_request ordering is correct
@@ -842,6 +908,10 @@ def create_app(config_override: dict | None = None):
     from app.execution.models import Outcome  # noqa: F401
     from app.execution.routes import execution_bp as execution_outcomes_bp
     app.register_blueprint(execution_outcomes_bp)
+
+    # Execution Run + Task Lifecycle API — R5 canonical execution spine
+    from app.execution.run_routes import runs_bp
+    app.register_blueprint(runs_bp)
 
     # Execution Visibility — unified work/output API
     from app.execution_visibility.routes import execution_visibility_bp

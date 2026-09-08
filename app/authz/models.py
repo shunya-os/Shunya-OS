@@ -49,6 +49,8 @@ PERMISSIONS = {
     "admin.manage_roles": "Manage roles and permissions",
     "admin.manage_industry_packs": "Manage industry packs",
     "admin.manage_integrations": "Manage integrations",
+    "people.view": "View people and team operations",
+    "people.manage": "Manage people, attendance, policies, training",
 }
 
 

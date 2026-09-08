@@ -10,6 +10,7 @@ from flask import Blueprint, request, jsonify
 import logging
 import requests
 from urllib.parse import quote
+from app.authz.decorators import require_permission
 
 from .provider import _registry
 
@@ -19,6 +20,7 @@ ai_bp = Blueprint('ai', __name__, url_prefix='/api/v1/ai')
 
 
 @ai_bp.route('/research', methods=['POST'])
+@require_permission('ai.use')
 def research():
     """Universal research endpoint — uses the canonical research orchestrator.
     
@@ -82,6 +84,7 @@ def research():
 
 
 @ai_bp.route('/explain', methods=['POST'])
+@require_permission('ai.use')
 def explain():
     """Explain a previous intelligence result.
     
@@ -137,6 +140,7 @@ def explain():
 
 
 @ai_bp.route('/correct', methods=['POST'])
+@require_permission('ai.use')
 def correct():
     """Correct a previous intelligence conclusion.
     
@@ -189,6 +193,7 @@ def correct():
 
 
 @ai_bp.route('/preference', methods=['POST'])
+@require_permission('ai.use')
 def preference():
     """Record a user preference.
     
@@ -232,6 +237,7 @@ def preference():
 
 
 @ai_bp.route('/outcome', methods=['POST'])
+@require_permission('ai.use')
 def outcome():
     """Record an observed outcome for a recommendation.
     
@@ -275,6 +281,7 @@ def outcome():
 
 
 @ai_bp.route('/chat', methods=['POST'])
+@require_permission('ai.use')
 def chat():
     """Send a chat completion request. Auto-fallsback through provider chain on failure."""
     data = request.get_json(silent=True) or {}
@@ -645,6 +652,7 @@ def chat():
 
 
 @ai_bp.route('/conversations', methods=['GET'])
+@require_permission('ai.use')
 def list_conversations():
     """List recent conversations for the current identity."""
     from flask import session as flask_session
@@ -665,6 +673,7 @@ def list_conversations():
 
 
 @ai_bp.route('/conversations/<conv_id>', methods=['GET'])
+@require_permission('ai.use')
 def get_conversation(conv_id):
     """Get a conversation with its messages."""
     try:
@@ -687,6 +696,7 @@ def get_conversation(conv_id):
 
 
 @ai_bp.route('/conversations/<conv_id>/outputs', methods=['GET'])
+@require_permission('ai.use')
 def get_conversation_outputs(conv_id):
     """Get outcomes (outputs) linked to an AI conversation.
 
@@ -725,6 +735,7 @@ def get_conversation_outputs(conv_id):
 
 
 @ai_bp.route('/save-output', methods=['POST'])
+@require_permission('ai.use')
 def save_output():
     """Save an AI response as an actionable organisational object.
 

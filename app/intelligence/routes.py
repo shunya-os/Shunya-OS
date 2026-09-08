@@ -10,6 +10,7 @@ import logging
 import time
 
 from flask import Blueprint, g, jsonify, request, session
+from app.authz.decorators import require_permission
 
 from app.authz.decorators import _resolve_org_id
 
@@ -47,6 +48,7 @@ def _founder_required() -> bool:
 # ---------------------------------------------------------------------------
 
 @intelligence_bp.route("/traces", methods=["GET"])
+@require_permission("ai.use")
 def api_list_traces():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -58,6 +60,7 @@ def api_list_traces():
 
 
 @intelligence_bp.route("/traces/<trace_id>", methods=["GET"])
+@require_permission("ai.use")
 def api_get_trace(trace_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -69,6 +72,7 @@ def api_get_trace(trace_id: str):
 
 
 @intelligence_bp.route("/traces/<trace_id>/correct", methods=["POST"])
+@require_permission("ai.use")
 def api_correct_trace(trace_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -86,6 +90,7 @@ def api_correct_trace(trace_id: str):
 # ---------------------------------------------------------------------------
 
 @intelligence_bp.route("/learning", methods=["GET"])
+@require_permission("ai.use")
 def api_learning_history():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -96,6 +101,7 @@ def api_learning_history():
 
 
 @intelligence_bp.route("/learning/summary", methods=["GET"])
+@require_permission("ai.use")
 def api_learning_summary():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -110,6 +116,7 @@ def api_learning_summary():
 # ---------------------------------------------------------------------------
 
 @intelligence_bp.route("/anomalies", methods=["GET"])
+@require_permission("ai.use")
 def api_list_anomalies():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -121,6 +128,7 @@ def api_list_anomalies():
 
 
 @intelligence_bp.route("/anomalies/detect", methods=["POST"])
+@require_permission("ai.use")
 def api_detect_anomalies():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -131,6 +139,7 @@ def api_detect_anomalies():
 
 
 @intelligence_bp.route("/anomalies/<int:anomaly_id>/resolve", methods=["POST"])
+@require_permission("ai.use")
 def api_resolve_anomaly(anomaly_id: int):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
@@ -144,6 +153,7 @@ def api_resolve_anomaly(anomaly_id: int):
 # ---------------------------------------------------------------------------
 
 @intelligence_bp.route("/confidence", methods=["POST"])
+@require_permission("ai.use")
 def api_confidence():
     """Compute confidence score from provided context."""
     if not _founder_required():
@@ -159,6 +169,7 @@ def api_confidence():
 # ---------------------------------------------------------------------------
 
 @intelligence_bp.route("/ask", methods=["POST"])
+@require_permission("ai.use")
 def api_ask():
     """Canonical intelligence query — FDA9+FDA10 integrated.
 
@@ -759,6 +770,7 @@ def api_ask():
 
 
 @intelligence_bp.route("/generate-image", methods=["POST"])
+@require_permission("ai.use")
 def api_generate_image():
     """Generate an image from a text prompt using OpenRouter's image model."""
     data = request.get_json(silent=True) or {}
@@ -845,6 +857,7 @@ def api_generate_image():
 # ---------------------------------------------------------------------------
 
 @intelligence_bp.route("/mixed", methods=["POST"])
+@require_permission("ai.use")
 def api_mixed_intelligence():
     """Answer using business data → internet → AI synthesis with source labels."""
     if not _founder_required():

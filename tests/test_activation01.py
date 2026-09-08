@@ -1,10 +1,47 @@
-"""ACTIVATION-01 tests — entity creation, loop, state transitions, effects."""
+"""ACTIVATION-01 tests — entity creation, loop, state transitions, effects.
+
+NOTE: All routes now require RBAC authentication (deny-by-default security).
+Tests set up an authenticated session as an org owner before each test.
+"""
 
 import pytest
 
 
+
+def _setup_org(app, client):
+    """Create a test org + owner member and set up the session."""
+    from app import db
+    from app.models import Organization, OrgMember
+    from app.authz.services import seed_default_roles
+
+    org = Organization(name="Activation Test", slug="act-test-rbac")
+    db.session.add(org)
+    db.session.commit()
+    seed_default_roles(org.id)
+
+    member = OrgMember(
+        organization_id=org.id,
+        identity_id="act-test@test.com",
+        name="Activation Test",
+        email="act-test@test.com",
+        role="owner",
+        is_active=True,
+    )
+    db.session.add(member)
+    db.session.commit()
+
+    with client.session_transaction() as sess:
+        sess["identity_id"] = "act-test@test.com"
+        sess["user_id"] = "act-test@test.com"
+        sess["current_org_id"] = org.id
+        sess["_fresh"] = True
+
+    return org, member
+
+
 class TestCreateEntity:
     def test_create_entity(self, app, client):
+        _setup_org(app, client)
         resp = client.post("/api/v2/entities", json={
             "type": "lead",
             "state": {"description": "Test lead", "stage": "new"},
@@ -15,6 +52,7 @@ class TestCreateEntity:
         assert data["entity"]["type"] == "lead"
 
     def test_list_entities(self, app, client):
+        _setup_org(app, client)
         client.post("/api/v2/entities", json={"type": "lead", "state": {"desc": "A"}})
         resp = client.get("/api/v2/entities")
         assert resp.status_code == 200
@@ -23,6 +61,7 @@ class TestCreateEntity:
 
 class TestEntityDetail:
     def test_get_entity(self, app, client):
+        _setup_org(app, client)
         r = client.post("/api/v2/entities", json={"type": "lead", "state": {"x": 1}})
         eid = r.get_json()["entity"]["id"]
         resp = client.get(f"/api/v2/entities/{eid}")
@@ -32,12 +71,14 @@ class TestEntityDetail:
         assert "tasks" in data
 
     def test_entity_not_found(self, app, client):
+        _setup_org(app, client)
         resp = client.get("/api/v2/entities/99999")
         assert resp.status_code == 404
 
 
 class TestActions:
     def test_run_decision(self, app, client):
+        _setup_org(app, client)
         r = client.post("/api/v2/entities", json={"type": "lead", "state": {"stage": "new"}})
         eid = r.get_json()["entity"]["id"]
         resp = client.post(f"/api/v2/entities/{eid}/action", json={"action": "run_decision"})
@@ -45,6 +86,7 @@ class TestActions:
         data = resp.get_json()
 
     def test_add_task(self, app, client):
+        _setup_org(app, client)
         r = client.post("/api/v2/entities", json={"type": "lead", "state": {}})
         eid = r.get_json()["entity"]["id"]
         resp = client.post(f"/api/v2/entities/{eid}/action", json={
@@ -54,6 +96,7 @@ class TestActions:
         assert resp.get_json()["task"]["title"] == "Test task"
 
     def test_update_state(self, app, client):
+        _setup_org(app, client)
         r = client.post("/api/v2/entities", json={"type": "lead", "state": {"stage": "new"}})
         eid = r.get_json()["entity"]["id"]
         resp = client.post(f"/api/v2/entities/{eid}/action", json={
@@ -65,6 +108,7 @@ class TestActions:
 
 class TestLoop:
     def test_run_loop(self, app, client):
+        _setup_org(app, client)
         resp = client.post("/api/v2/loop/run")
         assert resp.status_code == 200
         assert "summary" in resp.get_json()
@@ -74,6 +118,7 @@ class TestFlow:
     """Full flow: create entity → run loop → state transitions."""
 
     def test_lead_flow(self, app, client):
+        _setup_org(app, client)
         # Create lead entity
         r = client.post("/api/v2/entities", json={
             "type": "lead",

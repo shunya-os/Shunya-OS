@@ -7,6 +7,7 @@ no backend API. Provides CRUD + search + categories for knowledge documents.
 import logging
 from flask import Blueprint, jsonify, request, session, g
 from datetime import datetime, timezone
+from app.authz.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ def _require_auth() -> bool:
 
 
 @knowledge_bp.route("/documents", methods=["GET"])
+@require_permission("knowledge.view")
 def list_knowledge_documents():
     """List knowledge documents with optional search and domain filter."""
     if not _require_auth():
@@ -67,6 +69,7 @@ def list_knowledge_documents():
 
 
 @knowledge_bp.route("/documents", methods=["POST"])
+@require_permission("knowledge.upload")
 def create_knowledge_document():
     """Create a new knowledge document."""
     if not _require_auth():
@@ -98,6 +101,7 @@ def create_knowledge_document():
 
 
 @knowledge_bp.route("/documents/<int:doc_id>", methods=["GET"])
+@require_permission("knowledge.view")
 def get_knowledge_document(doc_id: int):
     """Get a single knowledge document with full content."""
     if not _require_auth():
@@ -124,6 +128,7 @@ def get_knowledge_document(doc_id: int):
 
 
 @knowledge_bp.route("/categories", methods=["GET"])
+@require_permission("knowledge.view")
 def list_knowledge_categories():
     """List distinct knowledge categories for filtering."""
     if not _require_auth():
@@ -140,6 +145,7 @@ def list_knowledge_categories():
 
 
 @knowledge_bp.route("/search", methods=["POST"])
+@require_permission("knowledge.search")
 def search_knowledge():
     """Search knowledge documents with AI-aware relevance ranking."""
     if not _require_auth():

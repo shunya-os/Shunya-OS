@@ -26,6 +26,81 @@ def _extract(response_or_tuple):
     return response_or_tuple.get_json(), 200
 
 
+def _setup_rbac_context(app):
+    """Seed minimal RBAC context (org, member, auth_roles) for test_user.
+    
+    Always cleans and recreates to avoid interference from previous test runs
+    (module-scoped app uses production DB, data persists between invocations).
+    """
+    from app.authz.models import Role, OrgMemberRole
+    from app.models import Organization, OrgMember
+    from app import db as _db
+    from sqlalchemy import text as _text
+    import uuid as _uuid
+    
+    # Clean any existing test data
+    ex_members = OrgMember.query.filter_by(identity_id="test_user", is_active=True).all()
+    for m in ex_members:
+        _db.session.execute(
+            _text("DELETE FROM auth_member_roles WHERE member_id = :mid"),
+            {"mid": m.id}
+        )
+        _db.session.delete(m)
+    # Also delete test orgs created by previous runs
+    test_orgs = Organization.query.filter(Organization.slug.like("test-org-%")).all()
+    for o in test_orgs:
+        _db.session.execute(
+            _text("DELETE FROM auth_member_roles WHERE organization_id = :oid"),
+            {"oid": o.id}
+        )
+        _db.session.execute(
+            _text("DELETE FROM auth_roles WHERE organization_id = :oid"),
+            {"oid": o.id}
+        )
+        _db.session.execute(
+            _text("DELETE FROM org_members WHERE organization_id = :oid"),
+            {"oid": o.id}
+        )
+        _db.session.delete(o)
+    _db.session.flush()
+    
+    slug = f"test-org-{_uuid.uuid4().hex[:8]}"
+    org = Organization(name="Test Org", slug=slug, is_active=True)
+    _db.session.add(org)
+    _db.session.flush()
+    org_id = org.id
+    
+    # Seed default roles
+    from app.authz.services import seed_default_roles
+    seed_default_roles(org_id)
+    
+    # Create org member
+    member = OrgMember(
+        organization_id=org_id,
+        identity_id="test_user",
+        role="admin",
+        is_active=True,
+    )
+    _db.session.add(member)
+    _db.session.flush()
+    member_id = member.id
+
+    # Assign the admin role
+    m_role = Role.query.filter_by(organization_id=org_id, name="admin").first()
+    if m_role:
+        assignment = OrgMemberRole(
+            organization_id=org_id,
+            member_id=member_id,
+            role_id=m_role.id,
+            scope="organization",
+            granted_by="test",
+        )
+        _db.session.add(assignment)
+    
+    _db.session.commit()
+    return org_id
+
+
 @pytest.fixture(scope="module")
 def app():
     _app = create_app()
@@ -54,9 +129,11 @@ class TestKnowledgeAPI:
             from app.knowledge.api import list_knowledge_documents
             from flask import session
 
+            org_id = _setup_rbac_context(app)
             with app.test_request_context():
                 session["identity_id"] = "test_user"
                 session["user_id"] = "test_user"
+                session["current_org_id"] = org_id
                 response = list_knowledge_documents()
                 data, _ = _extract(response)
                 assert data["success"] is True, f"Expected success: {data}"
@@ -69,6 +146,7 @@ class TestKnowledgeAPI:
             from app.models import KnowledgeDocument
             from flask import session
 
+            org_id = _setup_rbac_context(app)
             with app.test_request_context(
                 path="/api/v1/knowledge/documents",
                 method="POST",
@@ -83,6 +161,7 @@ class TestKnowledgeAPI:
             ):
                 session["identity_id"] = "test_user"
                 session["user_id"] = "test_user"
+                session["current_org_id"] = org_id
                 response = create_knowledge_document()
                 data, _ = _extract(response)
                 assert data["success"] is True, f"Create failed: {data}"
@@ -109,9 +188,11 @@ class TestKnowledgeAPI:
             from app.knowledge.api import get_knowledge_document
             from flask import session
 
+            org_id = _setup_rbac_context(app)
             with app.test_request_context(f"/api/v1/knowledge/documents/{doc_id}"):
                 session["identity_id"] = "test_user"
                 session["user_id"] = "test_user"
+                session["current_org_id"] = org_id
                 response = get_knowledge_document(doc_id)
                 data, _ = _extract(response)
                 assert data["success"] is True, f"Retrieve failed: {data}"
@@ -133,9 +214,11 @@ class TestKnowledgeAPI:
             from app.knowledge.api import list_knowledge_categories
             from flask import session
 
+            org_id = _setup_rbac_context(app)
             with app.test_request_context("/api/v1/knowledge/categories"):
                 session["identity_id"] = "test_user"
                 session["user_id"] = "test_user"
+                session["current_org_id"] = org_id
                 response = list_knowledge_categories()
                 data, _ = _extract(response)
                 assert data["success"] is True
@@ -235,9 +318,11 @@ class TestMemoryAPI:
             from app.memory_api.routes import list_memory
             from flask import session
 
+            org_id = _setup_rbac_context(app)
             with app.test_request_context("/api/v1/memory/entries"):
                 session["identity_id"] = "test_user"
                 session["user_id"] = "test_user"
+                session["current_org_id"] = org_id
                 response = list_memory()
                 data, _ = _extract(response)
                 assert data["success"] is True, f"Memory list failed: {data}"

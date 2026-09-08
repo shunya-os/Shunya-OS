@@ -11,6 +11,7 @@ that gap by providing calendar events from multiple sources:
 import logging
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, jsonify, request, session, g
+from app.authz.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ def _require_auth() -> bool:
 
 
 @calendar_bp.route("/events", methods=["GET"])
+@require_permission("task.view")
 def list_calendar_events():
     """List calendar events from all sources within a date range."""
     if not _require_auth():

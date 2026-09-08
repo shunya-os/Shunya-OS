@@ -7,6 +7,7 @@ All document data is tenant-scoped.
 import os
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, send_file, session
+from app.authz.decorators import require_permission
 
 documents_bp = Blueprint("documents_api", __name__)
 
@@ -58,6 +59,7 @@ def _get_context():
 # ── List Documents ───────────────────────────────────────────────
 
 @documents_bp.route("/api/v1/workspace/documents", methods=["GET"])
+@require_permission("knowledge.view")
 def list_documents():
     from app import db
     from app.models import Document
@@ -101,6 +103,7 @@ def list_documents():
 # ── Serve Document File ──────────────────────────────────────────
 
 @documents_bp.route("/api/v1/workspace/documents/serve/<int:doc_id>", methods=["GET"])
+@require_permission("knowledge.view")
 def serve_document(doc_id):
     from app import db
     from app.models import Document
@@ -147,6 +150,7 @@ def serve_document(doc_id):
 # ── Ingest File ──────────────────────────────────────────────────
 
 @documents_bp.route("/api/v1/founder/ingest", methods=["POST"])
+@require_permission("knowledge.upload")
 def ingest_file():
     from app import db
     from app.models import Document
@@ -257,6 +261,7 @@ except Exception as e:
 # ── Document Detail ──────────────────────────────────────────────
 
 @documents_bp.route("/api/v1/workspace/documents/<int:doc_id>", methods=["GET"])
+@require_permission("knowledge.view")
 def document_detail(doc_id):
     from app import db
     from app.models import Document

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, session
 from app.objects.legacy_models import Workspace
 from core.object_service import get_object_service
+from app.authz.decorators import require_permission
 
 
 objects_bp = Blueprint("objects", __name__, url_prefix="/api/v1/objects")
@@ -21,6 +22,7 @@ def _resolve_tenant_id() -> int | None:
 
 
 @objects_bp.route("/", methods=["POST"])
+@require_permission("rel.create")
 def create():
     """Create a business object through the canonical object authority.
     Authentication happens before any object operation."""
@@ -71,6 +73,7 @@ def create():
 
 
 @objects_bp.route("/<int:object_id>", methods=["PATCH"])
+@require_permission("rel.edit")
 def update(object_id):
     """Update a canonical object (tenant-scoped). Routes through canonical service.
     Authentication happens before any object operation."""

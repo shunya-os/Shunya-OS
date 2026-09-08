@@ -7,6 +7,7 @@ evidence chain querying, and audit export.
 from __future__ import annotations
 
 from flask import Blueprint, g, jsonify, request, session
+from app.authz.decorators import require_permission
 
 from app.authz.decorators import _resolve_org_id
 
@@ -31,6 +32,7 @@ def _require_auth() -> bool:
 
 
 @audit_bp.route("/reconstruct/<object_type>/<int:object_id>", methods=["GET"])
+@require_permission("admin.view_audit")
 def reconstruct(object_type: str, object_id: int):
     """Reconstruct a complete business outcome from canonical records.
 
@@ -53,6 +55,7 @@ def reconstruct(object_type: str, object_id: int):
 
 
 @audit_bp.route("/approvals", methods=["POST"])
+@require_permission("admin.view_audit")
 def record_approval():
     """Record a governed approval/rejection/authorization.
 
@@ -98,6 +101,7 @@ def record_approval():
 
 
 @audit_bp.route("/decisions/<int:object_id>", methods=["GET"])
+@require_permission("admin.view_audit")
 def get_decision_trace(object_id: int):
     """Get all decision traces for an object."""
     if not _require_auth():
@@ -117,6 +121,7 @@ def get_decision_trace(object_id: int):
 
 
 @audit_bp.route("/evidence/<int:object_id>", methods=["GET"])
+@require_permission("admin.view_audit")
 def get_evidence_chain(object_id: int):
     """Get evidence chain for an object."""
     if not _require_auth():
@@ -136,6 +141,7 @@ def get_evidence_chain(object_id: int):
 
 
 @audit_bp.route("/executions/<int:object_id>", methods=["GET"])
+@require_permission("admin.view_audit")
 def get_execution_trace(object_id: int):
     """Get execution trace for an object."""
     if not _require_auth():
@@ -156,6 +162,7 @@ def get_execution_trace(object_id: int):
 
 
 @audit_bp.route("/export/<object_type>/<int:object_id>", methods=["GET"])
+@require_permission("admin.view_audit")
 def export_audit(object_type: str, object_id: int):
     """Export a complete audit package with full provenance."""
     if not _require_auth():
@@ -175,6 +182,7 @@ def export_audit(object_type: str, object_id: int):
 
 
 @audit_bp.route("/verify/<object_type>/<int:object_id>", methods=["GET"])
+@require_permission("admin.view_audit")
 def verify_audit(object_type: str, object_id: int):
     """Verify audit chain integrity for an object."""
     if not _require_auth():
@@ -194,6 +202,7 @@ def verify_audit(object_type: str, object_id: int):
 
 
 @audit_bp.route("/correct", methods=["POST"])
+@require_permission("admin.view_audit")
 def record_corrective():
     """Record a corrective event that preserves original history."""
     if not _require_auth():
@@ -229,6 +238,7 @@ def record_corrective():
 
 
 @audit_bp.route("/list", methods=["GET"])
+@require_permission("admin.view_audit")
 def list_audit_logs():
     """List recent audit log entries across all objects.
 

@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 
 from flask import jsonify, request
+from app.authz.decorators import require_permission
 
 from app import db
 from app.objects.models import Object
@@ -26,6 +27,7 @@ def _serialize(obj):
 
 
 @activation_bp.route("/entities", methods=["GET"])
+@require_permission("task.view")
 def list_entities():
     entities = Object.query.order_by(Object.id).all()
     return jsonify({
@@ -42,6 +44,7 @@ def list_entities():
 
 
 @activation_bp.route("/entities", methods=["POST"])
+@require_permission("task.create")
 def create_entity():
     data = request.get_json(silent=True) or {}
     entity = Object(
@@ -58,6 +61,7 @@ def create_entity():
 
 
 @activation_bp.route("/entities/<int:entity_id>", methods=["GET"])
+@require_permission("task.view")
 def get_entity(entity_id):
     entity = db.session.get(Object, entity_id)
     if not entity:
@@ -73,6 +77,7 @@ def get_entity(entity_id):
 
 
 @activation_bp.route("/entities/<int:entity_id>/action", methods=["POST"])
+@require_permission("task.edit")
 def entity_action(entity_id):
     data = request.get_json(silent=True) or {}
     action_type = data.get("action", "")
@@ -131,6 +136,7 @@ def entity_action(entity_id):
 
 
 @activation_bp.route("/loop/run", methods=["POST"])
+@require_permission("task.create")
 def run_loop_once():
     try:
         summary = run_cycle()

@@ -45,6 +45,7 @@ def create_outcome():
 
 
 @execution_bp.route("/<outcome_id>", methods=["GET"])
+@require_permission("task.view")
 def get_outcome(outcome_id: str):
     """Get outcome status by ID."""
     runtime = get_runtime()
@@ -58,6 +59,7 @@ def get_outcome(outcome_id: str):
 
 
 @execution_bp.route("", methods=["GET"])
+@require_permission("task.view")
 def list_outcomes():
     """List recent outcomes for the current user."""
     identity_id = _get_identity()
@@ -75,6 +77,7 @@ def list_outcomes():
 
 
 @execution_bp.route("/search", methods=["GET"])
+@require_permission("task.view")
 def search_outcomes():
     """Search outcomes by intention text."""
     identity_id = _get_identity()

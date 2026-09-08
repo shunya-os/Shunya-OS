@@ -6,6 +6,7 @@ Privacy-aware: people-data endpoints require stricter authorization.
 """
 
 from flask import Blueprint, g, jsonify, request, session
+from app.authz.decorators import require_permission
 
 from app.authz.decorators import _resolve_org_id
 
@@ -13,6 +14,7 @@ people_bp = Blueprint("people", __name__, url_prefix="/api/v1/people")
 
 
 @people_bp.route("", methods=["GET"])
+@require_permission("people.view")
 def people_root():
     """Root people endpoint — returns organization members summary.
     
@@ -145,6 +147,7 @@ def people_health():
 
 
 @people_bp.route("/members", methods=["GET"])
+@require_permission("people.view")
 def list_members():
     """List organization members with their roles.
 
@@ -177,6 +180,7 @@ def list_members():
 
 
 @people_bp.route("/members/<int:member_id>", methods=["GET"])
+@require_permission("people.view")
 def get_member(member_id: int):
     """Get a specific member (minimal, privacy-safe)."""
     if not _require_auth():
@@ -207,6 +211,7 @@ def get_member(member_id: int):
 
 
 @people_bp.route("/tasks", methods=["GET"])
+@require_permission("people.view")
 def get_people_tasks():
     """Get tasks across the organization, grouped by status.
 
@@ -264,6 +269,7 @@ def get_people_tasks():
 
 
 @people_bp.route("/approvals", methods=["GET"])
+@require_permission("people.view")
 def get_approvals():
     """Get pending approvals for the current user.
 
@@ -302,6 +308,7 @@ def get_approvals():
 
 
 @people_bp.route("/workload", methods=["GET"])
+@require_permission("people.view")
 def get_workload():
     """Get workload overview: who owns what and what is overdue.
 
@@ -380,6 +387,7 @@ def get_workload():
 
 
 @people_bp.route("/persons", methods=["GET"])
+@require_permission("people.view")
 def list_persons():
     """List canonical Person records for the current tenant.
 
@@ -418,6 +426,7 @@ def list_persons():
 
 
 @people_bp.route("/persons/<int:person_id>", methods=["GET"])
+@require_permission("people.view")
 def get_person(person_id: int):
     """Get a specific Person record."""
     if not _require_auth():
@@ -443,6 +452,7 @@ def get_person(person_id: int):
 
 
 @people_bp.route("/attendance", methods=["GET"])
+@require_permission("people.manage")
 def list_attendance():
     """List attendance and leave records for the organization.
 
@@ -484,6 +494,7 @@ def list_attendance():
 
 
 @people_bp.route("/attendance", methods=["POST"])
+@require_permission("people.manage")
 def submit_attendance():
     """Submit a leave or attendance request.
 
@@ -552,6 +563,7 @@ def submit_attendance():
 
 
 @people_bp.route("/policies", methods=["GET"])
+@require_permission("people.manage")
 def list_policies():
     """List organization policies and their acknowledgement status.
 
@@ -597,6 +609,7 @@ def list_policies():
 
 
 @people_bp.route("/policies/<policy_id>/acknowledge", methods=["POST"])
+@require_permission("people.manage")
 def acknowledge_policy(policy_id: str):
     """Acknowledge a specific policy/SOP by its ID for the current user.
 
@@ -648,6 +661,7 @@ def acknowledge_policy(policy_id: str):
 
 
 @people_bp.route("/training", methods=["GET"])
+@require_permission("people.manage")
 def list_training():
     """List available training and completion records for the organization.
 
@@ -690,6 +704,7 @@ def list_training():
 
 
 @people_bp.route("/training/<training_id>/complete", methods=["POST"])
+@require_permission("people.manage")
 def complete_training(training_id: str):
     """Mark a training as completed for the current user.
 
