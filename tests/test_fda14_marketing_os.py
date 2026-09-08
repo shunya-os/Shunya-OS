@@ -3,10 +3,23 @@
 Campaign CRUD, audience definitions, content planning, lead capture, approvals.
 """
 import pytest
+from tests.auth_helper import seed_rbac
+
+
+def _login_marketing(app, client):
+    """Helper: seed RBAC context and set session for marketing tests."""
+    from app import db
+    with app.app_context():
+        org_id = seed_rbac(db, identity_id="marketing_user", role_name="admin")
+    with client.session_transaction() as sess:
+        sess["identity_id"] = "marketing_user"
+        sess["current_org_id"] = str(org_id)
+    return org_id
 
 
 class TestCampaigns:
     def test_create_campaign(self, app, client):
+        _login_marketing(app, client)
         r = client.post("/api/v1/marketing/campaigns", json={
             "name": "Summer Campaign", "tenant_id": 1,
             "objective": "leads", "budget": 5000,
@@ -17,12 +30,14 @@ class TestCampaigns:
         assert data["status"] == "draft"
 
     def test_list_campaigns(self, app, client):
+        _login_marketing(app, client)
         r = client.get("/api/v1/marketing/campaigns?tenant_id=1")
         assert r.status_code == 200
         data = r.get_json()
         assert "campaigns" in data
 
     def test_get_campaign(self, app, client):
+        _login_marketing(app, client)
         r = client.post("/api/v1/marketing/campaigns", json={
             "name": "Get Test", "tenant_id": 1,
         })
@@ -32,6 +47,7 @@ class TestCampaigns:
         assert r.get_json()["name"] == "Get Test"
 
     def test_update_campaign(self, app, client):
+        _login_marketing(app, client)
         r = client.post("/api/v1/marketing/campaigns", json={
             "name": "Update Test", "tenant_id": 1,
         })
@@ -43,6 +59,7 @@ class TestCampaigns:
         assert r.get_json()["status"] == "active"
 
     def test_delete_campaign(self, app, client):
+        _login_marketing(app, client)
         r = client.post("/api/v1/marketing/campaigns", json={
             "name": "Delete Me", "tenant_id": 1,
         })
@@ -54,6 +71,7 @@ class TestCampaigns:
 
 class TestAudiences:
     def test_create_audience(self, app, client):
+        _login_marketing(app, client)
         r = client.post("/api/v1/marketing/campaigns", json={
             "name": "Audience Campaign", "tenant_id": 1,
         })
@@ -67,6 +85,7 @@ class TestAudiences:
         assert data["name"] == "Travel Enthusiasts"
 
     def test_list_audiences(self, app, client):
+        _login_marketing(app, client)
         r = client.get("/api/v1/marketing/audiences?tenant_id=1")
         assert r.status_code == 200
         data = r.get_json()
@@ -75,6 +94,7 @@ class TestAudiences:
 
 class TestContent:
     def test_create_content(self, app, client):
+        _login_marketing(app, client)
         r = client.post("/api/v1/marketing/campaigns", json={
             "name": "Content Campaign", "tenant_id": 1,
         })
@@ -87,6 +107,7 @@ class TestContent:
         assert r.get_json()["status"] == "draft"
 
     def test_approve_content(self, app, client):
+        _login_marketing(app, client)
         r = client.post("/api/v1/marketing/campaigns", json={
             "name": "Approve Campaign", "tenant_id": 1,
         })
@@ -106,6 +127,7 @@ class TestContent:
 
 class TestLeadCapture:
     def test_capture_lead_from_campaign(self, app, client):
+        _login_marketing(app, client)
         r = client.post("/api/v1/marketing/campaigns", json={
             "name": "Lead Campaign", "tenant_id": 1,
         })
@@ -122,6 +144,7 @@ class TestLeadCapture:
         assert data["code"] is not None
 
     def test_capture_lead_without_campaign(self, app, client):
+        _login_marketing(app, client)
         r = client.post("/api/v1/marketing/capture-lead", json={
             "tenant_id": 1, "name": "Direct Lead",
             "phone": "+1-555-DIRECT", "email": "direct@test.com",
@@ -133,6 +156,7 @@ class TestLeadCapture:
 
 class TestTenantIsolation:
     def test_campaign_tenant_isolation(self, app, client):
+        _login_marketing(app, client)
         r = client.post("/api/v1/marketing/campaigns", json={
             "name": "Tenant A Campaign", "tenant_id": 1,
         })

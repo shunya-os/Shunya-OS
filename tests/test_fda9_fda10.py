@@ -14,6 +14,7 @@ Every test is evidence-classified. No test inflates count artificially.
 import json
 import pytest
 from unittest.mock import patch
+from tests.auth_helper import seed_rbac
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1103,12 +1104,16 @@ class TestCanonicalRuntimePath:
     Tests the existing /api/v1/intelligence/ask route (NOT a parallel path).
     """
 
-    def _setup_session(self, client, app):
+    def _setup_session(self, client, app, identity_id="user_1"):
         """Set up a session with authenticated user."""
+        from app import db
+        with app.app_context():
+            org_id = seed_rbac(db, identity_id=identity_id, role_name="admin")
         with client.session_transaction() as sess:
             sess["user_id"] = 1
-            sess["identity_id"] = "user_1"
-            sess["current_org_id"] = "test_org_1"
+            sess["identity_id"] = identity_id
+            sess["current_org_id"] = str(org_id)
+        return org_id
 
     def test_api_health_unauthenticated(self, client):
         """Health endpoint works without auth."""
@@ -1216,14 +1221,14 @@ class TestCanonicalRuntimePath:
 
     def test_api_tenant_isolation_positive(self, app, client):
         """Tenant A has different identity than Tenant B."""
-        self._setup_session(client, app)
+        org_id = self._setup_session(client, app)
         resp = client.post(
             "/api/v1/intelligence/ask",
             json={"question": "hello"},
         )
         assert resp.status_code == 200
         data = resp.get_json()
-        assert data["tenant"]["tenant_id"] == "test_org_1"
+        assert data["tenant"]["tenant_id"] == str(org_id)
 
 
 # ══════════════════════════════════════════════════════════════════

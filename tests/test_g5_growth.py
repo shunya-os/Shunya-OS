@@ -14,6 +14,7 @@ Tests:
 
 import pytest
 from datetime import datetime, timezone
+from tests.auth_helper import seed_rbac
 
 
 class TestCampaignEvents:

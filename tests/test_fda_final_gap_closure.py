@@ -6,6 +6,67 @@ No weakened assertions. No session-echo tests. No query-only substitutes.
 import pytest
 import time
 from datetime import datetime, timezone
+from tests.auth_helper import seed_rbac
+
+
+def _rbac_login(app, client, identity_id, org_id):
+    """Create org context for an identity and set session.
+    
+    Creates Organization with specified id, then seeds roles + membership.
+    Returns the org_id for use in session.
+    """
+    from app import db
+    from app.models import Organization
+    from app.authz.models import Role, OrgMemberRole
+    from app.authz.services import seed_default_roles
+    from app.models import OrgMember
+    with app.app_context():
+        # Ensure Organization exists with the given id
+        org = db.session.get(Organization, org_id)
+        if not org:
+            org = Organization(id=org_id, name=f"Org {org_id}", slug=f"org-{org_id}")
+            db.session.add(org)
+            db.session.commit()
+
+        # Ensure OrgMember exists for this identity in this org
+        om = OrgMember.query.filter_by(identity_id=identity_id, organization_id=org_id).first()
+        if not om:
+            om = OrgMember(
+                organization_id=org_id,
+                identity_id=identity_id,
+                role="admin",
+                is_active=True,
+            )
+            db.session.add(om)
+            db.session.flush()
+
+        # Seed default roles for this org
+        seed_default_roles(org_id)
+
+        # Ensure OrgMemberRole exists
+        role = Role.query.filter_by(organization_id=org_id, name="owner").first()
+        if not role:
+            role = Role.query.filter_by(organization_id=org_id).first()
+        if role:
+            existing = OrgMemberRole.query.filter_by(
+                organization_id=org_id, member_id=om.id, role_id=role.id
+            ).first()
+            if not existing:
+                assignment = OrgMemberRole(
+                    organization_id=org_id,
+                    member_id=om.id,
+                    role_id=role.id,
+                    scope="organization",
+                    granted_by="test_setup",
+                )
+                db.session.add(assignment)
+            db.session.commit()
+
+    with client.session_transaction() as sess:
+        sess["user_id"] = 1
+        sess["identity_id"] = identity_id
+        sess["current_org_id"] = str(org_id)
+    return org_id
 
 
 class TestTenantIsolation:
@@ -24,11 +85,8 @@ class TestTenantIsolation:
             db.session.commit()
             tid_a, tid_b = t_a.id, t_b.id
 
-        # Authenticate as Tenant A
-        with client.session_transaction() as sess:
-            sess["user_id"] = 1
-            sess["identity_id"] = "user_a"
-            sess["current_org_id"] = str(tid_a)
+        # Authenticate as Tenant A using RBAC seed
+        _rbac_login(app, client, "user_a", tid_a)
 
         # Attempt to access Tenant B data via canonical intelligence route
         resp = client.post(
@@ -64,11 +122,8 @@ class TestTenantIsolation:
             db.session.commit()
             tid_a, tid_b = t_a.id, t_b.id
 
-        # Authenticate as Tenant A
-        with client.session_transaction() as sess:
-            sess["user_id"] = 1
-            sess["identity_id"] = "user_a"
-            sess["current_org_id"] = str(tid_a)
+        # Authenticate as Tenant A using RBAC seed
+        _rbac_login(app, client, "user_a", tid_a)
 
         # Try to override tenant by sending Tenant B's ID in the body
         resp = client.post(
@@ -107,10 +162,7 @@ class TestExecutionAuthority:
             db.session.commit()
             tid = t.id
 
-        with client.session_transaction() as sess:
-            sess["user_id"] = 1
-            sess["identity_id"] = "user_1"
-            sess["current_org_id"] = str(tid)
+        _rbac_login(app, client, "user_1", tid)
 
         resp = client.post(
             "/api/v1/intelligence/ask",
@@ -123,11 +175,7 @@ class TestExecutionAuthority:
 
     def test_b_external_evidence_execution_denied(self, app, client):
         """B: External/untrusted evidence only + execute=true → 403 DENIED."""
-        with client.session_transaction() as sess:
-            sess["user_id"] = 1
-            sess["identity_id"] = "user_1"
-            sess["current_org_id"] = "org_ext_test"
-
+        _rbac_login(app, client, "user_1", 9001)
         resp = client.post(
             "/api/v1/intelligence/ask",
             json={
@@ -186,10 +234,7 @@ class TestExecutionAuthority:
             db.session.add(obj)
             db.session.commit()
 
-        with client.session_transaction() as sess:
-            sess["user_id"] = 1
-            sess["identity_id"] = "user_1"
-            sess["current_org_id"] = str(tid)
+        _rbac_login(app, client, "user_1", tid)
 
         # Execute with company evidence present — must proceed through canonical path
         resp = client.post(
@@ -233,11 +278,7 @@ class TestCanonicalEndToEnd:
 
     def test_full_canonical_path(self, app, client):
         """Complete trace through all canonical stages."""
-        with client.session_transaction() as sess:
-            sess["user_id"] = 1
-            sess["identity_id"] = "user_1"
-            sess["current_org_id"] = "org_1"
-
+        _rbac_login(app, client, "user_1", 9002)
         resp = client.post("/api/v1/intelligence/ask", json={"question": "hello"})
         assert resp.status_code == 200
         data = resp.get_json()
@@ -250,7 +291,7 @@ class TestCanonicalEndToEnd:
         assert "inference_governance" in stage_names
 
         assert data["tenant"]["identity_id"] == "user_1"
-        assert data["tenant"]["tenant_id"] == "org_1"
+        assert data["tenant"]["tenant_id"] == "9002"
         assert data["deterministic"] is True
         assert data["model_invoked"] is False
         assert data["answer"] is not None
@@ -261,10 +302,7 @@ class TestPerformance:
 
     def test_deterministic_latency(self, app, client):
         """Deterministic request should complete in < 100ms."""
-        with client.session_transaction() as sess:
-            sess["user_id"] = 1
-            sess["identity_id"] = "user_1"
-            sess["current_org_id"] = "org_1"
+        _rbac_login(app, client, "perf_user_1", 9003)
 
         start = time.time()
         for _ in range(5):
@@ -276,10 +314,7 @@ class TestPerformance:
 
     def test_authority_check_latency(self, app, client):
         """Authority check should complete in < 100ms."""
-        with client.session_transaction() as sess:
-            sess["user_id"] = 1
-            sess["identity_id"] = "user_1"
-            sess["current_org_id"] = "org_1"
+        _rbac_login(app, client, "perf_user_2", 9004)
 
         start = time.time()
         for _ in range(5):
