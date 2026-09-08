@@ -166,7 +166,8 @@ def _register_tasks(app):
           {f'<p>Paid: {paid_str}</p>' if paid_str else ''}
           <div class="footer">AI@shunyaos.com · SHUNYA OS</div>
         </body></html>"""
-        pdfkit.from_string(html, path)
+        from app.pdf_safe import generate_pdf as _safe_pdf
+        _safe_pdf(html, path)
         inv.pdf_path = path
         db.session.commit()
         return path
@@ -226,7 +227,8 @@ def _generate_invoice_pdf_inline(invoice_id: int) -> str:
         <tr><th><strong>Grand Total</strong></th><td><strong>{inv.currency} {inv.grand_total:.2f}</strong></td></tr>
       </table>
     </body></html>"""
-    pdfkit.from_string(html, path)
+    from app.pdf_safe import generate_pdf as _safe_pdf_2
+    _safe_pdf_2(html, path)
     inv.pdf_path = path
     db.session.commit()
     return path

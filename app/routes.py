@@ -1818,7 +1818,8 @@ def _generate_invoice_pdf(invoice_id, path):
       {due_html}
       {paid_html}
     </body></html>"""
-    pdfkit.from_string(html, path)
+    from app.pdf_safe import generate_pdf
+    generate_pdf(html, path)
 
 
 # ---------------------------------------------------------------------------
