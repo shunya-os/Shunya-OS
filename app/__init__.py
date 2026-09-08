@@ -664,6 +664,8 @@ def create_app(config_override: dict | None = None):
             "/forgot-password", "/reset-password",
             "/verify-email", "/request-verification",
             "/change-password",
+            "/mfa/",
+            "/revoke-sessions", "/devices",
             "/assets/", "/manifest.json", "/icon-", "/favicon", "/sw.js",
             "/telegram/webhook",
             "/debug", "/operator",
