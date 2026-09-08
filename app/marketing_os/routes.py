@@ -133,5 +133,6 @@ def capture_lead():
     if not tenant_id:
         return jsonify({"error": "No organization context"}), 400
     data = request.get_json() or {}
+    data.pop("tenant_id", None)  # tenant_id is passed explicitly — avoid duplicate keyword
     result = mo.capture_lead(tenant_id, **data)
     return jsonify(result), 201

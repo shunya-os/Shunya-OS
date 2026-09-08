@@ -161,6 +161,15 @@ class TestTenantIsolation:
             "name": "Tenant A Campaign", "tenant_id": 1,
         })
         cid = r.get_json()["id"]
-        # Tenant 2 should not see it
-        r = client.get(f"/api/v1/marketing/campaigns/{cid}?tenant_id=2")
+        # Simulate Tenant 2 session (query param tenant_id has no effect —
+        # tenant is resolved from session, not query params, for security)
+        from app import db
+        from tests.auth_helper import seed_rbac
+        org_b_id = seed_rbac(db, identity_id="tenant_b_user", role_name="admin")
+        with client.session_transaction() as s:
+            s["identity_id"] = "tenant_b_user"
+            s["current_org_id"] = org_b_id
+            s["user_id"] = "tenant_b"
+        r = client.get(f"/api/v1/marketing/campaigns/{cid}")
+        # Tenant B should not find Tenant A's campaign
         assert r.status_code == 404

@@ -699,6 +699,16 @@ class TestEndToEndPath:
 class TestRoutesAPI:
     """G5 API route integration tests."""
 
+    @pytest.fixture(autouse=True)
+    def _auth(self, app, client):
+        """Seed RBAC context and set session for every test in this class."""
+        with client.session_transaction() as s:
+            s["identity_id"] = "g5_test_user"
+            s["user_id"] = "g5_test_user"
+            from app import db as _db
+            org_id = seed_rbac(_db, identity_id="g5_test_user", role_name="admin")
+            s["current_org_id"] = org_id
+
     def test_events_api(self, app, client):
         r = client.post("/api/v1/marketing/campaigns", json={
             "name": "API Event Test", "tenant_id": 1,
