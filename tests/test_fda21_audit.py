@@ -18,6 +18,7 @@ Covers:
 import json
 import pytest
 from datetime import datetime, timezone, timedelta
+from tests.auth_helper import seed_rbac
 
 
 @pytest.fixture(scope="function")
@@ -47,16 +48,22 @@ def client(app):
 @pytest.fixture(scope="function")
 def auth_headers(app, client):
     """Create a session with auth headers."""
+    from app import db
+    org_id = seed_rbac(db)
     with client.session_transaction() as s:
         s["identity_id"] = "test_identity"
-        s["current_org_id"] = 1
+        s["current_org_id"] = org_id
         s["user_id"] = "test_user"
     return {"X-Identity-Id": "test_identity"}
 
 
 @pytest.fixture(scope="function")
 def seed_data(app):
-    """Seed comprehensive test data for audit reconstruction."""
+    """Seed comprehensive test data for audit reconstruction.
+    
+    Creates its own org context via seed_rbac since it may be used by
+    unauthenticated tests that do NOT depend on auth_headers.
+    """
     from app import db
     from app.models import Lead, Organization, ActivityLog, set_lead_tenant_id, clear_lead_tenant_id
     from app.relationship.models import CanonicalRelationship, TimelineEntry, RelationshipMemory
@@ -66,12 +73,15 @@ def seed_data(app):
     from app.evidence.models_db import EvidenceRecord, create_evidence
     from app.execution.models import Outcome
 
-    org = Organization(id=1, name="Test Org", slug="test-org")
-    db.session.add(org)
-    db.session.flush()
+    org_id = seed_rbac(db)
+    org = Organization.query.get(org_id)
+    if not org:
+        org = Organization(id=org_id, name="Test Org", slug=f"test-org-{org_id}")
+        db.session.add(org)
+        db.session.flush()
 
     rel = CanonicalRelationship(
-        organization_id=1, display_name="Acme Corp Customer",
+        organization_id=org_id, display_name="Acme Corp Customer",
         relationship_type="customer", email="acme@example.com", status="active",
     )
     db.session.add(rel)
@@ -97,7 +107,7 @@ def seed_data(app):
 
     # Timeline entry
     db.session.add(TimelineEntry(
-        organization_id=1, relationship_id=rel.id,
+        organization_id=org_id, relationship_id=rel.id,
         event_type="email.sent", event_time=datetime.now(timezone.utc) - timedelta(hours=2),
         title="Sent contract proposal", description="Final proposal with pricing",
         created_by="agent1",
@@ -540,9 +550,12 @@ class TestAdversarial:
     def test_cross_tenant_with_wrong_org(self, app, client, seed_data):
         """Different org ID still works with identity check."""
         lead = seed_data["lead"]
+        from app import db
+        # Create a SECOND org for the SAME identity to verify cross-org access works
+        other_org_id = seed_rbac(db, identity_id="test_identity", role_name="admin")
         with client.session_transaction() as s:
             s["identity_id"] = "test_identity"
-            s["current_org_id"] = 2
+            s["current_org_id"] = other_org_id
             s["user_id"] = "test_user"
         headers = {"X-Identity-Id": "test_identity"}
         resp = client.get(f"/api/v1/audit/reconstruct/lead/{lead.id}", headers=headers)
@@ -738,6 +751,9 @@ class TestStructuralTenantIsolation:
         from app.evidence.models_db import EvidenceRecord
         from app.execution.models import Outcome
 
+        # Seed RBAC for the tenant_b_user identity so permission check passes
+        tenant_b_org_id = seed_rbac(_db, identity_id="tenant_b_user", role_name="admin")
+
         # Seed data for Tenant A only
         org_a = Organization(id=10, name="Tenant A", slug="tenant-a")
         _db.session.add(org_a)
@@ -786,7 +802,7 @@ class TestStructuralTenantIsolation:
         # Using Tenant B's auth context
         with client.session_transaction() as s:
             s["identity_id"] = "tenant_b_user"
-            s["current_org_id"] = 20
+            s["current_org_id"] = tenant_b_org_id
             s["user_id"] = "tenant_b"
 
         headers_b = {"X-Identity-Id": "tenant_b_user"}
@@ -812,8 +828,11 @@ class TestStructuralTenantIsolation:
         from app.security.audit import log_audit
 
         # Create a second relationship (simulating another customer for the same org)
+        from app.models import OrgMember as RBACOrgMember2
+        rbac_member2 = RBACOrgMember2.query.filter_by(identity_id="test_identity").first()
+        org_id_a = rbac_member2.organization_id if rbac_member2 else 1
         rel2 = CanonicalRelationship(
-            organization_id=1, display_name="Other Customer",
+            organization_id=org_id_a, display_name="Other Customer",
             relationship_type="customer", email="other@example.com", status="active",
         )
         db.session.add(rel2)
@@ -832,7 +851,7 @@ class TestStructuralTenantIsolation:
         # Add audit for the second relationship only
         log_audit("create", "lead", str(lead2.id), {"name": "Other Customer Lead"})
         db.session.add(TimelineEntry(
-            organization_id=1, relationship_id=rel2.id,
+            organization_id=org_id_a, relationship_id=rel2.id,
             event_type="email.inbound", event_time=datetime.now(timezone.utc),
             title="Other Customer email", created_by="agent2",
         ))

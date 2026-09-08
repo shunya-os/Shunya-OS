@@ -13,13 +13,21 @@ from typing import Any
 from flask_sqlalchemy import SQLAlchemy
 
 
-def seed_rbac(db: SQLAlchemy, identity_id: str = "test_identity", role_name: str = "admin") -> int:
+def seed_rbac(db, identity_id: str = "test_identity", role_name: str = "admin") -> int:
     """Create Organization + OrgMember + Role + OrgMemberRole.
 
-    Returns the created organization_id.
+    Idempotent: if identity_id already has an OrgMember, returns its org_id
+    instead of creating a duplicate.
+
+    Returns the created (or existing) organization_id.
     """
     from app.models import Organization, OrgMember
     from app.authz.models import Role, OrgMemberRole
+
+    # Idempotent: reuse existing member for this identity
+    existing = OrgMember.query.filter_by(identity_id=identity_id, is_active=True).first()
+    if existing:
+        return existing.organization_id
 
     slug = f"test-org-{identity_id[:8]}"
     org = Organization(name="Test Org", slug=slug, is_active=True)
