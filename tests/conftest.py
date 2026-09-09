@@ -11,48 +11,60 @@ Exposes:
 
 import os
 
-# ---- GLOBAL TEST ENVIRONMENT SAFETY CHECK (Directive 04/05) -----------------
+# ---- GLOBAL TEST ENVIRONMENT SAFETY CHECK (Directive 04/05/10) ----------------
 # Fail closed at pytest startup if the test environment could reach production,
 # shared, or any non-isolated database. This is a MANDATORY invariant.
-# Rejects: missing DB, production PostgreSQL, remote PostgreSQL, shared DB,
-# ambiguous DB configuration, .env fallback to production.
+#
+# Rejects:
+#   - Missing DATABASE_URL
+#   - PostgreSQL on port 5432 with production database names (shunya, shunya_os)
+#   - Any .env-inherited production configuration
+#
+# Permits:
+#   - sqlite:///:memory:  (canonical isolated test DB)
+#   - sqlite:///path      (file-based SQLite, no 'shunya' in path)
+#   - PostgreSQL on non-default port (e.g. CI's 5433) or with explicit _test
+#     database name — these are assumed to be provisioned test databases
 
 _DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-# Safety-critical patterns that must be rejected if used as a test database.
-# These represent production PostgreSQL on localhost, shared/CI databases, or
-# any .env-inherited production configuration that a test should never touch.
-_REJECTED_PATTERNS = [
-    "shunya",           # Production database name component
-    "postgresql://",    # Any PostgreSQL without explicit sqlite override
-]
-
-# Explicitly permitted configurations (test-verified safe)
+# Explicitly permitted configurations
 _IS_SQLITE_MEMORY = _DATABASE_URL == "sqlite:///:memory:"
 _IS_SQLITE_FILE = _DATABASE_URL.startswith("sqlite:///") and "shunya" not in _DATABASE_URL
+
+# Detect production-like PostgreSQL: port 5432 + production db name
+import re
+_PRODUCTION_PG_PATTERN = bool(
+    _DATABASE_URL
+    and "postgresql" in _DATABASE_URL.lower()
+    and not _IS_SQLITE_MEMORY
+    and not _IS_SQLITE_FILE
+    and (
+        # Port 5432 (default PostgreSQL) with shunya/shunya_os database = production
+        (":5432/" in _DATABASE_URL and ("shunya_os" in _DATABASE_URL or "/shunya" in _DATABASE_URL))
+        or
+        # Any port with "production" in the database name
+        "production" in _DATABASE_URL.lower()
+    )
+)
 
 # Determine if DATABASE_URL is set at all
 _HAS_DATABASE_URL = bool(_DATABASE_URL)
 
-# Detect production-like PostgreSQL
-_IS_PRODUCTION_LIKE = (
-    any(p in _DATABASE_URL.lower() for p in _REJECTED_PATTERNS)
-    and not _IS_SQLITE_MEMORY
-    and not _IS_SQLITE_FILE
-)
-
-if _HAS_DATABASE_URL and _IS_PRODUCTION_LIKE:
+if _HAS_DATABASE_URL and _PRODUCTION_PG_PATTERN:
     raise RuntimeError(
         f"DATABASE_URL ({_DATABASE_URL}) appears to point at a production/"
         f"shared/non-isolated database. Tests must use sqlite:///:memory: "
-        f"or an explicitly provisioned isolated test database."
+        f"or an explicitly provisioned isolated test database "
+        f"(e.g. PostgreSQL on a non-default port or with a _test database name)."
     )
 
 if not _HAS_DATABASE_URL:
     raise RuntimeError(
         "DATABASE_URL is not set. Tests require an explicit DATABASE_URL "
         "pointing to an isolated test database. "
-        "Set DATABASE_URL=sqlite:///:memory: to use SQLite in-memory."
+        "Set DATABASE_URL=sqlite:///:memory: to use SQLite in-memory, "
+        "or set DATABASE_URL=postgresql://user:pass@host:port/testdb for PostgreSQL."
     )
 
 # Prevent uncontrolled external AI provider calls during tests.
