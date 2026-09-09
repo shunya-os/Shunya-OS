@@ -16,11 +16,11 @@ from app.founder.models import (
     BusinessRelationship,
     FounderConversation,
     FounderMessage,
-    FounderObject,
     FounderSpace,
 )
 from app.models import Organization, OrgMember
 from core.os import get_os
+from sqlalchemy import text as _sql_text
 
 
 # ---------------------------------------------------------------------------
@@ -35,10 +35,23 @@ def _ago(**kwargs) -> datetime:
     return _now() - timedelta(**kwargs)
 
 
-def _time_ago_label(dt: datetime | None) -> str:
-    """Human-readable relative time."""
+def _sql_in(wids: list) -> tuple[str, dict]:
+    """Build IN clause + params for SQLite/PostgreSQL compat."""
+    if not wids:
+        return "FALSE", {}
+    parts = [f":_w_{i}" for i in range(len(wids))]
+    params = {f"_w_{i}": w for i, w in enumerate(wids)}
+    return f"IN ({', '.join(parts)})", params
+
+def _time_ago_label(dt) -> str:
+    """Human-readable relative time. Accepts datetime or str."""
     if not dt:
         return ""
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt)
+        except (ValueError, TypeError):
+            return ""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     diff = _now() - dt
@@ -92,18 +105,17 @@ def build_morning_brief(identity_id: str) -> dict[str, Any]:
     # --- Activity in last 24h ---
     since = _ago(hours=24)
 
-    recently_created = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.created_at >= since,
-    ).order_by(FounderObject.created_at.desc()).all()
+    _ic, _ip = _sql_in(space_ids)
+    recently_created = db.session.execute(
+        _sql_text(f"SELECT * FROM sh_objects WHERE workspace_id {_ic} AND status = 'active' AND is_deleted IS NOT true AND created_at >= :since ORDER BY created_at DESC"),
+        {**_ip, 'since': since},
+    ).all() if space_ids else []
 
-    recently_updated = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.updated_at >= since,
-        FounderObject.created_at < since,  # exclude newly created (already counted)
-    ).order_by(FounderObject.updated_at.desc()).all()
+    _ic2, _ip2 = _sql_in(space_ids)
+    recently_updated = db.session.execute(
+        _sql_text(f"SELECT * FROM sh_objects WHERE workspace_id {_ic2} AND status = 'active' AND is_deleted IS NOT true AND updated_at >= :since AND (created_at IS NULL OR created_at < :since) ORDER BY updated_at DESC"),
+        {**_ip2, 'since': since},
+    ).all() if space_ids else []
 
     for obj in recently_created:
         items.append({
@@ -125,11 +137,12 @@ def build_morning_brief(identity_id: str) -> dict[str, Any]:
 
     # --- Active conversations (pending work) ---
     for space in spaces:
-        objects = FounderObject.query.filter_by(
-            space_id=space.space_id, status="active"
+        objects_rows = db.session.execute(
+            _sql_text("SELECT * FROM sh_objects WHERE workspace_id = :wid AND status = 'active' AND is_deleted IS NOT true"),
+            {"wid": space.space_id},
         ).all()
-        total_objects += len(objects)
-        for obj in objects:
+        total_objects += len(objects_rows)
+        for obj in objects_rows:
             conv = FounderConversation.query.filter_by(
                 object_id=obj.object_id, status="active"
             ).first()
@@ -246,10 +259,11 @@ def build_recommendations(identity_id: str) -> list[dict[str, Any]]:
         })
         return recommendations
 
-    total_objects = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-    ).count()
+    _ic4, _ip4 = _sql_in(space_ids)
+    total_objects = db.session.execute(
+        _sql_text(f"SELECT COUNT(*) FROM sh_objects WHERE workspace_id {_ic4} AND status = 'active' AND is_deleted IS NOT true"),
+        _ip4,
+    ).scalar() or 0 if space_ids else 0
 
     # --- No objects yet ---
     if total_objects == 0:
@@ -266,14 +280,13 @@ def build_recommendations(identity_id: str) -> list[dict[str, Any]]:
 
     # --- Check object type diversity ---
     from sqlalchemy import func
+    _ic5, _ip5 = _sql_in(space_ids)
     type_counts = dict(
-        db.session.query(
-            FounderObject.object_type, func.count(FounderObject.id)
-        ).filter(
-            FounderObject.space_id.in_(space_ids),
-            FounderObject.status == "active",
-        ).group_by(FounderObject.object_type).all()
-    )
+        db.session.execute(
+            _sql_text(f"SELECT object_type, COUNT(*) as cnt FROM sh_objects WHERE workspace_id {_ic5} AND status = 'active' AND is_deleted IS NOT true GROUP BY object_type"),
+            _ip5,
+        ).all()
+    ) if space_ids else {}
     dominant_type = max(type_counts, key=type_counts.get) if type_counts else ""
 
     if len(type_counts) == 1 and total_objects >= 3:
@@ -290,8 +303,9 @@ def build_recommendations(identity_id: str) -> list[dict[str, Any]]:
     # --- Unresolved conversations ---
     pending_convs = 0
     for space in spaces:
-        objects = FounderObject.query.filter_by(
-            space_id=space.space_id, status="active"
+        objects = db.session.execute(
+            _sql_text("SELECT * FROM sh_objects WHERE workspace_id = :wid AND status = 'active' AND is_deleted IS NOT true"),
+            {"wid": space.space_id},
         ).all()
         for obj in objects:
             conv = FounderConversation.query.filter_by(
@@ -368,22 +382,25 @@ def build_business_health(identity_id: str) -> dict[str, Any]:
     ).all()
     space_ids = [s.space_id for s in spaces]
 
-    total_objects = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-    ).count() if space_ids else 0
+    _ic7, _ip7 = _sql_in(space_ids)
+    total_objects = db.session.execute(
+        _sql_text(f"SELECT COUNT(*) FROM sh_objects WHERE workspace_id {_ic7} AND status = 'active' AND is_deleted IS NOT true"),
+        _ip7,
+    ).scalar() or 0 if space_ids else 0
 
     total_relationships = BusinessRelationship.query.filter(
         BusinessRelationship.space_id.in_(space_ids),
         BusinessRelationship.status == "active",
     ).count() if space_ids else 0
 
+    _ic8, _ip8 = _sql_in(space_ids)
     active_conversations = 0
     if space_ids:
-        for obj in FounderObject.query.filter(
-            FounderObject.space_id.in_(space_ids),
-            FounderObject.status == "active",
-        ).all():
+        obj_rows = db.session.execute(
+            _sql_text(f"SELECT object_id FROM sh_objects WHERE workspace_id {_ic8} AND status = 'active' AND is_deleted IS NOT true"),
+            _ip8,
+        ).all()
+        for obj in obj_rows:
             conv = FounderConversation.query.filter_by(
                 object_id=obj.object_id, status="active"
             ).first()
@@ -448,25 +465,27 @@ def build_recent_activity(identity_id: str, limit: int = 10) -> list[dict[str, A
         return activities
 
     # Recently created objects
-    objects = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-    ).order_by(FounderObject.created_at.desc()).limit(limit).all()
+    _ic9, _ip9 = _sql_in(space_ids)
+    objects = db.session.execute(
+        _sql_text(f"SELECT * FROM sh_objects WHERE workspace_id {_ic9} AND status = 'active' AND is_deleted IS NOT true ORDER BY created_at DESC LIMIT :lim"),
+        {**_ip9, 'lim': limit},
+    ).all()
 
     for obj in objects:
         activities.append({
             "type": "object_created",
             "title": obj.name,
             "subtitle": f"{obj.object_type} · {_time_ago_label(obj.created_at)}",
-            "timestamp": obj.created_at.isoformat() if obj.created_at else None,
+            "timestamp": str(obj.created_at) if obj.created_at else None,
             "focus": {"object_id": obj.object_id, "type": "object"},
         })
 
     # Recently updated objects (not newly created)
-    updated_objects = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-    ).order_by(FounderObject.updated_at.desc()).limit(limit).all()
+    _ic9b, _ip9b = _sql_in(space_ids)
+    updated_objects = db.session.execute(
+        _sql_text(f"SELECT * FROM sh_objects WHERE workspace_id {_ic9b} AND status = 'active' AND is_deleted IS NOT true ORDER BY updated_at DESC LIMIT :lim"),
+        {**_ip9b, 'lim': limit},
+    ).all()
 
     for obj in updated_objects:
         # Skip if object_id already exists in activities (any type)
@@ -476,7 +495,7 @@ def build_recent_activity(identity_id: str, limit: int = 10) -> list[dict[str, A
             "type": "object_updated",
             "title": obj.name,
             "subtitle": f"{obj.object_type} · {_time_ago_label(obj.updated_at)}",
-            "timestamp": obj.updated_at.isoformat() if obj.updated_at else None,
+            "timestamp": str(obj.updated_at) if obj.updated_at else None,
             "focus": {"object_id": obj.object_id, "type": "object"},
         })
 
@@ -526,10 +545,11 @@ def build_continue_working(identity_id: str, limit: int = 5) -> list[dict[str, A
         return items
 
     # Most recently updated objects (active work)
-    recent_objects = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-    ).order_by(FounderObject.updated_at.desc()).limit(limit).all()
+    _ic10, _ip10 = _sql_in(space_ids)
+    recent_objects = db.session.execute(
+        _sql_text(f"SELECT * FROM sh_objects WHERE workspace_id {_ic10} AND status = 'active' AND is_deleted IS NOT true ORDER BY updated_at DESC LIMIT :lim"),
+        {**_ip10, 'lim': limit},
+    ).all()
 
     for obj in recent_objects:
         conv = FounderConversation.query.filter_by(
@@ -542,7 +562,7 @@ def build_continue_working(identity_id: str, limit: int = 5) -> list[dict[str, A
             "subtitle": obj.object_type,
             "meta": "Has active conversation" if has_conversation else None,
             "focus": {"object_id": obj.object_id, "type": "object", "conv_id": conv.conv_id if conv else None},
-            "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
+            "updated_at": str(obj.updated_at) if obj.updated_at else None,
         })
 
     # Active conversations (ongoing work)
