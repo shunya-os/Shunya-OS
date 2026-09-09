@@ -79,29 +79,17 @@ def onboard(identity_id: str) -> dict:
         initial_objects = _get_initial_objects(org.business_type or "organization")
 
         for obj_data in initial_objects:
-            obj_id = f"obj_{secrets.token_hex(8)}"
-            obj = FounderObject(
-                object_id=obj_id,
-                space_id=space_id,
+            # Canonical object creation via ObjectService (R6B-2 convergence)
+            from core.object_service import get_object_service
+            svc = get_object_service()
+            svc.create(
                 object_type=obj_data["type"],
                 name=obj_data["name"],
-                content=obj_data.get("content", ""),
-                status="active",
+                organization_id=org.id,
+                data={"content": obj_data.get("content", "")},
                 created_by=identity_id,
-                created_at=_now(),
+                workspace_id=space_id,
             )
-            db.session.add(obj)
-            # Dual-write to ShunyaObject for migration
-            sh_obj = ShunyaObject(
-                object_id=obj_id,
-                workspace_id="migrated",
-                object_type=obj_data["type"],
-                name=obj_data["name"],
-                content=obj_data.get("content", ""),
-                created_by=identity_id,
-                space_id=space_id,
-            )
-            db.session.add(sh_obj)
             objects_created.append(obj_data["name"])
 
         db.session.commit()

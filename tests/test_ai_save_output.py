@@ -28,6 +28,8 @@ class TestSaveOutput:
         org = Organization(name="SaveOut Org", slug="saveout-org")
         db.session.add(org)
         db.session.commit()
+        from app.authz.services import seed_default_roles
+        seed_default_roles(org.id)
         om = OrgMember(organization_id=org.id, identity_id="sid_save_out",
                        email=member.email, role="admin")
         db.session.add(om)
@@ -40,6 +42,7 @@ class TestSaveOutput:
 
     def test_save_output_requires_content(self, app, client):
         """POST /api/v1/ai/save-output without content returns 400."""
+        self._login(client)
         resp = client.post("/api/v1/ai/save-output", json={})
         assert resp.status_code == 400
 
@@ -96,12 +99,12 @@ class TestSaveOutput:
         assert data["data"]["type"] == "proposal"
 
     def test_save_output_requires_auth(self, app, client):
-        """Without auth, endpoint should work (session not needed for anonymous)."""
+        """Without auth, endpoint must reject with 401."""
         resp = client.post("/api/v1/ai/save-output", json={
             "content": "Test content",
         })
-        # Should succeed since save-output doesn't enforce auth for anonymous
-        assert resp.status_code == 200
+        # Constitutional security: all API endpoints require authentication
+        assert resp.status_code == 401
 
     def test_execution_visibility_shows_saved_output(self, app, client):
         """Saved outputs are visible through execution visibility API."""

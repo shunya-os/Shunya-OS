@@ -9,8 +9,17 @@ logger = logging.getLogger(__name__)
 upload_bp = Blueprint("upload", __name__, url_prefix="/api/v1/upload")
 
 
-def _process_upload(job, file_bytes: bytes, filename: str, content_type: str):
-    """Background job: save file with storage intelligence: hash, dedup, metadata."""
+def _process_upload(job, file_bytes: bytes, filename: str, content_type: str,
+                    organization_id: int = 0):
+    """Background job: save file with storage intelligence: hash, dedup, metadata.
+
+    Args:
+        job: Job tracker for progress.
+        file_bytes: Raw file content.
+        filename: Original filename.
+        content_type: MIME type.
+        organization_id: Organization context (passed from authenticated request).
+    """
     from app import create_app, db
     from sqlalchemy import text
     import json
@@ -20,10 +29,10 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str):
         job.update(stage="Hashing file")
         sha256 = hashlib.sha256(file_bytes).hexdigest()
 
-        # Dedup check
+        # Dedup check - canonical path: sh_objects
         job.update(stage="Checking for duplicates")
         existing = db.session.execute(
-            text("SELECT object_id FROM founder_objects WHERE content LIKE :hash AND object_type='Document' LIMIT 1"),
+            text("SELECT object_id FROM sh_objects WHERE data LIKE :hash AND object_type='Document' AND is_deleted = false LIMIT 1"),
             {"hash": f"%{sha256}%"}
         ).fetchone()
 
@@ -39,9 +48,11 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str):
         meta = storage.save(file_bytes, filename, content_type)
         meta["sha256"] = sha256
 
-        # Create founder_object entry
+        # Create canonical object via ObjectService (single production write path)
         job.update(stage="Indexing in workspace", step=70)
-        content = json.dumps({
+        from core.object_service import get_object_service
+        svc = get_object_service()
+        content_data = json.dumps({
             "filename": filename,
             "url": meta["url"],
             "size": meta["size"],
@@ -50,30 +61,15 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str):
             "compression": meta.get("compression", {}).get("compression", "none"),
             "content_type": content_type,
         })
-        doc_id = f"doc_{uuid.uuid4().hex[:12]}"
-        db.session.execute(
-            text("""INSERT INTO founder_objects (object_id, space_id, object_type, name, content, status, created_by, created_at)
-                    VALUES (:oid, :sid, 'Document', :name, :content, 'active', :cb, NOW())"""),
-            {
-                "oid": doc_id,
-                "sid": "onb_system",
-                "name": filename,
-                "content": content,
-                "cb": "system",
-            }
+        created = svc.create(
+            object_type="Document",
+            name=filename,
+            organization_id=organization_id or 0,
+            data={"content": content_data, "sha256": sha256, "storage_meta": meta},
+            created_by="system",
+            workspace_id="onb_system",
         )
-        # Dual-write to sh_objects for migration
-        db.session.execute(
-            text("""INSERT INTO sh_objects (object_id, workspace_id, object_type, name, content, status, created_by, created_at, space_id)
-                    VALUES (:oid, 'migrated', 'Document', :name, :content, 'active', :cb, NOW(), :sid)"""),
-            {
-                "oid": doc_id,
-                "sid": "onb_system",
-                "name": filename,
-                "content": content,
-                "cb": "system",
-            }
-        )
+        doc_id = created["object_id"]
         db.session.commit()
 
         # ── Gate 2.2: Canonical ingestion event emission ──
@@ -118,9 +114,11 @@ def api_upload():
 
     file_bytes = f.read()
 
-    # Create job and run in background
+    # Capture organization context before it's lost in the background job
+    from app.authz.decorators import _resolve_org_id
+    org_id = _resolve_org_id()
     job = create_job(f"Upload: {f.filename}", "upload")
-    job.run_async(_process_upload, file_bytes, f.filename, f.content_type or "application/octet-stream")
+    job.run_async(_process_upload, file_bytes, f.filename, f.content_type or "application/octet-stream", org_id)
 
     return jsonify({
         "success": True,
@@ -146,18 +144,18 @@ def api_upload_status(job_id: str):
 @upload_bp.route("", methods=["GET"])
 @require_permission("knowledge.view")
 def api_list_uploads():
-    """List uploaded files from founder_objects."""
+    """List uploaded files from canonical object store (sh_objects)."""
     try:
         from app import db
         from sqlalchemy import text
         identity_id = session.get("identity_id")
         files = db.session.execute(
-            text("SELECT object_id, name, content, created_at FROM founder_objects WHERE object_type='Document' AND status='active' ORDER BY created_at DESC LIMIT 50")
+            text("SELECT object_id, name, data, created_at FROM sh_objects WHERE object_type='Document' AND is_deleted = false ORDER BY created_at DESC LIMIT 50")
         ).fetchall()
         return jsonify({
             "success": True,
             "data": [
-                {"id": r[0], "name": r[1], "content": r[2], "created_at": str(r[3]) if r[3] else None}
+                {"id": r[0], "name": r[1], "data": r[2], "created_at": str(r[3]) if r[3] else None}
                 for r in files
             ]
         })

@@ -11,22 +11,38 @@ from app import db, create_app
 
 @pytest.fixture(scope="module")
 def app():
-    _app = create_app()
-    _app.config["TESTING"] = True
+    _app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    with _app.app_context():
+        db.create_all()
     return _app
 
 
 def _ensure_org_and_user(app, email: str, org_id: int, org_name: str = "Test Org", role: str = "member"):
     """Create Organization + TeamMember + OrgMember for testing.
-    Returns (team_member_id, org_id).
+
+    Creates the Organization at the EXACT requested org_id so that the
+    caller's fixed org reference stays valid. Returns (team_member_id, org_id).
     """
     from sqlalchemy import text
     with app.app_context():
-        # Create organization if it doesn't exist — use seed_rbac for RBAC roles
-        from tests.auth_helper import seed_rbac
         from app import db
-        actual_org_id = seed_rbac(db, identity_id=email, role_name=role)
-        org_id = actual_org_id
+        from app.models import Organization
+
+        # Create organization at the exact requested id (fixed-reference tests)
+        org = db.session.get(Organization, org_id)
+        if not org:
+            org = Organization(
+                id=org_id,
+                name=org_name,
+                slug=f"test-org-{org_id}",
+                is_active=True,
+            )
+            db.session.add(org)
+            db.session.flush()
+
+        # Seed default roles for this org
+        from app.authz.services import seed_default_roles
+        seed_default_roles(org_id)
 
         # Create TeamMember if it doesn't exist
         tm_id = None
@@ -68,8 +84,6 @@ def _ensure_org_and_user(app, email: str, org_id: int, org_name: str = "Test Org
         db.session.commit()
 
         # Seed roles and create OrgMemberRole assignment for RBAC
-        from app.authz.services import seed_default_roles
-        seed_default_roles(org_id)
         from app.authz.models import Role, OrgMemberRole
         from app.models import OrgMember as _OrgMember
         admin_role = Role.query.filter_by(organization_id=org_id, name="admin").first()

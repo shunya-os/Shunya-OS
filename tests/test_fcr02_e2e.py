@@ -10,10 +10,10 @@ from app import db, create_app
 
 @pytest.fixture(scope="module")
 def app():
-    _app = create_app()
-    _app.config["TESTING"] = True
+    _app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "WTF_CSRF_ENABLED": False})
+    with _app.app_context():
+        db.create_all()
     return _app
-
 
 @pytest.fixture(autouse=True)
 def clean_chain(app):

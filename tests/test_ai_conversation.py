@@ -28,6 +28,8 @@ class TestConversationPersistence:
         org = Organization(name="Conv Persist Org", slug="conv-persist-org")
         db.session.add(org)
         db.session.commit()
+        from app.authz.services import seed_default_roles
+        seed_default_roles(org.id)
         om = OrgMember(organization_id=org.id, identity_id="sid_conv_persist",
                        email=member.email, role="admin")
         db.session.add(om)
@@ -106,8 +108,9 @@ class TestConversationPersistence:
         assert found, f"Conversation {conv_id} not found in list"
 
     def test_conversation_not_found(self, app, client):
-        """Nonexistent conv_id returns 404."""
-        resp = client.get("/api/v1/ai/conversations/nonexistent_conv_id")
+        """GET /api/v1/ai/conversations/<nonexistent> returns 404."""
+        self._login(client)
+        resp = client.get("/api/v1/ai/conversations/nonexistent-id-12345")
         assert resp.status_code == 404
 
     def test_multiple_messages_per_conversation(self, app, client):

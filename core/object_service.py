@@ -71,6 +71,16 @@ class ObjectService:
             return None
         return self._row_to_dict(row)
 
+    def get_by_object_id(self, object_id_str: str) -> Optional[dict]:
+        """Get an object by its unique object_id string."""
+        from sqlalchemy import text
+        row = self.db.session.execute(
+            text("SELECT * FROM sh_objects WHERE object_id = :oid AND is_deleted = false"), {"oid": object_id_str}
+        ).first()
+        if not row:
+            return None
+        return self._row_to_dict(row)
+
     def get_by_type(self, object_type: str, organization_id: int,
                     limit: int = 100, offset: int = 0) -> list:
         """List objects by type within an organization."""

@@ -246,26 +246,25 @@ def _execute_action(rule: AutomationRule,
                 object_name=object_name, object_id=trigger_object_id
             )
 
-            obj = FounderObject(
-                object_id=obj_id,
-                space_id=space.space_id,
+            # Canonical object creation via ObjectService (R6B-2 convergence)
+            from core.object_service import get_object_service
+            # Resolve organization from the space's organization_id or OrgMember
+            org_id = space.organization_id
+            if not org_id:
+                from app.models import OrgMember
+                om = OrgMember.query.filter_by(identity_id=rule.identity_id, is_active=True).first()
+                if om:
+                    org_id = om.organization_id
+            svc = get_object_service()
+            svc.create(
                 object_type=action_cfg.get("object_type", "Task"),
                 name=name,
-                content=content,
+                organization_id=org_id or 0,
+                data={"content": content},
                 created_by=rule.identity_id,
-            )
-            db.session.add(obj)
-            # Dual-write to ShunyaObject for migration
-            sh_obj = ShunyaObject(
+                workspace_id=space.space_id,
                 object_id=obj_id,
-                workspace_id="migrated",
-                object_type=action_cfg.get("object_type", "Task"),
-                name=name,
-                content=content,
-                created_by=rule.identity_id,
-                space_id=space.space_id,
             )
-            db.session.add(sh_obj)
             result["action_summary"] = f"Object created: {name} ({obj_id})"
 
         else:

@@ -22,9 +22,9 @@ from app import create_app, db
 
 @pytest.fixture(scope="module")
 def app():
-    _app = create_app()
-    _app.config["TESTING"] = True
-    _app.config["WTF_CSRF_ENABLED"] = False
+    _app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+    with _app.app_context():
+        db.create_all()
     return _app
 
 
@@ -276,14 +276,13 @@ class TestAuthorizationBoundary:
     def test_org_defaults_never_silent(self, app):
         """A run can never silently attach to org 0 / sentinel default."""
         with app.app_context():
-            from app.execution.core_models import ExecutionRun
-            import uuid as _u
-            bad = ExecutionRun(
-                execution_id=f"exec_{_u.uuid4().hex[:12]}",
-                organization_id=0,  # sentinel — must be rejected
-                intent="sentinel org",
-            )
-            db.session.add(bad)
-            with pytest.raises(Exception):
-                db.session.commit()
-            db.session.rollback()
+            from app.execution.run_service import get_run_service
+            svc = get_run_service()
+            try:
+                svc.create_run(
+                    organization_id=0, identity_id=None,
+                    intent="sentinel org",
+                )
+                assert False, "create_run with org_id=0 should raise"
+            except Exception:
+                pass

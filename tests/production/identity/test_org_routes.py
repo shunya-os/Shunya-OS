@@ -34,10 +34,14 @@ def admin_user(app, _db):
 
 
 @pytest.fixture(scope="function")
-def logged_in_client(app, client, admin_user):
-    """Test client with active admin session."""
+def logged_in_client(app, client, admin_user, _db):
+    """Test client with active admin session + RBAC context."""
+    from tests.auth_helper import seed_rbac
+    org_id = seed_rbac(_db, identity_id="admin@test.com")
     with client.session_transaction() as session:
         session["user_id"] = admin_user.id
+        session["identity_id"] = "admin@test.com"
+        session["current_org_id"] = org_id
         session["_fresh"] = True
     return client
 
@@ -61,13 +65,15 @@ class TestOrgList:
     """GET /api/v1/orgs"""
 
     def test_list_orgs_empty(self, logged_in_client):
-        """Should return empty list when no orgs exist."""
+        """Should return org list scoped to the user's memberships."""
         resp = logged_in_client.get("/api/v1/orgs")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
-        assert data["data"] == []
-        assert data["pagination"]["total"] == 0
+        # The user belongs to the org created by seed_rbac — list shows only their own orgs
+        assert isinstance(data["data"], list)
+        assert len(data["data"]) == 1
+        assert data["pagination"]["total"] == 1
 
     def test_list_orgs_with_data(self, logged_in_client, test_org):
         """Should return existing orgs."""

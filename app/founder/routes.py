@@ -441,35 +441,14 @@ def api_create_object(space_id: str):
 
     if result["success"] and result.get("object_id"):
         obj_id = result["object_id"]
-        # Dual-write: persist to DB for backward compat during migration
-        existing = FounderObject.query.filter_by(object_id=obj_id).first()
-        if not existing:
-            space = FounderSpace.query.filter_by(space_id=space_id, status="active").first()
-            if space:
-                db_obj = FounderObject(
-                    object_id=obj_id,
-                    space_id=space_id,
-                    object_type=object_type,
-                    name=name,
-                    content=content,
-                    created_by=identity_id,
-                )
-                db.session.add(db_obj)
-                # Dual-write to ShunyaObject for migration
-                sh_obj = ShunyaObject(
-                    object_id=obj_id,
-                    workspace_id="migrated",
-                    object_type=object_type,
-                    name=name,
-                    content=content,
-                    created_by=identity_id,
-                    space_id=space_id,
-                )
-                db.session.add(sh_obj)
-                space.updated_at = datetime.now(timezone.utc)
-                db.session.commit()
-            else:
-                return jsonify({"success": False, "error": "Space not found"}), 404
+        # Canonical creation already happened via OS pipeline (create_object above).
+        # The legacy dual-write to FounderObject + ShunyaObject has been removed
+        # as part of canonical object convergence (R6B-2). ObjectService writes
+        # directly to sh_objects and is the single production write authority.
+        space = FounderSpace.query.filter_by(space_id=space_id, status="active").first()
+        if space:
+            space.updated_at = datetime.now(timezone.utc)
+            db.session.commit()
 
         return jsonify({
             "success": True,
@@ -561,16 +540,30 @@ def api_focus_object(object_id: str):
 def api_start_conversation(object_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
-    if not obj:
-        return jsonify({"success": False, "error": "Object not found"}), 404
+    # Canonical object lookup via ObjectService (R6B-2): conversations now
+    # reference sh_objects.object_id, not founder_objects.
+    from core.object_service import get_object_service
+    svc = get_object_service()
+    obj = svc.get_by_object_id(object_id) if hasattr(svc, "get_by_object_id") else None
+    if obj is None:
+        # Fallback: search by object_id across the canonical store
+        from sqlalchemy import text
+        row = db.session.execute(
+            text("SELECT name FROM sh_objects WHERE object_id = :oid AND is_deleted = false LIMIT 1"),
+            {"oid": object_id},
+        ).fetchone()
+        if row is None:
+            return jsonify({"success": False, "error": "Object not found"}), 404
+        obj_name = row[0]
+    else:
+        obj_name = obj.get("name", "Object")
     existing = FounderConversation.query.filter_by(object_id=object_id, status="active").first()
     if existing:
         return jsonify({"success": True, "data": existing.to_dict(), "message": "Conversation already exists"})
     identity_id = session.get("identity_id")
     import uuid
     conv_id = f"conv_{uuid.uuid4().hex[:16]}"
-    conversation = FounderConversation(conv_id=conv_id, object_id=object_id, title=f"About {obj.name}", identity_id=identity_id)
+    conversation = FounderConversation(conv_id=conv_id, object_id=object_id, title=f"About {obj_name}", identity_id=identity_id)
     db.session.add(conversation)
     db.session.commit()
     return jsonify({"success": True, "data": conversation.to_dict()}), 201

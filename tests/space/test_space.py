@@ -130,6 +130,17 @@ def sample_project(store):
         name="Test Project",
     )
 
+@pytest.fixture
+def logged_in_client(client):
+    """Test client with RBAC auth context."""
+    from app import db
+    from tests.auth_helper import seed_rbac
+    org_id = seed_rbac(db, identity_id="test_identity", role_name="owner")
+    with client.session_transaction() as s:
+        s["identity_id"] = "test_identity"
+        s["current_org_id"] = org_id
+    return client
+
 
 # =========================================================================
 # 1. Universal Space Domain Model
@@ -1210,9 +1221,9 @@ class TestSpaceSingletons:
 class TestSpaceAPIRoutes:
     """Tests for Space API routes (deliverable 9)."""
 
-    def test_create_space_via_api(self, client):
+    def test_create_space_via_api(self, logged_in_client):
         """POST /api/v1/space creates a new Space."""
-        resp = client.post("/api/v1/space", json={
+        resp = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_api_001",
             "entity_type": "customer",
             "name": "API Customer",
@@ -1223,10 +1234,10 @@ class TestSpaceAPIRoutes:
         assert data["space"]["name"] == "API Customer"
         assert data["space"]["entity_type"] == "customer"
 
-    def test_get_space_via_api(self, client):
+    def test_get_space_via_api(self, logged_in_client):
         """GET /api/v1/space/<id> returns full Space."""
         # Create first
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_api_002",
             "entity_type": "supplier",
             "name": "API Supplier",
@@ -1234,7 +1245,7 @@ class TestSpaceAPIRoutes:
         space_id = create.get_json()["space"]["space_id"]
 
         # Get
-        resp = client.get(f"/api/v1/space/{space_id}")
+        resp = logged_in_client.get(f"/api/v1/space/{space_id}")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
@@ -1244,91 +1255,91 @@ class TestSpaceAPIRoutes:
         assert len(data["space"]["panels"]) >= 1
         assert "capabilities" in data["space"]
 
-    def test_get_space_not_found(self, client):
-        resp = client.get("/api/v1/space/nonexistent")
+    def test_get_space_not_found(self, logged_in_client):
+        resp = logged_in_client.get("/api/v1/space/nonexistent")
         assert resp.status_code == 404
 
-    def test_update_space_via_api(self, client):
+    def test_update_space_via_api(self, logged_in_client):
         """PUT /api/v1/space/<id> updates a Space."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_api_003",
             "entity_type": "company",
             "name": "Original",
         })
         space_id = create.get_json()["space"]["space_id"]
 
-        resp = client.put(f"/api/v1/space/{space_id}", json={
+        resp = logged_in_client.put(f"/api/v1/space/{space_id}", json={
             "name": "Updated",
         })
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["space"]["name"] == "Updated"
 
-    def test_delete_space_via_api(self, client):
+    def test_delete_space_via_api(self, logged_in_client):
         """DELETE /api/v1/space/<id> deletes a Space."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_api_004",
             "entity_type": "project",
             "name": "Delete Me",
         })
         space_id = create.get_json()["space"]["space_id"]
 
-        resp = client.delete(f"/api/v1/space/{space_id}")
+        resp = logged_in_client.delete(f"/api/v1/space/{space_id}")
         assert resp.status_code == 200
         assert resp.get_json()["message"] == "Space deleted"
 
         # Verify deletion
-        get_resp = client.get(f"/api/v1/space/{space_id}")
+        get_resp = logged_in_client.get(f"/api/v1/space/{space_id}")
         assert get_resp.status_code == 404
 
-    def test_list_spaces_via_api(self, client):
+    def test_list_spaces_via_api(self, logged_in_client):
         """GET /api/v1/space lists all Spaces."""
-        client.post("/api/v1/space", json={
+        logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_list_1", "entity_type": "customer",
             "name": "C1",
         })
-        client.post("/api/v1/space", json={
+        logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_list_2", "entity_type": "supplier",
             "name": "S1",
         })
 
-        resp = client.get("/api/v1/space")
+        resp = logged_in_client.get("/api/v1/space")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["total"] >= 2
 
-    def test_filter_spaces_by_type(self, client):
+    def test_filter_spaces_by_type(self, logged_in_client):
         """GET /api/v1/space?type=customer filters by type."""
-        client.post("/api/v1/space", json={
+        logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_f_1", "entity_type": "customer", "name": "C1",
         })
-        client.post("/api/v1/space", json={
+        logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_f_2", "entity_type": "supplier", "name": "S1",
         })
 
-        resp = client.get("/api/v1/space?type=customer")
+        resp = logged_in_client.get("/api/v1/space?type=customer")
         data = resp.get_json()
         assert all(s["entity_type"] == "customer" for s in data["spaces"])
 
-    def test_search_via_api(self, client):
+    def test_search_via_api(self, logged_in_client):
         """GET /api/v1/space/search?q=... searches Spaces."""
-        client.post("/api/v1/space", json={
+        logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_srch_1", "entity_type": "customer",
             "name": "Alpha Corp",
         })
-        client.post("/api/v1/space", json={
+        logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_srch_2", "entity_type": "supplier",
             "name": "Beta Inc",
         })
 
-        resp = client.get("/api/v1/space/search?q=Alpha")
+        resp = logged_in_client.get("/api/v1/space/search?q=Alpha")
         data = resp.get_json()
         assert data["total"] >= 1
         assert data["results"][0]["name"] == "Alpha Corp"
 
-    def test_navigate_via_api(self, client):
+    def test_navigate_via_api(self, logged_in_client):
         """POST /api/v1/space/navigate creates/opens a Space."""
-        resp = client.post("/api/v1/space/navigate", json={
+        resp = logged_in_client.post("/api/v1/space/navigate", json={
             "entity_id": "ent_nav_001",
             "entity_type": "customer",
             "name": "Navigate Customer",
@@ -1338,16 +1349,16 @@ class TestSpaceAPIRoutes:
         assert data["navigation"]["found"] is True
         assert data["navigation"]["space"]["name"] == "Navigate Customer"
 
-    def test_navigate_existing_returns_instant(self, client):
+    def test_navigate_existing_returns_instant(self, logged_in_client):
         """Navigating to an existing Space returns 'instant'."""
         # Create first
-        client.post("/api/v1/space", json={
+        logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_nav_existing",
             "entity_type": "customer",
             "name": "Existing",
         })
         # Navigate
-        resp = client.post("/api/v1/space/navigate", json={
+        resp = logged_in_client.post("/api/v1/space/navigate", json={
             "entity_id": "ent_nav_existing",
             "entity_type": "customer",
             "name": "Existing",
@@ -1355,17 +1366,17 @@ class TestSpaceAPIRoutes:
         data = resp.get_json()
         assert data["navigation"]["transition_type"] == "instant"
 
-    def test_timeline_via_api(self, client):
+    def test_timeline_via_api(self, logged_in_client):
         """POST/GET /api/v1/space/<id>/timeline."""
         # Create space
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_tl_api", "entity_type": "project",
             "name": "Timeline Project",
         })
         sid = create.get_json()["space"]["space_id"]
 
         # Add event
-        resp = client.post(f"/api/v1/space/{sid}/timeline", json={
+        resp = logged_in_client.post(f"/api/v1/space/{sid}/timeline", json={
             "event_type": "milestone",
             "title": "Milestone 1",
             "category": "execution",
@@ -1376,21 +1387,21 @@ class TestSpaceAPIRoutes:
         assert data["event"]["title"] == "Milestone 1"
 
         # Get timeline
-        resp = client.get(f"/api/v1/space/{sid}/timeline")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/timeline")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["total"] >= 1
 
-    def test_knowledge_via_api(self, client):
+    def test_knowledge_via_api(self, logged_in_client):
         """POST/GET /api/v1/space/<id>/knowledge."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_kn_api", "entity_type": "customer",
             "name": "Knowledge Customer",
         })
         sid = create.get_json()["space"]["space_id"]
 
         # Add knowledge
-        resp = client.post(f"/api/v1/space/{sid}/knowledge", json={
+        resp = logged_in_client.post(f"/api/v1/space/{sid}/knowledge", json={
             "item_type": "document",
             "title": "Contract",
             "content_summary": "Annual contract",
@@ -1398,21 +1409,21 @@ class TestSpaceAPIRoutes:
         assert resp.status_code == 201
 
         # Get knowledge
-        resp = client.get(f"/api/v1/space/{sid}/knowledge")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/knowledge")
         data = resp.get_json()
         assert data["total"] >= 1
         assert data["items"][0]["title"] == "Contract"
 
-    def test_relationships_via_api(self, client):
+    def test_relationships_via_api(self, logged_in_client):
         """POST/GET /api/v1/space/<id>/relationships."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_rel_api", "entity_type": "company",
             "name": "Rel Company",
         })
         sid = create.get_json()["space"]["space_id"]
 
         # Add relationship
-        resp = client.post(f"/api/v1/space/{sid}/relationships", json={
+        resp = logged_in_client.post(f"/api/v1/space/{sid}/relationships", json={
             "rel_id": "rel_api_001",
             "target_entity_id": "ent_target_api",
             "target_entity_name": "Target",
@@ -1422,66 +1433,66 @@ class TestSpaceAPIRoutes:
         assert resp.status_code == 201
 
         # Get relationships
-        resp = client.get(f"/api/v1/space/{sid}/relationships")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/relationships")
         data = resp.get_json()
         assert data["total"] >= 1
 
         # Get graph
-        resp = client.get(f"/api/v1/space/{sid}/relationships/graph")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/relationships/graph")
         data = resp.get_json()
         assert len(data["graph"]["nodes"]) == 2
 
-    def test_commands_via_api(self, client):
+    def test_commands_via_api(self, logged_in_client):
         """GET/POST /api/v1/space/<id>/commands."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_cmd_api", "entity_type": "customer",
             "name": "Cmd Customer",
         })
         sid = create.get_json()["space"]["space_id"]
 
         # Get available commands
-        resp = client.get(f"/api/v1/space/{sid}/commands")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/commands")
         data = resp.get_json()
         assert data["success"] is True
         assert len(data["commands"]) >= 14
 
         # Execute command
-        resp = client.post(f"/api/v1/space/{sid}/commands/summarize", json={})
+        resp = logged_in_client.post(f"/api/v1/space/{sid}/commands/summarize", json={})
         data = resp.get_json()
         assert data["success"] is True
         assert "result" in data
 
-    def test_context_via_api(self, client):
+    def test_context_via_api(self, logged_in_client):
         """GET/PUT /api/v1/space/<id>/context."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_ctx_api", "entity_type": "customer",
             "name": "Ctx Customer",
         })
         sid = create.get_json()["space"]["space_id"]
 
         # Update context
-        resp = client.put(f"/api/v1/space/{sid}/context", json={
+        resp = logged_in_client.put(f"/api/v1/space/{sid}/context", json={
             "last_position": "timeline",
             "collapsed_sections": ["metrics"],
         })
         assert resp.status_code == 200
 
         # Get context
-        resp = client.get(f"/api/v1/space/{sid}/context")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/context")
         data = resp.get_json()
         assert data["context"]["last_position"] == "timeline"
         assert "metrics" in data["context"]["collapsed_sections"]
 
-    def test_ai_understanding_via_api(self, client):
+    def test_ai_understanding_via_api(self, logged_in_client):
         """GET/PUT /api/v1/space/<id>/ai-understanding."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_ai_api", "entity_type": "customer",
             "name": "AI Customer",
         })
         sid = create.get_json()["space"]["space_id"]
 
         # Update AI understanding
-        resp = client.put(f"/api/v1/space/{sid}/ai-understanding", json={
+        resp = logged_in_client.put(f"/api/v1/space/{sid}/ai-understanding", json={
             "summary": "AI summary",
             "goals": ["Goal 1", "Goal 2"],
             "current_risks": ["Risk 1"],
@@ -1491,20 +1502,20 @@ class TestSpaceAPIRoutes:
         assert data["ai_understanding"]["summary"] == "AI summary"
 
         # Get AI understanding
-        resp = client.get(f"/api/v1/space/{sid}/ai-understanding")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/ai-understanding")
         data = resp.get_json()
         assert data["ai_understanding"]["summary"] == "AI summary"
 
-    def test_children_via_api(self, client):
+    def test_children_via_api(self, logged_in_client):
         """POST/GET /api/v1/space/<id>/children."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_parent_api", "entity_type": "company",
             "name": "Parent",
         })
         parent_sid = create.get_json()["space"]["space_id"]
 
         # Add child
-        resp = client.post(f"/api/v1/space/{parent_sid}/children", json={
+        resp = logged_in_client.post(f"/api/v1/space/{parent_sid}/children", json={
             "child_entity_id": "ent_child_api",
             "child_entity_type": "customer",
             "child_name": "Child Customer",
@@ -1514,20 +1525,20 @@ class TestSpaceAPIRoutes:
         assert data["child"]["name"] == "Child Customer"
 
         # Get children
-        resp = client.get(f"/api/v1/space/{parent_sid}/children")
+        resp = logged_in_client.get(f"/api/v1/space/{parent_sid}/children")
         data = resp.get_json()
         assert data["total"] >= 1
 
-    def test_metrics_via_api(self, client):
+    def test_metrics_via_api(self, logged_in_client):
         """POST/GET /api/v1/space/<id>/metrics."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_met_api", "entity_type": "project",
             "name": "Metrics Project",
         })
         sid = create.get_json()["space"]["space_id"]
 
         # Add metric
-        resp = client.post(f"/api/v1/space/{sid}/metrics", json={
+        resp = logged_in_client.post(f"/api/v1/space/{sid}/metrics", json={
             "name": "Progress",
             "value": 50,
             "unit": "%",
@@ -1536,23 +1547,23 @@ class TestSpaceAPIRoutes:
         assert resp.status_code == 201
 
         # Get metrics
-        resp = client.get(f"/api/v1/space/{sid}/metrics")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/metrics")
         data = resp.get_json()
         assert data["total"] >= 1
         assert data["metrics"][0]["name"] == "Progress"
 
-    def test_reset_via_api(self, client):
+    def test_reset_via_api(self, logged_in_client):
         """POST /api/v1/space/reset clears all data."""
-        client.post("/api/v1/space", json={
+        logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_reset", "entity_type": "customer",
             "name": "Reset Me",
         })
-        resp = client.post("/api/v1/space/reset")
+        resp = logged_in_client.post("/api/v1/space/reset")
         assert resp.status_code == 200
         assert resp.get_json()["message"] == "All Space stores reset"
 
         # Verify empty
-        resp = client.get("/api/v1/space")
+        resp = logged_in_client.get("/api/v1/space")
         assert resp.get_json()["total"] == 0
 
 
@@ -2125,99 +2136,99 @@ class TestSpaceComposite:
 class TestA1AAPIRoutes:
     """Tests for A1A API routes."""
 
-    def test_list_capabilities(self, client):
+    def test_list_capabilities(self, logged_in_client):
         """GET /api/v1/space/capabilities lists all capabilities."""
-        resp = client.get("/api/v1/space/capabilities")
+        resp = logged_in_client.get("/api/v1/space/capabilities")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
         assert data["total"] >= 10
 
-    def test_get_space_capabilities(self, client):
+    def test_get_space_capabilities(self, logged_in_client):
         """GET /api/v1/space/<id>/capabilities."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_cap", "entity_type": "customer",
             "name": "A1A Capabilities",
         })
         sid = create.get_json()["space"]["space_id"]
-        resp = client.get(f"/api/v1/space/{sid}/capabilities")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/capabilities")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
         assert len(data["capabilities"]) >= 1
 
-    def test_get_lifecycle(self, client):
+    def test_get_lifecycle(self, logged_in_client):
         """GET /api/v1/space/<id>/lifecycle."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_lc", "entity_type": "customer",
             "name": "A1A Lifecycle",
         })
         sid = create.get_json()["space"]["space_id"]
-        resp = client.get(f"/api/v1/space/{sid}/lifecycle")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/lifecycle")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["lifecycle"]["state"] == "draft"
 
-    def test_transition_lifecycle(self, client):
+    def test_transition_lifecycle(self, logged_in_client):
         """PUT /api/v1/space/<id>/lifecycle transitions state."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_tr", "entity_type": "customer",
             "name": "A1A Transition",
         })
         sid = create.get_json()["space"]["space_id"]
-        resp = client.put(f"/api/v1/space/{sid}/lifecycle", json={
+        resp = logged_in_client.put(f"/api/v1/space/{sid}/lifecycle", json={
             "state": "active",
         })
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["lifecycle"]["state"] == "active"
 
-    def test_transition_invalid_lifecycle(self, client):
+    def test_transition_invalid_lifecycle(self, logged_in_client):
         """Invalid lifecycle transition returns 400."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_bad", "entity_type": "customer",
             "name": "A1A Bad",
         })
         sid = create.get_json()["space"]["space_id"]
-        resp = client.put(f"/api/v1/space/{sid}/lifecycle", json={
+        resp = logged_in_client.put(f"/api/v1/space/{sid}/lifecycle", json={
             "state": "historical",
         })
         assert resp.status_code == 400
 
-    def test_get_ai_resident(self, client):
+    def test_get_ai_resident(self, logged_in_client):
         """GET /api/v1/space/<id>/ai-resident."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_res", "entity_type": "customer",
             "name": "A1A Resident",
         })
         sid = create.get_json()["space"]["space_id"]
-        resp = client.get(f"/api/v1/space/{sid}/ai-resident")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/ai-resident")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["ai_resident"]["understanding"] == ""
 
-    def test_update_ai_resident_understanding(self, client):
+    def test_update_ai_resident_understanding(self, logged_in_client):
         """PUT /api/v1/space/<id>/ai-resident updates understanding."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_und", "entity_type": "customer",
             "name": "A1A Understanding",
         })
         sid = create.get_json()["space"]["space_id"]
-        resp = client.put(f"/api/v1/space/{sid}/ai-resident", json={
+        resp = logged_in_client.put(f"/api/v1/space/{sid}/ai-resident", json={
             "understanding": "Key customer in Q4",
         })
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["ai_resident"]["understanding"] == "Key customer in Q4"
 
-    def test_update_ai_resident_risk(self, client):
+    def test_update_ai_resident_risk(self, logged_in_client):
         """PUT /api/v1/space/<id>/ai-resident adds risk."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_risk", "entity_type": "project",
             "name": "A1A Risk",
         })
         sid = create.get_json()["space"]["space_id"]
-        resp = client.put(f"/api/v1/space/{sid}/ai-resident", json={
+        resp = logged_in_client.put(f"/api/v1/space/{sid}/ai-resident", json={
             "risk": "Timeline slippage",
             "severity": "high",
             "probability": 0.6,
@@ -2226,14 +2237,14 @@ class TestA1AAPIRoutes:
         data = resp.get_json()
         assert len(data["ai_resident"]["risks"]) == 1
 
-    def test_reason_about_space(self, client):
+    def test_reason_about_space(self, logged_in_client):
         """POST /api/v1/space/<id>/reason runs reasoning."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_rsn", "entity_type": "project",
             "name": "A1A Reason",
         })
         sid = create.get_json()["space"]["space_id"]
-        resp = client.post(f"/api/v1/space/{sid}/reason", json={
+        resp = logged_in_client.post(f"/api/v1/space/{sid}/reason", json={
             "question": "Why is this project delayed?",
             "max_depth": 2,
         })
@@ -2242,78 +2253,78 @@ class TestA1AAPIRoutes:
         assert data["reasoning"]["query"] == "Why is this project delayed?"
         assert len(data["reasoning"]["trail"]) >= 1
 
-    def test_get_composition(self, client):
+    def test_get_composition(self, logged_in_client):
         """GET /api/v1/space/<id>/composition."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_comp", "entity_type": "company",
             "name": "A1A Comp",
         })
         sid = create.get_json()["space"]["space_id"]
-        resp = client.get(f"/api/v1/space/{sid}/composition")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/composition")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["composition"]["name"] == "A1A Comp"
 
-    def test_get_subtree(self, client):
+    def test_get_subtree(self, logged_in_client):
         """GET /api/v1/space/<id>/subtree."""
-        create = client.post("/api/v1/space", json={
+        create = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_tree", "entity_type": "company",
             "name": "A1A Tree",
         })
         sid = create.get_json()["space"]["space_id"]
-        resp = client.get(f"/api/v1/space/{sid}/subtree")
+        resp = logged_in_client.get(f"/api/v1/space/{sid}/subtree")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["tree"]["name"] == "A1A Tree"
 
-    def test_get_siblings_api(self, client):
+    def test_get_siblings_api(self, logged_in_client):
         """GET /api/v1/space/<id>/siblings."""
         # Create parent
-        parent = client.post("/api/v1/space", json={
+        parent = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_sib_p", "entity_type": "company",
             "name": "Sib Parent",
         })
         pid = parent.get_json()["space"]["space_id"]
 
         # Create two children
-        c1 = client.post(f"/api/v1/space/{pid}/children", json={
+        c1 = logged_in_client.post(f"/api/v1/space/{pid}/children", json={
             "child_entity_id": "ent_a1a_sib_1",
             "child_entity_type": "project",
             "child_name": "Child 1",
         })
         c1_id = c1.get_json()["child"]["space_id"]
 
-        client.post(f"/api/v1/space/{pid}/children", json={
+        logged_in_client.post(f"/api/v1/space/{pid}/children", json={
             "child_entity_id": "ent_a1a_sib_2",
             "child_entity_type": "project",
             "child_name": "Child 2",
         })
 
-        resp = client.get(f"/api/v1/space/{c1_id}/siblings")
+        resp = logged_in_client.get(f"/api/v1/space/{c1_id}/siblings")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["total"] >= 1
 
-    def test_decompose_api(self, client):
+    def test_decompose_api(self, logged_in_client):
         """POST /api/v1/space/<id>/decompose/<child_id>."""
-        parent = client.post("/api/v1/space", json={
+        parent = logged_in_client.post("/api/v1/space", json={
             "entity_id": "ent_a1a_dec_p", "entity_type": "company",
             "name": "Dec Parent",
         })
         pid = parent.get_json()["space"]["space_id"]
 
-        child = client.post(f"/api/v1/space/{pid}/children", json={
+        child = logged_in_client.post(f"/api/v1/space/{pid}/children", json={
             "child_entity_id": "ent_a1a_dec_c",
             "child_entity_type": "project",
             "child_name": "Dec Child",
         })
         cid = child.get_json()["child"]["space_id"]
 
-        resp = client.post(f"/api/v1/space/{pid}/decompose/{cid}")
+        resp = logged_in_client.post(f"/api/v1/space/{pid}/decompose/{cid}")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["message"] == "Child removed from parent"
 
         # Verify child is gone
-        resp = client.get(f"/api/v1/space/{pid}/children")
+        resp = logged_in_client.get(f"/api/v1/space/{pid}/children")
         assert resp.get_json()["total"] == 0

@@ -45,10 +45,13 @@ def client(app):
 
 @pytest.fixture(scope="function")
 def auth_headers(app, client):
-    """Create a session with auth headers."""
+    """Create a session with auth headers and RBAC context."""
+    from app import db
+    from tests.auth_helper import seed_rbac
+    org_id = seed_rbac(db, identity_id="test_identity")
     with client.session_transaction() as s:
         s["identity_id"] = "test_identity"
-        s["current_org_id"] = 1
+        s["current_org_id"] = org_id
         s["user_id"] = "test_user"
     return {"X-Identity-Id": "test_identity"}
 
@@ -63,10 +66,12 @@ def seed_data(app):
     from app.marketing.models import Campaign
     from datetime import datetime, timezone, timedelta
 
-    # Create org
-    org = Organization(id=1, name="Test Org", slug="test-org")
-    db.session.add(org)
-    db.session.flush()
+    # Create org — reuse the one seeded by auth_headers (seed_rbac) if present
+    org = db.session.get(Organization, 1)
+    if not org:
+        org = Organization(id=1, name="Test Org", slug="test-org")
+        db.session.add(org)
+        db.session.flush()
 
     # Create relationship
     rel = CanonicalRelationship(
@@ -237,14 +242,12 @@ class TestFDA16UnifiedWorkspace:
     def test_workspace_tenant_isolation(self, app, client, auth_headers, seed_data):
         """Different tenant IDs isolate data (simulated)."""
         lead = seed_data["lead"]
-        # Should return data even with different org id since SQLite doesn't enforce FKs
+        # Switch session to a foreign org — cross-org access MUST be denied
         with client.session_transaction() as s:
             s["current_org_id"] = 999
         resp = client.get(f"/api/v1/workspace/objects/{lead.id}?type=lead", headers=auth_headers)
-        assert resp.status_code == 200
-        # The identity resolution doesn't filter by org, but still works
-        data = resp.get_json()
-        assert data["success"] is True
+        # Tenant isolation: user from org 1 must not read org 999's workspace data
+        assert resp.status_code == 403
 
 
 # =========================================================================

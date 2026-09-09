@@ -128,32 +128,19 @@ def mark_onboarding_complete():
             ("Quote", "quote"),
         ]
         for obj_name, obj_type in FOUNDATIONAL_OBJECTS:
-            existing = FounderObject.query.filter_by(
-                space_id=space.space_id, object_type=obj_type
-            ).first()
-            if not existing:
-                obj_id = f"obj_{uuid.uuid4().hex[:16]}"
-                obj = FounderObject(
-                    object_id=obj_id,
-                    space_id=space.space_id,
-                    name=obj_name,
-                    object_type=obj_type,
-                    content="",
-                    status="active",
-                    created_by=identity_id[:12],
-                )
-                db.session.add(obj)
-                # Dual-write to ShunyaObject for migration
-                sh_obj = ShunyaObject(
-                    object_id=obj_id,
-                    workspace_id="migrated",
-                    object_type=obj_type,
-                    name=obj_name,
-                    content="",
-                    created_by=identity_id[:12],
-                    space_id=space.space_id,
-                )
-                db.session.add(sh_obj)
+            # Canonical object creation via ObjectService (R6B-2 convergence)
+            # replaces legacy FounderObject + ShunyaObject dual-write
+            from core.object_service import get_object_service
+            svc = get_object_service()
+            org_id = space.organization_id
+            svc.create(
+                object_type=obj_type,
+                name=obj_name,
+                organization_id=org_id or 0,
+                data={"content": ""},
+                created_by=identity_id[:12],
+                workspace_id=space.space_id,
+            )
 
     db.session.commit()
     return jsonify({

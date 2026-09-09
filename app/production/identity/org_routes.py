@@ -96,12 +96,32 @@ def _org_to_dict(org: Organization) -> dict:
 @identity_bp.route("", methods=["GET"])
 @login_required
 def list_orgs():
-    """List all organizations."""
+    """List organizations the current user belongs to (scoped by membership)."""
+    from app.models import OrgMember
+    from app.authz.decorators import _resolve_identity
+    identity = _resolve_identity()
+    if not identity:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    member_org_ids = [
+        m.organization_id for m in
+        OrgMember.query.filter_by(identity_id=identity, is_active=True).all()
+    ]
+
+    if not member_org_ids:
+        return jsonify({
+            "success": True,
+            "data": [],
+            "pagination": {"page": 1, "per_page": 20, "total": 0, "pages": 0},
+        })
+
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     per_page = min(per_page, 100)
 
-    query = Organization.query.filter_by(is_active=True)
+    query = Organization.query.filter(
+        Organization.id.in_(member_org_ids), Organization.is_active.is_(True)
+    )
     pagination = query.order_by(Organization.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )

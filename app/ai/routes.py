@@ -333,25 +333,26 @@ def chat():
                     )
                     _db.session.add(system_space)
                     _db.session.flush()
-                obj = FounderObject(
-                    object_id=conv_object_ref,
-                    space_id=system_space.space_id,
+                # Canonical conversation object via ObjectService (R6B-2).
+                # The canonical write via ObjectService → sh_objects is the
+                # single production truth. founder_conversations.object_id now
+                # references sh_objects.object_id — no legacy founder_objects
+                # row is created or required.
+                from core.object_service import get_object_service
+                svc = get_object_service()
+                org_id = _db.session.execute(
+                    _db.text("SELECT organization_id FROM org_members WHERE identity_id = :iid AND is_active = true LIMIT 1"),
+                    {"iid": identity_id or 'system'}
+                ).scalar()
+                svc.create(
                     object_type="conversation",
                     name=messages[-1].get('content', 'Conversation')[:100] if messages else 'Conversation',
+                    organization_id=org_id or 0,
+                    data={},
                     created_by=identity_id or 'system',
-                )
-                _db.session.add(obj)
-                # Dual-write to ShunyaObject for migration
-                sh_obj = ShunyaObject(
+                    workspace_id=system_space.space_id,
                     object_id=conv_object_ref,
-                    workspace_id="migrated",
-                    object_type="conversation",
-                    name=messages[-1].get('content', 'Conversation')[:100] if messages else 'Conversation',
-                    content="",
-                    created_by=identity_id or 'system',
-                    space_id=system_space.space_id,
                 )
-                _db.session.add(sh_obj)
                 _db.session.flush()
             conv = FounderConversation(
                 conv_id=conversation_id,

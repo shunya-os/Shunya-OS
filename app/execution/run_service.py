@@ -34,6 +34,8 @@ class ExecutionRunService:
         **kwargs,
     ) -> ExecutionRun:
         """Create a new ExecutionRun and persist it to the database."""
+        if not organization_id or organization_id < 1:
+            raise ValueError(f"Invalid organization_id: {organization_id}")
         execution_id = kwargs.pop("execution_id", None) or f"exec_{uuid.uuid4().hex[:12]}"
         run = ExecutionRun(
             execution_id=execution_id,

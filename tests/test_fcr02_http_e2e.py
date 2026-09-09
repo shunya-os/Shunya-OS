@@ -13,11 +13,35 @@ import pytest
 from app import db, create_app
 
 
+def _setup_rbac(identity_id: str = "test_user"):
+    """Seed RBAC context and return (org_id, identity_id).
+
+    Creates Organization + OrgMember + Role via seed_rbac(), then pairs a
+    Tenant row with id == org_id so tenant-scoped FKs (e.g. observations)
+    resolve. Idempotent: an existing active OrgMember is reused.
+    """
+    from tests.auth_helper import seed_rbac
+    from app.tenant import Tenant
+    org_id = seed_rbac(db, identity_id=identity_id)
+
+    # Ensure a Tenant row exists with id == org_id (observations FK target)
+    if db.session.get(Tenant, org_id) is None:
+        db.session.add(Tenant(
+            id=org_id,
+            company_name=f"Test Org {identity_id[:8]}",
+            slug=f"t-{identity_id[:8]}-{org_id}",
+            business_type="tech",
+            is_active=True,
+        ))
+        db.session.commit()
+    return org_id, identity_id
+
+
 @pytest.fixture(scope="module")
 def app():
-    _app = create_app()
-    _app.config["TESTING"] = True
-    _app.config["WTF_CSRF_ENABLED"] = False
+    _app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "WTF_CSRF_ENABLED": False})
+    with _app.app_context():
+        db.create_all()
     return _app
 
 
@@ -42,7 +66,7 @@ def clean_test_data(app):
 # ---------------------------------------------------------------------------
 
 def _ask(app, question: str, action: str = "", execute: bool = False,
-          identity_id: str = "test_user", tenant_id: str = "89",
+          identity_id: str = "test_user", org_id: int = None,
           session_override: dict | None = None) -> dict:
     """Simulate a POST to /api/v1/intelligence/ask with session context."""
     with app.test_request_context(
@@ -62,8 +86,8 @@ def _ask(app, question: str, action: str = "", execute: bool = False,
         session_data = session_override if session_override is not None else {
             "identity_id": identity_id,
             "user_id": identity_id,
-            "current_org_id": tenant_id,
-            "tenant_id": tenant_id,
+            "current_org_id": org_id or 89,
+            "tenant_id": str(org_id or 89),
         }
         for k, v in session_data.items():
             session[k] = v
@@ -92,7 +116,8 @@ class TestReadPathHTTP:
     def test_read_query_returns_200_with_answer(self, app):
         """Prove a basic read query returns success with answer."""
         with app.app_context():
-            result = _ask(app, "What is the status of my leads?")
+            org_id, _ = _setup_rbac()
+            result = _ask(app, "What is the status of my leads?", org_id=org_id)
 
             assert result["status_code"] == 200, \
                 f"Expected 200, got {result['status_code']}: {result}"
@@ -104,7 +129,8 @@ class TestReadPathHTTP:
     def test_read_query_includes_pipeline_stages(self, app):
         """Prove the response includes pipeline stage tracking."""
         with app.app_context():
-            result = _ask(app, "Show me my recent documents")
+            org_id, _ = _setup_rbac()
+            result = _ask(app, "Show me my recent documents", org_id=org_id)
 
             pipe = result["data"].get("pipeline", [])
             stage_names = [p["stage"] for p in pipe]
@@ -126,7 +152,8 @@ class TestReadPathHTTP:
             before_ex = Execution.query.count()
             before_out = Outcome.query.count()
 
-            result = _ask(app, "What is my current pipeline status?")
+            org_id, _ = _setup_rbac()
+            result = _ask(app, "What is my current pipeline status?", org_id=org_id)
 
             # Should have created evidence
             after_ev = EvidenceRecord.query.count()
@@ -142,7 +169,8 @@ class TestReadPathHTTP:
     def test_read_query_has_execution_chain_in_response(self, app):
         """Prove the HTTP response includes execution chain data."""
         with app.app_context():
-            result = _ask(app, "Show me my invoices")
+            org_id, _ = _setup_rbac()
+            result = _ask(app, "Show me my invoices", org_id=org_id)
 
             chain = result["data"].get("execution_chain")
             assert chain is not None, "Response should include execution_chain"
@@ -173,8 +201,9 @@ class TestActionPathHTTP:
     def test_action_query_returns_200_with_chain(self, app):
         """Prove action query returns success with execution chain."""
         with app.app_context():
+            org_id, _ = _setup_rbac()
             result = _ask(app, "Create a new task for follow-up",
-                          action="create", execute=True)
+                          action="create", execute=True, org_id=org_id)
 
             assert result["status_code"] == 200, \
                 f"Expected 200, got {result['status_code']}: {result}"
@@ -189,8 +218,9 @@ class TestActionPathHTTP:
             from app.execution_engine.models import Execution
             from core.execution_chain import ExecutionState
 
+            org_id, _ = _setup_rbac()
             result = _ask(app, "Send proposal to Acme Corp",
-                          action="send", execute=True)
+                          action="send", execute=True, org_id=org_id)
             chain = result["data"].get("execution_chain", {})
             exec_id = chain.get("execution_id")
 
@@ -207,8 +237,9 @@ class TestActionPathHTTP:
             from app.execution_engine.models import Execution
             from app.evidence.models_db import EvidenceRecord
 
+            org_id, _ = _setup_rbac()
             result = _ask(app, "Approve invoice INV-005",
-                          action="approve", execute=True)
+                          action="approve", execute=True, org_id=org_id)
             chain = result["data"].get("execution_chain", {})
 
             if chain.get("decision_trace_id"):
@@ -239,7 +270,8 @@ class TestMemoryLearningLoop:
                 source="execution_chain"
             ).count()
 
-            result = _ask(app, "What is the status of my sales pipeline?")
+            org_id, _ = _setup_rbac()
+            result = _ask(app, "What is the status of my sales pipeline?", org_id=org_id)
             chain = result["data"].get("execution_chain", {})
 
             after = MemoryRecord.query.filter_by(
@@ -257,10 +289,11 @@ class TestMemoryLearningLoop:
         with app.app_context():
             # First interaction: create a memory via the bridge
             from core.execution_chain import record_read_chain
+            org_id, _ = _setup_rbac(identity_id="memory_test_user")
             chain = record_read_chain(
                 query="My preferred contact method is email",
                 identity_id="memory_test_user",
-                tenant_id=89,
+                tenant_id=org_id,
                 response_summary="Noted: preferred contact method is email",
             )
             assert chain["observation_id"] is not None, \
@@ -271,7 +304,7 @@ class TestMemoryLearningLoop:
             # Use a different question to see if the memory is picked up.
             result = _ask(app, "What is my preferred contact method?",
                           identity_id="memory_test_user",
-                          tenant_id="89")
+                          org_id=org_id)
 
             # The answer should reference the memory
             answer = (result["data"].get("answer", "") or "").lower()
@@ -290,8 +323,9 @@ class TestMemoryLearningLoop:
 
             # Create memory in tenant 89
             from core.observation_memory_bridge import bridge_pending_observations
+            org_id_a, _ = _setup_rbac(identity_id="user_a")
             chain_a = _ask(app, "My budget is $10,000",
-                          identity_id="user_a", tenant_id="89")
+                          identity_id="user_a", org_id=org_id_a)
 
             # Count memory records for tenant 89 vs non-existent tenant
             mem_89 = MemoryRecord.query.filter_by(tenant_id=89).count()
@@ -312,14 +346,16 @@ class TestFailureModes:
     def test_empty_question_returns_400(self, app):
         """Prove empty question returns 400."""
         with app.app_context():
-            result = _ask(app, "")
+            org_id, _ = _setup_rbac()
+            result = _ask(app, "", org_id=org_id)
             assert result["status_code"] == 400, \
                 f"Expected 400, got {result['status_code']}"
 
     def test_missing_question_returns_400(self, app):
         """Prove missing question field returns 400."""
         with app.app_context():
-            result = _ask(app, "")  # Empty question triggers 400
+            org_id, _ = _setup_rbac()
+            result = _ask(app, "", org_id=org_id)  # Empty question triggers 400
             assert result["status_code"] == 400, \
                 f"Expected 400, got {result['status_code']}"
 
@@ -334,8 +370,9 @@ class TestFailureModes:
             reasoning._handler = None
             reasoning.status = "UNWIRED"
 
+            org_id, _ = _setup_rbac()
             try:
-                result = _ask(app, "What is my lead status?")
+                result = _ask(app, "What is my lead status?", org_id=org_id)
                 # Should still return 200 even with broken pipeline
                 assert result["status_code"] == 200, \
                     f"Graceful degradation failed: {result}"
@@ -365,8 +402,9 @@ class TestCapabilityRoutingHTTP:
         # Instead, verify that the pipeline stages include the SHUNYAAI
         # pipeline which routes through the capability registry.
         with app.app_context():
+            org_id, _ = _setup_rbac()
             result = _ask(app, "Create an invoice for $5000",
-                          action="create", execute=True)
+                          action="create", execute=True, org_id=org_id)
             pipeline = result["data"].get("pipeline", [])
             shunyaai_stage = next(
                 (p for p in pipeline if p["stage"] == "shunyaai_pipeline"),

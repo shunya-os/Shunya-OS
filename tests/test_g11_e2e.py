@@ -103,9 +103,9 @@ def _setup_rbac_context(app):
 
 @pytest.fixture(scope="module")
 def app():
-    _app = create_app()
-    _app.config["TESTING"] = True
-    _app.config["WTF_CSRF_ENABLED"] = False
+    _app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "WTF_CSRF_ENABLED": False})
+    with _app.app_context():
+        db.create_all()
     return _app
 
 

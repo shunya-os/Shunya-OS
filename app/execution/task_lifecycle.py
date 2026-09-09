@@ -87,7 +87,7 @@ class TaskLifecycle(db.Model):
         if result_detail is not None:
             self.result_detail = result_detail
         if self.started_at:
-            self.duration_seconds = (self.completed_at - self.started_at).total_seconds()
+            self.duration_seconds = _elapsed_seconds(self.started_at, self.completed_at)
         logger.info("TaskLifecycle %s completed", self.task_id)
 
     def fail(self, result_summary=None, outcome="failed"):
@@ -98,7 +98,7 @@ class TaskLifecycle(db.Model):
         if result_summary:
             self.result_summary = result_summary
         if self.started_at:
-            self.duration_seconds = (self.completed_at - self.started_at).total_seconds()
+            self.duration_seconds = _elapsed_seconds(self.started_at, self.completed_at)
         logger.warning("TaskLifecycle %s failed", self.task_id)
 
     def enter_phase(self, phase: str):

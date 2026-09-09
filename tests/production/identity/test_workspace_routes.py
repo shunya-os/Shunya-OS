@@ -29,9 +29,13 @@ def admin_user(app, _db):
 
 
 @pytest.fixture(scope="function")
-def logged_in_client(app, client, admin_user):
+def logged_in_client(app, client, admin_user, _db):
+    from tests.auth_helper import seed_rbac
+    org_id = seed_rbac(_db, identity_id="admin@test.com")
     with client.session_transaction() as session:
         session["user_id"] = admin_user.id
+        session["identity_id"] = "admin@test.com"
+        session["current_org_id"] = org_id
         session["_fresh"] = True
     return client
 

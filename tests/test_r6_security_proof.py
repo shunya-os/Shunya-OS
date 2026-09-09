@@ -160,3 +160,57 @@ class TestBehavioralRBAC:
             assert resp.status_code in (400, 401, 403, 404, 405), (
                 f"Route {method} {path} returned {resp.status_code} without auth"
             )
+
+class TestPDFKitSecurity:
+    """PDF generation security: caller options cannot re-enable JavaScript."""
+
+    def _capture_options(self, extra_options=None):
+        """Call generate_pdf with patched pdfkit, return the options dict used."""
+        from app.pdf_safe import generate_pdf
+        import tempfile, os, sys, types
+
+        captured = {}
+
+        def fake_from_string(html, output_path, options=None):
+            captured["options"] = options
+            with open(output_path, "wb") as f:
+                f.write(b"%PDF-1.4 test")
+
+        # Replace sys.modules['pdfkit'] so the function-local `import pdfkit`
+        # resolves to our fake. Restore the original afterwards.
+        original_module = sys.modules.get("pdfkit")
+        fake_module = types.ModuleType("pdfkit")
+        fake_module.from_string = fake_from_string
+        sys.modules["pdfkit"] = fake_module
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                out = os.path.join(td, "out.pdf")
+                generate_pdf("<html><body>Hello</body></html>", out, extra_options=extra_options)
+        finally:
+            if original_module is not None:
+                sys.modules["pdfkit"] = original_module
+            else:
+                sys.modules.pop("pdfkit", None)
+        return captured.get("options", {})
+
+    def test_caller_cannot_reenable_javascript(self, app, client):
+        """Negative test: caller-supplied enable-javascript is overridden."""
+        options = self._capture_options({
+            "enable-javascript": "",
+            "javascript-delay": "2000",
+            "run-script": "evil.js",
+        })
+        # Security invariants must be present and enforce no-JS
+        assert options.get("no-javascript") == ""
+        assert options.get("disable-javascript") == ""
+        # The caller's enable-javascript attempt must not survive as a toggle
+        assert "enable-javascript" not in options or options.get("enable-javascript") in ("", None)
+        # javascript-delay must stay at the safe 0
+        assert str(options.get("javascript-delay")) == "0"
+
+    def test_caller_cannot_disable_security_defaults(self, app, client):
+        """Negative test: security keys enforced even when caller omits them."""
+        options = self._capture_options({})
+        assert options.get("no-javascript") == ""
+        assert options.get("disable-javascript") == ""
+        assert str(options.get("javascript-delay")) == "0"

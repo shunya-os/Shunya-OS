@@ -9,8 +9,10 @@ from datetime import datetime, timezone
 
 @pytest.fixture(scope="module")
 def app():
-    from app import create_app
-    _app = create_app({"TESTING": True, "WTF_CSRF_ENABLED": False})
+    from app import create_app, db
+    _app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "WTF_CSRF_ENABLED": False})
+    with _app.app_context():
+        db.create_all()
     return _app
 
 

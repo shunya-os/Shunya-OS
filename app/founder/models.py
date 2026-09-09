@@ -58,8 +58,10 @@ class FounderObject(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    conversations = db.relationship("FounderConversation", backref="object",
-                                    lazy="dynamic", cascade="all, delete-orphan")
+    # NOTE: FounderObject.conversations relationship removed (R6B-2).
+    # FounderConversation.object_id now references sh_objects.object_id
+    # (canonical store) — it is no longer bound to founder_objects.
+    # Query FounderConversation directly by object_id when needed.
 
     def to_dict(self):
         return {
@@ -72,7 +74,7 @@ class FounderObject(db.Model):
             "created_by": self.created_by[:12] + "..." if self.created_by else "",
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "conversation_count": self.conversations.count(),
+            "conversation_count": FounderConversation.query.filter_by(object_id=self.object_id).count(),
         }
 
 
@@ -82,7 +84,7 @@ class FounderConversation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     conv_id = db.Column(db.String(64), unique=True, nullable=False, index=True)
-    object_id = db.Column(db.String(64), db.ForeignKey("founder_objects.object_id"),
+    object_id = db.Column(db.String(64), db.ForeignKey("sh_objects.object_id"),
                           nullable=False, index=True)
     title = db.Column(db.String(255), default="")
     identity_id = db.Column(db.String(64), nullable=False)

@@ -118,8 +118,18 @@ class IdentityResolutionService:
             org_tbl = db.metadata.tables.get("org_members")
             if org_tbl is None:
                 org_tbl = Table("org_members", MetaData(), autoload_with=db.engine)
+            # Canonical lookup: org_members.identity_id is the primary key.
+            # The identity_id may be an email, a UUID, or a legacy user id —
+            # it is set for every OrgMember row. Fall back to email column
+            # for legacy rows where identity_id was not populated.
+            from sqlalchemy import or_
             org_member = db.session.execute(
-                org_tbl.select().where(org_tbl.c.email == email)
+                org_tbl.select().where(
+                    or_(
+                        org_tbl.c.identity_id == identity_id,
+                        org_tbl.c.email == identity_id,
+                    )
+                ).order_by(org_tbl.c.id)
             ).first()
             if org_member:
                 org_id = org_member.organization_id

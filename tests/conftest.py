@@ -1,5 +1,4 @@
-"""
-Pytest configuration for Shunya OS tests — canonical infrastructure.
+"""Pytest configuration for Shunya OS tests - canonical infrastructure.
 
 Provides fixtures backed by the production create_app() factory and the
 global db instance. Replaces the old _test_db approach that had dead-code
@@ -7,10 +6,54 @@ inline model definitions.
 
 Exposes:
     app, client, db, tenant, test_tenant, admin_user, logged_in_client
-    real_app  (alias for app — backward compat for phase test files)
+    real_app  (alias for app - backward compat for phase test files)
 """
 
 import os
+
+# ---- GLOBAL TEST ENVIRONMENT SAFETY CHECK (Directive 04/05) -----------------
+# Fail closed at pytest startup if the test environment could reach production,
+# shared, or any non-isolated database. This is a MANDATORY invariant.
+# Rejects: missing DB, production PostgreSQL, remote PostgreSQL, shared DB,
+# ambiguous DB configuration, .env fallback to production.
+
+_DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
+# Safety-critical patterns that must be rejected if used as a test database.
+# These represent production PostgreSQL on localhost, shared/CI databases, or
+# any .env-inherited production configuration that a test should never touch.
+_REJECTED_PATTERNS = [
+    "shunya",           # Production database name component
+    "postgresql://",    # Any PostgreSQL without explicit sqlite override
+]
+
+# Explicitly permitted configurations (test-verified safe)
+_IS_SQLITE_MEMORY = _DATABASE_URL == "sqlite:///:memory:"
+_IS_SQLITE_FILE = _DATABASE_URL.startswith("sqlite:///") and "shunya" not in _DATABASE_URL
+
+# Determine if DATABASE_URL is set at all
+_HAS_DATABASE_URL = bool(_DATABASE_URL)
+
+# Detect production-like PostgreSQL
+_IS_PRODUCTION_LIKE = (
+    any(p in _DATABASE_URL.lower() for p in _REJECTED_PATTERNS)
+    and not _IS_SQLITE_MEMORY
+    and not _IS_SQLITE_FILE
+)
+
+if _HAS_DATABASE_URL and _IS_PRODUCTION_LIKE:
+    raise RuntimeError(
+        f"DATABASE_URL ({_DATABASE_URL}) appears to point at a production/"
+        f"shared/non-isolated database. Tests must use sqlite:///:memory: "
+        f"or an explicitly provisioned isolated test database."
+    )
+
+if not _HAS_DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is not set. Tests require an explicit DATABASE_URL "
+        "pointing to an isolated test database. "
+        "Set DATABASE_URL=sqlite:///:memory: to use SQLite in-memory."
+    )
 
 # Prevent uncontrolled external AI provider calls during tests.
 # LocalProvider is deterministic and makes zero network I/O.
@@ -44,17 +87,19 @@ def app():
         "WTF_CSRF_ENABLED": False,
     })
     with application.app_context():
-        # Register all models before create_all — some are only imported
+        # Register all models before create_all - some are only imported
         # lazily inside create_app's context processor / middleware.
         from app import models  # noqa: F401
         from app.tenant import Tenant  # noqa: F401
+        from app.objects.legacy_models import ShunyaObject, Workspace as LegacyWorkspace  # noqa: F401
+        from app.founder import models as _founder_models  # noqa: F401
         from app.communication import models as _comm_models  # noqa: F401
         from app.communication.email_models import EmailRecord  # noqa: F401
         from app.privacy import models as _privacy_models  # noqa: F401
         from app.human_context import models as _hc_models  # noqa: F401
         from app.memory import models as _mem_models  # noqa: F401
         from app.evidence import models as _ev_models  # noqa: F401
-        from app.execution import models as _exec_models  # noqa: F401 — registers IdempotencyRecord, Outcome
+        from app.execution import models as _exec_models  # noqa: F401 - registers IdempotencyRecord, Outcome
         from app.marketing import models as _mkt_models  # noqa: F401
         from app.document import models as _doc_models  # noqa: F401
         from app.llm import models as _llm_models  # noqa: F401
@@ -88,11 +133,11 @@ def app():
         from app.enterprise.models import (  # noqa: F401
             AuditRecord, EnterpriseRole, EnterpriseTeamMember,
         )
-        # Enterprise Security — CRUD Audit Log
+        # Enterprise Security - CRUD Audit Log
         from app.security.audit import AuditLog  # noqa: F401
-        # ACT-02 — Execution Log
+        # ACT-02 - Execution Log
         from app.execution_log.models import ExecutionLog  # noqa: F401
-        # FDA26 — Developer/Integration Platform models
+        # FDA26 - Developer/Integration Platform models
         from app.platform.models import (  # noqa: F401
             WebhookDelivery,
             WebhookSubscription,
@@ -105,7 +150,7 @@ def app():
 # Alias for backward compatibility with phase test files that use `real_app`
 @pytest.fixture(scope="function")
 def real_app(app):
-    """Alias for the app fixture — backward compat with existing tests."""
+    """Alias for the app fixture - backward compat with existing tests."""
     return app
 
 

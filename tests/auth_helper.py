@@ -29,7 +29,10 @@ def seed_rbac(db, identity_id: str = "test_identity", role_name: str = "admin") 
     if existing:
         return existing.organization_id
 
-    slug = f"test-org-{identity_id[:8]}"
+    # Unique slug per identity — emails can share first 8 chars (slug is unique)
+    import hashlib
+    digest = hashlib.sha1(identity_id.encode("utf-8")).hexdigest()[:8]
+    slug = f"test-org-{digest}"
     org = Organization(name="Test Org", slug=slug, is_active=True)
     db.session.add(org)
     db.session.flush()

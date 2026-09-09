@@ -49,6 +49,28 @@ class TestWebhookCRUD:
         data.update(overrides)
         return data
 
+    @pytest.fixture(scope="function", autouse=True)
+    def _auth_context(self, app, client):
+        """Seed RBAC context and set session for all tests in this class."""
+        from tests.auth_helper import seed_rbac
+
+        org_id = seed_rbac(db, identity_id="test-user-1")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test-user-1"
+            s["current_org_id"] = org_id
+        return
+
+    def _authed_client(self, app, identity_id: str):
+        """Fresh client with RBAC context + session seeded for identity_id."""
+        from tests.auth_helper import seed_rbac
+
+        org_id = seed_rbac(db, identity_id=identity_id)
+        c = app.test_client()
+        with c.session_transaction() as s:
+            s["identity_id"] = identity_id
+            s["current_org_id"] = org_id
+        return c
+
     def test_create_webhook(self, client):
         resp = client.post(
             self.ROUTE,
@@ -106,9 +128,11 @@ class TestWebhookCRUD:
         )
         assert resp.status_code == 400
 
-    def test_create_webhook_no_auth(self, client):
-        resp = client.post(self.ROUTE, json=self._valid_webhook())
-        assert resp.status_code == 401
+    def test_create_webhook_no_auth(self, app, client):
+        """No auth = 401. Use a fresh client to avoid session carryover."""
+        with app.test_client() as anon_client:
+            resp = anon_client.post(self.ROUTE, json=self._valid_webhook())
+            assert resp.status_code == 401
 
     def test_create_duplicate_url(self, client):
         """Same identity + same URL = unique constraint violation."""
@@ -127,15 +151,11 @@ class TestWebhookCRUD:
             json=self._valid_webhook(),
             headers=self._auth_headers("user-a"),
         )
-        # User B lists — same session is shared, so identity comes from
-        # the session. Use a fresh client to get a clean session.
-        # Simulate by sending the header; the list endpoint uses header
-        # when no session identity is set.
-        with app.test_client() as client_b:
-            # Use a second client without the session cookie from A
-            resp = client_b.get(self.ROUTE, headers=self._auth_headers("user-b"))
-            assert resp.status_code == 200
-            assert len(resp.get_json()["data"]["webhooks"]) == 0
+        # User B lists — fresh client with its own org membership.
+        client_b = self._authed_client(app, "user-b")
+        resp = client_b.get(self.ROUTE, headers=self._auth_headers("user-b"))
+        assert resp.status_code == 200
+        assert len(resp.get_json()["data"]["webhooks"]) == 0
 
     def test_list_webhooks(self, client):
         headers = self._auth_headers()
@@ -167,13 +187,13 @@ class TestWebhookCRUD:
             headers=self._auth_headers("user-a"),
         )
         wh_id = create.get_json()["data"]["id"]
-        with app.test_client() as client_b:
-            resp = client_b.put(
-                f"{self.ROUTE}/{wh_id}",
-                json={"label": "Hacked"},
-                headers=self._auth_headers("user-b"),
-            )
-            assert resp.status_code == 404
+        client_b = self._authed_client(app, "user-b")
+        resp = client_b.put(
+            f"{self.ROUTE}/{wh_id}",
+            json={"label": "Hacked"},
+            headers=self._auth_headers("user-b"),
+        )
+        assert resp.status_code == 404
 
     def test_delete_webhook(self, client):
         headers = self._auth_headers()
@@ -194,9 +214,9 @@ class TestWebhookCRUD:
             headers=self._auth_headers("user-a"),
         )
         wh_id = create.get_json()["data"]["id"]
-        with app.test_client() as client_b:
-            resp = client_b.delete(f"{self.ROUTE}/{wh_id}", headers=self._auth_headers("user-b"))
-            assert resp.status_code == 404
+        client_b = self._authed_client(app, "user-b")
+        resp = client_b.delete(f"{self.ROUTE}/{wh_id}", headers=self._auth_headers("user-b"))
+        assert resp.status_code == 404
 
     def test_rotate_secret(self, client):
         headers = self._auth_headers()
@@ -217,6 +237,17 @@ class TestWebhookCRUD:
 
 class TestWebhookDelivery:
     """Test webhook delivery with HMAC signature, idempotency, retry."""
+
+    @pytest.fixture(scope="function", autouse=True)
+    def _auth_context(self, app, client):
+        """Seed RBAC context for identity 'test' used by test_test_webhook_endpoint."""
+        from tests.auth_helper import seed_rbac
+
+        org_id = seed_rbac(db, identity_id="test")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test"
+            s["current_org_id"] = org_id
+        return
 
     def test_compute_signature(self):
         """HMAC signature is computed correctly."""
@@ -341,9 +372,23 @@ class TestOpenAPI:
 
 
 class TestDiagnostics:
-    def test_diagnostics_requires_auth(self, client):
-        resp = client.get("/api/v1/platform/diagnostics")
-        assert resp.status_code == 401
+
+    @pytest.fixture(scope="function", autouse=True)
+    def _auth_context(self, app, client):
+        """Seed RBAC context for diagnostics identity 'test'."""
+        from tests.auth_helper import seed_rbac
+
+        org_id = seed_rbac(db, identity_id="test")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test"
+            s["current_org_id"] = org_id
+        return
+
+    def test_diagnostics_requires_auth(self, app, client):
+        """No auth = 401. Use a fresh client to avoid session carryover."""
+        with app.test_client() as anon_client:
+            resp = anon_client.get("/api/v1/platform/diagnostics")
+            assert resp.status_code == 401
 
     def test_diagnostics_returns_route_count(self, client):
         headers = {"X-Identity-Id": "test"}
