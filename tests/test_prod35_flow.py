@@ -1,4 +1,21 @@
 def test_full_flow(app, client):
+    # Set up auth context
+    from tests.auth_helper import seed_rbac
+    from app import db
+    from app.auth import TeamMember
+    with app.app_context():
+        org_id = seed_rbac(db)
+    admin = TeamMember.query.filter_by(email="admin@test.com").first()
+    if not admin:
+        admin = TeamMember(name="Admin", email="admin@test.com", role="admin", is_active=True)
+        admin.set_password("test")
+        db.session.add(admin)
+        db.session.commit()
+    with client.session_transaction() as sess:
+        sess["user_id"] = admin.id
+        sess["identity_id"] = "test_identity"
+        sess["current_org_id"] = str(org_id)
+
     """A lead can be created via the canonical API and progresses through the pipeline."""
     from app.models import set_lead_tenant_id
     from app.tenant import Tenant

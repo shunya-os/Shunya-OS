@@ -660,7 +660,7 @@ def create_app(config_override: dict | None = None):
         PUBLIC_PREFIXES = (
             "/health", "/ready", "/live", "/metrics",
             "/static/", "/screenshots/", "/reports/",
-            "/auth/", "/login", "/logout",
+            "/auth/", "/api/v1/auth/", "/api/v1/founder/signin", "/login", "/logout",
             "/forgot-password", "/reset-password",
             "/verify-email", "/request-verification",
             "/change-password",

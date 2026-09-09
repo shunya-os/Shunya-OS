@@ -39,22 +39,12 @@ if _PROJECT_ROOT not in sys.path:
 
 import os
 from dotenv import load_dotenv
-from urllib.parse import urlparse
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
-_PROD_URL = os.getenv("DATABASE_URL", "")
-# Build the test URI from the production URL, swapping port and db name
-# Uses proper URL parsing to extract the password
-if _PROD_URL:
-    parsed = urlparse(_PROD_URL)
-    password = parsed.password
-    user = parsed.username or "shunya"
-    host = parsed.hostname or "localhost"
-    # On port 5433, shunya has CREATEDB privilege for the dedicated test DB
-    pw_part = f":{password}" if password else ""
-    TEST_DB_URI = f"postgresql://{user}{pw_part}@{host}:5433/shunya_test_prod06"
-else:
-    TEST_DB_URI = "postgresql://shunya@localhost:5433/shunya_test_prod06"
+# Use a file-based SQLite database for process isolation testing.
+# WAL mode allows concurrent readers/writers across processes.
+_TEST_DB_PATH = os.path.join(os.path.dirname(__file__), "test_prod06.db")
+TEST_DB_URI = f"sqlite:///{_TEST_DB_PATH}"
 
 # ---------------------------------------------------------------------------
 # Child process entry point
@@ -246,6 +236,10 @@ def test_concurrent_decision_boundary_via_processes():
         from app.execution_log.models import ExecutionLog  # noqa: F401
         from app.signals.models import Signal  # noqa: F401
         db.create_all()
+        # Enable WAL mode for SQLite concurrent process access
+        from sqlalchemy import text
+        db.session.execute(text("PRAGMA journal_mode=WAL;"))
+        db.session.commit()
 
     # Step 2: Seed a shared entity (and its evidence) in the test database
     entity_id = _seed_test_entity(TEST_DB_URI)
@@ -416,3 +410,14 @@ def test_concurrent_decision_boundary_via_processes():
         ).delete(synchronize_session=False)
         Object.query.filter_by(id=entity_id).delete(synchronize_session=False)
         db.session.commit()
+
+    # Clean up the SQLite file
+    try:
+        os.remove(_TEST_DB_PATH)
+    except OSError:
+        pass
+    for suffix in ("-wal", "-shm"):
+        try:
+            os.remove(_TEST_DB_PATH + suffix)
+        except OSError:
+            pass
