@@ -1,8 +1,12 @@
 """Idempotency Guard — prevents duplicate event/execution processing.
 
-Uses evidence records as the canonical idempotency store with a
-database-level unique constraint on (source_type, source_id) for
-atomic check-then-create semantics.
+Uses the dedicated execution_idempotency table which has a unique
+constraint on idempotency_key (source_type + ":" + source_id) for
+atomic check-then-create semantics under concurrent writes.
+
+Evidence records are used for the actual evidence chain and do not
+carry the idempotency constraint (multiple evidence records per
+execution run are allowed for different evidence types).
 
 The guard is FAIL-CLOSED: if the persistence layer is unavailable,
 the guard returns a failure result rather than allowing potential
@@ -20,16 +24,17 @@ logger = logging.getLogger(__name__)
 class IdempotencyGuard:
     """Prevents duplicate processing of events and execution requests.
 
-    Uses the canonical evidence store with a DB-level unique constraint
-    on (source_type, source_id). The database provides atomic mutual
-    exclusion for concurrent deliveries.
+    Uses the execution_idempotency table with a DB-level unique constraint
+    on idempotency_key for atomic mutual exclusion. The key is derived
+    from source_type + ":" + source_id.
     """
 
     def guard(self, source_type: str, source_id: str, metadata: Optional[dict] = None) -> dict:
         """Check idempotency and mark as processed in one logical operation.
 
-        Uses DB-level unique constraint for atomicity: the database
-        prevents two concurrent deliveries from both passing the check.
+        Uses DB-level unique constraint on the execution_idempotency table
+        for atomicity: the database prevents two concurrent deliveries from
+        both passing the check.
 
         Returns:
             dict with:
@@ -38,31 +43,28 @@ class IdempotencyGuard:
                 - idempotency_check_failed: True if the guard could not
                   establish idempotency (persistence unavailable)
                 - reason: Explanation string
-
-        Raises:
-            RuntimeError: If persistence fails and idempotency cannot
-                be established. The caller must NOT proceed with execution.
         """
-        from app.evidence.models_db import EvidenceRecord
+        from app.execution.models import IdempotencyRecord
         from app.core.db import get_session
+        from datetime import datetime, timezone
 
-        # Try to create the evidence record atomically.
-        # The DB-level unique constraint on (source_type, source_id)
-        # ensures that only one of two concurrent deliveries succeeds.
+        idempotency_key = f"{source_type}:{source_id}"
+
         session = None
         try:
-            from app.evidence.models_db import EvidenceRecord
+            from app.execution.models import IdempotencyRecord
             from app.core.db import get_session
             session = get_session()
-            ev = EvidenceRecord(
-                source_type=source_type,
-                source_id=source_id,
-                raw_reference=metadata if metadata else {},
+            record = IdempotencyRecord(
+                idempotency_key=idempotency_key,
+                outcome_id="pending",
+                identity_id="system",
+                created_at=datetime.now(timezone.utc),
             )
-            session.add(ev)
+            session.add(record)
             session.commit()
 
-            logger.info("IdempotencyGuard: first-time %s:%s", source_type, source_id)
+            logger.info("IdempotencyGuard: first-time %s", idempotency_key)
             return {
                 "processed": True,
                 "skipped": False,
@@ -73,7 +75,7 @@ class IdempotencyGuard:
         except IntegrityError:
             if session:
                 session.rollback()
-            logger.info("IdempotencyGuard: duplicate %s:%s", source_type, source_id)
+            logger.info("IdempotencyGuard: duplicate %s", idempotency_key)
             return {
                 "processed": False,
                 "skipped": True,
@@ -88,8 +90,8 @@ class IdempotencyGuard:
                 except Exception:
                     pass
             logger.error(
-                "IdempotencyGuard: FAILED for %s:%s — %s",
-                source_type, source_id, e,
+                "IdempotencyGuard: FAILED for %s — %s",
+                idempotency_key, e,
             )
             # FAIL-CLOSED: cannot establish idempotency → must not authorize execution.
             return {

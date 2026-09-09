@@ -53,6 +53,7 @@ def app_context():
         from app.execution.models import Outcome, IdempotencyRecord  # noqa
         from app.execution_log.models import ExecutionLog  # noqa
         from app.objects.models import Object  # noqa
+        from app.production.identity_repository import SHUNYAIdentityModel  # noqa
         _db.create_all()
         yield app
         session = get_session()
@@ -214,12 +215,15 @@ def test_idempotency_only_one_evidence_record(clean_db, app_context):
     # Second delivery — this should be caught as duplicate
     guard.guard("webhook", "wh-003")
     
-    # Only one evidence record should exist
+    # Only one idempotency record should exist in execution_idempotency
     session = get_session()
-    records = session.query(EvidenceRecord).filter_by(
-        source_type="webhook", source_id="wh-003"
+    from app.execution.models import IdempotencyRecord
+    records = session.query(IdempotencyRecord).filter_by(
+        idempotency_key="webhook:wh-003"
     ).all()
-    assert len(records) == 1, f"Expected 1 evidence record, got {len(records)}"
+    assert len(records) == 1, (
+        f"Expected 1 idempotency record, got {len(records)}"
+    )
 
 
 def test_idempotency_different_ids_both_processed(clean_db, app_context):

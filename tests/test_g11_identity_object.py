@@ -22,17 +22,11 @@ def _ensure_org_and_user(app, email: str, org_id: int, org_name: str = "Test Org
     """
     from sqlalchemy import text
     with app.app_context():
-        # Create organization if it doesn't exist
-        org = db.session.execute(
-            text("SELECT id FROM organizations WHERE id = :oid"), {"oid": org_id}
-        ).first()
-        if not org:
-            from datetime import datetime, timezone
-            db.session.execute(
-                text("INSERT INTO organizations (id, name, slug, created_at, updated_at) VALUES (:oid, :name, :slug, :now, :now)"),
-                {"oid": org_id, "name": org_name, "slug": f"test-org-{org_id}", "now": datetime.now(timezone.utc)},
-            )
-            db.session.commit()
+        # Create organization if it doesn't exist — use seed_rbac for RBAC roles
+        from tests.auth_helper import seed_rbac
+        from app import db
+        actual_org_id = seed_rbac(db, identity_id=email, role_name=role)
+        org_id = actual_org_id
 
         # Create TeamMember if it doesn't exist
         tm_id = None
@@ -53,21 +47,43 @@ def _ensure_org_and_user(app, email: str, org_id: int, org_name: str = "Test Org
             tm_id = result.scalar()
             db.session.commit()
 
-        # Create OrgMember if it doesn't exist
-        om = db.session.execute(
-            text("SELECT id FROM org_members WHERE email = :e AND organization_id = :o"),
-            {"e": email, "o": org_id},
-        ).first()
-        if not om:
-            from datetime import datetime, timezone
-            db.session.execute(
-                text("""
-                    INSERT INTO org_members (email, name, organization_id, role, is_active, identity_id, joined_at)
-                    VALUES (:e, :n, :o, :r, :a, :iid, :now)
-                """),
-                {"e": email, "n": email.split("@")[0], "o": org_id, "r": role, "a": True, "iid": email, "now": datetime.now(timezone.utc)},
-            )
-            db.session.commit()
+        # Create OrgMember if it doesn't exist (delete stale entries first)
+        db.session.execute(
+            text("DELETE FROM auth_member_roles WHERE member_id IN (SELECT id FROM org_members WHERE organization_id = :o AND identity_id = :iid)"),
+            {"o": org_id, "iid": email},
+        )
+        db.session.execute(
+            text("DELETE FROM org_members WHERE organization_id = :o AND identity_id = :iid"),
+            {"o": org_id, "iid": email},
+        )
+        db.session.commit()
+        from datetime import datetime, timezone
+        db.session.execute(
+            text("""
+                INSERT INTO org_members (email, name, organization_id, role, is_active, identity_id, joined_at)
+                VALUES (:e, :n, :o, :r, :a, :iid, :now)
+            """),
+            {"e": email, "n": email.split("@")[0], "o": org_id, "r": role, "a": True, "iid": email, "now": datetime.now(timezone.utc)},
+        )
+        db.session.commit()
+
+        # Seed roles and create OrgMemberRole assignment for RBAC
+        from app.authz.services import seed_default_roles
+        seed_default_roles(org_id)
+        from app.authz.models import Role, OrgMemberRole
+        from app.models import OrgMember as _OrgMember
+        admin_role = Role.query.filter_by(organization_id=org_id, name="admin").first()
+        if admin_role:
+            member = _OrgMember.query.filter_by(identity_id=email, organization_id=org_id).first()
+            if member:
+                existing = OrgMemberRole.query.filter_by(organization_id=org_id, member_id=member.id).first()
+                if not existing:
+                    assign = OrgMemberRole(
+                        organization_id=org_id, member_id=member.id,
+                        role_id=admin_role.id, scope="organization", granted_by="test_fixture"
+                    )
+                    db.session.add(assign)
+                    db.session.commit()
 
         return tm_id, org_id
 
@@ -321,6 +337,8 @@ class TestE2EJourney:
 
         test_email = f"e2e-{uuid.uuid4().hex[:8]}@example.com"
         test_org = 9001
+        # Clean stale OrgMember for this identity — cascade to roles
+        from sqlalchemy import text as _sql
         _ensure_org_and_user(app, test_email, test_org, "E2E Test Org")
 
         # AUTH + IDENTITY + ORG: set session context

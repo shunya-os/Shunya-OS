@@ -114,6 +114,7 @@ class TestOrgCreatePersistence:
 
     def test_session_restore_with_auth(self, app, client):
         """GET /api/v1/auth/session with valid session returns identity."""
+        from tests.auth_helper import seed_rbac
         from app.auth import TeamMember
         from app.auth_routes import UserRole
 
@@ -128,8 +129,11 @@ class TestOrgCreatePersistence:
         db.session.add(member)
         db.session.commit()
 
+        org_id = seed_rbac(db, identity_id="session@test.org", role_name="admin")
+
         with client.session_transaction() as sess:
             sess["user_id"] = member.id
+            sess["current_org_id"] = org_id
 
         resp = client.get("/api/v1/auth/session")
         assert resp.status_code == 200
@@ -139,6 +143,7 @@ class TestOrgCreatePersistence:
 
     def test_session_persists_across_requests(self, app, client):
         """Flask session cookie persists across multiple requests."""
+        from tests.auth_helper import seed_rbac
         from app.auth import TeamMember
         from app.auth_routes import UserRole
 
@@ -152,16 +157,18 @@ class TestOrgCreatePersistence:
         db.session.add(member)
         db.session.commit()
 
+        org_id = seed_rbac(db, identity_id="persist@test.org", role_name="admin")
+
         # Login
         with client.session_transaction() as sess:
             sess["user_id"] = member.id
+            sess["current_org_id"] = org_id
 
         # First request
         resp1 = client.get("/api/v1/auth/session")
         assert resp1.status_code == 200
 
         # Second request (no explicit login) — cookie should persist
-        # The Flask test client preserves cookies across requests
         resp2 = client.get("/api/v1/auth/session")
         assert resp2.status_code == 200
         data2 = resp2.get_json()

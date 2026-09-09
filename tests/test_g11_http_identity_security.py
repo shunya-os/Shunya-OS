@@ -25,6 +25,10 @@ def _ensure_test_user(app, email: str, org_id: int, role: str = "member"):
     from app import db
     from sqlalchemy import text
     with app.app_context():
+        # Ensure org exists with RBAC roles
+        from tests.auth_helper import seed_rbac
+        actual_org_id = seed_rbac(db, identity_id=email, role_name=role)
+        org_id = actual_org_id
         # Check if TeamMember exists
         row = db.session.execute(
             text("SELECT id FROM team_members WHERE email = :e"),

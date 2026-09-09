@@ -33,32 +33,20 @@ def client(app):
 @pytest.fixture(scope="function")
 def auth_headers(app, client):
     with client.session_transaction() as s:
+        from tests.auth_helper import seed_rbac
+        from app import db
+        org_id = seed_rbac(db, identity_id="test_user", role_name="owner")
         s["identity_id"] = "test_user"
-        s["current_org_id"] = 1
+        s["current_org_id"] = org_id
     return {"X-Identity-Id": "test_user"}
 
 
 @pytest.fixture(scope="function")
 def seed_org(app):
+    """Seed basic org + roles. Redundant when auth_headers is used; kept for standalone usage."""
+    from tests.auth_helper import seed_rbac
     from app import db
-    from app.models import Organization, OrgMember
-    from app.authz.models import Role, OrgMemberRole
-    from app.authz.services import seed_default_roles
-
-    org = Organization(id=1, name="Test Org", slug="test-org")
-    db.session.add(org)
-    db.session.flush()
-    seed_default_roles(1)
-
-    owner_role = db.session.query(Role).filter_by(organization_id=1, name="owner").first()
-    member = OrgMember(organization_id=1, identity_id="test_user", email="user@test.com",
-                       role="owner", is_active=True)
-    db.session.add(member)
-    db.session.flush()
-    if owner_role:
-        db.session.add(OrgMemberRole(organization_id=1, member_id=member.id,
-            role_id=owner_role.id, scope="organization", granted_by="system"))
-    db.session.commit()
+    seed_rbac(db, identity_id="test_user", role_name="owner")
 
 
 CSV_CONTENT = """customer_name,phone,email,notes
@@ -180,9 +168,12 @@ class TestExport:
 
     def test_export_requires_permission(self, client, seed_org):
         """Export requires org.export_data permission."""
+        from tests.auth_helper import seed_rbac
+        from app import db
+        viewer_org_id = seed_rbac(db, identity_id="viewer_user", role_name="viewer")
         with client.session_transaction() as s:
             s["identity_id"] = "viewer_user"
-            s["current_org_id"] = 1
+            s["current_org_id"] = viewer_org_id
         headers = {"X-Identity-Id": "viewer_user"}
         resp = client.post("/api/v1/data/export", headers=headers, json={
             "target_type": "lead",
@@ -202,29 +193,14 @@ class TestExport:
             })
 
             # Switch to different org — seed it first
+            from tests.auth_helper import seed_rbac
             from app import db
-            from app.models import Organization, OrgMember
-            from app.authz.models import Role, OrgMemberRole
-            from app.authz.services import seed_default_roles
 
-            org2 = Organization(id=999, name="Other Org", slug="other-org")
-            db.session.add(org2)
-            db.session.flush()
-            seed_default_roles(999)
-
-            owner_role = db.session.query(Role).filter_by(organization_id=999, name="owner").first()
-            member2 = OrgMember(organization_id=999, identity_id="other_user", email="other@test.com",
-                               role="owner", is_active=True)
-            db.session.add(member2)
-            db.session.flush()
-            if owner_role:
-                db.session.add(OrgMemberRole(organization_id=999, member_id=member2.id,
-                    role_id=owner_role.id, scope="organization", granted_by="system"))
-            db.session.commit()
+            other_org_id = seed_rbac(db, identity_id="other_user", role_name="owner")
 
             with client.session_transaction() as s:
                 s["identity_id"] = "other_user"
-                s["current_org_id"] = 999
+                s["current_org_id"] = other_org_id
             headers = {"X-Identity-Id": "other_user"}
             resp = client.post("/api/v1/data/export", headers=headers, json={
                 "target_type": "lead",

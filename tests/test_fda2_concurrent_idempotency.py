@@ -23,6 +23,9 @@ def file_db():
     from app import db as _db
     from app.core.db import get_session
     from app.evidence.models_db import EvidenceRecord  # noqa: register model
+    from app.tenant import Tenant  # noqa: register Tenant for Person FK
+    from app.production.identity_repository import SHUNYAIdentityModel  # noqa: register for execution_runs FK
+    from app.execution.models import IdempotencyRecord  # noqa: register for idempotency
 
     db_path = os.path.join(tempfile.gettempdir(), f"fda2_concurrent_{os.getpid()}.db")
     db_uri = f"sqlite:///{db_path}"
@@ -125,23 +128,21 @@ def test_concurrent_idempotency_atomicity(clean_file_db, file_db):
     assert len(processed) == 1, f"Expected 1 processed, got {len(processed)}: {results}"
     assert len(skipped) == 1, f"Expected 1 skipped, got {len(skipped)}: {results}"
 
-    # === DURABLE EVIDENCE PROOF ===
-    # Use a fresh SQLAlchemy connection (not the scoped session) to avoid
-    # thread-local session visibility issues. The file-backed DB is shared
-    # across all connections.
+    # === DURABLE IDEMPOTENCY PROOF ===
+    # Use a fresh SQLAlchemy connection to verify execution_idempotency table
     from sqlalchemy import create_engine, text
     engine = create_engine(f"sqlite:///{db_path}")
     with engine.connect() as conn:
         row_count = conn.execute(
             text(
-                "SELECT COUNT(*) FROM evidence_records "
-                "WHERE source_type='concurrent' AND source_id=:sid"
+                "SELECT COUNT(*) FROM execution_idempotency "
+                "WHERE idempotency_key=:ik"
             ),
-            {"sid": test_id},
+            {"ik": f"concurrent:{test_id}"},
         ).scalar()
     engine.dispose()
 
     assert row_count == 1, (
-        f"Expected exactly 1 evidence record, found {row_count}. "
+        f"Expected exactly 1 idempotency record, found {row_count}. "
         "The DB unique constraint should have prevented the second insert."
     )

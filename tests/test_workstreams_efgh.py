@@ -16,9 +16,9 @@ import pytest
 
 def _login(client, suffix="", seed_roles=True):
     """Create a logged-in session with TeamMember + Org + OrgMember + optional roles."""
+    from tests.auth_helper import seed_rbac
     from app.auth import TeamMember
     from app.auth_routes import UserRole
-    from app.models import Organization, OrgMember
     from app import db
 
     tag = suffix or "default"
@@ -32,30 +32,14 @@ def _login(client, suffix="", seed_roles=True):
     db.session.add(member)
     db.session.commit()
 
-    org = Organization(name=f"CS Org {tag}", slug=f"cs-org-{tag}")
-    db.session.add(org)
-    db.session.commit()
-
-    om = OrgMember(
-        organization_id=org.id,
-        identity_id=f"sid_cs_{tag}",
-        email=member.email,
-        role="admin",
-    )
-    db.session.add(om)
-    db.session.commit()
-
-    # Seed default roles for permission checks
-    if seed_roles:
-        from app.authz.services import seed_default_roles
-        seed_default_roles(org.id)
+    org_id = seed_rbac(db, identity_id=f"sid_cs_{tag}", role_name="admin")
 
     with client.session_transaction() as sess:
         sess["user_id"] = member.id
         sess["identity_id"] = f"sid_cs_{tag}"
-        sess["current_org_id"] = org.id
+        sess["current_org_id"] = org_id
 
-    return member, org, om
+    return member, org_id
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -206,9 +190,9 @@ class TestCampaignRoutes:
     """Campaign provider connection, listing, and campaign creation."""
 
     def _login(self, client):
+        from tests.auth_helper import seed_rbac
         from app.auth import TeamMember
         from app.auth_routes import UserRole
-        from app.models import Organization, OrgMember
         from app import db
 
         member = TeamMember(name="Campaign User", email="campaign@org.com",
@@ -217,20 +201,13 @@ class TestCampaignRoutes:
         db.session.add(member)
         db.session.commit()
 
-        org = Organization(name="Campaign Org", slug="campaign-org")
-        db.session.add(org)
-        db.session.commit()
-
-        om = OrgMember(organization_id=org.id, identity_id="sid_campaign",
-                       email=member.email, role="admin")
-        db.session.add(om)
-        db.session.commit()
+        org_id = seed_rbac(db, identity_id="sid_campaign", role_name="owner")
 
         with client.session_transaction() as sess:
             sess["user_id"] = member.id
             sess["identity_id"] = "sid_campaign"
-            sess["current_org_id"] = org.id
-        return member, org
+            sess["current_org_id"] = org_id
+        return member
 
     def test_health(self, app, client):
         """GET /api/v1/campaign/health returns providers."""
@@ -350,12 +327,11 @@ class TestSUILGovernance:
 
     def _login_with_permission(self, client, permission_set=None):
         """Login and assign specific permissions via role creation."""
+        from tests.auth_helper import seed_rbac
         from app.auth import TeamMember
         from app.auth_routes import UserRole
-        from app.models import Organization, OrgMember
-        from app.authz.models import Role, OrgMemberRole
+        from app.models import OrgMember
         from app import db
-        import json
 
         member = TeamMember(name="SUIL User", email="suil@org.com",
                             role=UserRole.ADMIN.value, is_active=True)
@@ -363,20 +339,16 @@ class TestSUILGovernance:
         db.session.add(member)
         db.session.commit()
 
-        org = Organization(name="SUIL Org", slug="suil-org")
-        db.session.add(org)
-        db.session.commit()
-
-        om = OrgMember(organization_id=org.id, identity_id="sid_suil",
-                       email=member.email, role="admin")
-        db.session.add(om)
-        db.session.commit()
+        org_id = seed_rbac(db, identity_id="sid_suil", role_name="viewer")
 
         with client.session_transaction() as sess:
             sess["user_id"] = member.id
             sess["identity_id"] = "sid_suil"
-            sess["current_org_id"] = org.id
+            sess["current_org_id"] = org_id
 
+        from app.models import Organization
+        org = db.session.get(Organization, org_id)
+        om = OrgMember.query.filter_by(identity_id="sid_suil", organization_id=org_id).first()
         return member, org, om
 
     def _assign_permission(self, org, member, permission):
@@ -523,9 +495,9 @@ class TestAIPersistenceChain:
     """
 
     def _login(self, client):
+        from tests.auth_helper import seed_rbac
         from app.auth import TeamMember
         from app.auth_routes import UserRole
-        from app.models import Organization, OrgMember
         from app import db
 
         member = TeamMember(name="AI Chain User", email="ai-chain@org.com",
@@ -534,20 +506,13 @@ class TestAIPersistenceChain:
         db.session.add(member)
         db.session.commit()
 
-        org = Organization(name="AI Chain Org", slug="ai-chain-org")
-        db.session.add(org)
-        db.session.commit()
-
-        om = OrgMember(organization_id=org.id, identity_id="sid_ai_chain",
-                       email=member.email, role="admin")
-        db.session.add(om)
-        db.session.commit()
+        org_id = seed_rbac(db, identity_id="sid_ai_chain", role_name="admin")
 
         with client.session_transaction() as sess:
             sess["user_id"] = member.id
             sess["identity_id"] = "sid_ai_chain"
-            sess["current_org_id"] = org.id
-        return member, org
+            sess["current_org_id"] = org_id
+        return member
 
     def test_generate_persists_content_generation(self, app, client):
         """Calling generate() creates a persisted ContentGeneration record."""
