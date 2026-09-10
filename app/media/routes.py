@@ -33,6 +33,24 @@ def _tenant_id() -> int:
     return session.get("current_org_id") or session.get("tenant_id", 0)
 
 
+def _organization_id() -> int:
+    """Resolve the current organization ID from session or flask.g."""
+    return (
+        session.get("current_org_id")
+        or g.get("current_org_id")
+        or session.get("tenant_id", 0)
+    )
+
+
+def _workspace_id() -> str:
+    """Resolve the current workspace ID from session or flask.g."""
+    return (
+        session.get("workspace_id")
+        or g.get("workspace_id")
+        or "spc_business"
+    )
+
+
 @media_bp.route("/generate", methods=["POST"])
 @require_permission("knowledge.upload")
 def api_generate():
@@ -60,6 +78,8 @@ def api_generate():
     result = generate_media(
         raw_prompt=prompt,
         identity_id=_identity_id(),
+        organization_id=_organization_id(),
+        workspace_id=_workspace_id(),
         platform=data.get("platform"),
         aspect_ratio=data.get("aspect_ratio", "1:1"),
         visual_style=data.get("visual_style", "realistic"),
@@ -72,16 +92,22 @@ def api_generate():
 @media_bp.route("/assets", methods=["GET"])
 @require_permission("knowledge.view")
 def api_list_assets():
-    """List media assets for the authenticated user."""
+    """List media assets for the authenticated user.
+
+    Query params:
+        lifecycle_status: Filter by lifecycle status (active, archived, trashed).
+                          Default: active assets only.
+    """
     if not _require_auth():
         return jsonify({"success": False, "error": "Authentication required"}), 401
 
     limit = min(int(request.args.get("limit", 50)), 100)
     offset = int(request.args.get("offset", 0))
+    lifecycle_status = request.args.get("lifecycle_status") or None
 
     from app.media.service import list_assets
 
-    items, total = list_assets(_identity_id(), limit=limit, offset=offset)
+    items, total = list_assets(_identity_id(), limit=limit, offset=offset, lifecycle_status=lifecycle_status)
 
     return jsonify({"success": True, "data": items, "total": total})
 
@@ -137,6 +163,60 @@ def api_status():
             "huggingface": hf_status,
         },
     })
+
+
+# ── Media Lifecycle (Directive 08 §E) ──────────────────────────
+
+
+@media_bp.route("/assets/<int:asset_id>/archive", methods=["POST"])
+@require_permission("knowledge.upload")
+def api_archive_asset(asset_id: int):
+    """Archive an active media asset."""
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    from app.media.service import archive_asset
+    asset = archive_asset(asset_id, _identity_id())
+    if not asset:
+        return jsonify({"success": False, "error": "Asset not found or not in active state"}), 404
+    return jsonify({"success": True, "data": asset})
+
+
+@media_bp.route("/assets/<int:asset_id>/trash", methods=["POST"])
+@require_permission("knowledge.upload")
+def api_trash_asset(asset_id: int):
+    """Move an asset to trash (recoverable deletion)."""
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    from app.media.service import trash_asset
+    asset = trash_asset(asset_id, _identity_id())
+    if not asset:
+        return jsonify({"success": False, "error": "Asset not found or cannot be trashed"}), 404
+    return jsonify({"success": True, "data": asset})
+
+
+@media_bp.route("/assets/<int:asset_id>/restore", methods=["POST"])
+@require_permission("knowledge.upload")
+def api_restore_asset(asset_id: int):
+    """Restore an asset from trash or archive back to active."""
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    from app.media.service import restore_asset
+    asset = restore_asset(asset_id, _identity_id())
+    if not asset:
+        return jsonify({"success": False, "error": "Asset not found or not in recoverable state"}), 404
+    return jsonify({"success": True, "data": asset})
+
+
+@media_bp.route("/assets/<int:asset_id>/permanent-delete", methods=["DELETE"])
+@require_permission("knowledge.upload")
+def api_permanent_delete_asset(asset_id: int):
+    """Permanently delete a trashed asset (irreversible)."""
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    from app.media.service import permanently_delete_asset
+    if not permanently_delete_asset(asset_id, _identity_id()):
+        return jsonify({"success": False, "error": "Asset not found, not in trashed state, or not authorized"}), 404
+    return jsonify({"success": True})
 
 
 # ── Serve uploaded media files ──────────────────────────────

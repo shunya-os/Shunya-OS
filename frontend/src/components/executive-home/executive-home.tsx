@@ -25,6 +25,7 @@ import { useActiveWorkspace } from '../../hooks/workspace-hooks';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 import { OperatingContextSelector } from '../workspace/context-selector';
 import { useActiveContext } from '../../hooks/use-active-context';
+import { HomePage } from '../home/home-page';
 
 // Code-split heavy workspace components — loaded on first use, not on initial boot
 const ObjectWorkspaceViewer = lazy(() => import('../workspace/object-workspace-viewer').then(m => ({ default: m.ObjectWorkspaceViewer })));
@@ -119,6 +120,10 @@ function PresenceIndicator({ mode }: { mode: 'calm' | 'working' | 'attentive' | 
 // ═══════════════════════════════════════════════════════════════════
 
 function OrganizationalOrientation({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  const handleHomeClick = useCallback(() => {
+    useWorkspaceStore.getState().open('Home', 'home');
+  }, []);
+
   const handleDomainClick = useCallback((domain: Domain) => {
     useWorkspaceStore.getState().open(domain.label, domain.wsType as any, {
       objectType: domain.id,
@@ -135,11 +140,21 @@ function OrganizationalOrientation({ collapsed, onToggle }: { collapsed: boolean
       aria-label="Organizational orientation"
     >
       <div className="pw-org-header">
-        <span className="pw-org-title">Organization</span>
+        <span className="pw-org-title">Home</span>
         <button className="pw-org-toggle" onClick={onToggle} aria-label={collapsed ? 'Expand' : 'Collapse'}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <polyline points={collapsed ? '9 4 5 7 9 10' : '5 4 9 7 5 10'} />
           </svg>
+        </button>
+      </div>
+      <div className="pw-org-nav">
+        <button
+          className="pw-org-home"
+          onClick={handleHomeClick}
+          title="Return to the SHUNYA Home operating surface"
+        >
+          <span className="pw-org-home-icon">⌂</span>
+          <span className="pw-org-home-label">Home</span>
         </button>
       </div>
       <div className="pw-org-domains">
@@ -863,8 +878,16 @@ const DOMAIN_IDS = new Set(ORGANIZATIONAL_DOMAINS.map(d => d.id));
 function DomainWorkspaceRouter() {
   const active = useActiveWorkspace();
 
-  // No active workspace → show focus
-  if (!active) return <PrimaryFocusArea />;
+  // No active workspace → show the full SHUNYA Home dashboard.
+  // This is the post-login landing surface, now rendered inside the
+  // PrimaryWorkspace shell (with the sidebar) instead of standalone.
+  if (!active) {
+    return (
+      <div className="pw-panel-container pw-panel-container-home">
+        <HomePage />
+      </div>
+    );
+  }
 
   // Loading state
   if (active.status === 'loading' || active.status === 'creating') {
@@ -889,9 +912,13 @@ function DomainWorkspaceRouter() {
     );
   }
 
-  // Home workspace → show focus area
+  // Home workspace → show the full SHUNYA Home dashboard (same as post-login landing)
   if (active.identity.type === 'home') {
-    return <PrimaryFocusArea />;
+    return (
+      <div className="pw-panel-container pw-panel-container-home">
+        <HomePage />
+      </div>
+    );
   }
 
   // ── Type-based routing ──
@@ -1427,6 +1454,36 @@ styles.textContent = `
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+.pw-org-nav {
+  padding: 4px 16px 12px;
+}
+.pw-org-home {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(164, 134, 95, 0.08);
+  color: var(--shunya-text, #1A1C1D);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+.pw-org-home:hover {
+  background: rgba(164, 134, 95, 0.15);
+}
+.pw-org-home-icon {
+  font-size: 16px;
+  opacity: 0.7;
+}
+.pw-org-home-label {
+  font-size: 13px;
+}
 .pw-org-toggle {
   background: transparent;
   border: none;
@@ -1665,6 +1722,16 @@ styles.textContent = `
 .pw-panel-container {
   padding: 40px 48px;
   max-width: 720px;
+}
+.pw-panel-container-home {
+  max-width: none;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+.pw-panel-container-home .hp-home {
+  min-height: auto;
+  height: auto;
 }
 .pw-domain-overview { }
 .pw-domain-header {

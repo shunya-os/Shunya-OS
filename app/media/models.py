@@ -19,6 +19,11 @@ class MediaAsset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     identity_id = db.Column(db.String(64), nullable=False, index=True)
 
+    # ── Tenant context (canonical tenancy) ──────────────────────
+    organization_id = db.Column(db.Integer, nullable=False, default=0)
+    workspace_id = db.Column(db.String(64), nullable=False, default="")
+    sh_object_id = db.Column(db.String(64), nullable=True)
+
     # ── Canonical runtime state ──────────────────────────────
     # IDLE | PREPARING_BRIEF | GENERATING | GENERATED | DESCRIPTION_ONLY | PROVIDER_UNAVAILABLE | FAILED
     runtime_state = db.Column(db.String(30), nullable=False, default="idle")
@@ -47,6 +52,16 @@ class MediaAsset(db.Model):
     # ── Campaign linkage ─────────────────────────────────────
     campaign_id = db.Column(db.Integer, db.ForeignKey("m6_ad_campaigns.id"), nullable=True)
 
+    # ── Lifecycle (Directive 08 §E) ──────────────────────────
+    # ACTIVE | ARCHIVED | TRASHED
+    lifecycle_status = db.Column(db.String(20), nullable=False, default="active")
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    deleted_by = db.Column(db.String(64), nullable=True)
+    archived_at = db.Column(db.DateTime, nullable=True)
+    archived_by = db.Column(db.String(64), nullable=True)
+    restored_at = db.Column(db.DateTime, nullable=True)
+    restored_by = db.Column(db.String(64), nullable=True)
+
     # ── Timestamps ────────────────────────────────────────────
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(
@@ -57,8 +72,13 @@ class MediaAsset(db.Model):
         """Return the single source of truth result contract."""
         return {
             "id": self.id,
+            "identity_id": self.identity_id,
+            "organization_id": self.organization_id,
+            "workspace_id": self.workspace_id,
+            "sh_object_id": self.sh_object_id,
             "runtime_state": self.runtime_state,
             "result_kind": self.result_kind,
+            "lifecycle_status": self.lifecycle_status,
             "raw_prompt": self.raw_prompt,
             "visual_brief": self.visual_brief,
             "asset_url": self.asset_url,
@@ -72,4 +92,10 @@ class MediaAsset(db.Model):
             "campaign_id": self.campaign_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
+            "deleted_by": self.deleted_by,
+            "archived_at": self.archived_at.isoformat() if self.archived_at else None,
+            "archived_by": self.archived_by,
+            "restored_at": self.restored_at.isoformat() if self.restored_at else None,
+            "restored_by": self.restored_by,
         }

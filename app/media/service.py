@@ -180,6 +180,8 @@ def _transform_to_visual_brief(business_context: dict, raw_prompt: str) -> str:
 def generate_media(
     raw_prompt: str,
     identity_id: str,
+    organization_id: int = 0,
+    workspace_id: str = "",
     platform: Optional[str] = None,
     aspect_ratio: str = "1:1",
     visual_style: str = "realistic",
@@ -192,6 +194,8 @@ def generate_media(
     # 1. Create initial record (IDLE -> PREPARING_BRIEF)
     asset = MediaAsset(
         identity_id=identity_id,
+        organization_id=organization_id,
+        workspace_id=workspace_id,
         runtime_state="preparing_brief",
         result_kind=None,
         raw_prompt=raw_prompt,
@@ -255,6 +259,35 @@ def generate_media(
                 raw_prompt, brief, visual_style
             )
             db.session.commit()
+
+            # Create canonical object for the concept
+            try:
+                from core.object_service import get_object_service
+                svc = get_object_service()
+                canonical = svc.create(
+                    object_type="media_asset_concept",
+                    name=f"Concept: {raw_prompt[:80]}",
+                    organization_id=organization_id,
+                    workspace_id=workspace_id or "spc_business",
+                    data={
+                        "asset_id": asset.id,
+                        "description": asset.description[:500] if asset.description else "",
+                        "provider": "unavailable",
+                        "raw_prompt": raw_prompt,
+                        "aspect_ratio": aspect_ratio,
+                        "visual_style": visual_style,
+                        "identity_id": identity_id,
+                    },
+                    created_by=identity_id,
+                )
+                asset.sh_object_id = canonical.get("object_id", "")
+                db.session.commit()
+            except Exception as obj_err:
+                logger.warning(
+                    "Failed to create canonical object for media concept %s: %s",
+                    asset.id, obj_err,
+                )
+
             return asset.to_canonical()
 
         # 5. Save image to persistent storage
@@ -265,6 +298,31 @@ def generate_media(
         asset.runtime_state = "generated"
         asset.result_kind = "generated_image"
         db.session.commit()
+
+        # 6. Create canonical object in sh_objects
+        try:
+            from core.object_service import get_object_service
+            svc = get_object_service()
+            canonical = svc.create(
+                object_type="media_asset",
+                name=f"Media: {raw_prompt[:80]}",
+                organization_id=organization_id,
+                workspace_id=workspace_id or "spc_business",
+                data={
+                    "asset_id": asset.id,
+                    "asset_url": asset_url,
+                    "provider": f"hf/{HF_MODEL}",
+                    "raw_prompt": raw_prompt,
+                    "aspect_ratio": aspect_ratio,
+                    "visual_style": visual_style,
+                    "identity_id": identity_id,
+                },
+                created_by=identity_id,
+            )
+            asset.sh_object_id = canonical.get("object_id", "")
+            db.session.commit()
+        except Exception as obj_err:
+            logger.warning("Failed to create canonical object for media asset %s: %s", asset.id, obj_err)
 
         return asset.to_canonical()
 
@@ -338,18 +396,99 @@ def get_asset(asset_id: int, identity_id: str) -> Optional[dict]:
 
 
 def list_assets(
-    identity_id: str, limit: int = 50, offset: int = 0
+    identity_id: str, limit: int = 50, offset: int = 0,
+    lifecycle_status: Optional[str] = None
 ) -> tuple[list[dict], int]:
-    """List media assets for an identity, newest first."""
-    q = (
-        MediaAsset.query.filter_by(identity_id=identity_id)
-        .order_by(MediaAsset.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
+    """List media assets for an identity, newest first.
+
+    Args:
+        lifecycle_status: If set, filter by lifecycle_status (active, archived, trashed).
+                         Default None returns ACTIVE assets.
+    """
+    if lifecycle_status:
+        q = (
+            MediaAsset.query.filter_by(identity_id=identity_id, lifecycle_status=lifecycle_status)
+            .order_by(MediaAsset.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+    else:
+        q = (
+            MediaAsset.query.filter_by(identity_id=identity_id, lifecycle_status="active")
+            .order_by(MediaAsset.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
     items = q.all()
-    total = MediaAsset.query.filter_by(identity_id=identity_id).count()
+    total = MediaAsset.query.filter_by(identity_id=identity_id, lifecycle_status=lifecycle_status or "active").count()
     return [a.to_canonical() for a in items], total
+
+
+def archive_asset(asset_id: int, identity_id: str) -> Optional[dict]:
+    """Move an active asset to ARCHIVED."""
+    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id, lifecycle_status="active").first()
+    if not asset:
+        return None
+    asset.lifecycle_status = "archived"
+    asset.archived_at = datetime.utcnow()
+    asset.archived_by = identity_id
+    db.session.commit()
+    return asset.to_canonical()
+
+
+def trash_asset(asset_id: int, identity_id: str) -> Optional[dict]:
+    """Move an asset to TRASHED (recoverable deletion)."""
+    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id).first()
+    if not asset:
+        return None
+    # Only active and archived can be trashed
+    if asset.lifecycle_status not in ("active", "archived"):
+        return None
+    asset.lifecycle_status = "trashed"
+    asset.deleted_at = datetime.utcnow()
+    asset.deleted_by = identity_id
+    db.session.commit()
+    return asset.to_canonical()
+
+
+def restore_asset(asset_id: int, identity_id: str) -> Optional[dict]:
+    """Restore an asset from TRASHED or ARCHIVED back to ACTIVE."""
+    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id).first()
+    if not asset:
+        return None
+    if asset.lifecycle_status not in ("trashed", "archived"):
+        return None
+    asset.lifecycle_status = "active"
+    asset.restored_at = datetime.utcnow()
+    asset.restored_by = identity_id
+    db.session.commit()
+    return asset.to_canonical()
+
+
+def permanently_delete_asset(asset_id: int, identity_id: str) -> bool:
+    """Permanently delete an asset. Only TRASHED assets can be permanently deleted.
+
+    Removes the database record and the file from storage.
+    Returns True if deleted, False if not found/authorized.
+    """
+    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id, lifecycle_status="trashed").first()
+    if not asset:
+        return False
+    # Remove the file from disk if it exists
+    if asset.asset_url:
+        try:
+            from pathlib import Path
+            # asset_url format: /api/v1/media/uploads/{identity_id}/{filename}
+            rel_path = asset.asset_url.replace("/api/v1/media/uploads/", "")
+            from app.runtime_config import media_uploads_dir
+            file_path = Path(media_uploads_dir()) / rel_path
+            if file_path.exists():
+                file_path.unlink()
+        except Exception:
+            pass  # Non-fatal — db record is the authoritative concern
+    db.session.delete(asset)
+    db.session.commit()
+    return True
 
 
 def attach_to_campaign(

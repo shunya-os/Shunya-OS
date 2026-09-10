@@ -8,7 +8,6 @@ import { Signup } from './components/auth/signup';
 import { InvitationAccept } from './components/auth/invitation-accept';
 import { VerifyEmail } from './components/auth/verify-email';
 import { HomePage } from './components/public/homepage';
-import { HomePage as ShunyaHomePage } from './components/home/home-page';
 import { registerAllRuntimes } from './runtimes/registration';
 import { orchestrator } from './runtimes/orchestrator';
 import { ModuleRegistry } from './runtimes/module-registry';
@@ -485,16 +484,11 @@ function AppShell() {
 }
 
 function AuthenticatedWorkspace() {
-  const hydrated = useWorkspaceStore((s) => s.hydrated);
-  const activeId = useWorkspaceStore((s) => s.activeId);
-  const workspaceCount = useWorkspaceStore((s) => s.workspaces.length);
-
-  // Authenticated with no active workspace → SHUNYA Home
-  const showHome = hydrated && workspaceCount === 0 && activeId === null;
-
+  // Always render PrimaryWorkspace (with sidebar) — the ShunyaHomePage
+  // content is shown inside it when no specific workspace is active.
   return (
     <TokenProvider>
-      {showHome ? <ShunyaHomePage /> : <PrimaryWorkspace />}
+      <PrimaryWorkspace />
     </TokenProvider>
   );
 }
