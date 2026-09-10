@@ -24,6 +24,7 @@ import sys
 import json
 import time
 import pytest
+_SKIP_PG = "sqlite" in os.environ.get("DATABASE_URL", "").lower()
 
 # The child processes (spawn context) need the project root on sys.path
 _PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
@@ -201,6 +202,7 @@ def _seed_test_entity(db_uri: str) -> int:
     return entity_id
 
 
+@pytest.mark.skipif(_SKIP_PG, reason="Process isolation tests require PostgreSQL — skip on SQLite")
 def test_concurrent_decision_boundary_via_processes():
     """Two genuinely independent Python processes execute process_event()
     concurrently, synchronized at the get_next_action() decision boundary.

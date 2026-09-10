@@ -6,6 +6,12 @@ execution hardening, multi-tenant security, provider fabric, observability.
 import pytest
 import time
 from datetime import datetime
+import os
+
+
+def _is_sqlite() -> bool:
+    """Check if the test database is SQLite (non-isolated concurrency tests need PostgreSQL)."""
+    return "sqlite" in os.environ.get("DATABASE_URL", "").lower()
 
 
 def _setup_auth(app, client, identity_id="user_1", org_id=None):
@@ -75,6 +81,7 @@ class TestExecutionHardening:
             results.append(resp.get_json()["answer"])
         assert len(set(results)) == 1, f"Non-idempotent: {results}"
 
+    @pytest.mark.skipif(_is_sqlite(), reason="Concurrent SQLite access is not supported — use PostgreSQL")
     def test_concurrent_deterministic_requests(self, app, client):
         """Multiple concurrent deterministic requests should all succeed."""
         from concurrent.futures import ThreadPoolExecutor
