@@ -198,7 +198,6 @@ jobs:
           script: |
             cd /home/shunya-deploy/shunya_os
             bash infrastructure/scripts/deploy.sh production ${{ github.sha }}
-          script_stop: true
 
       - name: Verify local health SHA
         uses: appleboy/ssh-action@v1.2.5
