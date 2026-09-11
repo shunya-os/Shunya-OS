@@ -406,11 +406,41 @@ def api_get_space(space_id: str):
 # ---------------------------------------------------------------------------
 
 
+def _canonical_object_read(object_id: str) -> dict | None:
+    """Read an object from canonical store (sh_objects), fall back to legacy founder_objects.
+
+    This is a COMPATIBILITY BOUNDARY (classification C in G1.1-R6B-2 inventory).
+    New code should read from ObjectService directly. This helper exists so the
+    existing founder API endpoints continue working during migration.
+    """
+    from core.object_service import get_object_service
+    svc = get_object_service()
+    canonical = svc.get_by_object_id(object_id)
+    if canonical:
+        return canonical
+    from app.founder.models import FounderObject
+    fo = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    if fo:
+        return fo.to_dict()
+    return None
+
+
+
 @founder_bp.route("/api/v1/founder/spaces/<space_id>/objects", methods=["GET"])
 @require_permission("rel.view")
 def api_list_objects(space_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    from core.object_service import get_object_service
+    svc = get_object_service()
+    # Try canonical read first (sh_objects with workspace_id = space_id)
+    try:
+        canonical = svc.list_by_workspace(workspace_id=space_id, organization_id=0)
+        if canonical:
+            return jsonify({"success": True, "data": canonical})
+    except Exception:
+        pass
+    # Fallback to legacy FounderObject (compat boundary)
     objects = FounderObject.query.filter_by(
         space_id=space_id, status="active"
     ).order_by(FounderObject.updated_at.desc()).all()
@@ -470,10 +500,10 @@ def api_create_object(space_id: str):
 def api_get_object(object_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    obj = _canonical_object_read(object_id)
     if not obj:
         return jsonify({"success": False, "error": "Object not found"}), 404
-    return jsonify({"success": True, "data": obj.to_dict()})
+    return jsonify({"success": True, "data": obj})
 
 
 # ---------------------------------------------------------------------------
