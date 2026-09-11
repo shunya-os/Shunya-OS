@@ -59,48 +59,41 @@ def _current_sha() -> str:
 # ── Release Governance API ─────────────────────────────────────────────
 
 
-def get_release_provenance() -> dict:
-    """
-    Read the current release provenance.
+def get_release_provenance(running_sha: str | None = None) -> dict:
+    """Return evidence for the loaded release; missing/stale evidence fails closed.
 
-    Returns:
-        {
-            "release_type": "CI_CERTIFIED" | "EMERGENCY_MANUAL",
-            "git_commit": "<full SHA>",
-            "build_id": "<short SHA>",
-            "deployed_at": "<ISO timestamp>",
-            "authorized_by": "<operator name or 'CI/CD'>",
-            "reason": "<deployment reason>",
-            "rollback_sha": "<previous SHA>",
-            "health_verified": bool,
-        }
+    Health callers supply their import-time build SHA, not mutable checkout HEAD.
+    Reading never modifies the historical record or invents certification.
     """
-    default = {
-        "release_type": "CI_CERTIFIED",
-        "git_commit": _current_sha(),
-        "build_id": _current_sha()[:7] if _current_sha() != "unknown" else "unknown",
-        "deployed_at": _now_iso(),
-        "authorized_by": "CI/CD",
-        "reason": "Normal deployment via CI pipeline",
+    sha = running_sha if running_sha is not None else _current_sha()
+    unverified = {
+        "release_type": "UNVERIFIED",
+        "git_commit": sha,
+        "build_id": sha[:7] if sha else "unknown",
+        "deployed_at": "",
+        "authorized_by": "",
+        "reason": "Deployment evidence unavailable or invalid",
         "rollback_sha": "unknown",
-        "health_verified": True,
+        "health_verified": False,
     }
+    try:
+        with open(RELEASE_PROVENANCE_FILE, "r") as f:
+            data = json.load(f)
+    except (ValueError, OSError):
+        return unverified
+    if not isinstance(data, dict):
+        return unverified
+    if data.get("git_commit") != sha or not sha or sha == "unknown":
+        return {**unverified, "recorded_git_commit": data.get("git_commit", ""),
+                "reason": "Deployment evidence does not match the running build"}
+    if (data.get("release_type") not in {"CI_CERTIFIED", "EMERGENCY_MANUAL"}
+            or not data.get("authorized_by") or not data.get("deployed_at")
+            or not data.get("reason") or not isinstance(data.get("health_verified"), bool)):
+        return unverified
+    return {**unverified, **data}
 
-    if os.path.exists(RELEASE_PROVENANCE_FILE):
-        try:
-            with open(RELEASE_PROVENANCE_FILE, "r") as f:
-                data = json.load(f)
-            # Merge default fields for backward compat
-            for k, v in default.items():
-                data.setdefault(k, v)
-            return data
-        except (json.JSONDecodeError, OSError) as e:
-            logger.warning("Failed to read release provenance: %s", e)
 
-    return default
-
-
-def record_normal_deployment(sha: str) -> dict:
+def record_normal_deployment(sha: str, previous_sha: str = "unknown") -> dict:
     """
     Record a normal (CI-certified) deployment.
 
@@ -113,7 +106,7 @@ def record_normal_deployment(sha: str) -> dict:
         "deployed_at": _now_iso(),
         "authorized_by": "CI/CD",
         "reason": "Normal deployment via CI pipeline",
-        "rollback_sha": _current_sha(),
+        "rollback_sha": previous_sha,
         "health_verified": True,
     }
     _write_provenance(provenance)

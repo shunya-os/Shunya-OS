@@ -196,8 +196,13 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
+            set -euo pipefail
             cd /home/shunya-deploy/shunya_os
-            bash infrastructure/scripts/deploy.sh production ${{ github.sha }}
+            git fetch origin master
+            DEPLOY_SCRIPT=$(mktemp)
+            trap 'rm -f "${DEPLOY_SCRIPT}"' EXIT
+            git show '${{ github.sha }}:infrastructure/scripts/deploy.sh' > "${DEPLOY_SCRIPT}"
+            bash "${DEPLOY_SCRIPT}" production ${{ github.sha }}
 
       - name: Verify local health SHA
         uses: appleboy/ssh-action@v1.2.5
@@ -208,7 +213,11 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             cd /home/shunya-deploy/shunya_os
-            DEPLOYED_SHA=$(curl -fsS http://127.0.0.1:5001/health | python3 -c "import sys,json; print(json.load(sys.stdin)['git_commit'])")
+            set -euo pipefail
+            HEALTH_FILE=$(mktemp)
+            trap 'rm -f "${HEALTH_FILE}"' EXIT
+            curl -fsS --max-time 30 http://127.0.0.1:5001/health -o "${HEALTH_FILE}"
+            DEPLOYED_SHA=$(python3 -c "import sys,json; print(json.load(open(sys.argv[1]))['git_commit'])" "${HEALTH_FILE}")
             CERTIFIED_SHA="${{ github.sha }}"
             echo "Certified SHA: ${CERTIFIED_SHA}"
             echo "Deployed (local health) SHA: ${DEPLOYED_SHA}"
@@ -221,9 +230,10 @@ jobs:
       - name: Verify public health SHA
         run: |
           set -o pipefail
-          PUBLIC_HEALTH=$(curl -fsS https://shunyaos.com/health 2>/dev/null || echo '{"error":"unreachable"}')
-          echo "Public health response: ${PUBLIC_HEALTH}"
-          PUBLIC_SHA=$(echo "${PUBLIC_HEALTH}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('git_commit',''))")
+          HEALTH_FILE=$(mktemp)
+          trap 'rm -f "${HEALTH_FILE}"' EXIT
+          curl --proto '=https' -fsS --max-time 30 https://shunyaos.com/health -o "${HEALTH_FILE}"
+          PUBLIC_SHA=$(python3 -c "import sys,json; d=json.load(open(sys.argv[1])); assert d.get('release_type') == 'CI_CERTIFIED' and d.get('release_health_verified') is True; print(d.get('git_commit',''))" "${HEALTH_FILE}")
           if [ -z "${PUBLIC_SHA}" ]; then
             echo "WARNING: Public health endpoint unreachable or missing git_commit — check DNS/nginx"
             exit 1

@@ -127,22 +127,13 @@ fi
 # ---- Step 7: Migration check + backup ----
 echo "[7/12] Checking migrations..." | tee -a "${DEPLOY_LOG}"
 if [ -f "alembic.ini" ]; then
-    CURRENT_REV=$(alembic current 2>/dev/null | head -1 || echo "unknown")
+    CURRENT_REV=$(alembic current)
+    HEAD_REV=$(alembic heads)
     echo "  Current migration: ${CURRENT_REV}" | tee -a "${DEPLOY_LOG}"
-    HEAD_REV=$(alembic heads 2>/dev/null | head -1 || echo "unknown")
     echo "  Head migration: ${HEAD_REV}" | tee -a "${DEPLOY_LOG}"
-    if [ "${CURRENT_REV}" != "${HEAD_REV}" ]; then
-        echo "  Migration required. Backing up database first..." | tee -a "${DEPLOY_LOG}"
-        mkdir -p "${BACKUP_DIR}"
-        if command -v pg_dump &> /dev/null; then
-            source .env 2>/dev/null || true
-            pg_dump "postgresql://shunya:***@localhost:5432/shunya_os" \
-                > "${BACKUP_DIR}/predeploy.sql.gz" 2>/dev/null || \
-                pg_dump postgresql://shunya@localhost:5432/shunya_os \
-                | gzip > "${BACKUP_DIR}/predeploy.sql.gz" 2>/dev/null || \
-                echo "  WARNING: pg_dump backup failed (continuing)" | tee -a "${DEPLOY_LOG}"
-        fi
-    fi
+    # Always back up before invoking upgrade; no migration after failed backup.
+    mkdir -p "${BACKUP_DIR}"
+    python3 infrastructure/scripts/backup_database.py "${BACKUP_DIR}/predeploy.dump" 2>&1 | tee -a "${DEPLOY_LOG}"
 else
     echo "  SKIP: No alembic.ini found" | tee -a "${DEPLOY_LOG}"
 fi
@@ -201,10 +192,11 @@ done
 
 # ---- Step 11: Health check ----
 echo "[11/12] Running health check..." | tee -a "${DEPLOY_LOG}"
-HEALTH_RESPONSE=$(curl -sf "${HEALTH_URL}" 2>/dev/null || echo '{"status":"unreachable"}')
-echo "  Health response: ${HEALTH_RESPONSE}" | tee -a "${DEPLOY_LOG}"
+HEALTH_FILE=$(mktemp)
+trap 'rm -f "${HEALTH_FILE}"' EXIT
+curl --fail --silent --show-error --max-time 30 "${HEALTH_URL}" --output "${HEALTH_FILE}"
 
-if echo "${HEALTH_RESPONSE}" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('status')=='ok' else 1)" 2>/dev/null; then
+if python3 -c "import sys,json; d=json.load(open(sys.argv[1])); sys.exit(0 if d.get('status')=='ok' else 1)" "${HEALTH_FILE}"; then
     echo "  HEALTHY — deployment successful" | tee -a "${DEPLOY_LOG}"
 else
     echo "ERROR: Health check did not return 'ok'." | tee -a "${DEPLOY_LOG}"
@@ -214,8 +206,8 @@ fi
 
 # ---- Step 12: Smoke test ----
 echo "[12/12] Running smoke test..." | tee -a "${DEPLOY_LOG}"
-GIT_COMMIT_IN_HEALTH=$(echo "${HEALTH_RESPONSE}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('git_commit',''))" 2>/dev/null || echo "")
-if [ -n "${GIT_COMMIT_IN_HEALTH}" ] && [ "${GIT_COMMIT_IN_HEALTH}" != "${DEPLOYED_SHA}" ]; then
+GIT_COMMIT_IN_HEALTH=$(python3 -c "import sys,json; print(json.load(open(sys.argv[1])).get('git_commit',''))" "${HEALTH_FILE}")
+if [ "${GIT_COMMIT_IN_HEALTH}" != "${DEPLOYED_SHA}" ]; then
     echo "ERROR: Deployed build mismatch. Health reports ${GIT_COMMIT_IN_HEALTH}, repo at ${DEPLOYED_SHA}" | tee -a "${DEPLOY_LOG}"
     echo "ROLLBACK: checkout ${PREVIOUS_SHA} and restart to roll back" | tee -a "${DEPLOY_LOG}"
     exit 1
@@ -229,10 +221,10 @@ RUNTIME_DATA_ROOT="${RUNTIME_DATA_ROOT:-${HOME}/shunya_data}"
 .venv/bin/python3 -c "
 import os; os.environ['RUNTIME_DATA_ROOT'] = '${RUNTIME_DATA_ROOT}'
 from app.release_governance import record_normal_deployment
-r = record_normal_deployment('${DEPLOYED_SHA}')
+r = record_normal_deployment('${DEPLOYED_SHA}', previous_sha='${PREVIOUS_SHA}')
 print(f'  Release type: {r[\"release_type\"]}')
 print(f'  Git commit: {r[\"git_commit\"]}')
-" 2>&1 | tee -a "${DEPLOY_LOG}" || echo "  WARNING: Provenance recording failed (non-fatal)" | tee -a "${DEPLOY_LOG}"
+" 2>&1 | tee -a "${DEPLOY_LOG}"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] SHUNYA deployment completed: ${ENVIRONMENT}" | tee -a "${DEPLOY_LOG}"
 echo "Log: ${DEPLOY_LOG}"

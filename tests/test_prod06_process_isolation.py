@@ -34,18 +34,10 @@ if _PROJECT_ROOT not in sys.path:
 # ---------------------------------------------------------------------------
 # Test database configuration
 # ---------------------------------------------------------------------------
-# Dedicated test database — NOT the production database
-# Read credentials from .env, target the dedicated test PG cluster on port 5433
-# where shunya has CREATEDB privilege
-
-import os
-from dotenv import load_dotenv
-
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
-# Use a file-based SQLite database for process isolation testing.
-# WAL mode allows concurrent readers/writers across processes.
-_TEST_DB_PATH = os.path.join(os.path.dirname(__file__), "test_prod06.db")
-TEST_DB_URI = f"sqlite:///{_TEST_DB_PATH}"
+# This legacy harness uses SQLite despite its PostgreSQL-only skip marker.
+# Keep its existing execution assertions/skip contract unchanged in this repair;
+# PostgreSQL certification remains a separate open gap. Never load production
+# credentials or put mutable test data inside the checkout.
 
 # ---------------------------------------------------------------------------
 # Child process entry point
@@ -203,7 +195,7 @@ def _seed_test_entity(db_uri: str) -> int:
 
 
 @pytest.mark.skipif(_SKIP_PG, reason="Process isolation tests require PostgreSQL — skip on SQLite")
-def test_concurrent_decision_boundary_via_processes():
+def test_concurrent_decision_boundary_via_processes(tmp_path):
     """Two genuinely independent Python processes execute process_event()
     concurrently, synchronized at the get_next_action() decision boundary.
 
@@ -215,6 +207,9 @@ def test_concurrent_decision_boundary_via_processes():
     - No cross-consumption of decisions
     - Each DecisionTrace contains the complete canonical decision
     """
+    _TEST_DB_PATH = str(tmp_path / "test_prod06.db")
+    TEST_DB_URI = f"sqlite:///{_TEST_DB_PATH}"
+
     # Step 1: Initialize the test database schema
     from app import create_app, db
 
