@@ -1,6 +1,6 @@
 """File Upload API — routes for uploading, listing, and serving files with Job Manager integration."""
 import os, hashlib, uuid, json, logging
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, request, session, g
 from app.storage.provider import resolve_storage_provider
 from app.jobs.manager import create_job, get_job
 from app.authz.decorators import require_permission
@@ -10,7 +10,7 @@ upload_bp = Blueprint("upload", __name__, url_prefix="/api/v1/upload")
 
 
 def _process_upload(job, file_bytes: bytes, filename: str, content_type: str,
-                    organization_id: int = 0):
+                    organization_id: int = 0, workspace_id: str = ""):
     """Background job: save file with storage intelligence: hash, dedup, metadata.
 
     Args:
@@ -19,7 +19,13 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str,
         filename: Original filename.
         content_type: MIME type.
         organization_id: Organization context (passed from authenticated request).
+                        Must be a positive integer — 0 will fail closed.
+        workspace_id: Workspace context. Must be non-empty — empty will fail closed.
     """
+    if not organization_id or organization_id < 1:
+        raise ValueError("Upload requires a valid organization context")
+    if not workspace_id:
+        raise ValueError("Upload requires a valid workspace context")
     from app import create_app, db
     from sqlalchemy import text
     import json
@@ -64,10 +70,10 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str,
         created = svc.create(
             object_type="Document",
             name=filename,
-            organization_id=organization_id or 0,
+            organization_id=organization_id,
             data={"content": content_data, "sha256": sha256, "storage_meta": meta},
             created_by="system",
-            workspace_id="onb_system",
+            workspace_id=workspace_id,
         )
         doc_id = created["object_id"]
         db.session.commit()
@@ -117,8 +123,9 @@ def api_upload():
     # Capture organization context before it's lost in the background job
     from app.authz.decorators import _resolve_org_id
     org_id = _resolve_org_id()
+    workspace_id = session.get("workspace_id") or g.get("workspace_id") or ""
     job = create_job(f"Upload: {f.filename}", "upload")
-    job.run_async(_process_upload, file_bytes, f.filename, f.content_type or "application/octet-stream", org_id)
+    job.run_async(_process_upload, file_bytes, f.filename, f.content_type or "application/octet-stream", org_id, workspace_id)
 
     return jsonify({
         "success": True,

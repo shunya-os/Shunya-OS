@@ -34,7 +34,10 @@ def _tenant_id() -> int:
 
 
 def _organization_id() -> int:
-    """Resolve the current organization ID from session or flask.g."""
+    """Resolve the current organization ID from session or flask.g.
+
+    Returns the real org ID or 0. Callers MUST reject 0 as missing ownership.
+    """
     return (
         session.get("current_org_id")
         or g.get("current_org_id")
@@ -43,11 +46,15 @@ def _organization_id() -> int:
 
 
 def _workspace_id() -> str:
-    """Resolve the current workspace ID from session or flask.g."""
+    """Resolve the current workspace ID from session or flask.g.
+
+    Returns the real workspace ID or empty string. Returns empty string
+    instead of a synthetic default like 'spc_business'.
+    """
     return (
         session.get("workspace_id")
         or g.get("workspace_id")
-        or "spc_business"
+        or ""
     )
 
 

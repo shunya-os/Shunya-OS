@@ -24,6 +24,10 @@ class MediaAsset(db.Model):
     workspace_id = db.Column(db.String(64), nullable=False, default="")
     sh_object_id = db.Column(db.String(64), nullable=True)
 
+    # NOTE: organization_id=0 is used temporarily for recording generation attempts
+    # without real org context. ObjectService.create() will reject 0 when creating
+    # the canonical sh_objects record — callers must resolve real org context.
+
     # ── Canonical runtime state ──────────────────────────────
     # IDLE | PREPARING_BRIEF | GENERATING | GENERATED | DESCRIPTION_ONLY | PROVIDER_UNAVAILABLE | FAILED
     runtime_state = db.Column(db.String(30), nullable=False, default="idle")

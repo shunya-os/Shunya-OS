@@ -26,7 +26,17 @@ class ObjectService:
                data: Optional[dict] = None, created_by: Optional[str] = None,
                status: str = "active", workspace_id: str = "spc_business",
                object_id: Optional[str] = None) -> dict:
-        """Create a canonical object. Returns the created record."""
+        """Create a canonical object. Returns the created record.
+
+        Rejects missing/synthetic ownership — organization_id must be a
+        positive integer. Callers are responsible for resolving real
+        organization context from the authenticated identity before calling.
+        """
+        if not organization_id or organization_id < 1:
+            raise ValueError(
+                f"ObjectService.create() requires a valid positive organization_id, "
+                f"got {organization_id!r}. Missing ownership MUST FAIL CLOSED."
+            )
         from sqlalchemy import text
         now = datetime.now(timezone.utc)
         oid = object_id or str(uuid.uuid4())

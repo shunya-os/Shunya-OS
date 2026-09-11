@@ -192,9 +192,12 @@ def generate_media(
     Returns the canonical result contract.
     """
     # 1. Create initial record (IDLE -> PREPARING_BRIEF)
+    # organization_id=0 is permitted at this stage to record the attempt;
+    # canonical object creation via ObjectService will reject org_id=0 later.
+    # Callers MUST resolve real organization context before calling generate_media.
     asset = MediaAsset(
         identity_id=identity_id,
-        organization_id=organization_id,
+        organization_id=organization_id or 0,
         workspace_id=workspace_id,
         runtime_state="preparing_brief",
         result_kind=None,
