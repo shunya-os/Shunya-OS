@@ -33,9 +33,9 @@ class ObjectService:
         result = self.db.session.execute(
             text("""
                 INSERT INTO sh_objects
-                    (object_id, object_type, name, status, workspace_id, organization_id, data, created_by, created_at, updated_at)
+                    (object_id, object_type, name, status, workspace_id, organization_id, data, created_by, created_at, updated_at, is_deleted)
                 VALUES
-                    (:oid, :object_type, :name, :status, :workspace_id, :organization_id, :data, :created_by, :created_at, :updated_at)
+                    (:oid, :object_type, :name, :status, :workspace_id, :organization_id, :data, :created_by, :created_at, :updated_at, false)
                 RETURNING id
             """),
             {

@@ -6,7 +6,7 @@ with automatic fallback chain: Groq → Gemini → OpenRouter → Cloudflare →
 Supports optional web_search flag that fetches search results from /api/v1/search
 and prepends them as system context.
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 import logging
 import requests
 from urllib.parse import quote
@@ -17,6 +17,25 @@ from .provider import _registry
 logger = logging.getLogger(__name__)
 
 ai_bp = Blueprint('ai', __name__, url_prefix='/api/v1/ai')
+
+
+def _owned_conversation(conv_id):
+    """Private conversations require identity ownership before any read/write."""
+    from app.founder.models import FounderConversation
+    from app.objects.legacy_models import ShunyaObject, Workspace
+    conv = FounderConversation.query.filter_by(
+        conv_id=conv_id, identity_id=str(g.identity_id)).first()
+    if conv is None:
+        return None
+    obj = ShunyaObject.query.filter_by(object_id=conv.object_id).first()
+    # Legacy orphan histories remain readable only by their recorded owner.
+    # Writes require a valid canonical object separately in chat().
+    if obj is not None:
+        workspace = Workspace.query.filter_by(id=obj.workspace_id,
+                    organization_id=g.current_org_id, status='active').first()
+        if obj.is_deleted or obj.organization_id != g.current_org_id or workspace is None:
+            return None
+    return conv
 
 
 @ai_bp.route('/research', methods=['POST'])
@@ -293,96 +312,68 @@ def chat():
     if not messages:
         return jsonify({'error': 'messages is required'}), 400
 
-    # ── Conversation Identity & Persistence ──
-    conversation_id = data.get('conversation_id')
+    # Resolve the authenticated context once; never use shared synthetic objects.
     from flask import session as flask_session
-    tenant_id = flask_session.get('tenant_id', 0)
-    identity_id = str(flask_session.get('identity_id', flask_session.get('user_id', '')))
-    conv_object_id = data.get('object_id', '')  # Link to a founder_object
-
-    # Create or resolve conversation for persistence
+    from app import db as _db
+    from app.founder.models import FounderConversation, FounderMessage
+    from app.objects.legacy_models import ShunyaObject, Workspace
+    from core.object_service import get_object_service
     import uuid as _uuid
-    if not conversation_id:
-        conversation_id = f"conv_{_uuid.uuid4().hex[:16]}"
-    elif not tenant_id and flask_session.get('current_org_id'):
-        tenant_id = flask_session.get('current_org_id')
-
-    # Persist the user message(s) to FounderConversation
+    identity_id = str(g.identity_id)
+    tenant_id = g.current_org_id
+    conversation_id = data.get('conversation_id')
+    conv_object_id = data.get('object_id', '')
+    if not isinstance(messages, list) or any(
+            not isinstance(m, dict) or not isinstance(m.get('content'), str)
+            or m.get('role') not in ('user', 'human', 'assistant', 'system') for m in messages):
+        return jsonify({'error': 'messages must contain valid role and text content'}), 400
+    user_messages = [m for m in messages if m['role'] in ('user', 'human')]
+    if not user_messages:
+        return jsonify({'error': 'A user message is required'}), 400
+    conv = None
     try:
-        from app.founder.models import FounderConversation, FounderMessage
-        from app import db as _db
-        from datetime import datetime as _dt
-
-        # Find or create conversation with a valid object_id (FK to founder_objects)
-        conv_object_ref = conv_object_id or "conv_system"
-        conv = FounderConversation.query.filter_by(conv_id=conversation_id).first()
-        if not conv:
-            # Ensure the founder_object exists for the FK constraint
-            from app.founder.models import FounderObject, FounderSpace
-            from app.objects.legacy_models import ShunyaObject
-            existing_obj = FounderObject.query.filter_by(object_id=conv_object_ref).first()
-            if not existing_obj:
-                # Find or create a system space
-                system_space = FounderSpace.query.filter_by(space_id="space_system").first()
-                if not system_space:
-                    system_space = FounderSpace(
-                        space_id="space_system",
-                        name="System Space",
-                        space_type="system",
-                        identity_id=identity_id or 'system',
-                    )
-                    _db.session.add(system_space)
-                    _db.session.flush()
-                # Canonical conversation object via ObjectService (R6B-2).
-                # The canonical write via ObjectService → sh_objects is the
-                # single production truth. founder_conversations.object_id now
-                # references sh_objects.object_id — no legacy founder_objects
-                # row is created or required.
-                from core.object_service import get_object_service
-                svc = get_object_service()
-                org_id = _db.session.execute(
-                    _db.text("SELECT organization_id FROM org_members WHERE identity_id = :iid AND is_active = true LIMIT 1"),
-                    {"iid": identity_id or 'system'}
-                ).scalar()
-                svc.create(
-                    object_type="conversation",
-                    name=messages[-1].get('content', 'Conversation')[:100] if messages else 'Conversation',
-                    organization_id=org_id or 0,
-                    data={},
-                    created_by=identity_id or 'system',
-                    workspace_id=system_space.space_id,
-                    object_id=conv_object_ref,
-                )
-                _db.session.flush()
-            conv = FounderConversation(
-                conv_id=conversation_id,
-                object_id=conv_object_ref,
-                title=messages[-1].get('content', 'New conversation')[:100] if messages else 'New conversation',
-                identity_id=identity_id or 'anonymous',
-                status='active',
-            )
+        if conversation_id:
+            conv = _owned_conversation(conversation_id)
+            if conv is None:
+                return jsonify({'error': 'Conversation not found'}), 404
+            conv_object_id = conv.object_id
+        obj = None
+        if conv_object_id:
+            obj = ShunyaObject.query.filter_by(object_id=conv_object_id,
+                    organization_id=tenant_id, is_deleted=False).first()
+            if obj is None:
+                return jsonify({'error': 'Conversation object not available in this organization'}), 404
+        workspace_id = obj.workspace_id if obj else (
+            data.get('workspace_id') or flask_session.get('workspace_id'))
+        workspaces = Workspace.query.filter_by(organization_id=tenant_id, status='active')
+        if workspace_id:
+            workspace = workspaces.filter_by(id=workspace_id).first()
+        else:
+            candidates = workspaces.limit(2).all()
+            workspace = candidates[0] if len(candidates) == 1 else None
+        if workspace is None:
+            return jsonify({'error': 'Select an active workspace for this organization'}), 400
+        if conv is None:
+            conversation_id = f"conv_{_uuid.uuid4().hex[:16]}"
+            if obj is None:
+                created = get_object_service().create(
+                    object_type='conversation', name=user_messages[-1]['content'][:100],
+                    organization_id=tenant_id, workspace_id=workspace.id,
+                    created_by=identity_id, data={})
+                conv_object_id = created['object_id']
+            conv = FounderConversation(conv_id=conversation_id, object_id=conv_object_id,
+                    title=user_messages[-1]['content'][:100], identity_id=identity_id, status='active')
             _db.session.add(conv)
-            _db.session.commit()
-
-        # Store each user message
-        for m in messages:
-            if m.get('role') in ('user', 'human'):
-                existing = FounderMessage.query.filter_by(
-                    conv_id=conversation_id,
-                    role='human',
-                    content=m.get('content', '')[:500]
-                ).first()
-                if not existing:
-                    fm = FounderMessage(
-                        conv_id=conversation_id,
-                        role='human',
-                        content=m.get('content', '')[:5000],
-                    )
-                    _db.session.add(fm)
+            _db.session.flush()
+        # Request history is context, not permission to replay all prior writes.
+        _db.session.add(FounderMessage(conv_id=conversation_id, role='human',
+                                      content=user_messages[-1]['content']))
         _db.session.commit()
-    except Exception as e:
-        logger.warning(f'Conversation persistence (user msg): {e}')
+    except Exception:
         _db.session.rollback()
+        logger.exception('Conversation persistence failed before inference')
+        return jsonify({'error': 'Could not save your message. Please retry.',
+                        'conversation_id': conversation_id}), 503
 
     # ── Web Search Integration ──
     # When web_search is true, extract the last user message, call the search
@@ -457,11 +448,11 @@ def chat():
                 query=input_text,
                 session_id=conversation_id or 'ai_chat',
                 module_key='',
-                workspace='',
+                workspace=workspace.id,
                 object_type=data.get('object_type', ''),
-                object_id=data.get('object_id', ''),
-                identity_id=str(flask_session.get('identity_id', '')),
-                tenant_id=str(flask_session.get('current_org_id', flask_session.get('tenant_id', ''))),
+                object_id=conv_object_id,
+                identity_id=identity_id,
+                tenant_id=str(tenant_id),
                 user_role=str(flask_session.get('user_role', '')),
                 workspace_type='organization' if flask_session.get('current_org_id') else 'personal',
             )
@@ -492,6 +483,7 @@ def chat():
                 temperature=temperature,
                 max_tokens=max_tokens,
                 request_type='chat',
+                conversation_history=messages[:-1],
             )
             orch_response = orch.process(orch_request)
             if orch_response.success:
@@ -591,8 +583,8 @@ def chat():
                 user_message=last_user_msg,
                 ai_response=result.get('content', ''),
                 conversation_id=conversation_id,
-                tenant_id=flask_session.get('tenant_id', 0),
-                identity_id=str(flask_session.get('user_id', '')),
+                tenant_id=tenant_id,
+                identity_id=identity_id,
             )
     except Exception as e:
         logger.warning(f'AI command lifecycle error: {e}')
@@ -655,12 +647,15 @@ def chat():
             fm = FounderMessage(
                 conv_id=conversation_id,
                 role='assistant',
-                content=ai_content[:5000],
+                content=ai_content,
             )
             _db2.session.add(fm)
             _db2.session.commit()
     except Exception as e_ai:
-        logger.warning(f'Conversation persistence (AI msg): {e_ai}')
+        _db.session.rollback()
+        logger.exception('Conversation response persistence failed')
+        return jsonify({'error': 'The response could not be saved. Please retry.',
+                        'conversation_id': conversation_id}), 503
     return jsonify(response_data)
 
 
@@ -678,11 +673,11 @@ def list_conversations():
             .order_by(FounderConversation.updated_at.desc()).limit(50).all()
         return jsonify({
             'success': True,
-            'data': [c.to_dict() for c in convs],
+            'data': [c.to_dict() for c in convs if _owned_conversation(c.conv_id) is not None],
         })
     except Exception as e:
         logger.warning(f'List conversations error: {e}')
-        return jsonify({'success': True, 'data': [], 'note': 'No conversations yet'})
+        return jsonify({'success': False, 'error': 'Conversation history is unavailable'}), 503
 
 
 @ai_bp.route('/conversations/<conv_id>', methods=['GET'])
@@ -691,7 +686,7 @@ def get_conversation(conv_id):
     """Get a conversation with its messages."""
     try:
         from app.founder.models import FounderConversation, FounderMessage
-        conv = FounderConversation.query.filter_by(conv_id=conv_id).first()
+        conv = _owned_conversation(conv_id)
         if not conv:
             return jsonify({'error': 'Conversation not found'}), 404
         msgs = FounderMessage.query.filter_by(conv_id=conv_id)\
@@ -724,14 +719,15 @@ def get_conversation_outputs(conv_id):
         from app.founder.models import FounderConversation
         from sqlalchemy import text
 
-        conv = FounderConversation.query.filter_by(conv_id=conv_id).first()
+        conv = _owned_conversation(conv_id)
         if not conv:
             return jsonify({'error': 'Conversation not found'}), 404
 
         # Query outcomes where state->>'source' = 'ai_chat' and state->>'source_id' = conv_id
         outcomes = Outcome.query.filter(
-            Outcome.state['source'].astext == 'ai_chat',
-            Outcome.state['source_id'].astext == conv_id,
+            Outcome.state['source'].as_string() == 'ai_chat',
+            Outcome.state['source_id'].as_string() == conv_id,
+            Outcome.identity_id == str(g.identity_id),
         ).order_by(Outcome.created_at.desc()).all()
 
         return jsonify({
@@ -744,7 +740,7 @@ def get_conversation_outputs(conv_id):
         })
     except Exception as e:
         logger.warning(f'Get conversation outputs error: {e}')
-        return jsonify({'success': True, 'data': {'outcomes': [], 'count': 0}})
+        return jsonify({'success': False, 'error': 'Conversation outputs are unavailable'}), 503
 
 
 @ai_bp.route('/save-output', methods=['POST'])
@@ -765,6 +761,9 @@ def save_output():
     """
     data = request.get_json(silent=True) or {}
     conversation_id = data.get('conversation_id', '')
+    # Standalone outputs are valid; a supplied conversation must be owned.
+    if conversation_id and _owned_conversation(conversation_id) is None:
+        return jsonify({'error': 'Conversation not found'}), 404
     content = data.get('content', '').strip()
     output_type = data.get('output_type', 'task')
     title = data.get('title', '') or content[:80]

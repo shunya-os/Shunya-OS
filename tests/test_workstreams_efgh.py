@@ -507,6 +507,11 @@ class TestAIPersistenceChain:
         db.session.commit()
 
         org_id = seed_rbac(db, identity_id="sid_ai_chain", role_name="admin")
+        # Stateful chat requires a real workspace belonging to the authorized org.
+        from app.objects.legacy_models import Workspace
+        db.session.add(Workspace(id='ws_ai_chain', name='AI Chain', workspace_type='business',
+                                 organization_id=org_id, created_by='sid_ai_chain'))
+        db.session.commit()
 
         with client.session_transaction() as sess:
             sess["user_id"] = member.id
