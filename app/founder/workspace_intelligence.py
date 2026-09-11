@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any
 
 from app import db
@@ -31,6 +32,7 @@ from app.founder.models import (
     FounderObject,
     FounderSpace,
 )
+from core.object_service import get_object_service
 from app.founder.workspace_models import (
     MissingContext,
     NextAction,
@@ -75,6 +77,122 @@ def _days_since(dt: datetime | None) -> float:
     return max(0, (datetime.now(timezone.utc) - dt).total_seconds() / 86400)
 
 
+def _canonical_object(object_id: str, status: str | None = "active") -> Any | None:
+    """Read a single object canonical-first (sh_objects), fall back to legacy founder_objects.
+
+    Compatibility boundary (R6B-2 classification C): new reads go through
+    ObjectService.get_by_object_id(); legacy table is the transient fallback
+    while migration data still lives in founder_objects. Returns an
+    attribute-accessible dict (normalized keys: object_id, name, object_type,
+    content, status, space_id, created_by, created_at, updated_at) for
+    canonical rows, or the FounderObject ORM instance for legacy rows.
+    Returns None if the object exists in neither store.
+    """
+    try:
+        canonical = get_object_service().get_by_object_id(object_id)
+        if canonical:
+            return _attr_object(canonical)
+    except Exception:
+        pass
+    query = FounderObject.query.filter_by(object_id=object_id)
+    if status:
+        query = query.filter_by(status=status)
+    return query.first()
+
+
+def _attr_object(canonical: dict) -> Any:
+    """Normalize a canonical sh_objects row for attribute-style consumption.
+
+    Maps workspace_id -> space_id and data.content -> content (legacy key
+    compatibility). Datetimes are re-parsed so downstream .isoformat(),
+    arithmetic, and _days_since()/_time_ago() calls keep working.
+    """
+    data = canonical.get("data") or {}
+    if not isinstance(data, dict):
+        data = {}
+    content = canonical.get("content")
+    if content is None:
+        content = data.get("content", "")
+    return SimpleNamespace(
+        object_id=canonical.get("object_id", ""),
+        name=canonical.get("name", ""),
+        object_type=canonical.get("object_type", ""),
+        content=content or "",
+        status=canonical.get("status", "active"),
+        space_id=canonical.get("space_id") or canonical.get("workspace_id"),
+        created_by=canonical.get("created_by", ""),
+        created_at=_parse_dt(canonical.get("created_at")),
+        updated_at=_parse_dt(canonical.get("updated_at")),
+        organization_id=canonical.get("organization_id", 0),
+    )
+
+
+def _parse_dt(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
+    return None
+
+
+def _canonical_space_objects(space_id: str, organization_id: int = 0,
+                             exclude_object_id: str | None = None,
+                             limit: int = 10) -> list:
+    """List objects in a space canonical-first, fall back to legacy founder_objects.
+
+    Uses ObjectService.list_by_workspace when an organization is available,
+    else falls back to the legacy FounderObject space query. Returns ORM
+    instances or normalized attribute-accessible dicts (both support the same
+    attribute access used by callers).
+    """
+    try:
+        if organization_id and organization_id > 0:
+            canonical = get_object_service().list_by_workspace(
+                workspace_id=space_id, organization_id=organization_id, limit=limit
+            )
+            if canonical:
+                items = []
+                for c in canonical:
+                    if exclude_object_id and c.get("object_id") == exclude_object_id:
+                        continue
+                    items.append(_attr_object(c))
+                return items[:limit]
+    except Exception:
+        pass
+    query = FounderObject.query.filter(
+        FounderObject.space_id == space_id,
+        FounderObject.status == "active",
+    )
+    if exclude_object_id:
+        query = query.filter(FounderObject.object_id != exclude_object_id)
+    return query.order_by(FounderObject.updated_at.desc()).limit(limit).all()
+
+
+def _canonical_objects_by_ids(object_ids: list[str], limit: int = 5) -> list:
+    """Resolve a list of object_ids canonical-first, falling back per-id to legacy."""
+    items = []
+    try:
+        svc = get_object_service()
+        for oid in (object_ids or [])[:limit]:
+            canonical = svc.get_by_object_id(oid)
+            if canonical:
+                items.append(_attr_object(canonical))
+        if items:
+            return items
+    except Exception:
+        pass
+    if not items:
+        found = FounderObject.query.filter(
+            FounderObject.object_id.in_(object_ids or []),
+            FounderObject.status == "active",
+        ).limit(limit).all()
+        return found
+    return items
+
+
 # ---------------------------------------------------------------------------
 # 1. Workspace Summary
 # ---------------------------------------------------------------------------
@@ -86,7 +204,8 @@ def build_workspace_summary(object_id: str) -> dict[str, Any]:
     Contains: identity, status, importance, ownership, creation history,
     latest activity, business significance.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    obj = _canonical_object(object_id)
     if not obj:
         return {"error": "Object not found"}
 
@@ -162,7 +281,8 @@ def build_ai_understanding(object_id: str) -> dict[str, Any]:
 
     Unknown information is explicitly identified rather than guessed.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    obj = _canonical_object(object_id)
     if not obj:
         return {"error": "Object not found"}
 
@@ -308,7 +428,8 @@ def build_relationship_intelligence(object_id: str) -> dict[str, Any]:
     Types: relationships (BusinessRelationship), same-space objects,
     objects with shared conversations.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    obj = _canonical_object(object_id)
     if not obj:
         return {"error": "Object not found", "groups": []}
 
@@ -333,11 +454,12 @@ def build_relationship_intelligence(object_id: str) -> dict[str, Any]:
         })
 
     # 3b. Same-space objects
-    siblings = FounderObject.query.filter(
-        FounderObject.space_id == obj.space_id,
-        FounderObject.status == "active",
-        FounderObject.object_id != object_id,
-    ).order_by(FounderObject.updated_at.desc()).limit(10).all()
+    siblings = _canonical_space_objects(
+        obj.space_id,
+        organization_id=getattr(obj, "organization_id", 0) or 0,
+        exclude_object_id=object_id,
+        limit=10,
+    )
 
     if siblings:
         groups.append({
@@ -366,10 +488,7 @@ def build_relationship_intelligence(object_id: str) -> dict[str, Any]:
         ).all()
         conv_related_ids = list(set(c.object_id for c in related_convs))
         if conv_related_ids:
-            conv_objects = FounderObject.query.filter(
-                FounderObject.object_id.in_(conv_related_ids),
-                FounderObject.status == "active",
-            ).limit(5).all()
+            conv_objects = _canonical_objects_by_ids(conv_related_ids, limit=5)
             if conv_objects:
                 groups.append({
                     "group_type": "conversation_context",
@@ -398,7 +517,8 @@ def build_activity_timeline(object_id: str, limit: int = 50) -> list[dict[str, A
     intelligence events. Timeline entries are deterministic and persisted.
     """
     events: list[dict[str, Any]] = []
-    obj = FounderObject.query.filter_by(object_id=object_id).first()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    obj = _canonical_object(object_id, status=None)
     if not obj:
         return events
 
@@ -502,7 +622,7 @@ def get_conversation_workspace(object_id: str) -> dict[str, Any]:
 
     Returns conversation + messages + extracted decisions and commitments.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id).first()
+    obj = _canonical_object(object_id, status=None)
     if not obj:
         return {"error": "Object not found", "conversation": None}
 
@@ -540,7 +660,8 @@ def build_next_actions(object_id: str) -> list[dict[str, Any]]:
     originating runtime. No placeholder recommendations.
     """
     actions: list[dict[str, Any]] = []
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    obj = _canonical_object(object_id)
     if not obj:
         return actions
 
@@ -686,7 +807,8 @@ def detect_missing_context(object_id: str) -> list[dict[str, Any]]:
     opportunities to improve business understanding.
     """
     gaps: list[dict[str, Any]] = []
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    obj = _canonical_object(object_id)
     if not obj:
         return gaps
 
@@ -787,7 +909,8 @@ def compute_workspace_health(object_id: str) -> dict[str, Any]:
     Health is explainable and reproducible — same state always produces
     same score.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    obj = _canonical_object(object_id)
     if not obj:
         return {"error": "Object not found"}
 
@@ -952,7 +1075,8 @@ def build_evidence_explorer(object_id: str) -> list[dict[str, Any]]:
     commitments, runtime observations.
     """
     evidence: list[dict[str, Any]] = []
-    obj = FounderObject.query.filter_by(object_id=object_id).first()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    obj = _canonical_object(object_id, status=None)
     if not obj:
         return evidence
 
@@ -1089,9 +1213,8 @@ def navigate_to_object(source_object_id: str, target_object_id: str,
     context so the founder can continue without losing the thread.
     """
     # Validate target exists
-    target = FounderObject.query.filter_by(
-        object_id=target_object_id, status="active"
-    ).first()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    target = _canonical_object(target_object_id)
     if not target:
         return {"error": "Target object not found"}
 
@@ -1139,7 +1262,7 @@ def build_full_workspace(object_id: str) -> dict[str, Any]:
     Returns all intelligence panels in a single response.
     For rendering the full workspace on load.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    obj = _canonical_object(object_id)
     if not obj:
         return {"error": "Object not found"}
 

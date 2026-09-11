@@ -152,6 +152,46 @@ def get_pipeline_trace(intent_id: str) -> dict[str, Any] | None:
     return None
 
 
+def _canonical_all_objects(identity_id: str) -> list | None:
+    """Read all active objects canonical-first (scoped to identity's org),
+    return None to trigger legacy FounderObject fallback.
+
+    Compatibility boundary (R6B-2 classification C). Resolves the user's
+    organization from OrgMember, then queries sh_objects across org spaces
+    via ObjectService.list_by_workspace. Returns None when canonical data
+    is unavailable so callers can fall back to the global FounderObject query.
+    """
+    try:
+        from core.object_service import get_object_service
+        svc = get_object_service()
+        org_id = 0
+        try:
+            from app.models import OrgMember
+            member = OrgMember.query.filter_by(identity_id=identity_id, is_active=True).first()
+            if member:
+                org_id = member.organization_id
+        except Exception:
+            pass
+        if not org_id or org_id < 1:
+            return None
+        from app.founder.models import FounderSpace
+        results = []
+        for sp in FounderSpace.query.filter_by(organization_id=org_id, status="active").all():
+            try:
+                rows = svc.list_by_workspace(
+                    workspace_id=sp.space_id, organization_id=org_id,
+                    status="active", limit=500,
+                )
+                results.extend(rows)
+            except Exception:
+                continue
+        if results:
+            return results
+    except Exception:
+        pass
+    return None
+
+
 def get_executive_home(identity_id: str) -> dict[str, Any]:
     """Assemble Executive Home data from the OS pipeline.
 
@@ -188,7 +228,9 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
         from sqlalchemy import text
 
         # Query recent objects as activity events
-        objects = FounderObject.query.filter_by(
+        from core.object_service import get_object_service
+        canonical_objects = _canonical_all_objects(identity_id)
+        objects = canonical_objects[:20] if canonical_objects else FounderObject.query.filter_by(
             status="active"
         ).order_by(
             FounderObject.updated_at.desc()
@@ -237,7 +279,9 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
     active_commitments = []
     try:
         from app.founder.models import FounderObject
-        objects = FounderObject.query.filter_by(
+        from core.object_service import get_object_service
+        canonical_objects = _canonical_all_objects(identity_id)
+        objects = canonical_objects[:10] if canonical_objects else FounderObject.query.filter_by(
             status="active"
         ).order_by(
             FounderObject.updated_at.desc()
@@ -261,7 +305,9 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
     object_summary = {"total": 0, "by_type": {}, "at_risk": 0}
     try:
         from app.founder.models import FounderObject
-        all_objects = FounderObject.query.filter_by(status="active").all()
+        from core.object_service import get_object_service
+        canonical_objects = _canonical_all_objects(identity_id)
+        all_objects = canonical_objects if canonical_objects else FounderObject.query.filter_by(status="active").all()
         object_summary["total"] = len(all_objects)
         for obj in all_objects:
             t = obj.object_type or "Unknown"

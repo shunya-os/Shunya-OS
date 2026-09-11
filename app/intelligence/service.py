@@ -9,12 +9,100 @@ import json
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any
 
 from app import db
 from app.intelligence.models import AnomalyRecord, LearningEvent, ReasoningTrace
 
 from app.founder.models import FounderObject, FounderSpace, FounderConversation, FounderMessage
+from core.object_service import get_object_service
+
+
+def _parse_dt(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
+    return None
+
+
+def _attr_object(canonical: dict) -> SimpleNamespace:
+    """Normalize a canonical sh_objects row for attribute-style consumption."""
+    data = canonical.get("data") or {}
+    if not isinstance(data, dict):
+        data = {}
+    content = canonical.get("content")
+    if content is None:
+        content = data.get("content", "")
+    return SimpleNamespace(
+        object_id=canonical.get("object_id", ""),
+        name=canonical.get("name", ""),
+        object_type=canonical.get("object_type", ""),
+        content=content or "",
+        status=canonical.get("status", "active"),
+        space_id=canonical.get("space_id") or canonical.get("workspace_id"),
+        created_by=canonical.get("created_by", ""),
+        created_at=_parse_dt(canonical.get("created_at")),
+        updated_at=_parse_dt(canonical.get("updated_at")),
+        organization_id=canonical.get("organization_id", 0),
+    )
+
+
+def _objects_in_spaces(space_ids: list[str],
+                       updated_at_max: datetime | None = None,
+                       created_at_min: datetime | None = None,
+                       limit: int | None = None) -> list:
+    """Read active objects across spaces canonical-first; legacy fallback.
+
+    Compatibility boundary (R6B-2 classification C). Threshold filters are
+    applied in SQL for the legacy path and in Python for canonical rows.
+    Organization context is resolved from FounderSpace so list_by_workspace
+    uses the correct org scope.
+    """
+    try:
+        svc = get_object_service()
+        canonical = []
+        for sid in space_ids or []:
+            try:
+                sp = FounderSpace.query.filter_by(space_id=sid).first()
+                org_id = sp.organization_id if (sp and getattr(sp, "organization_id", None)) else 0
+            except Exception:
+                org_id = 0
+            try:
+                rows = svc.list_by_workspace(
+                    workspace_id=sid, organization_id=org_id,
+                    status="active", limit=1000,
+                )
+                canonical.extend(rows)
+            except Exception:
+                continue
+        if canonical:
+            objs = [_attr_object(r) for r in canonical]
+            if updated_at_max is not None:
+                objs = [o for o in objs if o.updated_at and o.updated_at <= updated_at_max]
+            if created_at_min is not None:
+                objs = [o for o in objs if o.created_at is not None and o.created_at >= created_at_min]
+            if limit:
+                objs = objs[:limit]
+            return objs
+    except Exception:
+        pass
+    # Legacy fallback (compat boundary)
+    query = FounderObject.query.filter(
+        FounderObject.space_id.in_(space_ids or []),
+        FounderObject.status == "active",
+    )
+    if updated_at_max is not None:
+        query = query.filter(FounderObject.updated_at <= updated_at_max)
+    if created_at_min is not None:
+        query = query.filter(FounderObject.created_at >= created_at_min)
+    if limit:
+        query = query.limit(limit)
+    return query.all()
 
 
 # ---------------------------------------------------------------------------
@@ -174,11 +262,8 @@ def detect_anomalies(identity_id: str) -> list[dict[str, Any]]:
         return anomalies
 
     # Stalled objects
-    stalled = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.updated_at <= threshold_14d,
-    ).all()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    stalled = _objects_in_spaces(space_ids, updated_at_max=threshold_14d)
 
     for obj in stalled:
         conv = FounderConversation.query.filter_by(
@@ -216,11 +301,8 @@ def detect_anomalies(identity_id: str) -> list[dict[str, Any]]:
         anomalies.append(anomaly.to_dict())
 
     # Orphan objects (no conversations, old)
-    orphans = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.updated_at <= threshold_7d,
-    ).all()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    orphans = _objects_in_spaces(space_ids, updated_at_max=threshold_7d)
 
     for obj in orphans:
         conv = FounderConversation.query.filter_by(

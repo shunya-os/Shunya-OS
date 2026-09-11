@@ -7,6 +7,7 @@ What should happen next? All from persistent data. No fabrications.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any, Iterator
 
 from app import db
@@ -17,6 +18,7 @@ from app.founder.models import (
     FounderObject,
     FounderSpace,
 )
+from core.object_service import get_object_service
 from core.os import get_os
 
 # ---------------------------------------------------------------------------
@@ -57,6 +59,93 @@ def _days_since(dt: datetime | None) -> float:
 
 def _insight_id(prefix: str, key: str) -> str:
     return f"ins_{prefix}_{key[:16]}"
+
+
+def _parse_dt(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
+    return None
+
+
+def _attr_object(canonical: dict) -> SimpleNamespace:
+    """Normalize a canonical sh_objects row for attribute-style consumption."""
+    data = canonical.get("data") or {}
+    if not isinstance(data, dict):
+        data = {}
+    content = canonical.get("content")
+    if content is None:
+        content = data.get("content", "")
+    return SimpleNamespace(
+        object_id=canonical.get("object_id", ""),
+        name=canonical.get("name", ""),
+        object_type=canonical.get("object_type", ""),
+        content=content or "",
+        status=canonical.get("status", "active"),
+        space_id=canonical.get("space_id") or canonical.get("workspace_id"),
+        created_by=canonical.get("created_by", ""),
+        created_at=_parse_dt(canonical.get("created_at")),
+        updated_at=_parse_dt(canonical.get("updated_at")),
+        organization_id=canonical.get("organization_id", 0),
+    )
+
+
+def _objects_in_spaces(space_ids: list[str],
+                       updated_at_max: datetime | None = None,
+                       created_at_min: datetime | None = None,
+                       limit: int | None = None) -> list:
+    """Read active objects across spaces canonical-first; legacy fallback.
+
+    Compatibility boundary (R6B-2 classification C). Threshold filters are
+    applied in SQL for the legacy path and in Python for canonical rows
+    (canonical timestamps are timezone-aware ISO strings parsed to datetimes).
+    Organization context is resolved from FounderSpace so list_by_workspace
+    uses the correct org scope.
+    """
+    try:
+        svc = get_object_service()
+        canonical = []
+        for sid in space_ids or []:
+            try:
+                sp = FounderSpace.query.filter_by(space_id=sid).first()
+                org_id = sp.organization_id if (sp and getattr(sp, "organization_id", None)) else 0
+            except Exception:
+                org_id = 0
+            try:
+                rows = svc.list_by_workspace(
+                    workspace_id=sid, organization_id=org_id,
+                    status="active", limit=1000,
+                )
+                canonical.extend(rows)
+            except Exception:
+                continue
+        if canonical:
+            objs = [_attr_object(r) for r in canonical]
+            if updated_at_max is not None:
+                objs = [o for o in objs if o.updated_at and o.updated_at <= updated_at_max]
+            if created_at_min is not None:
+                objs = [o for o in objs if o.created_at is not None and o.created_at >= created_at_min]
+            if limit:
+                objs = objs[:limit]
+            return objs
+    except Exception:
+        pass
+    # Legacy fallback (compat boundary)
+    query = FounderObject.query.filter(
+        FounderObject.space_id.in_(space_ids or []),
+        FounderObject.status == "active",
+    )
+    if updated_at_max is not None:
+        query = query.filter(FounderObject.updated_at <= updated_at_max)
+    if created_at_min is not None:
+        query = query.filter(FounderObject.created_at >= created_at_min)
+    if limit:
+        query = query.limit(limit)
+    return query.all()
 
 
 # ---------------------------------------------------------------------------
@@ -111,11 +200,8 @@ def _derive_stalled_objects(identity_id: str, space_ids: list[str]) -> list[dict
     """Objects not updated in 7+ days with active conversations = stalled."""
     insights = []
     threshold = _ago(days=7)
-    for obj in FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.updated_at <= threshold,
-    ).all():
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    for obj in _objects_in_spaces(space_ids, updated_at_max=threshold):
         conv = FounderConversation.query.filter_by(
             object_id=obj.object_id, status="active"
         ).first()
@@ -155,10 +241,8 @@ def _derive_stalled_objects(identity_id: str, space_ids: list[str]) -> list[dict
 def _derive_unattended_conversations(identity_id: str, space_ids: list[str]) -> list[dict[str, Any]]:
     """Conversations where human sent more messages than SHUNYA last responded."""
     insights = []
-    for obj in FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-    ).all():
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    for obj in _objects_in_spaces(space_ids):
         conv = FounderConversation.query.filter_by(
             object_id=obj.object_id, status="active"
         ).first()
@@ -211,15 +295,14 @@ def _derive_inactive_spaces(identity_id: str, space_ids: list[str]) -> list[dict
         FounderSpace.space_id.in_(space_ids),
         FounderSpace.status == "active",
     ).all():
-        latest_obj = FounderObject.query.filter(
-            FounderObject.space_id == space.space_id,
-            FounderObject.status == "active",
-        ).order_by(FounderObject.updated_at.desc()).first()
+        # Canonical-first read (sh_objects via ObjectService), legacy fallback
+        space_objects = _objects_in_spaces([space.space_id])
+        latest_obj = max(
+            space_objects, key=lambda o: o.updated_at or datetime.min.replace(tzinfo=None)
+        ) if space_objects else None
         if latest_obj and latest_obj.updated_at and latest_obj.updated_at > threshold:
             continue
-        obj_count = FounderObject.query.filter_by(
-            space_id=space.space_id, status="active"
-        ).count()
+        obj_count = len(space_objects)
         if obj_count == 0:
             days_idle = round(_days_since(space.created_at))
         else:
@@ -251,16 +334,15 @@ def _derive_inactive_spaces(identity_id: str, space_ids: list[str]) -> list[dict
 
 def _derive_object_type_insights(identity_id: str, space_ids: list[str]) -> list[dict[str, Any]]:
     """Insights about object type diversity."""
-    from sqlalchemy import func
     insights = []
-    type_counts = dict(
-        db.session.query(
-            FounderObject.object_type, func.count(FounderObject.id)
-        ).filter(
-            FounderObject.space_id.in_(space_ids),
-            FounderObject.status == "active",
-        ).group_by(FounderObject.object_type).all()
-    )
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback.
+    # Type counts are aggregated in Python from the resolved object list so
+    # both paths produce identical semantics.
+    objects = _objects_in_spaces(space_ids)
+    type_counts: dict[str, int] = {}
+    for o in objects:
+        t = o.object_type or "Unknown"
+        type_counts[t] = type_counts.get(t, 0) + 1
     total = sum(type_counts.values())
     if total < 3:
         return insights
@@ -364,11 +446,8 @@ def _derive_recent_completions(identity_id: str, space_ids: list[str]) -> list[d
     """Objects created recently — fresh work to build on."""
     insights = []
     threshold = _ago(hours=48)
-    for obj in FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.created_at >= threshold,
-    ).limit(5).all():
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    for obj in _objects_in_spaces(space_ids, created_at_min=threshold, limit=5):
         conv = FounderConversation.query.filter_by(
             object_id=obj.object_id, status="active"
         ).first()
@@ -400,11 +479,8 @@ def _derive_recent_completions(identity_id: str, space_ids: list[str]) -> list[d
 def _derive_orphan_objects(identity_id: str, space_ids: list[str]) -> Iterator[dict[str, Any]]:
     """Objects with no conversations and not recently updated."""
     threshold = _ago(days=3)
-    for obj in FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.updated_at <= threshold,
-    ).all():
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    for obj in _objects_in_spaces(space_ids, updated_at_max=threshold):
         conv = FounderConversation.query.filter_by(
             object_id=obj.object_id, status="active"
         ).first()
@@ -496,10 +572,16 @@ def build_timeline(identity_id: str, limit: int = 20) -> list[dict[str, Any]]:
         })
 
     # Object creation events
-    for obj in FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-    ).order_by(FounderObject.created_at.desc()).limit(limit).all():
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    timeline_objects = _objects_in_spaces(space_ids, limit=limit)
+    if timeline_objects:
+        # Canonical rows are ordered by updated_at desc — re-sort by created_at
+        timeline_objects = sorted(
+            (o for o in timeline_objects if o.created_at),
+            key=lambda o: o.created_at,
+            reverse=True,
+        )[:limit]
+    for obj in timeline_objects:
         events.append({
             "type": "object_created",
             "title": f"'{obj.name}' created",

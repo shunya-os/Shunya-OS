@@ -30,6 +30,7 @@ intention_bp = Blueprint("intention", __name__, url_prefix="/api/v1/intention")
 def _collect_signals():
     """Collect and rank contextual signals from the database."""
     from app import db
+    from core.object_service import get_object_service
 
     signals = []
 
@@ -57,15 +58,30 @@ def _collect_signals():
         })
 
     # 2. Pending proposals
-    rows = db.session.execute(
-        text("SELECT COUNT(*) FROM founder_objects WHERE object_type = 'Proposal' AND status = 'draft'")
-    ).fetchone()
-    draft_proposals = rows[0] if rows else 0
-    if draft_proposals > 0:
-        prop = db.session.execute(
-            text("SELECT name FROM founder_objects WHERE object_type = 'Proposal' AND status = 'draft' ORDER BY created_at DESC LIMIT 1")
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    draft_proposals = 0
+    prop_name = None
+    try:
+        _org = _intention_org_id()
+        proposals = get_object_service().get_by_type("Proposal", _org, limit=50) if _org else []
+        if proposals:
+            drafts = [p for p in proposals if p.get("status") == "draft"]
+            draft_proposals = len(drafts)
+            if drafts:
+                prop_name = drafts[0].get("name")
+    except Exception:
+        draft_proposals = 0
+    if draft_proposals == 0:
+        rows = db.session.execute(
+            text("SELECT COUNT(*) FROM founder_objects WHERE object_type = 'Proposal' AND status = 'draft'")
         ).fetchone()
-        prop_name = prop[0] if prop else None
+        draft_proposals = rows[0] if rows else 0
+        if draft_proposals > 0:
+            prop = db.session.execute(
+                text("SELECT name FROM founder_objects WHERE object_type = 'Proposal' AND status = 'draft' ORDER BY created_at DESC LIMIT 1")
+            ).fetchone()
+            prop_name = prop[0] if prop else None
+    if draft_proposals > 0:
         signals.append({
             "type": "pending_proposal",
             "priority": 4,
@@ -78,16 +94,30 @@ def _collect_signals():
 
     # 3. Recent activity (last 24h)
     since = datetime.now(timezone.utc) - timedelta(hours=24)
-    rows = db.session.execute(
-        text("SELECT COUNT(*) FROM founder_objects WHERE created_at >= :since"),
-        {"since": since},
-    ).fetchone()
-    recent_count = rows[0] if rows else 0
-    if recent_count > 0:
-        recent = db.session.execute(
-            text("SELECT name, object_type FROM founder_objects WHERE created_at >= :since ORDER BY created_at DESC LIMIT 1"),
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    recent_count = 0
+    recent = None
+    try:
+        _org = _intention_org_id()
+        canonical_recent = _recent_canonical_objects(_org)
+        if canonical_recent:
+            recent_count = len(canonical_recent)
+            if recent_count > 0:
+                recent = canonical_recent[0]
+    except Exception:
+        recent_count = 0
+    if recent_count == 0:
+        rows = db.session.execute(
+            text("SELECT COUNT(*) FROM founder_objects WHERE created_at >= :since"),
             {"since": since},
         ).fetchone()
+        recent_count = rows[0] if rows else 0
+        if recent_count > 0:
+            recent = db.session.execute(
+                text("SELECT name, object_type FROM founder_objects WHERE created_at >= :since ORDER BY created_at DESC LIMIT 1"),
+                {"since": since},
+            ).fetchone()
+    if recent_count > 0:
         signals.append({
             "type": "recent_activity",
             "priority": 3,
@@ -113,9 +143,19 @@ def _collect_signals():
         })
 
     # 5. Most recent object
-    recent_obj = db.session.execute(
-        text("SELECT name, object_type FROM founder_objects WHERE object_type != 'Proposal' ORDER BY created_at DESC LIMIT 1")
-    ).fetchone()
+    # Canonical-first read (sh_objects via ObjectService), legacy fallback
+    recent_obj = None
+    try:
+        _org = _intention_org_id()
+        canonical_recent_obj = _recent_canonical_objects(_org, exclude_proposals=True)
+        if canonical_recent_obj:
+            recent_obj = canonical_recent_obj[0]
+    except Exception:
+        recent_obj = None
+    if recent_obj is None:
+        recent_obj = db.session.execute(
+            text("SELECT name, object_type FROM founder_objects WHERE object_type != 'Proposal' ORDER BY created_at DESC LIMIT 1")
+        ).fetchone()
     if recent_obj:
         signals.append({
             "type": "recent_object",
@@ -130,6 +170,48 @@ def _collect_signals():
     # Sort by priority (highest first)
     signals.sort(key=lambda s: -s["priority"])
     return signals
+
+
+def _intention_org_id() -> int:
+    """Resolve the current org id for scoped canonical reads (0 if unknown)."""
+    try:
+        from app.authz.decorators import _resolve_org_id
+        return int(_resolve_org_id() or 0)
+    except Exception:
+        return 0
+
+
+def _recent_canonical_objects(org_id: int, exclude_proposals: bool = False) -> list:
+    """Recent active objects from sh_objects (timezone-aware), empty if none.
+
+    Canonical read used first by _collect_signals; callers fall back to the
+    legacy founder_objects raw SQL when this returns nothing (compat boundary).
+    """
+    from datetime import datetime as _dt
+    from core.object_service import get_object_service
+    if not org_id or org_id < 1:
+        return []
+    since = _dt.now(timezone.utc) - timedelta(hours=24)
+    results = []
+    for obj_type in ("Document", "Note", "Proposal", "Lead", "Invoice", "Contract", "Task"):
+        try:
+            rows = get_object_service().get_by_type(obj_type, org_id, limit=20)
+        except Exception:
+            rows = []
+        for r in rows:
+            created_raw = r.get("created_at")
+            if isinstance(created_raw, str):
+                try:
+                    created_raw = _dt.fromisoformat(created_raw)
+                except Exception:
+                    continue
+            if not created_raw:
+                continue
+            if exclude_proposals and (r.get("object_type") or "").lower() == "proposal":
+                continue
+            results.append((r.get("name") or "", r.get("object_type") or "Object", created_raw))
+    results.sort(key=lambda t: t[2], reverse=True)
+    return results[:1] if exclude_proposals else results[:50]
 
 
 @intention_bp.route("", methods=["GET"])

@@ -117,18 +117,45 @@ class BusinessDataRetriever:
 
         # 1. Founder objects
         try:
-            objects = self.db.session.execute(
-                text("""SELECT object_id, object_type, name, content, created_at
-                        FROM founder_objects
-                        WHERE status='active'
-                        AND (name ILIKE :q OR content ILIKE :q)
-                        ORDER BY created_at DESC LIMIT :limit"""),
-                {"q": f"%{query}%", "limit": max_results},
-            ).fetchall()
+            from core.object_service import get_object_service
+            objects = []
+            # Canonical-first read (sh_objects via ObjectService), legacy fallback
+            try:
+                org_ctx = org_id
+                if not org_ctx:
+                    try:
+                        from app.authz.decorators import _resolve_org_id
+                        org_ctx = _resolve_org_id()
+                    except Exception:
+                        org_ctx = None
+                org_ctx = int(org_ctx) if org_ctx else 0
+                if org_ctx and org_ctx > 0:
+                    canonical = get_object_service().search(
+                        query=query, organization_id=org_ctx, limit=max_results
+                    )
+                    if canonical:
+                        objects = canonical
+            except Exception:
+                objects = []
+            if not objects:
+                objects = self.db.session.execute(
+                    text("""SELECT object_id, object_type, name, content, created_at
+                            FROM founder_objects
+                            WHERE status='active'
+                            AND (name ILIKE :q OR content ILIKE :q)
+                            ORDER BY created_at DESC LIMIT :limit"""),
+                    {"q": f"%{query}%", "limit": max_results},
+                ).fetchall()
             for obj in objects:
-                snippet = (obj.content or "")[:300] if obj.content else obj.name
+                if isinstance(obj, dict):
+                    content = obj.get("content") or (obj.get("data") or {}).get("content", "") if isinstance(obj.get("data"), dict) else (obj.get("content") or "")
+                    name = obj.get("name") or ""
+                else:
+                    content = obj.content
+                    name = obj.name
+                snippet = (content or "")[:300] if content else name
                 results.append(SourceAttribution(
-                    text=f"{obj.name}: {snippet}",
+                    text=f"{name}: {snippet}",
                     source="business_data",
                     confidence="high",
                 ))
@@ -177,9 +204,28 @@ class BusinessDataRetriever:
                           "list all", "show all"]
         if any(kw in query.lower() for kw in count_keywords):
             try:
-                total_objects = self.db.session.execute(
-                    text("SELECT COUNT(*) FROM founder_objects WHERE status='active'")
-                ).scalar() or 0
+                from core.object_service import get_object_service
+                total_objects = 0
+                # Canonical-first count (sh_objects via ObjectService), legacy fallback
+                try:
+                    org_ctx = org_id
+                    if not org_ctx:
+                        try:
+                            from app.authz.decorators import _resolve_org_id
+                            org_ctx = _resolve_org_id()
+                        except Exception:
+                            org_ctx = None
+                    org_ctx = int(org_ctx) if org_ctx else 0
+                    if org_ctx and org_ctx > 0:
+                        counts = get_object_service().count_by_type(organization_id=org_ctx)
+                        if counts:
+                            total_objects = sum(counts.values())
+                except Exception:
+                    total_objects = 0
+                if total_objects == 0:
+                    total_objects = self.db.session.execute(
+                        text("SELECT COUNT(*) FROM founder_objects WHERE status='active'")
+                    ).scalar() or 0
                 results.append(SourceAttribution(
                     text=f"You have {total_objects} active business objects.",
                     source="business_data",

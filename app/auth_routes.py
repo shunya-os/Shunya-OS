@@ -785,7 +785,15 @@ def session_restore():
     # Determine if onboarding is complete — has personal workspace or org membership
     has_personal = False
     if identity_id:
-        has_personal = FounderObject.query.filter_by(created_by=identity_id).first() is not None
+        # Canonical-first read (sh_objects via ObjectService), legacy fallback
+        try:
+            from core.object_service import get_object_service
+            created = get_object_service().list_by_creator(created_by=str(identity_id), limit=1)
+            has_personal = bool(created)
+        except Exception:
+            has_personal = False
+        if not has_personal:
+            has_personal = FounderObject.query.filter_by(created_by=identity_id).first() is not None
 
     return jsonify({
         "authenticated": True,

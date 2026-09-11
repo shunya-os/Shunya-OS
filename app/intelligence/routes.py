@@ -318,13 +318,39 @@ def api_ask():
 
     # 2) Founder objects — detailed list with names, types, content
     try:
-        objects = _db.session.execute(
-            _text("SELECT name, object_type, content FROM founder_objects WHERE status='active' ORDER BY updated_at DESC LIMIT 20")
-        ).fetchall()
+        from core.object_service import get_object_service
+        objects = []
+        obj_details = []
+        org_id = 0
+        try:
+            from app.authz.decorators import _resolve_org_id
+            org_id = _resolve_org_id() or 0
+        except Exception:
+            org_id = 0
+        # Canonical-first read (sh_objects via ObjectService), legacy fallback
+        try:
+            if org_id and org_id > 0:
+                canonical_objs = get_object_service().get_by_type(
+                    object_type="Document", organization_id=org_id,
+                    limit=20, offset=0,
+                )
+                if canonical_objs:
+                    objects = canonical_objs
+        except Exception:
+            objects = []
+        if not objects:
+            objects = _db.session.execute(
+                _text("SELECT name, object_type, content FROM founder_objects WHERE status='active' ORDER BY updated_at DESC LIMIT 20")
+            ).fetchall()
         if objects:
             obj_details = []
             for obj in objects:
-                name, obj_type, content = obj
+                if isinstance(obj, dict):
+                    name = obj.get("name") or ""
+                    obj_type = obj.get("object_type") or ""
+                    content = obj.get("content") or (obj.get("data") or {}).get("content", "") if isinstance(obj.get("data"), dict) else (obj.get("content") or "")
+                else:
+                    name, obj_type, content = obj
                 snippet = (content or "")[:300].replace("\n", " ")
                 obj_details.append(f"{name} ({obj_type})")
             company_evidence.append({
