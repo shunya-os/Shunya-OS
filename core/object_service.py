@@ -100,10 +100,64 @@ class ObjectService:
                 SELECT * FROM sh_objects
                 WHERE object_type = :object_type
                 AND organization_id = :org_id
+                AND is_deleted = false
                 ORDER BY updated_at DESC LIMIT :lim OFFSET :off
             """),
             {"object_type": object_type, "org_id": organization_id, "lim": limit, "off": offset},
         ).all()
+        return [self._row_to_dict(r) for r in rows]
+
+    def list_by_workspace(self, workspace_id: str, organization_id: int,
+                          status: str = "active", limit: int = 100,
+                          offset: int = 0) -> list:
+        """List objects within a workspace+organization (canonical reads)."""
+        from sqlalchemy import text
+        rows = self.db.session.execute(
+            text("""
+                SELECT * FROM sh_objects
+                WHERE workspace_id = :ws_id
+                AND organization_id = :org_id
+                AND status = :status
+                AND is_deleted = false
+                ORDER BY updated_at DESC LIMIT :lim OFFSET :off
+            """),
+            {"ws_id": workspace_id, "org_id": organization_id, "status": status,
+             "lim": limit, "off": offset},
+        ).all()
+        return [self._row_to_dict(r) for r in rows]
+
+    def list_by_creator(self, created_by: str, organization_id: int = 0,
+                        status: str = "active", limit: int = 100) -> list:
+        """List objects created by an identity.
+
+        When organization_id > 0, scopes to that organization. When 0,
+        returns objects with NULL organization (personal workspace objects).
+        """
+        from sqlalchemy import text
+        if organization_id > 0:
+            rows = self.db.session.execute(
+                text("""
+                    SELECT * FROM sh_objects
+                    WHERE created_by = :creator
+                    AND organization_id = :org_id
+                    AND status = :status
+                    AND is_deleted = false
+                    ORDER BY updated_at DESC LIMIT :lim
+                """),
+                {"creator": created_by, "org_id": organization_id, "status": status, "lim": limit},
+            ).all()
+        else:
+            rows = self.db.session.execute(
+                text("""
+                    SELECT * FROM sh_objects
+                    WHERE created_by = :creator
+                    AND organization_id IS NULL
+                    AND status = :status
+                    AND is_deleted = false
+                    ORDER BY updated_at DESC LIMIT :lim
+                """),
+                {"creator": created_by, "status": status, "lim": limit},
+            ).all()
         return [self._row_to_dict(r) for r in rows]
 
     def search(self, query: str, organization_id: int, limit: int = 50) -> list:
