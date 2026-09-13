@@ -14,14 +14,14 @@ from app.founder.models import (
     BusinessRelationship,
     FounderConversation,
     FounderMessage,
-    FounderObject,
-    FounderSpace,
 )
-from core.os import get_os
+from core.object_service import get_object_service
+from sqlalchemy import text
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -53,6 +53,20 @@ def _days_since(dt: datetime | None) -> float:
     if dt.tzinfo is not None:
         dt = dt.replace(tzinfo=None)
     return max(0, (datetime.now(timezone.utc) - dt).total_seconds() / 86400)
+
+
+def _parse_dt(val: Any) -> datetime | None:
+    """Convert isoformat string (from ObjectService) back to datetime."""
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val
+    if isinstance(val, str):
+        try:
+            return datetime.fromisoformat(val)
+        except (ValueError, TypeError):
+            return None
+    return None
 
 
 def _insight_id(prefix: str, key: str) -> str:
@@ -107,42 +121,60 @@ def _priority_score(urgency_days: float, impact_count: int, is_risk: bool,
 # Insight derivation rules
 # ---------------------------------------------------------------------------
 
-def _derive_stalled_objects(identity_id: str, space_ids: list[str]) -> list[dict[str, Any]]:
+def _list_objects_in_spaces(space_ids: list[str],
+                            organization_id: int = 0) -> list[dict]:
+    """List all active sh_objects across the given workspace IDs."""
+    results: list[dict] = []
+    seen: set[str] = set()
+    for ws_id in space_ids:
+        objs = get_object_service().list_by_workspace(
+            workspace_id=ws_id, organization_id=organization_id, status="active",
+            limit=1000
+        )
+        for o in objs:
+            oid = o.get("object_id")
+            if oid and oid not in seen:
+                seen.add(oid)
+                results.append(o)
+    return results
+
+
+def _derive_stalled_objects(identity_id: str, space_ids: list[str],
+                            organization_id: int = 0) -> list[dict[str, Any]]:
     """Objects not updated in 7+ days with active conversations = stalled."""
     insights = []
     threshold = _ago(days=7)
-    for obj in FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.updated_at <= threshold,
-    ).all():
+    for obj in _list_objects_in_spaces(space_ids, organization_id):
+        updated_at = _parse_dt(obj.get("updated_at"))
+        if updated_at and updated_at > threshold:
+            continue
         conv = FounderConversation.query.filter_by(
-            object_id=obj.object_id, status="active"
+            object_id=obj["object_id"], status="active"
         ).first()
         if not conv:
             continue
         msg_count = FounderMessage.query.filter_by(conv_id=conv.conv_id).count()
         if msg_count < 2:
             continue
-        days_stalled = round(_days_since(obj.updated_at))
+        days_stalled = round(_days_since(updated_at))
         score, label = _priority_score(days_stalled, 1, False, True)
         insights.append({
-            "id": _insight_id("stalled", obj.object_id),
+            "id": _insight_id("stalled", obj["object_id"]),
             "type": "stalled_work",
-            "title": f"Work stalled on {obj.name}",
-            "what": f"{obj.name} has not been updated in {days_stalled} days and has an active conversation with no recent progress.",
+            "title": f"Work stalled on {obj.get('name')}",
+            "what": f"{obj.get('name')} has not been updated in {days_stalled} days and has an active conversation with no recent progress.",
             "why": "Stalled work blocks momentum. Objects with active conversations that go stale indicate unresolved decisions or forgotten priorities.",
             "evidence": {
-                "object_id": obj.object_id,
-                "object_name": obj.name,
-                "object_type": obj.object_type,
-                "space_id": obj.space_id,
+                "object_id": obj["object_id"],
+                "object_name": obj.get("name"),
+                "object_type": obj.get("object_type"),
+                "space_id": obj.get("space_id") or obj.get("workspace_id"),
                 "conv_id": conv.conv_id,
                 "message_count": msg_count,
                 "days_since_update": days_stalled,
-                "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
+                "updated_at": obj.get("updated_at"),
             },
-            "next_steps": [{"action": "open", "label": "Review and update", "target": f"/founder/object/{obj.object_id}"}],
+            "next_steps": [{"action": "open", "label": "Review and update", "target": f"/founder/object/{obj['object_id']}"}],
             "priority_score": score,
             "priority": label,
             "queue": "urgent" if label == "urgent" else "recommendation",
@@ -152,15 +184,13 @@ def _derive_stalled_objects(identity_id: str, space_ids: list[str]) -> list[dict
     return insights
 
 
-def _derive_unattended_conversations(identity_id: str, space_ids: list[str]) -> list[dict[str, Any]]:
+def _derive_unattended_conversations(identity_id: str, space_ids: list[str],
+                                     organization_id: int = 0) -> list[dict[str, Any]]:
     """Conversations where human sent more messages than SHUNYA last responded."""
     insights = []
-    for obj in FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-    ).all():
+    for obj in _list_objects_in_spaces(space_ids, organization_id):
         conv = FounderConversation.query.filter_by(
-            object_id=obj.object_id, status="active"
+            object_id=obj["object_id"], status="active"
         ).first()
         if not conv:
             continue
@@ -182,18 +212,18 @@ def _derive_unattended_conversations(identity_id: str, space_ids: list[str]) -> 
         insights.append({
             "id": _insight_id("unattend", conv.conv_id),
             "type": "unattended_conversation",
-            "title": f"Awaiting response on {obj.name}",
-            "what": f"You asked {human_msgs} question{'s' if human_msgs > 1 else ''} about {obj.name}, but the last response was {days_waiting}d ago. SHUNYA is waiting for your next instruction.",
+            "title": f"Awaiting response on {obj.get('name')}",
+            "what": f"You asked {human_msgs} question{'s' if human_msgs > 1 else ''} about {obj.get('name')}, but the last response was {days_waiting}d ago. SHUNYA is waiting for your next instruction.",
             "why": "Unanswered questions leave decisions open. Following up resolves ambiguity and moves work forward.",
             "evidence": {
-                "object_id": obj.object_id,
-                "object_name": obj.name,
+                "object_id": obj["object_id"],
+                "object_name": obj.get("name"),
                 "conv_id": conv.conv_id,
                 "human_messages": human_msgs,
                 "assistant_messages": assistant_msgs,
                 "days_since_last_message": days_waiting,
             },
-            "next_steps": [{"action": "open", "label": "Continue conversation", "target": f"/founder/object/{obj.object_id}"}],
+            "next_steps": [{"action": "open", "label": "Continue conversation", "target": f"/founder/object/{obj['object_id']}"}],
             "priority_score": score,
             "priority": label,
             "queue": "recommendation" if label in ("medium", "high") else "information",
@@ -203,43 +233,56 @@ def _derive_unattended_conversations(identity_id: str, space_ids: list[str]) -> 
     return insights
 
 
-def _derive_inactive_spaces(identity_id: str, space_ids: list[str]) -> list[dict[str, Any]]:
+def _derive_inactive_spaces(identity_id: str, space_ids: list[str],
+                            organization_id: int = 0) -> list[dict[str, Any]]:
     """Spaces with no object updates in 14+ days."""
     insights = []
     threshold = _ago(days=14)
-    for space in FounderSpace.query.filter(
-        FounderSpace.space_id.in_(space_ids),
-        FounderSpace.status == "active",
-    ).all():
-        latest_obj = FounderObject.query.filter(
-            FounderObject.space_id == space.space_id,
-            FounderObject.status == "active",
-        ).order_by(FounderObject.updated_at.desc()).first()
-        if latest_obj and latest_obj.updated_at and latest_obj.updated_at > threshold:
+    for ws_id in space_ids:
+        row = db.session.execute(
+            text("SELECT id, name, workspace_type, status, created_at FROM sh_workspaces WHERE id = :ws_id AND status = 'active'"),
+            {"ws_id": ws_id},
+        ).first()
+        if not row:
             continue
-        obj_count = FounderObject.query.filter_by(
-            space_id=space.space_id, status="active"
-        ).count()
+        # Get latest active object in this workspace
+        latest_objs = get_object_service().list_by_workspace(
+            workspace_id=ws_id, organization_id=organization_id, status="active",
+            limit=1
+        )
+        latest_obj = latest_objs[0] if latest_objs else None
+        latest_updated_at = _parse_dt(latest_obj.get("updated_at")) if latest_obj else None
+
+        if latest_obj and latest_updated_at and latest_updated_at > threshold:
+            continue
+
+        obj_count = len(get_object_service().list_by_workspace(
+            workspace_id=ws_id, organization_id=organization_id, status="active",
+            limit=1000
+        ))
+
         if obj_count == 0:
-            days_idle = round(_days_since(space.created_at))
+            created_at = _parse_dt(row.created_at)
+            days_idle = round(_days_since(created_at))
         else:
-            days_idle = round(_days_since(latest_obj.updated_at)) if latest_obj else 999
+            days_idle = round(_days_since(latest_updated_at)) if latest_updated_at else 999
+
         score, label = _priority_score(days_idle, obj_count, False, False)
         insights.append({
-            "id": _insight_id("inactive", space.space_id),
+            "id": _insight_id("inactive", ws_id),
             "type": "inactive_space",
-            "title": f"Space '{space.name}' is inactive",
-            "what": f"The '{space.name}' space has had no activity in {days_idle} days with {obj_count} object{'s' if obj_count != 1 else ''}.",
+            "title": f"Space '{row.name}' is inactive",
+            "what": f"The '{row.name}' space has had no activity in {days_idle} days with {obj_count} object{'s' if obj_count != 1 else ''}.",
             "why": "Inactive spaces can signal abandoned initiatives. Reviewing them helps decide whether to refocus or archive.",
             "evidence": {
-                "space_id": space.space_id,
-                "space_name": space.name,
-                "space_type": space.space_type,
+                "space_id": ws_id,
+                "space_name": row.name,
+                "space_type": row.workspace_type,
                 "object_count": obj_count,
                 "days_since_activity": days_idle,
-                "created_at": space.created_at.isoformat() if space.created_at else None,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
             },
-            "next_steps": [{"action": "open", "label": "Review space", "target": f"/founder/space/{space.space_id}"}],
+            "next_steps": [{"action": "open", "label": "Review space", "target": f"/founder/space/{ws_id}"}],
             "priority_score": score,
             "priority": label,
             "queue": "information" if label == "low" else "recommendation",
@@ -249,18 +292,15 @@ def _derive_inactive_spaces(identity_id: str, space_ids: list[str]) -> list[dict
     return insights
 
 
-def _derive_object_type_insights(identity_id: str, space_ids: list[str]) -> list[dict[str, Any]]:
+def _derive_object_type_insights(identity_id: str, space_ids: list[str],
+                                 organization_id: int = 0) -> list[dict[str, Any]]:
     """Insights about object type diversity."""
-    from sqlalchemy import func
     insights = []
-    type_counts = dict(
-        db.session.query(
-            FounderObject.object_type, func.count(FounderObject.id)
-        ).filter(
-            FounderObject.space_id.in_(space_ids),
-            FounderObject.status == "active",
-        ).group_by(FounderObject.object_type).all()
-    )
+    all_objs = _list_objects_in_spaces(space_ids, organization_id)
+    type_counts: dict[str, int] = {}
+    for o in all_objs:
+        t = o.get("object_type") or "unknown"
+        type_counts[t] = type_counts.get(t, 0) + 1
     total = sum(type_counts.values())
     if total < 3:
         return insights
@@ -314,7 +354,7 @@ def _derive_relationship_insights(identity_id: str, space_ids: list[str]) -> lis
         insights.append({
             "id": "ins_rel_no_customers",
             "type": "missing_type",
-            "title": f"No customer relationships tracked",
+            "title": "No customer relationships tracked",
             "what": f"You have {total_rels} relationship{'s' if total_rels != 1 else ''} but none are customers. Customers are the primary relationship that drives business understanding.",
             "why": "Without customer relationships, SHUNYA cannot track commitments, pipeline, or account health — core business intelligence.",
             "evidence": {
@@ -342,7 +382,7 @@ def _derive_relationship_insights(identity_id: str, space_ids: list[str]) -> lis
         insights.append({
             "id": "ins_rel_no_notes",
             "type": "missing_detail",
-            "title": f"Add context to your relationships",
+            "title": "Add context to your relationships",
             "what": f"None of your {total_rels} relationship{'s' if total_rels != 1 else ''} have notes. Adding context helps SHUNYA track commitments and history.",
             "why": "Relationship notes are where business context lives — past conversations, agreements, next steps.",
             "evidence": {
@@ -360,75 +400,81 @@ def _derive_relationship_insights(identity_id: str, space_ids: list[str]) -> lis
     return insights
 
 
-def _derive_recent_completions(identity_id: str, space_ids: list[str]) -> list[dict[str, Any]]:
+def _derive_recent_completions(identity_id: str, space_ids: list[str],
+                               organization_id: int = 0) -> list[dict[str, Any]]:
     """Objects created recently — fresh work to build on."""
     insights = []
     threshold = _ago(hours=48)
-    for obj in FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.created_at >= threshold,
-    ).limit(5).all():
+    count = 0
+    for obj in _list_objects_in_spaces(space_ids, organization_id):
+        if count >= 5:
+            break
+        created_at = _parse_dt(obj.get("created_at"))
+        if not created_at or created_at < threshold:
+            continue
         conv = FounderConversation.query.filter_by(
-            object_id=obj.object_id, status="active"
+            object_id=obj["object_id"], status="active"
         ).first()
         score, label = _priority_score(0, 1, False, False)
         insights.append({
-            "id": _insight_id("new", obj.object_id),
+            "id": _insight_id("new", obj["object_id"]),
             "type": "recent_completion",
-            "title": f"New object: {obj.name}",
-            "what": f"A new {obj.object_type.lower()} '{obj.name}' was created {_time_ago(obj.created_at)}.",
+            "title": f"New object: {obj.get('name')}",
+            "what": f"A new {obj.get('object_type', '').lower()} '{obj.get('name')}' was created {_time_ago(created_at)}.",
             "why": "New objects represent fresh business activity. Exploring them early builds SHUNYA's understanding of what matters.",
             "evidence": {
-                "object_id": obj.object_id,
-                "object_name": obj.name,
-                "object_type": obj.object_type,
-                "space_id": obj.space_id,
-                "created_at": obj.created_at.isoformat() if obj.created_at else None,
+                "object_id": obj["object_id"],
+                "object_name": obj.get("name"),
+                "object_type": obj.get("object_type"),
+                "space_id": obj.get("space_id") or obj.get("workspace_id"),
+                "created_at": obj.get("created_at"),
                 "has_conversation": conv is not None,
             },
-            "next_steps": [{"action": "open", "label": "Explore", "target": f"/founder/object/{obj.object_id}"}],
+            "next_steps": [{"action": "open", "label": "Explore", "target": f"/founder/object/{obj['object_id']}"}],
             "priority_score": score,
             "priority": label,
             "queue": "information",
             "created_at": _now().isoformat(),
             "lifecycle": "active",
         })
+        count += 1
     return insights
 
 
-def _derive_orphan_objects(identity_id: str, space_ids: list[str]) -> Iterator[dict[str, Any]]:
+def _derive_orphan_objects(identity_id: str, space_ids: list[str],
+                           organization_id: int = 0) -> Iterator[dict[str, Any]]:
     """Objects with no conversations and not recently updated."""
     threshold = _ago(days=3)
-    for obj in FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.updated_at <= threshold,
-    ).all():
+    creation_threshold = _ago(days=3)
+    for obj in _list_objects_in_spaces(space_ids, organization_id):
+        updated_at = _parse_dt(obj.get("updated_at"))
+        if updated_at and updated_at > threshold:
+            continue
         conv = FounderConversation.query.filter_by(
-            object_id=obj.object_id, status="active"
+            object_id=obj["object_id"], status="active"
         ).first()
         if conv:
             continue
+        created_at = _parse_dt(obj.get("created_at"))
         # Only for objects that have existed > 3 days
-        if obj.created_at and obj.created_at > _ago(days=3):
+        if created_at and created_at > creation_threshold:
             continue
-        days_since = round(_days_since(obj.updated_at))
+        days_since = round(_days_since(updated_at))
         score, label = _priority_score(days_since, 1, False, False)
         yield {
-            "id": _insight_id("orphan", obj.object_id),
+            "id": _insight_id("orphan", obj["object_id"]),
             "type": "orphan_object",
-            "title": f"{obj.name} has never been discussed",
-            "what": f"'{obj.name}' was created {_time_ago(obj.created_at)} but has never had a conversation. SHUNYA doesn't know what's important about it.",
+            "title": f"{obj.get('name')} has never been discussed",
+            "what": f"'{obj.get('name')}' was created {_time_ago(created_at)} but has never had a conversation. SHUNYA doesn't know what's important about it.",
             "why": "Objects without conversations are invisible to SHUNYA's understanding. A brief discussion establishes context and intent.",
             "evidence": {
-                "object_id": obj.object_id,
-                "object_name": obj.name,
-                "object_type": obj.object_type,
-                "space_id": obj.space_id,
-                "created_at": obj.created_at.isoformat() if obj.created_at else None,
+                "object_id": obj["object_id"],
+                "object_name": obj.get("name"),
+                "object_type": obj.get("object_type"),
+                "space_id": obj.get("space_id") or obj.get("workspace_id"),
+                "created_at": obj.get("created_at"),
             },
-            "next_steps": [{"action": "open", "label": "Start conversation", "target": f"/founder/object/{obj.object_id}"}],
+            "next_steps": [{"action": "open", "label": "Start conversation", "target": f"/founder/object/{obj['object_id']}"}],
             "priority_score": score,
             "priority": label,
             "queue": "information",
@@ -441,7 +487,8 @@ def _derive_orphan_objects(identity_id: str, space_ids: list[str]) -> Iterator[d
 # Assembly
 # ---------------------------------------------------------------------------
 
-def _collect_insights(identity_id: str, space_ids: list[str]) -> list[dict[str, Any]]:
+def _collect_insights(identity_id: str, space_ids: list[str],
+                      organization_id: int = 0) -> list[dict[str, Any]]:
     """Run all insight derivation rules in priority order."""
     insights: list[dict[str, Any]] = []
     if not space_ids:
@@ -459,7 +506,7 @@ def _collect_insights(identity_id: str, space_ids: list[str]) -> list[dict[str, 
 
     for rule in rules:
         try:
-            result = rule(identity_id, space_ids)
+            result = rule(identity_id, space_ids, organization_id)
             if isinstance(result, list):
                 insights.extend(result)
             elif hasattr(result, "__iter__"):
@@ -474,38 +521,37 @@ def _collect_insights(identity_id: str, space_ids: list[str]) -> list[dict[str, 
 # Executive Timeline
 # ---------------------------------------------------------------------------
 
-def build_timeline(identity_id: str, limit: int = 20) -> list[dict[str, Any]]:
+def build_timeline(identity_id: str, limit: int = 20,
+                   organization_id: int = 0) -> list[dict[str, Any]]:
     """Chronological timeline of business events from persistent state."""
-    spaces = FounderSpace.query.filter_by(
-        identity_id=identity_id, status="active"
+    ws_rows = db.session.execute(
+        text("SELECT id, name, workspace_type, created_at FROM sh_workspaces WHERE status = 'active'"),
     ).all()
-    space_ids = [s.space_id for s in spaces]
+    space_ids = [r.id for r in ws_rows]
+    ws_by_id = {r.id: r for r in ws_rows}
     events: list[dict[str, Any]] = []
 
     if not space_ids:
         return events
 
     # Space creation events
-    for s in spaces:
+    for s in ws_rows:
         events.append({
             "type": "space_created",
             "title": f"Space '{s.name}' created",
-            "detail": f"{s.space_type} space",
+            "detail": f"{s.workspace_type} space",
             "timestamp": s.created_at.isoformat() if s.created_at else None,
-            "focus": {"space_id": s.space_id, "type": "space"},
+            "focus": {"space_id": s.id, "type": "space"},
         })
 
-    # Object creation events
-    for obj in FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-    ).order_by(FounderObject.created_at.desc()).limit(limit).all():
+    # Object creation events — collect across all spaces
+    for obj in _list_objects_in_spaces(space_ids, organization_id)[:limit]:
         events.append({
             "type": "object_created",
-            "title": f"'{obj.name}' created",
-            "detail": f"{obj.object_type}",
-            "timestamp": obj.created_at.isoformat() if obj.created_at else None,
-            "focus": {"object_id": obj.object_id, "type": "object"},
+            "title": f"'{obj.get('name')}' created",
+            "detail": f"{obj.get('object_type')}",
+            "timestamp": obj.get("created_at"),
+            "focus": {"object_id": obj["object_id"], "type": "object"},
         })
 
     # Conversation events
@@ -570,16 +616,16 @@ def build_attention_queue(insights: list[dict[str, Any]]) -> dict[str, list[dict
 # Full insight assembly
 # ---------------------------------------------------------------------------
 
-def build_insights(identity_id: str) -> dict[str, Any]:
+def build_insights(identity_id: str, organization_id: int = 0) -> dict[str, Any]:
     """Build complete insight payload for Executive Intelligence."""
-    spaces = FounderSpace.query.filter_by(
-        identity_id=identity_id, status="active"
+    ws_rows = db.session.execute(
+        text("SELECT id, name, workspace_type, status FROM sh_workspaces WHERE status = 'active'"),
     ).all()
-    space_ids = [s.space_id for s in spaces]
+    space_ids = [r.id for r in ws_rows]
 
-    insights = _collect_insights(identity_id, space_ids)
+    insights = _collect_insights(identity_id, space_ids, organization_id)
     queue = build_attention_queue(insights)
-    timeline = build_timeline(identity_id)
+    timeline = build_timeline(identity_id, organization_id=organization_id)
 
     return {
         "insights": insights,
@@ -629,9 +675,9 @@ def get_insight_lifecycle(insight_id: str) -> str:
 # Integrate into Executive Home
 # ---------------------------------------------------------------------------
 
-def build_executive_intelligence(identity_id: str) -> dict[str, Any]:
+def build_executive_intelligence(identity_id: str, organization_id: int = 0) -> dict[str, Any]:
     """Assemble the Executive Intelligence section for Executive Home."""
-    return build_insights(identity_id)
+    return build_insights(identity_id, organization_id)
 
 
 __all__ = [

@@ -132,6 +132,9 @@ def create_canonical_object(
     if not tenant_id:
         return {"error": "tenant_id is required — cannot create object without organization context"}
 
+    if not workspace_id and not space_id:
+        return {"error": "workspace_id or space_id is required — cannot create object without workspace context"}
+
     # Check if object already exists — if so, update in place (upsert)
     existing = ShunyaObject.query.filter_by(object_id=object_id).first()
     if existing:
@@ -161,7 +164,7 @@ def create_canonical_object(
 
     svc = get_object_service()
     org_id = tenant_id
-    w_id = workspace_id or space_id or "spc_default"
+    w_id = workspace_id or space_id
 
     obj = svc.create(
         object_type=object_type,

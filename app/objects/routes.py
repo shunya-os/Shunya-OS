@@ -49,7 +49,9 @@ def create():
         ).first()
     if not workspace:
         workspace = Workspace.query.filter_by(status="active").first()
-    workspace_id = workspace.id if workspace else "spc_default"
+    workspace_id = workspace.id if workspace else None
+    if not workspace_id:
+        return jsonify({"error": "No workspace found for this organization", "success": False}), 400
 
     # Create through the canonical object authority (core/object_service.py)
     svc = get_object_service()

@@ -103,7 +103,7 @@ class TestObjectConvergence:
         oid = f"obj_{uuid.uuid4().hex[:8]}"
         create_canonical_object(
             object_id=oid, object_type="Contact", name="Alice",
-            tenant_id=2, created_by="sid_user",
+            tenant_id=2, created_by="sid_user", workspace_id="spc_default",
             metadata={"email": "alice@test.com"},
         )
         retrieved = get_canonical_object(oid)

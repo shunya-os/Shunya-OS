@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ["FLASK_ENV"] = "production"
 
 from app import create_app, db
-from app.founder.models import FounderSpace, FounderObject, FounderConversation
+from app.founder.models import FounderSpace, FounderConversation
 from app.models import Organization, OrgMember
 from app.objects.legacy_models import ShunyaObject
 

@@ -316,20 +316,20 @@ def api_ask():
     except Exception as exc:
         logger.warning("Failed to query organization: %s", exc)
 
-    # 2) Founder objects — detailed list with names, types, content
+    # 2) Canonical objects — detailed list with names, types, content (via ObjectService)
     try:
-        objects = _db.session.execute(
-            _text("SELECT name, object_type, content FROM founder_objects WHERE status='active' ORDER BY updated_at DESC LIMIT 20")
-        ).fetchall()
+        from core.object_service import get_object_service
+        svc = get_object_service()
+        objects = svc.search(query="", organization_id=0, limit=20)
         if objects:
             obj_details = []
             for obj in objects:
-                name, obj_type, content = obj
-                snippet = (content or "")[:300].replace("\n", " ")
+                name = obj.get("name", "Unknown")
+                obj_type = obj.get("object_type", "unknown")
                 obj_details.append(f"{name} ({obj_type})")
             company_evidence.append({
                 "content": f"Objects ({len(objects)}): {' | '.join(obj_details)}",
-                "source": "company_db/founder_objects",
+                "source": "company_db/sh_objects",
                 "semantic": "FACT",
                 "classification": "company_truth",
                 "confidence": 0.95,
@@ -337,7 +337,7 @@ def api_ask():
             evidence_semantic_states.add("FACT")
             has_company_data = True
     except Exception as exc:
-        logger.warning("Failed to query founder_objects: %s", exc)
+        logger.warning("Failed to query canonical objects: %s", exc)
 
     # 3) Knowledge documents (brochures, SOPs, contracts, itineraries)
     try:

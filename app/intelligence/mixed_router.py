@@ -115,25 +115,23 @@ class BusinessDataRetriever:
         results = []
         from sqlalchemy import text
 
-        # 1. Founder objects
+        # 1. Canonical objects (sh_objects via ObjectService)
         try:
-            objects = self.db.session.execute(
-                text("""SELECT object_id, object_type, name, content, created_at
-                        FROM founder_objects
-                        WHERE status='active'
-                        AND (name ILIKE :q OR content ILIKE :q)
-                        ORDER BY created_at DESC LIMIT :limit"""),
-                {"q": f"%{query}%", "limit": max_results},
-            ).fetchall()
-            for obj in objects:
-                snippet = (obj.content or "")[:300] if obj.content else obj.name
+            from core.object_service import get_object_service
+            svc = get_object_service()
+            effective_org = int(org_id) if org_id and str(org_id).isdigit() else 0
+            canonical_results = svc.search(query=query, organization_id=effective_org, limit=max_results)
+            for obj in canonical_results:
+                name = obj.get("name", "")
+                content_data = obj.get("data") or obj.get("content") or {}
+                snippet = str(content_data.get("content", ""))[:300] if isinstance(content_data, dict) else str(content_data)[:300]
                 results.append(SourceAttribution(
-                    text=f"{obj.name}: {snippet}",
+                    text=f"{name}: {snippet}",
                     source="business_data",
                     confidence="high",
                 ))
         except Exception as e:
-            logger.warning(f"Business object search failed: {e}")
+            logger.warning(f"Canonical object search failed: {e}")
 
         # 2. Invoices
         try:
@@ -177,16 +175,18 @@ class BusinessDataRetriever:
                           "list all", "show all"]
         if any(kw in query.lower() for kw in count_keywords):
             try:
-                total_objects = self.db.session.execute(
-                    text("SELECT COUNT(*) FROM founder_objects WHERE status='active'")
-                ).scalar() or 0
+                from core.object_service import get_object_service
+                svc = get_object_service()
+                effective_org = int(org_id) if org_id and str(org_id).isdigit() else 0
+                type_counts = svc.count_by_type(organization_id=effective_org)
+                total_objects = sum(type_counts.values()) if type_counts else 0
                 results.append(SourceAttribution(
                     text=f"You have {total_objects} active business objects.",
                     source="business_data",
                     confidence="high",
                 ))
             except Exception as e:
-                logger.warning(f"Object count failed: {e}")
+                logger.warning(f"Canonical object count failed: {e}")
 
         return results
 

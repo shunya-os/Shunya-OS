@@ -12,12 +12,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app import db
-from app.founder.models import (
-    BusinessRelationship,
-    FounderConversation,
-    FounderMessage,
-    FounderSpace,
-)
+from sqlalchemy import text
+from app.founder.models import BusinessRelationship, FounderConversation, FounderMessage
 from app.models import Organization, OrgMember
 from core.os import get_os
 from sqlalchemy import text as _sql_text
@@ -92,10 +88,11 @@ def build_morning_brief(identity_id: str) -> dict[str, Any]:
                 "org_description": org.brand_description,
             }
 
-    spaces = FounderSpace.query.filter_by(
-        identity_id=identity_id, status="active"
-    ).all()
-    space_ids = [s.space_id for s in spaces]
+    spaces = db.session.execute(
+        text("SELECT id, name FROM sh_workspaces WHERE created_by = :identity_id AND status = 'active'"),
+        {"identity_id": identity_id},
+    ).fetchall()
+    space_ids = [row[0] for row in spaces] if spaces else []
 
     items: list[dict[str, Any]] = []
     total_objects = 0
@@ -239,10 +236,11 @@ def build_recommendations(identity_id: str) -> list[dict[str, Any]]:
     Every recommendation includes: title, explanation, why SHUNYA recommends it,
     priority, originating runtime, action available.
     """
-    spaces = FounderSpace.query.filter_by(
-        identity_id=identity_id, status="active"
-    ).all()
-    space_ids = [s.space_id for s in spaces]
+    spaces = db.session.execute(
+        text("SELECT id, name FROM sh_workspaces WHERE created_by = :identity_id AND status = 'active'"),
+        {"identity_id": identity_id},
+    ).fetchall()
+    space_ids = [row[0] for row in spaces] if spaces else []
 
     recommendations: list[dict[str, Any]] = []
 
@@ -377,10 +375,11 @@ def build_recommendations(identity_id: str) -> list[dict[str, Any]]:
 
 def build_business_health(identity_id: str) -> dict[str, Any]:
     """Operational health overview from real runtime state."""
-    spaces = FounderSpace.query.filter_by(
-        identity_id=identity_id, status="active"
-    ).all()
-    space_ids = [s.space_id for s in spaces]
+    spaces = db.session.execute(
+        text("SELECT id, name FROM sh_workspaces WHERE created_by = :identity_id AND status = 'active'"),
+        {"identity_id": identity_id},
+    ).fetchall()
+    space_ids = [row[0] for row in spaces] if spaces else []
 
     _ic7, _ip7 = _sql_in(space_ids)
     total_objects = db.session.execute(
@@ -454,10 +453,11 @@ def build_business_health(identity_id: str) -> dict[str, Any]:
 
 def build_recent_activity(identity_id: str, limit: int = 10) -> list[dict[str, Any]]:
     """Recent founder-visible activity from persistent state."""
-    spaces = FounderSpace.query.filter_by(
-        identity_id=identity_id, status="active"
-    ).all()
-    space_ids = [s.space_id for s in spaces]
+    spaces = db.session.execute(
+        text("SELECT id, name FROM sh_workspaces WHERE created_by = :identity_id AND status = 'active'"),
+        {"identity_id": identity_id},
+    ).fetchall()
+    space_ids = [row[0] for row in spaces] if spaces else []
 
     activities: list[dict[str, Any]] = []
 
@@ -534,10 +534,11 @@ def build_recent_activity(identity_id: str, limit: int = 10) -> list[dict[str, A
 
 def build_continue_working(identity_id: str, limit: int = 5) -> list[dict[str, Any]]:
     """Surface what the founder was previously working on from persisted state."""
-    spaces = FounderSpace.query.filter_by(
-        identity_id=identity_id, status="active"
-    ).all()
-    space_ids = [s.space_id for s in spaces]
+    spaces = db.session.execute(
+        text("SELECT id, name FROM sh_workspaces WHERE created_by = :identity_id AND status = 'active'"),
+        {"identity_id": identity_id},
+    ).fetchall()
+    space_ids = [row[0] for row in spaces] if spaces else []
 
     items: list[dict[str, Any]] = []
 

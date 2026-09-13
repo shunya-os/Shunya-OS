@@ -28,8 +28,6 @@ from app.founder.models import (
     BusinessRelationship,
     FounderConversation,
     FounderMessage,
-    FounderObject,
-    FounderSpace,
 )
 from app.founder.workspace_models import (
     MissingContext,
@@ -38,6 +36,8 @@ from app.founder.workspace_models import (
     WorkspaceHealthSnapshot,
     WorkspaceNavigation,
 )
+from core.object_service import get_object_service
+from sqlalchemy import text
 
 
 # ---------------------------------------------------------------------------
@@ -75,22 +75,53 @@ def _days_since(dt: datetime | None) -> float:
     return max(0, (datetime.now(timezone.utc) - dt).total_seconds() / 86400)
 
 
+def _parse_dt(val: Any) -> datetime | None:
+    """Convert isoformat string (from ObjectService) back to datetime."""
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val
+    if isinstance(val, str):
+        try:
+            return datetime.fromisoformat(val)
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def _lookup_workspace(workspace_id: str) -> dict | None:
+    """Query sh_workspaces for workspace info by id."""
+    row = db.session.execute(
+        text("SELECT id, name, workspace_type, status FROM sh_workspaces WHERE id = :ws_id LIMIT 1"),
+        {"ws_id": workspace_id},
+    ).first()
+    if not row:
+        return None
+    return {
+        "id": row.id,
+        "name": row.name,
+        "workspace_type": row.workspace_type,
+        "status": row.status,
+    }
+
+
 # ---------------------------------------------------------------------------
 # 1. Workspace Summary
 # ---------------------------------------------------------------------------
 
-def build_workspace_summary(object_id: str) -> dict[str, Any]:
+def build_workspace_summary(object_id: str, organization_id: int = 0) -> dict[str, Any]:
     """Build a deterministic executive summary for an object.
 
     Every statement originates from persisted runtime state.
     Contains: identity, status, importance, ownership, creation history,
     latest activity, business significance.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    obj = get_object_service().get_by_object_id(object_id, organization_id)
     if not obj:
         return {"error": "Object not found"}
 
-    space = FounderSpace.query.filter_by(space_id=obj.space_id).first()
+    space_id = obj.get("space_id") or obj.get("workspace_id")
+    space = _lookup_workspace(space_id) if space_id else None
     conv = FounderConversation.query.filter_by(
         object_id=object_id, status="active"
     ).first()
@@ -100,11 +131,12 @@ def build_workspace_summary(object_id: str) -> dict[str, Any]:
 
     # Count relationships
     rel_count = BusinessRelationship.query.filter_by(
-        space_id=obj.space_id, status="active"
-    ).count()
+        space_id=space_id, status="active"
+    ).count() if space_id else 0
 
     # Determine activity recency
-    days_since_update = round(_days_since(obj.updated_at))
+    updated_at = _parse_dt(obj.get("updated_at"))
+    days_since_update = round(_days_since(updated_at))
     if days_since_update == 0:
         activity_label = "Updated today"
     elif days_since_update == 1:
@@ -116,32 +148,32 @@ def build_workspace_summary(object_id: str) -> dict[str, Any]:
 
     # Significance derived from state
     significance_parts = []
-    if obj.object_type:
-        significance_parts.append(f"{obj.object_type}")
+    if obj.get("object_type"):
+        significance_parts.append(f"{obj['object_type']}")
     if space:
-        significance_parts.append(f"in '{space.name}'")
+        significance_parts.append(f"in '{space['name']}'")
     if msg_count > 0:
         significance_parts.append(f"{msg_count} message{'s' if msg_count != 1 else ''}")
     if rel_count > 0:
         significance_parts.append(f"{rel_count} relationship{'s' if rel_count != 1 else ''} in space")
 
     return {
-        "object_id": obj.object_id,
-        "name": obj.name,
-        "object_type": obj.object_type,
-        "status": obj.status,
-        "created_by": obj.created_by,
-        "created_at": obj.created_at.isoformat() if obj.created_at else None,
-        "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
-        "space_name": space.name if space else None,
-        "space_id": obj.space_id,
+        "object_id": obj["object_id"],
+        "name": obj.get("name"),
+        "object_type": obj.get("object_type"),
+        "status": obj.get("status"),
+        "created_by": obj.get("created_by"),
+        "created_at": obj.get("created_at"),
+        "updated_at": obj.get("updated_at"),
+        "space_name": space["name"] if space else None,
+        "space_id": space_id,
         "activity_label": activity_label,
         "activity_days_since_update": days_since_update,
         "conversation_count": 1 if conv else 0,
         "message_count": msg_count,
         "relationship_count": rel_count,
         "significance": " · ".join(significance_parts) if significance_parts else "Awaiting context",
-        "content_preview": obj.content[:300] if obj.content else "",
+        "content_preview": (obj.get("content") or "")[:300] if obj.get("content") else "",
     }
 
 
@@ -149,7 +181,7 @@ def build_workspace_summary(object_id: str) -> dict[str, Any]:
 # 2. AI Understanding Panel
 # ---------------------------------------------------------------------------
 
-def build_ai_understanding(object_id: str) -> dict[str, Any]:
+def build_ai_understanding(object_id: str, organization_id: int = 0) -> dict[str, Any]:
     """Build a structured AI understanding explanation for an object.
 
     Answers:
@@ -162,41 +194,46 @@ def build_ai_understanding(object_id: str) -> dict[str, Any]:
 
     Unknown information is explicitly identified rather than guessed.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    obj = get_object_service().get_by_object_id(object_id, organization_id)
     if not obj:
         return {"error": "Object not found"}
 
-    space = FounderSpace.query.filter_by(space_id=obj.space_id).first()
+    space_id = obj.get("space_id") or obj.get("workspace_id")
+    space = _lookup_workspace(space_id) if space_id else None
     conv = FounderConversation.query.filter_by(
         object_id=object_id, status="active"
     ).first()
 
+    object_type = obj.get("object_type") or "object"
+    obj_name = obj.get("name") or ""
+
     # What is this?
-    what_is = f"A {obj.object_type.lower() if obj.object_type else 'object'} named '{obj.name}'"
-    if obj.content:
+    what_is = f"A {object_type.lower()} named '{obj_name}'"
+    if obj.get("content"):
         what_is += " with content that describes its purpose"
 
     # Why does it exist?
     why_exists_parts = []
-    if obj.created_by:
-        why_exists_parts.append(f"Created by {obj.created_by[:20]}")
-    if obj.created_at:
-        why_exists_parts.append(f"on {obj.created_at.strftime('%b %d, %Y')}")
+    if obj.get("created_by"):
+        why_exists_parts.append(f"Created by {obj['created_by'][:20]}")
+    created_at = _parse_dt(obj.get("created_at"))
+    if created_at:
+        why_exists_parts.append(f"on {created_at.strftime('%b %d, %Y')}")
     if space:
-        why_exists_parts.append(f"within the '{space.name}' space")
+        why_exists_parts.append(f"within the '{space['name']}' space")
     why_exists = ", ".join(why_exists_parts) if why_exists_parts else "Creation context unknown"
 
     # What does SHUNYA currently understand?
     understanding_parts = []
     known_facts = []
-    if obj.object_type:
-        known_facts.append(f"type: {obj.object_type}")
-    if obj.name:
-        known_facts.append(f"name: '{obj.name}'")
-    if obj.content:
-        known_facts.append(f"has descriptive content ({len(obj.content)} chars)")
-    if obj.status:
-        known_facts.append(f"status: {obj.status}")
+    if obj.get("object_type"):
+        known_facts.append(f"type: {obj['object_type']}")
+    if obj.get("name"):
+        known_facts.append(f"name: '{obj['name']}'")
+    if obj.get("content"):
+        known_facts.append(f"has descriptive content ({len(obj['content'])} chars)")
+    if obj.get("status"):
+        known_facts.append(f"status: {obj['status']}")
     if conv:
         messages = FounderMessage.query.filter_by(conv_id=conv.conv_id).order_by(
             FounderMessage.created_at
@@ -213,12 +250,12 @@ def build_ai_understanding(object_id: str) -> dict[str, Any]:
     # Confidence — derived from how much is known
     confidence_factors = []
     confidence_score = 0.0
-    if obj.object_type:
+    if obj.get("object_type"):
         confidence_score += 0.15
         confidence_factors.append("object type identified")
-    if obj.name:
+    if obj.get("name"):
         confidence_score += 0.15
-    if obj.content:
+    if obj.get("content"):
         confidence_score += 0.15
         confidence_factors.append("descriptive content present")
     if conv:
@@ -226,21 +263,21 @@ def build_ai_understanding(object_id: str) -> dict[str, Any]:
         confidence_factors.append("conversation history exists")
     if space:
         confidence_score += 0.10
-    if obj.created_by:
+    if obj.get("created_by"):
         confidence_score += 0.10
         confidence_factors.append("ownership known")
 
     # Relationships influence
     relationships = BusinessRelationship.query.filter_by(
-        space_id=obj.space_id, status="active"
-    ).all()
+        space_id=space_id, status="active"
+    ).all() if space_id else []
     influence = []
     for rel in relationships:
         influence.append({
             "rel_id": rel.rel_id,
             "rel_type": rel.rel_type,
             "name": rel.name,
-            "influence": f"Related through shared space '{space.name}'" if space else "Related",
+            "influence": f"Related through shared space '{space['name']}'" if space else "Related",
         })
 
     confidence_label = "high" if confidence_score >= 0.7 else (
@@ -261,16 +298,16 @@ def build_ai_understanding(object_id: str) -> dict[str, Any]:
     }
 
 
-def _detect_missing_info(obj, space, conv) -> list[dict[str, str]]:
+def _detect_missing_info(obj: dict, space: dict | None, conv) -> list[dict[str, str]]:
     """Detect explicitly missing information — never fabricate."""
     missing = []
-    if not obj.content or not obj.content.strip():
+    if not obj.get("content") or not obj["content"].strip():
         missing.append({
             "field": "content",
             "description": "No descriptive content has been added",
             "severity": "info",
         })
-    if not obj.created_by:
+    if not obj.get("created_by"):
         missing.append({
             "field": "owner",
             "description": "Owner / creator is not recorded",
@@ -289,10 +326,11 @@ def _detect_missing_info(obj, space, conv) -> list[dict[str, str]]:
             "severity": "suggestion",
         })
     # Check if object is stale
-    if obj.updated_at and _days_since(obj.updated_at) > 14:
+    updated_at = _parse_dt(obj.get("updated_at"))
+    if updated_at and _days_since(updated_at) > 14:
         missing.append({
             "field": "recent_activity",
-            "description": f"No activity in {round(_days_since(obj.updated_at))} days",
+            "description": f"No activity in {round(_days_since(updated_at))} days",
             "severity": "info",
         })
     return missing
@@ -302,22 +340,23 @@ def _detect_missing_info(obj, space, conv) -> list[dict[str, str]]:
 # 3. Relationship Intelligence
 # ---------------------------------------------------------------------------
 
-def build_relationship_intelligence(object_id: str) -> dict[str, Any]:
+def build_relationship_intelligence(object_id: str, organization_id: int = 0) -> dict[str, Any]:
     """Display all directly related objects grouped by relationship type.
 
     Types: relationships (BusinessRelationship), same-space objects,
     objects with shared conversations.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    obj = get_object_service().get_by_object_id(object_id, organization_id)
     if not obj:
         return {"error": "Object not found", "groups": []}
 
+    space_id = obj.get("space_id") or obj.get("workspace_id")
     groups = []
 
     # 3a. Business Relationships in same space
     rels = BusinessRelationship.query.filter_by(
-        space_id=obj.space_id, status="active"
-    ).all()
+        space_id=space_id, status="active"
+    ).all() if space_id else []
     if rels:
         groups.append({
             "group_type": "business_relationship",
@@ -332,24 +371,26 @@ def build_relationship_intelligence(object_id: str) -> dict[str, Any]:
             } for r in rels],
         })
 
-    # 3b. Same-space objects
-    siblings = FounderObject.query.filter(
-        FounderObject.space_id == obj.space_id,
-        FounderObject.status == "active",
-        FounderObject.object_id != object_id,
-    ).order_by(FounderObject.updated_at.desc()).limit(10).all()
+    # 3b. Same-space objects (via ObjectService)
+    if space_id:
+        siblings = get_object_service().list_by_workspace(
+            workspace_id=space_id, organization_id=organization_id, status="active"
+        )
+        siblings = [s for s in siblings if s["object_id"] != object_id][:10]
+    else:
+        siblings = []
 
     if siblings:
         groups.append({
             "group_type": "same_space",
-            "group_label": f"Objects in this space",
+            "group_label": "Objects in this space",
             "items": [{
-                "object_id": s.object_id,
-                "name": s.name,
-                "type": s.object_type,
-                "subtitle": f"{s.object_type} · {_time_ago(s.updated_at)}",
-                "status": s.status,
-                "icon": _object_type_icon(s.object_type),
+                "object_id": s["object_id"],
+                "name": s["name"],
+                "type": s["object_type"],
+                "subtitle": f"{s['object_type']} · {_time_ago(_parse_dt(s.get('updated_at')))}",
+                "status": s["status"],
+                "icon": _object_type_icon(s["object_type"]),
             } for s in siblings],
         })
 
@@ -366,21 +407,23 @@ def build_relationship_intelligence(object_id: str) -> dict[str, Any]:
         ).all()
         conv_related_ids = list(set(c.object_id for c in related_convs))
         if conv_related_ids:
-            conv_objects = FounderObject.query.filter(
-                FounderObject.object_id.in_(conv_related_ids),
-                FounderObject.status == "active",
-            ).limit(5).all()
+            # Look up each related object via ObjectService
+            conv_objects = []
+            for cid in conv_related_ids[:5]:
+                co = get_object_service().get_by_object_id(cid, organization_id)
+                if co and co.get("status") == "active":
+                    conv_objects.append(co)
             if conv_objects:
                 groups.append({
                     "group_type": "conversation_context",
                     "group_label": "Conversation Context",
                     "items": [{
-                        "object_id": co.object_id,
-                        "name": co.name,
-                        "type": co.object_type,
-                        "subtitle": f"Discussed by same identity",
-                        "status": co.status,
-                        "icon": _object_type_icon(co.object_type),
+                        "object_id": co["object_id"],
+                        "name": co["name"],
+                        "type": co["object_type"],
+                        "subtitle": "Discussed by same identity",
+                        "status": co["status"],
+                        "icon": _object_type_icon(co["object_type"]),
                     } for co in conv_objects],
                 })
 
@@ -391,48 +434,52 @@ def build_relationship_intelligence(object_id: str) -> dict[str, Any]:
 # 4. Activity Timeline
 # ---------------------------------------------------------------------------
 
-def build_activity_timeline(object_id: str, limit: int = 50) -> list[dict[str, Any]]:
+def build_activity_timeline(object_id: str, limit: int = 50,
+                            organization_id: int = 0) -> list[dict[str, Any]]:
     """Build a complete chronological history for an object.
 
     Includes: creation, updates, conversations, commitments, evidence,
     intelligence events. Timeline entries are deterministic and persisted.
     """
     events: list[dict[str, Any]] = []
-    obj = FounderObject.query.filter_by(object_id=object_id).first()
+    obj = get_object_service().get_by_object_id(object_id, organization_id)
     if not obj:
         return events
 
+    created_at = _parse_dt(obj.get("created_at"))
+    updated_at = _parse_dt(obj.get("updated_at"))
+
     # Creation event
-    if obj.created_at:
+    if created_at:
         events.append({
             "event_type": "created",
-            "title": f"Object created",
-            "detail": f"{obj.name} · {obj.object_type or 'object'}",
+            "title": "Object created",
+            "detail": f"{obj.get('name')} · {obj.get('object_type') or 'object'}",
             "provenance": json.dumps({
                 "source": "object_creation",
-                "object_id": obj.object_id,
+                "object_id": obj["object_id"],
                 "field": "created_at",
             }),
             "importance": "system",
-            "created_at": obj.created_at.isoformat() if obj.created_at else None,
+            "created_at": obj.get("created_at"),
         })
 
     # Update events
-    if obj.updated_at and obj.created_at and obj.updated_at > obj.created_at:
-        days_diff = round((obj.updated_at - obj.created_at).total_seconds() / 86400)
+    if updated_at and created_at and updated_at > created_at:
+        days_diff = round((updated_at - created_at).total_seconds() / 86400)
         if days_diff > 0:
             events.append({
                 "event_type": "updated",
-                "title": f"Object updated",
+                "title": "Object updated",
                 "detail": f"Last update was {days_diff}d after creation" if days_diff < 30
                           else f"Last update was {days_diff}d after creation",
                 "provenance": json.dumps({
                     "source": "object_update",
-                    "object_id": obj.object_id,
+                    "object_id": obj["object_id"],
                     "field": "updated_at",
                 }),
                 "importance": "normal",
-                "created_at": obj.updated_at.isoformat() if obj.updated_at else None,
+                "created_at": obj.get("updated_at"),
             })
 
     # Conversation events
@@ -444,7 +491,7 @@ def build_activity_timeline(object_id: str, limit: int = 50) -> list[dict[str, A
             events.append({
                 "event_type": "conversation",
                 "title": "Conversation started",
-                "detail": conv.title or f"About {obj.name}",
+                "detail": conv.title or f"About {obj.get('name')}",
                 "provenance": json.dumps({
                     "source": "conversation_creation",
                     "conv_id": conv.conv_id,
@@ -497,12 +544,13 @@ def build_activity_timeline(object_id: str, limit: int = 50) -> list[dict[str, A
 # 5. Conversation Workspace
 # ---------------------------------------------------------------------------
 
-def get_conversation_workspace(object_id: str) -> dict[str, Any]:
+def get_conversation_workspace(object_id: str,
+                               organization_id: int = 0) -> dict[str, Any]:
     """Get the conversation attached to an object with full context.
 
     Returns conversation + messages + extracted decisions and commitments.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id).first()
+    obj = get_object_service().get_by_object_id(object_id, organization_id)
     if not obj:
         return {"error": "Object not found", "conversation": None}
 
@@ -533,18 +581,19 @@ def get_conversation_workspace(object_id: str) -> dict[str, Any]:
 # 6. Next Actions
 # ---------------------------------------------------------------------------
 
-def build_next_actions(object_id: str) -> list[dict[str, Any]]:
+def build_next_actions(object_id: str, organization_id: int = 0) -> list[dict[str, Any]]:
     """Generate deterministic next actions from runtime state.
 
     Each action includes: explanation, supporting evidence, priority,
     originating runtime. No placeholder recommendations.
     """
     actions: list[dict[str, Any]] = []
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    obj = get_object_service().get_by_object_id(object_id, organization_id)
     if not obj:
         return actions
 
-    space = FounderSpace.query.filter_by(space_id=obj.space_id).first()
+    space_id = obj.get("space_id") or obj.get("workspace_id")
+    space = _lookup_workspace(space_id) if space_id else None
     conv = FounderConversation.query.filter_by(
         object_id=object_id, status="active"
     ).first()
@@ -562,10 +611,10 @@ def build_next_actions(object_id: str) -> list[dict[str, Any]]:
         actions.append({
             "action_type": "start_conversation",
             "label": "Start a conversation about this object",
-            "explanation": f"No conversation exists for '{obj.name}'. Starting a discussion helps SHUNYA understand its context and importance.",
+            "explanation": f"No conversation exists for '{obj.get('name')}'. Starting a discussion helps SHUNYA understand its context and importance.",
             "supporting_evidence": json.dumps({
-                "object_id": obj.object_id,
-                "object_name": obj.name,
+                "object_id": obj["object_id"],
+                "object_name": obj.get("name"),
                 "has_conversation": False,
             }),
             "priority": "high",
@@ -575,14 +624,14 @@ def build_next_actions(object_id: str) -> list[dict[str, Any]]:
         })
 
     # Action: Add descriptive content
-    if not obj.content or not obj.content.strip():
+    if not obj.get("content") or not obj["content"].strip():
         if "add_content" not in pending:
             actions.append({
                 "action_type": "add_content",
                 "label": "Add descriptive content",
-                "explanation": f"'{obj.name}' has no content. Adding a description establishes its purpose and context.",
+                "explanation": f"'{obj.get('name')}' has no content. Adding a description establishes its purpose and context.",
                 "supporting_evidence": json.dumps({
-                    "object_id": obj.object_id,
+                    "object_id": obj["object_id"],
                     "has_content": False,
                 }),
                 "priority": "medium",
@@ -592,14 +641,14 @@ def build_next_actions(object_id: str) -> list[dict[str, Any]]:
             })
 
     # Action: Add owner
-    if not obj.created_by:
+    if not obj.get("created_by"):
         if "add_owner" not in pending:
             actions.append({
                 "action_type": "add_owner",
                 "label": "Assign an owner",
-                "explanation": f"'{obj.name}' has no recorded owner. Assigning ownership clarifies responsibility.",
+                "explanation": f"'{obj.get('name')}' has no recorded owner. Assigning ownership clarifies responsibility.",
                 "supporting_evidence": json.dumps({
-                    "object_id": obj.object_id,
+                    "object_id": obj["object_id"],
                     "has_owner": False,
                 }),
                 "priority": "medium",
@@ -609,17 +658,18 @@ def build_next_actions(object_id: str) -> list[dict[str, Any]]:
             })
 
     # Action: Review stale object
-    if obj.updated_at and _days_since(obj.updated_at) > 14:
-        days_stale = round(_days_since(obj.updated_at))
+    updated_at = _parse_dt(obj.get("updated_at"))
+    if updated_at and _days_since(updated_at) > 14:
+        days_stale = round(_days_since(updated_at))
         if "review_stale" not in pending:
             actions.append({
                 "action_type": "review_stale",
                 "label": f"Review — no activity in {days_stale}d",
-                "explanation": f"'{obj.name}' has had no updates in {days_stale} days. Review to determine if it's still relevant or should be archived.",
+                "explanation": f"'{obj.get('name')}' has had no updates in {days_stale} days. Review to determine if it's still relevant or should be archived.",
                 "supporting_evidence": json.dumps({
-                    "object_id": obj.object_id,
+                    "object_id": obj["object_id"],
                     "days_since_update": days_stale,
-                    "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
+                    "updated_at": obj.get("updated_at"),
                 }),
                 "priority": "low",
                 "priority_score": 0.3,
@@ -630,15 +680,15 @@ def build_next_actions(object_id: str) -> list[dict[str, Any]]:
     # Action: Add a relationship
     if space:
         rel_count = BusinessRelationship.query.filter_by(
-            space_id=space.space_id, status="active"
+            space_id=space["id"], status="active"
         ).count()
         if rel_count == 0 and "add_relationship" not in pending:
             actions.append({
                 "action_type": "add_relationship",
                 "label": "Link a business relationship",
-                "explanation": f"No relationships exist in this space. Adding a customer, supplier, or partner helps SHUNYA understand business context.",
+                "explanation": "No relationships exist in this space. Adding a customer, supplier, or partner helps SHUNYA understand business context.",
                 "supporting_evidence": json.dumps({
-                    "space_id": obj.space_id,
+                    "space_id": space_id,
                     "relationship_count": rel_count,
                 }),
                 "priority": "medium",
@@ -679,18 +729,19 @@ def build_next_actions(object_id: str) -> list[dict[str, Any]]:
 # 7. Missing Context Detection
 # ---------------------------------------------------------------------------
 
-def detect_missing_context(object_id: str) -> list[dict[str, Any]]:
+def detect_missing_context(object_id: str, organization_id: int = 0) -> list[dict[str, Any]]:
     """Actively identify missing information about an object.
 
     Each finding is a real absence in persisted state. Presented as
     opportunities to improve business understanding.
     """
     gaps: list[dict[str, Any]] = []
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    obj = get_object_service().get_by_object_id(object_id, organization_id)
     if not obj:
         return gaps
 
-    space = FounderSpace.query.filter_by(space_id=obj.space_id).first()
+    space_id = obj.get("space_id") or obj.get("workspace_id")
+    space = _lookup_workspace(space_id) if space_id else None
     conv = FounderConversation.query.filter_by(
         object_id=object_id, status="active"
     ).first()
@@ -706,20 +757,20 @@ def detect_missing_context(object_id: str) -> list[dict[str, Any]]:
     candidate_gaps = []
 
     # Missing owner
-    if not obj.created_by:
+    if not obj.get("created_by"):
         candidate_gaps.append({
             "context_type": "missing_owner",
             "label": "Owner not assigned",
-            "detail": f"'{obj.name}' has no recorded owner. Ownership is essential for accountability.",
+            "detail": f"'{obj.get('name')}' has no recorded owner. Ownership is essential for accountability.",
             "severity": "suggestion",
         })
 
     # Missing notes / content
-    if not obj.content or not obj.content.strip():
+    if not obj.get("content") or not obj["content"].strip():
         candidate_gaps.append({
             "context_type": "missing_notes",
             "label": "No descriptive content",
-            "detail": f"Adding notes or a description helps establish '{obj.name}'s purpose within your business.",
+            "detail": f"Adding notes or a description helps establish '{obj.get('name')}'s purpose within your business.",
             "severity": "suggestion",
         })
 
@@ -735,7 +786,7 @@ def detect_missing_context(object_id: str) -> list[dict[str, Any]]:
     # Missing relationships
     if space:
         rel_count = BusinessRelationship.query.filter_by(
-            space_id=space.space_id, status="active"
+            space_id=space["id"], status="active"
         ).count()
         if rel_count == 0:
             candidate_gaps.append({
@@ -746,10 +797,11 @@ def detect_missing_context(object_id: str) -> list[dict[str, Any]]:
             })
 
     # Stale / missing follow-up
-    if obj.updated_at and _days_since(obj.updated_at) > 7:
+    updated_at = _parse_dt(obj.get("updated_at"))
+    if updated_at and _days_since(updated_at) > 7:
         candidate_gaps.append({
             "context_type": "missing_follow_up",
-            "label": f"No recent activity ({round(_days_since(obj.updated_at))}d)",
+            "label": f"No recent activity ({round(_days_since(updated_at))}d)",
             "detail": "Review this object to determine if it needs follow-up or can be archived.",
             "severity": "info",
         })
@@ -778,7 +830,7 @@ def detect_missing_context(object_id: str) -> list[dict[str, Any]]:
 # 8. Workspace Health
 # ---------------------------------------------------------------------------
 
-def compute_workspace_health(object_id: str) -> dict[str, Any]:
+def compute_workspace_health(object_id: str, organization_id: int = 0) -> dict[str, Any]:
     """Compute a deterministic health assessment for an object.
 
     Derived from: completeness, activity, relationships, commitments,
@@ -787,11 +839,12 @@ def compute_workspace_health(object_id: str) -> dict[str, Any]:
     Health is explainable and reproducible — same state always produces
     same score.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    obj = get_object_service().get_by_object_id(object_id, organization_id)
     if not obj:
         return {"error": "Object not found"}
 
-    space = FounderSpace.query.filter_by(space_id=obj.space_id).first()
+    space_id = obj.get("space_id") or obj.get("workspace_id")
+    space = _lookup_workspace(space_id) if space_id else None
     conv = FounderConversation.query.filter_by(
         object_id=object_id, status="active"
     ).first()
@@ -801,18 +854,18 @@ def compute_workspace_health(object_id: str) -> dict[str, Any]:
     # Completeness: has name, type, content, owner
     completeness = 0.0
     comp_factors = []
-    if obj.name:
+    if obj.get("name"):
         completeness += 0.25
         comp_factors.append("named")
-    if obj.object_type:
+    if obj.get("object_type"):
         completeness += 0.25
         comp_factors.append("typed")
-    if obj.content and obj.content.strip():
+    if obj.get("content") and obj["content"].strip():
         completeness += 0.25
         comp_factors.append("has content")
     else:
         comp_factors.append("missing content")
-    if obj.created_by:
+    if obj.get("created_by"):
         completeness += 0.25
         comp_factors.append("has owner")
     else:
@@ -821,8 +874,9 @@ def compute_workspace_health(object_id: str) -> dict[str, Any]:
     # Activity: recency of updates
     activity = 0.0
     act_factors = []
-    if obj.updated_at:
-        days = _days_since(obj.updated_at)
+    updated_at = _parse_dt(obj.get("updated_at"))
+    if updated_at:
+        days = _days_since(updated_at)
         if days <= 1:
             activity = 1.0
             act_factors.append("updated recently")
@@ -843,7 +897,7 @@ def compute_workspace_health(object_id: str) -> dict[str, Any]:
     rel_factors = []
     if space:
         rel_count = BusinessRelationship.query.filter_by(
-            space_id=space.space_id, status="active"
+            space_id=space["id"], status="active"
         ).count()
         if rel_count >= 5:
             relationship_score = 1.0
@@ -944,7 +998,7 @@ def compute_workspace_health(object_id: str) -> dict[str, Any]:
 # 9. Evidence Explorer
 # ---------------------------------------------------------------------------
 
-def build_evidence_explorer(object_id: str) -> list[dict[str, Any]]:
+def build_evidence_explorer(object_id: str, organization_id: int = 0) -> list[dict[str, Any]]:
     """Trace every statement in the workspace to its underlying evidence.
 
     Returns a structured list of provenance entries linking workspace
@@ -952,49 +1006,52 @@ def build_evidence_explorer(object_id: str) -> list[dict[str, Any]]:
     commitments, runtime observations.
     """
     evidence: list[dict[str, Any]] = []
-    obj = FounderObject.query.filter_by(object_id=object_id).first()
+    obj = get_object_service().get_by_object_id(object_id, organization_id)
     if not obj:
         return evidence
 
+    space_id = obj.get("space_id") or obj.get("workspace_id")
+
     # Object evidence
     evidence.append({
-        "statement": f"Object '{obj.name}' exists",
+        "statement": f"Object '{obj.get('name')}' exists",
         "source_type": "object",
-        "source_detail": f"object_id={obj.object_id}, type={obj.object_type}",
+        "source_detail": f"object_id={obj['object_id']}, type={obj.get('object_type')}",
         "provenance": json.dumps({
-            "table": "founder_objects",
-            "object_id": obj.object_id,
+            "table": "sh_objects",
+            "object_id": obj["object_id"],
             "field": "name",
-            "value": obj.name,
+            "value": obj.get("name"),
         }),
         "confidence": "certain",
     })
 
-    if obj.created_at:
+    created_at = _parse_dt(obj.get("created_at"))
+    if created_at:
         evidence.append({
-            "statement": f"Created on {obj.created_at.strftime('%b %d, %Y')}",
+            "statement": f"Created on {created_at.strftime('%b %d, %Y')}",
             "source_type": "object",
-            "source_detail": f"Timestamp from founder_objects.created_at",
+            "source_detail": "Timestamp from sh_objects.created_at",
             "provenance": json.dumps({
-                "table": "founder_objects",
-                "object_id": obj.object_id,
+                "table": "sh_objects",
+                "object_id": obj["object_id"],
                 "field": "created_at",
-                "value": obj.created_at.isoformat(),
+                "value": obj.get("created_at"),
             }),
             "confidence": "certain",
         })
 
     # Space evidence
-    space = FounderSpace.query.filter_by(space_id=obj.space_id).first()
+    space = _lookup_workspace(space_id) if space_id else None
     if space:
         evidence.append({
-            "statement": f"Belongs to space '{space.name}'",
+            "statement": f"Belongs to space '{space['name']}'",
             "source_type": "relationship",
-            "source_detail": f"space_id={space.space_id}",
+            "source_detail": f"space_id={space['id']}",
             "provenance": json.dumps({
-                "table": "founder_spaces",
-                "space_id": space.space_id,
-                "relationship": "founder_objects.space_id → founder_spaces.space_id",
+                "table": "sh_workspaces",
+                "space_id": space["id"],
+                "relationship": "sh_objects.workspace_id → sh_workspaces.id",
             }),
             "confidence": "certain",
         })
@@ -1038,17 +1095,17 @@ def build_evidence_explorer(object_id: str) -> list[dict[str, Any]]:
     # Relationship evidence
     if space:
         rels = BusinessRelationship.query.filter_by(
-            space_id=space.space_id, status="active"
+            space_id=space["id"], status="active"
         ).all()
         if rels:
             rel_names = [r.name for r in rels[:5]]
             evidence.append({
                 "statement": f"Connected to {len(rels)} business relationship{'s' if len(rels) != 1 else ''} ({', '.join(rel_names[:3])}{'...' if len(rel_names) > 3 else ''})",
                 "source_type": "relationship",
-                "source_detail": f"via space_id={space.space_id}",
+                "source_detail": f"via space_id={space['id']}",
                 "provenance": json.dumps({
                     "table": "founder_relationships",
-                    "space_id": space.space_id,
+                    "space_id": space["id"],
                     "count": len(rels),
                     "names": rel_names,
                 }),
@@ -1082,16 +1139,15 @@ def build_evidence_explorer(object_id: str) -> list[dict[str, Any]]:
 
 def navigate_to_object(source_object_id: str, target_object_id: str,
                        identity_id: str, relationship_type: str = "related",
-                       context_label: str = "") -> dict[str, Any]:
+                       context_label: str = "",
+                       organization_id: int = 0) -> dict[str, Any]:
     """Navigate from one object to another, preserving context.
 
     Records the navigation in the trail and returns the target workspace
     context so the founder can continue without losing the thread.
     """
     # Validate target exists
-    target = FounderObject.query.filter_by(
-        object_id=target_object_id, status="active"
-    ).first()
+    target = get_object_service().get_by_object_id(target_object_id, organization_id)
     if not target:
         return {"error": "Target object not found"}
 
@@ -1110,8 +1166,8 @@ def navigate_to_object(source_object_id: str, target_object_id: str,
     return {
         "navigation_recorded": True,
         "target_object_id": target_object_id,
-        "target_name": target.name,
-        "target_type": target.object_type,
+        "target_name": target.get("name"),
+        "target_type": target.get("object_type"),
         "source_object_id": source_object_id,
         "relationship_type": relationship_type,
         "context_label": context_label,
@@ -1133,26 +1189,26 @@ def get_navigation_history(identity_id: str, limit: int = 20) -> list[dict[str, 
 # Full Workspace Assembly
 # ---------------------------------------------------------------------------
 
-def build_full_workspace(object_id: str) -> dict[str, Any]:
+def build_full_workspace(object_id: str, organization_id: int = 0) -> dict[str, Any]:
     """Assemble the complete workspace for an object.
 
     Returns all intelligence panels in a single response.
     For rendering the full workspace on load.
     """
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    obj = get_object_service().get_by_object_id(object_id, organization_id)
     if not obj:
         return {"error": "Object not found"}
 
     return {
-        "summary": build_workspace_summary(object_id),
-        "ai_understanding": build_ai_understanding(object_id),
-        "relationships": build_relationship_intelligence(object_id),
-        "timeline": build_activity_timeline(object_id, limit=20),
-        "conversation": get_conversation_workspace(object_id),
-        "next_actions": build_next_actions(object_id),
-        "missing_context": detect_missing_context(object_id),
-        "health": compute_workspace_health(object_id),
-        "evidence": build_evidence_explorer(object_id),
+        "summary": build_workspace_summary(object_id, organization_id),
+        "ai_understanding": build_ai_understanding(object_id, organization_id),
+        "relationships": build_relationship_intelligence(object_id, organization_id),
+        "timeline": build_activity_timeline(object_id, limit=20, organization_id=organization_id),
+        "conversation": get_conversation_workspace(object_id, organization_id),
+        "next_actions": build_next_actions(object_id, organization_id),
+        "missing_context": detect_missing_context(object_id, organization_id),
+        "health": compute_workspace_health(object_id, organization_id),
+        "evidence": build_evidence_explorer(object_id, organization_id),
     }
 
 

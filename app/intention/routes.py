@@ -56,14 +56,14 @@ def _collect_signals():
             "detail": f"₹{overdue_amount:,.0f} total overdue" if overdue_amount else "",
         })
 
-    # 2. Pending proposals
+    # 2. Pending proposals (from canonical sh_objects)
     rows = db.session.execute(
-        text("SELECT COUNT(*) FROM founder_objects WHERE object_type = 'Proposal' AND status = 'draft'")
+        text("SELECT COUNT(*) FROM sh_objects WHERE object_type = 'Proposal' AND status = 'draft' AND is_deleted = false")
     ).fetchone()
     draft_proposals = rows[0] if rows else 0
     if draft_proposals > 0:
         prop = db.session.execute(
-            text("SELECT name FROM founder_objects WHERE object_type = 'Proposal' AND status = 'draft' ORDER BY created_at DESC LIMIT 1")
+            text("SELECT name FROM sh_objects WHERE object_type = 'Proposal' AND status = 'draft' AND is_deleted = false ORDER BY updated_at DESC LIMIT 1")
         ).fetchone()
         prop_name = prop[0] if prop else None
         signals.append({
@@ -79,13 +79,13 @@ def _collect_signals():
     # 3. Recent activity (last 24h)
     since = datetime.now(timezone.utc) - timedelta(hours=24)
     rows = db.session.execute(
-        text("SELECT COUNT(*) FROM founder_objects WHERE created_at >= :since"),
+        text("SELECT COUNT(*) FROM sh_objects WHERE created_at >= :since AND is_deleted = false"),
         {"since": since},
     ).fetchone()
     recent_count = rows[0] if rows else 0
     if recent_count > 0:
         recent = db.session.execute(
-            text("SELECT name, object_type FROM founder_objects WHERE created_at >= :since ORDER BY created_at DESC LIMIT 1"),
+            text("SELECT name, object_type FROM sh_objects WHERE created_at >= :since AND is_deleted = false ORDER BY updated_at DESC LIMIT 1"),
             {"since": since},
         ).fetchone()
         signals.append({
@@ -114,7 +114,7 @@ def _collect_signals():
 
     # 5. Most recent object
     recent_obj = db.session.execute(
-        text("SELECT name, object_type FROM founder_objects WHERE object_type != 'Proposal' ORDER BY created_at DESC LIMIT 1")
+        text("SELECT name, object_type FROM sh_objects WHERE object_type != 'Proposal' AND is_deleted = false ORDER BY updated_at DESC LIMIT 1")
     ).fetchone()
     if recent_obj:
         signals.append({

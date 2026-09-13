@@ -42,6 +42,9 @@ def test_no_production_writes_to_founder_objects():
     exempt_files = {
         "app/founder/models.py",          # Model definition — defines the table
         "core/object_service.py",         # Migration helper — migrate_from() reads legacy
+        "app/ai/context.py",              # Canonical-first with legacy fallback (C boundary)
+        "app/objects/canonical.py",       # Explicit compatibility layer (C boundary)
+        "app/founder/routes.py",          # API compat layer with canonical-first + legacy fallback
     }
 
     # Patterns that indicate writes
@@ -54,7 +57,17 @@ def test_no_production_writes_to_founder_objects():
         "DELETE FROM founder_objects",
     ]
 
+    # Patterns that indicate authoritative legacy reads (GATE 3 regression)
+    read_patterns = [
+        "FounderObject.query",
+        "FROM founder_objects",
+        "founder_objects WHERE",
+        "FounderObject.get",
+        "FounderObject.filter",
+    ]
+
     violations = []
+    read_violations = []
 
     for fpath in _production_files():
         rel = fpath.relative_to(_PROJECT_ROOT)
@@ -82,12 +95,37 @@ def test_no_production_writes_to_founder_objects():
 
                     violations.append(f"{rel_str}:{line_no}: {line.strip()}")
 
+            for pattern in read_patterns:
+                if pattern in line:
+                    stripped = line.strip()
+                    if stripped.startswith("#") or "NOTE:" in stripped or "noqa" in stripped:
+                        continue
+                    # Import statements are not reads
+                    if "import" in line and ("FounderObject" in line or "founder_objects" in line):
+                        continue
+                    # Model definition is not a read
+                    if "class FounderObject" in line or "class FounderSpace" in line:
+                        continue
+                    # Compatibility boundary comments are exempt
+                    if "COMPATIBILITY BOUNDARY" in stripped or "compat boundary" in stripped.lower():
+                        continue
+
+                    read_violations.append(f"{rel_str}:{line_no}: {line.strip()}")
+
     assert not violations, (
         "PRODUCTION CODE MUST NOT WRITE TO founder_objects.\n"
         "Violations found:\n  " + "\n  ".join(violations) + "\n\n"
         "If these are legitimate compatibility boundaries, add the file to\n"
         "the exempt_files set in this test with documentation. Otherwise,\n"
         "migrate the write to ObjectService -> sh_objects."
+    )
+
+    assert not read_violations, (
+        "PRODUCTION CODE MUST NOT PERFORM AUTHORITATIVE legacy reads.\n"
+        "Unauthorized reads from founder_objects found:\n  " + "\n  ".join(read_violations) + "\n\n"
+        "Convert these reads to ObjectService -> sh_objects. If the read is a\n"
+        "legitimate compatibility boundary, add the file to exempt_files.\n"
+        "For FounderSpace reads, convert to sh_workspaces queries."
     )
 
 
@@ -110,4 +148,4 @@ def test_no_migrate_default_org_one():
     default_org = sig.parameters.get("organization_id")
     assert default_org is not None, "migrate_from must accept organization_id"
     # Default of 1 is forbidden — callers must explicitly supply org context
-    assert default_org.default is not None, "migrate_from default org_id must not be 1"
+    assert default_org.default != 1, "migrate_from default org_id is 1 — forbidden synthetic ownership fallback. Callers must supply explicit organization_id."

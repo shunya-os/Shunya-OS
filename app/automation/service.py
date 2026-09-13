@@ -227,7 +227,7 @@ def _execute_action(rule: AutomationRule,
             result["action_summary"] = f"Notification sent: {title}"
 
         elif action_type == "create_object":
-            from app.founder.models import FounderConversation, FounderObject, FounderSpace
+            from app.founder.models import FounderSpace, FounderConversation
             from app.objects.legacy_models import ShunyaObject
 
             # Find a space for this identity
