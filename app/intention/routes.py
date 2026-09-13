@@ -57,23 +57,14 @@ def _collect_signals():
             "detail": f"₹{overdue_amount:,.0f} total overdue" if overdue_amount else "",
         })
 
-    # 2. Pending proposals
-    # Canonical-first read (sh_objects via ObjectService), legacy fallback
-    draft_proposals = 0
-    prop_name = None
-    try:
-        _org = _intention_org_id()
-        proposals = get_object_service().get_by_type("Proposal", _org, limit=50) if _org else []
-        if proposals:
-            drafts = [p for p in proposals if p.get("status") == "draft"]
-            draft_proposals = len(drafts)
-            if drafts:
-                prop_name = drafts[0].get("name")
-    except Exception:
-        draft_proposals = 0
-    if draft_proposals == 0:
-        rows = db.session.execute(
-            text("SELECT COUNT(*) FROM founder_objects WHERE object_type = 'Proposal' AND status = 'draft'")
+    # 2. Pending proposals (from canonical sh_objects)
+    rows = db.session.execute(
+        text("SELECT COUNT(*) FROM sh_objects WHERE object_type = 'Proposal' AND status = 'draft' AND is_deleted = false")
+    ).fetchone()
+    draft_proposals = rows[0] if rows else 0
+    if draft_proposals > 0:
+        prop = db.session.execute(
+            text("SELECT name FROM sh_objects WHERE object_type = 'Proposal' AND status = 'draft' AND is_deleted = false ORDER BY updated_at DESC LIMIT 1")
         ).fetchone()
         draft_proposals = rows[0] if rows else 0
         if draft_proposals > 0:
@@ -94,21 +85,14 @@ def _collect_signals():
 
     # 3. Recent activity (last 24h)
     since = datetime.now(timezone.utc) - timedelta(hours=24)
-    # Canonical-first read (sh_objects via ObjectService), legacy fallback
-    recent_count = 0
-    recent = None
-    try:
-        _org = _intention_org_id()
-        canonical_recent = _recent_canonical_objects(_org)
-        if canonical_recent:
-            recent_count = len(canonical_recent)
-            if recent_count > 0:
-                recent = canonical_recent[0]
-    except Exception:
-        recent_count = 0
-    if recent_count == 0:
-        rows = db.session.execute(
-            text("SELECT COUNT(*) FROM founder_objects WHERE created_at >= :since"),
+    rows = db.session.execute(
+        text("SELECT COUNT(*) FROM sh_objects WHERE created_at >= :since AND is_deleted = false"),
+        {"since": since},
+    ).fetchone()
+    recent_count = rows[0] if rows else 0
+    if recent_count > 0:
+        recent = db.session.execute(
+            text("SELECT name, object_type FROM sh_objects WHERE created_at >= :since AND is_deleted = false ORDER BY updated_at DESC LIMIT 1"),
             {"since": since},
         ).fetchone()
         recent_count = rows[0] if rows else 0
@@ -143,19 +127,9 @@ def _collect_signals():
         })
 
     # 5. Most recent object
-    # Canonical-first read (sh_objects via ObjectService), legacy fallback
-    recent_obj = None
-    try:
-        _org = _intention_org_id()
-        canonical_recent_obj = _recent_canonical_objects(_org, exclude_proposals=True)
-        if canonical_recent_obj:
-            recent_obj = canonical_recent_obj[0]
-    except Exception:
-        recent_obj = None
-    if recent_obj is None:
-        recent_obj = db.session.execute(
-            text("SELECT name, object_type FROM founder_objects WHERE object_type != 'Proposal' ORDER BY created_at DESC LIMIT 1")
-        ).fetchone()
+    recent_obj = db.session.execute(
+        text("SELECT name, object_type FROM sh_objects WHERE object_type != 'Proposal' AND is_deleted = false ORDER BY updated_at DESC LIMIT 1")
+    ).fetchone()
     if recent_obj:
         signals.append({
             "type": "recent_object",

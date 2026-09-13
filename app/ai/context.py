@@ -20,6 +20,7 @@ from core.object_service import get_object_service
 
 def assemble_context(object_id: str | None = None,
                      identity_id: str | None = None,
+                     organization_id: int = 0,
                      include_messages: int = 10) -> dict[str, Any]:
     """Assemble the current context from pipeline state.
 
@@ -51,7 +52,7 @@ def assemble_context(object_id: str | None = None,
     if object_id:
         canonical = None
         try:
-            canonical = get_object_service().get_by_object_id(object_id)
+            canonical = get_object_service().get_by_object_id(object_id, organization_id=organization_id)
         except Exception:
             canonical = None
 

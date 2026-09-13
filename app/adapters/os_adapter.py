@@ -223,31 +223,24 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
     # ── Recent Activity Timeline ─────────────────────────────────
     recent_activity = []
     try:
-        from app.founder.models import FounderObject, FounderConversation, FounderMessage
-        from app import db
-        from sqlalchemy import text
-
-        # Query recent objects as activity events
         from core.object_service import get_object_service
-        canonical_objects = _canonical_all_objects(identity_id)
-        objects = canonical_objects[:20] if canonical_objects else FounderObject.query.filter_by(
-            status="active"
-        ).order_by(
-            FounderObject.updated_at.desc()
-        ).limit(20).all()
+        svc = get_object_service()
 
+        # Query recent canonical objects as activity events (org_id=0 covers all)
+        objects = svc.search(query="", organization_id=0, limit=20)
         for obj in objects:
             recent_activity.append({
                 "type": "object_updated",
-                "title": f"Object modified: {obj.name}",
-                "description": f"{obj.object_type} was updated",
-                "object_type": obj.object_type,
-                "object_id": obj.object_id,
-                "timestamp": obj.updated_at.isoformat() if obj.updated_at else "",
-                "actor": obj.created_by or "system",
+                "title": f"Object modified: {obj.get('name', 'Unknown')}",
+                "description": f"{obj.get('object_type', 'unknown')} was updated",
+                "object_type": obj.get("object_type", ""),
+                "object_id": obj.get("object_id", ""),
+                "timestamp": obj.get("updated_at", ""),
+                "actor": obj.get("created_by", "system"),
             })
 
         # Query recent conversations
+        from app.founder.models import FounderConversation
         convs = FounderConversation.query.filter_by(
             status="active"
         ).order_by(
@@ -278,22 +271,17 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
     # ── Active Commitments ───────────────────────────────────────
     active_commitments = []
     try:
-        from app.founder.models import FounderObject
         from core.object_service import get_object_service
-        canonical_objects = _canonical_all_objects(identity_id)
-        objects = canonical_objects[:10] if canonical_objects else FounderObject.query.filter_by(
-            status="active"
-        ).order_by(
-            FounderObject.updated_at.desc()
-        ).limit(10).all()
+        svc = get_object_service()
+        objects = svc.search(query="", organization_id=0, limit=10)
 
         for obj in objects:
             active_commitments.append({
-                "id": obj.object_id,
-                "title": obj.name,
-                "type": obj.object_type,
-                "status": "active",
-                "owner": obj.created_by or "",
+                "id": obj.get("object_id", ""),
+                "title": obj.get("name", ""),
+                "type": obj.get("object_type", ""),
+                "status": obj.get("status", "active"),
+                "owner": obj.get("created_by", ""),
                 "due_date": None,
                 "progress": 0,
                 "related_objects": [],
@@ -304,14 +292,11 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
     # ── Object Summary ──────────────────────────────────────────
     object_summary = {"total": 0, "by_type": {}, "at_risk": 0}
     try:
-        from app.founder.models import FounderObject
         from core.object_service import get_object_service
-        canonical_objects = _canonical_all_objects(identity_id)
-        all_objects = canonical_objects if canonical_objects else FounderObject.query.filter_by(status="active").all()
-        object_summary["total"] = len(all_objects)
-        for obj in all_objects:
-            t = obj.object_type or "Unknown"
-            object_summary["by_type"][t] = object_summary["by_type"].get(t, 0) + 1
+        svc = get_object_service()
+        type_counts = svc.count_by_type(organization_id=0)
+        object_summary["total"] = sum(type_counts.values())
+        object_summary["by_type"] = type_counts
     except Exception:
         pass
 

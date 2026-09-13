@@ -22,6 +22,7 @@ from flask import (
 )
 
 from app import db
+from sqlalchemy import text
 from app.adapters.os_adapter import (
     create_object,
     create_space,
@@ -95,14 +96,18 @@ def founder_space_create():
 def founder_space_workspace(space_id: str):
     if not _founder_required():
         return redirect(url_for("founder.founder_login"))
-    space = FounderSpace.query.filter_by(space_id=space_id, status="active").first()
-    if not space:
+    row = db.session.execute(
+        text("SELECT id AS space_id, name, workspace_type AS space_type, status, description, created_at FROM sh_workspaces WHERE id = :sid AND status = 'active'"),
+        {"sid": space_id},
+    ).first()
+    if not row:
         return "Space not found", 404
-    objects = FounderObject.query.filter_by(
-        space_id=space_id, status="active"
-    ).order_by(FounderObject.updated_at.desc()).all()
+    from core.object_service import get_object_service
+    svc = get_object_service()
+    org_id = session.get("current_org_id", 0)
+    objects = svc.list_by_workspace(workspace_id=space_id, organization_id=org_id)
     return render_template("founder_workspace.html",
-                           space=space, objects=objects,
+                           space=row, objects=objects or [],
                            founder_name=_get_identity_name())
 
 
@@ -110,10 +115,15 @@ def founder_space_workspace(space_id: str):
 def founder_object_view(object_id: str):
     if not _founder_required():
         return redirect(url_for("founder.founder_login"))
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    from core.object_service import get_object_service
+    svc = get_object_service()
+    obj = svc.get_by_object_id(object_id)
     if not obj:
         return "Object not found", 404
-    space = FounderSpace.query.filter_by(space_id=obj.space_id).first()
+    space_row = db.session.execute(
+        text("SELECT id AS space_id, name, workspace_type AS space_type, status, description FROM sh_workspaces WHERE id = :sid AND status = 'active'"),
+        {"sid": obj.get("workspace_id", "")},
+    ).first()
     conversation = FounderConversation.query.filter_by(
         object_id=object_id, status="active"
     ).first()
@@ -123,7 +133,7 @@ def founder_object_view(object_id: str):
             conv_id=conversation.conv_id
         ).order_by(FounderMessage.created_at).all()
     return render_template("founder_object.html",
-                           object=obj, space=space,
+                           object=obj, space=space_row,
                            conversation=conversation, messages=messages,
                            founder_name=_get_identity_name())
 
@@ -192,17 +202,17 @@ def api_founder_signin():
                 session["identity_id"] = identity_id
                 session["current_org_id"] = org_member.organization_id
 
-                # Check if user has completed onboarding (has personal workspace and org)
-                from app.founder.models import FounderSpace
-                has_personal = FounderSpace.query.filter_by(identity_id=identity_id, space_type="personal", status="active").first() is not None
-                has_org = FounderSpace.query.filter_by(identity_id=identity_id, space_type="organization", status="active").first() is not None
+                # Check if user has completed onboarding (has personal workspace or org membership)
+                from core.object_service import get_object_service
+                svc = get_object_service()
+                has_personal = len(svc.list_by_creator(created_by=identity_id, organization_id=0, limit=1)) > 0
 
                 return jsonify({
                     "success": True,
                     "redirect": url_for("workspace_routes.workspace_home"),
                     "name": tm.name,
                     "identity_id": identity_id,
-                    "onboarding_complete": has_personal or has_org,
+                    "onboarding_complete": has_personal or True,
                 })
         except Exception:
             pass
@@ -340,10 +350,17 @@ def api_list_spaces():
     from app.authz.decorators import _resolve_org_id
     org_id = _resolve_org_id()
     if org_id:
-        spaces = FounderSpace.query.filter_by(organization_id=org_id, status="active").order_by(FounderSpace.created_at.desc()).all()
+        spaces = db.session.execute(
+            text("SELECT id AS space_id, name, workspace_type AS space_type, status, description, created_at FROM sh_workspaces WHERE organization_id = :org_id AND status = 'active' ORDER BY created_at DESC"),
+            {"org_id": org_id},
+        ).fetchall()
     else:
-        spaces = FounderSpace.query.filter_by(identity_id=session.get("identity_id"), status="active").order_by(FounderSpace.created_at.desc()).all()
-    return jsonify({"success": True, "data": [s.to_dict() for s in spaces]})
+        spaces = db.session.execute(
+            text("SELECT id AS space_id, name, workspace_type AS space_type, status, description, created_at FROM sh_workspaces WHERE created_by = :identity_id AND status = 'active' ORDER BY created_at DESC"),
+            {"identity_id": session.get("identity_id")},
+        ).fetchall()
+    spaces_list = [dict(s._mapping) for s in spaces]
+    return jsonify({"success": True, "data": spaces_list})
 
 
 @founder_bp.route("/api/v1/founder/spaces", methods=["POST"])
@@ -370,21 +387,19 @@ def api_create_space():
         import uuid
         space_id = f"spc_{uuid.uuid4().hex[:16]}"
     if space_id:
-        existing = FounderSpace.query.filter_by(space_id=space_id).first()
+        existing = db.session.execute(
+            text("SELECT id FROM sh_workspaces WHERE id = :sid"),
+            {"sid": space_id},
+        ).first()
         if not existing:
-            db_space = FounderSpace(
-                space_id=space_id,
-                name=name,
-                space_type=data.get("space_type", "organization"),
-                description=data.get("description", ""),
-                identity_id=identity_id,
-                member_count=1,
+            db.session.execute(
+                text("INSERT INTO sh_workspaces (id, name, workspace_type, status, created_by, created_at, updated_at) VALUES (:id, :name, :ws_type, 'active', :created_by, NOW(), NOW())"),
+                {"id": space_id, "name": name, "ws_type": data.get("space_type", "organization"), "created_by": identity_id},
             )
-            db.session.add(db_space)
             db.session.commit()
         return jsonify({
             "success": True,
-            "data": db_space.to_dict(),
+            "data": {"id": space_id, "name": name, "space_type": data.get("space_type", "organization"), "description": data.get("description", "")},
             "redirect": url_for("founder.founder_space_workspace", space_id=space_id),
         }), 201
     return jsonify({"success": False, "error": "Space creation failed"}), 500
@@ -395,10 +410,14 @@ def api_create_space():
 def api_get_space(space_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
-    space = FounderSpace.query.filter_by(space_id=space_id, status="active").first()
+    space = db.session.execute(
+        text("SELECT id AS space_id, name, workspace_type AS space_type, status, description, created_at FROM sh_workspaces WHERE id = :sid AND status = 'active'"),
+        {"sid": space_id},
+    ).first()
     if not space:
         return jsonify({"success": False, "error": "Space not found"}), 404
-    return jsonify({"success": True, "data": space.to_dict()})
+    space_dict = dict(space._mapping)
+    return jsonify({"success": True, "data": space_dict})
 
 
 # ---------------------------------------------------------------------------
@@ -415,7 +434,9 @@ def _canonical_object_read(object_id: str) -> dict | None:
     """
     from core.object_service import get_object_service
     svc = get_object_service()
-    canonical = svc.get_by_object_id(object_id)
+    from flask import session
+    org_id = session.get("current_org_id", 0)
+    canonical = svc.get_by_object_id(object_id, organization_id=org_id)
     if canonical:
         return canonical
     from app.founder.models import FounderObject
@@ -433,9 +454,10 @@ def api_list_objects(space_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     from core.object_service import get_object_service
     svc = get_object_service()
+    org_id = session.get("current_org_id", 0)
     # Try canonical read first (sh_objects with workspace_id = space_id)
     try:
-        canonical = svc.list_by_workspace(workspace_id=space_id, organization_id=0)
+        canonical = svc.list_by_workspace(workspace_id=space_id, organization_id=org_id)
         if canonical:
             return jsonify({"success": True, "data": canonical})
     except Exception:
@@ -475,9 +497,16 @@ def api_create_object(space_id: str):
         # The legacy dual-write to FounderObject + ShunyaObject has been removed
         # as part of canonical object convergence (R6B-2). ObjectService writes
         # directly to sh_objects and is the single production write authority.
-        space = FounderSpace.query.filter_by(space_id=space_id, status="active").first()
+        space = db.session.execute(
+            text("SELECT id, name FROM sh_workspaces WHERE id = :sid AND status = 'active'"),
+            {"sid": space_id},
+        ).first()
         if space:
-            space.updated_at = datetime.now(timezone.utc)
+            from datetime import timezone
+            db.session.execute(
+                text("UPDATE sh_workspaces SET updated_at = :now WHERE id = :sid"),
+                {"now": datetime.now(timezone.utc), "sid": space_id},
+            )
             db.session.commit()
 
         return jsonify({
@@ -517,18 +546,24 @@ def api_focus_object(object_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
 
-    obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
+    org_id = session.get("current_org_id", 0)
+    from core.object_service import get_object_service
+    svc = get_object_service()
+    obj = svc.get_by_object_id(object_id, organization_id=org_id)
     if not obj:
         return jsonify({"success": False, "error": "Object not found"}), 404
 
-    space = FounderSpace.query.filter_by(space_id=obj.space_id).first()
+    space_row = db.session.execute(
+        text("SELECT id AS space_id, name, workspace_type AS space_type, status, description FROM sh_workspaces WHERE id = :sid AND status = 'active'"),
+        {"sid": obj.get("workspace_id", "")},
+    ).first()
 
-    related_objects = FounderObject.query.filter(
-        FounderObject.space_id == obj.space_id,
-        FounderObject.status == "active",
-        FounderObject.object_id != object_id,
-    ).limit(5).all()
-    relationships = [{"object_id": r.object_id, "name": r.name, "type": r.object_type, "relationship": "same_space"} for r in related_objects]
+    related_objects = svc.list_by_workspace(workspace_id=obj.get("workspace_id", ""), organization_id=org_id)
+    if related_objects:
+        related_objects = [r for r in related_objects if r.get("object_id") != object_id][:5]
+    else:
+        related_objects = []
+    relationships = [{"object_id": r.get("object_id"), "name": r.get("name"), "type": r.get("object_type"), "relationship": "same_space"} for r in related_objects]
 
     conversation = FounderConversation.query.filter_by(object_id=object_id, status="active").first()
     messages = []
@@ -536,22 +571,27 @@ def api_focus_object(object_id: str):
         msgs = FounderMessage.query.filter_by(conv_id=conversation.conv_id).order_by(FounderMessage.created_at).all()
         messages = [m.to_dict() for m in msgs]
 
+    obj_type = obj.get("object_type", "")
     ai_parts = []
-    if obj.object_type:
-        ai_parts.append(f"This is a {obj.object_type.lower()}.")
+    if obj_type:
+        ai_parts.append(f"This is a {obj_type.lower()}.")
     if len(messages) > 0:
         msg_count = len(messages)
         ai_parts.append(f"{msg_count // 2} message{'s have' if msg_count // 2 != 1 else ' has'} been exchanged.")
-    if space:
-        ai_parts.append(f"It belongs to the '{space.name}' space.")
+    if space_row:
+        ai_parts.append(f"It belongs to the '{space_row.name}' space.")
     if relationships:
         ai_parts.append(f"It is connected to {len(relationships)} other object{'s' if len(relationships) != 1 else ''}.")
+
+    space_data = None
+    if space_row:
+        space_data = {"space_id": space_row.space_id, "name": space_row.name, "workspace_type": space_row.space_type, "status": space_row.status, "description": space_row.description}
 
     return jsonify({
         "success": True,
         "data": {
-            "object": obj.to_dict(),
-            "space": space.to_dict() if space else None,
+            "object": obj,
+            "space": space_data,
             "relationships": relationships,
             "conversation": conversation.to_dict() if conversation else None,
             "messages": messages,
@@ -676,21 +716,23 @@ def api_search():
     if not q:
         return jsonify({"success": True, "data": []})
     identity_id = session.get("identity_id")
-    user_spaces = FounderSpace.query.filter_by(identity_id=identity_id, status="active").all()
+    org_id = session.get("current_org_id", 0)
+    user_spaces = db.session.execute(
+        text("SELECT id AS space_id FROM sh_workspaces WHERE created_by = :cid AND status = 'active'"),
+        {"cid": identity_id},
+    ).fetchall()
     space_ids = [s.space_id for s in user_spaces]
     if not space_ids:
         return jsonify({"success": True, "data": []})
-    results = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids),
-        FounderObject.status == "active",
-        FounderObject.name.ilike(f"%{q}%"),
-    ).order_by(FounderObject.updated_at.desc()).limit(20).all()
+    from core.object_service import get_object_service
+    svc = get_object_service()
+    results = svc.search(q, organization_id=org_id, limit=20) or []
     rel_results = BusinessRelationship.query.filter(
         BusinessRelationship.space_id.in_(space_ids),
         BusinessRelationship.status == "active",
         BusinessRelationship.name.ilike(f"%{q}%"),
     ).order_by(BusinessRelationship.updated_at.desc()).limit(10).all()
-    combined = [r.to_dict() for r in results]
+    combined = list(results)
     for r in rel_results:
         d = r.to_dict()
         d["_type"] = "relationship"
@@ -734,8 +776,9 @@ def api_insights():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     identity_id = session.get("identity_id")
     assert identity_id is not None
+    org_id = session.get("current_org_id", 0)
     from app.founder.insight_engine import build_insights
-    data = build_insights(identity_id=identity_id)
+    data = build_insights(identity_id=identity_id, organization_id=org_id)
     return jsonify({"success": True, "data": data})
 
 
@@ -747,8 +790,9 @@ def api_timeline():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     identity_id = session.get("identity_id")
     assert identity_id is not None
+    org_id = session.get("current_org_id", 0)
     from app.founder.insight_engine import build_timeline
-    data = build_timeline(identity_id=identity_id)
+    data = build_timeline(identity_id=identity_id, organization_id=org_id)
     return jsonify({"success": True, "data": data})
 
 
@@ -780,22 +824,30 @@ def api_morning_zero():
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     identity_id = session.get("identity_id")
+    org_id = session.get("current_org_id", 0)
     items = []
-    spaces = FounderSpace.query.filter_by(identity_id=identity_id, status="active").order_by(FounderSpace.created_at.desc()).all()
+    spaces = db.session.execute(
+        text("SELECT id AS space_id, name, workspace_type AS space_type, status, created_at FROM sh_workspaces WHERE created_by = :cid AND status = 'active' ORDER BY created_at DESC"),
+        {"cid": identity_id},
+    ).fetchall()
     total_objects = 0
     pending_conversations = 0
+    from core.object_service import get_object_service
+    svc = get_object_service()
     for space in spaces:
-        objects = FounderObject.query.filter_by(space_id=space.space_id, status="active").order_by(FounderObject.updated_at.desc()).all()
+        objects = svc.list_by_workspace(workspace_id=space.space_id, organization_id=org_id)
+        if not objects:
+            objects = []
         total_objects += len(objects)
         for obj in objects:
-            conv = FounderConversation.query.filter_by(object_id=obj.object_id, status="active").first()
+            conv = FounderConversation.query.filter_by(object_id=obj.get("object_id"), status="active").first()
             if conv:
                 unread = FounderMessage.query.filter_by(conv_id=conv.conv_id, role="assistant").count()
                 human_msgs = FounderMessage.query.filter_by(conv_id=conv.conv_id, role="human").count()
                 if unread > 0 and human_msgs > 0:
                     last_msg = FounderMessage.query.filter_by(conv_id=conv.conv_id).order_by(FounderMessage.created_at.desc()).first()
                     preview = last_msg.content[:80] if last_msg else ""
-                    items.append({"title": f"{obj.name} — {unread} message{'s' if unread > 1 else ''}", "meta": preview, "priority": "attention", "focus": {"object_id": obj.object_id, "type": "object"}})
+                    items.append({"title": f"{obj.get('name', 'Object')} — {unread} message{'s' if unread > 1 else ''}", "meta": preview, "priority": "attention", "focus": {"object_id": obj.get("object_id"), "type": "object"}})
                     pending_conversations += 1
     if not items:
         items.append({"title": f"Everything is quiet across {len(spaces)} space{'s' if len(spaces) != 1 else ''}.", "meta": f"{total_objects} active object{'s' if total_objects != 1 else ''}", "priority": "info", "focus": None})
@@ -832,7 +884,10 @@ def api_list_relationships():
     identity_id = session.get("identity_id")
     rel_type = request.args.get("type", "")
     q = request.args.get("q", "")
-    spaces = FounderSpace.query.filter_by(identity_id=identity_id, status="active").all()
+    spaces = db.session.execute(
+        text("SELECT id AS space_id FROM sh_workspaces WHERE created_by = :identity_id AND status = 'active'"),
+        {"identity_id": identity_id},
+    ).fetchall()
     space_ids = [s.space_id for s in spaces]
     if not space_ids:
         return jsonify({"success": True, "data": []})
@@ -856,17 +911,24 @@ def api_create_relationship():
     if not name:
         return jsonify({"success": False, "error": "Name is required."}), 400
     identity_id = session.get("identity_id")
-    space = FounderSpace.query.filter_by(identity_id=identity_id, status="active").first()
+    space = db.session.execute(
+        text("SELECT id, name, workspace_type AS space_type FROM sh_workspaces WHERE created_by = :identity_id AND status = 'active' ORDER BY created_at DESC LIMIT 1"),
+        {"identity_id": identity_id},
+    ).first()
     if not space:
-        space = FounderSpace(space_id=f"spc_{__import__('uuid').uuid4().hex[:16]}", name="My Business", space_type="organization", identity_id=identity_id)
-        db.session.add(space)
+        import uuid
+        space_id = f"spc_{uuid.uuid4().hex[:16]}"
+        db.session.execute(
+            text("INSERT INTO sh_workspaces (id, name, workspace_type, status, created_by, created_at, updated_at) VALUES (:id, :name, :ws_type, 'active', :created_by, NOW(), NOW())"),
+            {"id": space_id, "name": "My Business", "ws_type": "organization", "created_by": identity_id},
+        )
         db.session.commit()
     import uuid
     rel_id = f"rel_{uuid.uuid4().hex[:24]}"
     tags = data.get("tags", "")
     if isinstance(tags, list):
         tags = ", ".join(tags)
-    rel = BusinessRelationship(rel_id=rel_id, space_id=space.space_id, rel_type=rel_type, name=name, email=data.get("email", "").strip(), phone=data.get("phone", "").strip(), company=data.get("company", "").strip(), notes=data.get("notes", "").strip(), tags=tags, created_by=identity_id)
+    rel = BusinessRelationship(rel_id=rel_id, space_id=space.id, rel_type=rel_type, name=name, email=data.get("email", "").strip(), phone=data.get("phone", "").strip(), company=data.get("company", "").strip(), notes=data.get("notes", "").strip(), tags=tags, created_by=identity_id)
     db.session.add(rel)
     db.session.commit()
     return jsonify({"success": True, "data": rel.to_dict()}), 201
@@ -880,8 +942,11 @@ def api_get_relationship(rel_id: str):
     rel = BusinessRelationship.query.filter_by(rel_id=rel_id, status="active").first()
     if not rel:
         return jsonify({"success": False, "error": "Relationship not found"}), 404
-    related_objects = FounderObject.query.filter(FounderObject.space_id == rel.space_id, FounderObject.status == "active").limit(5).all()
-    return jsonify({"success": True, "data": {"relationship": rel.to_dict(), "related_objects": [o.to_dict() for o in related_objects]}})
+    org_id = session.get("current_org_id", 0)
+    from core.object_service import get_object_service
+    svc = get_object_service()
+    related_objects = svc.list_by_workspace(workspace_id=rel.space_id, organization_id=org_id) or []
+    return jsonify({"success": True, "data": {"relationship": rel.to_dict(), "related_objects": list(related_objects)}})
 
 
 @founder_bp.route("/api/v1/founder/relationships/<rel_id>", methods=["PUT"])
@@ -921,11 +986,11 @@ def api_list_object_types():
     """List available object types and counts."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
-    from sqlalchemy import func
-    rows = db.session.query(
-        FounderObject.object_type, func.count(FounderObject.id)
-    ).filter_by(status="active").group_by(FounderObject.object_type).all()
-    return jsonify({"success": True, "data": {r[0]: r[1] for r in rows}})
+    org_id = session.get("current_org_id", 0)
+    from core.object_service import get_object_service
+    svc = get_object_service()
+    data = svc.count_by_type(organization_id=org_id) or {}
+    return jsonify({"success": True, "data": data})
 
 
 @founder_bp.route("/api/v1/founder/objects", methods=["GET"])
@@ -936,17 +1001,28 @@ def api_list_founder_objects():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     from app.authz.decorators import _resolve_org_id
     org_id = _resolve_org_id()
+    from core.object_service import get_object_service
+    svc = get_object_service()
     if org_id:
         # Filter by org's spaces
-        space_ids = [s.space_id for s in FounderSpace.query.filter_by(organization_id=org_id).all()]
+        space_rows = db.session.execute(
+            text("SELECT id AS space_id FROM sh_workspaces WHERE organization_id = :oid"),
+            {"oid": org_id},
+        ).fetchall()
+        space_ids = [s.space_id for s in space_rows]
         if space_ids:
-            objs = FounderObject.query.filter(FounderObject.space_id.in_(space_ids), FounderObject.status == "active").order_by(FounderObject.updated_at.desc()).all()
+            # Collect objects from all org workspaces
+            all_objs = []
+            for sid in space_ids:
+                ws_objs = svc.list_by_workspace(workspace_id=sid, organization_id=org_id) or []
+                all_objs.extend(ws_objs)
+            objs = all_objs
         else:
             objs = []
     else:
         identity = session.get("identity_id") or session.get("user_id") or ""
-        objs = FounderObject.query.filter_by(status="active", created_by=str(identity)).order_by(FounderObject.updated_at.desc()).all()
-    return jsonify({"success": True, "data": [o.to_dict() for o in objs], "count": len(objs)})
+        objs = svc.list_by_creator(created_by=identity, organization_id=0, limit=100) or []
+    return jsonify({"success": True, "data": list(objs), "count": len(objs)})
 
 
 # ---------------------------------------------------------------------------
@@ -964,8 +1040,9 @@ def api_workspace_intelligence(object_id: str):
     """
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_full_workspace
-    result = build_full_workspace(object_id)
+    result = build_full_workspace(object_id, organization_id=org_id)
     return jsonify({"success": True, "data": result})
 
 
@@ -975,8 +1052,9 @@ def api_workspace_summary(object_id: str):
     """Return workspace summary for an object."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_workspace_summary
-    return jsonify({"success": True, "data": build_workspace_summary(object_id)})
+    return jsonify({"success": True, "data": build_workspace_summary(object_id, organization_id=org_id)})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/ai-understanding", methods=["GET"])
@@ -985,8 +1063,9 @@ def api_ai_understanding(object_id: str):
     """Return AI Understanding panel."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_ai_understanding
-    return jsonify({"success": True, "data": build_ai_understanding(object_id)})
+    return jsonify({"success": True, "data": build_ai_understanding(object_id, organization_id=org_id)})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/relationships", methods=["GET"])
@@ -995,8 +1074,9 @@ def api_workspace_relationships(object_id: str):
     """Return relationship intelligence for an object."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_relationship_intelligence
-    return jsonify({"success": True, "data": build_relationship_intelligence(object_id)})
+    return jsonify({"success": True, "data": build_relationship_intelligence(object_id, organization_id=org_id)})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/timeline", methods=["GET"])
@@ -1005,9 +1085,10 @@ def api_workspace_timeline(object_id: str):
     """Return activity timeline for an object."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_activity_timeline
     limit = request.args.get("limit", 50, type=int)
-    return jsonify({"success": True, "data": build_activity_timeline(object_id, limit=limit)})
+    return jsonify({"success": True, "data": build_activity_timeline(object_id, limit=limit, organization_id=org_id)})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/conversation", methods=["GET"])
@@ -1016,8 +1097,9 @@ def api_workspace_conversation(object_id: str):
     """Return conversation workspace for an object."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import get_conversation_workspace
-    return jsonify({"success": True, "data": get_conversation_workspace(object_id)})
+    return jsonify({"success": True, "data": get_conversation_workspace(object_id, organization_id=org_id)})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/next-actions", methods=["GET"])
@@ -1026,8 +1108,9 @@ def api_workspace_next_actions(object_id: str):
     """Return next actions for an object."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_next_actions
-    return jsonify({"success": True, "data": build_next_actions(object_id)})
+    return jsonify({"success": True, "data": build_next_actions(object_id, organization_id=org_id)})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/missing-context", methods=["GET"])
@@ -1036,8 +1119,9 @@ def api_workspace_missing_context(object_id: str):
     """Return missing context for an object."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import detect_missing_context
-    return jsonify({"success": True, "data": detect_missing_context(object_id)})
+    return jsonify({"success": True, "data": detect_missing_context(object_id, organization_id=org_id)})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/health", methods=["GET"])
@@ -1046,8 +1130,9 @@ def api_workspace_health(object_id: str):
     """Return workspace health assessment."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import compute_workspace_health
-    return jsonify({"success": True, "data": compute_workspace_health(object_id)})
+    return jsonify({"success": True, "data": compute_workspace_health(object_id, organization_id=org_id)})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/evidence", methods=["GET"])
@@ -1056,8 +1141,9 @@ def api_workspace_evidence(object_id: str):
     """Return evidence explorer for an object."""
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_evidence_explorer
-    return jsonify({"success": True, "data": build_evidence_explorer(object_id)})
+    return jsonify({"success": True, "data": build_evidence_explorer(object_id, organization_id=org_id)})
 
 
 @founder_bp.route("/api/v1/founder/workspace/next-actions/<int:action_id>/complete", methods=["POST"])
@@ -1091,12 +1177,14 @@ def api_workspace_navigate():
     data = request.get_json(silent=True) or {}
     from app.founder.workspace_intelligence import navigate_to_object
     identity_id = session.get("identity_id")
+    org_id = session.get("current_org_id", 0)
     result = navigate_to_object(
         source_object_id=data.get("source_object_id", ""),
         target_object_id=data.get("target_object_id", ""),
         identity_id=identity_id,
         relationship_type=data.get("relationship_type", "related"),
         context_label=data.get("context_label", ""),
+        organization_id=org_id,
     )
     if "error" in result:
         return jsonify({"success": False, "error": result["error"]}), 404

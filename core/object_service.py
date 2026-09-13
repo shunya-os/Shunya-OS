@@ -71,22 +71,45 @@ class ObjectService:
         object_id = row[0] if row else ""
         return {"id": obj_id, "object_id": object_id, "object_type": object_type, "name": name, "status": status, "organization_id": organization_id}
 
-    def get(self, obj_id: int) -> Optional[dict]:
-        """Get an object by ID."""
+    def get(self, obj_id: int, organization_id: int = 0) -> Optional[dict]:
+        """Get an object by ID, scoped to organization.
+
+        When organization_id > 0, the lookup is scoped to that organization.
+        When 0, returns only objects with NULL organization (orphaned/personal).
+        """
         from sqlalchemy import text
-        row = self.db.session.execute(
-            text("SELECT * FROM sh_objects WHERE id = :id"), {"id": obj_id}
-        ).first()
+        if organization_id > 0:
+            row = self.db.session.execute(
+                text("SELECT * FROM sh_objects WHERE id = :id AND organization_id = :org_id"),
+                {"id": obj_id, "org_id": organization_id},
+            ).first()
+        else:
+            row = self.db.session.execute(
+                text("SELECT * FROM sh_objects WHERE id = :id AND organization_id IS NULL"),
+                {"id": obj_id},
+            ).first()
         if not row:
             return None
         return self._row_to_dict(row)
 
-    def get_by_object_id(self, object_id_str: str) -> Optional[dict]:
-        """Get an object by its unique object_id string."""
+    def get_by_object_id(self, object_id_str: str,
+                         organization_id: int = 0) -> Optional[dict]:
+        """Get an object by its unique object_id string, scoped to organization.
+
+        When organization_id > 0, the lookup is scoped to that organization.
+        When 0, returns only objects with NULL organization (orphaned/personal).
+        """
         from sqlalchemy import text
-        row = self.db.session.execute(
-            text("SELECT * FROM sh_objects WHERE object_id = :oid AND is_deleted = false"), {"oid": object_id_str}
-        ).first()
+        if organization_id > 0:
+            row = self.db.session.execute(
+                text("SELECT * FROM sh_objects WHERE object_id = :oid AND organization_id = :org_id AND is_deleted = false"),
+                {"oid": object_id_str, "org_id": organization_id},
+            ).first()
+        else:
+            row = self.db.session.execute(
+                text("SELECT * FROM sh_objects WHERE object_id = :oid AND organization_id IS NULL AND is_deleted = false"),
+                {"oid": object_id_str},
+            ).first()
         if not row:
             return None
         return self._row_to_dict(row)
@@ -219,7 +242,7 @@ class ObjectService:
         ).all()
         return {r[0]: r[1] for r in rows}
 
-    def migrate_from(self, source_table: str, organization_id: int = 1,
+    def migrate_from(self, source_table: str, organization_id: int,
                      type_map: Optional[dict] = None) -> dict:
         """Migrate records from a legacy object table into sh_objects.
         Returns migration report with counts and mapping."""

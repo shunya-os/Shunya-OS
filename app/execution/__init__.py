@@ -48,7 +48,7 @@ class ExecutionService:
         self._runtime = get_runtime()
 
     def activate(self, commitment_type: str = "", commitment_id: str = "",
-                 tenant_id: int = 1, idempotency_key: Optional[str] = None):
+                 tenant_id: int | None = None, idempotency_key: Optional[str] = None):
         """Record an execution activation.
 
         Idempotent ONLY when an explicit idempotency_key is provided:
@@ -134,7 +134,7 @@ class BusinessExecutionInstance:
         self._run_service = get_run_service()
 
     def activate(self, commitment_type: str = "", commitment_id: str = "",
-                 tenant_id: int = 1, idempotency_key: Optional[str] = None,
+                 tenant_id: int | None = None, idempotency_key: Optional[str] = None,
                  organization_id: Optional[int] = None,
                  identity_id: Optional[int] = None,
                  intent: Optional[str] = None):

@@ -316,46 +316,20 @@ def api_ask():
     except Exception as exc:
         logger.warning("Failed to query organization: %s", exc)
 
-    # 2) Founder objects — detailed list with names, types, content
+    # 2) Canonical objects — detailed list with names, types, content (via ObjectService)
     try:
         from core.object_service import get_object_service
-        objects = []
-        obj_details = []
-        org_id = 0
-        try:
-            from app.authz.decorators import _resolve_org_id
-            org_id = _resolve_org_id() or 0
-        except Exception:
-            org_id = 0
-        # Canonical-first read (sh_objects via ObjectService), legacy fallback
-        try:
-            if org_id and org_id > 0:
-                canonical_objs = get_object_service().get_by_type(
-                    object_type="Document", organization_id=org_id,
-                    limit=20, offset=0,
-                )
-                if canonical_objs:
-                    objects = canonical_objs
-        except Exception:
-            objects = []
-        if not objects:
-            objects = _db.session.execute(
-                _text("SELECT name, object_type, content FROM founder_objects WHERE status='active' ORDER BY updated_at DESC LIMIT 20")
-            ).fetchall()
+        svc = get_object_service()
+        objects = svc.search(query="", organization_id=0, limit=20)
         if objects:
             obj_details = []
             for obj in objects:
-                if isinstance(obj, dict):
-                    name = obj.get("name") or ""
-                    obj_type = obj.get("object_type") or ""
-                    content = obj.get("content") or (obj.get("data") or {}).get("content", "") if isinstance(obj.get("data"), dict) else (obj.get("content") or "")
-                else:
-                    name, obj_type, content = obj
-                snippet = (content or "")[:300].replace("\n", " ")
+                name = obj.get("name", "Unknown")
+                obj_type = obj.get("object_type", "unknown")
                 obj_details.append(f"{name} ({obj_type})")
             company_evidence.append({
                 "content": f"Objects ({len(objects)}): {' | '.join(obj_details)}",
-                "source": "company_db/founder_objects",
+                "source": "company_db/sh_objects",
                 "semantic": "FACT",
                 "classification": "company_truth",
                 "confidence": 0.95,
@@ -363,7 +337,7 @@ def api_ask():
             evidence_semantic_states.add("FACT")
             has_company_data = True
     except Exception as exc:
-        logger.warning("Failed to query founder_objects: %s", exc)
+        logger.warning("Failed to query canonical objects: %s", exc)
 
     # 3) Knowledge documents (brochures, SOPs, contracts, itineraries)
     try:

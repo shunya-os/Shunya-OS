@@ -88,7 +88,7 @@ def mark_onboarding_complete():
     """Mark the current user's onboarding as permanently complete
     and auto-create foundational business objects."""
     from flask import g
-    from app.founder.models import FounderObject, FounderSpace
+    from app.founder.models import FounderSpace
     from app.objects.legacy_models import ShunyaObject
     import uuid
 

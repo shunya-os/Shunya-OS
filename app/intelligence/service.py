@@ -15,94 +15,7 @@ from typing import Any
 from app import db
 from app.intelligence.models import AnomalyRecord, LearningEvent, ReasoningTrace
 
-from app.founder.models import FounderObject, FounderSpace, FounderConversation, FounderMessage
-from core.object_service import get_object_service
-
-
-def _parse_dt(value: Any) -> datetime | None:
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, str):
-        try:
-            return datetime.fromisoformat(value)
-        except Exception:
-            return None
-    return None
-
-
-def _attr_object(canonical: dict) -> SimpleNamespace:
-    """Normalize a canonical sh_objects row for attribute-style consumption."""
-    data = canonical.get("data") or {}
-    if not isinstance(data, dict):
-        data = {}
-    content = canonical.get("content")
-    if content is None:
-        content = data.get("content", "")
-    return SimpleNamespace(
-        object_id=canonical.get("object_id", ""),
-        name=canonical.get("name", ""),
-        object_type=canonical.get("object_type", ""),
-        content=content or "",
-        status=canonical.get("status", "active"),
-        space_id=canonical.get("space_id") or canonical.get("workspace_id"),
-        created_by=canonical.get("created_by", ""),
-        created_at=_parse_dt(canonical.get("created_at")),
-        updated_at=_parse_dt(canonical.get("updated_at")),
-        organization_id=canonical.get("organization_id", 0),
-    )
-
-
-def _objects_in_spaces(space_ids: list[str],
-                       updated_at_max: datetime | None = None,
-                       created_at_min: datetime | None = None,
-                       limit: int | None = None) -> list:
-    """Read active objects across spaces canonical-first; legacy fallback.
-
-    Compatibility boundary (R6B-2 classification C). Threshold filters are
-    applied in SQL for the legacy path and in Python for canonical rows.
-    Organization context is resolved from FounderSpace so list_by_workspace
-    uses the correct org scope.
-    """
-    try:
-        svc = get_object_service()
-        canonical = []
-        for sid in space_ids or []:
-            try:
-                sp = FounderSpace.query.filter_by(space_id=sid).first()
-                org_id = sp.organization_id if (sp and getattr(sp, "organization_id", None)) else 0
-            except Exception:
-                org_id = 0
-            try:
-                rows = svc.list_by_workspace(
-                    workspace_id=sid, organization_id=org_id,
-                    status="active", limit=1000,
-                )
-                canonical.extend(rows)
-            except Exception:
-                continue
-        if canonical:
-            objs = [_attr_object(r) for r in canonical]
-            if updated_at_max is not None:
-                objs = [o for o in objs if o.updated_at and o.updated_at <= updated_at_max]
-            if created_at_min is not None:
-                objs = [o for o in objs if o.created_at is not None and o.created_at >= created_at_min]
-            if limit:
-                objs = objs[:limit]
-            return objs
-    except Exception:
-        pass
-    # Legacy fallback (compat boundary)
-    query = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids or []),
-        FounderObject.status == "active",
-    )
-    if updated_at_max is not None:
-        query = query.filter(FounderObject.updated_at <= updated_at_max)
-    if created_at_min is not None:
-        query = query.filter(FounderObject.created_at >= created_at_min)
-    if limit:
-        query = query.limit(limit)
-    return query.all()
+from app.founder.models import FounderSpace, FounderConversation, FounderMessage
 
 
 # ---------------------------------------------------------------------------
@@ -253,87 +166,138 @@ def detect_anomalies(identity_id: str) -> list[dict[str, Any]]:
     threshold_14d = now - timedelta(days=14)
     threshold_7d = now - timedelta(days=7)
 
-    spaces = FounderSpace.query.filter_by(
-        identity_id=identity_id, status="active"
-    ).all()
-    space_ids = [s.space_id for s in spaces]
+    # Look up identity's workspaces via sh_workspaces
+    from app import db
+    from sqlalchemy import text
+    ws_rows = db.session.execute(
+        text("SELECT id FROM sh_workspaces WHERE created_by = :identity_id AND status = 'active'"),
+        {"identity_id": identity_id},
+    ).fetchall()
+    space_ids = [row[0] for row in ws_rows]
 
     if not space_ids:
         return anomalies
 
-    # Stalled objects
-    # Canonical-first read (sh_objects via ObjectService), legacy fallback
-    stalled = _objects_in_spaces(space_ids, updated_at_max=threshold_14d)
+    from core.object_service import get_object_service
+    svc = get_object_service()
+
+    # Stalled objects — query via ObjectService (sh_objects)
+    # ObjectService.list_by_workspace scopes by workspace, so we check each workspace
+    stalled = []
+    for ws_id in space_ids:
+        try:
+            ws_objects = svc.list_by_workspace(
+                workspace_id=ws_id, organization_id=0, status="active", limit=100
+            )
+            for obj in ws_objects:
+                if obj.get("status") != "active":
+                    continue
+                from datetime import timezone
+                updated = obj.get("updated_at")
+                if updated:
+                    from datetime import datetime
+                    if isinstance(updated, str):
+                        updated = datetime.fromisoformat(updated.replace("Z", "+00:00"))
+                    if (now - updated).days >= 14:
+                        stalled.append(obj)
+        except Exception:
+            continue
 
     for obj in stalled:
-        conv = FounderConversation.query.filter_by(
-            object_id=obj.object_id, status="active"
-        ).first()
+        object_id = obj.get("object_id", "")
+        conv = db.session.execute(
+            text("SELECT conv_id FROM founder_conversations WHERE object_id = :oid AND status = 'active' LIMIT 1"),
+            {"oid": object_id},
+        ).fetchone()
         if not conv:
             continue
 
         # Check if we already have this anomaly
         existing = AnomalyRecord.query.filter_by(
             identity_id=identity_id,
-            object_id=obj.object_id,
+            object_id=object_id,
             anomaly_type="status_stall",
             status="open",
         ).first()
         if existing:
             continue
 
-        days_stalled = (now - (obj.updated_at or now)).days
+        updated = obj.get("updated_at")
+        if isinstance(updated, str):
+            from datetime import datetime
+            updated = datetime.fromisoformat(updated.replace("Z", "+00:00"))
+        days_stalled = (now - (updated or now)).days if updated else 0
         anomaly = AnomalyRecord(
             identity_id=identity_id,
-            object_id=obj.object_id,
+            object_id=object_id,
             anomaly_type="status_stall",
             severity="warning" if days_stalled > 21 else "info",
-            title=f"'{obj.name}' has been inactive for {days_stalled} days",
-            description=f"Object '{obj.name}' has an active conversation but no updates in {days_stalled} days.",
+            title=f"'{obj.get('name', '')}' has been inactive for {days_stalled} days",
+            description=f"Object '{obj.get('name', '')}' has an active conversation but no updates in {days_stalled} days.",
             evidence=json.dumps({
-                "object_id": obj.object_id,
-                "object_name": obj.name,
+                "object_id": object_id,
+                "object_name": obj.get("name", ""),
                 "days_since_update": days_stalled,
-                "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
+                "updated_at": str(updated) if updated else None,
             }),
         )
         db.session.add(anomaly)
         anomalies.append(anomaly.to_dict())
 
     # Orphan objects (no conversations, old)
-    # Canonical-first read (sh_objects via ObjectService), legacy fallback
-    orphans = _objects_in_spaces(space_ids, updated_at_max=threshold_7d)
+    orphans = []
+    for ws_id in space_ids:
+        try:
+            ws_objects = svc.list_by_workspace(
+                workspace_id=ws_id, organization_id=0, status="active", limit=100
+            )
+            for obj in ws_objects:
+                updated = obj.get("updated_at")
+                if updated:
+                    if isinstance(updated, str):
+                        from datetime import datetime
+                        updated = datetime.fromisoformat(updated.replace("Z", "+00:00"))
+                    if (now - updated).days >= 7:
+                        orphans.append(obj)
+        except Exception:
+            continue
 
     for obj in orphans:
-        conv = FounderConversation.query.filter_by(
-            object_id=obj.object_id, status="active"
-        ).first()
+        object_id = obj.get("object_id", "")
+        conv = db.session.execute(
+            text("SELECT conv_id FROM founder_conversations WHERE object_id = :oid AND status = 'active' LIMIT 1"),
+            {"oid": object_id},
+        ).fetchone()
         if conv:
             continue
 
         existing = AnomalyRecord.query.filter_by(
             identity_id=identity_id,
-            object_id=obj.object_id,
+            object_id=object_id,
             anomaly_type="pattern_break",
             status="open",
         ).first()
         if existing:
             continue
 
-        days_old = (now - (obj.created_at or now)).days
+        created = obj.get("created_at")
+        if isinstance(created, str):
+            from datetime import datetime
+            created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        days_old = (now - (created or now)).days if created else 0
         if days_old < 3:
             continue  # Too new to be anomalous
 
         anomaly = AnomalyRecord(
             identity_id=identity_id,
-            object_id=obj.object_id,
+            object_id=object_id,
             anomaly_type="pattern_break",
             severity="info",
-            title=f"'{obj.name}' has never been discussed",
+            title=f"'{obj.get('name', '')}' has never been discussed",
             description=f"Object created {days_old} days ago with no conversation history.",
             evidence=json.dumps({
-                "object_id": obj.object_id,
-                "object_name": obj.name,
+                "object_id": object_id,
+                "object_name": obj.get("name", ""),
                 "days_since_creation": days_old,
                 "has_conversation": False,
             }),
