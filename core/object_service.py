@@ -390,6 +390,71 @@ class ObjectService:
         return self.update(obj_id, organization_id, identity_id=identity_id,
                            system_scope=system_scope, status="archived")
 
+    def permanent_delete(self, obj_id: int, organization_id: int,
+                         identity_id: Optional[str] = None,
+                         system_scope: bool = False) -> bool:
+        """Permanently delete an object from the database.
+
+        Authorization flows through the same gate as update() (persisted ownership).
+        Only use when the UI lifecycle explicitly requires permanent removal.
+        """
+        from sqlalchemy import text
+        if identity_id and system_scope:
+            raise ValueError(
+                "permanent_delete: identity_id and system_scope are exclusive."
+            )
+        if not identity_id and not system_scope:
+            raise ValueError(
+                "permanent_delete requires identity_id or system_scope."
+            )
+        row = self.db.session.execute(
+            text("SELECT * FROM sh_objects WHERE id = :id"), {"id": obj_id}
+        ).first()
+        if not row or row.organization_id != organization_id:
+            return False
+        if identity_id:
+            from app.authz.workspace_context import (
+                OwnershipContextError, assert_object_access,
+            )
+            try:
+                assert_object_access(identity_id, row.organization_id,
+                                     row.workspace_id)
+            except OwnershipContextError:
+                return False
+        self.db.session.execute(
+            text("DELETE FROM sh_objects WHERE id = :id"), {"id": obj_id}
+        )
+        self.db.session.commit()
+        return True
+
+    def archive(self, obj_id: int, organization_id: int,
+                identity_id: Optional[str] = None,
+                system_scope: bool = False) -> bool:
+        """Soft-archive: set status='archived'."""
+        return self.update(obj_id, organization_id, identity_id=identity_id,
+                           system_scope=system_scope, status="archived")
+
+    def restore(self, obj_id: int, organization_id: int,
+                identity_id: Optional[str] = None,
+                system_scope: bool = False) -> bool:
+        """Restore from archived: set status='active'."""
+        return self.update(obj_id, organization_id, identity_id=identity_id,
+                           system_scope=system_scope, status="active")
+
+    def trash(self, obj_id: int, organization_id: int,
+              identity_id: Optional[str] = None,
+              system_scope: bool = False) -> bool:
+        """Move to trash: set is_deleted=true."""
+        return self.update(obj_id, organization_id, identity_id=identity_id,
+                           system_scope=system_scope, is_deleted=True)
+
+    def recover(self, obj_id: int, organization_id: int,
+                identity_id: Optional[str] = None,
+                system_scope: bool = False) -> bool:
+        """Recover from trash: set is_deleted=false."""
+        return self.update(obj_id, organization_id, identity_id=identity_id,
+                           system_scope=system_scope, is_deleted=False)
+
     def count_by_type(self, organization_id: int,
                       identity_id: Optional[str] = None) -> dict:
         """Count objects grouped by type within the caller's authorized workspaces."""

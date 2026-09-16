@@ -104,3 +104,61 @@ def update(object_id):
         return jsonify({"error": "Not found after update"}), 500
     return jsonify({"id": updated["id"],
                     "state": {k: v for k, v in updated.items() if k != "id"}})
+
+
+@objects_bp.route("/<int:object_id>", methods=["GET"])
+@require_permission("knowledge.view")
+def get(object_id):
+    """Read a single canonical object by integer ID."""
+    identity_id = _identity_id()
+    if not identity_id:
+        return jsonify({"error": "Authentication required", "success": False}), 401
+    try:
+        organization_id = resolve_current_organization(
+            identity_id, request.headers.get("X-Organization-Id")
+        )
+    except OwnershipContextError as exc:
+        return _deny(exc)
+    svc = get_object_service()
+    obj = svc.get(object_id, organization_id=organization_id,
+                  identity_id=identity_id)
+    if not obj:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify({"id": obj["id"], "state": obj})
+
+
+@objects_bp.route("/<int:object_id>/lifecycle", methods=["POST"])
+@require_permission("rel.edit")
+def lifecycle(object_id):
+    """Apply a lifecycle action to an object.
+
+    JSON body: {"action": "archive"|"restore"|"trash"|"recover"|"permanent_delete"}
+    All actions go through ObjectService authorization (persisted ownership).
+    """
+    identity_id = _identity_id()
+    if not identity_id:
+        return jsonify({"error": "Authentication required", "success": False}), 401
+    data = request.json or {}
+    action = data.get("action")
+    if action not in ("archive", "restore", "trash", "recover", "permanent_delete"):
+        return jsonify({"error": f"Unknown lifecycle action: {action}",
+                        "valid": ["archive","restore","trash","recover","permanent_delete"],
+                        "success": False}), 400
+    try:
+        organization_id = resolve_current_organization(
+            identity_id, request.headers.get("X-Organization-Id")
+        )
+    except OwnershipContextError as exc:
+        return _deny(exc)
+    svc = get_object_service()
+    method = getattr(svc, action)
+    ok = method(object_id, organization_id=organization_id,
+                identity_id=identity_id)
+    if not ok:
+        return jsonify({"error": f"Lifecycle action '{action}' failed — "
+                        "cross-tenant or not found", "success": False}), 403
+    updated = svc.get(object_id, organization_id=organization_id,
+                      identity_id=identity_id) if action != "permanent_delete" else None
+    return jsonify({"success": True,
+                    "action": action,
+                    "state": updated})
