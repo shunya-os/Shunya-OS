@@ -61,6 +61,8 @@ export interface SavedContent {
   label: string;
   content: string;
   createdAt: string;
+  status?: string;
+  is_deleted?: boolean;
 }
 
 export interface BrandVoiceProfile {
@@ -109,7 +111,23 @@ function mapBackendItem(item: Record<string, unknown>): SavedContent {
     label: String(item.prompt ?? ''),
     content: String(item.generated_content ?? ''),
     createdAt: String(item.created_at ?? new Date().toISOString()),
+    status: String(item.status ?? 'active'),
+    is_deleted: Boolean(item.is_deleted ?? false),
   };
+}
+
+async function apiLifecycleAction(id: string, action: string): Promise<boolean> {
+  try {
+    const resp = await fetch(`/api/v1/content/history/${id}/lifecycle`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    return resp.ok;
+  } catch {
+    return false;
+  }
 }
 
 async function apiFetchHistory(): Promise<SavedContent[]> {
@@ -636,11 +654,18 @@ export function ContentStudio() {
     [],
   );
 
-  // ── Delete saved ──
-  const handleDelete = useCallback(
-    (id: string) => {
-      setSavedItems((prev) => prev.filter((i) => i.id !== id));
-      apiDeleteItem(id);
+  // ── Lifecycle actions ──
+  const handleLifecycle = useCallback(
+    (id: string, action: string) => {
+      apiLifecycleAction(id, action).then((ok) => {
+        if (ok) {
+          if (action === 'permanent_delete') {
+            setSavedItems((prev) => prev.filter((i) => i.id !== id));
+          } else {
+            apiFetchHistory().then(setSavedItems);
+          }
+        }
+      });
     },
     [],
   );
@@ -1487,13 +1512,58 @@ export function ContentStudio() {
                       >
                         <Edit3 size={12} />
                       </button>
-                      <button
-                        className="cs-icon-btn cs-icon-danger"
-                        onClick={() => handleDelete(item.id)}
-                        title="Delete"
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                      {item.is_deleted ? (
+                        <>
+                          <button
+                            className="cs-icon-btn"
+                            onClick={() => handleLifecycle(item.id, 'recover')}
+                            title="Recover from trash"
+                          >
+                            <RefreshCw size={12} />
+                          </button>
+                          <button
+                            className="cs-icon-btn cs-icon-danger"
+                            onClick={() => handleLifecycle(item.id, 'permanent_delete')}
+                            title="Delete permanently"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </>
+                      ) : item.status === 'archived' ? (
+                        <>
+                          <button
+                            className="cs-icon-btn"
+                            onClick={() => handleLifecycle(item.id, 'restore')}
+                            title="Restore"
+                          >
+                            <RefreshCw size={12} />
+                          </button>
+                          <button
+                            className="cs-icon-btn cs-icon-danger"
+                            onClick={() => handleLifecycle(item.id, 'trash')}
+                            title="Move to trash"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="cs-icon-btn"
+                            onClick={() => handleLifecycle(item.id, 'archive')}
+                            title="Archive"
+                          >
+                            <BookOpen size={12} />
+                          </button>
+                          <button
+                            className="cs-icon-btn cs-icon-danger"
+                            onClick={() => handleLifecycle(item.id, 'trash')}
+                            title="Move to trash"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}

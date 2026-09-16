@@ -166,6 +166,61 @@ def api_delete_item(item_id: int):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@content_bp.route("/history/<int:item_id>/lifecycle", methods=["POST"])
+def api_lifecycle(item_id: int):
+    """Apply a lifecycle action to a content generation.
+
+    State machine (same as ObjectService lifecycle):
+      ACTIVE    → archive → ARCHIVED,  trash → TRASHED
+      ARCHIVED  → restore → ACTIVE,    trash → TRASHED
+      TRASHED   → recover → ACTIVE
+      any       → permanent_delete → (removed from DB)
+    """
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    data = request.get_json(silent=True) or {}
+    action = data.get("action")
+    if action not in ("archive", "restore", "trash", "recover", "permanent_delete"):
+        return jsonify({"error": f"Unknown lifecycle action: {action}",
+                        "valid": ["archive","restore","trash","recover","permanent_delete"],
+                        "success": False}), 400
+    try:
+        from app.integration.models import ContentGeneration
+        from app import db
+        item = db.session.get(ContentGeneration, item_id)
+        if not item or item.identity_id != _identity_id():
+            return jsonify({"success": False, "error": "Not found"}), 404
+
+        LIFECYCLE = {
+            "archive": lambda i: setattr(i, "status", "archived"),
+            "restore": lambda i: setattr(i, "status", "active") if i.status == "archived" else None,
+            "trash":   lambda i: setattr(i, "is_deleted", True),
+            "recover": lambda i: (setattr(i, "is_deleted", False), setattr(i, "status", "active")) if i.is_deleted else None,
+            "permanent_delete": lambda i: None,  # handled below
+        }
+
+        if action == "permanent_delete":
+            if not item.is_deleted:
+                return jsonify({"success": False, "error": "Must trash before permanent delete"}), 400
+            db.session.delete(item)
+            db.session.commit()
+            return jsonify({"success": True, "action": action})
+
+        handler = LIFECYCLE[action]
+        result = handler(item)
+        if result is None:
+            return jsonify({"success": False, "error": f"Invalid transition: {action} from current state"}), 400
+        db.session.commit()
+
+        # Return updated state
+        updated = db.session.get(ContentGeneration, item_id)
+        return jsonify({"success": True, "action": action,
+                        "status": updated.status,
+                        "is_deleted": bool(updated.is_deleted) if updated.is_deleted is not None else False})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ── Universal Inhibition Layer (SUIL) Endpoint ──
 
 LEVELS = {

@@ -303,6 +303,8 @@ class ContentGeneration(db.Model):
     word_count = db.Column(db.Integer, nullable=True)
     ai_model = db.Column(db.String(60), default="groq")
     is_favorited = db.Column(db.Boolean, default=False)
+    status = db.Column(db.String(20), default="active", nullable=False)
+    is_deleted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     def to_dict(self):
@@ -318,6 +320,8 @@ class ContentGeneration(db.Model):
             "word_count": self.word_count,
             "ai_model": self.ai_model,
             "is_favorited": self.is_favorited,
+            "status": self.status,
+            "is_deleted": bool(self.is_deleted) if self.is_deleted is not None else False,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
