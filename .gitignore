@@ -128,3 +128,6 @@ credentials/
 
 # Session-internal recovery checkpoints (not governance artifacts)
 R6B27_WINDOW6_SESSION_RECOVERY_CHECKPOINT.md
+
+# Temp cert run markers (never committed)
+artifacts/**/.second_run.tmp
