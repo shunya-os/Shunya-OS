@@ -132,8 +132,12 @@ def get(object_id):
 def lifecycle(object_id):
     """Apply a lifecycle action to an object.
 
-    JSON body: {"action": "archive"|"restore"|"trash"|"recover"|"permanent_delete"}
-    All actions go through ObjectService authorization (persisted ownership).
+    Explicit action dispatch — no dynamic getattr from user-controlled input.
+    Legal transitions:
+      ACTIVE    → archive → ARCHIVED,  trash → TRASHED
+      ARCHIVED  → restore → ACTIVE,    trash → TRASHED
+      TRASHED   → recover → ACTIVE
+      any       → permanent_delete → (removed from DB)
     """
     identity_id = _identity_id()
     if not identity_id:
@@ -150,13 +154,24 @@ def lifecycle(object_id):
         )
     except OwnershipContextError as exc:
         return _deny(exc)
+
     svc = get_object_service()
-    method = getattr(svc, action)
-    ok = method(object_id, organization_id=organization_id,
-                identity_id=identity_id)
+
+    # Explicit dispatch — not getattr(svc, action).
+    LIFECYCLE_DISPATCH = {
+        "archive": svc.archive,
+        "restore": svc.restore,
+        "trash": svc.trash,
+        "recover": svc.recover,
+        "permanent_delete": svc.permanent_delete,
+    }
+    handler = LIFECYCLE_DISPATCH[action]
+    ok = handler(object_id, organization_id=organization_id,
+                 identity_id=identity_id)
     if not ok:
         return jsonify({"error": f"Lifecycle action '{action}' failed — "
-                        "cross-tenant or not found", "success": False}), 403
+                        "cross-tenant, wrong state, or not found",
+                        "success": False}), 403
     updated = svc.get(object_id, organization_id=organization_id,
                       identity_id=identity_id) if action != "permanent_delete" else None
     return jsonify({"success": True,
