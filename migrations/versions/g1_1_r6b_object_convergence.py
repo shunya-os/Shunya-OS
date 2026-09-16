@@ -13,12 +13,16 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.add_column("sh_objects", sa.Column("content", sa.Text(), nullable=True))
     op.add_column("sh_objects", sa.Column("space_id", sa.String(64), nullable=True))
     op.create_index("ix_sh_objects_space_id", "sh_objects", ["space_id"])
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_index("ix_sh_objects_space_id", table_name="sh_objects")
     op.drop_column("sh_objects", "space_id")
     op.drop_column("sh_objects", "content")

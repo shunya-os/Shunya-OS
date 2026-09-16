@@ -38,7 +38,12 @@ class UserRole(str, Enum):
 class TeamMember(db.Model):
     __tablename__ = "team_members"
     id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, nullable=False, default=1)
+    # Legacy tenant column. A team member has NO tenant at signup: canonical
+    # tenancy is established through OrgMember once an organization is joined.
+    # It is therefore nullable with no default, so an account is never placed
+    # in an arbitrary tenant (previously every new account was written into
+    # tenant 1). Not read for authorization — OrgMember is the authority.
+    tenant_id = Column(Integer, nullable=True, default=None)
     name = Column(String(120), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
     phone = Column(String(30))

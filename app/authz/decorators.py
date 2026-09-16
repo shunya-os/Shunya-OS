@@ -24,43 +24,85 @@ def _resolve_identity() -> str:
 
 
 def _resolve_org_id() -> int | None:
-    """Resolve the current user's organization.
+    """Resolve the current user's organization, canonically.
 
     Canonical order:
-    1. session current_org_id (set by before_request bridge)
-    2. OrgMember lookup by identity (email or user_id)
+    1. session current_org_id, VALIDATED against the identity's active membership
+    2. exactly one active membership → that organization
+    3. multiple active memberships with no explicit selection → None (fail closed)
+
+    An arbitrary ``.first()`` is never used to pick an organization: an identity
+    that belongs to several organizations must select one explicitly, and an
+    identity that belongs to none must be refused.
     """
-    org_id = session.get("current_org_id")
-    if org_id:
-        return int(org_id)
+    from app.authz.workspace_context import (
+        OwnershipContextError, resolve_current_organization,
+    )
     identity = _resolve_identity()
-    if identity:
-        from app.models import OrgMember
-        om = OrgMember.query.filter_by(identity_id=identity, is_active=True).first()
-        if om:
-            return om.organization_id
-    return None
+    if not identity:
+        return None
+    requested = session.get("current_org_id")
+    try:
+        return resolve_current_organization(identity, requested)
+    except OwnershipContextError:
+        return None
 
 
 def _resolve_org_workspace_ids(org_id: int) -> list:
     """Resolve workspace IDs belonging to an organization.
 
-    Canonical: workspaces are org-scoped via sh_workspaces.organization_id.
-    Falls back to legacy default workspace when org mapping absent.
+    Canonical truth is ``sh_workspaces``, scoped by ``organization_id``.
+
+    Returns ``[]`` when the organization owns no workspace, and callers MUST
+    fail closed. The historical default workspaces ("spc_personal",
+    "spc_business", "spc_custom") are deliberately NOT returned as a fallback:
+    they were seeded with ``created_by="system"`` and no organization, so using
+    them as workspace context would invent tenant ownership that does not exist.
     """
     from app.objects.legacy_models import Workspace
-    ws_ids = [w.id for w in Workspace.query.filter_by(organization_id=org_id).all()]
-    if ws_ids:
-        return ws_ids
-    # Legacy fallback: default workspaces
-    return ["spc_personal", "spc_business", "spc_custom"]
+    return [w.id for w in Workspace.query.filter_by(organization_id=org_id).all()]
+
+
+def _resolve_org_or_denial(identity: str):
+    """``(organization_id, denial_code)`` for the current caller.
+
+    ``organization_id`` is ``None`` only when the caller cannot be given an
+    organization context, and ``denial_code`` distinguishes the two very
+    different reasons (R6B-2.7 Window 6):
+
+    * ``organization_selection_required`` / ``invalid_requested_organization``
+      — the CLIENT can fix the request; the caller is not (yet) denied.
+    * ``no_active_organization`` / ``organization_not_authorized`` — the caller
+      is genuinely NOT ENTITLED. That is an authorization denial and must be
+      reported as 403, never as "Bad request": a denial that looks like a
+      malformed request hides an authorization decision from both the operator
+      and the audit trail.
+
+    ``_resolve_org_id()`` itself is left unchanged: it is used in ~40 places as
+    a nullable tenant lookup, and those callers depend on the ``None``.
+    """
+    from app.authz.workspace_context import (
+        OwnershipContextError,
+        resolve_current_organization,
+    )
+    try:
+        return resolve_current_organization(identity, session.get("current_org_id")), None
+    except OwnershipContextError as exc:
+        return None, getattr(exc, "code", "ownership_context_missing")
+
+
+# "Auto-select an organization or make the client choose" — never a denial.
+_SELECTION_REQUIRED_CODES = {
+    "organization_selection_required",
+    "invalid_requested_organization",
+}
 
 
 def require_permission(permission: str):
     """Decorator: require the given permission for the current user.
 
-    Applies to Flask routes. Denies unauthenticated users (401)
-    and users without the permission (403).
+    Applies to Flask routes. Denies unauthenticated users (401) and users
+    without the permission or without an authorized organization (403).
     """
     def decorator(fn):
         @functools.wraps(fn)
@@ -70,9 +112,15 @@ def require_permission(permission: str):
             if not identity:
                 return jsonify({"success": False, "error": "Authentication required"}), 401
 
-            org_id = _resolve_org_id()
+            org_id, denial = _resolve_org_or_denial(identity)
             if not org_id:
-                return jsonify({"success": False, "error": "No organization selected"}), 400
+                if denial in _SELECTION_REQUIRED_CODES:
+                    return jsonify({"success": False, "error": "No organization selected",
+                                    "code": denial}), 400
+                logger.info("AUTHZ DENY: identity=%s code=%s path=%s",
+                            identity, denial, request.path)
+                return jsonify({"success": False, "code": denial,
+                                "error": "Forbidden: no authorized organization"}), 403
 
             if not check_permission(org_id, identity, permission):
                 logger.info("AUTHZ DENY: identity=%s org=%s permission=%s path=%s",
@@ -95,9 +143,15 @@ def require_any_permission(*permissions: str):
             identity = _resolve_identity()
             if not identity:
                 return jsonify({"success": False, "error": "Authentication required"}), 401
-            org_id = _resolve_org_id()
+            org_id, denial = _resolve_org_or_denial(identity)
             if not org_id:
-                return jsonify({"success": False, "error": "No organization selected"}), 400
+                if denial in _SELECTION_REQUIRED_CODES:
+                    return jsonify({"success": False, "error": "No organization selected",
+                                    "code": denial}), 400
+                logger.info("AUTHZ DENY: identity=%s code=%s path=%s",
+                            identity, denial, request.path)
+                return jsonify({"success": False, "code": denial,
+                                "error": "Forbidden: no authorized organization"}), 403
             for perm in permissions:
                 if check_permission(org_id, identity, perm):
                     g.identity_id = identity

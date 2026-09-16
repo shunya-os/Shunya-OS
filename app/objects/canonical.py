@@ -15,18 +15,38 @@ from app import db
 from core.object_service import get_object_service
 
 
-def get_canonical_object(object_id: str) -> dict | None:
-    """Get an object from the canonical store, falling back to legacy stores.
+def get_canonical_object(object_id: str, organization_id: int) -> dict | None:
+    """Get an object from the canonical store (sh_objects).
 
-    Resolution order: sh_objects (canonical) → UOPObject (migration compat) →
-    FounderObject (legacy compat).
+    Canonical store only — the founder_objects fallback was removed in R6B-2.4
+    because it was reachable in production and not tenant-scoped (a legacy read
+    may never become the authoritative source of tenant-visible truth).
+    Resolution order: sh_objects (canonical) → UOPObject (migration compat).
+
+    ``organization_id`` is MANDATORY. It previously defaulted to None, which
+    made an unscoped call possible: with no organization the query matched an
+    object belonging to ANY tenant. An unscoped canonical read is not an
+    acceptable authorization surface, so a missing organization now fails
+    closed instead of silently widening scope. The UOPObject compatibility
+    fallback is tenant-scoped by the same rule.
     """
+    if not organization_id:
+        raise ValueError(
+            "get_canonical_object() requires an explicit organization_id — "
+            "an unscoped canonical read could return another tenant's object. "
+            "Missing ownership MUST FAIL CLOSED."
+        )
     from app.objects.legacy_models import ShunyaObject
-    so = ShunyaObject.query.filter_by(object_id=object_id).first()
+    so = (
+        ShunyaObject.query
+        .filter_by(object_id=object_id)
+        .filter(ShunyaObject.organization_id == int(organization_id))
+        .first()
+    )
     if so:
         return {
             "object_id": so.object_id,
-            "tenant_id": so.organization_id or 0,
+            "tenant_id": so.organization_id,
             "space_id": so.workspace_id or "",
             "object_type": so.object_type,
             "name": so.name,
@@ -43,41 +63,43 @@ def get_canonical_object(object_id: str) -> dict | None:
             "organization_id": so.organization_id,
         }
 
-    # Fallback to UOPObject (sh_uop_objects — migration compat)
+    # Fallback to UOPObject (sh_uop_objects — migration compat store).
+    # Scoped by the same organization; an unscoped compat read is not allowed.
     from app.kernel.models import UOPObject
     uop = UOPObject.query.filter_by(object_id=object_id).first()
     if uop:
-        return uop.to_protocol_dict()
+        row = uop.to_protocol_dict()
+        row_org = row.get("organization_id") or row.get("tenant_id")
+        if row_org and int(row_org) == int(organization_id):
+            return row
+        return None
 
-    # Fallback to FounderObject (founder_objects — legacy compat)
-    from app.founder.models import FounderObject
-    fo = FounderObject.query.filter_by(object_id=object_id).first()
-    if fo:
-        return {
-            "object_id": fo.object_id,
-            "tenant_id": 0,
-            "space_id": fo.space_id or "",
-            "object_type": fo.object_type or "Document",
-            "name": fo.name or "Untitled",
-            "status": fo.status or "active",
-            "version": 1,
-            "confidence": 1.0,
-            "created_at": fo.created_at.isoformat() if fo.created_at else "",
-            "updated_at": fo.updated_at.isoformat() if fo.updated_at else "",
-            "created_by": fo.created_by or "",
-            "updated_by": "",
-            "evidence": [],
-            "relationships": [],
-            "metadata": {"migrated": False},
-        }
+    # No founder_objects fallback (R6B-2.4): canonical absence is authoritative.
     return None
 
 
-def list_canonical_objects(space_id: str = "", object_type: str = "",
-                           limit: int = 50) -> list[dict]:
-    """List objects from canonical store with optional filters."""
+def list_canonical_objects(organization_id: int, workspace_id: str = "",
+                           object_type: str = "", limit: int = 50) -> list[dict]:
+    """List objects from the canonical store for exactly ONE organization.
+
+    ``organization_id`` is MANDATORY and ``workspace_id`` is now actually
+    applied. Previously this function took no organization at all and silently
+    ignored its ``space_id`` argument, i.e. it was an unscoped, unfiltered
+    tenant read. It has no production callers, but the signature must not
+    permit an unscoped listing to be reintroduced by accident.
+    """
+    if not organization_id:
+        raise ValueError(
+            "list_canonical_objects() requires an explicit organization_id — "
+            "an unscoped canonical listing would expose every tenant. "
+            "Missing ownership MUST FAIL CLOSED."
+        )
     from app.objects.legacy_models import ShunyaObject
-    query = ShunyaObject.query.filter(ShunyaObject.is_deleted == False)
+    query = (ShunyaObject.query
+             .filter(ShunyaObject.is_deleted == False)
+             .filter(ShunyaObject.organization_id == int(organization_id)))
+    if workspace_id:
+        query = query.filter(ShunyaObject.workspace_id == workspace_id)
     if object_type:
         query = query.filter(ShunyaObject.object_type == object_type)
     results = query.order_by(ShunyaObject.updated_at.desc()).limit(limit).all()
@@ -85,7 +107,7 @@ def list_canonical_objects(space_id: str = "", object_type: str = "",
     return [
         {
             "object_id": r.object_id,
-            "tenant_id": r.organization_id or 0,
+            "tenant_id": r.organization_id,
             "space_id": r.workspace_id or "",
             "object_type": r.object_type,
             "name": r.name,
@@ -117,6 +139,7 @@ def create_canonical_object(
     evidence: list = None,
     relationships: list = None,
     workspace_id: str = "",
+    identity_id: str | None = None,
 ) -> dict:
     """Create an object through the canonical object service.
 
@@ -125,9 +148,14 @@ def create_canonical_object(
     new consumers should read from sh_objects via get_canonical_object().
 
     Callers MUST provide a valid tenant_id. 0 = unknown/legacy (no mutation).
+    Callers MUST also provide the authenticated ``identity_id``: this is a
+    compatibility wrapper, not an authorization bypass, so it is gated by the
+    same identity authorization as every other canonical write. It carries no
+    machine/system scope.
     """
     from app.objects.legacy_models import ShunyaObject
     from app import db
+    from app.authz.workspace_context import assert_object_access
 
     if not tenant_id:
         return {"error": "tenant_id is required — cannot create object without organization context"}
@@ -135,9 +163,16 @@ def create_canonical_object(
     if not workspace_id and not space_id:
         return {"error": "workspace_id or space_id is required — cannot create object without workspace context"}
 
+    if not identity_id:
+        return {"error": "identity_id is required — canonical create must be authorization-gated"}
+
     # Check if object already exists — if so, update in place (upsert)
     existing = ShunyaObject.query.filter_by(object_id=object_id).first()
     if existing:
+        # The upsert path is a WRITE, so it is authorized against the row's
+        # PERSISTED ownership exactly like ObjectService.update().
+        assert_object_access(identity_id, existing.organization_id,
+                             existing.workspace_id)
         existing.name = name
         existing.object_type = object_type
         existing.data = metadata or {}
@@ -174,6 +209,7 @@ def create_canonical_object(
         created_by=created_by,
         workspace_id=w_id,
         object_id=object_id,
+        identity_id=identity_id,
     )
 
     return {

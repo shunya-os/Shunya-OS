@@ -111,7 +111,9 @@ def create_execution_for_command(
     
     outcome = Outcome(
         outcome_id=outcome_id,
-        identity_id=str(identity_id or tenant_id or 0),
+        # No synthetic identity: an outcome with neither a canonical identity
+        # nor a tenant is not persisted under the placeholder "0".
+        identity_id=str(identity_id or tenant_id or ""),
         intention=user_message[:500],
         state=state,
         created_at=now,

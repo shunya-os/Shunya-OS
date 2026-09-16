@@ -87,18 +87,39 @@ def update_onboarding_step(step: str):
 def mark_onboarding_complete():
     """Mark the current user's onboarding as permanently complete
     and auto-create foundational business objects."""
-    from flask import g
-    from app.founder.models import FounderSpace
-    from app.objects.legacy_models import ShunyaObject
-    import uuid
-
+    from flask import g, current_app
     user = g.user
     user.onboarding_completed = True
 
-    # Auto-create foundational objects (Article XII)
+    # Canonical ownership context: identity → organization → workspace.
+    # Canonical workspace truth is sh_workspaces; a legacy FounderSpace record
+    # is not an ownership authority.
+    from app.authz.workspace_context import (
+        OwnershipContextError, resolve_current_organization,
+        resolve_current_workspace,
+    )
     identity_id = str(user.id)
-    space = FounderSpace.query.filter_by(identity_id=identity_id).first()
-    if space:
+    email = getattr(user, "email", "") or ""
+    # ONE canonical identity, resolved once. The previous version tried
+    # (email, identity_id) in turn and kept whichever happened to resolve,
+    # which is arbitrary resolution: two different identities could both be
+    # "the caller" depending on data. The canonical identity for authorization
+    # is the email when present (that is what OrgMember.identity_id holds),
+    # otherwise the user id — and if that single identity has no authorized
+    # context, this fails closed rather than silently trying another identity.
+    canonical_identity = email or identity_id
+    org_id = workspace_id = None
+    try:
+        org_id = resolve_current_organization(canonical_identity)
+        workspace_id = resolve_current_workspace(canonical_identity, org_id)
+    except OwnershipContextError:
+        org_id = workspace_id = None
+
+    # Auto-create foundational objects (Article XII). Without a canonical
+    # organization and workspace there is nothing to attach them to, so none
+    # are created — never under a synthetic owner or a default workspace.
+    objects_created = 0
+    if org_id and workspace_id:
         FOUNDATIONAL_OBJECTS = [
             ("Customer", "customer"),
             ("Supplier", "supplier"),
@@ -127,25 +148,32 @@ def mark_onboarding_complete():
             ("Employee", "employee"),
             ("Quote", "quote"),
         ]
+        # Canonical object creation via ObjectService (R6B-2 convergence)
+        # replaces legacy FounderObject + ShunyaObject dual-write
+        from core.object_service import get_object_service
+        svc = get_object_service()
         for obj_name, obj_type in FOUNDATIONAL_OBJECTS:
-            # Canonical object creation via ObjectService (R6B-2 convergence)
-            # replaces legacy FounderObject + ShunyaObject dual-write
-            from core.object_service import get_object_service
-            svc = get_object_service()
-            org_id = space.organization_id
             svc.create(
                 object_type=obj_type,
                 name=obj_name,
-                organization_id=org_id or 0,
+                organization_id=org_id,
                 data={"content": ""},
                 created_by=identity_id[:12],
-                workspace_id=space.space_id,
+                workspace_id=workspace_id,
+                identity_id=identity_id,
             )
+            objects_created += 1
+    else:
+        current_app.logger.info(
+            "Onboarding complete for identity=%s but no canonical organization/"
+            "workspace context — foundational objects not created.", identity_id,
+        )
 
     db.session.commit()
     return jsonify({
         "success": True,
-        "data": {"onboarding_completed": True, "objects_created": 26},
+        "data": {"onboarding_completed": True,
+                 "objects_created": objects_created},
     })
 
 

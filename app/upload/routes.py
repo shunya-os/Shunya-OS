@@ -10,7 +10,8 @@ upload_bp = Blueprint("upload", __name__, url_prefix="/api/v1/upload")
 
 
 def _process_upload(job, file_bytes: bytes, filename: str, content_type: str,
-                    organization_id: int = 0, workspace_id: str = ""):
+                    organization_id: int = 0, workspace_id: str = "",
+                    identity_id: str = ""):
     """Background job: save file with storage intelligence: hash, dedup, metadata.
 
     Args:
@@ -35,11 +36,17 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str,
         job.update(stage="Hashing file")
         sha256 = hashlib.sha256(file_bytes).hexdigest()
 
-        # Dedup check - canonical path: sh_objects
+        # Dedup check — canonical path: sh_objects. Scoped to the caller's own
+        # organization AND workspace (R6B-2.7 Window 6): an unscoped
+        # `data LIKE %sha256%` probe matched another tenant's document, which
+        # both disclosed that the file existed elsewhere and suppressed the
+        # caller's own upload as a "duplicate" of a file they cannot see.
         job.update(stage="Checking for duplicates")
         existing = db.session.execute(
-            text("SELECT object_id FROM sh_objects WHERE data LIKE :hash AND object_type='Document' AND is_deleted = false LIMIT 1"),
-            {"hash": f"%{sha256}%"}
+            text("SELECT object_id FROM sh_objects WHERE data LIKE :hash "
+                 "AND object_type='Document' AND is_deleted = false "
+                 "AND organization_id = :org AND workspace_id = :ws LIMIT 1"),
+            {"hash": f"%{sha256}%", "org": organization_id, "ws": workspace_id}
         ).fetchone()
 
         if existing:
@@ -72,8 +79,9 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str,
             name=filename,
             organization_id=organization_id,
             data={"content": content_data, "sha256": sha256, "storage_meta": meta},
-            created_by="system",
+            created_by=identity_id or "system",
             workspace_id=workspace_id,
+            identity_id=identity_id or None,
         )
         doc_id = created["object_id"]
         db.session.commit()
@@ -82,7 +90,10 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str,
         try:
             from app.shunya.infrastructure.event_bus import CanonicalEvent, get_event_bus
             from app.authz.decorators import _resolve_org_id
-            resolved_tenant = _resolve_org_id() or 0
+            # Canonical tenant only: when the request carries no organization
+            # context the event is emitted with no tenant rather than being
+            # attributed to a synthetic organization 0.
+            resolved_tenant = _resolve_org_id()
             event = CanonicalEvent(
                 event_type="ingestion:file_upload",
                 tenant_id=resolved_tenant,
@@ -124,8 +135,13 @@ def api_upload():
     from app.authz.decorators import _resolve_org_id
     org_id = _resolve_org_id()
     workspace_id = session.get("workspace_id") or g.get("workspace_id") or ""
+    # Carry the authenticated identity into the background job: the job runs
+    # after the request context is gone, so ownership context must be captured
+    # here. The job does not rediscover ownership, and does not fall back to a
+    # synthetic identity.
+    identity_id = session.get("identity_id") or ""
     job = create_job(f"Upload: {f.filename}", "upload")
-    job.run_async(_process_upload, file_bytes, f.filename, f.content_type or "application/octet-stream", org_id, workspace_id)
+    job.run_async(_process_upload, file_bytes, f.filename, f.content_type or "application/octet-stream", org_id, workspace_id, identity_id)
 
     return jsonify({
         "success": True,
@@ -151,20 +167,46 @@ def api_upload_status(job_id: str):
 @upload_bp.route("", methods=["GET"])
 @require_permission("knowledge.view")
 def api_list_uploads():
-    """List uploaded files from canonical object store (sh_objects)."""
+    """List uploaded files from the canonical object store, caller-scoped.
+
+    R6B-2.7 Window 6: this previously ran an unscoped
+    ``SELECT ... FROM sh_objects WHERE object_type='Document'`` — on an
+    authenticated, permission-gated route — and therefore returned the 50 most
+    recent documents of EVERY tenant, ``data`` included. It now goes through the
+    canonical authorization boundary (``ObjectService.get_by_type``), which is
+    restricted to the caller's authorized workspaces in the caller's
+    organization and fails closed when no such workspace exists.
+    """
+    identity_id = session.get("identity_id") or ""
+    from app.authz.decorators import _resolve_org_id
+    org_id = _resolve_org_id()
+    if not identity_id or not org_id:
+        return jsonify({"success": False,
+                        "error": "No authorized workspace for this identity",
+                        "code": "no_authorized_workspace"}), 403
+
+    from core.object_service import get_object_service
+    from app.authz.workspace_context import OwnershipContextError
     try:
-        from app import db
-        from sqlalchemy import text
-        identity_id = session.get("identity_id")
-        files = db.session.execute(
-            text("SELECT object_id, name, data, created_at FROM sh_objects WHERE object_type='Document' AND is_deleted = false ORDER BY created_at DESC LIMIT 50")
-        ).fetchall()
-        return jsonify({
-            "success": True,
-            "data": [
-                {"id": r[0], "name": r[1], "data": r[2], "created_at": str(r[3]) if r[3] else None}
-                for r in files
-            ]
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        rows = get_object_service().get_by_type(
+            "Document", int(org_id), identity_id=identity_id, limit=50
+        )
+    except OwnershipContextError as exc:
+        return jsonify({"success": False,
+                        "error": getattr(exc, "reason", "Forbidden"),
+                        "code": getattr(exc, "code", "no_authorized_workspace")}), 403
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+    return jsonify({
+        "success": True,
+        "data": [
+            {
+                "id": r.get("object_id"),
+                "name": r.get("name"),
+                "data": r.get("data"),
+                "created_at": str(r.get("created_at")) if r.get("created_at") else None,
+            }
+            for r in rows
+        ],
+    })

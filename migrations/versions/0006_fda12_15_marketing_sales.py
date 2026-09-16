@@ -28,6 +28,8 @@ def _column_exists(conn, table, column):
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
 
     if not _table_exists(conn, "campaigns"):
@@ -161,6 +163,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     for idx in ("ix_rel_timeline_campaign", "ix_commitments_campaign",
                 "ix_commitments_relationship", "ix_customer_relationship",
                 "ix_leads_campaign"):

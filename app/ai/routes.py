@@ -359,7 +359,7 @@ def chat():
                 created = get_object_service().create(
                     object_type='conversation', name=user_messages[-1]['content'][:100],
                     organization_id=tenant_id, workspace_id=workspace.id,
-                    created_by=identity_id, data={})
+                    created_by=identity_id, data={}, identity_id=identity_id)
                 conv_object_id = created['object_id']
             conv = FounderConversation(conv_id=conversation_id, object_id=conv_object_id,
                     title=user_messages[-1]['content'][:100], identity_id=identity_id, status='active')

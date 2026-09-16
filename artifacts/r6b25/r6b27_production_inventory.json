@@ -1,0 +1,92 @@
+{
+  "host_db": "localhost:5432/shunya_os",
+  "counts": {
+    "organizations_total": 159,
+    "identities_with_membership": 161,
+    "identities_multi_org": 1,
+    "org_members_total": 167,
+    "org_members_active": 167,
+    "sh_workspaces_total": 4,
+    "sh_workspaces_null_org": 1,
+    "sh_workspaces_active": 3,
+    "sh_workspaces_with_objects": 3,
+    "sh_objects_total": 483,
+    "user_workspaces_total": 1,
+    "user_workspaces_null_org": 1,
+    "uwm_total": 1,
+    "uwm_active": 1,
+    "third_workspaces_total": 1,
+    "founder_spaces_total": 3,
+    "founder_objects_total": 1
+  },
+  "lists": {
+    "sh_workspaces": [
+      {
+        "id": "spc_default",
+        "organization_id": null,
+        "status": null,
+        "created_by": "system",
+        "workspace_type": "personal"
+      },
+      {
+        "id": "spc_custom",
+        "organization_id": 1,
+        "status": "active",
+        "created_by": "system",
+        "workspace_type": "custom"
+      },
+      {
+        "id": "spc_personal",
+        "organization_id": 1,
+        "status": "active",
+        "created_by": "system",
+        "workspace_type": "personal"
+      },
+      {
+        "id": "spc_business",
+        "organization_id": 7,
+        "status": "active",
+        "created_by": "system",
+        "workspace_type": "business"
+      }
+    ],
+    "user_workspaces": [
+      {
+        "workspace_id": "ws_55a4818e1685",
+        "owner_identity_id": "sid_a3cd655b1e6f4b0f9c1113ba7ec26d41",
+        "organization_id": null,
+        "status": "active"
+      }
+    ],
+    "uwm_sample": [
+      {
+        "identity_id": "sid_a3cd655b1e6f4b0f9c1113ba7ec26d41",
+        "workspace_id": 4,
+        "role": "owner",
+        "is_active": true
+      }
+    ],
+    "multi_org_identities": [
+      {
+        "identity_id": "neg_test_user",
+        "orgs": 7
+      }
+    ],
+    "sh_workspaces_ranked_per_org": [
+      {
+        "organization_id": 1,
+        "ws_count": 2
+      }
+    ],
+    "orphan_uwm": [],
+    "uw_org_null_with_objects_hint": [
+      {
+        "workspace_id": "ws_55a4818e1685",
+        "owner_identity_id": "sid_a3cd655b1e6f4b0f9c1113ba7ec26d41"
+      }
+    ]
+  },
+  "default_transaction_read_only": "on",
+  "transaction_read_only": "on",
+  "server_version": "16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)"
+}

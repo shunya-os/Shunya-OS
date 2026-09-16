@@ -107,58 +107,66 @@ def _attr_object(canonical: dict) -> SimpleNamespace:
     )
 
 
+def _workspace_org_id(workspace_id: str) -> int:
+    """Resolve a workspace's canonical organization from sh_workspaces.
+
+    Returns 0 when the workspace does not exist or has no organization —
+    an unresolved workspace has no tenant truth to expose (fail closed).
+    """
+    row = db.session.execute(
+        text("SELECT organization_id FROM sh_workspaces WHERE id = :ws_id"),
+        {"ws_id": workspace_id},
+    ).first()
+    if not row or not row.organization_id:
+        return 0
+    return int(row.organization_id)
+
+
 def _objects_in_spaces(space_ids: list[str],
                        updated_at_max: datetime | None = None,
                        created_at_min: datetime | None = None,
-                       limit: int | None = None) -> list:
-    """Read active objects across spaces canonical-first; legacy fallback.
+                       limit: int | None = None,
+                       identity_id: str = "") -> list:
+    """Read active objects across spaces from the canonical store only.
 
-    Compatibility boundary (R6B-2 classification C). Threshold filters are
-    applied in SQL for the legacy path and in Python for canonical rows
-    (canonical timestamps are timezone-aware ISO strings parsed to datetimes).
-    Organization context is resolved from FounderSpace so list_by_workspace
-    uses the correct org scope.
+    Canonical boundary (R6B-2.4): objects are read exclusively from sh_objects
+    via ObjectService.list_by_workspace, scoped by the organization that owns
+    the workspace (resolved from sh_workspaces).
+
+    There is deliberately NO legacy founder_objects read path here. The former
+    "legacy fallback" referenced FounderObject without importing it — dead code
+    that raised NameError instead of returning rows — and a legacy store may
+    never become the authoritative source of tenant-visible truth.
+
+    Fail closed: when no canonical rows exist for the requested workspaces this
+    returns an empty list; it never falls back to legacy storage, and a
+    workspace with unresolved ownership contributes no objects.
     """
-    try:
-        svc = get_object_service()
-        canonical = []
-        for sid in space_ids or []:
-            try:
-                sp = FounderSpace.query.filter_by(space_id=sid).first()
-                org_id = sp.organization_id if (sp and getattr(sp, "organization_id", None)) else 0
-            except Exception:
-                org_id = 0
-            try:
-                rows = svc.list_by_workspace(
-                    workspace_id=sid, organization_id=org_id,
-                    status="active", limit=1000,
-                )
-                canonical.extend(rows)
-            except Exception:
-                continue
-        if canonical:
-            objs = [_attr_object(r) for r in canonical]
-            if updated_at_max is not None:
-                objs = [o for o in objs if o.updated_at and o.updated_at <= updated_at_max]
-            if created_at_min is not None:
-                objs = [o for o in objs if o.created_at is not None and o.created_at >= created_at_min]
-            if limit:
-                objs = objs[:limit]
-            return objs
-    except Exception:
-        pass
-    # Legacy fallback (compat boundary)
-    query = FounderObject.query.filter(
-        FounderObject.space_id.in_(space_ids or []),
-        FounderObject.status == "active",
-    )
+    svc = get_object_service()
+    canonical: list = []
+    for sid in space_ids or []:
+        org_id = _workspace_org_id(sid)
+        if not org_id:
+            # Workspace ownership is unknown → not tenant truth.
+            continue
+        try:
+            rows = svc.list_by_workspace(
+                workspace_id=sid, organization_id=org_id,
+                identity_id=identity_id,
+                status="active", limit=1000,
+            )
+        except Exception:
+            continue
+        canonical.extend(rows)
+
+    objs = [_attr_object(r) for r in canonical]
     if updated_at_max is not None:
-        query = query.filter(FounderObject.updated_at <= updated_at_max)
+        objs = [o for o in objs if o.updated_at and o.updated_at <= updated_at_max]
     if created_at_min is not None:
-        query = query.filter(FounderObject.created_at >= created_at_min)
+        objs = [o for o in objs if o.created_at is not None and o.created_at >= created_at_min]
     if limit:
-        query = query.limit(limit)
-    return query.all()
+        objs = objs[:limit]
+    return objs
 
 
 # ---------------------------------------------------------------------------
@@ -210,13 +218,15 @@ def _priority_score(urgency_days: float, impact_count: int, is_risk: bool,
 # ---------------------------------------------------------------------------
 
 def _list_objects_in_spaces(space_ids: list[str],
-                            organization_id: int = 0) -> list[dict]:
+                            organization_id: int = 0,
+                            identity_id: str = "") -> list[dict]:
     """List all active sh_objects across the given workspace IDs."""
     results: list[dict] = []
     seen: set[str] = set()
     for ws_id in space_ids:
         objs = get_object_service().list_by_workspace(
-            workspace_id=ws_id, organization_id=organization_id, status="active",
+            workspace_id=ws_id, organization_id=organization_id,
+            identity_id=identity_id, status="active",
             limit=1000
         )
         for o in objs:
@@ -232,7 +242,7 @@ def _derive_stalled_objects(identity_id: str, space_ids: list[str],
     """Objects not updated in 7+ days with active conversations = stalled."""
     insights = []
     threshold = _ago(days=7)
-    for obj in _list_objects_in_spaces(space_ids, organization_id):
+    for obj in _list_objects_in_spaces(space_ids, organization_id, identity_id=identity_id):
         updated_at = _parse_dt(obj.get("updated_at"))
         if updated_at and updated_at > threshold:
             continue
@@ -276,7 +286,7 @@ def _derive_unattended_conversations(identity_id: str, space_ids: list[str],
                                      organization_id: int = 0) -> list[dict[str, Any]]:
     """Conversations where human sent more messages than SHUNYA last responded."""
     insights = []
-    for obj in _list_objects_in_spaces(space_ids, organization_id):
+    for obj in _list_objects_in_spaces(space_ids, organization_id, identity_id=identity_id):
         conv = FounderConversation.query.filter_by(
             object_id=obj["object_id"], status="active"
         ).first()
@@ -335,7 +345,8 @@ def _derive_inactive_spaces(identity_id: str, space_ids: list[str],
             continue
         # Get latest active object in this workspace
         latest_objs = get_object_service().list_by_workspace(
-            workspace_id=ws_id, organization_id=organization_id, status="active",
+            workspace_id=ws_id, organization_id=organization_id,
+            identity_id=identity_id, status="active",
             limit=1
         )
         latest_obj = latest_objs[0] if latest_objs else None
@@ -345,7 +356,8 @@ def _derive_inactive_spaces(identity_id: str, space_ids: list[str],
             continue
 
         obj_count = len(get_object_service().list_by_workspace(
-            workspace_id=ws_id, organization_id=organization_id, status="active",
+            workspace_id=ws_id, organization_id=organization_id,
+            identity_id=identity_id, status="active",
             limit=1000
         ))
 
@@ -384,7 +396,7 @@ def _derive_object_type_insights(identity_id: str, space_ids: list[str],
                                  organization_id: int = 0) -> list[dict[str, Any]]:
     """Insights about object type diversity."""
     insights = []
-    all_objs = _list_objects_in_spaces(space_ids, organization_id)
+    all_objs = _list_objects_in_spaces(space_ids, organization_id, identity_id=identity_id)
     type_counts: dict[str, int] = {}
     for o in all_objs:
         t = o.get("object_type") or "unknown"
@@ -494,7 +506,7 @@ def _derive_recent_completions(identity_id: str, space_ids: list[str],
     insights = []
     threshold = _ago(hours=48)
     count = 0
-    for obj in _list_objects_in_spaces(space_ids, organization_id):
+    for obj in _list_objects_in_spaces(space_ids, organization_id, identity_id=identity_id):
         if count >= 5:
             break
         created_at = _parse_dt(obj.get("created_at"))
@@ -534,7 +546,7 @@ def _derive_orphan_objects(identity_id: str, space_ids: list[str],
     """Objects with no conversations and not recently updated."""
     threshold = _ago(days=3)
     creation_threshold = _ago(days=3)
-    for obj in _list_objects_in_spaces(space_ids, organization_id):
+    for obj in _list_objects_in_spaces(space_ids, organization_id, identity_id=identity_id):
         updated_at = _parse_dt(obj.get("updated_at"))
         if updated_at and updated_at > threshold:
             continue
@@ -633,7 +645,7 @@ def build_timeline(identity_id: str, limit: int = 20,
         })
 
     # Object creation events — collect across all spaces
-    for obj in _list_objects_in_spaces(space_ids, organization_id)[:limit]:
+    for obj in _list_objects_in_spaces(space_ids, organization_id, identity_id=identity_id)[:limit]:
         events.append({
             "type": "object_created",
             "title": f"'{obj.get('name')}' created",

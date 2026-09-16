@@ -36,7 +36,6 @@ from app.founder.models import (
     BusinessRelationship,
     FounderConversation,
     FounderMessage,
-    FounderObject,
     FounderSpace,
 )
 from app.objects.legacy_models import ShunyaObject
@@ -51,6 +50,15 @@ def _founder_required() -> bool:
     user_id = session.get("user_id")
     identity_id = session.get("identity_id")
     return bool(user_id and identity_id)
+
+
+def _identity_id() -> str:
+    """Canonical identity for the current session (``""`` when unauthenticated).
+
+    Every canonical object read in this module must be authorized for this
+    identity — the same predicate the CRUD write path uses.
+    """
+    return str(session.get("identity_id") or "")
 
 
 def _get_identity_name() -> str:
@@ -105,7 +113,8 @@ def founder_space_workspace(space_id: str):
     from core.object_service import get_object_service
     svc = get_object_service()
     org_id = session.get("current_org_id", 0)
-    objects = svc.list_by_workspace(workspace_id=space_id, organization_id=org_id)
+    objects = svc.list_by_workspace(workspace_id=space_id, organization_id=org_id,
+                                    identity_id=_identity_id())
     return render_template("founder_workspace.html",
                            space=row, objects=objects or [],
                            founder_name=_get_identity_name())
@@ -117,7 +126,14 @@ def founder_object_view(object_id: str):
         return redirect(url_for("founder.founder_login"))
     from core.object_service import get_object_service
     svc = get_object_service()
-    obj = svc.get_by_object_id(object_id)
+    # Canonical reads are ALWAYS organization-scoped. An unscoped lookup
+    # (organization_id omitted) reads NULL-organization rows, which is not a
+    # tenant-safe read surface.
+    org_id = session.get("current_org_id")
+    if not org_id:
+        return "Organization context missing", 400
+    obj = svc.get_by_object_id(object_id, organization_id=int(org_id),
+                               identity_id=_identity_id())
     if not obj:
         return "Object not found", 404
     space_row = db.session.execute(
@@ -205,7 +221,12 @@ def api_founder_signin():
                 # Check if user has completed onboarding (has personal workspace or org membership)
                 from core.object_service import get_object_service
                 svc = get_object_service()
-                has_personal = len(svc.list_by_creator(created_by=identity_id, organization_id=0, limit=1)) > 0
+                has_personal = len(svc.list_by_creator(
+                    created_by=identity_id,
+                    organization_id=org_member.organization_id,
+                    identity_id=identity_id,
+                    limit=1,
+                )) > 0
 
                 return jsonify({
                     "success": True,
@@ -426,24 +447,20 @@ def api_get_space(space_id: str):
 
 
 def _canonical_object_read(object_id: str) -> dict | None:
-    """Read an object from canonical store (sh_objects), fall back to legacy founder_objects.
+    """Read an object from the canonical store (sh_objects), scoped to the caller's org.
 
-    This is a COMPATIBILITY BOUNDARY (classification C in G1.1-R6B-2 inventory).
-    New code should read from ObjectService directly. This helper exists so the
-    existing founder API endpoints continue working during migration.
+    Canonical-only (R6B-2.4): the legacy founder_objects fallback was removed.
+    It was reachable whenever the canonical lookup returned nothing and it read
+    founder_objects without any organization scope — so it could surface another
+    tenant's object as the caller's truth. Canonical absence is authoritative:
+    an object that is not in sh_objects for this organization is absent.
     """
     from core.object_service import get_object_service
     svc = get_object_service()
     from flask import session
     org_id = session.get("current_org_id", 0)
-    canonical = svc.get_by_object_id(object_id, organization_id=org_id)
-    if canonical:
-        return canonical
-    from app.founder.models import FounderObject
-    fo = FounderObject.query.filter_by(object_id=object_id, status="active").first()
-    if fo:
-        return fo.to_dict()
-    return None
+    return svc.get_by_object_id(object_id, organization_id=org_id,
+                                identity_id=_identity_id())
 
 
 
@@ -455,18 +472,16 @@ def api_list_objects(space_id: str):
     from core.object_service import get_object_service
     svc = get_object_service()
     org_id = session.get("current_org_id", 0)
-    # Try canonical read first (sh_objects with workspace_id = space_id)
+    # Canonical read (sh_objects with workspace_id = space_id)
+    canonical = []
     try:
-        canonical = svc.list_by_workspace(workspace_id=space_id, organization_id=org_id)
-        if canonical:
-            return jsonify({"success": True, "data": canonical})
+        canonical = svc.list_by_workspace(workspace_id=space_id, organization_id=org_id,
+                                          identity_id=_identity_id())
     except Exception:
-        pass
-    # Fallback to legacy FounderObject (compat boundary)
-    objects = FounderObject.query.filter_by(
-        space_id=space_id, status="active"
-    ).order_by(FounderObject.updated_at.desc()).all()
-    return jsonify({"success": True, "data": [o.to_dict() for o in objects]})
+        canonical = []
+    # Canonical-only (R6B-2.4): no legacy founder_objects fallback. A workspace
+    # with no canonical objects for this organization returns an empty list.
+    return jsonify({"success": True, "data": canonical})
 
 
 @founder_bp.route("/api/v1/founder/spaces/<space_id>/objects", methods=["POST"])
@@ -549,7 +564,8 @@ def api_focus_object(object_id: str):
     org_id = session.get("current_org_id", 0)
     from core.object_service import get_object_service
     svc = get_object_service()
-    obj = svc.get_by_object_id(object_id, organization_id=org_id)
+    obj = svc.get_by_object_id(object_id, organization_id=org_id,
+                               identity_id=_identity_id())
     if not obj:
         return jsonify({"success": False, "error": "Object not found"}), 404
 
@@ -558,7 +574,8 @@ def api_focus_object(object_id: str):
         {"sid": obj.get("workspace_id", "")},
     ).first()
 
-    related_objects = svc.list_by_workspace(workspace_id=obj.get("workspace_id", ""), organization_id=org_id)
+    related_objects = svc.list_by_workspace(workspace_id=obj.get("workspace_id", ""), organization_id=org_id,
+                                            identity_id=_identity_id())
     if related_objects:
         related_objects = [r for r in related_objects if r.get("object_id") != object_id][:5]
     else:
@@ -612,21 +629,19 @@ def api_start_conversation(object_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     # Canonical object lookup via ObjectService (R6B-2): conversations now
     # reference sh_objects.object_id, not founder_objects.
+    # The lookup is organization-scoped from the session — the previous
+    # unscoped call plus raw `SELECT ... LIMIT 1` fallback read sh_objects with
+    # no tenant filter, which is not an acceptable authorization surface.
     from core.object_service import get_object_service
     svc = get_object_service()
-    obj = svc.get_by_object_id(object_id) if hasattr(svc, "get_by_object_id") else None
+    org_id = session.get("current_org_id")
+    if not org_id:
+        return jsonify({"success": False, "error": "Organization context missing"}), 400
+    obj = svc.get_by_object_id(object_id, organization_id=int(org_id),
+                               identity_id=_identity_id())
     if obj is None:
-        # Fallback: search by object_id across the canonical store
-        from sqlalchemy import text
-        row = db.session.execute(
-            text("SELECT name FROM sh_objects WHERE object_id = :oid AND is_deleted = false LIMIT 1"),
-            {"oid": object_id},
-        ).fetchone()
-        if row is None:
-            return jsonify({"success": False, "error": "Object not found"}), 404
-        obj_name = row[0]
-    else:
-        obj_name = obj.get("name", "Object")
+        return jsonify({"success": False, "error": "Object not found"}), 404
+    obj_name = obj.get("name", "Object")
     existing = FounderConversation.query.filter_by(object_id=object_id, status="active").first()
     if existing:
         return jsonify({"success": True, "data": existing.to_dict(), "message": "Conversation already exists"})
@@ -726,7 +741,8 @@ def api_search():
         return jsonify({"success": True, "data": []})
     from core.object_service import get_object_service
     svc = get_object_service()
-    results = svc.search(q, organization_id=org_id, limit=20) or []
+    results = svc.search(q, organization_id=org_id, identity_id=_identity_id(),
+                             limit=20) or []
     rel_results = BusinessRelationship.query.filter(
         BusinessRelationship.space_id.in_(space_ids),
         BusinessRelationship.status == "active",
@@ -835,7 +851,8 @@ def api_morning_zero():
     from core.object_service import get_object_service
     svc = get_object_service()
     for space in spaces:
-        objects = svc.list_by_workspace(workspace_id=space.space_id, organization_id=org_id)
+        objects = svc.list_by_workspace(workspace_id=space.space_id, organization_id=org_id,
+                                        identity_id=_identity_id())
         if not objects:
             objects = []
         total_objects += len(objects)
@@ -945,7 +962,8 @@ def api_get_relationship(rel_id: str):
     org_id = session.get("current_org_id", 0)
     from core.object_service import get_object_service
     svc = get_object_service()
-    related_objects = svc.list_by_workspace(workspace_id=rel.space_id, organization_id=org_id) or []
+    related_objects = svc.list_by_workspace(workspace_id=rel.space_id, organization_id=org_id,
+                                            identity_id=_identity_id()) or []
     return jsonify({"success": True, "data": {"relationship": rel.to_dict(), "related_objects": list(related_objects)}})
 
 
@@ -989,7 +1007,7 @@ def api_list_object_types():
     org_id = session.get("current_org_id", 0)
     from core.object_service import get_object_service
     svc = get_object_service()
-    data = svc.count_by_type(organization_id=org_id) or {}
+    data = svc.count_by_type(organization_id=org_id, identity_id=_identity_id()) or {}
     return jsonify({"success": True, "data": data})
 
 
@@ -1014,14 +1032,17 @@ def api_list_founder_objects():
             # Collect objects from all org workspaces
             all_objs = []
             for sid in space_ids:
-                ws_objs = svc.list_by_workspace(workspace_id=sid, organization_id=org_id) or []
+                ws_objs = svc.list_by_workspace(workspace_id=sid, organization_id=org_id,
+                                                identity_id=_identity_id()) or []
                 all_objs.extend(ws_objs)
             objs = all_objs
         else:
             objs = []
     else:
-        identity = session.get("identity_id") or session.get("user_id") or ""
-        objs = svc.list_by_creator(created_by=identity, organization_id=0, limit=100) or []
+        # No canonical organization context: there is no tenant scope to list
+        # under, so nothing is returned rather than querying objects through a
+        # synthetic organization_id=0, which was never the caller's ownership.
+        objs = []
     return jsonify({"success": True, "data": list(objs), "count": len(objs)})
 
 
@@ -1042,7 +1063,8 @@ def api_workspace_intelligence(object_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_full_workspace
-    result = build_full_workspace(object_id, organization_id=org_id)
+    result = build_full_workspace(object_id, organization_id=org_id,
+                                  identity_id=_identity_id())
     return jsonify({"success": True, "data": result})
 
 
@@ -1054,7 +1076,7 @@ def api_workspace_summary(object_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_workspace_summary
-    return jsonify({"success": True, "data": build_workspace_summary(object_id, organization_id=org_id)})
+    return jsonify({"success": True, "data": build_workspace_summary(object_id, organization_id=org_id, identity_id=_identity_id())})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/ai-understanding", methods=["GET"])
@@ -1065,7 +1087,7 @@ def api_ai_understanding(object_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_ai_understanding
-    return jsonify({"success": True, "data": build_ai_understanding(object_id, organization_id=org_id)})
+    return jsonify({"success": True, "data": build_ai_understanding(object_id, organization_id=org_id, identity_id=_identity_id())})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/relationships", methods=["GET"])
@@ -1076,7 +1098,7 @@ def api_workspace_relationships(object_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_relationship_intelligence
-    return jsonify({"success": True, "data": build_relationship_intelligence(object_id, organization_id=org_id)})
+    return jsonify({"success": True, "data": build_relationship_intelligence(object_id, organization_id=org_id, identity_id=_identity_id())})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/timeline", methods=["GET"])
@@ -1088,7 +1110,7 @@ def api_workspace_timeline(object_id: str):
     org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_activity_timeline
     limit = request.args.get("limit", 50, type=int)
-    return jsonify({"success": True, "data": build_activity_timeline(object_id, limit=limit, organization_id=org_id)})
+    return jsonify({"success": True, "data": build_activity_timeline(object_id, limit=limit, organization_id=org_id, identity_id=_identity_id())})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/conversation", methods=["GET"])
@@ -1099,7 +1121,7 @@ def api_workspace_conversation(object_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import get_conversation_workspace
-    return jsonify({"success": True, "data": get_conversation_workspace(object_id, organization_id=org_id)})
+    return jsonify({"success": True, "data": get_conversation_workspace(object_id, organization_id=org_id, identity_id=_identity_id())})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/next-actions", methods=["GET"])
@@ -1110,7 +1132,7 @@ def api_workspace_next_actions(object_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_next_actions
-    return jsonify({"success": True, "data": build_next_actions(object_id, organization_id=org_id)})
+    return jsonify({"success": True, "data": build_next_actions(object_id, organization_id=org_id, identity_id=_identity_id())})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/missing-context", methods=["GET"])
@@ -1121,7 +1143,7 @@ def api_workspace_missing_context(object_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import detect_missing_context
-    return jsonify({"success": True, "data": detect_missing_context(object_id, organization_id=org_id)})
+    return jsonify({"success": True, "data": detect_missing_context(object_id, organization_id=org_id, identity_id=_identity_id())})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/health", methods=["GET"])
@@ -1132,7 +1154,7 @@ def api_workspace_health(object_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import compute_workspace_health
-    return jsonify({"success": True, "data": compute_workspace_health(object_id, organization_id=org_id)})
+    return jsonify({"success": True, "data": compute_workspace_health(object_id, organization_id=org_id, identity_id=_identity_id())})
 
 
 @founder_bp.route("/api/v1/founder/workspace/<object_id>/evidence", methods=["GET"])
@@ -1143,7 +1165,7 @@ def api_workspace_evidence(object_id: str):
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     org_id = session.get("current_org_id", 0)
     from app.founder.workspace_intelligence import build_evidence_explorer
-    return jsonify({"success": True, "data": build_evidence_explorer(object_id, organization_id=org_id)})
+    return jsonify({"success": True, "data": build_evidence_explorer(object_id, organization_id=org_id, identity_id=_identity_id())})
 
 
 @founder_bp.route("/api/v1/founder/workspace/next-actions/<int:action_id>/complete", methods=["POST"])

@@ -117,10 +117,18 @@ class BusinessDataRetriever:
 
         # 1. Canonical objects (sh_objects via ObjectService)
         try:
+            from app.authz.workspace_context import OwnershipContextError
             from core.object_service import get_object_service
             svc = get_object_service()
             effective_org = int(org_id) if org_id and str(org_id).isdigit() else 0
-            canonical_results = svc.search(query=query, organization_id=effective_org, limit=max_results)
+            if not identity_id or effective_org < 1:
+                raise OwnershipContextError(
+                    "canonical search requires an authenticated identity and an "
+                    "authorized organization",
+                    code="no_identity",
+                )
+            canonical_results = svc.search(query=query, organization_id=effective_org,
+                                           identity_id=identity_id, limit=max_results)
             for obj in canonical_results:
                 name = obj.get("name", "")
                 content_data = obj.get("data") or obj.get("content") or {}
@@ -178,7 +186,8 @@ class BusinessDataRetriever:
                 from core.object_service import get_object_service
                 svc = get_object_service()
                 effective_org = int(org_id) if org_id and str(org_id).isdigit() else 0
-                type_counts = svc.count_by_type(organization_id=effective_org)
+                type_counts = svc.count_by_type(organization_id=effective_org,
+                                                identity_id=identity_id)
                 total_objects = sum(type_counts.values()) if type_counts else 0
                 results.append(SourceAttribution(
                     text=f"You have {total_objects} active business objects.",

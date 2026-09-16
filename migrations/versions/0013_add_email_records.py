@@ -18,6 +18,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
     inspector = sa.inspect(conn)
     table_names = inspector.get_table_names()
@@ -52,6 +54,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
     inspector = sa.inspect(conn)
     table_names = inspector.get_table_names()

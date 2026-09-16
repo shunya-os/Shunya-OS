@@ -29,6 +29,8 @@ def upgrade() -> None:
     This table stores browser push subscription endpoints per identity,
     used by the Web Push API for PWA notifications (CG-10 / D-10).
     """
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.create_table(
         "shunya_push_subscriptions",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -59,6 +61,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop PushSubscription table."""
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_index("ix_push_sub_identity", table_name="shunya_push_subscriptions")
     op.drop_index("ix_push_sub_endpoint", table_name="shunya_push_subscriptions")
     op.drop_table("shunya_push_subscriptions")

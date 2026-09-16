@@ -15,6 +15,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
     inspector = sa.inspect(conn)
 
@@ -71,6 +73,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
     conn.execute(sa.text("DROP INDEX IF EXISTS idx_sh_objects_org_ws_type"))
     op.drop_column("sh_objects", "organization_id")

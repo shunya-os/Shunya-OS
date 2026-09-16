@@ -180,8 +180,8 @@ def _transform_to_visual_brief(business_context: dict, raw_prompt: str) -> str:
 def generate_media(
     raw_prompt: str,
     identity_id: str,
-    organization_id: int = 0,
-    workspace_id: str = "",
+    organization_id: int,
+    workspace_id: str,
     platform: Optional[str] = None,
     aspect_ratio: str = "1:1",
     visual_style: str = "realistic",
@@ -189,15 +189,26 @@ def generate_media(
 ) -> dict:
     """Generate media through the full pipeline: visual brief -> generation -> persistence.
 
+    Requires the caller's canonical organization and workspace context.
+    Missing ownership fails closed — this function never invents a synthetic
+    organization (0) or a default workspace ("spc_business").
+
     Returns the canonical result contract.
     """
+    if not organization_id:
+        raise ValueError(
+            f"generate_media() requires a canonical organization_id, got "
+            f"{organization_id!r}. Missing ownership MUST FAIL CLOSED."
+        )
+    if not workspace_id:
+        raise ValueError(
+            "generate_media() requires a canonical workspace_id. A default "
+            "workspace MUST NOT be invented."
+        )
     # 1. Create initial record (IDLE -> PREPARING_BRIEF)
-    # organization_id=0 is permitted at this stage to record the attempt;
-    # canonical object creation via ObjectService will reject org_id=0 later.
-    # Callers MUST resolve real organization context before calling generate_media.
     asset = MediaAsset(
         identity_id=identity_id,
-        organization_id=organization_id or 0,
+        organization_id=organization_id,
         workspace_id=workspace_id,
         runtime_state="preparing_brief",
         result_kind=None,
@@ -271,7 +282,8 @@ def generate_media(
                     object_type="media_asset_concept",
                     name=f"Concept: {raw_prompt[:80]}",
                     organization_id=organization_id,
-                    workspace_id=workspace_id or "spc_business",
+                    workspace_id=workspace_id,
+                    identity_id=identity_id,
                     data={
                         "asset_id": asset.id,
                         "description": asset.description[:500] if asset.description else "",
@@ -310,7 +322,8 @@ def generate_media(
                 object_type="media_asset",
                 name=f"Media: {raw_prompt[:80]}",
                 organization_id=organization_id,
-                workspace_id=workspace_id or "spc_business",
+                workspace_id=workspace_id,
+                identity_id=identity_id,
                 data={
                     "asset_id": asset.id,
                     "asset_url": asset_url,

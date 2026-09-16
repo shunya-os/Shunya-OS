@@ -148,14 +148,29 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
     if not org_id:
         return {"success": False, "error": "Organization context missing — cannot create object without an organization."}
 
+    # Ownership comes from the canonical boundary only: no organization or
+    # workspace is selected arbitrarily, and none is defaulted.
+    from app.authz.workspace_context import (
+        OwnershipContextError, resolve_current_organization,
+        resolve_current_workspace,
+    )
+    try:
+        _org = resolve_current_organization(identity_id or org_id, org_id)
+        _ws = resolve_current_workspace(
+            identity_id or org_id, _org, request_data.get("workspace_id"))
+    except OwnershipContextError as exc:
+        return {"success": False, "error": exc.reason, "code": exc.code}
+
     from core.object_service import get_object_service
     svc = get_object_service()
     obj = svc.create(
         object_type=type_config['display_name'],
         name=name,
-        organization_id=int(org_id),
+        organization_id=_org,
         data={k: data.get(k, '') for k in type_config['fields']},
         created_by=identity_id[:12] if identity_id else "",
+        workspace_id=_ws,
+        identity_id=identity_id or None,
     )
 
     obj_id = obj.get("object_id", f"obj_{uuid.uuid4().hex[:16]}")
@@ -241,7 +256,7 @@ def update_typed_object(object_type: str, object_id: str):
         updates['name'] = data['name']
     if data:
         updates['data'] = data
-    svc.update(sh.id, organization_id=int(org_id), **updates)
+    svc.update(sh.id, organization_id=int(org_id), identity_id=str(identity_id), **updates)
     return jsonify({"success": True, "data": {"object_id": object_id, "name": data.get('name', sh.name)}})
 
 

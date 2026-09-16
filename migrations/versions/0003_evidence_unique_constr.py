@@ -14,6 +14,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
 
     def _table_exists(name: str) -> bool:
@@ -50,4 +52,6 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_constraint('uq_evidence_source', 'evidence_records', type_='unique')

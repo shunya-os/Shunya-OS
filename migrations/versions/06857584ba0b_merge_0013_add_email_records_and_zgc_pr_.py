@@ -20,9 +20,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     pass
 
 
 def downgrade() -> None:
     """Downgrade schema."""
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     pass

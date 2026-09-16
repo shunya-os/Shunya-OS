@@ -16,6 +16,7 @@ from app.founder.models import (
     FounderMessage,
 )
 from core.object_service import get_object_service
+from sqlalchemy import text
 
 
 def assemble_context(object_id: str | None = None,
@@ -52,8 +53,13 @@ def assemble_context(object_id: str | None = None,
     if object_id:
         canonical = None
         try:
-            canonical = get_object_service().get_by_object_id(object_id, organization_id=organization_id)
-        except Exception:
+            from app.authz.workspace_context import OwnershipContextError
+            canonical = get_object_service().get_by_object_id(
+                object_id, organization_id=organization_id,
+                identity_id=identity_id)
+        except (OwnershipContextError, ValueError):
+            # Denial (or insufficient context) is NOT an error to repair with a
+            # legacy read: the canonical absence is authoritative.
             canonical = None
 
         if canonical:
@@ -69,67 +75,22 @@ def assemble_context(object_id: str | None = None,
                 "updated_at": canonical.get("updated_at"),
             }
 
-            # Space context via FounderSpace (compat boundary — sh_objects has workspace_id)
+            # Space context — canonical sh_workspaces (no legacy space store)
             if space_id:
-                from app.founder.models import FounderSpace
-                space = FounderSpace.query.filter_by(space_id=space_id).first()
-                if space:
+                ws_row = db.session.execute(
+                    text("SELECT id, name, workspace_type FROM sh_workspaces WHERE id = :ws_id"),
+                    {"ws_id": space_id},
+                ).first()
+                if ws_row:
                     context["space"] = {
-                        "space_id": space.space_id,
-                        "name": space.name,
-                        "space_type": space.space_type,
+                        "space_id": ws_row.id,
+                        "name": ws_row.name,
+                        "space_type": ws_row.workspace_type,
                     }
-
-            # Same-space objects via ObjectService (canonical)
-            try:
-                org_id = canonical.get("organization_id", 0)
-                if space_id and org_id > 0:
-                    siblings = get_object_service().list_by_workspace(
-                        workspace_id=space_id, organization_id=org_id, limit=5
-                    )
-                    if siblings:
-                        context["same_space_objects"] = [
-                            {
-                                "object_id": s.get("object_id", ""),
-                                "name": s.get("name", ""),
-                                "object_type": s.get("object_type", ""),
-                            }
-                            for s in siblings if s.get("object_id") != object_id
-                        ]
-            except Exception:
-                pass
-        else:
-            # Legacy fallback — founder_objects
-            from app.founder.models import FounderObject, FounderSpace
-            from app.founder.models import BusinessRelationship
-
-            obj = FounderObject.query.filter_by(object_id=object_id, status="active").first()
-            if obj:
-                space_id = obj.space_id
-                context["object"] = {
-                    "object_id": obj.object_id,
-                    "name": obj.name,
-                    "object_type": obj.object_type or "unknown",
-                    "status": obj.status,
-                    "content": obj.content[:1000] if obj.content else "",
-                    "created_by": obj.created_by,
-                    "created_at": obj.created_at.isoformat() if obj.created_at else None,
-                    "updated_at": obj.updated_at.isoformat() if obj.updated_at else None,
-                }
-
-                # Space context
-                space = FounderSpace.query.filter_by(space_id=space_id).first()
-                if space:
-                    context["space"] = {
-                        "space_id": space.space_id,
-                        "name": space.name,
-                        "space_type": space.space_type,
-                    }
-
-                # Relationship context
-                if space:
+                    # Relationship context for the canonical workspace
+                    from app.founder.models import BusinessRelationship
                     rels = BusinessRelationship.query.filter_by(
-                        space_id=space.space_id, status="active"
+                        space_id=space_id, status="active"
                     ).all()
                     context["relationships"] = [
                         {
@@ -143,21 +104,28 @@ def assemble_context(object_id: str | None = None,
                         for r in rels[:10]
                     ]
 
-                # Same-space objects (legacy compat)
-                siblings = FounderObject.query.filter(
-                    FounderObject.space_id == obj.space_id,
-                    FounderObject.status == "active",
-                    FounderObject.object_id != object_id,
-                ).order_by(FounderObject.updated_at.desc()).limit(5).all()
-                if siblings:
-                    context["same_space_objects"] = [
-                        {
-                            "object_id": s.object_id,
-                            "name": s.name,
-                            "object_type": s.object_type,
-                        }
-                        for s in siblings
-                    ]
+            # Same-space objects via ObjectService (canonical)
+            try:
+                org_id = canonical.get("organization_id", 0)
+                if space_id and org_id > 0 and identity_id:
+                    siblings = get_object_service().list_by_workspace(
+                        workspace_id=space_id, organization_id=org_id,
+                        identity_id=identity_id, limit=5
+                    )
+                    if siblings:
+                        context["same_space_objects"] = [
+                            {
+                                "object_id": s.get("object_id", ""),
+                                "name": s.get("name", ""),
+                                "object_type": s.get("object_type", ""),
+                            }
+                            for s in siblings if s.get("object_id") != object_id
+                        ]
+            except Exception:
+                pass
+        # Canonical absence is authoritative: there is no legacy object fallback.
+        # A missing canonical row yields no object context (fail closed) rather
+        # than reading founder_objects, which is not tenant-scoped truth.
 
     # Conversation context (shared — not object-scoped)
     if object_id:

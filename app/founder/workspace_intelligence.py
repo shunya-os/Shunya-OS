@@ -111,14 +111,15 @@ def _lookup_workspace(workspace_id: str) -> dict | None:
 # 1. Workspace Summary
 # ---------------------------------------------------------------------------
 
-def build_workspace_summary(object_id: str, organization_id: int = 0) -> dict[str, Any]:
+def build_workspace_summary(object_id: str, organization_id: int = 0, identity_id: str = "") -> dict[str, Any]:
     """Build a deterministic executive summary for an object.
 
     Every statement originates from persisted runtime state.
     Contains: identity, status, importance, ownership, creation history,
     latest activity, business significance.
     """
-    obj = get_object_service().get_by_object_id(object_id, organization_id)
+    obj = get_object_service().get_by_object_id(object_id, organization_id,
+                                                identity_id=identity_id)
     if not obj:
         return {"error": "Object not found"}
 
@@ -183,7 +184,7 @@ def build_workspace_summary(object_id: str, organization_id: int = 0) -> dict[st
 # 2. AI Understanding Panel
 # ---------------------------------------------------------------------------
 
-def build_ai_understanding(object_id: str, organization_id: int = 0) -> dict[str, Any]:
+def build_ai_understanding(object_id: str, organization_id: int = 0, identity_id: str = "") -> dict[str, Any]:
     """Build a structured AI understanding explanation for an object.
 
     Answers:
@@ -196,7 +197,8 @@ def build_ai_understanding(object_id: str, organization_id: int = 0) -> dict[str
 
     Unknown information is explicitly identified rather than guessed.
     """
-    obj = get_object_service().get_by_object_id(object_id, organization_id)
+    obj = get_object_service().get_by_object_id(object_id, organization_id,
+                                                identity_id=identity_id)
     if not obj:
         return {"error": "Object not found"}
 
@@ -342,13 +344,14 @@ def _detect_missing_info(obj: dict, space: dict | None, conv) -> list[dict[str, 
 # 3. Relationship Intelligence
 # ---------------------------------------------------------------------------
 
-def build_relationship_intelligence(object_id: str, organization_id: int = 0) -> dict[str, Any]:
+def build_relationship_intelligence(object_id: str, organization_id: int = 0, identity_id: str = "") -> dict[str, Any]:
     """Display all directly related objects grouped by relationship type.
 
     Types: relationships (BusinessRelationship), same-space objects,
     objects with shared conversations.
     """
-    obj = get_object_service().get_by_object_id(object_id, organization_id)
+    obj = get_object_service().get_by_object_id(object_id, organization_id,
+                                                identity_id=identity_id)
     if not obj:
         return {"error": "Object not found", "groups": []}
 
@@ -376,7 +379,8 @@ def build_relationship_intelligence(object_id: str, organization_id: int = 0) ->
     # 3b. Same-space objects (via ObjectService)
     if space_id:
         siblings = get_object_service().list_by_workspace(
-            workspace_id=space_id, organization_id=organization_id, status="active"
+            workspace_id=space_id, organization_id=organization_id,
+            identity_id=identity_id, status="active"
         )
         siblings = [s for s in siblings if s["object_id"] != object_id][:10]
     else:
@@ -412,7 +416,8 @@ def build_relationship_intelligence(object_id: str, organization_id: int = 0) ->
             # Look up each related object via ObjectService
             conv_objects = []
             for cid in conv_related_ids[:5]:
-                co = get_object_service().get_by_object_id(cid, organization_id)
+                co = get_object_service().get_by_object_id(cid, organization_id,
+                                                          identity_id=identity_id)
                 if co and co.get("status") == "active":
                     conv_objects.append(co)
             if conv_objects:
@@ -437,14 +442,16 @@ def build_relationship_intelligence(object_id: str, organization_id: int = 0) ->
 # ---------------------------------------------------------------------------
 
 def build_activity_timeline(object_id: str, limit: int = 50,
-                            organization_id: int = 0) -> list[dict[str, Any]]:
+                            organization_id: int = 0,
+                            identity_id: str = "") -> list[dict[str, Any]]:
     """Build a complete chronological history for an object.
 
     Includes: creation, updates, conversations, commitments, evidence,
     intelligence events. Timeline entries are deterministic and persisted.
     """
     events: list[dict[str, Any]] = []
-    obj = get_object_service().get_by_object_id(object_id, organization_id)
+    obj = get_object_service().get_by_object_id(object_id, organization_id,
+                                                identity_id=identity_id)
     if not obj:
         return events
 
@@ -547,12 +554,14 @@ def build_activity_timeline(object_id: str, limit: int = 50,
 # ---------------------------------------------------------------------------
 
 def get_conversation_workspace(object_id: str,
-                               organization_id: int = 0) -> dict[str, Any]:
+                               organization_id: int = 0,
+                               identity_id: str = "") -> dict[str, Any]:
     """Get the conversation attached to an object with full context.
 
     Returns conversation + messages + extracted decisions and commitments.
     """
-    obj = get_object_service().get_by_object_id(object_id, organization_id)
+    obj = get_object_service().get_by_object_id(object_id, organization_id,
+                                                identity_id=identity_id)
     if not obj:
         return {"error": "Object not found", "conversation": None}
 
@@ -583,14 +592,15 @@ def get_conversation_workspace(object_id: str,
 # 6. Next Actions
 # ---------------------------------------------------------------------------
 
-def build_next_actions(object_id: str, organization_id: int = 0) -> list[dict[str, Any]]:
+def build_next_actions(object_id: str, organization_id: int = 0, identity_id: str = "") -> list[dict[str, Any]]:
     """Generate deterministic next actions from runtime state.
 
     Each action includes: explanation, supporting evidence, priority,
     originating runtime. No placeholder recommendations.
     """
     actions: list[dict[str, Any]] = []
-    obj = get_object_service().get_by_object_id(object_id, organization_id)
+    obj = get_object_service().get_by_object_id(object_id, organization_id,
+                                                identity_id=identity_id)
     if not obj:
         return actions
 
@@ -731,14 +741,15 @@ def build_next_actions(object_id: str, organization_id: int = 0) -> list[dict[st
 # 7. Missing Context Detection
 # ---------------------------------------------------------------------------
 
-def detect_missing_context(object_id: str, organization_id: int = 0) -> list[dict[str, Any]]:
+def detect_missing_context(object_id: str, organization_id: int = 0, identity_id: str = "") -> list[dict[str, Any]]:
     """Actively identify missing information about an object.
 
     Each finding is a real absence in persisted state. Presented as
     opportunities to improve business understanding.
     """
     gaps: list[dict[str, Any]] = []
-    obj = get_object_service().get_by_object_id(object_id, organization_id)
+    obj = get_object_service().get_by_object_id(object_id, organization_id,
+                                                identity_id=identity_id)
     if not obj:
         return gaps
 
@@ -832,7 +843,7 @@ def detect_missing_context(object_id: str, organization_id: int = 0) -> list[dic
 # 8. Workspace Health
 # ---------------------------------------------------------------------------
 
-def compute_workspace_health(object_id: str, organization_id: int = 0) -> dict[str, Any]:
+def compute_workspace_health(object_id: str, organization_id: int = 0, identity_id: str = "") -> dict[str, Any]:
     """Compute a deterministic health assessment for an object.
 
     Derived from: completeness, activity, relationships, commitments,
@@ -841,7 +852,8 @@ def compute_workspace_health(object_id: str, organization_id: int = 0) -> dict[s
     Health is explainable and reproducible — same state always produces
     same score.
     """
-    obj = get_object_service().get_by_object_id(object_id, organization_id)
+    obj = get_object_service().get_by_object_id(object_id, organization_id,
+                                                identity_id=identity_id)
     if not obj:
         return {"error": "Object not found"}
 
@@ -1000,7 +1012,7 @@ def compute_workspace_health(object_id: str, organization_id: int = 0) -> dict[s
 # 9. Evidence Explorer
 # ---------------------------------------------------------------------------
 
-def build_evidence_explorer(object_id: str, organization_id: int = 0) -> list[dict[str, Any]]:
+def build_evidence_explorer(object_id: str, organization_id: int = 0, identity_id: str = "") -> list[dict[str, Any]]:
     """Trace every statement in the workspace to its underlying evidence.
 
     Returns a structured list of provenance entries linking workspace
@@ -1008,7 +1020,8 @@ def build_evidence_explorer(object_id: str, organization_id: int = 0) -> list[di
     commitments, runtime observations.
     """
     evidence: list[dict[str, Any]] = []
-    obj = get_object_service().get_by_object_id(object_id, organization_id)
+    obj = get_object_service().get_by_object_id(object_id, organization_id,
+                                                identity_id=identity_id)
     if not obj:
         return evidence
 
@@ -1149,7 +1162,8 @@ def navigate_to_object(source_object_id: str, target_object_id: str,
     context so the founder can continue without losing the thread.
     """
     # Validate target exists
-    target = get_object_service().get_by_object_id(target_object_id, organization_id)
+    target = get_object_service().get_by_object_id(target_object_id, organization_id,
+                                                   identity_id=identity_id)
     if not target:
         return {"error": "Target object not found"}
 
@@ -1191,26 +1205,37 @@ def get_navigation_history(identity_id: str, limit: int = 20) -> list[dict[str, 
 # Full Workspace Assembly
 # ---------------------------------------------------------------------------
 
-def build_full_workspace(object_id: str, organization_id: int = 0) -> dict[str, Any]:
+def build_full_workspace(object_id: str, organization_id: int = 0, identity_id: str = "") -> dict[str, Any]:
     """Assemble the complete workspace for an object.
 
     Returns all intelligence panels in a single response.
     For rendering the full workspace on load.
     """
-    obj = get_object_service().get_by_object_id(object_id, organization_id)
+    obj = get_object_service().get_by_object_id(object_id, organization_id,
+                                                identity_id=identity_id)
     if not obj:
         return {"error": "Object not found"}
 
     return {
-        "summary": build_workspace_summary(object_id, organization_id),
-        "ai_understanding": build_ai_understanding(object_id, organization_id),
-        "relationships": build_relationship_intelligence(object_id, organization_id),
-        "timeline": build_activity_timeline(object_id, limit=20, organization_id=organization_id),
-        "conversation": get_conversation_workspace(object_id, organization_id),
-        "next_actions": build_next_actions(object_id, organization_id),
-        "missing_context": detect_missing_context(object_id, organization_id),
-        "health": compute_workspace_health(object_id, organization_id),
-        "evidence": build_evidence_explorer(object_id, organization_id),
+        "summary": build_workspace_summary(object_id, organization_id,
+                                           identity_id=identity_id),
+        "ai_understanding": build_ai_understanding(object_id, organization_id,
+                                                   identity_id=identity_id),
+        "relationships": build_relationship_intelligence(object_id, organization_id,
+                                                         identity_id=identity_id),
+        "timeline": build_activity_timeline(object_id, limit=20,
+                                            organization_id=organization_id,
+                                            identity_id=identity_id),
+        "conversation": get_conversation_workspace(object_id, organization_id,
+                                                   identity_id=identity_id),
+        "next_actions": build_next_actions(object_id, organization_id,
+                                           identity_id=identity_id),
+        "missing_context": detect_missing_context(object_id, organization_id,
+                                                  identity_id=identity_id),
+        "health": compute_workspace_health(object_id, organization_id,
+                                           identity_id=identity_id),
+        "evidence": build_evidence_explorer(object_id, organization_id,
+                                            identity_id=identity_id),
     }
 
 

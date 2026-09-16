@@ -72,13 +72,32 @@ def _ensure_test_user(app, email: str, org_id: int, role: str = "member"):
 def set_session(client, email: str, org_id: int, app):
     """Set full session context for a user in a given org.
     Creates TeamMember + OrgMember in DB if they don't exist.
+    Returns the ORGANIZATION ID ACTUALLY RESOLVED for this identity, which is
+    the id that canonical authorization will use — callers must scope their
+    assertions to it rather than to the requested hint.
     """
-    tm_id, tm_email, _ = _ensure_test_user(app, email, org_id)
+    tm_id, tm_email, resolved_org_id = _ensure_test_user(app, email, org_id)
     with client.session_transaction() as sess:
         sess["user_id"] = tm_id
         sess["identity_id"] = tm_email
-        sess["current_org_id"] = org_id
+        sess["current_org_id"] = resolved_org_id
         sess["_fresh"] = True
+    return resolved_org_id
+
+
+def _org_workspace_id(org_id: int) -> str:
+    """Return the organization's canonical workspace id (sh_workspaces).
+
+    Objects carry a workspace as part of their canonical identity, so tests
+    must supply a real one — the service fails closed without it rather than
+    defaulting into an unrelated business workspace.
+    """
+    from app.objects.legacy_models import Workspace
+    ws = Workspace.query.filter_by(
+        organization_id=org_id, status="active"
+    ).order_by(Workspace.id).first()
+    assert ws is not None, f"org {org_id} has no canonical workspace fixture"
+    return ws.id
 
 
 class TestUnauthenticated:
@@ -117,7 +136,11 @@ class TestValidUserHttp:
         # Verify persisted state — read back from DB
         from core.object_service import get_object_service
         with app.app_context():
-            retrieved = get_object_service().get(data["id"])
+            retrieved = get_object_service().get(
+                data["id"],
+                organization_id=data.get("organization_id", 1),
+                identity_id="g11-test-user@example.com",
+            )
             assert retrieved is not None, "Object must persist in DB"
             assert retrieved["name"] == "HTTP Object"
             assert retrieved["organization_id"] == 1
@@ -130,21 +153,28 @@ class TestValidUserHttp:
         with app.app_context():
             svc = get_object_service()
             # CREATE
-            obj = svc.create(object_type="test", name="CRUD Test", organization_id=1)
+            obj = svc.create(object_type="test", name="CRUD Test", organization_id=1, workspace_id=_org_workspace_id(1), identity_id="g11-test-user@example.com")
             assert obj["id"] > 0
             # READ
-            retrieved = svc.get(obj["id"])
+            retrieved = svc.get(obj["id"], organization_id=1, identity_id="g11-test-user@example.com")
             assert retrieved is not None
             assert retrieved["name"] == "CRUD Test"
-            # UPDATE
-            ok = svc.update(obj["id"], 1, name="Updated")
+            # UPDATE — must carry the authenticated identity; the identity-less
+            # duplicate that a previous wiring pass appended is removed.
+            ok = svc.update(
+                obj["id"], 1, name="Updated",
+                identity_id="g11-test-user@example.com",
+            )
             assert ok
-            retrieved = svc.get(obj["id"])
+            retrieved = svc.get(
+                obj["id"], organization_id=1,
+                identity_id="g11-test-user@example.com",
+            )
             assert retrieved["name"] == "Updated"
             # DELETE (soft)
-            ok = svc.delete(obj["id"], organization_id=1)
+            ok = svc.delete(obj["id"], organization_id=1, identity_id="g11-test-user@example.com")
             assert ok
-            retrieved = svc.get(obj["id"])
+            retrieved = svc.get(obj["id"], organization_id=1, identity_id="g11-test-user@example.com")
             assert retrieved["status"] == "archived"
 
     def test_search_within_org(self, app, client):
@@ -153,36 +183,41 @@ class TestValidUserHttp:
         from core.object_service import get_object_service
         with app.app_context():
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Uniquely Findable", organization_id=1)
+            obj = svc.create(object_type="test", name="Uniquely Findable", organization_id=1, workspace_id=_org_workspace_id(1), identity_id="g11-test-user@example.com")
             assert obj["id"] > 0
-            results = svc.search("Uniquely Findable", organization_id=1)
+            results = svc.search("Uniquely Findable", organization_id=1,
+                                 identity_id="g11-test-user@example.com")
         assert any(r.get("name") == "Uniquely Findable" for r in results), "Object must be findable in its org"
 
 
 class TestCrossTenantSecurity:
     def test_cross_tenant_search_excludes(self, app, client):
         """Org A objects not found by Org B search."""
-        set_session(client, "g11-user-org1@example.com", 1, app)
+        org1 = set_session(client, "g11-user-org1@example.com", 1, app)
         from core.object_service import get_object_service
         with app.app_context():
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Org1 Secret", organization_id=1)
+            obj = svc.create(object_type="test", name="Org1 Secret",
+                             organization_id=org1, workspace_id=_org_workspace_id(org1),
+                             identity_id="g11-user-org1@example.com")
             obj_id = obj["id"]
 
-        set_session(client, "g11-user-org2@example.com", 7, app)
+        org2 = set_session(client, "g11-user-org2@example.com", 7, app)
+        assert org2 != org1, "the two identities must resolve to different organizations"
         with app.app_context():
             svc = get_object_service()
-            results = svc.search("Org1 Secret", organization_id=7)
+            results = svc.search("Org1 Secret", organization_id=org2,
+                                 identity_id="g11-user-org2@example.com")
         matches = [r for r in results if r["id"] == obj_id]
-        assert len(matches) == 0, "Org 7 must NOT find Org 1 objects"
+        assert len(matches) == 0, "Org 2 must NOT find Org 1 objects"
 
     def test_cross_tenant_update_denied(self, app, client):
         set_session(client, "g11-user-org1@example.com", 1, app)
         from core.object_service import get_object_service
         with app.app_context():
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Cross Update", organization_id=1)
-            ok = svc.update(obj["id"], organization_id=99999, name="Fail")
+            obj = svc.create(object_type="test", name="Cross Update", organization_id=1, workspace_id=_org_workspace_id(1), identity_id="g11-test-user@example.com")
+            ok = svc.update(obj["id"], organization_id=99999, name="Fail", identity_id="g11-test-user@example.com")
         assert not ok
 
     def test_cross_tenant_delete_denied(self, app, client):
@@ -190,8 +225,8 @@ class TestCrossTenantSecurity:
         from core.object_service import get_object_service
         with app.app_context():
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Cross Delete", organization_id=1)
-            ok = svc.delete(obj["id"], organization_id=99999)
+            obj = svc.create(object_type="test", name="Cross Delete", organization_id=1, workspace_id=_org_workspace_id(1), identity_id="g11-test-user@example.com")
+            ok = svc.delete(obj["id"], organization_id=99999, identity_id="g11-test-user@example.com")
         assert not ok
 
 

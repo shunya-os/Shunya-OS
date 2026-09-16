@@ -21,6 +21,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
     dialect = conn.dialect.name
     is_sqlite = dialect == "sqlite"

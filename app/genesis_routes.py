@@ -160,14 +160,30 @@ def api_restore_entity(entity_type: str, entity_id: str):
     """
     actor_id = request.args.get("actor_id", "") or (request.get_json(silent=True) or {}).get("restored_by", "")
 
-    # Map entity types to their primary key column
+    # Canonical-only (R6B-2.4): restoration targets canonical tables.
+    # The legacy founder_* tables are retired and are no longer the system of
+    # record — writing to them would resurrect legacy rows into a legacy store
+    # and would reintroduce a production founder_objects write path.
     table_map = {
         "organization": "organizations",
         "workspace": "workspaces",
-        "space": "founder_spaces",
-        "object": "founder_objects",
-        "relationship": "founder_relationships",
     }
+    legacy_entities = {
+        "space": "sh_workspaces (canonical workspace store)",
+        "object": "sh_objects (canonical object store)",
+        "relationship": "the canonical relationship store",
+    }
+
+    if entity_type in legacy_entities:
+        return jsonify({
+            "success": False,
+            "error": (
+                f"Restore of legacy entity type '{entity_type}' is retired: "
+                f"the founder_* tables are no longer the system of record. "
+                f"Restore from {legacy_entities[entity_type]} instead."
+            ),
+            "canonical_store": legacy_entities[entity_type],
+        }), 410
 
     table_name = table_map.get(entity_type)
     if not table_name:
@@ -185,9 +201,8 @@ def api_restore_entity(entity_type: str, entity_id: str):
             {"eid": entity_id_int},
         ).mappings().first()
     except ValueError:
-        # String-based ID
-        id_column = {"founder_spaces": "space_id", "founder_objects": "object_id",
-                     "founder_relationships": "rel_id"}.get(table_name, "id")
+        # String-based ID — canonical tables key on "id".
+        id_column = "id"
         result = db.session.execute(
             text(f'SELECT * FROM "{table_name}" WHERE "{id_column}" = :eid'),
             {"eid": entity_id},

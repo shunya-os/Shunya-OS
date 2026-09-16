@@ -22,6 +22,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Add MFAConfig table for persistent TOTP two-factor auth."""
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.create_table(
         "shunya_mfa_configs",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -48,6 +50,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop MFAConfig table."""
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_index(
         op.f("ix_shunya_mfa_configs_user_id"),
         table_name="shunya_mfa_configs",

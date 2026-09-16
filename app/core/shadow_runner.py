@@ -156,12 +156,21 @@ def run_shadow_automation(context: dict = None) -> dict:
     return result
 
 
+# Shadow execution is a system-scoped diagnostic: it exercises subsystems to
+# observe their behaviour, never on behalf of a tenant. It therefore runs under
+# this explicit system identity and carries no organization, so shadow runs can
+# never be mistaken for — or silently impersonate — a real tenant such as
+# organization 1.
+SHADOW_SYSTEM_IDENTITY = "system:shadow"
+
+
 def run_shadow_onboarding(context: dict = None) -> dict:
-    """Run the onboarding system in shadow mode."""
+    """Run the onboarding system in shadow mode (system-scoped, no tenant)."""
     result = {"system": "onboarding", "status": "shadow", "shadow_ok": False, "outputs": []}
     try:
         from app.onboarding.engine import get_or_create_session
-        session = get_or_create_session(org_id=1, identity_id='shadow')
+        session = get_or_create_session(org_id=None,
+                                        identity_id=SHADOW_SYSTEM_IDENTITY)
         steps = [{'current_question': session.current_question()}] if hasattr(session, 'current_question') else []
         result["outputs"].append({
             "module": "onboarding",

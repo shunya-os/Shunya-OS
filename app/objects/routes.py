@@ -1,67 +1,61 @@
 from flask import Blueprint, request, jsonify, session
-from app.objects.legacy_models import Workspace
 from core.object_service import get_object_service
 from app.authz.decorators import require_permission
+from app.authz.workspace_context import (
+    OwnershipContextError,
+    resolve_current_organization,
+    resolve_current_workspace,
+)
 
 
 objects_bp = Blueprint("objects", __name__, url_prefix="/api/v1/objects")
 
 
-def _resolve_tenant_id() -> int | None:
-    """Resolve the canonical tenant (organization) id from the session."""
-    org_id = session.get("current_org_id")
-    if org_id:
-        return int(org_id)
+def _identity_id():
     identity = session.get("identity_id") or session.get("user_id")
-    if identity:
-        from app.models import OrgMember
-        om = OrgMember.query.filter_by(identity_id=str(identity), is_active=True).first()
-        if om:
-            return om.organization_id
-    return None
+    return str(identity) if identity else None
+
+
+def _deny(exc: OwnershipContextError):
+    return jsonify({"success": False, "error": exc.reason, "code": exc.code}), 403
 
 
 @objects_bp.route("/", methods=["POST"])
 @require_permission("rel.create")
 def create():
     """Create a business object through the canonical object authority.
-    Authentication happens before any object operation."""
-    # AUTH: reject unauthenticated before any DB mutation
-    identity_id = session.get("identity_id") or session.get("user_id")
+
+    Ownership is resolved by the canonical boundary only — organization and
+    workspace are never selected arbitrarily and never defaulted.
+    """
+    identity_id = _identity_id()
     if not identity_id:
         return jsonify({"error": "Authentication required", "success": False}), 401
-    if isinstance(identity_id, int):
-        identity_id = str(identity_id)
 
     data = request.json or {}
     name = data.get("name", data.get("object_type", "Object"))
     object_type = data.get("object_type", data.get("type", "generic"))
 
-    organization_id = _resolve_tenant_id()
+    try:
+        organization_id = resolve_current_organization(
+            identity_id, request.headers.get("X-Organization-Id")
+        )
+        workspace_id = resolve_current_workspace(
+            identity_id, organization_id,
+            data.get("workspace_id") or request.headers.get("X-Workspace-Id"),
+        )
+    except OwnershipContextError as exc:
+        return _deny(exc)
 
-    # Workspace is org-scoped: pick the user's org workspace
-    from app.authz.decorators import _resolve_org_workspace_ids
-    workspace_ids = _resolve_org_workspace_ids(organization_id) if organization_id else []
-    workspace = None
-    if workspace_ids:
-        workspace = Workspace.query.filter(
-            Workspace.id.in_(workspace_ids), Workspace.status == "active"
-        ).first()
-    if not workspace:
-        workspace = Workspace.query.filter_by(status="active").first()
-    workspace_id = workspace.id if workspace else None
-    if not workspace_id:
-        return jsonify({"error": "No workspace found for this organization", "success": False}), 400
-
-    # Create through the canonical object authority (core/object_service.py)
     svc = get_object_service()
     obj = svc.create(
         object_type=object_type,
         name=name,
-        organization_id=organization_id or 0,
+        organization_id=organization_id,
         data={"name": name, "type": object_type, "created_via": "http_route"},
         created_by=identity_id,
         workspace_id=workspace_id,
+        identity_id=identity_id,
     )
 
     return jsonify({
@@ -77,25 +71,36 @@ def create():
 @objects_bp.route("/<int:object_id>", methods=["PATCH"])
 @require_permission("rel.edit")
 def update(object_id):
-    """Update a canonical object (tenant-scoped). Routes through canonical service.
-    Authentication happens before any object operation."""
-    identity_id = session.get("identity_id") or session.get("user_id")
+    """Update a canonical object (tenant + workspace scoped)."""
+    identity_id = _identity_id()
     if not identity_id:
         return jsonify({"error": "Authentication required", "success": False}), 401
 
-    from app.authz.decorators import _resolve_org_id
-    org_id = _resolve_org_id()
+    try:
+        organization_id = resolve_current_organization(
+            identity_id, request.headers.get("X-Organization-Id")
+        )
+        workspace_id = resolve_current_workspace(
+            identity_id, organization_id,
+            request.headers.get("X-Workspace-Id"),
+        )
+    except OwnershipContextError as exc:
+        return _deny(exc)
+
     svc = get_object_service()
-    existing = svc.get(object_id)
-    if not existing:
+    existing = svc.get(object_id, organization_id=organization_id,
+                       identity_id=identity_id)
+    if not existing or existing.get("workspace_id") != workspace_id:
         return jsonify({"error": "Not found"}), 404
-    if org_id and existing.get("organization_id") and existing["organization_id"] != org_id:
-        return jsonify({"error": "Forbidden"}), 403
+
     updates = request.json or {}
-    ok = svc.update(object_id, organization_id=org_id or 0, **updates)
+    ok = svc.update(object_id, organization_id=organization_id,
+                    identity_id=identity_id, **updates)
     if not ok:
         return jsonify({"error": "Update failed — cross-tenant or not found"}), 403
-    updated = svc.get(object_id)
+    updated = svc.get(object_id, organization_id=organization_id,
+                      identity_id=identity_id)
     if not updated:
         return jsonify({"error": "Not found after update"}), 500
-    return jsonify({"id": updated["id"], "state": {k: v for k, v in updated.items() if k not in ("id",)}})
+    return jsonify({"id": updated["id"],
+                    "state": {k: v for k, v in updated.items() if k != "id"}})

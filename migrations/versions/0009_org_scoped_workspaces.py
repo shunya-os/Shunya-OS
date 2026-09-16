@@ -20,6 +20,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
 
     # 1. sh_workspaces.organization_id
@@ -40,6 +42,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     for table in ["documents", "founder_spaces", "sh_workspaces"]:
         try:
             op.drop_column(table, "organization_id" if table != "documents" else "tenant_id")

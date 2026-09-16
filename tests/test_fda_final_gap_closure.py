@@ -62,6 +62,14 @@ def _rbac_login(app, client, identity_id, org_id):
                 db.session.add(assignment)
             db.session.commit()
 
+        # Provision the organization's canonical workspace (sh_workspaces).
+        # Canonical tenancy is organization *and* workspace: objects carry a
+        # workspace as part of their canonical identity, and the application
+        # fails closed when an organization owns none.
+        from tests.auth_helper import ensure_org_workspace
+        ensure_org_workspace(db, org_id, identity_id)
+        db.session.commit()
+
     with client.session_transaction() as sess:
         sess["user_id"] = 1
         sess["identity_id"] = identity_id
@@ -207,12 +215,11 @@ class TestExecutionAuthority:
     def test_c_company_evidence_execution_authorized(self, app, client):
         """C: Authoritative company evidence + execute=true → proceeds through canonical authority.
 
-        Uses real model fixtures (FounderSpace + FounderObject) to seed company data.
-        Asserts the actual authority decision and execution-runtime invocation.
+        Uses real canonical fixtures (Organization + sh_objects via ObjectService)
+        to seed company data. Asserts the actual authority decision.
         """
         from app.tenant import Tenant
         from app import db
-        from datetime import datetime
 
         with app.app_context():
             # Create tenant
@@ -221,30 +228,30 @@ class TestExecutionAuthority:
             db.session.commit()
             tid = t.id
 
-            # Seed company data via real models so evidence gathering finds it
-            from app.founder.models import FounderSpace, FounderObject
-            space = FounderSpace(
-                space_id="spc_exec_auth",
-                name="Exec Auth Test Space",
-                identity_id="system",
-                created_at=datetime.now(timezone.utc),
-            )
-            db.session.add(space)
-            db.session.flush()
-
-            obj = FounderObject(
-                object_id="obj_exec_auth_001",
-                space_id="spc_exec_auth",
-                name="Test Invoice",
-                object_type="invoice",
-                status="active",
-                created_by="system",
-                created_at=datetime.now(timezone.utc),
-            )
-            db.session.add(obj)
-            db.session.commit()
-
         _rbac_login(app, client, "user_1", tid)
+
+        # Seed company data through the canonical object store, owned by the
+        # authenticated caller's organization (sh_objects is the authoritative
+        # source of company evidence — legacy founder_objects is not).
+        from core.object_service import get_object_service
+        with app.app_context():
+            # Canonical workspace for the caller's organization — objects carry
+            # a workspace as part of their canonical identity.
+            from app.objects.legacy_models import Workspace
+            ws = Workspace.query.filter_by(
+                organization_id=tid, status="active"
+            ).order_by(Workspace.id).first()
+            assert ws is not None, "fixture must provision a canonical workspace"
+            obj = get_object_service().create(
+                object_type="invoice",
+                name="Test Invoice",
+                organization_id=tid,
+                created_by="user_1",
+                workspace_id=ws.id,
+                identity_id="user_1",
+            )
+            assert obj["id"] > 0
+            assert obj["organization_id"] == tid
 
         # Execute with company evidence present — must proceed through canonical path
         resp = client.post(

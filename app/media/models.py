@@ -20,13 +20,14 @@ class MediaAsset(db.Model):
     identity_id = db.Column(db.String(64), nullable=False, index=True)
 
     # ── Tenant context (canonical tenancy) ──────────────────────
-    organization_id = db.Column(db.Integer, nullable=False, default=0)
-    workspace_id = db.Column(db.String(64), nullable=False, default="")
+    # Required, with no default: a media asset is tenant-owned, so an asset is
+    # never recorded without a real organization and workspace. The former
+    # defaults (organization_id 0, workspace_id "") fabricated ownership and
+    # have been removed; callers must resolve canonical context, and
+    # generate_media() fails closed without it.
+    organization_id = db.Column(db.Integer, nullable=False)
+    workspace_id = db.Column(db.String(64), nullable=False)
     sh_object_id = db.Column(db.String(64), nullable=True)
-
-    # NOTE: organization_id=0 is used temporarily for recording generation attempts
-    # without real org context. ObjectService.create() will reject 0 when creating
-    # the canonical sh_objects record — callers must resolve real org context.
 
     # ── Canonical runtime state ──────────────────────────────
     # IDLE | PREPARING_BRIEF | GENERATING | GENERATED | DESCRIPTION_ONLY | PROVIDER_UNAVAILABLE | FAILED

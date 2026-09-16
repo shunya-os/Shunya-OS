@@ -1,0 +1,119 @@
+### R6B-2.7 PostgreSQL migration certification (fresh disposable database)
+### date=2026-09-16T18:55:59+02:00
+### repository_sha=3389e47e365054c24e42147a52f5acc020773ee0
+### database=shunya_r6b27_cert
+### DATABASE_URL=postgresql://shunya-deploy@127.0.0.1:5433/shunya_r6b27_cert
+### pg_server_version=16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+
+=== 0. fresh database ===
+DROP DATABASE
+CREATE DATABASE
+pre_boot_tables=0
+pre_boot_alembic_version=f
+
+=== 1. canonical boot path (db.create_all) ===
+{"asctime": "2026-09-16 18:56:08,009", "name": "app", "levelname": "INFO", "message": "Logging initialised", "request_id": "bootstrap"}
+{"asctime": "2026-09-16 18:56:08,016", "name": "app", "levelname": "INFO", "message": "CORS disabled \u2014 frontend served from same origin", "request_id": null}
+{"asctime": "2026-09-16 18:56:08,017", "name": "app", "levelname": "INFO", "message": "Rate limiter initialised (storage: memory://)", "request_id": null}
+{"asctime": "2026-09-16 18:56:08,463", "name": "app.campaign.adapter", "levelname": "INFO", "message": "Campaign provider registered: meta", "request_id": null}
+{"asctime": "2026-09-16 18:56:08,463", "name": "app.campaign.adapter", "levelname": "INFO", "message": "Campaign provider registered: google", "request_id": null}
+{"asctime": "2026-09-16 18:56:10,289", "name": "app.integration.registry", "levelname": "INFO", "message": "Integration registered: email (Gmail)", "request_id": null}
+{"asctime": "2026-09-16 18:56:10,290", "name": "app", "levelname": "INFO", "message": "Registered 1 integrations", "request_id": null}
+{"asctime": "2026-09-16 18:56:10,396", "name": "app", "levelname": "INFO", "message": "SHUNYA OS initialised", "request_id": "bootstrap", "db": "postgresql://shunya-deploy@127"}
+{"asctime": "2026-09-16 18:56:10,723", "name": "app", "levelname": "INFO", "message": "Loaded 0 persisted identities", "request_id": null}
+dialect: postgresql
+server_version: 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+database: shunya_r6b27_cert
+tables_after_create_all: 155
+boot_exit=0
+post_boot_tables=155
+post_boot_alembic_version=f
+
+=== 2. alembic heads ===
+r6b27_workspace_memberships (head)
+heads_exit=0
+
+=== 3. alembic current (before chain) ===
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+
+=== 4. alembic upgrade head (first run) ===
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial_schema, SHUNYA — Initial Schema: All base tables from model definitions.
+INFO  [alembic.runtime.migration] Running upgrade 0001_initial_schema -> 0002_schema_reconciliation, SHUNYA — Canonical Schema Reconciliation Migration
+INFO  [alembic.runtime.migration] Running upgrade 0002_schema_reconciliation -> 0003_evidence_unique_constr, Add unique constraint on evidence_records (source_type, source_id).
+INFO  [alembic.runtime.migration] Running upgrade 0003_evidence_unique_constr -> 0004_fda3_memory_schema, FDA3: Add truth_classification, provenance_idempotency, resolution fields.
+INFO  [alembic.runtime.migration] Running upgrade 0004_fda3_memory_schema -> 0005_fda4_identity_schema, FDA4: Identity schema — source, confidence, metadata_json, tenant_id NOT NULL.
+INFO  [alembic.runtime.migration] Running upgrade 0005_fda4_identity_schema -> 0006_fda12_15_marketing_sales, FDA12-15: Campaign, Audience, Content, Experiment + Customer/Lead/Commitment extensions.
+INFO  [alembic.runtime.migration] Running upgrade 0006_fda12_15_marketing_sales -> 0007_fda22_auth_extended, FDA22: create auth_service_accounts, auth_delegations, auth_tenant_policies
+INFO  [alembic.runtime.migration] Running upgrade 0007_fda22_auth_extended -> 0008_tenant_isolation, FDA Final: Add tenant_id isolation to core tables.
+INFO  [alembic.runtime.migration] Running upgrade 0008_tenant_isolation -> 0009_org_scoped_workspaces, Canonical tenant model: scope workspaces/spaces/documents to organizations.
+INFO  [alembic.runtime.migration] Running upgrade 0009_org_scoped_workspaces -> 0010_schema_reconciliation, Safe model-schema reconciliation: CREATE TABLE IF NOT EXISTS for all model tables.
+INFO  [alembic.runtime.migration] Running upgrade 0010_schema_reconciliation -> 0011_purify_execution_model, Remove workflow artifacts from sh_outcomes, drop orphan execution tables.
+INFO  [alembic.runtime.migration] Running upgrade 0011_purify_execution_model -> 19ed74632172, G4 Universal Commercial models
+INFO  [alembic.runtime.migration] Running upgrade 19ed74632172 -> g5_001, G5 — Universal Marketing, Growth, Attribution & Learning tables.
+INFO  [alembic.runtime.migration] Running upgrade g5_001 -> 9dd21cd22a84, add_push_subscription_model
+INFO  [alembic.runtime.migration] Running upgrade 9dd21cd22a84 -> f5429b50dbc6, add_mfa_config_model
+INFO  [alembic.runtime.migration] Running upgrade f5429b50dbc6 -> 0012_add_organization_plan, 0012: Add plan column to organizations table
+  SKIP: organizations.plan already exists
+INFO  [alembic.runtime.migration] Running upgrade 0012_add_organization_plan -> 0013_add_email_records, 0013: Create email_records table for durable email lifecycle tracking
+INFO  [alembic.runtime.migration] Running upgrade f5429b50dbc6 -> zgc_pr_17c_durable_memory, ZGC-PR-17C — Add durable memory fields to memory_records.
+INFO  [alembic.runtime.migration] Running upgrade zgc_pr_17c_durable_memory, 0013_add_email_records -> 06857584ba0b, Merge 0013_add_email_records and zgc_pr_17c_durable_memory
+INFO  [alembic.runtime.migration] Running upgrade 06857584ba0b -> g1_1_r1_organization_chain, G1.1-R1 — Add organization_id to sh_objects, fix workspace→org chain.
+  SKIP: sh_objects.organization_id already exists
+  BACKFILL: sh_workspaces.organization_id → 0 rows
+  BACKFILL: sh_objects.organization_id → 0 rows
+  CREATED: idx_sh_objects_org_ws_type
+INFO  [alembic.runtime.migration] Running upgrade g1_1_r1_organization_chain -> g1_1_r1_fix_org_chain, G1.1-R1 fix — org chain FK constraints and data remap.
+  SKIP: legacy remap org=89 -> org=7 (Panchi Club) — target organisation absent
+  SKIP: legacy remap org=90 -> org=1 (Test Org) — target organisation absent
+  SKIP: spc_business -> org 7 — target organisation absent
+  Cleared unresolved workspace org assignments: 3 rows
+  ADDED: FK sh_workspaces.organization_id → organizations.id
+  Cleared unresolved object org assignments: 0 rows
+  SKIP: FK sh_objects.organization_id already exists
+INFO  [alembic.runtime.migration] Running upgrade g1_1_r1_fix_org_chain -> g1_1_r5_execution_spine, G1.1-R5 — Execution spine: execution_runs, execution_state_transitions, task_lifecycle.
+  SKIP: execution_runs already exists
+  SKIP: execution_state_transitions already exists
+  SKIP: task_lifecycle already exists
+INFO  [alembic.runtime.migration] Running upgrade g1_1_r5_execution_spine -> g1_1_r5_tz_aware_spine, G1.1-R5 fix — timezone-aware timestamps for execution spine tables.
+INFO  [alembic.runtime.migration] Running upgrade g1_1_r5_tz_aware_spine -> g1_1_r5_provider_cost, G1.1-R5 follow-through — provider/model/cost telemetry on execution_runs.
+INFO  [alembic.runtime.migration] Running upgrade g1_1_r5_provider_cost -> g1_1_r6_evidence_constraint, G1.1-R6 — Relax evidence_records unique constraint for execution-run evidence.
+INFO  [alembic.runtime.migration] Running upgrade g1_1_r6_evidence_constraint -> g1_1_r6b_object_convergence, G1.1-R6B — Business object convergence migration: sh_objects gains content column.
+INFO  [alembic.runtime.migration] Running upgrade g1_1_r6b_object_convergence -> g1_1_r6b_media_tenancy, G1.1-R6B — Media asset tenancy: organization_id, workspace_id, sh_object_id.
+INFO  [alembic.runtime.migration] Running upgrade g1_1_r6b_media_tenancy -> g1_1_r6b_ownership, R6B-2 ownership reconciliation: inherit organization_id from workspace.
+  Backfilled 0 NULL organization_id from workspace
+  Fixed 0 organization_id mismatches (workspace org authoritative)
+  Remaining NULL organization_id: 0 (orphaned — auth will reject)
+INFO  [alembic.runtime.migration] Running upgrade g1_1_r6b_ownership -> r6b25_member_tenant_nullable, R6B-2.5 — team_members.tenant_id becomes nullable (no implicit tenant).
+  team_members.tenant_id -> nullable (no implicit tenant)
+INFO  [alembic.runtime.migration] Running upgrade r6b25_member_tenant_nullable -> r6b27_workspace_memberships, R6B-2.7 — canonical workspace authorization for sh_workspaces.
+first_upgrade_exit=0
+revisions_executed_first_run=30
+
+=== 5. alembic current (after first run) ===
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+r6b27_workspace_memberships (head)
+
+=== 6. alembic upgrade head (second run — must execute no revision) ===
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+second_upgrade_exit=0
+revisions_executed_second_run=0
+
+=== 7. R6B-2.7 canonical membership schema verification ===
+alembic_version_rows=1
+alembic_version_head=r6b27_workspace_memberships
+sh_workspace_memberships_exists=t
+swm_workspace_fk=1
+swm_unique_ws_identity=1
+swm_has_organization_id=0
+swm_is_active_col=1
+sh_workspaces_org_fk=1
+sh_objects_org_fk=1
+public_table_count=177
+
+=== 8. outcome ===
+MIGRATION_CERTIFICATION=PASS

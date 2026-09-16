@@ -24,18 +24,68 @@ class ObjectService:
 
     def create(self, object_type: str, name: str, organization_id: int,
                data: Optional[dict] = None, created_by: Optional[str] = None,
-               status: str = "active", workspace_id: str = "spc_business",
-               object_id: Optional[str] = None) -> dict:
+               status: str = "active", workspace_id: Optional[str] = None,
+               object_id: Optional[str] = None,
+               identity_id: Optional[str] = None,
+               system_scope: bool = False) -> dict:
         """Create a canonical object. Returns the created record.
 
-        Rejects missing/synthetic ownership — organization_id must be a
-        positive integer. Callers are responsible for resolving real
-        organization context from the authenticated identity before calling.
+        Rejects missing/synthetic ownership. Callers are responsible for
+        resolving real organization context from the authenticated identity
+        before calling.
+
+        ``workspace_id`` is required and has no default. ``sh_objects
+        .workspace_id`` is NOT NULL — a workspace is part of the object's
+        canonical identity — so a default business workspace ("spc_business")
+        must never be assumed: that would silently place an object in a
+        tenant workspace the caller never selected.
         """
         if not organization_id or organization_id < 1:
             raise ValueError(
                 f"ObjectService.create() requires a valid positive organization_id, "
                 f"got {organization_id!r}. Missing ownership MUST FAIL CLOSED."
+            )
+        if not workspace_id:
+            raise ValueError(
+                "ObjectService.create() requires an explicit workspace_id. "
+                "sh_objects.workspace_id is NOT NULL, so a workspace is part of "
+                "the object's canonical identity; a default business workspace "
+                "MUST NOT be invented. Missing workspace MUST FAIL CLOSED."
+            )
+        # Ownership consistency is enforced here, not merely assumed of the
+        # caller: the workspace must actually belong to the organization the
+        # object is being created in. This makes cross-tenant placement
+        # impossible even if a caller supplies mismatched values.
+        from sqlalchemy import text as _sql
+        _ws_ok = self.db.session.execute(
+            _sql("SELECT 1 FROM sh_workspaces "
+                 "WHERE id = :ws AND organization_id = :org"),
+            {"ws": workspace_id, "org": organization_id},
+        ).scalar()
+        if not _ws_ok:
+            raise ValueError(
+                f"ObjectService.create() rejected: workspace {workspace_id!r} does "
+                f"not belong to organization {organization_id!r}. The workspace "
+                f"must be owned by the same organization as the object."
+            )
+        # Identity authorization (R6B-2.7 Window 6): when the caller supplies an
+        # authenticated identity, that identity must be actively authorized for
+        # this exact organization + workspace pair. This makes the service the
+        # final server-side safety boundary — a caller cannot bypass it by
+        # supplying a matching org/workspace combination it is not entitled to.
+        if identity_id:
+            from app.authz.workspace_context import assert_object_access
+            assert_object_access(identity_id, organization_id, workspace_id)
+        elif not system_scope:
+            raise ValueError(
+                "ObjectService.create() requires an authenticated identity_id, "
+                "or an explicit system_scope=True for an audited non-user "
+                "caller. identity_id=None MUST NOT skip authorization."
+            )
+        if identity_id and system_scope:
+            raise ValueError(
+                "ObjectService.create() received contradictory authorization "
+                "context: identity_id and system_scope are mutually exclusive."
             )
         from sqlalchemy import text
         now = datetime.now(timezone.utc)
@@ -71,13 +121,30 @@ class ObjectService:
         object_id = row[0] if row else ""
         return {"id": obj_id, "object_id": object_id, "object_type": object_type, "name": name, "status": status, "organization_id": organization_id}
 
-    def get(self, obj_id: int, organization_id: int = 0) -> Optional[dict]:
+    def get(self, obj_id: int, organization_id: int = 0,
+            identity_id: Optional[str] = None,
+            system_scope: bool = False) -> Optional[dict]:
         """Get an object by ID, scoped to organization.
 
         When organization_id > 0, the lookup is scoped to that organization.
         When 0, returns only objects with NULL organization (orphaned/personal).
+
+        Authorization: when ``identity_id`` is supplied, the identity must be
+        actively authorized for the object's PERSISTED organization and
+        workspace — never for values supplied by the caller.
         """
         from sqlalchemy import text
+        if not identity_id and not system_scope:
+            raise ValueError(
+                "ObjectService.get() requires an authenticated identity_id, or "
+                "an explicit system_scope=True for an audited non-user caller. "
+                "Missing authorization context MUST FAIL CLOSED."
+            )
+        if identity_id and system_scope:
+            raise ValueError(
+                "ObjectService.get() received contradictory authorization "
+                "context: identity_id and system_scope are mutually exclusive."
+            )
         if organization_id > 0:
             row = self.db.session.execute(
                 text("SELECT * FROM sh_objects WHERE id = :id AND organization_id = :org_id"),
@@ -90,51 +157,109 @@ class ObjectService:
             ).first()
         if not row:
             return None
+        if identity_id:
+            # Authorize against the row's PERSISTED ownership, not the caller's
+            # claim. A caller cannot widen access by supplying org/workspace.
+            from app.authz.workspace_context import (
+                OwnershipContextError, assert_object_access,
+            )
+            try:
+                assert_object_access(identity_id, row.organization_id,
+                                     row.workspace_id)
+            except OwnershipContextError:
+                return None
         return self._row_to_dict(row)
 
-    def get_by_object_id(self, object_id_str: str,
-                         organization_id: int = 0) -> Optional[dict]:
+    def _authorized_scope(self, identity_id: Optional[str], organization_id: int,
+                          method: str) -> list:
+        """Authorized ``sh_workspaces.id`` set for identity+organization.
+
+        Every non-CRUD read surface goes through this. It is the same predicate
+        the CRUD gates use, so a read can never be wider than a write.
+        Raises ``ValueError`` when identity/organization is missing and
+        ``OwnershipContextError`` when the identity is authorized for nothing.
+        """
+        from app.authz.workspace_context import (
+            OwnershipContextError, authorized_workspace_ids,
+        )
+        if not organization_id:
+            raise ValueError(
+                f"ObjectService.{method}() requires a positive organization_id. "
+                "Missing ownership MUST FAIL CLOSED."
+            )
+        if not identity_id:
+            raise ValueError(
+                f"ObjectService.{method}() requires an authenticated identity_id. "
+                "An identity-less read MUST NOT return tenant data."
+            )
+        workspaces = authorized_workspace_ids(str(identity_id), organization_id)
+        if not workspaces:
+            raise OwnershipContextError(
+                f"identity {identity_id!r} is not authorized for any workspace in "
+                f"organization {organization_id}",
+                code="no_authorized_workspace",
+            )
+        return workspaces
+
+    def get_by_object_id(self, object_id_str: str, organization_id: int,
+                         identity_id: Optional[str] = None) -> Optional[dict]:
         """Get an object by its unique object_id string, scoped to organization.
 
-        When organization_id > 0, the lookup is scoped to that organization.
-        When 0, returns only objects with NULL organization (orphaned/personal).
+        The lookup is scoped to the organization AND to the caller's authorized
+        workspaces, and it is authorized against the row's PERSISTED workspace.
+        Returns ``None`` for a denial (the object is simply not visible).
         """
         from sqlalchemy import text
-        if organization_id > 0:
-            row = self.db.session.execute(
-                text("SELECT * FROM sh_objects WHERE object_id = :oid AND organization_id = :org_id AND is_deleted = false"),
-                {"oid": object_id_str, "org_id": organization_id},
-            ).first()
-        else:
-            row = self.db.session.execute(
-                text("SELECT * FROM sh_objects WHERE object_id = :oid AND organization_id IS NULL AND is_deleted = false"),
-                {"oid": object_id_str},
-            ).first()
+        authorized = self._authorized_scope(identity_id, organization_id,
+                                            "get_by_object_id")
+        row = self.db.session.execute(
+            text("SELECT * FROM sh_objects WHERE object_id = :oid "
+                 "AND organization_id = :org_id AND is_deleted = false"),
+            {"oid": object_id_str, "org_id": organization_id},
+        ).first()
         if not row:
+            return None
+        if row.workspace_id not in authorized:
             return None
         return self._row_to_dict(row)
 
     def get_by_type(self, object_type: str, organization_id: int,
+                    identity_id: Optional[str] = None,
                     limit: int = 100, offset: int = 0) -> list:
-        """List objects by type within an organization."""
-        from sqlalchemy import text
-        rows = self.db.session.execute(
-            text("""
+        """List objects by type within the caller's authorized workspaces."""
+        from sqlalchemy import bindparam, text
+        authorized = self._authorized_scope(identity_id, organization_id,
+                                            "get_by_type")
+        stmt = text("""
                 SELECT * FROM sh_objects
                 WHERE object_type = :object_type
                 AND organization_id = :org_id
+                AND workspace_id IN :ws_ids
                 AND is_deleted = false
                 ORDER BY updated_at DESC LIMIT :lim OFFSET :off
-            """),
-            {"object_type": object_type, "org_id": organization_id, "lim": limit, "off": offset},
+            """).bindparams(bindparam("ws_ids", expanding=True))
+        rows = self.db.session.execute(
+            stmt,
+            {"object_type": object_type, "org_id": organization_id,
+             "ws_ids": list(authorized), "lim": limit, "off": offset},
         ).all()
         return [self._row_to_dict(r) for r in rows]
 
     def list_by_workspace(self, workspace_id: str, organization_id: int,
+                          identity_id: Optional[str] = None,
                           status: str = "active", limit: int = 100,
                           offset: int = 0) -> list:
-        """List objects within a workspace+organization (canonical reads)."""
+        """List objects within one workspace, authorized for this identity."""
         from sqlalchemy import text
+        authorized = self._authorized_scope(identity_id, organization_id,
+                                            "list_by_workspace")
+        if str(workspace_id) not in authorized:
+            from app.authz.workspace_context import OwnershipContextError
+            raise OwnershipContextError(
+                f"identity {identity_id!r} is not authorized for workspace "
+                f"{workspace_id!r} in organization {organization_id}",
+                code="workspace_not_authorized",
+            )
         rows = self.db.session.execute(
             text("""
                 SELECT * FROM sh_objects
@@ -149,63 +274,92 @@ class ObjectService:
         ).all()
         return [self._row_to_dict(r) for r in rows]
 
-    def list_by_creator(self, created_by: str, organization_id: int = 0,
+    def list_by_creator(self, created_by: str, organization_id: int,
+                        identity_id: Optional[str] = None,
                         status: str = "active", limit: int = 100) -> list:
-        """List objects created by an identity.
-
-        When organization_id > 0, scopes to that organization. When 0,
-        returns objects with NULL organization (personal workspace objects).
+        """List objects created by an identity, within the caller's authorized
+        workspaces. An identity cannot read another identity's objects in a
+        workspace it is not itself authorized for.
         """
-        from sqlalchemy import text
-        if organization_id > 0:
-            rows = self.db.session.execute(
-                text("""
+        from sqlalchemy import bindparam, text
+        authorized = self._authorized_scope(identity_id, organization_id,
+                                            "list_by_creator")
+        stmt = text("""
                     SELECT * FROM sh_objects
                     WHERE created_by = :creator
                     AND organization_id = :org_id
+                    AND workspace_id IN :ws_ids
                     AND status = :status
                     AND is_deleted = false
                     ORDER BY updated_at DESC LIMIT :lim
-                """),
-                {"creator": created_by, "org_id": organization_id, "status": status, "lim": limit},
-            ).all()
-        else:
-            rows = self.db.session.execute(
-                text("""
-                    SELECT * FROM sh_objects
-                    WHERE created_by = :creator
-                    AND organization_id IS NULL
-                    AND status = :status
-                    AND is_deleted = false
-                    ORDER BY updated_at DESC LIMIT :lim
-                """),
-                {"creator": created_by, "status": status, "lim": limit},
-            ).all()
-        return [self._row_to_dict(r) for r in rows]
-
-    def search(self, query: str, organization_id: int, limit: int = 50) -> list:
-        """Search objects by name/type within an organization."""
-        from sqlalchemy import text
-        like = f"%{query}%"
+                """).bindparams(bindparam("ws_ids", expanding=True))
         rows = self.db.session.execute(
-            text("""
-                SELECT * FROM sh_objects
-                WHERE LOWER(name) LIKE LOWER(:like)
-                AND organization_id = :org_id
-                ORDER BY updated_at DESC LIMIT :lim
-            """),
-            {"like": like, "org_id": organization_id, "lim": limit},
+            stmt,
+            {"creator": created_by, "org_id": organization_id,
+             "ws_ids": list(authorized), "status": status, "lim": limit},
         ).all()
         return [self._row_to_dict(r) for r in rows]
 
-    def update(self, obj_id: int, organization_id: int, **kwargs) -> bool:
-        """Update an object. Returns False if cross-tenant or not found."""
+    def search(self, query: str, organization_id: int,
+               identity_id: Optional[str] = None, limit: int = 50) -> list:
+        """Search objects within the caller's authorized workspaces."""
+        from sqlalchemy import bindparam, text
+        authorized = self._authorized_scope(identity_id, organization_id, "search")
+        like = f"%{query}%"
+        stmt = text("""
+                SELECT * FROM sh_objects
+                WHERE LOWER(name) LIKE LOWER(:like)
+                AND organization_id = :org_id
+                AND workspace_id IN :ws_ids
+                ORDER BY updated_at DESC LIMIT :lim
+            """).bindparams(bindparam("ws_ids", expanding=True))
+        rows = self.db.session.execute(
+            stmt,
+            {"like": like, "org_id": organization_id,
+             "ws_ids": list(authorized), "lim": limit},
+        ).all()
+        return [self._row_to_dict(r) for r in rows]
+
+    def update(self, obj_id: int, organization_id: int,
+               identity_id: Optional[str] = None,
+               system_scope: bool = False, **kwargs) -> bool:
+        """Update an object. Returns False if cross-tenant or not found.
+
+        When ``identity_id`` is supplied, the identity must be actively
+        authorized for the organization+workspace the object actually lives in
+        — so a caller cannot update an object by presenting a valid-looking
+        organization of its own.
+        """
+        if identity_id and system_scope:
+            raise ValueError(
+                "ObjectService.update() received contradictory authorization "
+                "context: identity_id and system_scope are mutually exclusive."
+            )
+        if not identity_id and not system_scope:
+            raise ValueError(
+                "ObjectService.update() requires an authenticated identity_id, or "
+                "an explicit system_scope=True for an audited non-user caller. "
+                "identity_id=None MUST NOT skip authorization; delete() delegates "
+                "here, so this is also the delete authorization gate."
+            )
         from sqlalchemy import text
         row = self.db.session.execute(
             text("SELECT * FROM sh_objects WHERE id = :id"), {"id": obj_id}
         ).first()
         if not row or row.organization_id != organization_id:
             return False
+
+        if identity_id:
+            from app.authz.workspace_context import (
+                OwnershipContextError, assert_object_access,
+            )
+            try:
+                assert_object_access(identity_id, row.organization_id,
+                                     row.workspace_id)
+            except OwnershipContextError:
+                # Authorization denial only. Unexpected programming or database
+                # errors must surface rather than masquerade as "denied".
+                return False
 
         updates = {"updated_at": datetime.now(timezone.utc)}
         if "name" in kwargs:
@@ -225,20 +379,32 @@ class ObjectService:
         self.db.session.commit()
         return True
 
-    def delete(self, obj_id: int, organization_id: int) -> bool:
-        """Soft-delete an object. Returns False if cross-tenant."""
-        return self.update(obj_id, organization_id, status="archived")
+    def delete(self, obj_id: int, organization_id: int,
+               identity_id: Optional[str] = None,
+               system_scope: bool = False) -> bool:
+        """Soft-delete an object. Returns False if cross-tenant.
 
-    def count_by_type(self, organization_id: int) -> dict:
-        """Count objects grouped by type within an organization."""
-        from sqlalchemy import text
-        rows = self.db.session.execute(
-            text("""
+        Delegates to update(), which is the authorization gate for both write
+        operations — a separate check here would leave the lower-level path weak.
+        """
+        return self.update(obj_id, organization_id, identity_id=identity_id,
+                           system_scope=system_scope, status="archived")
+
+    def count_by_type(self, organization_id: int,
+                      identity_id: Optional[str] = None) -> dict:
+        """Count objects grouped by type within the caller's authorized workspaces."""
+        from sqlalchemy import bindparam, text
+        authorized = self._authorized_scope(identity_id, organization_id,
+                                            "count_by_type")
+        stmt = text("""
                 SELECT object_type, COUNT(*) as cnt FROM sh_objects
                 WHERE organization_id = :org_id
+                AND workspace_id IN :ws_ids
                 GROUP BY object_type
-            """),
-            {"org_id": organization_id},
+            """).bindparams(bindparam("ws_ids", expanding=True))
+        rows = self.db.session.execute(
+            stmt,
+            {"org_id": organization_id, "ws_ids": list(authorized)},
         ).all()
         return {r[0]: r[1] for r in rows}
 

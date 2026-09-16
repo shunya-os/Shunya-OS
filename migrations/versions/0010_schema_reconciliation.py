@@ -16,6 +16,8 @@ depends_on = None
 
 def upgrade():
     """Create all model tables with IF NOT EXISTS (idempotent)."""
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # FK constraints handled by model definitions / db.create_all()
     # This migration creates tables only; FK constraints are added
     # by the model-level metadata when the application first starts.
@@ -27,9 +29,19 @@ CREATE TABLE IF NOT EXISTS act_execution_logs (
 	timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
 	event_type VARCHAR(50) NOT NULL, 
 	payload JSON, 
+	tenant_id INTEGER, 
 	PRIMARY KEY (id)
 )
 
+''')
+
+    # 0008_tenant_isolation declares the isolation artifacts for this table
+    # (column tenant_id and index ix_exec_tenant). This revision is what
+    # materialises the table on a database that does not already carry the
+    # legacy copy, so it declares them here as well. Idempotent: on the
+    # historical database, where 0008 already applied, this is a no-op.
+    op.execute('''
+CREATE INDEX IF NOT EXISTS ix_exec_tenant ON act_execution_logs (tenant_id)
 ''')
 
     op.execute('''
@@ -2897,4 +2909,6 @@ def downgrade():
     """No-op: we cannot safely drop tables here.
     Individual migrations handle downgrade for their tables.
     """
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     pass

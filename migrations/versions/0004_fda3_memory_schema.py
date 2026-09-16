@@ -23,6 +23,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
     is_sqlite = conn.dialect.name == "sqlite"
 
@@ -125,6 +127,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # memory_provenances
     op.drop_constraint("uq_mp_source_idempotency", "memory_provenances",
                        type_="unique")

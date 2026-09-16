@@ -15,6 +15,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # ── Add tenant context columns ────────────────────────────────
     op.add_column(
         "m6_media_assets",
@@ -44,6 +46,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_index("ix_m6_media_assets_sh_object", table_name="m6_media_assets")
     op.drop_index("ix_m6_media_assets_org_identity", table_name="m6_media_assets")
     op.drop_column("m6_media_assets", "sh_object_id")

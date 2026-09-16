@@ -16,6 +16,8 @@ down_revision = "f5429b50dbc6"
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
     inspector = sa.inspect(conn)
     cols = [c["name"] for c in inspector.get_columns("memory_records")]
@@ -23,10 +25,16 @@ def upgrade():
         op.add_column("memory_records", sa.Column("confidence", sa.Float(), server_default="1.0"))
     if "owner_identity_id" not in cols:
         op.add_column("memory_records", sa.Column("owner_identity_id", sa.String(64)))
-        op.create_index("ix_mr_owner_identity", "memory_records", ["owner_identity_id"])
+    # The declared index is ensured independently of the column add: on a
+    # database whose model baseline already carries owner_identity_id, the
+    # add-branch above is skipped and the index would otherwise never be
+    # created. Guarded, so this is a no-op where the index already exists.
+    op.create_index("ix_mr_owner_identity", "memory_records", ["owner_identity_id"])
     if "source" not in cols:
         op.add_column("memory_records", sa.Column("source", sa.String(255)))
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     pass  # additive only — no destructive downgrade

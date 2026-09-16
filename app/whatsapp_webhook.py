@@ -85,7 +85,9 @@ def handle_whatsapp_incoming(payload: dict) -> tuple:
         from core.ingestion.service import get_ingestion_service
 
         from app.authz.decorators import _resolve_org_id
-        resolved_tenant = _resolve_org_id() or 0
+        # System ingress: if the webhook has no resolvable canonical tenant it
+        # carries no tenant, rather than being attributed to organization 0.
+        resolved_tenant = _resolve_org_id()
         record = IngestionRecord(
             idempotency_key=f"whatsapp:{msg_id}" if msg_id else "",
             tenant_id=resolved_tenant,

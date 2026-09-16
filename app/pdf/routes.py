@@ -31,6 +31,54 @@ def _get_identity_id() -> str | None:
     return request.headers.get("X-Identity-Id") or request.headers.get("X-User-Id")
 
 
+def _caller_identity() -> str | None:
+    """The authenticated caller: browser session first, then bearer/header.
+
+    The session cookie is the canonical source for browser requests; the header
+    is retained for API clients. Both are only ever used to LOOK UP the caller —
+    authorization is decided by the canonical resolver below, never by the value
+    itself.
+    """
+    from flask import g, session
+    return (
+        session.get("identity_id")
+        or session.get("user_id")
+        or getattr(g, "identity_id", None)
+        or request.headers.get("X-Identity-Id")
+        or request.headers.get("X-User-Id")
+    )
+
+
+def _authorized_object_or_none(**criteria):
+    """Fetch one typed object, but only if the caller is canonically authorized.
+
+    R6B-2.7 Window 6: `generate_proposal_pdf` / `generate_invoice_pdf` had NO
+    permission decorator and performed an unscoped
+    ``ShunyaObject.query.filter_by(id=..., object_type=...)``, so any
+    authenticated identity could render ANY tenant's proposal or invoice as a
+    PDF by guessing an integer primary key.
+
+    Authorization is decided against the row's PERSISTED ``organization_id`` +
+    ``workspace_id`` through the canonical resolver. A denial returns ``None``,
+    which the caller surfaces as 404 so object existence is not disclosed.
+    """
+    row = ShunyaObject.query.filter_by(is_deleted=False, **criteria).first()
+    if row is None:
+        return None
+    identity = _caller_identity()
+    if not identity or not row.organization_id:
+        return None
+    from app.authz.workspace_context import (
+        OwnershipContextError,
+        assert_object_access,
+    )
+    try:
+        assert_object_access(identity, row.organization_id, row.workspace_id)
+    except OwnershipContextError:
+        return None
+    return row
+
+
 def _build_proposal_html(proposal: ShunyaObject) -> str:
     """Build a beautifully branded HTML proposal document."""
     data = proposal.data or {}
@@ -398,11 +446,10 @@ def generate_pdf():
 @pdf_bp.route("/proposal/<int:proposal_id>", methods=["GET"])
 def generate_proposal_pdf(proposal_id: int):
     """Look up a proposal by ID, build branded HTML, return as PDF."""
-    proposal = ShunyaObject.query.filter_by(
+    proposal = _authorized_object_or_none(
         id=proposal_id,
         object_type="proposal",
-        is_deleted=False,
-    ).first()
+    )
 
     if not proposal:
         return jsonify({"success": False, "error": "Proposal not found"}), 404
@@ -431,11 +478,10 @@ def generate_proposal_pdf(proposal_id: int):
 @pdf_bp.route("/invoice/<int:invoice_id>", methods=["GET"])
 def generate_invoice_pdf(invoice_id: int):
     """Look up an invoice by ID, build branded HTML, return as PDF."""
-    invoice = ShunyaObject.query.filter_by(
+    invoice = _authorized_object_or_none(
         id=invoice_id,
         object_type="invoice",
-        is_deleted=False,
-    ).first()
+    )
 
     if not invoice:
         return jsonify({"success": False, "error": "Invoice not found"}), 404

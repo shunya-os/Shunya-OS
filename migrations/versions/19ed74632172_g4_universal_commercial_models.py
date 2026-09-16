@@ -22,6 +22,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Create G4 commercial tables only."""
+    from migrations.guarded import guarded_op
+    op = guarded_op()
 
     # ── g4_opportunities ────────────────────────────────────────────
     op.create_table(
@@ -193,6 +195,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Remove G4 tables."""
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_table('g4_transitions')
     op.drop_table('g4_proposals')
     op.drop_table('g4_contexts')

@@ -15,11 +15,44 @@ def _is_sqlite() -> bool:
 
 
 def _setup_auth(app, client, identity_id="user_1", org_id=None):
-    """Seed RBAC context and set session for FDA11 tests."""
-    from tests.auth_helper import seed_rbac
+    """Seed RBAC context and set session for FDA11 tests.
+
+    R6B-2.7: when an explicit ``org_id`` is supplied, the CANONICAL tenancy for
+    that organization is provisioned as well — ``Organization`` + an ACTIVE
+    ``OrgMember`` (role ``owner``, which holds every permission) + an authorized
+    workspace/membership. Authorization resolves an organization only from the
+    identity's active membership, so a fixture that selects an organization
+    without a membership is correctly denied (400). The intent of these tests is
+    "an organization with no DATA", never "an identity with no membership", so
+    provisioning the membership preserves the intent; no assertion is relaxed.
+    """
+    from tests.auth_helper import seed_rbac, seed_canonical_tenancy
     from app import db
     if org_id is None:
         org_id = seed_rbac(db, identity_id=identity_id)
+    else:
+        from app.models import Organization, OrgMember
+        if db.session.get(Organization, org_id) is None:
+            db.session.add(Organization(
+                id=org_id, name=f"FDA11 Org {org_id}",
+                slug=f"fda11-org-{org_id}", is_active=True,
+            ))
+            db.session.flush()
+        member = OrgMember.query.filter_by(
+            organization_id=org_id, identity_id=identity_id).first()
+        if member is None:
+            db.session.add(OrgMember(
+                organization_id=org_id, identity_id=identity_id,
+                role="owner", is_active=True,
+            ))
+            db.session.flush()
+        elif not member.is_active:
+            member.is_active = True
+            db.session.flush()
+        db.session.commit()
+        # Canonical workspace + identity→workspace membership. Reuses the
+        # OrgMember created above, so its `owner` role is preserved.
+        seed_canonical_tenancy(db, org_id, identity_id)
     with client.session_transaction() as sess:
         sess["user_id"] = 1
         sess["identity_id"] = identity_id

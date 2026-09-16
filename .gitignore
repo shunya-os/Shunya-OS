@@ -125,3 +125,6 @@ credentials/
 /data/
 .hermes/scratch/
 .herenow/
+
+# Session-internal recovery checkpoints (not governance artifacts)
+R6B27_WINDOW6_SESSION_RECOVERY_CHECKPOINT.md

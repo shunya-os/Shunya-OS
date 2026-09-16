@@ -21,6 +21,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # 1. Add tenant_id to objects
     op.add_column("objects", sa.Column("tenant_id", sa.Integer(), nullable=True))
     op.create_index("ix_objects_tenant", "objects", ["tenant_id"])
@@ -39,6 +41,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     for table in ["act_execution_logs", "evidence_records", "commitments", "objects"]:
         try:
             op.drop_column(table, "tenant_id")

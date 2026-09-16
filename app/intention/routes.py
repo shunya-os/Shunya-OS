@@ -57,19 +57,24 @@ def _collect_signals():
             "detail": f"₹{overdue_amount:,.0f} total overdue" if overdue_amount else "",
         })
 
-    # 2. Pending proposals (from canonical sh_objects)
-    rows = db.session.execute(
-        text("SELECT COUNT(*) FROM sh_objects WHERE object_type = 'Proposal' AND status = 'draft' AND is_deleted = false")
-    ).fetchone()
-    draft_proposals = rows[0] if rows else 0
-    if draft_proposals > 0:
-        prop = db.session.execute(
-            text("SELECT name FROM sh_objects WHERE object_type = 'Proposal' AND status = 'draft' AND is_deleted = false ORDER BY updated_at DESC LIMIT 1")
+    # Canonical organization scope — resolved from the authenticated identity.
+    # 0 means "no ownership context": tenant-scoped signals are withheld
+    # (fail closed) rather than read across all tenants.
+    org_id = _intention_org_id()
+
+    # 2. Pending proposals (canonical sh_objects, scoped to the caller's org)
+    draft_proposals = 0
+    prop_name = None
+    if org_id:
+        rows = db.session.execute(
+            text("SELECT COUNT(*) FROM sh_objects WHERE object_type = 'Proposal' AND status = 'draft' AND is_deleted = false AND organization_id = :org_id"),
+            {"org_id": org_id},
         ).fetchone()
         draft_proposals = rows[0] if rows else 0
         if draft_proposals > 0:
             prop = db.session.execute(
-                text("SELECT name FROM founder_objects WHERE object_type = 'Proposal' AND status = 'draft' ORDER BY created_at DESC LIMIT 1")
+                text("SELECT name FROM sh_objects WHERE object_type = 'Proposal' AND status = 'draft' AND is_deleted = false AND organization_id = :org_id ORDER BY updated_at DESC LIMIT 1"),
+                {"org_id": org_id},
             ).fetchone()
             prop_name = prop[0] if prop else None
     if draft_proposals > 0:
@@ -83,23 +88,20 @@ def _collect_signals():
             "detail": "Awaiting completion",
         })
 
-    # 3. Recent activity (last 24h)
+    # 3. Recent activity (last 24h) — canonical sh_objects, scoped to the org
     since = datetime.now(timezone.utc) - timedelta(hours=24)
-    rows = db.session.execute(
-        text("SELECT COUNT(*) FROM sh_objects WHERE created_at >= :since AND is_deleted = false"),
-        {"since": since},
-    ).fetchone()
-    recent_count = rows[0] if rows else 0
-    if recent_count > 0:
-        recent = db.session.execute(
-            text("SELECT name, object_type FROM sh_objects WHERE created_at >= :since AND is_deleted = false ORDER BY updated_at DESC LIMIT 1"),
-            {"since": since},
+    recent_count = 0
+    recent = None
+    if org_id:
+        rows = db.session.execute(
+            text("SELECT COUNT(*) FROM sh_objects WHERE created_at >= :since AND is_deleted = false AND organization_id = :org_id"),
+            {"since": since, "org_id": org_id},
         ).fetchone()
         recent_count = rows[0] if rows else 0
         if recent_count > 0:
             recent = db.session.execute(
-                text("SELECT name, object_type FROM founder_objects WHERE created_at >= :since ORDER BY created_at DESC LIMIT 1"),
-                {"since": since},
+                text("SELECT name, object_type FROM sh_objects WHERE created_at >= :since AND is_deleted = false AND organization_id = :org_id ORDER BY updated_at DESC LIMIT 1"),
+                {"since": since, "org_id": org_id},
             ).fetchone()
     if recent_count > 0:
         signals.append({
@@ -126,10 +128,13 @@ def _collect_signals():
             "detail": "Running in background",
         })
 
-    # 5. Most recent object
-    recent_obj = db.session.execute(
-        text("SELECT name, object_type FROM sh_objects WHERE object_type != 'Proposal' AND is_deleted = false ORDER BY updated_at DESC LIMIT 1")
-    ).fetchone()
+    # 5. Most recent object (canonical sh_objects, scoped to the caller's org)
+    recent_obj = None
+    if org_id:
+        recent_obj = db.session.execute(
+            text("SELECT name, object_type FROM sh_objects WHERE object_type != 'Proposal' AND is_deleted = false AND organization_id = :org_id ORDER BY updated_at DESC LIMIT 1"),
+            {"org_id": org_id},
+        ).fetchone()
     if recent_obj:
         signals.append({
             "type": "recent_object",
@@ -146,20 +151,32 @@ def _collect_signals():
     return signals
 
 
-def _intention_org_id() -> int:
-    """Resolve the current org id for scoped canonical reads (0 if unknown)."""
+def _intention_org_id():
+    """Resolve the current canonical org id for scoped reads, or None.
+
+    None means "no ownership context": callers must withhold tenant-scoped
+    signals (fail closed) rather than read across all tenants. Never returns a
+    synthetic id.
+    """
     try:
         from app.authz.decorators import _resolve_org_id
-        return int(_resolve_org_id() or 0)
+        org_id = _resolve_org_id()
+        return int(org_id) if org_id else None
     except Exception:
-        return 0
+        return None
 
 
-def _recent_canonical_objects(org_id: int, exclude_proposals: bool = False) -> list:
+def _recent_canonical_objects(org_id: int, identity_id: str,
+                              exclude_proposals: bool = False) -> list:
     """Recent active objects from sh_objects (timezone-aware), empty if none.
 
     Canonical read used first by _collect_signals; callers fall back to the
     legacy founder_objects raw SQL when this returns nothing (compat boundary).
+
+    ``identity_id`` is REQUIRED: the read is authorized against the caller's
+    canonical workspace memberships, so an identity-less call cannot read
+    tenant data. (This helper currently has no callers; the parameter is kept
+    mandatory so an unauthorized read cannot be reintroduced by accident.)
     """
     from datetime import datetime as _dt
     from core.object_service import get_object_service
@@ -169,7 +186,9 @@ def _recent_canonical_objects(org_id: int, exclude_proposals: bool = False) -> l
     results = []
     for obj_type in ("Document", "Note", "Proposal", "Lead", "Invoice", "Contract", "Task"):
         try:
-            rows = get_object_service().get_by_type(obj_type, org_id, limit=20)
+            rows = get_object_service().get_by_type(obj_type, org_id,
+                                                    identity_id=identity_id,
+                                                    limit=20)
         except Exception:
             rows = []
         for r in rows:

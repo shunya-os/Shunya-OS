@@ -87,6 +87,57 @@ class ShunyaObject(db.Model):
         }
 
 
+class ShWorkspaceMembership(db.Model):
+    """Canonical authorization: an identity is a member of a canonical workspace.
+
+    This is the ONLY authorization relationship for canonical objects. The chain
+    it completes is:
+
+        identity → organization (org_members)
+                 → sh_workspace (this table)
+                 → sh_objects
+
+    ``organization_id`` is deliberately NOT stored here. Organization is derived
+    through ``sh_workspaces.organization_id``, so a membership row can never
+    contradict the workspace's own ownership. The three conditions of the
+    authorization predicate are therefore independently verifiable:
+
+        identity is an active member of organization Y
+        AND this row (workspace_id=Z, identity_id=X) exists and is_active
+        AND sh_workspaces(id=Z).organization_id = Y and is active
+
+    Distinct from ``app.workspace.models.WorkspaceMembership``
+    (``user_workspace_memberships``), which authorizes the legacy
+    ``user_workspaces`` model and has no relationship to ``sh_objects``.
+    """
+    __tablename__ = 'sh_workspace_memberships'
+    __table_args__ = (
+        db.UniqueConstraint('workspace_id', 'identity_id',
+                            name='uq_sh_workspace_member'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    workspace_id = db.Column(
+        db.String(20), db.ForeignKey('sh_workspaces.id', ondelete='CASCADE'),
+        nullable=False, index=True,
+    )
+    identity_id = db.Column(db.String(64), nullable=False, index=True)
+    role = db.Column(db.String(30), nullable=False, default='member')
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
+                           onupdate=datetime.utcnow, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id, 'workspace_id': self.workspace_id,
+            'identity_id': self.identity_id, 'role': self.role,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 OBJECT_TYPES = {
     'customer': {
         'name': 'Customer',

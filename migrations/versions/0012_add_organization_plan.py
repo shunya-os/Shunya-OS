@@ -18,6 +18,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
     inspector = sa.inspect(conn)
     columns = [c["name"] for c in inspector.get_columns("organizations")]
@@ -31,6 +33,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
     inspector = sa.inspect(conn)
     columns = [c["name"] for c in inspector.get_columns("organizations")]

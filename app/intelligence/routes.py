@@ -281,10 +281,28 @@ def api_ask():
     # Includes: organization profile, objects, documents, commitments,
     # memory, financial data — so the AI answers with real context.
 
-    # 1) Organization profile (name, type, brand, contact)
+    # Canonical organization context — resolved from the authenticated
+    # identity/org membership. Never "the first organization in the table":
+    # an arbitrary organization must not become the caller's context.
+    # Fail closed: no canonical org context → no org-scoped company evidence
+    # is assembled, and execution stays denied (no synthetic ownership).
+    canonical_org_id = None
+    try:
+        from app.authz.decorators import _resolve_org_id as _canonical_org
+        canonical_org_id = _canonical_org()
+    except Exception as exc:
+        logger.warning("Failed to resolve canonical organization context: %s", exc)
+    if not canonical_org_id:
+        logger.info(
+            "INTELLIGENCE ORG CONTEXT ABSENT: identity=%s tenant=%s — "
+            "org-scoped company evidence withheld (fail closed)",
+            tenant.get("identity_id"), tenant.get("tenant_id"),
+        )
+
+    # 1) Organization profile (name, type, brand, contact) — caller's own org only
     try:
         from app.models import Organization
-        org = _db.session.query(Organization).first()
+        org = _db.session.get(Organization, int(canonical_org_id)) if canonical_org_id else None
         if org:
             org_fields = []
             if org.name:
@@ -317,10 +335,14 @@ def api_ask():
         logger.warning("Failed to query organization: %s", exc)
 
     # 2) Canonical objects — detailed list with names, types, content (via ObjectService)
+    # Scoped to the caller's canonical organization (no organization_id=0 synthetic
+    # scope: an unscoped/zeroed object read is not tenant truth).
     try:
         from core.object_service import get_object_service
         svc = get_object_service()
-        objects = svc.search(query="", organization_id=0, limit=20)
+        objects = svc.search(query="", organization_id=int(canonical_org_id),
+                             identity_id=tenant["identity_id"], limit=20) \
+            if canonical_org_id else []
         if objects:
             obj_details = []
             for obj in objects:

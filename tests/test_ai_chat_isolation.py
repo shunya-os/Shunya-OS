@@ -8,7 +8,7 @@ def chat_scope(app, client, monkeypatch):
     from app.auth import TeamMember
     from app.models import Organization, OrgMember
     from app.authz.services import seed_default_roles
-    from app.objects.legacy_models import Workspace, ShunyaObject
+    from app.objects.legacy_models import Workspace, ShunyaObject, ShWorkspaceMembership
     from app.founder.models import FounderConversation
     member = TeamMember(name='Chat owner', email='chat-owner@test.invalid', role='admin', is_active=True)
     member.set_password('isolated-test-password')
@@ -22,6 +22,13 @@ def chat_scope(app, client, monkeypatch):
     ws = Workspace(id='ws_chat_test', name='Chat', workspace_type='business',
                    organization_id=org.id, created_by='sid_chat_owner')
     db.session.add(ws)
+    db.session.flush()
+    # Canonical identity → workspace authorization (R6B-2.7). Without this
+    # membership row the identity is correctly DENIED, so the fixture must
+    # grant exactly the one workspace this test exercises.
+    db.session.add(ShWorkspaceMembership(workspace_id=ws.id,
+                                         identity_id='sid_chat_owner',
+                                         role='owner', is_active=True))
     db.session.flush()
     obj = ShunyaObject(object_id='obj_other_chat', workspace_id=ws.id,
                        organization_id=org.id, object_type='conversation',

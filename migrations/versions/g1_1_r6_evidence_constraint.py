@@ -17,10 +17,14 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_constraint("uq_evidence_source", "evidence_records", type_="unique")
     op.create_index("ix_evidence_source_type_id", "evidence_records", ["source_type", "source_id"])
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_index("ix_evidence_source_type_id", table_name="evidence_records")
     op.create_unique_constraint("uq_evidence_source", "evidence_records", ["source_type", "source_id"])

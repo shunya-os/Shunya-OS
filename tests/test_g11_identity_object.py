@@ -99,7 +99,25 @@ def _ensure_org_and_user(app, email: str, org_id: int, org_name: str = "Test Org
                     db.session.add(assign)
                     db.session.commit()
 
+        # Provision the organization's canonical workspace (sh_workspaces).
+        # Objects carry a workspace as part of their canonical identity, so a
+        # tenant fixture must supply a real one; the service fails closed
+        # without it rather than defaulting into a business workspace.
+        from tests.auth_helper import ensure_org_workspace
+        ensure_org_workspace(db, org_id, email)
+        db.session.commit()
+
         return tm_id, org_id
+
+
+def _org_workspace_id(org_id: int) -> str:
+    """Return the organization's canonical workspace id (sh_workspaces)."""
+    from app.objects.legacy_models import Workspace
+    ws = Workspace.query.filter_by(
+        organization_id=org_id, status="active"
+    ).order_by(Workspace.id).first()
+    assert ws is not None, f"org {org_id} has no canonical workspace fixture"
+    return ws.id
 
 
 # Test user constants — created at module setup
@@ -169,7 +187,7 @@ class TestObjectConvergence:
             obj = svc.create(
                 object_type="test",
                 name="Convergence Test Object",
-                organization_id=ADMIN_ORG,
+                organization_id=ADMIN_ORG, workspace_id=_org_workspace_id(ADMIN_ORG), identity_id=TEST_ADMIN,
                 data={"key": "value"},
             )
             assert obj["id"] > 0
@@ -181,8 +199,8 @@ class TestObjectConvergence:
         with app.app_context():
             from core.object_service import get_object_service
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Get Test", organization_id=ADMIN_ORG)
-            retrieved = svc.get(obj["id"])
+            obj = svc.create(object_type="test", name="Get Test", organization_id=ADMIN_ORG, workspace_id=_org_workspace_id(ADMIN_ORG), identity_id=TEST_ADMIN)
+            retrieved = svc.get(obj["id"], organization_id=ADMIN_ORG, identity_id=TEST_ADMIN)
             assert retrieved is not None
             assert retrieved["name"] == "Get Test"
 
@@ -190,52 +208,55 @@ class TestObjectConvergence:
         with app.app_context():
             from core.object_service import get_object_service
             svc = get_object_service()
-            obj_a = svc.create(object_type="test", name="Tenant A Object", organization_id=ADMIN_ORG)
-            obj_b = svc.create(object_type="test", name="Tenant B Object", organization_id=FOUNDER_ORG)
+            obj_a = svc.create(object_type="test", name="Tenant A Object", organization_id=ADMIN_ORG, workspace_id=_org_workspace_id(ADMIN_ORG), identity_id=TEST_ADMIN)
+            obj_b = svc.create(object_type="test", name="Tenant B Object", organization_id=FOUNDER_ORG, workspace_id=_org_workspace_id(FOUNDER_ORG), identity_id=TEST_FOUNDER)
 
             # Search in ADMIN_ORG should NOT find FOUNDER_ORG's object
-            results = svc.search("Tenant", organization_id=ADMIN_ORG)
+            results = svc.search("Tenant", organization_id=ADMIN_ORG,
+                                 identity_id=TEST_ADMIN)
             matches = [r for r in results if r["id"] == obj_b["id"]]
             assert len(matches) == 0, "ADMIN_ORG should not see FOUNDER_ORG's object"
 
             # Founder should find its own
-            results_b = svc.search("Tenant B", organization_id=FOUNDER_ORG)
+            results_b = svc.search("Tenant B", organization_id=FOUNDER_ORG,
+                                   identity_id=TEST_FOUNDER)
             assert len(results_b) > 0
 
     def test_update_object(self, app):
+        _ensure_org_and_user(app, TEST_ADMIN, ADMIN_ORG, "Admin Org")
         with app.app_context():
             from core.object_service import get_object_service
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Update Test", organization_id=ADMIN_ORG)
-            ok = svc.update(obj["id"], ADMIN_ORG, name="Updated Name")
+            obj = svc.create(object_type="test", name="Update Test", organization_id=ADMIN_ORG, workspace_id=_org_workspace_id(ADMIN_ORG), identity_id=TEST_ADMIN)
+            ok = svc.update(obj["id"], ADMIN_ORG, name="Updated Name", identity_id=TEST_ADMIN)
             assert ok, "Update should succeed"
-            retrieved = svc.get(obj["id"])
+            retrieved = svc.get(obj["id"], organization_id=ADMIN_ORG, identity_id=TEST_ADMIN)
             assert retrieved["name"] == "Updated Name"
 
     def test_update_cross_tenant_denied(self, app):
         with app.app_context():
             from core.object_service import get_object_service
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Cross Tenant Test", organization_id=ADMIN_ORG)
-            ok = svc.update(obj["id"], organization_id=99999, name="Should Not Work")
+            obj = svc.create(object_type="test", name="Cross Tenant Test", organization_id=ADMIN_ORG, workspace_id=_org_workspace_id(ADMIN_ORG), identity_id=TEST_ADMIN)
+            ok = svc.update(obj["id"], organization_id=99999, name="Should Not Work", identity_id=TEST_ADMIN)
             assert not ok, "Cross-tenant update must be denied"
 
     def test_delete_object(self, app):
         with app.app_context():
             from core.object_service import get_object_service
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Delete Test", organization_id=ADMIN_ORG)
-            ok = svc.delete(obj["id"], organization_id=ADMIN_ORG)
+            obj = svc.create(object_type="test", name="Delete Test", organization_id=ADMIN_ORG, workspace_id=_org_workspace_id(ADMIN_ORG), identity_id=TEST_ADMIN)
+            ok = svc.delete(obj["id"], organization_id=ADMIN_ORG, identity_id=TEST_ADMIN)
             assert ok, "Delete should succeed"
-            retrieved = svc.get(obj["id"])
+            retrieved = svc.get(obj["id"], organization_id=ADMIN_ORG, identity_id=TEST_ADMIN)
             assert retrieved["status"] == "archived"
 
     def test_delete_cross_tenant_denied(self, app):
         with app.app_context():
             from core.object_service import get_object_service
             svc = get_object_service()
-            obj = svc.create(object_type="test", name="Cross Delete Test", organization_id=ADMIN_ORG)
-            ok = svc.delete(obj["id"], organization_id=99999)
+            obj = svc.create(object_type="test", name="Cross Delete Test", organization_id=ADMIN_ORG, workspace_id=_org_workspace_id(ADMIN_ORG), identity_id=TEST_ADMIN)
+            ok = svc.delete(obj["id"], organization_id=99999, identity_id=TEST_ADMIN)
             assert not ok, "Cross-tenant delete must be denied"
 
     def test_search_objects(self, app):
@@ -243,14 +264,16 @@ class TestObjectConvergence:
         with app.app_context():
             from core.object_service import get_object_service
             svc = get_object_service()
-            svc.create(object_type="lead", name="Acme Corp Lead", organization_id=ADMIN_ORG)
-            svc.create(object_type="lead", name="Beta Corp Lead", organization_id=ADMIN_ORG)
-            svc.create(object_type="customer", name="Acme Corp Customer", organization_id=ADMIN_ORG)
+            svc.create(object_type="lead", name="Acme Corp Lead", organization_id=ADMIN_ORG, workspace_id=_org_workspace_id(ADMIN_ORG), identity_id=TEST_ADMIN)
+            svc.create(object_type="lead", name="Beta Corp Lead", organization_id=ADMIN_ORG, workspace_id=_org_workspace_id(ADMIN_ORG), identity_id=TEST_ADMIN)
+            svc.create(object_type="customer", name="Acme Corp Customer", organization_id=ADMIN_ORG, workspace_id=_org_workspace_id(ADMIN_ORG), identity_id=TEST_ADMIN)
 
-            leads = svc.search("Acme", organization_id=ADMIN_ORG)
+            leads = svc.search("Acme", organization_id=ADMIN_ORG,
+                               identity_id=TEST_ADMIN)
             assert len(leads) >= 2, f"Should find Acme objects: {len(leads)}"
 
-            by_type = svc.get_by_type("lead", organization_id=ADMIN_ORG)
+            by_type = svc.get_by_type("lead", organization_id=ADMIN_ORG,
+                                      identity_id=TEST_ADMIN)
             assert len(by_type) >= 2
 
 
@@ -263,14 +286,15 @@ class TestIdentityObjectSecurity:
             from core.object_service import get_object_service
             svc = get_object_service()
 
-            obj = svc.create(object_type="test", name="Security Test", organization_id=FOUNDER_ORG)
+            obj = svc.create(object_type="test", name="Security Test", organization_id=FOUNDER_ORG, workspace_id=_org_workspace_id(FOUNDER_ORG), identity_id=TEST_FOUNDER)
 
             # Direct read works (service-level read doesn't filter by org)
-            retrieved = svc.get(obj["id"])
+            retrieved = svc.get(obj["id"], organization_id=FOUNDER_ORG, identity_id=TEST_FOUNDER)
             assert retrieved is not None, "Object should exist"
 
             # Search from different tenant shouldn't find it by name
-            results = svc.search("Security Test", organization_id=ADMIN_ORG)
+            results = svc.search("Security Test", organization_id=ADMIN_ORG,
+                                 identity_id=TEST_ADMIN)
             matches = [r for r in results if r["name"] == "Security Test"]
             assert len(matches) == 0, "ADMIN_ORG must not find FOUNDER_ORG's objects"
 
@@ -397,7 +421,7 @@ class TestE2EJourney:
         from core.object_service import get_object_service
         with app.app_context():
             svc = get_object_service()
-            obj = svc.get(obj_id)
+            obj = svc.get(obj_id, organization_id=test_org, identity_id=test_email)
             assert obj is not None, "Object must exist in DB"
             assert obj["name"] == "E2E Journey Object"
             assert obj["organization_id"] == test_org
@@ -406,18 +430,24 @@ class TestE2EJourney:
 
         # SEARCH: verify object is findable in correct org
         with app.app_context():
-            results = svc.search("E2E Journey", organization_id=test_org)
+            results = svc.search("E2E Journey", organization_id=test_org,
+                                 identity_id=test_email)
             assert any(r["id"] == obj_id for r in results), "Object must be searchable in its org"
 
-            # Cross-org search must NOT find it
-            other_results = svc.search("E2E Journey", organization_id=9999)
-            assert not any(r["id"] == obj_id for r in other_results), "Other org must NOT find it"
+            # Cross-org search must NOT find it — the identity has no workspace
+            # membership in org 9999, so the read is DENIED, not merely empty.
+            from app.authz.workspace_context import OwnershipContextError
+            with pytest.raises(OwnershipContextError):
+                svc.search("E2E Journey", organization_id=9999,
+                           identity_id=test_email)
 
-        # UPDATE: through canonical service
+        # UPDATE: through canonical service — the identity that created the
+        # object (this journey's own authenticated user) is the authorizing one;
+        # an identity from an unrelated org must NOT be substituted here.
         with app.app_context():
-            ok = svc.update(obj_id, test_org, name="E2E Updated")
+            ok = svc.update(obj_id, test_org, name="E2E Updated", identity_id=test_email)
             assert ok, "Update must succeed"
-            updated = svc.get(obj_id)
+            updated = svc.get(obj_id, organization_id=test_org, identity_id=test_email)
             assert updated["name"] == "E2E Updated"
             assert updated["organization_id"] == test_org
 

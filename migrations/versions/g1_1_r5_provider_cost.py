@@ -17,6 +17,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.add_column("execution_runs", sa.Column("provider_used", sa.String(80), nullable=True))
     op.add_column("execution_runs", sa.Column("model_used", sa.String(120), nullable=True))
     op.add_column("execution_runs", sa.Column("est_cost_currency", sa.String(8), nullable=True))
@@ -25,5 +27,7 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     for col in ("provider_used", "model_used", "est_cost_currency", "est_cost_amount", "cost_is_estimate"):
         op.drop_column("execution_runs", col)

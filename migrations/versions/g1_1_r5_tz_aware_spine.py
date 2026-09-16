@@ -20,6 +20,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # execution_runs — timing columns
     for col in ("started_at", "completed_at", "created_at", "updated_at"):
         op.alter_column(
@@ -46,6 +48,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     for col in ("started_at", "completed_at", "created_at", "updated_at"):
         op.alter_column(
             "execution_runs", col,

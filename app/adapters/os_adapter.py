@@ -153,33 +153,34 @@ def get_pipeline_trace(intent_id: str) -> dict[str, Any] | None:
 
 
 def _canonical_all_objects(identity_id: str) -> list | None:
-    """Read all active objects canonical-first (scoped to identity's org),
+    """Read all active objects canonical-first (scoped to the identity's org),
     return None to trigger legacy FounderObject fallback.
 
-    Compatibility boundary (R6B-2 classification C). Resolves the user's
-    organization from OrgMember, then queries sh_objects across org spaces
-    via ObjectService.list_by_workspace. Returns None when canonical data
-    is unavailable so callers can fall back to the global FounderObject query.
+    Compatibility boundary (R6B-2 classification C). Resolves the caller's
+    canonical organization from OrgMember, then reads sh_objects across that
+    organization's canonical workspaces (sh_workspaces, the authoritative
+    workspace table). Returns None when no canonical context exists so the
+    caller can apply its own fallback; it never invents an organization.
     """
     try:
         from core.object_service import get_object_service
-        svc = get_object_service()
-        org_id = 0
-        try:
-            from app.models import OrgMember
-            member = OrgMember.query.filter_by(identity_id=identity_id, is_active=True).first()
-            if member:
-                org_id = member.organization_id
-        except Exception:
-            pass
-        if not org_id or org_id < 1:
+        from app.models import OrgMember
+        member = OrgMember.query.filter_by(
+            identity_id=identity_id, is_active=True
+        ).first()
+        if not member or not member.organization_id:
             return None
-        from app.founder.models import FounderSpace
+        org_id = member.organization_id
+        from app.objects.legacy_models import Workspace
+        svc = get_object_service()
         results = []
-        for sp in FounderSpace.query.filter_by(organization_id=org_id, status="active").all():
+        for ws in Workspace.query.filter_by(
+            organization_id=org_id, status="active"
+        ).all():
             try:
                 rows = svc.list_by_workspace(
-                    workspace_id=sp.space_id, organization_id=org_id,
+                    workspace_id=ws.id, organization_id=org_id,
+                    identity_id=identity_id,
                     status="active", limit=500,
                 )
                 results.extend(rows)
@@ -220,14 +221,30 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
         except Exception:
             runtime_summary[name] = {"status": "error"}
 
+    # ── Canonical organization context ───────────────────────────
+    # Absent canonical context means the executive home surfaces no tenant
+    # data. It never falls back to an unscoped (organization_id=0) scan, which
+    # would cross tenant boundaries.
+    org_id = None
+    try:
+        from app.models import OrgMember
+        member = OrgMember.query.filter_by(
+            identity_id=identity_id, is_active=True
+        ).first()
+        if member:
+            org_id = member.organization_id
+    except Exception:
+        org_id = None
+
     # ── Recent Activity Timeline ─────────────────────────────────
     recent_activity = []
     try:
         from core.object_service import get_object_service
         svc = get_object_service()
 
-        # Query recent canonical objects as activity events (org_id=0 covers all)
-        objects = svc.search(query="", organization_id=0, limit=20)
+        # Recent canonical objects of the caller's own organization.
+        objects = svc.search(query="", organization_id=org_id,
+                             identity_id=identity_id, limit=20) if org_id else []
         for obj in objects:
             recent_activity.append({
                 "type": "object_updated",
@@ -239,10 +256,10 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
                 "actor": obj.get("created_by", "system"),
             })
 
-        # Query recent conversations
+        # Recent conversations belonging to the caller's own identity.
         from app.founder.models import FounderConversation
         convs = FounderConversation.query.filter_by(
-            status="active"
+            identity_id=identity_id, status="active"
         ).order_by(
             FounderConversation.updated_at.desc()
         ).limit(10).all()
@@ -273,7 +290,8 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
     try:
         from core.object_service import get_object_service
         svc = get_object_service()
-        objects = svc.search(query="", organization_id=0, limit=10)
+        objects = svc.search(query="", organization_id=org_id,
+                             identity_id=identity_id, limit=10) if org_id else []
 
         for obj in objects:
             active_commitments.append({
@@ -294,7 +312,8 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
     try:
         from core.object_service import get_object_service
         svc = get_object_service()
-        type_counts = svc.count_by_type(organization_id=0)
+        type_counts = svc.count_by_type(organization_id=org_id,
+                                                identity_id=identity_id) if org_id else {}
         object_summary["total"] = sum(type_counts.values())
         object_summary["by_type"] = type_counts
     except Exception:

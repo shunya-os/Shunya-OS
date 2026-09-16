@@ -1,0 +1,199 @@
+==================== \bor 0\b
+app/whatsapp_webhook.py:88:        resolved_tenant = _resolve_org_id() or 0
+app/whatsapp_webhook.py:121:        pax=(f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
+app/integration/service.py:454:            follower_count=follower_count or 0,
+app/intelligence/mixed_router.py:161:                ).scalar() or 0
+app/intelligence/mixed_router.py:164:                ).scalar() or 0
+app/intelligence/memory_store.py:63:            entry.sample_count = (entry.sample_count or 0) + 1
+app/routes.py:330:            budget=float(f.get("budget") or 0),
+app/routes.py:354:            "budget": str(lead.budget or 0),
+app/routes.py:660:            total_cost = plan.total_estimated_cost or 0
+app/routes.py:697:            amount=float(f.get("amount") or 0),
+app/routes.py:739:    amount = request.args.get("amount", type=float) or float(lead.budget or 0)
+app/routes.py:939:        total = float(f.get("total_amount") or 0)
+app/routes.py:940:        tax = float(f.get("tax") or 0)
+app/routes.py:941:        discount = float(f.get("discount") or 0)
+app/routes.py:948:            tax_rate=float(f.get("tax_rate") or 0),
+app/routes.py:1273:            f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
+app/memory_api/routes.py:46:        "confidence": getattr(r, "confidence", 0.9) or 0.9,
+app/tasks.py:84:            sort_order=(max_order or 0) + 1,
+app/tasks.py:175:        total = db.session.query(func.count(Task.id)).scalar() or 0
+app/tasks.py:179:            .scalar() or 0
+app/tasks.py:184:            .scalar() or 0
+app/tasks.py:189:            .scalar() or 0
+app/tasks.py:194:            .scalar() or 0
+app/tasks.py:203:            .scalar() or 0
+app/memory/__init__.py:296:                source_object_id=source_object_id or 0,
+app/models.py:108:            "budget": float(self.budget or 0),
+app/models.py:127:            or 0
+app/models.py:753:        or 0
+app/models.py:985:            "budget": float(self.budget or 0), "currency": self.currency,
+app/crm/service.py:249:    return lead.person_id or 0
+app/upload/routes.py:85:            resolved_tenant = _resolve_org_id() or 0
+app/prediction/engine.py:412:        sample_count = min(50, abs(hist or 0) // 3600) if hist else 0
+app/marketing_intelligence/service.py:30:    total_revenue = sum(float(p.budget or 0) for p in proposals if p.status == "accepted")
+app/marketing_intelligence/service.py:63:        "pipeline_value": sum(float(p.budget or 0) for p in Proposal.query.all()
+app/marketing_intelligence/service.py:65:        "won_value": sum(float(p.budget or 0) for p in Proposal.query.all()
+app/marketing_intelligence/service.py:132:    budget = float(campaign.budget or 0)
+app/marketing_intelligence/service.py:148:    total_budget = sum(float(c.budget or 0) for c in campaigns)
+app/search.py:57:        results["payments"] = [{"id": p.id, "amount": float(p.amount or 0),
+app/search.py:75:                                "amount": float(i.grand_total or 0), "status": i.status,
+app/relationship/models.py:277:            "lifetime_value": float(self.lifetime_value or 0),
+app/relationship/search.py:76:                "budget": float(p.budget or 0),
+app/relationship/routes_api.py:350:        "lifetime_value": float(memory.lifetime_value or 0),
+app/media.py:126:        total = self._session.query(db.func.count(MediaFile.id)).scalar() or 0
+app/execution/core_models.py:134:        logger.info("ExecutionRun %s completed in %.2fs", self.execution_id, self.duration_seconds or 0)
+app/execution/core_models.py:142:            self.error_count = (self.error_count or 0) + 1
+app/execution/effects.py:96:        entity_id or 0,
+app/execution/effects.py:173:        entity_id or 0,
+app/intake/proposal.py:42:        session.proposal_version = (session.proposal_version or 0) + 1
+app/founder/executive_home_service.py:264:    ).scalar() or 0 if space_ids else 0
+app/founder/executive_home_service.py:388:    ).scalar() or 0 if space_ids else 0
+app/knowledge/api.py:61:                "confidence": getattr(d, "confidence_score", None) or 0.9,
+app/knowledge/api.py:121:            "confidence": getattr(doc, "confidence_score", None) or 0.9,
+app/intention/routes.py:158:        return int(_resolve_org_id() or 0)
+app/ubme/routes.py:374:            total = sum(i.get("data", {}).get(card.field, 0) or 0 for i in instances)
+app/learning_intelligence/engine.py:203:                        (existing.avg_duration_seconds or 0) * (new_total - total)
+app/automation/force_activate.py:68:                rule.execution_count = (rule.execution_count or 0) + 1
+app/automation/service.py:283:        rule.execution_count = (rule.execution_count or 0) + 1
+app/workspace_objects/routes.py:322:            relationship_id=c.relationship_id or 0,
+app/workspace_objects/routes.py:401:            relationship_id=c.relationship_id or 0,
+app/workspace_objects/service.py:626:            "lifetime_value": float(memory.lifetime_value or 0),
+app/shunya/observer_learning.py:234:        total = self._session.query(func.count(Observation.id)).scalar() or 0
+app/shunya/observer_learning.py:235:        successful = self._session.query(func.count(Observation.id)).filter(Observation.success == True).scalar() or 0
+app/shunya/observer_learning.py:366:        total = self._session.query(func.count(LearningEntry.id)).scalar() or 0
+app/shunya/observer_learning.py:367:        applied = self._session.query(func.count(LearningEntry.id)).filter(LearningEntry.applied == True).scalar() or 0
+app/shunya/interface.py:50:            "pax": f"{parsed.get('adults') or 0} adults" if parsed.get("adults") else "",
+app/shunya/planner/templates.py:234:        estimated_cost=float(getattr(budget_constraint, "value", 0) or 0),
+app/shunya/workflow.py:134:                .scalar() or 0
+app/shunya/workflow.py:138:            ).scalar() or 0
+app/shunya/governance_engine/engine.py:212:            enrichment.estimated_cost = float(daily or 0) * int(days or 1) * int(pax or 1)
+app/shunya/observer_engine/_legacy_observer.py:37:            workflow_id=f"legacy-{action}-{lead_id or 0}",
+app/shunya/governance.py:199:                condition="not ctx.is_wedding or (ctx.lead_time_days or 0) >= 60",
+app/shunya/governance.py:337:        ctx["estimated_cost"] = float(daily or 0) * int(days or 1) * int(pax or 1)
+app/shunya/data_import.py:279:                tenant_id=tenant_id or 0,
+app/shunya/knowledge_store.py:115:    return (latest or 0) + 1
+app/shunya/knowledge_store.py:308:        total = self._session.query(func.count(KnowledgeFact.id)).scalar() or 0
+app/shunya/knowledge_store.py:312:            .scalar() or 0
+app/finance/controls.py:61:            "policy_id": self.policy_id, "amount": float(self.amount or 0),
+app/finance/controls.py:133:            "scope": self.scope, "max_amount": float(self.max_amount or 0),
+app/finance/controls.py:342:        Invoice.organization_id == org_id, Invoice.type == "credit_note").scalar() or 0
+app/finance/controls.py:345:        Invoice.organization_id == org_id, Invoice.type == "credit_note").scalar() or 0
+app/finance/controls.py:386:        Invoice.organization_id == org_id, Invoice.type == "credit_note").scalar() or 0
+app/finance/models.py:92:            "debit": float(self.debit or 0), "credit": float(self.credit or 0),
+app/finance/models.py:134:            "subtotal": float(self.subtotal or 0), "tax_amount": float(self.tax_amount or 0),
+app/finance/models.py:135:            "total_amount": float(self.total_amount or 0),
+app/finance/models.py:136:            "paid_amount": float(self.paid_amount or 0),
+app/finance/models.py:137:            "balance_due": float((self.total_amount or 0) - (self.paid_amount or 0)),
+app/finance/models.py:158:            "quantity": float(self.quantity or 0), "unit_price": float(self.unit_price or 0),
+app/finance/models.py:159:            "tax_rate": float(self.tax_rate or 0), "tax_amount": float(self.tax_amount or 0),
+app/finance/models.py:160:            "discount_amount": float(self.discount_amount or 0),
+app/finance/models.py:161:            "total_amount": float(self.total_amount or 0)}
+app/finance/models.py:187:            "type": self.type, "amount": float(self.amount or 0), "currency": self.currency,
+app/finance/models.py:207:            "name": self.name, "rate": float(self.rate or 0),
+app/finance/services.py:83:    new_paid = Decimal(str(inv.paid_amount or 0)) + amount
+app/finance/services.py:128:        bal = float((inv.total_amount or 0) - (inv.paid_amount or 0))
+app/finance/services.py:144:        Invoice.organization_id == organization_id).scalar() or 0
+app/finance/services.py:146:        Invoice.organization_id == organization_id).scalar() or 0
+app/finance/services.py:149:        Invoice.due_date < today, Invoice.status.in_(["sent", "overdue"])).scalar() or 0
+app/finance/intelligence.py:34:            .filter(LedgerEntry.account_id == cash_acct.id).scalar() or 0)
+app/finance/intelligence.py:40:        bal = float((inv.total_amount or 0) - (inv.paid_amount or 0))
+app/finance/intelligence.py:48:        remaining = float((b.amount or 0) - (b.spent_amount or 0))
+app/finance/intelligence.py:106:        by_rel[key]["revenue"] += float(inv.total_amount or 0)
+app/finance/intelligence.py:107:        by_rel[key]["paid"] += float(inv.paid_amount or 0)
+app/finance/intelligence.py:121:        invoiced = sum(float(i.total_amount or 0) for i in Invoice.query.filter_by(
+app/finance/intelligence.py:123:        paid = sum(float(i.paid_amount or 0) for i in Invoice.query.filter_by(
+app/finance/intelligence.py:135:    total_revenue = sum(float(i.total_amount or 0) for i in Invoice.query.filter_by(
+app/finance/intelligence.py:137:    total_paid = sum(float(i.paid_amount or 0) for i in Invoice.query.filter_by(
+app/finance/intelligence.py:139:    total_cn = sum(float(i.total_amount or 0) for i in Invoice.query.filter_by(
+app/finance/intelligence.py:159:        rid = inv.relationship_id or 0
+app/finance/intelligence.py:160:        by_rel[rid]["revenue"] += float(inv.total_amount or 0)
+app/finance/intelligence.py:329:        cn = sum(float(i.total_amount or 0) for i in Invoice.query.filter_by(
+app/data_migration/engine.py:350:            batch.success = result or 0
+app/objects/canonical.py:37:            "tenant_id": so.organization_id or 0,
+app/objects/canonical.py:76:            "tenant_id": r.organization_id or 0,
+app/services.py:314:    revenue = float(q_revenue.scalar() or 0)
+app/services.py:315:    supplier_out = float(q_supplier.scalar() or 0)
+app/services.py:318:    pipeline_new = db.session.query(func.count(Lead.id)).filter(Lead.status == "new").scalar() or 0
+app/services.py:320:        Lead.status.in_(["in_progress", "converted"])).scalar() or 0
+app/services.py:321:    pipeline_done = db.session.query(func.count(Lead.id)).filter(Lead.status == "completed").scalar() or 0
+app/services.py:322:    team_online = db.session.query(func.count(Lead.id)).filter().scalar() or 0  # placeholder
+app/services.py:325:        "leads": q_leads.scalar() or 0,
+app/services.py:326:        "leads_today": q_leads.scalar() or 0,
+app/evidence/decision_trace.py:50:            "confidence": self.confidence or 0.5,
+app/evidence/decision_trace.py:51:            "shadow_agreement_pct": self.shadow_agreement_pct or 0.0,
+app/ai/command_lifecycle.py:114:        identity_id=str(identity_id or tenant_id or 0),
+app/execution_visibility/routes.py:125:                "progress": c.progress or 0.0,
+app/execution_visibility/routes.py:189:                "file_size": d.file_size or 0,
+app/execution_visibility/routes.py:213:                "value": float(p.total_value or 0),
+app/leads/routes.py:28:            "budget": float(l.budget or 0),
+app/communication/normalizer.py:119:        conv.message_count = (conv.message_count or 0) + 1
+app/cortex/state_log.py:41:            object_id=entity_id or 0,
+app/commercial/models.py:255:            "lifetime_value_estimate": float(self.lifetime_value_estimate or 0),
+app/commercial/models.py:394:            "subtotal": float(self.subtotal or 0),
+app/commercial/models.py:395:            "tax_amount": float(self.tax_amount or 0),
+app/commercial/models.py:396:            "discount_amount": float(self.discount_amount or 0),
+app/commercial/models.py:397:            "total_value": float(self.total_value or 0),
+app/commercial/service.py:608:    ).scalar() or 0
+app/sales_intelligence/service.py:22:    budget = float(lead.budget or 0)
+app/sales_intelligence/service.py:170:    pipeline_value = sum(float(p.budget or 0) for p in draft_proposals)
+app/sales_intelligence/service.py:171:    won_value = sum(float(p.budget or 0) for p in won_proposals)
+app/platform/webhook.py:123:    subscription.delivery_count = (subscription.delivery_count or 0) + 1
+app/search/routes.py:351:                amount = float(inv_data.get("grand_total") or inv_data.get("amount") or 0)
+app/search/routes.py:384:                amount = float(prop_data.get("amount") or 0)
+app/search/routes.py:435:                amount = float(inv["data"].get("grand_total") or inv["data"].get("amount") or 0)
+app/search/routes.py:519:                amount = float(prop_data.get("amount") or 0)
+app/search/context.py:97:                amount = float(inv["data"].get("grand_total") or inv["data"].get("amount") or 0)
+app/search/context.py:135:                amount = float(prop["data"].get("amount") or 0)
+app/search/context.py:208:                    amt = float(obj.data.get("grand_total") or obj.data.get("amount") or 0)
+app/search/context.py:216:                    amt = float(obj.data.get("amount") or 0)
+app/for1/routes.py:177:            "budget": float(lead.budget or 0),
+app/for1/routes.py:324:        "budget": float(data.get("budget", proposal.budget or lead.budget or 0)),
+app/g5/routes.py:397:        budget = float(c.budget or 0)
+app/g5/service.py:160:        engagement_depth=engagement_depth or 0,
+app/g5/service.py:395:            float(a.get("revenue_amount", 0) or 0)
+app/g5/service.py:433:    If evidence is insufficient, set confidence low (or 0) and
+app/g5/service.py:644:    total_revenue = sum(float(a.get("revenue_amount", 0) or 0) for a in revenue_attrs)
+app/g5/service.py:645:    budget = float(campaign.budget or 0)
+core/timeline/engine.py:406:                - ``duration_days``: Total duration covered (float, or 0.0)
+core/intelligence/service.py:266:            ).scalar() or 0
+core/runtime/engine.py:304:        """Seconds since initialize() was called, or 0.0."""
+core/execution_chain.py:99:            object_id=object_id or 0,
+core/execution_chain.py:102:                          "tenant_id": tenant_id or 0},
+core/execution_chain.py:135:            object_id=object_id or 0,
+core/execution_chain.py:147:            object_id=object_id or 0,
+core/execution_chain.py:151:                    "tenant_id": tenant_id or 0,
+core/intelligence_runtime/integration.py:459:        conf_bucket = round((response.trace.confidence or 0) * 10) * 10
+==================== spc_personal|spc_business|spc_custom
+app/authz/decorators.py:51:    fail closed. The historical default workspaces ("spc_personal",
+app/authz/decorators.py:52:    "spc_business", "spc_custom") are deliberately NOT returned as a fallback:
+app/media/routes.py:55:    instead of a synthetic default like 'spc_business'.
+app/media/service.py:194:    organization (0) or a default workspace ("spc_business").
+app/__init__.py:361:        {"id": "spc_business", "name": "Business", "workspace_type": "business", "icon": "🏢", "color": "#6C4AE2", "description": "Business operations workspace"},
+app/__init__.py:362:        {"id": "spc_personal", "name": "Personal", "workspace_type": "personal", "icon": "👤", "color": "#10B981", "description": "Personal workspace"},
+app/__init__.py:363:        {"id": "spc_custom", "name": "Custom", "workspace_type": "custom", "icon": "⭐", "color": "#F59E0B", "description": "Custom project workspace"},
+app/objects/seed.py:10:    seed_workspace(workspace_id='spc_business_xxx', identity_id='identity_uuid')
+app/objects/seed.py:182:    Creates sample data in workspaces named 'spc_business', 'spc_personal', 'spc_custom'.
+core/object_service.py:37:        canonical identity — so a default business workspace ("spc_business")
+==================== FounderSpace\.query
+app/auth_routes.py:104:    existing = FounderSpace.query.filter_by(
+app/for2/routes.py:287:    personal = FounderSpace.query.filter_by(
+app/onboard.py:52:        existing_space = FounderSpace.query.filter_by(
+==================== FounderObject\b|founder_objects
+app/founder/routes.py:434:    Canonical-only (R6B-2.4): the legacy founder_objects fallback was removed.
+app/founder/routes.py:436:    founder_objects without any organization scope — so it could surface another
+app/founder/routes.py:993:def api_list_founder_objects():
+app/founder/models.py:28:    objects = db.relationship("FounderObject", backref="space",
+app/founder/models.py:45:class FounderObject(db.Model):
+app/founder/models.py:47:    __tablename__ = "founder_objects"
+app/founder/insight_engine.py:135:    There is deliberately NO legacy founder_objects read path here. The former
+app/founder/insight_engine.py:136:    "legacy fallback" referenced FounderObject without importing it — dead code
+app/intention/routes.py:167:    legacy founder_objects raw SQL when this returns nothing (compat boundary).
+app/__init__.py:454:        FounderSpace, FounderObject, FounderConversation, FounderMessage, BusinessRelationship,
+app/production/objects.py:123:    Migrated from FounderObject to core/object_service.py (sh_objects).
+app/objects/canonical.py:6:(UOPObject, FounderObject) for historical data.
+app/objects/canonical.py:21:    Canonical store only — the founder_objects fallback was removed in R6B-2.4
+app/objects/canonical.py:112:    Legacy writes to UOPObject and FounderObject are removed —
+app/adapters/os_adapter.py:157:    return None to trigger legacy FounderObject fallback.
+core/object_service.py:6:Migration sources: objects, founder_objects, sh_uop_objects.
+==================== END

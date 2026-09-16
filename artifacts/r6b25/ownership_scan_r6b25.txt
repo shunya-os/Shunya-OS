@@ -1,0 +1,174 @@
+==================== PATTERN: organization_id[[:space:]]*=[[:space:]]*0
+app/intelligence/routes.py:338:    # Scoped to the caller's canonical organization (no organization_id=0 synthetic
+app/intelligence/service.py:171:    # rather than reading objects through a synthetic organization_id=0.
+app/media/models.py:27:    # NOTE: organization_id=0 is used temporarily for recording generation attempts
+app/auth_routes.py:787:    # objects through a synthetic organization_id=0.
+app/founder/routes.py:1020:        # synthetic organization_id=0, which was never the caller's ownership.
+app/adapters/os_adapter.py:225:    # data. It never falls back to an unscoped (organization_id=0) scan, which
+==================== PATTERN: org_id[[:space:]]*=[[:space:]]*0
+app/auth_routes.py:775:            current_org_id = 0
+==================== PATTERN: tenant_id[[:space:]]*=[[:space:]]*0
+==================== PATTERN: organization_id=0|org_id=0|tenant_id=0
+app/intelligence/routes.py:338:    # Scoped to the caller's canonical organization (no organization_id=0 synthetic
+app/intelligence/service.py:171:    # rather than reading objects through a synthetic organization_id=0.
+app/media/models.py:27:    # NOTE: organization_id=0 is used temporarily for recording generation attempts
+app/auth_routes.py:787:    # objects through a synthetic organization_id=0.
+app/founder/routes.py:1020:        # synthetic organization_id=0, which was never the caller's ownership.
+app/adapters/os_adapter.py:225:    # data. It never falls back to an unscoped (organization_id=0) scan, which
+==================== PATTERN: organization_id[[:space:]]*=[[:space:]]*1\b
+migrations/versions/0009_org_scoped_workspaces.py:30:    conn.execute(sa.text("UPDATE sh_workspaces SET organization_id = 1"))
+migrations/versions/0009_org_scoped_workspaces.py:35:    conn.execute(sa.text("UPDATE founder_spaces SET organization_id = 1"))
+migrations/versions/g1_1_r1_organization_chain.py:41:                SET organization_id = 1
+==================== PATTERN: org_id[[:space:]]*=[[:space:]]*1\b
+==================== PATTERN: tenant_id[[:space:]]*=[[:space:]]*1\b
+app/auth_routes.py:398:    member.tenant_id = 1
+migrations/versions/0009_org_scoped_workspaces.py:39:    conn.execute(sa.text("UPDATE documents SET tenant_id = 1"))
+migrations/versions/0005_fda4_identity_schema.py:88:            op.execute("UPDATE persons SET tenant_id = 1 WHERE tenant_id IS NULL")
+scripts/migrate_objects_v4.py:28:            tenant_id=1,
+scripts/migrate_objects_v4.py:114:            tenant_id=1,
+==================== PATTERN: Organization\.query\.first\(\)
+==================== PATTERN: Workspace\.query\.filter_by\(status
+==================== PATTERN: filter_by\(status="active"\)\.first\(\)
+==================== PATTERN: spc_personal
+app/authz/decorators.py:51:    fail closed. The historical default workspaces ("spc_personal",
+app/__init__.py:362:        {"id": "spc_personal", "name": "Personal", "workspace_type": "personal", "icon": "👤", "color": "#10B981", "description": "Personal workspace"},
+app/objects/seed.py:182:    Creates sample data in workspaces named 'spc_business', 'spc_personal', 'spc_custom'.
+scripts/seed_panchi_club_demo.py:38:PERSONAL_SPACE_ID = "spc_personal_a3cd655b1e6f4b0f"
+==================== PATTERN: spc_business
+app/authz/decorators.py:52:    "spc_business", "spc_custom") are deliberately NOT returned as a fallback:
+app/media/routes.py:55:    instead of a synthetic default like 'spc_business'.
+app/media/service.py:194:    organization (0) or a default workspace ("spc_business").
+app/__init__.py:361:        {"id": "spc_business", "name": "Business", "workspace_type": "business", "icon": "🏢", "color": "#6C4AE2", "description": "Business operations workspace"},
+app/objects/seed.py:10:    seed_workspace(workspace_id='spc_business_xxx', identity_id='identity_uuid')
+app/objects/seed.py:182:    Creates sample data in workspaces named 'spc_business', 'spc_personal', 'spc_custom'.
+core/object_service.py:37:        canonical identity — so a default business workspace ("spc_business")
+migrations/versions/g1_1_r1_fix_org_chain.py:57:    #    Business workspace (spc_business) -> org 7 (Panchi Club), where that
+migrations/versions/g1_1_r1_fix_org_chain.py:63:                 "WHERE id = 'spc_business' AND organization_id IS DISTINCT FROM 7")
+migrations/versions/g1_1_r1_fix_org_chain.py:67:        print("  SKIP: spc_business -> org 7 — target organisation absent")
+scripts/r6b25_patch_object_tests.py:5:identity). These tests previously relied on the removed "spc_business" default;
+==================== PATTERN: spc_custom
+app/authz/decorators.py:52:    "spc_business", "spc_custom") are deliberately NOT returned as a fallback:
+app/__init__.py:363:        {"id": "spc_custom", "name": "Custom", "workspace_type": "custom", "icon": "⭐", "color": "#F59E0B", "description": "Custom project workspace"},
+app/objects/seed.py:182:    Creates sample data in workspaces named 'spc_business', 'spc_personal', 'spc_custom'.
+==================== PATTERN: FounderSpace\.query
+app/auth_routes.py:104:    existing = FounderSpace.query.filter_by(
+app/automation/service.py:234:            space = FounderSpace.query.filter_by(
+app/for2/routes.py:287:    personal = FounderSpace.query.filter_by(
+app/production/identity/onboarding_routes.py:100:    space = FounderSpace.query.filter_by(identity_id=identity_id).first()
+app/onboard.py:52:        existing_space = FounderSpace.query.filter_by(
+scripts/seed_conversations.py:24:    spaces = FounderSpace.query.filter_by(identity_id=identity_id, status='active').all()
+scripts/seed_demo.py:474:            space = FounderSpace.query.filter_by(name=org.name).first()
+scripts/seed_demo.py:512:                space = FounderSpace.query.filter_by(name=org.name).first()
+scripts/seed_organization.py:209:    print(f"\nFounderSpaces: {FounderSpace.query.count()}")
+scripts/debug_space_creation.py:51:    spaces = FounderSpace.query.all()
+==================== PATTERN: FounderObject\b
+app/founder/routes.py:492:        # The legacy dual-write to FounderObject + ShunyaObject has been removed
+app/founder/models.py:28:    objects = db.relationship("FounderObject", backref="space",
+app/founder/models.py:45:class FounderObject(db.Model):
+app/founder/models.py:61:    # NOTE: FounderObject.conversations relationship removed (R6B-2).
+app/founder/insight_engine.py:136:    "legacy fallback" referenced FounderObject without importing it — dead code
+app/__init__.py:454:        FounderSpace, FounderObject, FounderConversation, FounderMessage, BusinessRelationship,
+app/production/objects.py:123:    Migrated from FounderObject to core/object_service.py (sh_objects).
+app/production/identity/onboarding_routes.py:132:            # replaces legacy FounderObject + ShunyaObject dual-write
+app/objects/canonical.py:6:(UOPObject, FounderObject) for historical data.
+app/objects/canonical.py:112:    Legacy writes to UOPObject and FounderObject are removed —
+app/adapters/os_adapter.py:157:    return None to trigger legacy FounderObject fallback.
+migrations/versions/g1_1_r6b_object_convergence.py:3:FounderObject has a 'content' (Text) column that ShunyaObject does not.
+migrations/env.py:54:    FounderSpace, FounderObject, FounderConversation, FounderMessage, BusinessRelationship,
+scripts/migrate_objects_v4.py:14:    """Migrate all active FounderObject records to UOPObject."""
+scripts/migrate_objects_v4.py:15:    from app.founder.models import FounderObject
+scripts/migrate_objects_v4.py:19:    for fo in FounderObject.query.filter(FounderObject.status != "deleted").all():
+scripts/migrate_objects_v4.py:147:    print(f"FounderObject: {f_migrated} migrated, {f_skipped} skipped")
+scripts/generate_migration_0010.py:68:    FounderSpace, FounderObject, FounderConversation,
+scripts/seed_demo_m4.py:8:    FounderObject, FounderSpace
+scripts/seed_demo_m4.py:45:    obj1 = FounderObject(
+scripts/seed_demo_m4.py:72:    obj2 = FounderObject(
+scripts/seed_demo_m4.py:97:    obj3 = FounderObject(
+scripts/seed_demo_m4.py:127:    obj4 = FounderObject(
+scripts/seed_conversations.py:11:    from app.founder.models import FounderConversation, FounderMessage, FounderObject, FounderSpace
+scripts/seed_conversations.py:35:    obj = FounderObject.query.filter_by(status='active').first()
+scripts/seed_demo.py:29:from app.founder.models import FounderSpace, FounderObject, FounderConversation, FounderMessage, BusinessRelationship
+scripts/seed_demo.py:312:        obj = FounderObject.query.filter_by(space_id=space.space_id, name=title).first()
+scripts/seed_demo.py:314:            obj = FounderObject(
+scripts/seed_demo.py:327:    convs = FounderObject.query.filter_by(
+scripts/seed_demo.py:390:    notes = FounderObject.query.filter_by(
+scripts/seed_demo.py:392:    customers = FounderObject.query.filter_by(
+scripts/seed_demo.py:404:    commits = FounderObject.query.filter_by(
+scripts/seed_demo.py:450:        existing = FounderObject.query.count()
+scripts/seed_demo.py:493:                    if not FounderObject.query.filter_by(space_id=space.space_id, name=name).first():
+scripts/seed_demo.py:494:                        obj = FounderObject(
+scripts/seed_demo.py:504:        total_p1 = FounderObject.query.count()
+scripts/seed_demo.py:517:        total = FounderObject.query.count()
+scripts/generate_audit_report.py:523:        'Additional models across the project include <b>FounderSpace</b>, <b>FounderObject</b>, '
+scripts/verify_milestone2.py:23:    from app.founder.models import FounderSpace, FounderObject, FounderConversation, FounderMessage, BusinessRelationship
+scripts/verify_milestone2.py:38:    obj1 = FounderObject(object_id='obj_demo_1', space_id='spc_demo_1', name='Business Plan', object_type='Document', content='Our growth plan for 2026 Q3-Q4.', created_by=identity_id)
+==================== PATTERN: founder_objects
+app/founder/routes.py:434:    Canonical-only (R6B-2.4): the legacy founder_objects fallback was removed.
+app/founder/routes.py:436:    founder_objects without any organization scope — so it could surface another
+app/founder/routes.py:462:    # Canonical-only (R6B-2.4): no legacy founder_objects fallback. A workspace
+app/founder/routes.py:609:    # reference sh_objects.object_id, not founder_objects.
+app/founder/routes.py:993:def api_list_founder_objects():
+app/founder/models.py:47:    __tablename__ = "founder_objects"
+app/founder/models.py:63:    # (canonical store) — it is no longer bound to founder_objects.
+app/founder/insight_engine.py:135:    There is deliberately NO legacy founder_objects read path here. The former
+app/intention/routes.py:167:    legacy founder_objects raw SQL when this returns nothing (compat boundary).
+app/objects/canonical.py:21:    Canonical store only — the founder_objects fallback was removed in R6B-2.4
+app/objects/canonical.py:60:    # No founder_objects fallback (R6B-2.4): canonical absence is authoritative.
+app/ai/context.py:122:        # than reading founder_objects, which is not tenant-scoped truth.
+app/genesis_routes.py:166:    # and would reintroduce a production founder_objects write path.
+core/object_service.py:6:Migration sources: objects, founder_objects, sh_uop_objects.
+migrations/versions/0010_schema_reconciliation.py:1081:CREATE TABLE IF NOT EXISTS founder_objects (
+migrations/versions/0002_schema_reconciliation.py:246:            ("founder_objects", "uq_founder_objects_object_id", ["object_id"]),
+migrations/versions/g1_1_r6b_object_convergence.py:4:This migration adds the column to support migrating writes away from founder_objects.
+scripts/migrate_objects_v4.py:2:§4 — Object convergence migration: founder_objects + objects → sh_uop_objects.
+scripts/migrate_objects_v4.py:13:def migrate_founder_objects():
+scripts/migrate_objects_v4.py:41:            metadata_json='{"migrated_from": "founder_objects", "content": "' + (fo.content[:200] if fo.content else "") + '"}',
+scripts/migrate_objects_v4.py:146:    f_migrated, f_skipped = migrate_founder_objects()
+scripts/generate_m2c4_pdf.py:122:<tr><td>founder_objects</td><td>44</td><td class="verdict-g">SEEDED</td></tr>
+scripts/generate_m2c4_pdf.py:123:<tr><td>objects</td><td>41</td><td class="verdict-a">DUPLICATE (competing with founder_objects)</td></tr>
+scripts/runtime_verify.py:54:    founder_obj_count = db.session.execute(db.text("SELECT count(*) FROM founder_objects")).scalar()
+scripts/runtime_verify.py:55:    check("founder_objects has records", founder_obj_count > 0, f"{founder_obj_count} objects")
+scripts/seed_panchi_club_demo.py:61:        INSERT INTO founder_objects (object_id, space_id, object_type, name, content, status, created_by, created_at, updated_at)
+scripts/seed_panchi_club_demo.py:301:    """Seed Nishesh's personal workspace with founder_objects."""
+scripts/genesis_verify.py:44:    sd_check = ['organizations', 'workspaces', 'founder_spaces', 'founder_objects', 'founder_relationships', 'org_members']
+==================== PATTERN: or 0\b
+app/whatsapp_webhook.py:88:        resolved_tenant = _resolve_org_id() or 0
+app/whatsapp_webhook.py:121:        pax=(f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
+app/integration/service.py:454:            follower_count=follower_count or 0,
+app/intelligence/mixed_router.py:161:                ).scalar() or 0
+app/intelligence/mixed_router.py:164:                ).scalar() or 0
+app/intelligence/memory_store.py:63:            entry.sample_count = (entry.sample_count or 0) + 1
+app/routes.py:330:            budget=float(f.get("budget") or 0),
+app/routes.py:354:            "budget": str(lead.budget or 0),
+app/routes.py:660:            total_cost = plan.total_estimated_cost or 0
+app/routes.py:697:            amount=float(f.get("amount") or 0),
+app/routes.py:739:    amount = request.args.get("amount", type=float) or float(lead.budget or 0)
+app/routes.py:939:        total = float(f.get("total_amount") or 0)
+app/routes.py:940:        tax = float(f.get("tax") or 0)
+app/routes.py:941:        discount = float(f.get("discount") or 0)
+app/routes.py:948:            tax_rate=float(f.get("tax_rate") or 0),
+app/routes.py:1273:            f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
+app/memory_api/routes.py:46:        "confidence": getattr(r, "confidence", 0.9) or 0.9,
+app/tasks.py:84:            sort_order=(max_order or 0) + 1,
+app/tasks.py:175:        total = db.session.query(func.count(Task.id)).scalar() or 0
+app/tasks.py:179:            .scalar() or 0
+app/tasks.py:184:            .scalar() or 0
+app/tasks.py:189:            .scalar() or 0
+app/tasks.py:194:            .scalar() or 0
+app/tasks.py:203:            .scalar() or 0
+app/memory/__init__.py:296:                source_object_id=source_object_id or 0,
+app/models.py:108:            "budget": float(self.budget or 0),
+app/models.py:127:            or 0
+app/models.py:753:        or 0
+app/models.py:985:            "budget": float(self.budget or 0), "currency": self.currency,
+app/crm/service.py:249:    return lead.person_id or 0
+app/upload/routes.py:85:            resolved_tenant = _resolve_org_id() or 0
+app/prediction/engine.py:412:        sample_count = min(50, abs(hist or 0) // 3600) if hist else 0
+app/marketing_intelligence/service.py:30:    total_revenue = sum(float(p.budget or 0) for p in proposals if p.status == "accepted")
+app/marketing_intelligence/service.py:63:        "pipeline_value": sum(float(p.budget or 0) for p in Proposal.query.all()
+app/marketing_intelligence/service.py:65:        "won_value": sum(float(p.budget or 0) for p in Proposal.query.all()
+app/marketing_intelligence/service.py:132:    budget = float(campaign.budget or 0)
+app/marketing_intelligence/service.py:148:    total_budget = sum(float(c.budget or 0) for c in campaigns)
+app/search.py:57:        results["payments"] = [{"id": p.id, "amount": float(p.amount or 0),
+app/search.py:75:                                "amount": float(i.grand_total or 0), "status": i.status,
+app/relationship/models.py:277:            "lifetime_value": float(self.lifetime_value or 0),

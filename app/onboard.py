@@ -89,6 +89,11 @@ def onboard(identity_id: str) -> dict:
                 data={"content": obj_data.get("content", "")},
                 created_by=identity_id,
                 workspace_id=space_id,
+                # Onboarding provisioning is a non-user state-seeding path: it
+                # runs during tenant setup, not on behalf of an authenticated
+                # request, so it declares system scope explicitly rather than
+                # silently omitting identity.
+                system_scope=True,
             )
             objects_created.append(obj_data["name"])
 

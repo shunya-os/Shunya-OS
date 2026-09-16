@@ -408,6 +408,13 @@ class TestTenantIsolation:
         db.session.add(org2)
         db.session.commit()
 
+        # R6B-2.7: a tenant user must actually be a member of the tenant.
+        # Authorization resolves an organization only from an ACTIVE membership,
+        # so without this the caller has no tenant context at all (401) and the
+        # cross-tenant assertion would be testing the wrong thing.
+        from tests.auth_helper import seed_canonical_tenancy
+        seed_canonical_tenancy(db, 2, "tenant_b_user")
+
         with client.session_transaction() as s:
             s["identity_id"] = "tenant_b_user"
             s["current_org_id"] = 2
@@ -427,6 +434,11 @@ class TestTenantIsolation:
         org2 = Organization(id=3, name="Tenant C", slug="tenant-c")
         db.session.add(org2)
         db.session.commit()
+
+        # R6B-2.7: see test_cross_tenant_service_account — a tenant user must be
+        # a real member of the tenant for "its own (empty) list" to exist.
+        from tests.auth_helper import seed_canonical_tenancy
+        seed_canonical_tenancy(db, 3, "tenant_c_user")
 
         with client.session_transaction() as s:
             s["identity_id"] = "tenant_c_user"

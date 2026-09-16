@@ -17,6 +17,11 @@ This test proves:
 import pytest
 import uuid
 
+# Single canonical fixture identity used by this module. It is provisioned as a
+# real member of every organization the tests exercise — never a universal
+# membership and never a system-scope caller.
+CONV_IDENTITY = "conv-fixture@example.com"
+
 
 @pytest.fixture(scope="module")
 def obj_app():
@@ -26,15 +31,25 @@ def obj_app():
     application = create_app({"TESTING": True, "WTF_CSRF_ENABLED": False})
     with application.app_context():
         db.create_all()
-        # Create required workspace for FK constraint
-        from sqlalchemy import text
-        db.session.execute(
-            text("""INSERT OR IGNORE INTO sh_workspaces (id, name, workspace_type, created_by)
-                    VALUES ('spc_default', 'Default', 'personal', 'system')""")
-        )
-        db.session.commit()
+        # Canonical tenancy for every organization these tests use. A synthetic
+        # workspace (spc_default) is NOT invented: an object's workspace must be
+        # owned by the same organization, and the creating identity must hold a
+        # real membership in it.
+        from tests.auth_helper import seed_canonical_tenancy
+        for _org in (1, 2):
+            seed_canonical_tenancy(db, _org, CONV_IDENTITY)
         yield application
         db.session.remove()
+
+
+def _canonical_workspace(org_id: int) -> str:
+    """Return the canonical workspace id owned by ``org_id``."""
+    from app.objects.legacy_models import Workspace
+    ws = Workspace.query.filter_by(
+        organization_id=org_id, status="active"
+    ).order_by(Workspace.id).first()
+    assert ws is not None, f"org {org_id} has no canonical workspace fixture"
+    return ws.id
 
 
 @pytest.fixture(autouse=True)
@@ -69,7 +84,8 @@ class TestObjectConvergence:
             tenant_id=1,
             created_by="sid_canonical_001",
             metadata={"department": "strategy"},
-            workspace_id="spc_default",
+            workspace_id=_canonical_workspace(1),
+            identity_id=CONV_IDENTITY,
         )
         assert result["name"] == "Q4 Strategy"
 
@@ -103,10 +119,12 @@ class TestObjectConvergence:
         oid = f"obj_{uuid.uuid4().hex[:8]}"
         create_canonical_object(
             object_id=oid, object_type="Contact", name="Alice",
-            tenant_id=2, created_by="sid_user", workspace_id="spc_default",
+            tenant_id=2, created_by="sid_user",
+            workspace_id=_canonical_workspace(2),
+            identity_id=CONV_IDENTITY,
             metadata={"email": "alice@test.com"},
         )
-        retrieved = get_canonical_object(oid)
+        retrieved = get_canonical_object(oid, organization_id=2)
         assert retrieved is not None
         assert retrieved["name"] == "Alice"
         assert retrieved["object_type"] == "Contact"
@@ -121,13 +139,14 @@ class TestObjectConvergence:
 
         oid = f"obj_{uuid.uuid4().hex[:8]}"
         sh = ShunyaObject(
-            object_id=oid, workspace_id="spc_default",
+            object_id=oid, workspace_id=_canonical_workspace(1),
+            organization_id=1,
             object_type="LegacyNote", name="Old Note", created_by="system",
         )
         db.session.add(sh)
         db.session.commit()
 
-        retrieved = get_canonical_object(oid)
+        retrieved = get_canonical_object(oid, organization_id=1)
         assert retrieved is not None
         assert retrieved["name"] == "Old Note"
 
@@ -140,6 +159,8 @@ class TestObjectConvergence:
         create_canonical_object(
             object_id=oid, object_type="Conversation", name="Chat #1",
             tenant_id=1, created_by="sid_user",
+            workspace_id=_canonical_workspace(1),
+            identity_id=CONV_IDENTITY,
         )
         fo = FounderObject.query.filter_by(object_id=oid).first()
         assert fo is None, "FounderObject must NOT be written by canonical create"
@@ -147,5 +168,7 @@ class TestObjectConvergence:
         create_canonical_object(
             object_id=oid, object_type="Conversation", name="Chat #1 v2",
             tenant_id=1, created_by="sid_user",
+            workspace_id=_canonical_workspace(1),
+            identity_id=CONV_IDENTITY,
         )
         assert FounderObject.query.filter_by(object_id=oid).count() == 0

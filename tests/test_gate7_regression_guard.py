@@ -1,18 +1,40 @@
-"""GATE 7 — Regression guard: production code must not reintroduce FounderObject writes.
+"""GATE 7 — Regression guard: the legacy founder_objects store is retired.
 
-This test fails CI if any production code (app/ or core/) writes to the
-founder_objects table outside explicitly approved compatibility/migration
-boundaries. A future developer should not be able to reintroduce dual-write
-by accident.
+R6B-2.4 replaced the previous flat exemption list with semantic verification.
+The invariant is now absolute:
+
+    ZERO production reads and ZERO production writes against founder_objects,
+    outside the model definition itself.
+
+The guard does not merely scan text against a growing whitelist. It parses each
+production module with ``ast`` and classifies every occurrence:
+
+  * a docstring occurrence is documentation, not code — permitted;
+  * an import is not a read/write — permitted;
+  * any other occurrence of the legacy table name (string or identifier,
+    inside SQL or ORM calls) is a violation, in EVERY file including the
+    allowlisted one unless it is the bare model definition;
+  * dynamic SQL is covered, because a string literal such as
+    ``UPDATE "{table_name}"`` is not the only way to name the table — the table
+    name itself appearing in production code is the violation.
+
+The allowlist is frozen to exactly one entry and is verified to contain a model
+definition and nothing else, so it cannot be inflated into a hiding place.
 """
 
-import os
-import sys
-import subprocess
+import ast
 from pathlib import Path
 
-
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+LEGACY_TABLE = "founder_objects"
+LEGACY_CLASS = "FounderObject"
+
+# Frozen allowlist. Exactly one file may name the legacy table: the model
+# definition. It is verified below to contain a definition and no read/write.
+_LEGACY_NAME_ALLOWLIST = {
+    "app/founder/models.py": "ORM model definition for the retired legacy table",
+}
 
 
 def _production_files() -> list[Path]:
@@ -25,108 +47,242 @@ def _production_files() -> list[Path]:
     return sorted(result)
 
 
-def _get_definition_lines(filepath: Path) -> list[tuple[int, str]]:
-    """Return (line_number, stripped_line) for each line in the file."""
-    lines = filepath.read_text().splitlines()
-    return [(i + 1, line) for i, line in enumerate(lines)]
+def _rel(path: Path) -> str:
+    return str(path.relative_to(_PROJECT_ROOT)).replace("\\", "/")
 
 
-def test_no_production_writes_to_founder_objects():
-    """Assert zero production code writes to founder_objects.
+def _docstring_nodes(tree: ast.AST) -> set[int]:
+    """Return the id() of Constant nodes that occupy docstring position."""
+    docstrings = set()
+    scopes = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    for node in ast.walk(tree):
+        if isinstance(node, scopes) and node.body:
+            first = node.body[0]
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) \
+                    and isinstance(first.value.value, str):
+                docstrings.add(id(first.value))
+    return docstrings
 
-    Exemptions (must be explicitly listed with reason):
-    - app/founder/models.py: model definition
-    - app/founder/routes.py: test_convergence module (NOTE)
-    - tests/: test files are excluded
+
+def _import_nodes(tree: ast.AST) -> set[int]:
+    """Return the id() of nodes belonging to import statements."""
+    ids: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for child in ast.walk(node):
+                ids.add(id(child))
+    return ids
+
+
+def _tablename_constants(tree: ast.AST) -> set[int]:
+    """Return the id() of string constants assigned to __tablename__.
+
+    A table name in a model definition is a definition, not a read/write.
     """
-    exempt_files = {
-        "app/founder/models.py",          # Model definition — defines the table
-        "core/object_service.py",         # Migration helper — migrate_from() reads legacy
-        "app/ai/context.py",              # Canonical-first with legacy fallback (C boundary)
-        "app/objects/canonical.py",       # Explicit compatibility layer (C boundary)
-        "app/founder/routes.py",          # API compat layer with canonical-first + legacy fallback
-    }
+    ids: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == LEGACY_CLASS:
+            for stmt in node.body:
+                if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Constant):
+                    for target in stmt.targets:
+                        if isinstance(target, ast.Name) and target.id == "__tablename__":
+                            ids.add(id(stmt.value))
+    return ids
 
-    # Patterns that indicate writes
-    write_patterns = [
-        "FounderObject(",
-        "db.session.add(FounderObject",
-        ".add(FounderObject",
-        "INSERT INTO founder_objects",
-        "UPDATE founder_objects",
-        "DELETE FROM founder_objects",
-    ]
 
-    # Patterns that indicate authoritative legacy reads (GATE 3 regression)
-    read_patterns = [
-        "FounderObject.query",
-        "FROM founder_objects",
-        "founder_objects WHERE",
-        "FounderObject.get",
-        "FounderObject.filter",
-    ]
+def _legacy_references(tree: ast.AST) -> list[tuple[int, str, str]]:
+    """Classify legacy-store references as (lineno, kind, detail).
 
+    kind is one of: ``definition`` (class/table definition), ``code``
+    (an actual read/write reference), ``import`` or ``docstring``.
+    """
+    docstrings = _docstring_nodes(tree)
+    imports = _import_nodes(tree)
+    tablename_constants = _tablename_constants(tree)
+    found: list[tuple[int, str, str]] = []
+
+    for node in ast.walk(tree):
+        if id(node) in imports:
+            continue
+
+        # String literal naming the legacy table (covers dynamic SQL payloads
+        # and raw string identifiers).
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if LEGACY_TABLE in node.value:
+                if id(node) in docstrings:
+                    found.append((node.lineno, "docstring", node.value.strip()[:80]))
+                elif id(node) in tablename_constants:
+                    found.append((node.lineno, "definition", node.value.strip()[:80]))
+                else:
+                    found.append((node.lineno, "code", node.value.strip()[:80]))
+
+        # f-string parts naming the legacy table.
+        elif isinstance(node, ast.JoinedStr):
+            for part in node.values:
+                if isinstance(part, ast.Constant) and isinstance(part.value, str) \
+                        and LEGACY_TABLE in part.value:
+                    found.append((node.lineno, "code", part.value.strip()[:80]))
+
+        # Identifier/attribute naming the legacy ORM class.
+        elif isinstance(node, ast.Name) and node.id == LEGACY_CLASS:
+            found.append((node.lineno, "code", node.id))
+        elif isinstance(node, ast.Attribute) and node.attr == LEGACY_CLASS:
+            found.append((node.lineno, "code", f".{node.attr}"))
+
+        # Class definition of the legacy model.
+        elif isinstance(node, ast.ClassDef) and node.name == LEGACY_CLASS:
+            found.append((node.lineno, "definition", f"class {node.name}"))
+
+    return found
+
+
+def test_no_production_references_to_legacy_object_store():
+    """Production code must not read, write or name the legacy object store.
+
+    Only the model definition file may name it, and that file is proven below
+    to contain a definition and nothing executable against the table.
+    """
     violations = []
-    read_violations = []
-
     for fpath in _production_files():
-        rel = fpath.relative_to(_PROJECT_ROOT)
-        rel_str = str(rel).replace("\\", "/")
-
-        # Skip exempt files
-        if rel_str in exempt_files:
+        rel = _rel(fpath)
+        try:
+            tree = ast.parse(fpath.read_text(), filename=str(fpath))
+        except SyntaxError as exc:  # pragma: no cover - syntax errors are CI failures
+            violations.append(f"{rel}: unparsable: {exc}")
             continue
 
-        # Skip __init__.py (import-only)
-        if fpath.name == "__init__.py":
-            continue
-
-        lines = _get_definition_lines(fpath)
-
-        for line_no, line in lines:
-            for pattern in write_patterns:
-                if pattern in line:
-                    # Check if it's a comment about legacy (not an actual write)
-                    stripped = line.strip()
-                    if stripped.startswith("#") or "NOTE:" in stripped or "noqa" in stripped:
-                        continue
-                    if "FounderObject(" in line and "import" in line:
-                        continue  # Import, not a write
-
-                    violations.append(f"{rel_str}:{line_no}: {line.strip()}")
-
-            for pattern in read_patterns:
-                if pattern in line:
-                    stripped = line.strip()
-                    if stripped.startswith("#") or "NOTE:" in stripped or "noqa" in stripped:
-                        continue
-                    # Import statements are not reads
-                    if "import" in line and ("FounderObject" in line or "founder_objects" in line):
-                        continue
-                    # Model definition is not a read
-                    if "class FounderObject" in line or "class FounderSpace" in line:
-                        continue
-                    # Compatibility boundary comments are exempt
-                    if "COMPATIBILITY BOUNDARY" in stripped or "compat boundary" in stripped.lower():
-                        continue
-
-                    read_violations.append(f"{rel_str}:{line_no}: {line.strip()}")
+        for line_no, kind, detail in _legacy_references(tree):
+            if kind in ("docstring", "import"):
+                continue
+            if kind == "definition":
+                if rel not in _LEGACY_NAME_ALLOWLIST:
+                    violations.append(f"{rel}:{line_no}: {detail}")
+                continue
+            violations.append(f"{rel}:{line_no}: {detail}")
 
     assert not violations, (
-        "PRODUCTION CODE MUST NOT WRITE TO founder_objects.\n"
-        "Violations found:\n  " + "\n  ".join(violations) + "\n\n"
-        "If these are legitimate compatibility boundaries, add the file to\n"
-        "the exempt_files set in this test with documentation. Otherwise,\n"
-        "migrate the write to ObjectService -> sh_objects."
+        "PRODUCTION CODE MUST NOT REFERENCE founder_objects OUTSIDE THE MODEL "
+        "DEFINITION.\nViolations found:\n  " + "\n  ".join(violations) + "\n\n"
+        "Reads must use ObjectService -> sh_objects. Writes are never permitted "
+        "(there is no dual-write path in R6B-2). If a reference is genuinely "
+        "required, it must be argued in the certification document and the "
+        "guard updated deliberately — not appended to a whitelist."
     )
 
-    assert not read_violations, (
-        "PRODUCTION CODE MUST NOT PERFORM AUTHORITATIVE legacy reads.\n"
-        "Unauthorized reads from founder_objects found:\n  " + "\n  ".join(read_violations) + "\n\n"
-        "Convert these reads to ObjectService -> sh_objects. If the read is a\n"
-        "legitimate compatibility boundary, add the file to exempt_files.\n"
-        "For FounderSpace reads, convert to sh_workspaces queries."
+
+def test_allowlist_is_frozen_and_contains_only_a_definition():
+    """The allowlist may not grow, and its entry must be a definition only."""
+    assert _LEGACY_NAME_ALLOWLIST == {
+        "app/founder/models.py": "ORM model definition for the retired legacy table",
+    }, (
+        "The legacy-store allowlist is frozen at exactly one entry (the model "
+        "definition). Adding entries is exemption inflation."
     )
+
+    for rel, reason in _LEGACY_NAME_ALLOWLIST.items():
+        path = _PROJECT_ROOT / rel
+        assert path.is_file(), f"allowlisted file does not exist: {rel}"
+        source = path.read_text()
+        tree = ast.parse(source, filename=str(path))
+
+        # It must actually define the model (otherwise the entry proves nothing).
+        class_defs = [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)
+                      and n.name == LEGACY_CLASS]
+        assert class_defs, f"{rel} is allowlisted but does not define {LEGACY_CLASS}"
+
+        # ...and it must contain no executable access to the legacy model.
+        model_access = [
+            (n.lineno, ast.unparse(n)[:80])
+            for n in ast.walk(tree)
+            if (isinstance(n, ast.Attribute) and n.attr == "query"
+                and isinstance(n.value, ast.Name) and n.value.id == LEGACY_CLASS)
+            or (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                and n.func.id == LEGACY_CLASS)
+        ]
+        assert not model_access, (
+            f"{rel} is allowlisted but executes against the model: {model_access}"
+        )
+
+        for banned in ("INSERT INTO founder_objects", "UPDATE founder_objects",
+                       "DELETE FROM founder_objects", "session.add(FounderObject"):
+            assert banned not in source, f"{rel} contains a legacy write: {banned}"
+
+
+def test_legacy_model_import_is_registration_only():
+    """A module importing the legacy model must not use it.
+
+    app/__init__.py imports the model so SQLAlchemy registers the retired
+    table (it must still exist for historical rows). Registration is an
+    import-only concern: any module that imports FounderObject must have zero
+    executable references to it — otherwise the reference scan above is being
+    bypassed by an import.
+    """
+    offenders = []
+    for fpath in _production_files():
+        rel = _rel(fpath)
+        if rel in _LEGACY_NAME_ALLOWLIST:
+            continue
+        source = fpath.read_text()
+        tree = ast.parse(source, filename=str(fpath))
+
+        imports_legacy = any(
+            isinstance(node, (ast.Import, ast.ImportFrom))
+            and any(alias.name == LEGACY_CLASS for alias in node.names)
+            for node in ast.walk(tree)
+        )
+        if not imports_legacy:
+            continue
+
+        executable = [
+            (line_no, detail)
+            for line_no, kind, detail in _legacy_references(tree)
+            if kind == "code"
+        ]
+        if executable:
+            offenders.append(f"{rel}: imports and uses {LEGACY_CLASS}: {executable}")
+
+    assert not offenders, (
+        "A module may import FounderObject only for model registration; it may "
+        "never use it.\n  " + "\n  ".join(offenders)
+    )
+
+    # The only legitimate importer is the model registry.
+    importers = set()
+    for fpath in _production_files():
+        tree = ast.parse(fpath.read_text(), filename=str(fpath))
+        if any(isinstance(node, (ast.Import, ast.ImportFrom))
+               and any(alias.name == LEGACY_CLASS for alias in node.names)
+               for node in ast.walk(tree)):
+            importers.add(_rel(fpath))
+    assert importers == {"app/__init__.py"}, (
+        "Only the application factory may import the legacy model (table "
+        f"registration). Unexpected importers: {sorted(importers)}"
+    )
+
+
+def test_object_service_is_a_generic_migrator_not_a_legacy_reader():
+    """ObjectService.migrate_from() must stay generic (no hardcoded legacy read).
+
+    The migration helper is the only sanctioned path that touches legacy rows,
+    and it must do so through a caller-supplied table name — it must not embed
+    an authoritative read of founder_objects.
+    """
+    source = (_PROJECT_ROOT / "core" / "object_service.py").read_text()
+    tree = ast.parse(source)
+
+    migrate = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "migrate_from":
+            migrate = node
+    assert migrate is not None, "ObjectService.migrate_from() is missing"
+
+    # No string constant inside migrate_from may name the legacy table.
+    for node in ast.walk(migrate):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            assert LEGACY_TABLE not in node.value, (
+                "migrate_from() must not hardcode founder_objects — the source "
+                "table is supplied by the caller."
+            )
 
 
 def test_no_migrate_default_org_one():
@@ -135,14 +291,9 @@ def test_no_migrate_default_org_one():
     The default organization_id=1 in migrate_from() is forbidden as a
     synthetic ownership fallback.
     """
-    exempt_files = {
-        "app/onboard.py",  # migration bootstrap runs early
-    }
-
     from core.object_service import get_object_service
     svc = get_object_service()
 
-    # This doesn't test the default; it just verifies the function signature
     import inspect
     sig = inspect.signature(svc.migrate_from)
     default_org = sig.parameters.get("organization_id")

@@ -24,6 +24,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # ── Campaign Events ──────────────────────────────────────────────
     op.create_table(
         "g5_campaign_events",
@@ -176,6 +178,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_table("g5_learnings")
     op.drop_table("g5_attributions")
     op.drop_table("g5_interactions")

@@ -17,6 +17,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # auth_service_accounts
     op.create_table(
         "auth_service_accounts",
@@ -80,6 +82,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_table("auth_tenant_policies")
     op.drop_table("auth_delegations")
     op.drop_table("auth_service_accounts")

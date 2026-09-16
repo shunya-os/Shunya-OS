@@ -227,16 +227,6 @@ def _execute_action(rule: AutomationRule,
             result["action_summary"] = f"Notification sent: {title}"
 
         elif action_type == "create_object":
-            from app.founder.models import FounderSpace, FounderConversation
-            from app.objects.legacy_models import ShunyaObject
-
-            # Find a space for this identity
-            space = FounderSpace.query.filter_by(
-                identity_id=rule.identity_id, status="active"
-            ).first()
-            if not space:
-                raise ValueError("No active space found for object creation")
-
             import uuid
             obj_id = f"auto_{uuid.uuid4().hex[:16]}"
             name = action_cfg.get("name", "Automated object").format(
@@ -246,24 +236,32 @@ def _execute_action(rule: AutomationRule,
                 object_name=object_name, object_id=trigger_object_id
             )
 
-            # Canonical object creation via ObjectService (R6B-2 convergence)
+            # Ownership is resolved by the canonical boundary only. The
+            # automation rule carries an explicit identity; organization and
+            # workspace are never selected arbitrarily or defaulted.
+            from app.authz.workspace_context import (
+                OwnershipContextError, resolve_current_organization,
+                resolve_current_workspace,
+            )
+            try:
+                org_id = resolve_current_organization(rule.identity_id)
+                workspace_id = resolve_current_workspace(rule.identity_id, org_id)
+            except OwnershipContextError as exc:
+                raise ValueError(
+                    f"automated object creation fails closed: {exc.reason}"
+                )
+
             from core.object_service import get_object_service
-            # Resolve organization from the space's organization_id or OrgMember
-            org_id = space.organization_id
-            if not org_id:
-                from app.models import OrgMember
-                om = OrgMember.query.filter_by(identity_id=rule.identity_id, is_active=True).first()
-                if om:
-                    org_id = om.organization_id
             svc = get_object_service()
             svc.create(
                 object_type=action_cfg.get("object_type", "Task"),
                 name=name,
-                organization_id=org_id or 0,
+                organization_id=org_id,
                 data={"content": content},
                 created_by=rule.identity_id,
-                workspace_id=space.space_id,
+                workspace_id=workspace_id,
                 object_id=obj_id,
+                identity_id=rule.identity_id,
             )
             result["action_summary"] = f"Object created: {name} ({obj_id})"
 

@@ -507,16 +507,23 @@ class TestAIPersistenceChain:
         db.session.commit()
 
         org_id = seed_rbac(db, identity_id="sid_ai_chain", role_name="admin")
-        # Stateful chat requires a real workspace belonging to the authorized org.
-        from app.objects.legacy_models import Workspace
+        # Stateful chat requires a real workspace belonging to the authorized org
+        # AND the canonical identity→workspace authorization for it (R6B-2.7).
+        # The organization may own more than one workspace, so the workspace is
+        # selected EXPLICITLY in the session rather than resolved by ambiguity.
+        from app.objects.legacy_models import Workspace, ShWorkspaceMembership
         db.session.add(Workspace(id='ws_ai_chain', name='AI Chain', workspace_type='business',
                                  organization_id=org_id, created_by='sid_ai_chain'))
+        db.session.add(ShWorkspaceMembership(workspace_id='ws_ai_chain',
+                                            identity_id='sid_ai_chain',
+                                            role='owner', is_active=True))
         db.session.commit()
 
         with client.session_transaction() as sess:
             sess["user_id"] = member.id
             sess["identity_id"] = "sid_ai_chain"
             sess["current_org_id"] = org_id
+            sess["workspace_id"] = 'ws_ai_chain'
         return member
 
     def test_generate_persists_content_generation(self, app, client):

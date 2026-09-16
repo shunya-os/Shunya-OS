@@ -11,9 +11,6 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request, g
 
-from app import db
-from app.objects.legacy_models import ShunyaObject
-
 logger = logging.getLogger(__name__)
 
 upload_bp = Blueprint("objects_upload", __name__, url_prefix="/api/v1/upload")
@@ -99,25 +96,45 @@ def api_upload():
         content_type = ALLOWED_EXTENSIONS.get(ext, "application/octet-stream")
         relative_path = f"uploads/{ws_id}/{obj_id}/{f.filename}"
 
-        # Create ShunyaObject of type 'document'
-        doc = ShunyaObject(
-            object_id=obj_id,
-            workspace_id=ws_id,
-            object_type="document",
-            name=f.filename,
-            data={
-                "title": f.filename,
-                "file_path": relative_path,
-                "file_type": ext,
-                "file_size": file_size,
-                "content_type": content_type,
-                "description": "",
-                "tags": [],
-            },
-            created_by=identity_id,
-        )
-        db.session.add(doc)
-        db.session.commit()
+        # Create the canonical object through ObjectService (R6B-2.7 Window 6).
+        # This route previously constructed a ShunyaObject directly, with no
+        # organization_id at all, i.e. it wrote `sh_objects` rows outside the
+        # canonical write path with NULL ownership — bypassing every Batch C/D
+        # gate. The workspace's owning organization is now resolved explicitly,
+        # ObjectService re-validates that the workspace belongs to it, and the
+        # caller's identity must be actively authorized for that pair.
+        from app.objects.legacy_models import Workspace
+        from core.object_service import get_object_service
+        from app.authz.workspace_context import OwnershipContextError
+
+        workspace = Workspace.query.filter_by(id=ws_id, status="active").first()
+        if workspace is None or not workspace.organization_id:
+            return _error("Unknown or unowned workspace", 400)
+
+        try:
+            get_object_service().create(
+                object_type="document",
+                name=f.filename,
+                organization_id=int(workspace.organization_id),
+                workspace_id=ws_id,
+                data={
+                    "title": f.filename,
+                    "file_path": relative_path,
+                    "file_type": ext,
+                    "file_size": file_size,
+                    "content_type": content_type,
+                    "description": "",
+                    "tags": [],
+                    "name": f.filename,
+                },
+                created_by=identity_id,
+                object_id=obj_id,
+                identity_id=identity_id,
+            )
+        except OwnershipContextError as exc:
+            return _error(getattr(exc, "reason", "Forbidden"), 403)
+        except ValueError as exc:
+            return _error(str(exc), 400)
 
         meta = {
             "object_id": obj_id,

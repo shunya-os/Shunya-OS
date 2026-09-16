@@ -148,13 +148,17 @@ class IntelligenceService:
         sources: list[EvidenceSource] = []
 
         # 1a. Current object context
-        if request.context_object_id and request.context_object_type:
+        # Tenant-scoped read (R6B-2.7 Window 6): `object_id` is not a capability.
+        # Without a positive tenant the read fails closed rather than returning
+        # another tenant's object name/status.
+        if request.tenant_id and request.context_object_id and request.context_object_type:
             try:
                 from app import db
                 from sqlalchemy import text
                 result = db.session.execute(
-                    text("SELECT name, content, status, created_at FROM sh_objects WHERE object_id = :oid"),
-                    {"oid": request.context_object_id},
+                    text("SELECT name, content, status, created_at FROM sh_objects "
+                         "WHERE object_id = :oid AND organization_id = :org"),
+                    {"oid": request.context_object_id, "org": request.tenant_id},
                 ).fetchone()
                 if result:
                     sources.append(EvidenceSource(
@@ -240,12 +244,19 @@ class IntelligenceService:
 
             # Comparison of objects
             if is_comparison:
+                # Tenant-scoped aggregate (R6B-2.7 Window 6): an unscoped
+                # GROUP BY leaked every tenant's per-type object counts.
+                if not request.tenant_id:
+                    return None
                 try:
                     from app import db
                     from sqlalchemy import text
                     # Get object counts by type
                     rows = db.session.execute(
-                        text("SELECT object_type, COUNT(*) as cnt FROM sh_objects WHERE is_deleted = false GROUP BY object_type ORDER BY cnt DESC LIMIT 10")
+                        text("SELECT object_type, COUNT(*) as cnt FROM sh_objects "
+                             "WHERE is_deleted = false AND organization_id = :org "
+                             "GROUP BY object_type ORDER BY cnt DESC LIMIT 10"),
+                        {"org": request.tenant_id},
                     ).fetchall()
                     counts = {r.object_type: r.cnt for r in rows}
                     return {
@@ -257,15 +268,24 @@ class IntelligenceService:
                     return None
 
         # Calculation/aggregation
+        # Tenant-scoped aggregate (R6B-2.7 Window 6): unscoped counts exposed
+        # every tenant's total object count and per-type breakdown.
+        if not request.tenant_id:
+            return None
         try:
             from app import db
             from sqlalchemy import text
             # Count objects
             total = db.session.execute(
-                text("SELECT COUNT(*) FROM sh_objects WHERE is_deleted = false")
+                text("SELECT COUNT(*) FROM sh_objects "
+                     "WHERE is_deleted = false AND organization_id = :org"),
+                {"org": request.tenant_id},
             ).scalar() or 0
             by_type = db.session.execute(
-                text("SELECT object_type, COUNT(*) as cnt FROM sh_objects WHERE is_deleted = false GROUP BY object_type ORDER BY cnt DESC")
+                text("SELECT object_type, COUNT(*) as cnt FROM sh_objects "
+                     "WHERE is_deleted = false AND organization_id = :org "
+                     "GROUP BY object_type ORDER BY cnt DESC"),
+                {"org": request.tenant_id},
             ).fetchall()
             type_counts = {r.object_type: r.cnt for r in by_type}
             return {

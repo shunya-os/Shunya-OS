@@ -28,6 +28,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     conn = op.get_bind()
 
     # Step 1: Backfill NULL organization_id from workspace
@@ -63,6 +65,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # The backfill cannot be reversed automatically. The previous state
     # is preserved in the database backup; no revert is provided.
     pass

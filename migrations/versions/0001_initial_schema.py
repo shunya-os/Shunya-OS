@@ -19,6 +19,8 @@ depends_on = None
 
 
 def upgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # ── tenants ──
     op.create_table(
         "tenants",
@@ -493,6 +495,8 @@ def upgrade():
 
 
 def downgrade():
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     op.drop_table("shunya_identities")
     op.drop_table("workspaces")
     op.drop_table("sh_workspaces")

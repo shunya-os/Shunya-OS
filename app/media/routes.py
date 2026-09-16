@@ -29,19 +29,22 @@ def _require_auth() -> bool:
     return bool(_identity_id())
 
 
-def _tenant_id() -> int:
-    return session.get("current_org_id") or session.get("tenant_id", 0)
+def _tenant_id() -> int | None:
+    """Canonical tenant (organization) id for the caller, or None."""
+    return session.get("current_org_id") or session.get("tenant_id") or None
 
 
-def _organization_id() -> int:
-    """Resolve the current organization ID from session or flask.g.
+def _organization_id() -> int | None:
+    """Resolve the caller's canonical organization ID.
 
-    Returns the real org ID or 0. Callers MUST reject 0 as missing ownership.
+    Returns None when no canonical organization context exists. Callers MUST
+    fail closed on None — there is no synthetic default such as 0.
     """
     return (
         session.get("current_org_id")
         or g.get("current_org_id")
-        or session.get("tenant_id", 0)
+        or session.get("tenant_id")
+        or None
     )
 
 
@@ -82,11 +85,23 @@ def api_generate():
 
     from app.media.service import generate_media
 
+    # Canonical ownership context. Media generation persists a tenant-owned
+    # asset, so both the organization and the workspace must come from the
+    # authenticated request. Absent context fails closed.
+    organization_id = _organization_id()
+    if not organization_id:
+        return jsonify({"success": False,
+                        "error": "No canonical organization context"}), 403
+    workspace_id = _workspace_id()
+    if not workspace_id:
+        return jsonify({"success": False,
+                        "error": "No canonical workspace context"}), 403
+
     result = generate_media(
         raw_prompt=prompt,
         identity_id=_identity_id(),
-        organization_id=_organization_id(),
-        workspace_id=_workspace_id(),
+        organization_id=organization_id,
+        workspace_id=workspace_id,
         platform=data.get("platform"),
         aspect_ratio=data.get("aspect_ratio", "1:1"),
         visual_style=data.get("visual_style", "realistic"),

@@ -30,15 +30,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # === sh_outcomes: add state JSON column ===
     op.add_column("sh_outcomes", sa.Column("state", postgresql.JSONB, nullable=True))
 
-    # Migrate existing stage values into state JSON
-    op.execute("""
-        UPDATE sh_outcomes
-        SET state = jsonb_build_object('stage', stage)
-        WHERE state IS NULL
-    """)
+    # Migrate existing stage values into state JSON.
+    # Guarded: on a fresh database sh_outcomes is materialised by the canonical
+    # boot path from the current model, which no longer declares `stage`, so the
+    # legacy backfill only applies where the legacy column still exists.
+    if op.has_column("sh_outcomes", "stage"):
+        op.execute("""
+            UPDATE sh_outcomes
+            SET state = jsonb_build_object('stage', stage)
+            WHERE state IS NULL
+        """)
 
     # Drop workflow artifact columns
     op.drop_column("sh_outcomes", "steps")
@@ -58,6 +64,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    from migrations.guarded import guarded_op
+    op = guarded_op()
     # Can't restore dropped data, but we can recreate the columns
     op.create_table("execution_tasks",
         sa.Column("id", sa.Integer(), primary_key=True),

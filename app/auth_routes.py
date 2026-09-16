@@ -393,9 +393,9 @@ def api_signup():
         return jsonify({"success": False, "error": "An account with this email already exists."}), 409
 
     member = TeamMember(name=name, email=email, role=UserRole.ADMIN.value, is_active=True)
-    # Default tenant_id — user will be assigned to an organization during onboarding
-    # or via invitation. Without this, NOT NULL constraint on tenant_id breaks signup.
-    member.tenant_id = 1
+    # No tenant is assigned at signup. Canonical tenancy is established through
+    # OrgMember when the user joins an organization; writing an arbitrary
+    # default tenant here would silently place every new account in tenant 1.
     member.set_password(password)
 
     # Generate verification token with expiry
@@ -770,23 +770,42 @@ def session_restore():
             session["identity_id"] = identity_id
             session["current_org_id"] = current_org_id
         else:
-            # No org membership — use email as identity fallback
+            # No org membership — the identity is known but there is no
+            # canonical organization context. Absence is represented by
+            # absence: no synthetic organization (such as 0) is placed in the
+            # session, so downstream authorization fails closed.
             identity_id = member.email or str(user_id)
-            current_org_id = 0
+            current_org_id = None
             session["identity_id"] = identity_id
-            session["current_org_id"] = 0
+            session.pop("current_org_id", None)
 
     if current_org_id:
         org = db.session.get(Organization, current_org_id)
         if org:
             org_name = org.name
 
-    # Determine if onboarding is complete — has personal workspace or org membership
+    # Determine if onboarding is complete — has personal workspace or org membership.
+    # Scoped to the caller's canonical organization; without one there is no
+    # tenant context to inspect, so this fails closed rather than reading
+    # objects through a synthetic organization_id=0.
+    #
+    # An identity that is not canonically authorized for any workspace in this
+    # organization simply has no personal objects — that is a DENIAL, not an
+    # error, so it must not surface as a 500 on the session endpoint.
     has_personal = False
-    if identity_id:
+    if identity_id and current_org_id:
         from core.object_service import get_object_service
+        from app.authz.workspace_context import OwnershipContextError
         svc = get_object_service()
-        has_personal = len(svc.list_by_creator(created_by=identity_id, organization_id=0, limit=1)) > 0
+        try:
+            has_personal = len(svc.list_by_creator(
+                created_by=identity_id,
+                organization_id=current_org_id,
+                identity_id=identity_id,
+                limit=1,
+            )) > 0
+        except OwnershipContextError:
+            has_personal = False
 
     return jsonify({
         "authenticated": True,

@@ -49,7 +49,9 @@ class CanonicalEvent:
     correlation_id: str = ""
     trace_id: str = ""
     timestamp: str = ""
-    tenant_id: int = 0
+    # No synthetic tenant: an event that is not tenant-scoped carries None,
+    # never organization 0 (which would be indistinguishable from a real id).
+    tenant_id: Optional[int] = None
     workspace_id: Optional[int] = None
     actor_id: str = ""
     actor_type: str = "engine"

@@ -276,7 +276,7 @@ def import_data(
             from core.ingestion import SourceType
             event = CanonicalEvent(
                 event_type="ingestion:csv",
-                tenant_id=tenant_id or 0,
+                tenant_id=tenant_id,
                 workspace_id=None,
                 actor_id=user,
                 actor_type="import",

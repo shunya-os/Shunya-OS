@@ -166,12 +166,24 @@ def detect_anomalies(identity_id: str) -> list[dict[str, Any]]:
     threshold_14d = now - timedelta(days=14)
     threshold_7d = now - timedelta(days=7)
 
-    # Look up identity's workspaces via sh_workspaces
+    # Canonical organization context for this identity. Without it no
+    # tenant-scoped read may be performed, so detection stops (fail closed)
+    # rather than reading objects through a synthetic organization_id=0.
+    from app.models import OrgMember
+    member = OrgMember.query.filter_by(
+        identity_id=identity_id, is_active=True
+    ).first()
+    org_id = member.organization_id if member else None
+    if not org_id:
+        return anomalies
+
+    # Look up identity's workspaces via sh_workspaces (canonical workspace truth)
     from app import db
     from sqlalchemy import text
     ws_rows = db.session.execute(
-        text("SELECT id FROM sh_workspaces WHERE created_by = :identity_id AND status = 'active'"),
-        {"identity_id": identity_id},
+        text("SELECT id FROM sh_workspaces WHERE created_by = :identity_id "
+             "AND organization_id = :org_id AND status = 'active'"),
+        {"identity_id": identity_id, "org_id": org_id},
     ).fetchall()
     space_ids = [row[0] for row in ws_rows]
 
@@ -187,7 +199,8 @@ def detect_anomalies(identity_id: str) -> list[dict[str, Any]]:
     for ws_id in space_ids:
         try:
             ws_objects = svc.list_by_workspace(
-                workspace_id=ws_id, organization_id=0, status="active", limit=100
+                workspace_id=ws_id, organization_id=org_id, identity_id=identity_id,
+                status="active", limit=100
             )
             for obj in ws_objects:
                 if obj.get("status") != "active":
@@ -249,7 +262,8 @@ def detect_anomalies(identity_id: str) -> list[dict[str, Any]]:
     for ws_id in space_ids:
         try:
             ws_objects = svc.list_by_workspace(
-                workspace_id=ws_id, organization_id=0, status="active", limit=100
+                workspace_id=ws_id, organization_id=org_id, identity_id=identity_id,
+                status="active", limit=100
             )
             for obj in ws_objects:
                 updated = obj.get("updated_at")

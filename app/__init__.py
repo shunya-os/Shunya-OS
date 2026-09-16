@@ -146,6 +146,7 @@ def _rate_limiter_setup(app: Flask):
 
 def _register_error_handlers(app: Flask):
     """Return JSON for API errors, HTML for UI errors."""
+    from app.authz.workspace_context import OwnershipContextError
 
     @app.errorhandler(400)
     def bad_request(e):
@@ -171,6 +172,19 @@ def _register_error_handlers(app: Flask):
             "error": str(e),
         })
         return _error_response(500, "Internal server error", "Contact support with request ID")
+
+    @app.errorhandler(OwnershipContextError)
+    def ownership_denied(e):
+        """An unhandled canonical authorization denial is a DENIAL (403), never a
+        500. Every canonical read/write gate raises this exception; a caller that
+        does not handle it explicitly still must not surface it as a server error,
+        which would look like an internal fault instead of a refused request.
+        """
+        rid = getattr(g, "request_id", "")
+        app.logger.info("AUTHZ DENY (canonical ownership): %s", getattr(e, "reason", e),
+                        extra={"request_id": rid, "code": getattr(e, "code", "")})
+        return _error_response(403, getattr(e, "reason", "Forbidden"),
+                               getattr(e, "code", ""))
 
     def _error_response(code, message, detail=""):
         is_api = request.path.startswith("/api/") or request.path.startswith("/shunya/")
