@@ -95,16 +95,23 @@ def _object_service_calls(tree, in_service_module=False):
 
 
 def _system_scope_true_sites(tree):
-    """(lineno, has_identity_id) for every keyword `system_scope=True`."""
+    """(lineno, has_identity_id) for every keyword `system_scope=True`.
+
+    ``actor_identity_id`` counts as the identity-bearing keyword: the canonical
+    membership service (``app/authz/workspace_membership.py``) names its actor
+    parameter that way, and it rejects ``system_scope`` combined with an actor.
+    A bare ``system_scope=True`` — the actual bypass — is still flagged.
+    """
     out = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         kwargs = {k.arg for k in node.keywords if k.arg}
+        has_identity = bool(kwargs & {"identity_id", "actor_identity_id"})
         for k in node.keywords:
             if (k.arg == "system_scope" and isinstance(k.value, ast.Constant)
                     and k.value.value is True):
-                out.append((node.lineno, "identity_id" in kwargs))
+                out.append((node.lineno, has_identity))
     return out
 
 
@@ -210,6 +217,20 @@ def test_tests_never_use_system_scope_to_grant_access():
         "system_scope=True used WITHOUT identity_id in tests — that is an "
         f"authorization bypass, not a probe: {offenders}"
     )
+
+
+def test_guard_still_flags_a_bare_system_scope():
+    """Guard self-test: widening the identity keyword must NOT weaken it.
+
+    A bare ``system_scope=True`` — identity_id or actor_identity_id absent —
+    is exactly the bypass this guard exists to catch.
+    """
+    src_bare = "grant(WS, T, 'member', system_scope=True)\n"
+    assert _system_scope_true_sites(ast.parse(src_bare)) == [(1, False)]
+
+    src_probe = ("grant(WS, T, 'member', actor_identity_id=OWNER, "
+                 "system_scope=True)\n")
+    assert _system_scope_true_sites(ast.parse(src_probe)) == [(1, True)]
 
 
 # ---------------------------------------------------------------------------
