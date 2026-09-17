@@ -37,7 +37,7 @@ _PERSON_LINE_PATTERN = re.compile(r"^([A-Z][a-z]{2,}\s+[A-Z][a-z]{2,})(?:\s|$)",
 
 # Monetary amounts
 _AMOUNT_PATTERN = re.compile(
-    r"(?:₹|Rs\.?\s*|INR\s*|USD\s*|EUR\s*|£)\s*\.?\s*(\d[\d,]*\.?\d*)",
+    r"(?:₹|Rs\.?\s*|INR\s*|USD\s*|EUR\s*|GBP\s*|\$|£|€)\s*\.?\s*(\d[\d,]*\.?\d*)",
     re.I,
 )
 

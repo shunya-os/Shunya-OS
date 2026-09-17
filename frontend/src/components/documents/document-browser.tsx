@@ -41,6 +41,185 @@ function formatDate(d: string | null): string {
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+// ── Document Intelligence (Block D) ──────────────────────────────
+
+interface DocIntelligence {
+  classification: string;
+  confidence: number;
+  reason: string;
+  signals: string[];
+  entities: Record<string, Array<{ value: string; confidence?: number }>>;
+  entity_count: number;
+  analysed_at: string;
+  engine: string;
+}
+
+const ENTITY_LABELS: Record<string, string> = {
+  persons: 'People', amounts: 'Amounts', dates: 'Dates', emails: 'Emails',
+  phones: 'Phones', references: 'References', organizations: 'Organisations',
+};
+
+function IntelligencePanel({ doc }: { doc: Document }) {
+  const [intel, setIntel] = useState<DocIntelligence | null>(null);
+  const [state, setState] = useState<'loading' | 'ready' | 'none' | 'error'>('loading');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setState('loading');
+    setError('');
+    try {
+      const r = await fetch(`/api/v1/workspace/documents/${doc.id}/intelligence`, { credentials: 'include' });
+      const data = await r.json();
+      if (!r.ok || !data.success) {
+        setError(data.error || `Could not load intelligence (${r.status}).`);
+        setState('error');
+        return;
+      }
+      if (data.analysed && data.intelligence) {
+        setIntel(data.intelligence);
+        setState('ready');
+      } else {
+        setState('none');
+      }
+    } catch {
+      setError('Could not reach the intelligence service.');
+      setState('error');
+    }
+  }, [doc.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const analyse = useCallback(async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const r = await fetch(`/api/v1/workspace/documents/${doc.id}/classify`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await r.json();
+      if (!r.ok || !data.success) {
+        setError(data.error || `Identification failed (${r.status}).`);
+        setState('error');
+        return;
+      }
+      setIntel(data.intelligence);
+      setState('ready');
+    } catch {
+      setError('Could not reach the intelligence service.');
+      setState('error');
+    } finally {
+      setBusy(false);
+    }
+  }, [doc.id]);
+
+  return (
+    <div style={{
+      border: '1px solid rgba(26,28,29,0.07)', borderRadius: 10,
+      padding: 16, marginBottom: 16, background: 'rgba(26,28,29,0.015)',
+    }} data-testid="doc-intelligence">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(26,28,29,0.45)' }}>
+          Document Intelligence
+        </span>
+        {state === 'ready' && intel && (
+          <span style={{ fontSize: 11, color: 'rgba(26,28,29,0.4)' }}>
+            {Math.round(intel.confidence * 100)}% confidence
+          </span>
+        )}
+      </div>
+
+      {state === 'loading' && (
+        <p style={{ margin: 0, fontSize: 13, color: 'rgba(26,28,29,0.5)' }}>Reading this document…</p>
+      )}
+
+      {state === 'error' && (
+        <div style={{ fontSize: 13, color: '#d1453b' }}>
+          {error}
+          <button onClick={load} style={{ marginLeft: 10, fontSize: 12, cursor: 'pointer', background: 'none', border: '1px solid rgba(209,69,59,0.4)', borderRadius: 6, padding: '2px 10px', color: '#d1453b', fontFamily: 'inherit' }}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {state === 'none' && (
+        <div>
+          <p style={{ margin: '0 0 10px', fontSize: 13, color: 'rgba(26,28,29,0.55)' }}>
+            This document has not been identified yet.
+          </p>
+          <button
+            onClick={analyse}
+            disabled={busy}
+            style={{
+              padding: '7px 16px', borderRadius: 6, fontSize: 13, fontWeight: 500,
+              background: '#1a1c1d', color: '#fff', border: 'none',
+              cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
+              fontFamily: 'inherit',
+            }}
+          >
+            {busy ? 'Identifying…' : 'Identify document'}
+          </button>
+        </div>
+      )}
+
+      {state === 'ready' && intel && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <span style={{
+              fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
+              padding: '3px 10px', borderRadius: 999,
+              background: 'rgba(26,28,29,0.06)', color: '#1a1c1d',
+            }} data-testid="doc-classification">
+              {intel.classification}
+            </span>
+            <span style={{ fontSize: 12, color: 'rgba(26,28,29,0.5)' }}>{intel.reason}</span>
+          </div>
+
+          {intel.signals.length > 0 && (
+            <div style={{ fontSize: 11, color: 'rgba(26,28,29,0.4)', marginBottom: 10 }}>
+              Signals: {intel.signals.join(' · ')}
+            </div>
+          )}
+
+          {intel.entity_count === 0 ? (
+            <p style={{ margin: '6px 0 0', fontSize: 13, color: 'rgba(26,28,29,0.45)' }}>
+              No structured entities were found in this document.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {Object.entries(intel.entities).map(([key, items]) => (
+                <div key={key} style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                  <span style={{ fontSize: 11, color: 'rgba(26,28,29,0.45)', minWidth: 92, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {ENTITY_LABELS[key] || key}
+                  </span>
+                  <span style={{ fontSize: 13, color: '#1a1c1d', wordBreak: 'break-word' }}>
+                    {items.slice(0, 6).map((e) => e.value).join(', ')}
+                    {items.length > 6 ? ` +${items.length - 6}` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={analyse}
+            disabled={busy}
+            style={{
+              marginTop: 12, fontSize: 12, cursor: busy ? 'default' : 'pointer',
+              background: 'none', border: '1px solid rgba(26,28,29,0.12)',
+              borderRadius: 6, padding: '4px 12px', color: 'rgba(26,28,29,0.6)',
+              fontFamily: 'inherit',
+            }}
+          >
+            {busy ? 'Re-identifying…' : 'Re-identify'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Document Detail Panel ──────────────────────────────────────────
 
 function DocumentDetail({ doc, onBack }: { doc: Document; onBack: () => void }) {
@@ -91,6 +270,8 @@ function DocumentDetail({ doc, onBack }: { doc: Document; onBack: () => void }) 
           Open in New Tab
         </a>
       </div>
+
+      <IntelligencePanel doc={doc} />
 
       {isViewable && (
         <div style={{

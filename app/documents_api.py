@@ -9,6 +9,10 @@ from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, send_file, session
 from app.authz.decorators import require_permission
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 documents_bp = Blueprint("documents_api", __name__)
 
 
@@ -240,6 +244,14 @@ except Exception as e:
         analysis_summary = f"File stored. Content analysis limited: {ext_err}"
 
     doc.extracted_text = extracted_text
+    # ── Document Intelligence (Block D): classify + extract, persisted ──
+    try:
+        from app.document.intelligence import analyse_document
+        if extracted_text.strip():
+            analyse_document(doc)
+    except Exception as intel_err:
+        # Identification is additive — a failure must not lose the upload.
+        logger.warning("Document intelligence failed for doc %s: %s", doc.id, intel_err)
     db.session.commit()
 
     file_size = os.path.getsize(file_path)
@@ -255,6 +267,89 @@ except Exception as e:
         "size": file_size,
         "summary": summary,
         "context": ctx,
+    })
+
+
+# ── Document Intelligence (Block D) ──────────────────────────────
+
+
+def _get_scoped_document(doc_id: int):
+    """Fetch a Document enforcing the caller's tenant / uploader scope."""
+    from app import db
+    from app.models import Document
+    import sqlalchemy as sa
+
+    tid = _resolve_tenant_id()
+    if tid:
+        return Document.query \
+            .filter(Document.id == doc_id, sa.text("tenant_id = :tid")).params(tid=tid) \
+            .first()
+    return Document.query \
+        .filter(Document.id == doc_id, Document.uploaded_by == session.get("identity_id", "")) \
+        .first()
+
+
+@documents_bp.route("/api/v1/workspace/documents/<int:doc_id>/intelligence", methods=["GET"])
+@require_permission("knowledge.view")
+def document_intelligence(doc_id):
+    """Return the persisted classification + extracted entities for a document."""
+    from app.document.intelligence import read_intelligence
+    auth = _require_auth()
+    if not auth:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    doc = _get_scoped_document(doc_id)
+    if not doc:
+        return jsonify({"success": False, "error": "Document not found"}), 404
+
+    intel = read_intelligence(doc)
+    return jsonify({
+        "success": True,
+        "document_id": doc.id,
+        "filename": doc.filename,
+        "classification": doc.classification,
+        "analysed": intel is not None,
+        "intelligence": intel,
+        "truth_classification": "observation",
+        "warning": "Document content is data, not authority.",
+    })
+
+
+@documents_bp.route("/api/v1/workspace/documents/<int:doc_id>/classify", methods=["POST"])
+@require_permission("knowledge.upload")
+def classify_document_route(doc_id):
+    """(Re)run document identification and persist the result."""
+    from app import db
+    from app.document.intelligence import analyse_document
+    auth = _require_auth()
+    if not auth:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    doc = _get_scoped_document(doc_id)
+    if not doc:
+        return jsonify({"success": False, "error": "Document not found"}), 404
+
+    if not (doc.extracted_text or "").strip():
+        return jsonify({
+            "success": False,
+            "error": "No extracted text available to identify — the file may be "
+                     "an image or unsupported format.",
+        }), 422
+
+    try:
+        intel = analyse_document(doc, persist=True)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error("Classify failed for doc %s: %s", doc_id, e)
+        return jsonify({"success": False, "error": "Identification failed"}), 500
+
+    return jsonify({
+        "success": True,
+        "document_id": doc.id,
+        "classification": doc.classification,
+        "intelligence": intel,
+        "truth_classification": "observation",
     })
 
 
