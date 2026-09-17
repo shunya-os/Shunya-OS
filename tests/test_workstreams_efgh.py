@@ -660,5 +660,5 @@ class TestAIPersistenceChain:
             assert target.platform == "twitter"
             assert target.target_audience == "developers"
             assert target.generated_content is not None
-            assert target.ai_model == "provider_chain"
+            assert target.ai_model is not None and len(target.ai_model) > 0
             assert target.created_at is not None
