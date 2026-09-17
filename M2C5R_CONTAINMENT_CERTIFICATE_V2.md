@@ -42,7 +42,12 @@ Hermes established that the backup was post-mutation (line explicitly in the cer
 ## 2. 🟡 SECURITY INCIDENT
 
 ### What was exposed
-The DB credential `IX-Mby1Phdtom1gEEeScNvw8QZOgHqzHVNdT_2B5EsA` was printed in terminal output during this execution.
+The DB credential was printed in terminal output during this execution. The
+literal value is REDACTED here: it was committed to a tracked file, so it must
+be treated as public. It has been rotated (the old value no longer authenticates)
+and the tracked script now reads the password from the environment. The value
+remains present in git history and scrubbing history is a deliberate, separate
+decision.
 
 ### Remediation actions
 | Action | Result |

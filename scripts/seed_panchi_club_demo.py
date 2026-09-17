@@ -25,12 +25,23 @@ from datetime import datetime, timezone
 import psycopg2
 
 # ── Database connection ────────────────────────────────────────────────
+# The password is read from the environment. It was previously hard-coded here,
+# which leaked a database credential into a tracked file (and into git history).
+# A tracked credential is exposed to everyone with repository access and cannot
+# be rotated by editing the file alone — rotation is the only real fix.
+_DB_PASSWORD = os.environ.get("SHUNYA_DB_PASSWORD")
+if not _DB_PASSWORD:
+    raise SystemExit(
+        "SHUNYA_DB_PASSWORD is not set. Credentials must never be hard-coded "
+        "in tracked files; export the password before running this script."
+    )
+
 DB_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "user": "shunya",
-    "password": "IX-Mby1Phdtom1gEEeScNvw8QZOgHqzHVNdT_2B5EsA",
-    "dbname": "shunya_os",
+    "host": os.environ.get("SHUNYA_DB_HOST", "localhost"),
+    "port": int(os.environ.get("SHUNYA_DB_PORT", "5432")),
+    "user": os.environ.get("SHUNYA_DB_USER", "shunya"),
+    "password": _DB_PASSWORD,
+    "dbname": os.environ.get("SHUNYA_DB_NAME", "shunya_os"),
 }
 
 # ── Constants ──────────────────────────────────────────────────────────
