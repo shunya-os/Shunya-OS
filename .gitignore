@@ -138,3 +138,12 @@ artifacts/**/.second_run.tmp
 artifacts/**/*.tmp
 artifacts/**/migration_certification_*.log
 artifacts/**/*_cert.log
+
+# Audit artifacts (product-actionability reviews, golden journeys, evidence matrices)
+actionability_matrix.md
+object-actionability-matrix.md
+docs/backend-api-route-inventory.md
+design/constitutional-drift-reconciliation.md
+frontend/src/components/ui-state-audit.md
+scripts/prod_db_investigate.py
+artifacts/product/
