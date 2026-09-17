@@ -66,6 +66,22 @@ if ! git fetch origin master 2>&1 | tee -a "${DEPLOY_LOG}"; then
     exit 1
 fi
 
+# ---- Step 2b: PRESERVE UNCOMMITTED WORK (fail closed) ----
+# A deploy must never destroy a developer's uncommitted work. Step 3 used to
+# hard-reset the live worktree BEFORE any check, silently discarding local
+# commits and edits. The guard below runs FIRST and fails closed on a dirty or
+# unexpected tree — nothing is modified when it refuses.
+echo "[2/12] Verifying the deploy tree is clean before any checkout..." | tee -a "${DEPLOY_LOG}"
+PREFLIGHT_SCRIPT="infrastructure/scripts/deploy_preflight.sh"
+if [[ ! -f "${PREFLIGHT_SCRIPT}" ]]; then
+    echo "ERROR: ${PREFLIGHT_SCRIPT} is missing — refusing to deploy (expected state)." | tee -a "${DEPLOY_LOG}"
+    exit 1
+fi
+if ! bash "${PREFLIGHT_SCRIPT}" "$(pwd)" 2>&1 | tee -a "${DEPLOY_LOG}"; then
+    echo "ERROR: Deploy pre-flight refused this deployment. No work was destroyed." | tee -a "${DEPLOY_LOG}"
+    exit 1
+fi
+
 # ---- Step 3: Checkout exact certified SHA ----
 if [[ -n "${TARGET_SHA}" ]]; then
     echo "[3/12] Checking out exact certified SHA: ${TARGET_SHA}" | tee -a "${DEPLOY_LOG}"
@@ -136,6 +152,41 @@ if [ -d "frontend" ] && [ -f "frontend/package.json" ]; then
     )
 else
     echo "  SKIP: No frontend directory found" | tee -a "${DEPLOY_LOG}"
+fi
+
+# ---- Step 6b: Publish an IMMUTABLE frontend release ----
+# Release integrity: production must NOT serve frontend assets from this
+# mutable checkout. The build is published to a per-SHA release directory and
+# the 'current' symlink is swapped ATOMICALLY, so a local `npm run build` can
+# never change what production serves, and the served artifact is always tied
+# to a certified SHA.
+if [ -d "frontend/dist" ]; then
+    RELEASES_ROOT="${SHUNYA_RELEASES_ROOT:-$(cd .. && pwd)/releases}"
+    RELEASE_DIR="${RELEASES_ROOT}/${DEPLOYED_SHA}"
+    RELEASE_TMP="${RELEASE_DIR}.tmp.$$"
+    echo "[6/12] Publishing immutable frontend release -> ${RELEASE_DIR}" | tee -a "${DEPLOY_LOG}"
+    rm -rf "${RELEASE_TMP}"
+    mkdir -p "${RELEASE_TMP}"
+    if ! cp -a frontend/dist/. "${RELEASE_TMP}/"; then
+        echo "ERROR: Could not stage the frontend release" | tee -a "${DEPLOY_LOG}"
+        exit 1
+    fi
+    ASSET_MANIFEST_SHA=$(find "${RELEASE_TMP}" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+    if [[ -z "${ASSET_MANIFEST_SHA}" ]]; then
+        echo "ERROR: Could not compute the release asset manifest hash" | tee -a "${DEPLOY_LOG}"
+        exit 1
+    fi
+    cat > "${RELEASE_TMP}/release.json" <<EOF
+{"release_sha": "${DEPLOYED_SHA}", "asset_manifest_sha256": "${ASSET_MANIFEST_SHA}", "published_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)", "publisher": "deploy.sh"}
+EOF
+    rm -rf "${RELEASE_DIR}"
+    mv "${RELEASE_TMP}" "${RELEASE_DIR}"
+    # Atomic symlink swap — readers never observe a missing/partial release.
+    ln -sfn "${RELEASE_DIR}" "${RELEASES_ROOT}/.current.tmp"
+    mv -Tf "${RELEASES_ROOT}/.current.tmp" "${RELEASES_ROOT}/current"
+    echo "  Frontend release published (sha=${DEPLOYED_SHA:0:12}, manifest=${ASSET_MANIFEST_SHA:0:12})" | tee -a "${DEPLOY_LOG}"
+else
+    echo "  SKIP: no frontend/dist to publish" | tee -a "${DEPLOY_LOG}"
 fi
 
 # ---- Step 7: Migration check + backup ----

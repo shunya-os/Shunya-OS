@@ -29,6 +29,30 @@ def _tenant_id() -> int | None:
     return int(tid) if tid else None
 
 
+from app.content_studio.languages import (
+    AUTO,
+    DEFAULT_LANGUAGE,
+    language_prompt,
+    normalize as normalize_language,
+    registry as language_registry,
+    resolve_output_language,
+)
+
+
+@content_bp.route("/languages", methods=["GET"])
+def api_languages():
+    """Canonical output-language registry — the single source of truth for the UI.
+
+    Deliberately public (no auth): it is static capability metadata and the
+    selector must render before any generation attempt.
+    """
+    return jsonify({
+        "success": True,
+        "data": language_registry(),
+        "default": DEFAULT_LANGUAGE,
+    })
+
+
 @content_bp.route("/generate", methods=["POST"])
 def api_generate():
     """Generate content via AI provider chain."""
@@ -47,6 +71,26 @@ def api_generate():
     word_count = int(data.get("word_count", 300))
     additional_instructions = data.get("additional_instructions", "")
 
+    # ── Output language (§12): validated against the canonical registry. ──
+    # An unsupported value is REJECTED — an arbitrary language string is never
+    # passed through to the model.
+    raw_language = data.get("output_language", AUTO)
+    normalized = normalize_language(raw_language)
+    if normalized is None:
+        return jsonify({
+            "success": False,
+            "code": "invalid_output_language",
+            "error": f"Unsupported output_language: {raw_language!r}",
+        }), 400
+    lang_code, lang_source = resolve_output_language(
+        normalized, f"{prompt} {additional_instructions}"
+    )
+
+    # The language is applied as a generation CONSTRAINT, not a UI-only label.
+    instr = (additional_instructions or "").strip()
+    language_constraint = language_prompt(lang_code)
+    combined = f"{language_constraint}\n\n{instr}".strip() if instr else language_constraint
+
     from app.integration.service import generate_content
     result = generate_content(
         prompt=prompt,
@@ -55,8 +99,11 @@ def api_generate():
         platform=platform,
         target_audience=target_audience,
         word_count=word_count,
-        additional_instructions=additional_instructions,
+        additional_instructions=combined,
+        output_language=lang_code,
     )
+    result["output_language"] = lang_code
+    result["output_language_source"] = lang_source
 
     # Persist the generation
     if result.get("success"):
@@ -72,7 +119,7 @@ def api_generate():
                 tone=tone,
                 target_audience=target_audience,
                 word_count=word_count,
-                ai_model="provider_chain",
+                ai_model=result.get("model") or "provider_chain",
             )
             db.session.add(cg)
             db.session.commit()

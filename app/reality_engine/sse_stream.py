@@ -195,3 +195,20 @@ def serialize_event(event: CanonicalEvent) -> str:
 def serialize_heartbeat() -> str:
     """Heartbeat to keep the SSE connection alive when no events are flowing."""
     return f": heartbeat {datetime.now(timezone.utc).isoformat()}\n\n"
+
+
+def serialize_heartbeat_frame() -> str:
+    """A real SSE *data* frame carrying liveness.
+
+    `EventSource.onmessage` never fires for SSE comment lines (`: ...`), so a
+    comment heartbeat keeps the socket open but is INVISIBLE to the client —
+    the UI cannot tell it is still alive. This frame is a genuine data event so
+    the frontend can show truthful liveness without inventing it.
+    """
+    payload = {
+        "event_id": f"hb-{uuid.uuid4()}",
+        "event_type": "system.heartbeat",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "payload": {"message": "alive"},
+    }
+    return f"data: {json.dumps(payload, default=str)}\n\n"

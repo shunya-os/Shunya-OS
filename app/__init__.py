@@ -245,7 +245,7 @@ def _health_check(app: Flask) -> dict:
     """Run a full health check against runtime dependencies."""
     from sqlalchemy import text
 
-    checks = {"status": "ok", "version": "1.0.0"}
+    checks: dict = {"status": "ok", "version": "1.0.0"}
     checks["git_commit"] = _GIT_COMMIT
     checks["git_commit_short"] = _GIT_COMMIT_SHORT
     checks["build_id"] = _BUILD_ID
@@ -261,6 +261,26 @@ def _health_check(app: Flask) -> dict:
     except Exception as e:
         checks["database"] = f"error: {e}"
         checks["status"] = "degraded"
+
+    # Frontend release provenance — makes a frontend/backend SHA mismatch
+    # observable instead of silent (release integrity, R6B-2.7 Window 6 §3).
+    try:
+        from app.frontend_release import frontend_provenance
+        prov = frontend_provenance()
+        checks.update(prov)
+        # Fail the health signal if production is meant to serve an immutable
+        # release but the artifact cannot be tied to the running SHA.
+        if prov["frontend_dist_mode"] == "immutable_release":
+            declared = prov.get("frontend_release_sha")
+            if not prov["frontend_release_verified"] or (
+                declared and declared != _GIT_COMMIT
+            ):
+                checks["frontend_release_matches_backend"] = False
+                checks["status"] = "degraded"
+            else:
+                checks["frontend_release_matches_backend"] = True
+    except Exception as e:  # never break health on provenance introspection
+        checks["frontend_provenance_error"] = str(e)
 
     return checks
 
@@ -1128,7 +1148,12 @@ def create_app(config_override: dict | None = None):
         )
 
     # ---- Serve production frontend build ----
-    frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+    # Release integrity: production serves an IMMUTABLE release directory
+    # (SHUNYA_FRONTEND_DIST → <releases>/current, swapped atomically by the
+    # deploy). Only development falls back to the in-checkout build dir, so a
+    # local `npm run build` can never alter what production serves.
+    from app.frontend_release import resolve_frontend_dist
+    frontend_dist = resolve_frontend_dist()
 
     @app.route("/assets/<path:filename>")
     def serve_frontend_asset(filename):

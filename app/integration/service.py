@@ -724,10 +724,20 @@ def generate_content(
     target_audience: str | None = None,
     word_count: int = 300,
     additional_instructions: str = "",
+    output_language: str = "en",
 ) -> dict[str, Any]:
     """Generate content using the SHUNYA AI provider chain.
 
-    Returns: { "success": bool, "content": str, "error": str | None }
+    ``output_language`` is applied as a GENERATION CONSTRAINT (§7–§9) — the
+    caller (routes) has already validated it against the canonical registry.
+
+    SERVER AUTHORITY (§10): the provider and model are resolved entirely
+    server-side. There is no parameter here for a client-supplied provider or
+    model, so a request cannot override policy. There is no automatic paid
+    fallback (§11): if the configured provider is unavailable the failure is
+    returned truthfully rather than silently spending money.
+
+    Returns: { "success": bool, "content": str, "error": str | None, "model": str }
     """
     system_prompts = {
         "blog_post": "You are a professional blog writer. Write engaging, SEO-optimized blog content.",
@@ -766,6 +776,8 @@ Target Length: ~{word_count} words
 {f'Target Audience: {target_audience}' if target_audience else ''}
 {f'Additional Instructions: {additional_instructions}' if additional_instructions else ''}
 
+Write the output in the requested language ({output_language}). This is a hard requirement.
+
 Topic/Task: {prompt}
 
 Generate the content now:"""
@@ -784,7 +796,9 @@ Generate the content now:"""
             max_tokens=min(word_count * 4, 2048),
         )
         if result and result.get("content"):
-            return {"success": True, "content": result["content"], "error": None}
+            return {"success": True, "content": result["content"], "error": None,
+                    "model": result.get("model") or getattr(provider, "name", ""),
+                    "output_language": output_language}
         if result and result.get("finish_reason") == "error":
             return {"success": False, "content": None, "error": result.get("error", "Provider error")}
         return {"success": False, "content": None, "error": "AI provider returned empty response"}

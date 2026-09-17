@@ -61,6 +61,12 @@ export function subscribeSSE(type: SSEType): SSESubscription {
       try {
         const data = JSON.parse(event.data);
 
+        // Observable liveness frame: drives the presence heartbeat but must
+        // NOT be projected as a business/reality event.
+        if (data && data.event_type === 'system.heartbeat') {
+          return;
+        }
+
         if (type === 'reality') {
           // Emit the raw canonical event as an individual reality:event
           bus.emit({ type: 'reality:event', data });

@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, Response, current_app, stream_with_context
 
 from app.reality_engine.engine import get_reality_engine
-from app.reality_engine.sse_stream import get_sse_manager, serialize_event, serialize_heartbeat
+from app.reality_engine.sse_stream import get_sse_manager, serialize_event, serialize_heartbeat_frame
 from app.graph_universal.traversal import GraphQueryEngine
 from app.graph_universal.entity import get_store as get_entity_store
 from app.graph_universal.relationship import get_store as get_rel_store
@@ -146,9 +146,11 @@ def stream_reality():
                         yield serialize_event(event)
                     last_heartbeat = time.time()
                 else:
-                    # Send heartbeat every 15s to keep connection alive
-                    if time.time() - last_heartbeat > 15:
-                        yield serialize_heartbeat()
+                    # Send an OBSERVABLE heartbeat every 10s so the client can
+                    # prove liveness (a comment heartbeat would be invisible to
+                    # EventSource.onmessage).
+                    if time.time() - last_heartbeat > 10:
+                        yield serialize_heartbeat_frame()
                         last_heartbeat = time.time()
         except GeneratorExit:
             pass

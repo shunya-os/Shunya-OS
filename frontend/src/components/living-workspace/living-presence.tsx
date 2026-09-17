@@ -22,7 +22,7 @@
 import { useState, useEffect, useRef, FC } from 'react';
 import { useLivingStore } from './living-store';
 
-type PresenceMode = 'processing' | 'attention' | 'reconnecting' | 'unavailable' | 'observing';
+type PresenceMode = 'processing' | 'attention' | 'connecting' | 'reconnecting' | 'unavailable' | 'observing';
 
 const MODE_META: Record<PresenceMode, { label: string; color: string; hint: string }> = {
   processing: {
@@ -34,6 +34,11 @@ const MODE_META: Record<PresenceMode, { label: string; color: string; hint: stri
     label: 'Needs your attention',
     color: 'var(--shunya-gold, #a4865f)',
     hint: 'SHUNYA noticed something that may need you.',
+  },
+  connecting: {
+    label: 'Connecting…',
+    color: 'var(--shunya-gold, #a4865f)',
+    hint: 'Establishing the live connection to SHUNYA.',
   },
   reconnecting: {
     label: 'Reconnecting…',
@@ -100,9 +105,11 @@ export const LivingPresence: FC<{ compact?: boolean }> = ({ compact = false }) =
 
   // ─ Derive the single truthful mode ──
   const hasAttention = awarenessSignals.some((s) => s.status === 'active') || observations.length > 0;
+  const everConnected = useLivingStore((s) => s.presenceEverConnected);
   let mode: PresenceMode;
   if (presenceConnection === 'unavailable') mode = 'unavailable';
   else if (presenceConnection === 'reconnecting') mode = 'reconnecting';
+  else if (presenceConnection === 'connecting') mode = everConnected ? 'reconnecting' : 'connecting';
   else if (activeExecutions.length > 0) mode = 'processing';
   else if (hasAttention) mode = 'attention';
   else mode = 'observing';
@@ -178,6 +185,7 @@ export const LivingPresence: FC<{ compact?: boolean }> = ({ compact = false }) =
 }
 .lp-dot[data-mode="processing"] { animation: lp-pulse-fast ${pulseDuration}s ease-in-out infinite; }
 .lp-dot[data-mode="attention"] { animation: lp-pulse-mid ${pulseDuration}s ease-in-out infinite; }
+.lp-dot[data-mode="connecting"] { animation: lp-pulse-mid ${pulseDuration}s ease-in-out infinite; }
 .lp-dot[data-mode="reconnecting"] { animation: lp-pulse-slow ${pulseDuration}s ease-in-out infinite; }
 .lp-dot[data-mode="unavailable"] { animation: lp-pulse-slow ${pulseDuration}s ease-in-out infinite; opacity: 0.6; }
 .lp-dot[data-mode="observing"] { animation: lp-pulse-slow ${pulseDuration}s ease-in-out infinite; }
