@@ -107,8 +107,13 @@ def api_history():
             "total": len(items),
         })
     except Exception as e:
-        logger.warning("Content history error: %s", e)
-        return jsonify({"success": True, "data": [], "total": 0})
+        # TRUTHFUL FAILURE — never mask a real storage error as an empty
+        # library. An empty list and an unreadable list must be
+        # distinguishable, or the user is silently told their content does
+        # not exist.
+        logger.error("Content history error: %s", e)
+        return jsonify({"success": False,
+                        "error": "Content history could not be loaded"}), 500
 
 
 @content_bp.route("/history/<int:item_id>", methods=["GET"])
@@ -187,38 +192,85 @@ def api_lifecycle(item_id: int):
     try:
         from app.integration.models import ContentGeneration
         from app import db
+        actor = _identity_id()
         item = db.session.get(ContentGeneration, item_id)
-        if not item or item.identity_id != _identity_id():
+        if not item or item.identity_id != actor:
             return jsonify({"success": False, "error": "Not found"}), 404
 
-        LIFECYCLE = {
-            "archive": lambda i: setattr(i, "status", "archived"),
-            "restore": lambda i: setattr(i, "status", "active") if i.status == "archived" else None,
-            "trash":   lambda i: setattr(i, "is_deleted", True),
-            "recover": lambda i: (setattr(i, "is_deleted", False), setattr(i, "status", "active")) if i.is_deleted else None,
-            "permanent_delete": lambda i: None,  # handled below
+        def _state(i):
+            if i.is_deleted:
+                return "trashed"
+            return "archived" if i.status == "archived" else "active"
+
+        current = _state(item)
+
+        # Explicit transition table. Each entry: (allowed_from, apply_fn).
+        # Returning False from apply_fn means "not a valid transition".
+        def _do_archive(i):
+            i.status = "archived"
+            return True
+
+        def _do_restore(i):
+            i.status = "active"
+            return True
+
+        def _do_trash(i):
+            i.is_deleted = True
+            return True
+
+        def _do_recover(i):
+            i.is_deleted = False
+            i.status = "active"
+            return True
+
+        TRANSITIONS = {
+            "archive": ({"active"}, _do_archive),
+            "restore": ({"archived"}, _do_restore),
+            "trash": ({"active", "archived"}, _do_trash),
+            "recover": ({"trashed"}, _do_recover),
         }
 
         if action == "permanent_delete":
-            if not item.is_deleted:
-                return jsonify({"success": False, "error": "Must trash before permanent delete"}), 400
+            if current != "trashed":
+                return jsonify({
+                    "success": False,
+                    "error": "Object must be in trash before it can be "
+                             "permanently deleted",
+                    "state": current,
+                }), 409
             db.session.delete(item)
             db.session.commit()
-            return jsonify({"success": True, "action": action})
+            return jsonify({"success": True, "action": action,
+                            "state": "deleted"})
 
-        handler = LIFECYCLE[action]
-        result = handler(item)
-        if result is None:
-            return jsonify({"success": False, "error": f"Invalid transition: {action} from current state"}), 400
+        allowed_from, apply_fn = TRANSITIONS[action]
+        if current not in allowed_from:
+            return jsonify({
+                "success": False,
+                "error": f"Cannot {action} an object in state '{current}'",
+                "state": current,
+                "allowed_from": sorted(allowed_from),
+            }), 409
+        if not apply_fn(item):
+            return jsonify({"success": False,
+                            "error": f"Invalid transition: {action}"}), 409
         db.session.commit()
 
-        # Return updated state
         updated = db.session.get(ContentGeneration, item_id)
+        if updated is None:  # pragma: no cover — defensive
+            return jsonify({"success": False,
+                            "error": "Object disappeared during operation"}), 500
         return jsonify({"success": True, "action": action,
+                        "state": _state(updated),
                         "status": updated.status,
-                        "is_deleted": bool(updated.is_deleted) if updated.is_deleted is not None else False})
+                        "is_deleted": bool(updated.is_deleted
+                                           if updated.is_deleted is not None
+                                           else False)})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        logger.error("Content lifecycle error (id=%s, action=%s): %s",
+                     item_id, action, e)
+        return jsonify({"success": False,
+                        "error": "Lifecycle operation failed"}), 500
 
 
 # ── Universal Inhibition Layer (SUIL) Endpoint ──

@@ -116,7 +116,10 @@ function mapBackendItem(item: Record<string, unknown>): SavedContent {
   };
 }
 
-async function apiLifecycleAction(id: string, action: string): Promise<boolean> {
+async function apiLifecycleAction(
+  id: string,
+  action: string,
+): Promise<{ ok: boolean; error: string }> {
   try {
     const resp = await fetch(`/api/v1/content/history/${id}/lifecycle`, {
       method: 'POST',
@@ -124,9 +127,23 @@ async function apiLifecycleAction(id: string, action: string): Promise<boolean> 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action }),
     });
-    return resp.ok;
+    if (resp.ok) return { ok: true, error: '' };
+    // Surface the server's truthful reason instead of a silent failure.
+    let detail = `Request failed (${resp.status})`;
+    try {
+      const body = await resp.json();
+      if (body && typeof body.error === 'string' && body.error) {
+        detail = body.error;
+      }
+    } catch {
+      /* non-JSON error body — keep the status-based message */
+    }
+    return { ok: false, error: detail };
   } catch {
-    return false;
+    return {
+      ok: false,
+      error: 'Network error — the action was not applied. Please retry.',
+    };
   }
 }
 
@@ -184,18 +201,6 @@ async function apiSaveItem(
     return null;
   } catch {
     return null;
-  }
-}
-
-async function apiDeleteItem(id: string): Promise<boolean> {
-  try {
-    const resp = await fetch(`/api/v1/content/history/${id}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    return resp.ok;
-  } catch {
-    return false;
   }
 }
 
@@ -558,6 +563,10 @@ export function ContentStudio() {
   const [savedItems, setSavedItems] = useState<SavedContent[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  // Lifecycle feedback: a truthful error surface. A lifecycle action must
+  // never fail silently, and must never optimistically change the list.
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
 
   // Brand Voice & Tone
   const [brandVoice, setBrandVoice] = useState<BrandVoice>('professional');
@@ -655,17 +664,37 @@ export function ContentStudio() {
   );
 
   // ── Lifecycle actions ──
+  // Irreversible actions require deliberate confirmation (destructive-action
+  // pattern already established in SHUNYA: native confirm with an explicit
+  // message). No optimistic mutation: the list is only refreshed from the
+  // server AFTER a confirmed success, so a failed action never makes an
+  // object appear archived/trashed/deleted when it is not.
   const handleLifecycle = useCallback(
     (id: string, action: string) => {
-      apiLifecycleAction(id, action).then((ok) => {
-        if (ok) {
-          if (action === 'permanent_delete') {
-            setSavedItems((prev) => prev.filter((i) => i.id !== id));
-          } else {
-            apiFetchHistory().then(setSavedItems);
+      if (action === 'permanent_delete') {
+        const ok = window.confirm(
+          'Permanently delete this content?\n\n' +
+          'This action is IRREVERSIBLE. The content will be removed from ' +
+          'your library and cannot be recovered.',
+        );
+        if (!ok) return;
+      }
+      setLifecycleError(null);
+      setLifecycleBusy(true);
+      apiLifecycleAction(id, action)
+        .then((result) => {
+          if (!result.ok) {
+            setLifecycleError(result.error);
+            return;
           }
-        }
-      });
+          setSavedItems((prev) =>
+            action === 'permanent_delete'
+              ? prev.filter((i) => i.id !== id)
+              : prev,
+          );
+          return apiFetchHistory().then(setSavedItems);
+        })
+        .finally(() => setLifecycleBusy(false));
     },
     [],
   );
@@ -1449,6 +1478,19 @@ export function ContentStudio() {
         {/* ── History Tab ── */}
         {activeFormat === 'history' && (
           <div className="cs-tab-panel">
+            {lifecycleError && (
+              <div className="cs-lifecycle-error" role="alert">
+                <AlertCircle size={13} />
+                <span>{lifecycleError}</span>
+                <button
+                  className="cs-lifecycle-error-dismiss"
+                  onClick={() => setLifecycleError(null)}
+                  aria-label="Dismiss error"
+                >
+                  ×
+                </button>
+              </div>
+            )}
             {savedItems.length === 0 ? (
               <div className="cs-empty">
                 <History size={24} style={{ color: 'rgba(26,28,29,0.15)' }} />
@@ -1516,6 +1558,7 @@ export function ContentStudio() {
                         <>
                           <button
                             className="cs-icon-btn"
+                            disabled={lifecycleBusy}
                             onClick={() => handleLifecycle(item.id, 'recover')}
                             title="Recover from trash"
                           >
@@ -1523,6 +1566,7 @@ export function ContentStudio() {
                           </button>
                           <button
                             className="cs-icon-btn cs-icon-danger"
+                            disabled={lifecycleBusy}
                             onClick={() => handleLifecycle(item.id, 'permanent_delete')}
                             title="Delete permanently"
                           >
@@ -1533,6 +1577,7 @@ export function ContentStudio() {
                         <>
                           <button
                             className="cs-icon-btn"
+                            disabled={lifecycleBusy}
                             onClick={() => handleLifecycle(item.id, 'restore')}
                             title="Restore"
                           >
@@ -1540,6 +1585,7 @@ export function ContentStudio() {
                           </button>
                           <button
                             className="cs-icon-btn cs-icon-danger"
+                            disabled={lifecycleBusy}
                             onClick={() => handleLifecycle(item.id, 'trash')}
                             title="Move to trash"
                           >
@@ -1550,6 +1596,7 @@ export function ContentStudio() {
                         <>
                           <button
                             className="cs-icon-btn"
+                            disabled={lifecycleBusy}
                             onClick={() => handleLifecycle(item.id, 'archive')}
                             title="Archive"
                           >
@@ -1557,6 +1604,7 @@ export function ContentStudio() {
                           </button>
                           <button
                             className="cs-icon-btn cs-icon-danger"
+                            disabled={lifecycleBusy}
                             onClick={() => handleLifecycle(item.id, 'trash')}
                             title="Move to trash"
                           >
@@ -1680,6 +1728,9 @@ const csCss = `
 .cs-empty-cta { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: none; border-radius: 8px; background: #6C4AE2; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; margin-top: 4px; }
 .cs-empty-cta:hover { background: #5B3CC8; }
 
+.cs-lifecycle-error { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 9px 12px; border-radius: 8px; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.22); color: #B91C1C; font-size: 12px; font-weight: 500; }
+.cs-lifecycle-error span { flex: 1; }
+.cs-lifecycle-error-dismiss { background: none; border: none; cursor: pointer; color: #B91C1C; font-size: 15px; line-height: 1; padding: 0 2px; }
 .cs-saved-list { display: flex; flex-direction: column; gap: 8px; }
 .cs-saved-card { padding: 12px; background: rgba(255,255,255,0.5); border-radius: 10px; border: 1px solid rgba(26,28,29,0.04); display: flex; flex-direction: column; gap: 8px; }
 .cs-saved-header { display: flex; align-items: center; gap: 8px; }
