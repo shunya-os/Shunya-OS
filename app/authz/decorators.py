@@ -114,6 +114,13 @@ def require_permission(permission: str):
 
             org_id, denial = _resolve_org_or_denial(identity)
             if not org_id:
+                # Personal scope bypass for personal-capable routes
+                from app.authz.workspace_context import WorkspaceScope
+                ws_scope = getattr(g, "current_workspace_scope", None)
+                if ws_scope == WorkspaceScope.PERSONAL:
+                    g.identity_id = identity
+                    g.current_org_id = None
+                    return fn(*args, **kwargs)
                 if denial in _SELECTION_REQUIRED_CODES:
                     return jsonify({"success": False, "error": "No organization selected",
                                     "code": denial}), 400

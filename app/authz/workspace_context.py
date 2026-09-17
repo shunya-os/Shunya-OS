@@ -221,3 +221,54 @@ def assert_object_access(identity_id: str, organization_id: int,
             f"{workspace_id!r} in organization {organization_id}",
             code="workspace_not_authorized",
         )
+
+
+import enum
+
+
+class WorkspaceScope(str, enum.Enum):
+    """Canonical workspace scope classification (R6B-2.7 Window 6A)."""
+    NONE = "none"
+    PERSONAL = "personal"
+    ORGANIZATION = "organization"
+
+
+def resolve_workspace_scope(identity_id: str) -> WorkspaceScope:
+    """Resolve the caller's workspace scope.
+
+    ORGANIZATION:
+        Identity is an active member of at least one organization (OrgMember).
+
+    PERSONAL:
+        Identity owns at least one personal FounderSpace (space_type='personal',
+        status='active'). Only checked when no organization context exists.
+
+    NONE:
+        Identity has neither a personal workspace nor any organization
+        membership. No scope exists — the caller must be denied.
+
+    ORGANIZATION is checked FIRST: an identity that belongs to an organization
+    MUST be resolved through the ORGANIZATION path even if they also have a
+    personal workspace. A personal identity must NEVER gain access to org data
+    merely because personal scope is allowed.
+    """
+    if not identity_id:
+        return WorkspaceScope.NONE
+
+    from app.models import OrgMember
+    org_count = OrgMember.query.filter_by(
+        identity_id=str(identity_id), is_active=True,
+    ).count()
+    if org_count > 0:
+        return WorkspaceScope.ORGANIZATION
+
+    from app.founder.models import FounderSpace
+    personal = FounderSpace.query.filter_by(
+        identity_id=str(identity_id),
+        space_type="personal",
+        status="active",
+    ).first()
+    if personal is not None:
+        return WorkspaceScope.PERSONAL
+
+    return WorkspaceScope.NONE

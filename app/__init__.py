@@ -752,9 +752,20 @@ def create_app(config_override: dict | None = None):
         except Exception:
             pass
 
-        # Authenticated but no org membership — deny
+        # Authenticated but no org membership — check personal workspace scope
+        from app.authz.workspace_context import resolve_workspace_scope, WorkspaceScope
+        from app.authz.personal_scope_registry import supports_personal_scope
+        scope = resolve_workspace_scope(str(identity))
+        if scope == WorkspaceScope.PERSONAL and supports_personal_scope(path):
+            # Personal scope allowed for this route — set canonical context
+            session.setdefault("current_org_id", None)
+            g.current_org_id = None
+            g.current_workspace_scope = WorkspaceScope.PERSONAL
+            return
+
         logger = __import__("logging").getLogger(__name__)
-        logger.info("AUTHZ DENY: identity=%s path=%s — no org membership", identity, path)
+        logger.info("AUTHZ DENY: identity=%s path=%s scope=%s — no valid scope",
+                    identity, path, scope.value if scope else "unknown")
         return jsonify({"error": "No organization membership", "detail": "User is not a member of any organization"}), 403
 
     # ---- Enterprise Security -----------------------------------------------
