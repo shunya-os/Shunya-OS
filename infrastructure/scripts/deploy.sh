@@ -69,9 +69,23 @@ fi
 # ---- Step 3: Checkout exact certified SHA ----
 if [[ -n "${TARGET_SHA}" ]]; then
     echo "[3/12] Checking out exact certified SHA: ${TARGET_SHA}" | tee -a "${DEPLOY_LOG}"
-    if ! git checkout "${TARGET_SHA}" 2>&1 | tee -a "${DEPLOY_LOG}"; then
-        echo "ERROR: Failed to checkout SHA ${TARGET_SHA} — SHA may not exist in repository" | tee -a "${DEPLOY_LOG}"
-        exit 1
+    REMOTE_HEAD=$(git rev-parse origin/master 2>/dev/null || echo "")
+    if [[ -n "${REMOTE_HEAD}" && "${TARGET_SHA}" == "${REMOTE_HEAD}" ]]; then
+        # Normal CI case: the certified SHA IS the branch head. Check out the
+        # BRANCH and hard-reset to it, so HEAD never detaches — not even
+        # temporarily. A detached window (however brief) is what allowed a
+        # commit made during a deploy to land off-branch and be lost.
+        if ! { git checkout master && git reset --hard "${TARGET_SHA}"; } 2>&1 | tee -a "${DEPLOY_LOG}"; then
+            echo "ERROR: Failed to check out master at ${TARGET_SHA}" | tee -a "${DEPLOY_LOG}"
+            exit 1
+        fi
+    else
+        # Deliberately deploying a non-head SHA: HEAD must be detached so the
+        # branch is not moved. Step 14 leaves it that way, with a note.
+        if ! git checkout "${TARGET_SHA}" 2>&1 | tee -a "${DEPLOY_LOG}"; then
+            echo "ERROR: Failed to checkout SHA ${TARGET_SHA} — SHA may not exist in repository" | tee -a "${DEPLOY_LOG}"
+            exit 1
+        fi
     fi
 else
     echo "[3/12] No target SHA provided — using remote master head" | tee -a "${DEPLOY_LOG}"
