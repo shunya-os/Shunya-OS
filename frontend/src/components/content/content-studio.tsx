@@ -32,6 +32,7 @@ import {
   Loader2,
   Sparkles,
   Sliders,
+  Archive,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────
@@ -64,6 +65,27 @@ export interface SavedContent {
   status?: string;
   is_deleted?: boolean;
 }
+
+/** Canonical lifecycle state of a content object (Block A). */
+export type LifecycleState = 'active' | 'archived' | 'trashed';
+
+/**
+ * Derive the single, non-contradictory lifecycle state of an item.
+ * `is_deleted` (trashed) takes precedence over `status`, exactly matching
+ * the backend `_state()` function, so the UI can never show a state the
+ * server does not agree with.
+ */
+export function deriveLifecycleState(item: SavedContent): LifecycleState {
+  if (item.is_deleted) return 'trashed';
+  if (item.status === 'archived') return 'archived';
+  return 'active';
+}
+
+const LIFECYCLE_LABELS: Record<LifecycleState, string> = {
+  active: 'Active',
+  archived: 'Archived',
+  trashed: 'Trash',
+};
 
 export interface BrandVoiceProfile {
   label: string;
@@ -147,15 +169,29 @@ async function apiLifecycleAction(
   }
 }
 
-async function apiFetchHistory(): Promise<SavedContent[]> {
+async function apiFetchHistory(): Promise<{ ok: boolean; items: SavedContent[]; error: string }> {
   try {
     const resp = await fetch('/api/v1/content/history', { credentials: 'include' });
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      // A real storage error must NOT be silently presented as "no content".
+      let detail = `Could not load your library (${resp.status}).`;
+      try {
+        const body = await resp.json();
+        if (body && typeof body.error === 'string' && body.error) detail = body.error;
+      } catch { /* keep the status-based message */ }
+      return { ok: false, items: [], error: detail };
+    }
     const body = await resp.json();
-    if (!body.success || !Array.isArray(body.data)) return [];
-    return body.data.map(mapBackendItem);
+    if (!body.success || !Array.isArray(body.data)) {
+      return { ok: false, items: [], error: 'The library returned an unexpected response.' };
+    }
+    return { ok: true, items: body.data.map(mapBackendItem), error: '' };
   } catch {
-    return [];
+    return {
+      ok: false,
+      items: [],
+      error: 'Could not reach the library — check your connection and retry.',
+    };
   }
 }
 
@@ -567,6 +603,10 @@ export function ContentStudio() {
   // never fail silently, and must never optimistically change the list.
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
+  // Library view state (Block A): visible loading + state filtering.
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyFilter, setHistoryFilter] = useState<'all' | LifecycleState>('all');
 
   // Brand Voice & Tone
   const [brandVoice, setBrandVoice] = useState<BrandVoice>('professional');
@@ -631,15 +671,27 @@ export function ContentStudio() {
   const [repurposeSource, setRepurposeSource] = useState('');
   const [repurposeTarget, setRepurposeTarget] = useState<ContentFormat>('social');
 
+  const loadHistory = useCallback(async (silent = false) => {
+    if (!silent) setHistoryLoading(true);
+    const result = await apiFetchHistory();
+    if (!mountedRef.current) return;
+    if (result.ok) {
+      setSavedItems(result.items);
+      setHistoryError(null);
+    } else {
+      // Truthful failure: keep whatever we had, surface the reason.
+      setHistoryError(result.error);
+    }
+    setHistoryLoading(false);
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
-    apiFetchHistory().then((items) => {
-      if (mountedRef.current) setSavedItems(items);
-    });
+    loadHistory();
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [loadHistory]);
 
   // ── Save handler ──
   const handleSave = useCallback(
@@ -647,6 +699,8 @@ export function ContentStudio() {
       apiSaveItem(format, label, content).then((saved) => {
         if (saved) {
           setSavedItems((prev) => [saved, ...prev]);
+          // Reconcile with persisted truth (the server owns the id/state).
+          loadHistory(true);
         } else {
           // Fallback: add locally with generated id when API is unavailable
           const fallback: SavedContent = {
@@ -660,7 +714,7 @@ export function ContentStudio() {
         }
       });
     },
-    [],
+    [loadHistory],
   );
 
   // ── Lifecycle actions ──
@@ -692,11 +746,13 @@ export function ContentStudio() {
               ? prev.filter((i) => i.id !== id)
               : prev,
           );
-          return apiFetchHistory().then(setSavedItems);
+          // Re-read from the server so the visible state always matches
+          // persisted truth (never an optimistic guess).
+          return loadHistory(true);
         })
         .finally(() => setLifecycleBusy(false));
     },
-    [],
+    [loadHistory],
   );
 
   // ── Edit saved ──
@@ -933,6 +989,18 @@ export function ContentStudio() {
     landingProduct,
     repurposeSource,
   ]);
+
+  // ── Library derivation (Block A) ──
+  const lifecycleCounts = savedItems.reduce(
+    (acc, it) => {
+      acc[deriveLifecycleState(it)] += 1;
+      return acc;
+    },
+    { active: 0, archived: 0, trashed: 0 } as Record<LifecycleState, number>,
+  );
+  const visibleItems = historyFilter === 'all'
+    ? savedItems
+    : savedItems.filter((it) => deriveLifecycleState(it) === historyFilter);
 
   // ── Render ──
   return (
@@ -1478,6 +1546,7 @@ export function ContentStudio() {
         {/* ── History Tab ── */}
         {activeFormat === 'history' && (
           <div className="cs-tab-panel">
+            {/* Lifecycle action failure — truthful, dismissible */}
             {lifecycleError && (
               <div className="cs-lifecycle-error" role="alert">
                 <AlertCircle size={13} />
@@ -1491,23 +1560,88 @@ export function ContentStudio() {
                 </button>
               </div>
             )}
-            {savedItems.length === 0 ? (
-              <div className="cs-empty">
-                <History size={24} style={{ color: 'rgba(26,28,29,0.15)' }} />
-                <span className="cs-empty-text">No saved content yet</span>
-                <span className="cs-empty-hint">Generate content and save it to see it here</span>
-                <button className="cs-empty-cta" onClick={() => setActiveFormat('blog')}>
-                  <Sparkles size={13} />
-                  Generate your first post
+
+            {/* Library load failure — never shown as an empty library */}
+            {historyError && (
+              <div className="cs-lifecycle-error" role="alert">
+                <AlertCircle size={13} />
+                <span>{historyError}</span>
+                <button
+                  className="cs-btn cs-btn-ghost"
+                  onClick={() => loadHistory()}
+                >
+                  Retry
                 </button>
+              </div>
+            )}
+
+            {/* Library state filter — visible lifecycle categories */}
+            <div className="cs-lib-filters" role="tablist" aria-label="Content states">
+              {(['all', 'active', 'archived', 'trashed'] as const).map((f) => {
+                const count = f === 'all' ? savedItems.length : lifecycleCounts[f];
+                return (
+                  <button
+                    key={f}
+                    role="tab"
+                    aria-selected={historyFilter === f}
+                    className={`cs-lib-filter ${historyFilter === f ? 'cs-lib-filter-active' : ''}`}
+                    data-filter={f}
+                    onClick={() => setHistoryFilter(f)}
+                  >
+                    {f === 'all' ? 'All' : LIFECYCLE_LABELS[f]}
+                    <span className="cs-lib-filter-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {historyLoading ? (
+              <div className="cs-lib-loading" data-testid="cs-lib-loading">
+                <Loader2 size={16} className="cs-spin" />
+                <span>Loading your library…</span>
+              </div>
+            ) : visibleItems.length === 0 ? (
+              <div className="cs-empty" data-testid="cs-lib-empty">
+                <History size={24} style={{ color: 'rgba(26,28,29,0.15)' }} />
+                {savedItems.length === 0 ? (
+                  <>
+                    <span className="cs-empty-text">No saved content yet</span>
+                    <span className="cs-empty-hint">Generate content and save it to see it here</span>
+                    <button className="cs-empty-cta" onClick={() => setActiveFormat('blog')}>
+                      <Sparkles size={13} />
+                      Generate your first post
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="cs-empty-text">
+                      Nothing in {historyFilter === 'all' ? 'your library' : LIFECYCLE_LABELS[historyFilter as LifecycleState].toLowerCase()}
+                    </span>
+                    <span className="cs-empty-hint">
+                      {historyFilter === 'trashed'
+                        ? 'Items you trash appear here until you recover or permanently delete them.'
+                        : historyFilter === 'archived'
+                          ? 'Archived items are hidden from your working set but never lost.'
+                          : 'Try another state, or create new content.'}
+                    </span>
+                    <button className="cs-empty-cta" onClick={() => setHistoryFilter('all')}>
+                      Show all content
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="cs-saved-list">
-                {savedItems.map((item) => (
-                  <div key={item.id} className="cs-saved-card">
+                {visibleItems.map((item) => {
+                  const state = deriveLifecycleState(item);
+                  return (
+                  <div key={item.id} className="cs-saved-card" data-state={state} data-testid={`cs-card-${item.id}`}>
                     <div className="cs-saved-header">
                       <span className="cs-saved-badge" data-format={item.format}>
                         {item.format}
+                      </span>
+                      <span className={`cs-state-badge cs-state-${state}`} data-testid="cs-state-badge">
+                        {LIFECYCLE_LABELS[state]}
                       </span>
                       <span className="cs-saved-label">{item.label}</span>
                       <span className="cs-saved-date">{new Date(item.createdAt).toLocaleDateString()}</span>
@@ -1554,13 +1688,14 @@ export function ContentStudio() {
                       >
                         <Edit3 size={12} />
                       </button>
-                      {item.is_deleted ? (
+                      {state === 'trashed' ? (
                         <>
                           <button
                             className="cs-icon-btn"
                             disabled={lifecycleBusy}
                             onClick={() => handleLifecycle(item.id, 'recover')}
                             title="Recover from trash"
+                            aria-label="Recover from trash"
                           >
                             <RefreshCw size={12} />
                           </button>
@@ -1569,17 +1704,19 @@ export function ContentStudio() {
                             disabled={lifecycleBusy}
                             onClick={() => handleLifecycle(item.id, 'permanent_delete')}
                             title="Delete permanently"
+                            aria-label="Delete permanently"
                           >
                             <Trash2 size={12} />
                           </button>
                         </>
-                      ) : item.status === 'archived' ? (
+                      ) : state === 'archived' ? (
                         <>
                           <button
                             className="cs-icon-btn"
                             disabled={lifecycleBusy}
                             onClick={() => handleLifecycle(item.id, 'restore')}
                             title="Restore"
+                            aria-label="Restore to active"
                           >
                             <RefreshCw size={12} />
                           </button>
@@ -1599,8 +1736,9 @@ export function ContentStudio() {
                             disabled={lifecycleBusy}
                             onClick={() => handleLifecycle(item.id, 'archive')}
                             title="Archive"
+                            aria-label="Archive"
                           >
-                            <BookOpen size={12} />
+                            <Archive size={12} />
                           </button>
                           <button
                             className="cs-icon-btn cs-icon-danger"
@@ -1614,7 +1752,8 @@ export function ContentStudio() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1731,6 +1870,23 @@ const csCss = `
 .cs-lifecycle-error { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 9px 12px; border-radius: 8px; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.22); color: #B91C1C; font-size: 12px; font-weight: 500; }
 .cs-lifecycle-error span { flex: 1; }
 .cs-lifecycle-error-dismiss { background: none; border: none; cursor: pointer; color: #B91C1C; font-size: 15px; line-height: 1; padding: 0 2px; }
+
+/* ── Library state filters (Block A) ── */
+.cs-lib-filters { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 4px; }
+.cs-lib-filter { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid rgba(26,28,29,0.08); border-radius: 999px; background: rgba(255,255,255,0.5); cursor: pointer; font-size: 11px; font-weight: 500; color: rgba(26,28,29,0.55); font-family: inherit; transition: all 0.15s; min-height: 30px; }
+.cs-lib-filter:hover { border-color: rgba(108,74,226,0.25); color: #6C4AE2; }
+.cs-lib-filter-active { border-color: #6C4AE2; color: #6C4AE2; background: rgba(108,74,226,0.08); }
+.cs-lib-filter-count { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 8px; background: rgba(26,28,29,0.06); color: inherit; }
+.cs-lib-loading { display: flex; align-items: center; gap: 8px; padding: 28px 16px; justify-content: center; font-size: 12px; color: rgba(26,28,29,0.5); }
+.cs-lib-loading .cs-spin { color: #6C4AE2; }
+
+/* ── Lifecycle state badge ── */
+.cs-state-badge { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 7px; border-radius: 999px; flex-shrink: 0; }
+.cs-state-active { color: #059669; background: rgba(5,150,105,0.10); }
+.cs-state-archived { color: #B45309; background: rgba(180,83,9,0.10); }
+.cs-state-trashed { color: #B91C1C; background: rgba(185,28,28,0.10); }
+.cs-saved-card[data-state="archived"] { opacity: 0.85; }
+.cs-saved-card[data-state="trashed"] { opacity: 0.7; }
 .cs-saved-list { display: flex; flex-direction: column; gap: 8px; }
 .cs-saved-card { padding: 12px; background: rgba(255,255,255,0.5); border-radius: 10px; border: 1px solid rgba(26,28,29,0.04); display: flex; flex-direction: column; gap: 8px; }
 .cs-saved-header { display: flex; align-items: center; gap: 8px; }
@@ -1765,4 +1921,24 @@ const csCss = `
 .cs-char-bar-track { flex: 1; height: 4px; background: rgba(26,28,29,0.06); border-radius: 2px; overflow: hidden; }
 .cs-char-bar-fill { height: 100%; border-radius: 2px; transition: width 0.2s, background 0.2s; }
 .cs-char-text { font-size: 10px; font-weight: 600; min-width: 70px; text-align: right; }
+
+/* ── Responsive (Block E) ── */
+@media (max-width: 768px) {
+  .cs-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+  .cs-tab-btn { white-space: nowrap; }
+  .cs-controls-row { padding: 8px; }
+  .cs-tone-label { min-width: 68px; }
+  .cs-generate-btn { width: 100%; justify-content: center; min-height: 40px; }
+  .cs-icon-btn { width: 34px; height: 34px; }
+  .cs-output-text { max-height: 260px; }
+}
+@media (max-width: 480px) {
+  .cs-container { gap: 10px; }
+  .cs-saved-header { flex-wrap: wrap; row-gap: 4px; }
+  .cs-saved-label { flex-basis: 100%; }
+  .cs-lib-filter { min-height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cs-container, .cs-spin { animation: none !important; }
+}
 `;

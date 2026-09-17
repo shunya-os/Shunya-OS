@@ -53,8 +53,12 @@ export type RuntimeEvent =
   // ── Individual canonical events from the SSE stream ──
   | { type: 'reality:event'; data: Record<string, unknown> }
   | { type: 'reality:error'; message: string }
-  | { type: 'reality:disconnected' }
-  | { type: 'reality:reconnected' };
+  | { type: 'reality:connecting' }
+  | { type: 'reality:connected' }
+  | { type: 'reality:activity' }
+  | { type: 'reality:disconnected'; attempt?: number }
+  | { type: 'reality:reconnected' }
+  | { type: 'reality:closed' };
 
 type EventHandler = (event: RuntimeEvent) => void;
 

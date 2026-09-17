@@ -100,6 +100,16 @@ interface LivingStore extends LivingWorkspaceState {
   getAdaptationContext: () => string | null;
   /** LX-05: Reset founder memory — explainable, reviewable, resettable */
   resetFounderMemory: () => void;
+
+  // ── Living Presence (Block C) ──
+  /** Truthful transport state driving the visible presence indicator. */
+  presenceConnection: 'connecting' | 'connected' | 'reconnecting' | 'unavailable';
+  /** Epoch ms of the last frame (event or heartbeat) received. */
+  lastActivityAt: number | null;
+  /** Number of reconnection attempts since the last successful frame. */
+  reconnectAttempts: number;
+  /** True once at least one frame has been received this session. */
+  presenceEverConnected: boolean;
 }
 
 export const useLivingStore = create<LivingStore>((set, get) => ({
@@ -132,6 +142,12 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
   lastUpdated: timestamp(),
   sidebarCollapsed: false,
   commandOpen: false,
+
+  // ── Living Presence (Block C) ──
+  presenceConnection: 'connecting',
+  lastActivityAt: null,
+  reconnectAttempts: 0,
+  presenceEverConnected: false,
 
   // ── LX-04 Adaptation State ──
   interactionHistory: [],
@@ -640,9 +656,42 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
       }));
     });
 
+    // ── Living Presence (Block C): truthful transport lifecycle ──
+    const unsubConnecting = bus.on('reality:connecting', () => {
+      set({ presenceConnection: get().presenceEverConnected ? 'reconnecting' : 'connecting' });
+    });
+    const unsubConnected = bus.on('reality:connected', () => {
+      set({
+        presenceConnection: 'connected',
+        presenceEverConnected: true,
+        lastActivityAt: Date.now(),
+      });
+    });
+    const unsubActivity = bus.on('reality:activity', () => {
+      set({ lastActivityAt: Date.now() });
+    });
+    const unsubDisconnected = bus.on('reality:disconnected', (e) => {
+      set({
+        presenceConnection: 'reconnecting',
+        reconnectAttempts: e.type === 'reality:disconnected' ? (e.attempt ?? 0) : 0,
+      });
+    });
+    const unsubReconnected = bus.on('reality:reconnected', () => {
+      set({ presenceConnection: 'connecting' });
+    });
+    const unsubClosed = bus.on('reality:closed', () => {
+      set({ presenceConnection: 'unavailable' });
+    });
+
     return () => {
       unsubSnapshot();
       unsubEvent();
+      unsubConnecting();
+      unsubConnected();
+      unsubActivity();
+      unsubDisconnected();
+      unsubReconnected();
+      unsubClosed();
     };
   },
 

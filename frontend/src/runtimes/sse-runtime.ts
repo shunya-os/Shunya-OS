@@ -2,7 +2,9 @@
  * SSE Runtime — Continuous Reality transport.
  *
  * Connects to the backend SSE stream and publishes typed events
- * to the canonical event bus. Handles reconnection with backoff.
+ * to the canonical event bus. Handles reconnection with backoff and
+ * reports its own connection lifecycle truthfully, so the UI can show
+ * a real living presence instead of a decorative animation.
  *
  * This is the constitutional transport for Continuous Reality workloads,
  * replacing 15s polling with push delivery.
@@ -24,6 +26,13 @@ const RECONNECT_MAX_MS = 30_000;
 /**
  * Connect to a backend SSE stream and forward events to the canonical bus.
  * Automatically reconnects with exponential backoff.
+ *
+ * Connection lifecycle emitted on the bus (truthful, never faked):
+ *   reality:connecting    — a connection attempt has started
+ *   reality:connected     — the transport is open and delivering
+ *   reality:activity      — a frame arrived (heartbeat / liveness)
+ *   reality:disconnected  — the transport dropped and a retry is scheduled
+ *   reality:reconnected   — a retry is about to run
  */
 export function subscribeSSE(type: SSEType): SSESubscription {
   const url = type === 'reality'
@@ -38,10 +47,17 @@ export function subscribeSSE(type: SSEType): SSESubscription {
   function connect() {
     if (closed) return;
 
+    bus.emit({ type: 'reality:connecting' });
     eventSource = new EventSource(url, { withCredentials: true });
+
+    eventSource.onopen = () => {
+      // The transport is genuinely open — this is the liveness signal.
+      bus.emit({ type: 'reality:connected' });
+    };
 
     eventSource.onmessage = (event) => {
       attempt = 0; // Reset backoff on successful message
+      bus.emit({ type: 'reality:activity' });
       try {
         const data = JSON.parse(event.data);
 
@@ -75,7 +91,7 @@ export function subscribeSSE(type: SSEType): SSESubscription {
           RECONNECT_MAX_MS,
         );
         attempt++;
-        bus.emit({ type: 'reality:disconnected' });
+        bus.emit({ type: 'reality:disconnected', attempt });
         reconnectTimer = setTimeout(() => {
           bus.emit({ type: 'reality:reconnected' });
           connect();
@@ -91,6 +107,7 @@ export function subscribeSSE(type: SSEType): SSESubscription {
       closed = true;
       eventSource?.close();
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      bus.emit({ type: 'reality:closed' });
     },
   };
 }

@@ -26,6 +26,7 @@ import { subscribeSSE } from '../../runtimes/sse-runtime';
 import { OperatingContextSelector } from '../workspace/context-selector';
 import { useActiveContext } from '../../hooks/use-active-context';
 import { HomePage } from '../home/home-page';
+import { LivingPresence } from '../living-workspace/living-presence';
 
 // Code-split heavy workspace components — loaded on first use, not on initial boot
 const ObjectWorkspaceViewer = lazy(() => import('../workspace/object-workspace-viewer').then(m => ({ default: m.ObjectWorkspaceViewer })));
@@ -89,31 +90,9 @@ const ORGANIZATIONAL_DOMAINS: Domain[] = [
 
 // ═══════════════════════════════════════════════════════════════════
 // 1. SHUNYA PRESENCE
+//    (Now provided by <LivingPresence /> — living-workspace/living-presence.tsx,
+//     which renders the real SSE transport state instead of a static dot.)
 // ═══════════════════════════════════════════════════════════════════
-
-function PresenceIndicator({ mode }: { mode: 'calm' | 'working' | 'attentive' | 'active' }) {
-  const dotColor = mode === 'calm' ? 'var(--shunya-success, #6a9f6a)'
-    : mode === 'working' ? 'var(--shunya-info, #4a9e9e)'
-    : mode === 'attentive' ? 'var(--shunya-gold, #a4865f)'
-    : 'var(--shunya-gold, #a4865f)';
-
-  const label = mode === 'calm' ? 'Observing'
-    : mode === 'working' ? 'Working'
-    : mode === 'attentive' ? 'I notice something'
-    : 'Present';
-
-  return (
-    <div className="pw-presence">
-      <motion.span
-        className="pw-presence-dot"
-        style={{ backgroundColor: dotColor, boxShadow: `0 0 6px ${dotColor}` }}
-        animate={{ opacity: [0.5, 1, 0.5] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <span className="pw-presence-label">{label}</span>
-    </div>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // 2. ORGANIZATIONAL ORIENTATION — Zone Left
@@ -175,6 +154,9 @@ function OrganizationalOrientation({ collapsed, onToggle }: { collapsed: boolean
         ))}
       </div>
       <p className="pw-org-footer">Ask SHUNYA or click to explore any area</p>
+      <div className="pw-org-presence">
+        <LivingPresence />
+      </div>
     </motion.aside>
   );
 }
@@ -721,7 +703,6 @@ function MobileDomainNav() {
 
 function PrimaryFocusArea() {
   const calm = useLivingStore((s) => s.awarenessCalm);
-  const activeExecutions = useLivingStore((s) => s.activeExecutions);
   const [intention, setIntention] = useState<string | null>(null);
   const { currentOrgId } = useActiveContext();
 
@@ -738,11 +719,6 @@ function PrimaryFocusArea() {
     })();
   }, []);
 
-  const presenceMode: 'calm' | 'working' | 'attentive' | 'active' =
-    activeExecutions.length > 0 ? 'working'
-    : calm ? 'calm'
-    : 'attentive';
-
   return (
     <div className="pw-focus">
       {/* Top bar */}
@@ -756,7 +732,7 @@ function PrimaryFocusArea() {
           onSwitchContext={(orgId) => useActiveContext.getState().switchContext(orgId)}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <PresenceIndicator mode={presenceMode} />
+          <LivingPresence />
           {/* Mobile domain button */}
           <MobileDomainNav />
         </div>
@@ -1111,6 +1087,11 @@ export function PrimaryWorkspace({ loading: _loading }: { loading?: boolean }) {
       {/* Command + Voice — always at bottom */}
       <Suspense fallback={null}><IntegratedCommand /></Suspense>
       <Suspense fallback={null}><SearchBar /></Suspense>
+
+      {/* Persistent presence on small screens (sidebar is hidden there) */}
+      <div className="pw-mobile-presence">
+        <LivingPresence />
+      </div>
     </div>
   );
 }
@@ -1548,6 +1529,12 @@ styles.textContent = `
   text-align: center;
   flex-shrink: 0;
   border-top: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+}
+.pw-org-presence {
+  padding: 8px 12px 14px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
 }
 
 /* ── Command Zone ─────────────────────────────────────────── */
@@ -2076,13 +2063,39 @@ styles.textContent = `
 }
 .pw-error-retry:hover { border-color: var(--shunya-gold, #a4865f); }
 
+/* ── Persistent mobile presence ───────────────────────────── */
+.pw-mobile-presence { display: none; }
+
 /* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .pw-focus { padding: 32px 32px; }
+  .pw-panel-container { padding: 32px 32px; }
+}
 @media (max-width: 768px) {
   .pw-org-orientation { display: none; }
   .pw-mobile-nav { display: block; }
   .pw-focus { padding: 24px 20px; }
   .pw-panel-container { padding: 24px 20px; }
   .pw-voice-draft { width: calc(100vw - 40px); right: -8px; }
+  .pw-focus-top { flex-wrap: wrap; gap: 10px; }
+  .pw-mobile-presence {
+    display: flex;
+    justify-content: center;
+    padding: 6px 12px 0;
+    flex-shrink: 0;
+    background: var(--shunya-bg, #FBF8F5);
+  }
+  .pw-command-zone { padding: 8px 12px; }
+  .pw-command-kbd { display: none; }
+}
+@media (max-width: 480px) {
+  .pw-focus { padding: 20px 14px; }
+  .pw-panel-container { padding: 20px 14px; }
+  .pw-attention { padding: 18px 16px; }
+  .pw-attention-title { font-size: 16px; }
+  .pw-command-trigger { padding: 9px 12px; }
+  .pw-intention { flex-direction: column; gap: 2px; }
+  .pw-intention-label { white-space: normal; }
 }
 `;
 styles.id = 'pw-workspace-styles';
