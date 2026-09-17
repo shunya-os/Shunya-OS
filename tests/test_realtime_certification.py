@@ -556,34 +556,33 @@ class TestSSEAuth:
             assert data.get("error") == "Not authenticated"
 
     def test_authenticated_session_allows_access(self, test_app):
-        """Authenticated session allows SSE subscription."""
+        """Authenticated session allows SSE subscription.
+
+        The stream is BOUNDED (it ends cleanly before gunicorn's worker timeout
+        and the client reconnects), so the response body can be read
+        deterministically in the main thread. The previous version drove the
+        request from a background thread while the test client's context was
+        being torn down, which raced Flask's context stack.
+        """
+        # Keep the assertion fast while exercising the same production path.
+        test_app.config["SSE_MAX_STREAM_SECONDS"] = 1.0
+        test_app.config["SSE_DRAIN_TIMEOUT"] = 0.2
+
         with test_app.test_client() as client:
             with client.session_transaction() as sess:
                 sess["identity_id"] = "sid_test_user"
                 sess["tenant_id"] = 1
-            # SSE endpoints stream indefinitely — cannot check response body
-            # in the test client without blocking. Verify access by confirming
-            # the endpoint responds (200 status via a non-blocking check).
-            # The SSE stream is verified in production by curl.
-            import threading, queue
-            result = queue.Queue()
 
-            def _get():
-                try:
-                    r = client.get("/api/v1/reality/stream")
-                    result.put(r.status_code)
-                except Exception as e:
-                    result.put(e)
+            resp = client.get("/api/v1/reality/stream")
 
-            t = threading.Thread(target=_get, daemon=True)
-            t.start()
-            try:
-                status = result.get(timeout=3)
-                assert status == 200, f"SSE status expected 200, got {status}"
-            except queue.Empty:
-                # Stream started but never completed — this confirms the
-                # route accepted the connection (would 401 if unauthenticated)
-                pass
+            assert resp.status_code == 200, (
+                f"SSE status expected 200, got {resp.status_code}"
+            )
+            assert resp.mimetype == "text/event-stream"
+            body = resp.get_data(as_text=True)
+            # An authenticated subscriber gets a live stream that advertises
+            # its reconnect policy.
+            assert "retry:" in body
 
     def test_forged_x_identity_id_is_rejected(self, test_app):
         """X-Identity-Id header alone must NOT authenticate SSE."""
