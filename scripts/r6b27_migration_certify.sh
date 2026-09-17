@@ -19,7 +19,10 @@ REPO=/home/shunya-deploy/shunya_os
 CERTDB="${1:-shunya_r6b27_cert}"
 PY="$REPO/.venv/bin/python"
 PSQL=/usr/lib/postgresql/16/bin/psql
-ART="$REPO/artifacts/r6b27"
+# Certification logs are RUNTIME DATA: written OUTSIDE the git worktree so a
+# certification run can never leave the deploy checkout dirty (R6B-2.7 §3).
+RUNTIME_DATA_ROOT="${RUNTIME_DATA_ROOT:-$HOME/shunya_data}"
+ART="$RUNTIME_DATA_ROOT/artifacts/r6b27"
 LOG="$ART/migration_certification_$CERTDB.log"
 
 mkdir -p "$ART"
@@ -28,6 +31,11 @@ mkdir -p "$ART"
 cd "$REPO" || exit 1
 export PGHOST=127.0.0.1 PGPORT=5433 PGUSER=shunya-deploy
 export DATABASE_URL="postgresql://shunya-deploy@127.0.0.1:5433/$CERTDB"
+# Fail closed: certification must never target the production cluster (§8).
+case "$DATABASE_URL" in
+  *:5432/*|*production*) echo "ERROR: certification DATABASE_URL looks like production: $DATABASE_URL"; exit 2 ;;
+esac
+export SHUNYA_REQUIRE_ISOLATED_DB=1
 
 log() { echo "$@" | tee -a "$LOG"; }
 q() { $PSQL -d "$CERTDB" -tAc "$1" 2>&1; }

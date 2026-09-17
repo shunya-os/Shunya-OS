@@ -28,44 +28,23 @@ import os
 
 _DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-# Explicitly permitted configurations
-_IS_SQLITE_MEMORY = _DATABASE_URL == "sqlite:///:memory:"
-_IS_SQLITE_FILE = _DATABASE_URL.startswith("sqlite:///") and "shunya" not in _DATABASE_URL
-
-# Detect production-like PostgreSQL: port 5432 + production db name
-import re
-_PRODUCTION_PG_PATTERN = bool(
-    _DATABASE_URL
-    and "postgresql" in _DATABASE_URL.lower()
-    and not _IS_SQLITE_MEMORY
-    and not _IS_SQLITE_FILE
-    and (
-        # Port 5432 (default PostgreSQL) with shunya/shunya_os database = production
-        (":5432/" in _DATABASE_URL and ("shunya_os" in _DATABASE_URL or "/shunya" in _DATABASE_URL))
-        or
-        # Any port with "production" in the database name
-        "production" in _DATABASE_URL.lower()
-    )
-)
-
 # Determine if DATABASE_URL is set at all
 _HAS_DATABASE_URL = bool(_DATABASE_URL)
-
-if _HAS_DATABASE_URL and _PRODUCTION_PG_PATTERN:
-    raise RuntimeError(
-        f"DATABASE_URL ({_DATABASE_URL}) appears to point at a production/"
-        f"shared/non-isolated database. Tests must use sqlite:///:memory: "
-        f"or an explicitly provisioned isolated test database "
-        f"(e.g. PostgreSQL on a non-default port or with a _test database name)."
-    )
 
 if not _HAS_DATABASE_URL:
     raise RuntimeError(
         "DATABASE_URL is not set. Tests require an explicit DATABASE_URL "
         "pointing to an isolated test database. "
         "Set DATABASE_URL=sqlite:///:memory: to use SQLite in-memory, "
-        "or set DATABASE_URL=postgresql://user:pass@host:port/testdb for PostgreSQL."
+        "or set DATABASE_URL=postgresql://user:***@host:port/testdb for PostgreSQL."
     )
+
+# Canonical predicate lives in app/safety/db_guard.py (R6B-2.7 §8 regression
+# guard: 344 object_type='test' rows were once written into production org 7 by
+# tests run against the production URL). Fail closed via the shared guard.
+from app.safety.db_guard import assert_isolated_database as _assert_isolated
+
+_assert_isolated(_DATABASE_URL, context="pytest/conftest")
 
 # Prevent uncontrolled external AI provider calls during tests.
 # LocalProvider is deterministic and makes zero network I/O.

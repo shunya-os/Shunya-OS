@@ -435,23 +435,19 @@ def create_app(config_override: dict | None = None):
     if config_override:
         app.config.update(config_override)
 
-    # ---- Test Isolation Safety Check -----------------------------------------
-    # Fail-closed invariant: TESTING mode must never use the production database.
-    # This prevents tests from accidentally connecting to production PostgreSQL
-    # via .env or default configuration.
-    if app.config.get("TESTING"):
-        db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
-        # Production PostgreSQL on localhost:5432 with shunya user is the
-        # canonical production database pattern. Any test hitting this is unsafe.
-        if "sqlite" not in db_uri and (
-            ("shunya" in db_uri and "localhost:5432" in db_uri)
-            or "shunya_db" in db_uri
-        ):
-            raise RuntimeError(
-                f"TESTING mode detected production database: {db_uri}. "
-                "Tests must use an isolated database (sqlite:///:memory:). "
-                "Override SQLALCHEMY_DATABASE_URI in config_override to fix."
-            )
+    # ---- Test / Certification Isolation Safety Check -------------------------
+    # Fail-closed invariant: a test or certification harness must never use the
+    # production database. This prevents accidental connection to production
+    # PostgreSQL via .env or the default configuration — the exact defect that
+    # wrote 344 object_type='test' rows into production org 7 (R6B-2.7 §8).
+    # SHUNYA_REQUIRE_ISOLATED_DB=1 lets standalone certification scripts opt
+    # into the same guard.
+    if app.config.get("TESTING") or os.environ.get("SHUNYA_REQUIRE_ISOLATED_DB") == "1":
+        from app.safety.db_guard import assert_isolated_database
+        assert_isolated_database(
+            app.config.get("SQLALCHEMY_DATABASE_URI", ""),
+            context="create_app(TESTING/SHUNYA_REQUIRE_ISOLATED_DB)",
+        )
 
     # ---- Extensions -------------------------------------------------------
     db.init_app(app)

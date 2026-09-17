@@ -129,5 +129,12 @@ credentials/
 # Session-internal recovery checkpoints (not governance artifacts)
 R6B27_WINDOW6_SESSION_RECOVERY_CHECKPOINT.md
 
-# Temp cert run markers (never committed)
+# Generated certification run artifacts (never committed). Certification
+# scripts run inside this worktree on the production box; an untracked or
+# modified artifact makes the checkout dirty, which the deploy script correctly
+# refuses — blocking every subsequent CI deploy (R6B-2.7 §3). New script runs
+# write outside the worktree; these patterns cover legacy paths.
 artifacts/**/.second_run.tmp
+artifacts/**/*.tmp
+artifacts/**/migration_certification_*.log
+artifacts/**/*_cert.log
