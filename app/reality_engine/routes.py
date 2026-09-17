@@ -120,11 +120,27 @@ def stream_reality():
     manager = get_sse_manager()
     client = manager.register_client(tenant_id, identity_id, workspace_id=int(workspace_id) if workspace_id else None)
 
+    # A response that outlives gunicorn's --timeout gets its worker SIGKILLed
+    # by the arbiter (gunicorn reports this as "Perhaps out of memory?"). With
+    # the default SYNC worker class an SSE connection blocks a whole worker for
+    # its entire life, so a handful of concurrent clients starves the site and
+    # every stream is then killed. The stream therefore ends itself cleanly
+    # well before the timeout; EventSource reconnects automatically, so the
+    # client experience is unchanged while the worker is released.
+    MAX_STREAM_SECONDS = float(
+        current_app.config.get("SSE_MAX_STREAM_SECONDS", 45.0))
+    DRAIN_TIMEOUT = float(current_app.config.get("SSE_DRAIN_TIMEOUT", 5.0))
+
     def generate():
-        last_heartbeat = time.time()
+        started = time.time()
+        last_heartbeat = started
         try:
+            # Ask the browser to reconnect promptly after a clean close.
+            yield "retry: 3000\n\n"
             while True:
-                events = client.drain(timeout=30.0)
+                if time.time() - started >= MAX_STREAM_SECONDS:
+                    break
+                events = client.drain(timeout=DRAIN_TIMEOUT)
                 if events:
                     for event in events:
                         yield serialize_event(event)

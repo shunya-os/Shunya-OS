@@ -1,0 +1,61 @@
+# STAGED systemd unit — apply with sudo, do NOT edit /etc/systemd/system directly.
+#
+#   sudo cp /home/shunya-deploy/shunya_os/deploy/shunya.service.staged \
+#           /etc/systemd/system/shunya.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl restart shunya
+#
+# WHY THIS CHANGE
+# ---------------
+# The live unit runs gunicorn with the DEFAULT SYNC worker class and
+# --timeout 60. Under a sync worker, a single SSE response (/api/v1/reality/stream)
+# blocks ONE WHOLE WORKER for the entire life of the connection. With only 3
+# workers, a handful of concurrent SSE clients starves the entire site, and the
+# arbiter then SIGKILLs the blocked workers — gunicorn logs this as
+# "Worker was sent SIGKILL! Perhaps out of memory?" even though memory is free.
+# Observed: 111 such kills in two hours.
+#
+# The application side of the fix is already deployed: the stream is now bounded
+# (SSE_MAX_STREAM_SECONDS, default 45s) so it ends cleanly before the worker
+# timeout and the browser's EventSource reconnects automatically. That alone
+# stops the kills.
+#
+# This unit change makes it robust rather than merely bounded: gthread workers
+# let other requests proceed WHILE a thread is blocked on a long-lived
+# connection, so concurrent SSE clients no longer consume workers.
+#
+# --timeout is raised to 120 because gthread workers only notify the arbiter
+# between requests; the bounded stream never needs more than 45s, so 120 is a
+# safe backstop rather than a target.
+
+[Unit]
+Description=SHUNYA Production Runtime
+After=network.target
+
+[Service]
+Type=simple
+User=shunya-deploy
+WorkingDirectory=/home/shunya-deploy/shunya_os
+
+Environment=PATH=/home/shunya-deploy/shunya_os/.venv/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/home/shunya-deploy/shunya_os
+Environment=FLASK_ENV=production
+Environment=REDIS_URL=redis://127.0.0.1:6379
+
+ExecStart=/home/shunya-deploy/shunya_os/.venv/bin/gunicorn \
+  --workers 3 \
+  --worker-class gthread \
+  --threads 8 \
+  --bind 127.0.0.1:5001 \
+  --timeout 120 \
+  --graceful-timeout 30 \
+  --keep-alive 5 \
+  --max-requests 1000 \
+  --max-requests-jitter 100 \
+  wsgi:app
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
