@@ -226,6 +226,23 @@ print(f'  Release type: {r[\"release_type\"]}')
 print(f'  Git commit: {r[\"git_commit\"]}')
 " 2>&1 | tee -a "${DEPLOY_LOG}"
 
+# ---- Step 14: Re-attach HEAD to the branch ----
+# `git checkout <sha>` (Step 3) leaves the repository on a DETACHED HEAD, and
+# nothing ever returned it to the branch. Any commit made on this box after a
+# deploy would therefore not belong to master and would be silently discarded
+# (a `git push origin master` would be a no-op without any error). When the
+# deployed SHA IS the remote master head — the normal CI case — reattach HEAD
+# to the master branch. The working tree content is identical, so the deployed
+# build is unchanged.
+REMOTE_MASTER_SHA=$(git rev-parse origin/master 2>/dev/null || echo "")
+if [[ -n "${REMOTE_MASTER_SHA}" && "${DEPLOYED_SHA}" == "${REMOTE_MASTER_SHA}" ]]; then
+    git checkout master 2>&1 | tee -a "${DEPLOY_LOG}"
+    echo "  HEAD re-attached to branch master at ${DEPLOYED_SHA}" | tee -a "${DEPLOY_LOG}"
+else
+    echo "  NOTE: deployed SHA ${DEPLOYED_SHA} != origin/master ${REMOTE_MASTER_SHA}" | tee -a "${DEPLOY_LOG}"
+    echo "  NOTE: leaving a detached HEAD (deploying a non-head SHA is intentional)" | tee -a "${DEPLOY_LOG}"
+fi
+
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] SHUNYA deployment completed: ${ENVIRONMENT}" | tee -a "${DEPLOY_LOG}"
 echo "Log: ${DEPLOY_LOG}"
 echo "Previous SHA (rollback): ${PREVIOUS_SHA}"
