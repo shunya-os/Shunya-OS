@@ -146,4 +146,3 @@ docs/backend-api-route-inventory.md
 design/constitutional-drift-reconciliation.md
 frontend/src/components/ui-state-audit.md
 scripts/prod_db_investigate.py
-artifacts/product/

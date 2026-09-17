@@ -216,7 +216,34 @@ jobs:
             set -euo pipefail
             HEALTH_FILE=$(mktemp)
             trap 'rm -f "${HEALTH_FILE}"' EXIT
-            curl -fsS --max-time 30 http://127.0.0.1:5001/health -o "${HEALTH_FILE}"
+
+            # Deterministic readiness: bounded retry while the app is still
+            # coming up. A connection that never yields a HEALTHY response in
+            # the window is a hard failure — readiness is not a pass.
+            ATTEMPTS=12
+            INTERVAL=5
+            MAX_HEALTH_SECONDS=5
+            OK=0
+            RTT=""
+            for i in $(seq 1 "${ATTEMPTS}"); do
+              RTT=$(curl -fsS --max-time 20 -o "${HEALTH_FILE}" -w '%{time_total}' http://127.0.0.1:5001/health 2>/dev/null) && { OK=1; echo "Health responded on attempt ${i}/${ATTEMPTS} in ${RTT}s"; break; }
+              echo "Attempt ${i}/${ATTEMPTS}: health not ready yet — retrying in ${INTERVAL}s"
+              sleep "${INTERVAL}"
+            done
+            if [ "${OK}" != "1" ]; then
+              echo "ERROR: local /health did not return a healthy response within the readiness window"
+              exit 1
+            fi
+
+            # A readiness retry must not hide a SLOW application. A healthy
+            # production /health on a warm connection answers in well under a
+            # second; anything slower means new connections are queueing (a real
+            # defect, not deploy warm-up).
+            if python3 -c "import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) else 1)" "${RTT}" "${MAX_HEALTH_SECONDS}"; then
+              echo "ERROR: /health took ${RTT}s (limit ${MAX_HEALTH_SECONDS}s) — the app is accepting connections slowly"
+              exit 1
+            fi
+
             DEPLOYED_SHA=$(python3 -c "import sys,json; print(json.load(open(sys.argv[1]))['git_commit'])" "${HEALTH_FILE}")
             CERTIFIED_SHA="${{ github.sha }}"
             echo "Certified SHA: ${CERTIFIED_SHA}"
@@ -225,7 +252,13 @@ jobs:
               echo "ERROR: Deployed local commit does not match CI-certified commit"
               exit 1
             fi
-            echo "LOCAL HEALTH PROVENANCE: VERIFIED"
+
+            RELEASE_TYPE=$(python3 -c "import sys,json; print(json.load(open(sys.argv[1])).get('release_type',''))" "${HEALTH_FILE}")
+            if [ "${RELEASE_TYPE}" != "CI_CERTIFIED" ]; then
+              echo "ERROR: release_type is '${RELEASE_TYPE}', expected CI_CERTIFIED"
+              exit 1
+            fi
+            echo "LOCAL HEALTH PROVENANCE: VERIFIED (release_type=CI_CERTIFIED)"
 
       - name: Verify public health SHA
         run: |

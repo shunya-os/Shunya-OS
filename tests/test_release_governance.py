@@ -65,12 +65,70 @@ def test_health_never_certifies_failed_record_read(client, monkeypatch):
 
 
 def test_health_matches_record_to_loaded_build(client, provenance_file, monkeypatch):
+    """The loaded build SHA, not the checkout, decides release certification.
+
+    The recorded deployment is 'a'*40 while the loaded build is 'c'*40, so the
+    release evidence must NOT certify the running build.
+
+    Frontend provenance is isolated to ``worktree_build`` mode so this test
+    asserts ONLY the release-governance contract deterministically. The
+    immutable-release mismatch contract is covered separately below.
+    """
     import app
+    from app import frontend_release
+
     monkeypatch.setattr(app, '_GIT_COMMIT', 'c' * 40)
+    monkeypatch.setattr(frontend_release, 'frontend_provenance', lambda *a, **k: {
+        'frontend_dist_mode': 'worktree_build',
+        'frontend_dist_exists': True,
+        'frontend_release_sha': None,
+        'frontend_asset_manifest_sha256': None,
+        'frontend_release_verified': False,
+    })
     release.record_normal_deployment('a' * 40)
+
     result = client.get('/health')
-    assert result.status_code in (200, 503)
-    if result.status_code == 200:
-        assert result.json['git_commit'] == 'c' * 40
-        assert result.json['release_type'] == 'UNVERIFIED'
-        assert result.json['release_health_verified'] is False
+    assert result.status_code == 200
+    assert result.json['git_commit'] == 'c' * 40
+    assert result.json['release_type'] == 'UNVERIFIED'
+    assert result.json['release_health_verified'] is False
+
+
+def test_health_fails_closed_when_immutable_release_sha_differs(client, monkeypatch):
+    """An immutable release whose SHA differs from the loaded build is a
+    fail-closed condition: health must report degraded, never 'ok'."""
+    import app
+    from app import frontend_release
+
+    monkeypatch.setattr(app, '_GIT_COMMIT', 'c' * 40)
+    monkeypatch.setattr(frontend_release, 'frontend_provenance', lambda *a, **k: {
+        'frontend_dist_mode': 'immutable_release',
+        'frontend_dist_exists': True,
+        'frontend_release_sha': 'd' * 40,
+        'frontend_asset_manifest_sha256': 'e' * 64,
+        'frontend_release_verified': True,
+    })
+
+    result = client.get('/health')
+    assert result.status_code == 503
+    assert result.json['status'] == 'degraded'
+    assert result.json['frontend_release_matches_backend'] is False
+
+
+def test_health_ok_when_immutable_release_sha_matches(client, monkeypatch):
+    """A matching immutable release keeps health 'ok' (200)."""
+    import app
+    from app import frontend_release
+
+    monkeypatch.setattr(app, '_GIT_COMMIT', 'c' * 40)
+    monkeypatch.setattr(frontend_release, 'frontend_provenance', lambda *a, **k: {
+        'frontend_dist_mode': 'immutable_release',
+        'frontend_dist_exists': True,
+        'frontend_release_sha': 'c' * 40,
+        'frontend_asset_manifest_sha256': 'e' * 64,
+        'frontend_release_verified': True,
+    })
+
+    result = client.get('/health')
+    assert result.status_code == 200
+    assert result.json['frontend_release_matches_backend'] is True
