@@ -35,6 +35,20 @@ def _ensure_person_for_team_member(tm: TeamMember):
         tm.person_id = existing.id
         db.session.add(tm)
         return existing
+    if tm.tenant_id is None:
+        # A Person is a TENANTED CRM entity: persons.tenant_id is NOT NULL in
+        # the live schema. Canonical tenancy is established through OrgMember
+        # — signup deliberately assigns no tenant ("writing an arbitrary
+        # default tenant here would silently place every new account in
+        # tenant 1"). Inventing a tenant to satisfy this insert is exactly the
+        # synthetic ownership the authorization model forbids, so the Person
+        # projection is SKIPPED instead.
+        #
+        # Login must never depend on a CRM projection: this path previously
+        # raised NotNullViolation and returned HTTP 500 for every account that
+        # had no tenant, making first login impossible for accounts created
+        # through signup.
+        return None
     person = Person(
         name=tm.name,
         canonical_name=tm.email,
