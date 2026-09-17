@@ -412,10 +412,13 @@ class IdentityService(IdentityResolutionInterface):
         if not person:
             return {"success": False, "error": "Identity not found"}
 
-        # Create a new Person for the split-off claims
+        # Create a new Person for the split-off claims. Tenancy is inherited
+        # from the source person: persons.tenant_id is NOT NULL, and a split
+        # must never move a record across tenants nor invent one.
         new_person = Person(
             canonical_name=f"{person.canonical_name} (split)",
             identity_type=person.identity_type,
+            tenant_id=person.tenant_id,
             metadata_json=json.dumps({
                 "split_from": identity_id,
                 "split_reason": reason,

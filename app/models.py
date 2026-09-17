@@ -585,7 +585,13 @@ class Person(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
+    # NOT NULL is the authoritative contract: migration 0005_fda4_identity_schema
+    # sets persons.tenant_id NOT NULL (after backfilling NULLs). A Person is a
+    # TENANTED entity. This model previously declared nullable=True, which let
+    # call sites write tenant-less creates that passed in tests (SQLite built
+    # from the model) and raised NotNullViolation in production.
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"),
+                          nullable=False, index=True)
     # Legacy name column: production DB has name NOT NULL from original schema
     name = db.Column(db.String(255), nullable=True)
     canonical_name = db.Column(db.String(255), nullable=False, index=True)

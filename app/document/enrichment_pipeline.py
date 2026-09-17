@@ -23,27 +23,47 @@ def _normalize_name(name: str) -> str:
     return re.sub(r"\s+", " ", name.strip().lower())
 
 
-def _find_or_create_person(name: str, email: str = "", confidence: float = 0.5) -> Person | None:
-    """Find an existing Person by name, or create a new one."""
+def _find_or_create_person(name: str, email: str = "", confidence: float = 0.5,
+                           tenant_id: int | None = None) -> Person | None:
+    """Find an existing Person by name within the tenant, or create one.
+
+    ``tenant_id`` is required to CREATE a Person: ``persons.tenant_id`` is
+    NOT NULL (migration 0005), and a Person is a tenanted entity. Without a
+    tenant the lookup is still performed but nothing is created, so a
+    tenant-less caller can never raise NotNullViolation nor invent a tenant.
+
+    Matching is tenant-scoped: an un-scoped ``Person.query.all()`` could match
+    — and then link a document to — a person belonging to another tenant.
+    """
     normalized = _normalize_name(name)
 
+    scoped = Person.query
+    if tenant_id is not None:
+        scoped = scoped.filter(Person.tenant_id == tenant_id)
+
     # Try exact match first
-    existing = Person.query.filter(Person.name.ilike(name.strip())).first()
+    existing = scoped.filter(Person.name.ilike(name.strip())).first()
     if existing:
         return existing
 
-    # Try normalized match
-    all_persons = Person.query.all()
-    for p in all_persons:
+    # Try normalized match (same tenant scope)
+    for p in scoped.all():
         if _normalize_name(p.name) == normalized:
             return p
 
-    # Create new Person
+    if tenant_id is None:
+        # Cannot create a Person without tenancy, and inventing a tenant is
+        # forbidden synthetic ownership.
+        return None
+
+    # Create new Person. NOTE: Person has no `email`/`phone` columns —
+    # `canonical_name` is the NOT NULL identifier. Passing the removed kwargs
+    # raised TypeError, so this function could never actually create a person.
     person = Person(
         name=name.strip(),
-        email=email or "",
-        phone="",
+        canonical_name=name.strip(),
         status="active",
+        tenant_id=tenant_id,
         created_at=datetime.now(timezone.utc),
     )
     db.session.add(person)
@@ -84,10 +104,16 @@ def enrich_document_facts(doc_id: int) -> dict:
 
         if entity_type == "person" and value:
             # Create or find Person
-            person = _find_or_create_person(str(value), confidence=fact.get("confidence", 0.5))
+            person = _find_or_create_person(str(value), confidence=fact.get("confidence", 0.5),
+                                            tenant_id=doc.tenant_id)
             if person:
-                doc_id_int = Person.query.filter_by(name=person.name).count()
-                if doc_id_int <= 1 and person.email == "":
+                mention_count = Person.query.filter(
+                    Person.name == person.name,
+                    Person.tenant_id == doc.tenant_id,
+                ).count() if doc.tenant_id is not None else 1
+                # Person has no `email` column; "newly created" is inferred
+                # from the tenant-scoped mention count instead.
+                if mention_count <= 1:
                     persons_created += 1
                 else:
                     persons_matched += 1
