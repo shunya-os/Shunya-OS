@@ -45,6 +45,46 @@ Consequences adopted for this campaign:
 
 ---
 
+## 0.5 SELF-AUDIT (2026-09-18) — faults in this agent's own execution
+
+Recorded because the campaign's value depends on the record being true, including
+about the executor. Every item below was found by re-reading the directive and
+checking the work against it; each is either corrected or explicitly open.
+
+| # | Fault | Disposition |
+|---|-------|-------------|
+| A-1 | **Asserted before verifying.** The journey harness was described as "runnable in CI" before it had ever run there. In CI it failed: `M5 journey failed at: public_shell_served` (run 35339238487, `1 failed, 5346 passed`). Cause: CI builds the frontend AFTER the pytest step, so `GET /` legitimately answers 503 and the harness assumed a built frontend. | **FIXED** (`84af32d`): the harness pins `SHUNYA_FRONTEND_DIST` at a stand-in release directory. Run 35341469498 then passed with `5347 passed, 128 skipped`, which is the first real proof the harness runs in CI. |
+| A-2 | **Claimed a fix that was not achieved.** "Ask SHUNYA" was said to open the AI surface; the panel rendered only when `expanded && mode === 'conversational'` and `expanded` defaulted to **false**, so the human landed on a collapsed panel with no input. | **FIXED** (`84af32d`) with 5 frontend tests, which also pin "never fabricate an answer". |
+| A-3 | **Mis-measured, nearly reported a false defect.** The public CTA contrast was first computed as 1.06:1 by comparing button text against the page background; the correct comparison (against the button's own background) is 17.1:1. | **CORRECTED before reporting.** |
+| A-4 | **Superseded five CI runs** by pushing while runs were in flight, delaying every deployment, then recorded "cancelled ≠ failed" in this ledger as though it excused the behaviour. The label is true; the behaviour is a process defect. | **DISCIPLINE CHANGED:** no push while a run is in flight; `git stash` (not a dirty tree, not an unpushed commit, which a deploy's `reset --hard` would discard) when work must continue. |
+| A-5 | **Caused a real deploy failure** by leaving uncommitted files in the production checkout: `ERROR: Working tree has uncommitted changes — refusing to deploy` (run 35333631840, deploy failed in 10s). The pre-flight was correct. | **FIXED + lesson recorded** in the skill reference. |
+| A-6 | **Evidence attribution.** The object-route 401 probes were collected on `f680a41` but tabled under `a7457d0`. | **RE-PROBED** on `a7457d0` and again on `84af32d`; the claim is now accurate. |
+| A-7 | **False statement in a published commit message:** the F-05 commit called the invitation flow "the last remaining dead end" while F-06 was still open. Published commits are never amended. | **CORRECTED HERE**, in the record. |
+| A-8 | **Never produced `[BROWSER]` evidence** despite §30 requiring visual verification. No screenshots, no rendered judgement, no fresh-user test. | **PARTIALLY ADDRESSED**: a real browser pass was run against production and is recorded in `BROWSER_AUDIT_2026-09-18.md`. NOTE: this session has **no vision capability**, so the audit contains measurements only — **no visual/taste judgement has been made and none is claimed**. §30 therefore remains open pending founder eyes or a vision-capable pass. |
+| A-9 | **§28 incomplete.** Two fake surfaces were fixed (Ask, invitation); the discovered orphans remain (`command-surface`, `living-workspace`, `workspace-switcher`, two `command-palette`, the dead `PrimaryFocusArea`, a disabled search control with no explanation, the TODO hero artwork). | **OPEN — explicitly listed, not left implied.** |
+| A-10 | **Conventions skipped:** the skill's terminal discipline requires `[ROOT TERMINAL]` / `[HERMES TERMINAL]` / `[BROWSER]` labels on evidence. Reports have not used them. | **OPEN** — adopted from the next report onward. |
+
+**Defects found by actually looking at the product** (measured in a real browser
+against production; full record in `BROWSER_AUDIT_2026-09-18.md`):
+
+- **B-1** An existing account is forced through **first-time onboarding** on every
+  new tab: session and onboarding step live in `sessionStorage` and no completion
+  flag exists. Continuity defect (§32); the identity/organization gate is skippable.
+- **B-2** **"Skip for now — I'll add things later" does nothing** (identical
+  snapshot, unchanged persisted step). Dead affordance (§28) on the onboarding surface.
+- **B-3** Onboarding renders while the URL remains `/auth/login` — state and URL disagree.
+- **B-4** **Emoji used as icons** (📋 📄 ✅ 💡 📤 ✍️ 🔨 🏢 🔗 🌱) — prohibited by the design canon.
+- Public page: canonical fonts loaded, contrast passes, no overflow — but **zero
+  images** (declared hero-artwork TODO) and the CTA is 38px against a 44px minimum.
+
+**Why these faults happened, stated plainly:** I optimised for provable transport-level
+correctness because that is what I could verify mechanically, and I let that stand in
+for product correctness. The directive's first priorities are whether a human can
+understand and operate SHUNYA. The correction is a change of centre of gravity:
+from "the route works" to "the human can do it, and here is what they see".
+
+---
+
 ## 1. RECONNAISSANCE BASELINE (verified 2026-09-18, read-only)
 
 ### 1.1 Frontend ↔ backend contract is genuinely broken in six places
@@ -398,12 +438,16 @@ shell serving (§1.6), journey harness, and the constitutional conflicts in §1.
 1. ~~Land and certify the credential fix~~ — **DONE** (`7848f09`, deployed within `a7457d0`; production boot log verified credential-free).
 2. ~~Fix F-01…F-06 so no surface lies to the human~~ — **DONE and runtime-proven** (`f680a41` + `a7457d0`, HTTP probes in §1.9), with 25 new regression tests across four files.
 3. ~~Close the release-integrity gap~~ — **DONE** (`a7457d0`).
-4. **NEXT: build the journey harness** (HTTP-first against a real running server,
-   runnable in CI) so M5/M6 can reach `USER-PROVEN`. This is the single biggest
-   evidence gap: CI currently proves unit-level behaviour on SQLite and nothing
-   about a user journey.
-5. Then close the M5 journey: entry → workspace with a truthful, object-aware
-   empty state and a working first meaningful action; run the 10-minute
-   fresh-user test.
-6. Then the Customer vertical nerve, end to end, reused for Supplier → Document →
-   Content, followed by the ingestion journey and document intelligence.
+4. **NEXT: the human-facing corrections found by looking at the product** — B-1
+   (existing accounts replay first-time onboarding because session and step live in
+   `sessionStorage` with no completion flag), B-2 ("Skip for now" does nothing),
+   B-3 (onboarding renders while the URL says `/auth/login`), B-4 (emoji as icons),
+   and the public CTA's 38px touch target. These are M5 entry-journey defects and
+   outrank further backend work.
+5. **Then §30/§31 with eyes**: this session has no vision capability, so a
+   vision-capable pass or the founder must judge the rendered product, and the
+   10-minute fresh-user test must be run.
+6. Then extend the journey harness to the remaining journeys (import, document
+   upload, content lifecycle, failure/recovery) so M6 can be proven.
+7. Then the Customer vertical nerve, reused for Supplier → Document → Content,
+   followed by the ingestion journey and document intelligence.
