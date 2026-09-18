@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import type { ObjectTypeDef, ObjectInstance, FieldDef } from './types';
 import { getObject } from './api';
+import { FileText, Clock, BarChart3, Link, File, MessageCircle, Bot, History, Paperclip, Check } from 'lucide-react';
 
 interface ObjectWorkspaceProps {
   objectType: ObjectTypeDef;
@@ -21,16 +22,16 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: 'overview', label: 'Overview', icon: '📋' },
-  { id: 'timeline', label: 'Timeline', icon: '⏱️' },
-  { id: 'activity', label: 'Activity', icon: '📊' },
-  { id: 'relationships', label: 'Relationships', icon: '🔗' },
-  { id: 'documents', label: 'Documents', icon: '📄' },
-  { id: 'conversations', label: 'Conversations', icon: '💬' },
-  { id: 'ai', label: 'AI', icon: '🤖' },
-  { id: 'history', label: 'History', icon: '🕐' },
-  { id: 'attachments', label: 'Attachments', icon: '📎' },
-  { id: 'tasks', label: 'Tasks', icon: '✅' },
+  { id: 'overview', label: 'Overview', icon: 'list' },
+  { id: 'timeline', label: 'Timeline', icon: 'clock' },
+  { id: 'activity', label: 'Activity', icon: 'chart' },
+  { id: 'relationships', label: 'Relationships', icon: 'link' },
+  { id: 'documents', label: 'Documents', icon: 'file' },
+  { id: 'conversations', label: 'Conversations', icon: 'message' },
+  { id: 'ai', label: 'AI', icon: 'bot' },
+  { id: 'history', label: 'History', icon: 'history' },
+  { id: 'attachments', label: 'Attachments', icon: 'paperclip' },
+  { id: 'tasks', label: 'Tasks', icon: 'check' },
 ];
 
 export function ObjectWorkspace({ objectType, objectId }: ObjectWorkspaceProps) {
@@ -103,7 +104,7 @@ export function ObjectWorkspace({ objectType, objectId }: ObjectWorkspaceProps) 
             onClick={() => setActiveTab(tab.id)}
             style={{ whiteSpace: 'nowrap' }}
           >
-            {tab.icon} {tab.label}
+            {renderTabIcon(tab.icon)} {tab.label}
           </button>
         ))}
       </div>
@@ -113,20 +114,36 @@ export function ObjectWorkspace({ objectType, objectId }: ObjectWorkspaceProps) 
         {activeTab === 'overview' && (
           <OverviewTab object={object} fields={fields} />
         )}
-        {activeTab === 'timeline' && <GenericTab icon="⏱️" label="Timeline" />}
-        {activeTab === 'activity' && <GenericTab icon="📊" label="Activity" />}
+        {activeTab === 'timeline' && <GenericTab icon={<Clock size={24} />} label="Timeline" />}
+        {activeTab === 'activity' && <GenericTab icon={<BarChart3 size={24} />} label="Activity" />}
         {activeTab === 'relationships' && (
           <RelationshipsTab object={object} relationships={relationships} />
         )}
-        {activeTab === 'documents' && <GenericTab icon="📄" label="Documents" />}
-        {activeTab === 'conversations' && <GenericTab icon="💬" label="Conversations" />}
-        {activeTab === 'ai' && <GenericTab icon="🤖" label="AI Insights" />}
-        {activeTab === 'history' && <GenericTab icon="🕐" label="History" />}
-        {activeTab === 'attachments' && <GenericTab icon="📎" label="Attachments" />}
-        {activeTab === 'tasks' && <GenericTab icon="✅" label="Tasks" />}
+        {activeTab === 'documents' && <GenericTab icon={<File size={24} />} label="Documents" />}
+        {activeTab === 'conversations' && <GenericTab icon={<MessageCircle size={24} />} label="Conversations" />}
+        {activeTab === 'ai' && <GenericTab icon={<Bot size={24} />} label="AI Insights" />}
+        {activeTab === 'history' && <GenericTab icon={<History size={24} />} label="History" />}
+        {activeTab === 'attachments' && <GenericTab icon={<Paperclip size={24} />} label="Attachments" />}
+        {activeTab === 'tasks' && <GenericTab icon={<Check size={24} />} label="Tasks" />}
       </div>
     </div>
   );
+}
+
+function renderTabIcon(iconKey: string): React.ReactNode {
+  const iconMap: Record<string, React.ReactNode> = {
+    list: <FileText size={14} />,
+    clock: <Clock size={14} />,
+    chart: <BarChart3 size={14} />,
+    link: <Link size={14} />,
+    file: <File size={14} />,
+    message: <MessageCircle size={14} />,
+    bot: <Bot size={14} />,
+    history: <History size={14} />,
+    paperclip: <Paperclip size={14} />,
+    check: <Check size={14} />,
+  };
+  return iconMap[iconKey] || <FileText size={14} />;
 }
 
 // ── Overview Tab ──
@@ -197,7 +214,7 @@ function RelationshipsTab({ relationships }: { object: ObjectInstance; relations
 
 // ── Generic Tab ──
 
-function GenericTab({ icon, label }: { icon: string; label: string }) {
+function GenericTab({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <GenericEmptyState
       icon={icon}
@@ -207,7 +224,7 @@ function GenericTab({ icon, label }: { icon: string; label: string }) {
   );
 }
 
-function GenericEmptyState({ icon, title, message }: { icon: string; title: string; message: string }) {
+function GenericEmptyState({ icon, title, message }: { icon: React.ReactNode; title: string; message: string }) {
   return (
     <div className="ubme-empty-state">
       <div className="ubme-empty-icon">{icon}</div>
