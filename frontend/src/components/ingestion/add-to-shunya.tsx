@@ -4,6 +4,7 @@
  * Shows target context clearly. After upload, shows a summary of what SHUNYA understood.
  */
 import { useState, useRef, type FC } from 'react';
+import { IconCircleCheck, IconX } from '@tabler/icons-react';
 
 interface IngestResult {
   success: boolean;
@@ -150,7 +151,7 @@ export const AddToShunya: FC<{ contextType?: 'personal' | 'organization' }> = ({
             display: 'flex', alignItems: 'center', gap: 8,
             fontSize: 13, color: '#2e7d32', marginBottom: 8,
           }}>
-            <span>✅</span>
+            <IconCircleCheck size={16} />
             <span>File added to <strong>{isOrg ? 'Panchi Club' : 'your personal workspace'}</strong></span>
           </div>
           <div style={{
@@ -182,7 +183,7 @@ export const AddToShunya: FC<{ contextType?: 'personal' | 'organization' }> = ({
       {phase === 'error' && (
         <div>
           <div style={{ fontSize: 13, color: '#d1453b', marginBottom: 8 }}>
-            ❌ {error}
+            <IconX size={16} /> {error}
           </div>
           <button
             onClick={handleReset}

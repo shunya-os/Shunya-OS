@@ -6,19 +6,20 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { onboardingStyles } from './onboarding-styles';
+import { IconUpload, IconEdit, IconTool, IconBuilding, IconLink, IconSeedling, IconUser } from '@tabler/icons-react';
 
 interface Props {
   purposeResult: { action: string; detail?: string } | null;
   onComplete: () => void;
 }
 
-const ACTION_LABELS: Record<string, { icon: string; text: string }> = {
-  upload: { icon: '📤', text: 'Uploaded a file for analysis' },
-  describe: { icon: '✍️', text: 'Told SHUNYA about your work' },
-  working_on: { icon: '🔨', text: 'Added something you\'re working on' },
-  create_org: { icon: '🏢', text: 'Created an organization' },
-  connect_org: { icon: '🔗', text: 'Connected to an organization' },
-  empty: { icon: '🌱', text: 'Started with an empty workspace' },
+const ACTION_LABELS: Record<string, { icon: React.ReactNode; text: string }> = {
+  upload: { icon: <IconUpload size={16} />, text: 'Uploaded a file for analysis' },
+  describe: { icon: <IconEdit size={16} />, text: 'Told SHUNYA about your work' },
+  working_on: { icon: <IconTool size={16} />, text: 'Added something you\'re working on' },
+  create_org: { icon: <IconBuilding size={16} />, text: 'Created an organization' },
+  connect_org: { icon: <IconLink size={16} />, text: 'Connected to an organization' },
+  empty: { icon: <IconSeedling size={16} />, text: 'Started with an empty workspace' },
 };
 
 export function StepComplete({ purposeResult, onComplete }: Props) {
@@ -51,7 +52,7 @@ export function StepComplete({ purposeResult, onComplete }: Props) {
 
           <div className="sh-onboarding-summary">
             <div className="sh-onboarding-summary-item">
-              <div className="sh-onboarding-summary-icon gold">👤</div>
+              <div className="sh-onboarding-summary-icon gold"><IconUser size={20} /></div>
               <div className="sh-onboarding-summary-text">
                 Personal workspace: <strong>Nishesh's SHUNYA</strong>
               </div>

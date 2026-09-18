@@ -6,6 +6,7 @@
  */
 import { useState, useCallback, useEffect, type FC } from 'react';
 import { AddToShunya } from '../ingestion/add-to-shunya';
+import { IconBook, IconChartBar, IconClipboard, IconFileText, IconPhoto, IconFolder } from '@tabler/icons-react';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -20,8 +21,9 @@ interface Document {
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-const FILE_ICONS: Record<string, string> = {
-  pdf: '📕', xlsx: '📊', csv: '📋', text: '📄', png: '🖼️', jpg: '🖼️',
+const FILE_ICONS: Record<string, React.ReactNode> = {
+  pdf: <IconBook size={24} />, xlsx: <IconChartBar size={24} />, csv: <IconClipboard size={24} />,
+  text: <IconFileText size={24} />, png: <IconPhoto size={24} />, jpg: <IconPhoto size={24} />,
 };
 
 function formatSize(bytes: number): string {
@@ -243,7 +245,7 @@ function DocumentDetail({ doc, onBack }: { doc: Document; onBack: () => void }) 
         display: 'flex', alignItems: 'center', gap: 12,
         margin: '12px 0 16px',
       }}>
-        <span style={{ fontSize: 32 }}>{FILE_ICONS[doc.file_type] || '📄'}</span>
+        <span style={{ fontSize: 32 }}>{FILE_ICONS[doc.file_type] || <IconFileText size={32} />}</span>
         <div>
           <h2 style={{ margin: '0 0 2px', fontSize: 18, fontWeight: 600, color: '#1a1c1d' }}>
             {doc.filename}
@@ -374,7 +376,7 @@ export const DocumentBrowser: FC = () => {
           background: 'rgba(26,28,29,0.02)', borderRadius: 10,
           border: '1px dashed rgba(26,28,29,0.1)',
         }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📂</div>
+          <div style={{ fontSize: 32, marginBottom: 8 }}><IconFolder size={32} /></div>
           <p style={{ fontSize: 14, color: 'rgba(26,28,29,0.55)', margin: 0 }}>
             No documents yet. Use "Add to My SHUNYA" to upload files.
           </p>
@@ -395,7 +397,7 @@ export const DocumentBrowser: FC = () => {
               }}
               title={`Open ${doc.filename}`}
             >
-              <span style={{ fontSize: 24 }}>{FILE_ICONS[doc.file_type] || '📄'}</span>
+              <span style={{ fontSize: 24 }}>{FILE_ICONS[doc.file_type] || <IconFileText size={24} />}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1c1d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {doc.filename}

@@ -9,6 +9,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../../api/client';
 import { onboardingStyles } from './onboarding-styles';
+import { IconFileText, IconCircleCheck, IconEdit, IconSearch, IconCoin } from '@tabler/icons-react';
 
 interface Props {
   onNext: (objectInfo: { objectId: string; objectType: string; objectName: string }) => void;
@@ -16,11 +17,11 @@ interface Props {
 }
 
 const OBJECT_TYPES = [
-  { value: 'Document', label: 'Document', icon: '📄', desc: 'Store notes, plans, reports, or any text-based information you want to reference later.' },
-  { value: 'Task', label: 'Task', icon: '✅', desc: 'Track something you or your team needs to complete — a to-do, checklist item, or action item.' },
-  { value: 'Note', label: 'Note', icon: '📝', desc: 'Quick notes, ideas, or observations you want to keep — like a sticky note that stays organized.' },
-  { value: 'Lead', label: 'Lead', icon: '🔍', desc: 'A potential customer or sales opportunity — someone interested in your product or service.' },
-  { value: 'Invoice', label: 'Invoice', icon: '💰', desc: 'A bill you send to a customer for products or services provided — tracked as a receivable.' },
+  { value: 'Document', label: 'Document', icon: <IconFileText size={16} />, desc: 'Store notes, plans, reports, or any text-based information you want to reference later.' },
+  { value: 'Task', label: 'Task', icon: <IconCircleCheck size={16} />, desc: 'Track something you or your team needs to complete — a to-do, checklist item, or action item.' },
+  { value: 'Note', label: 'Note', icon: <IconEdit size={16} />, desc: 'Quick notes, ideas, or observations you want to keep — like a sticky note that stays organized.' },
+  { value: 'Lead', label: 'Lead', icon: <IconSearch size={16} />, desc: 'A potential customer or sales opportunity — someone interested in your product or service.' },
+  { value: 'Invoice', label: 'Invoice', icon: <IconCoin size={16} />, desc: 'A bill you send to a customer for products or services provided — tracked as a receivable.' },
 ];
 
 type Phase = 'form' | 'loading' | 'error' | 'success';
@@ -146,7 +147,7 @@ export function StepFirstObject({ onNext, onBack }: Props) {
                     tabIndex={0}
                   >
                     {OBJECT_TYPES.map(t => (
-                      <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
+                      <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
                   {selectedTypeMeta && (

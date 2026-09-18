@@ -6,6 +6,7 @@
  */
 import { useState } from 'react';
 import { onboardingStyles } from './onboarding-styles';
+import { IconClipboard, IconFileText, IconCheck, IconBulb } from '@tabler/icons-react';
 
 interface Props {
   onNext: () => void;
@@ -31,19 +32,19 @@ export function StepWelcome({ onNext }: Props) {
           </div>
           <div className="sh-onboarding-features">
             <div className="sh-onboarding-feature">
-              <span className="sh-onboarding-feature-icon">📋</span>
+              <span className="sh-onboarding-feature-icon"><IconClipboard size={18} /></span>
               <span>Your work and projects</span>
             </div>
             <div className="sh-onboarding-feature">
-              <span className="sh-onboarding-feature-icon">📄</span>
+              <span className="sh-onboarding-feature-icon"><IconFileText size={18} /></span>
               <span>Documents and files</span>
             </div>
             <div className="sh-onboarding-feature">
-              <span className="sh-onboarding-feature-icon">✅</span>
+              <span className="sh-onboarding-feature-icon"><IconCheck size={18} /></span>
               <span>Tasks and commitments</span>
             </div>
             <div className="sh-onboarding-feature">
-              <span className="sh-onboarding-feature-icon">💡</span>
+              <span className="sh-onboarding-feature-icon"><IconBulb size={18} /></span>
               <span>Ideas and knowledge</span>
             </div>
           </div>

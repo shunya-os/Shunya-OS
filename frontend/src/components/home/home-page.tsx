@@ -18,6 +18,7 @@ import { useWorkspaceStore } from '../../runtimes/workspace/store';
 import { SessionManager } from '../../api/session';
 import type { TaskLifecycle } from '../../api/execution-api';
 import { TaskDetail } from './task-detail';
+import { IconRefresh, IconCheck, IconAlertTriangle, IconArrowRight, IconCircle } from '@tabler/icons-react';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ function PulseIndicator({ mode, lastUpdated }: { mode: PulseMode; lastUpdated: n
 
 function TaskRow({ task, onOpen }: { task: TaskLifecycle; onOpen: (t: TaskLifecycle) => void }) {
   const tone = statusTone(task);
-  const icon = tone === 'active' ? '⟳' : tone === 'done' ? '✓' : '⚠';
+  const icon = tone === 'active' ? <IconRefresh size={13} /> : tone === 'done' ? <IconCheck size={13} /> : <IconAlertTriangle size={13} />;
   const iconClass = tone === 'active' ? 'hp-row-icon-active'
     : tone === 'done' ? 'hp-row-icon-done' : 'hp-row-icon-attention';
 
@@ -131,7 +132,7 @@ function TaskRow({ task, onOpen }: { task: TaskLifecycle; onOpen: (t: TaskLifecy
           {task.completed_at ? ` · completed ${_timeAgo(task.completed_at)}` : task.started_at ? ` · started ${_timeAgo(task.started_at)}` : ''}
         </span>
       </span>
-      <span className="hp-row-arrow">→</span>
+      <span className="hp-row-arrow"><IconArrowRight size={14} /></span>
     </motion.button>
   );
 }
@@ -271,7 +272,7 @@ export function HomePage() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
-              <span className="hp-error-icon">●</span>
+              <span className="hp-error-icon"><IconCircle size={10} /></span>
               <span className="hp-error-text">{error}</span>
               <button className="hp-retry" onClick={() => { useHomeStore.getState().clearError(); useHomeStore.getState().loadAll(); }}>
                 Retry

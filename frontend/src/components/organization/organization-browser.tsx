@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, type FC } from 'react';
+import { IconUser } from '@tabler/icons-react';
 
 interface Member {
   id: number;
@@ -103,7 +104,7 @@ export const OrganizationBrowser: FC = () => {
   return (
     <div className="pw-panel-container" style={{ padding: 'clamp(16px, 3vw, 32px)', maxWidth: 960 }}>
       <div className="pw-domain-header">
-        <span className="pw-domain-icon">👤</span>
+        <span className="pw-domain-icon"><IconUser size={24} /></span>
         <h2 className="pw-domain-title">Organization</h2>
       </div>
       <p style={{ fontSize: 14, color: 'rgba(26,28,29,0.55)', margin: '0 0 16px' }}>

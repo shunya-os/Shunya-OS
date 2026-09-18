@@ -23,6 +23,17 @@ import { useActiveContext } from './hooks/use-active-context';
 
 type Phase = 'public' | 'login' | 'onboarding' | 'booting' | 'ready';
 
+/**
+ * Transition to the onboarding phase and synchronise the browser URL.
+ * The URL must reflect real application state (§B-3 of SH-M5→M15-CONTINUE-01),
+ * so when the user sees the onboarding flow the URL says /onboarding — not
+ * /auth/login.
+ */
+function goToOnboarding(setPhase: (p: Phase) => void) {
+  window.history.pushState({ phase: 'onboarding' }, '', '/onboarding');
+  setPhase('onboarding');
+}
+
 let bootstrapped = false;
 let loggingInitialized = false;
 
@@ -283,12 +294,17 @@ function AppShell() {
       setPhase('login');
       return;
     }
+    // Direct navigation to /onboarding with a session: restore onboarding phase
+    if (window.location.pathname === '/onboarding' && saved) {
+      goToOnboarding(setPhase);
+      return;
+    }
     if (saved) {
       // If onboarding is complete, bootstrap directly; otherwise show onboarding
       if (isOnboardingComplete()) {
         bootstrap();
       } else {
-        setPhase('onboarding');
+        goToOnboarding(setPhase);
       }
     } else {
       // Try restoring from backend Flask session cookie
@@ -313,7 +329,7 @@ function AppShell() {
               if (isOnboardingComplete()) {
                 bootstrap();
               } else {
-                setPhase('onboarding');
+                goToOnboarding(setPhase);
               }
               return;
             }
@@ -348,7 +364,7 @@ function AppShell() {
       if (decidePostAuthPhase(serverComplete, isOnboardingComplete()) === 'workspace') {
         bootstrap();
       } else {
-        setPhase('onboarding');
+        goToOnboarding(setPhase);
       }
     };
 

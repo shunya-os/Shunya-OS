@@ -5,6 +5,7 @@
  */
 
 import { useState, useRef, type FC } from 'react';
+import { IconDownload, IconUpload, IconFileText, IconCheck, IconX, IconPlus, IconRefresh, IconAlertTriangle, IconBolt, IconEdit } from '@tabler/icons-react';
 
 async function api<T>(path: string, opts?: RequestInit) {
   try {
@@ -118,8 +119,8 @@ export const ImportExportPanel: FC = () => {
   return (
     <div className="wksp-import">
       <div className="wksp-admin-tabs">
-        <button className={`wksp-admin-tab ${view === 'import' ? 'active' : ''}`} onClick={() => setView('import')}>📥 Import</button>
-        <button className={`wksp-admin-tab ${view === 'export' ? 'active' : ''}`} onClick={() => setView('export')}>📤 Export</button>
+        <button className={`wksp-admin-tab ${view === 'import' ? 'active' : ''}`} onClick={() => setView('import')}><IconDownload size={14} /> Import</button>
+        <button className={`wksp-admin-tab ${view === 'export' ? 'active' : ''}`} onClick={() => setView('export')}><IconUpload size={14} /> Export</button>
       </div>
 
       {error && <div className="wksp-import-error">{error}</div>}
@@ -138,7 +139,7 @@ export const ImportExportPanel: FC = () => {
                 <div className="wksp-import-upload">
                   <div className="wksp-import-dropzone" onClick={() => fileRef.current?.click()}>
                     {fileName ? (
-                      <div className="wksp-import-file-selected">📄 {fileName}</div>
+                      <div className="wksp-import-file-selected"><IconFileText size={14} /> {fileName}</div>
                     ) : (
                       <div className="wksp-import-dropzone-text">Click to select a CSV, XLSX, or JSON file</div>
                     )}
@@ -174,17 +175,17 @@ export const ImportExportPanel: FC = () => {
             <div className="wksp-import-result">
               <h4>Preview — {preview.total_records} records found</h4>
               <div className="wksp-import-stats">
-                <span className="wksp-stat wksp-stat-ok">✓ {preview.valid_records} valid</span>
-                {preview.invalid_records > 0 && <span className="wksp-stat wksp-stat-err">✗ {preview.invalid_records} invalid</span>}
-                <span className="wksp-stat">🆕 {preview.new_identities} new</span>
-                <span className="wksp-stat">🔄 {preview.matched_identities} matched</span>
-                {preview.possible_duplicates > 0 && <span className="wksp-stat wksp-stat-warn">⚠ {preview.possible_duplicates} duplicates</span>}
-                {preview.conflicts > 0 && <span className="wksp-stat wksp-stat-err">⚡ {preview.conflicts} conflicts</span>}
+                <span className="wksp-stat wksp-stat-ok"><IconCheck size={12} /> {preview.valid_records} valid</span>
+                {preview.invalid_records > 0 && <span className="wksp-stat wksp-stat-err"><IconX size={12} /> {preview.invalid_records} invalid</span>}
+                <span className="wksp-stat"><IconPlus size={12} /> {preview.new_identities} new</span>
+                <span className="wksp-stat"><IconRefresh size={12} /> {preview.matched_identities} matched</span>
+                {preview.possible_duplicates > 0 && <span className="wksp-stat wksp-stat-warn"><IconAlertTriangle size={12} /> {preview.possible_duplicates} duplicates</span>}
+                {preview.conflicts > 0 && <span className="wksp-stat wksp-stat-err"><IconBolt size={12} /> {preview.conflicts} conflicts</span>}
               </div>
               <div className="wksp-import-records">
                 {preview.records?.slice(0, 10).map((r: any, i: number) => (
                   <div key={i} className={`wksp-import-row ${r.valid ? '' : 'wksp-import-invalid'}`}>
-                    #{i + 1} {r.identity_action === 'match' ? '🔄' : '🆕'} {r.commit_action === 'reject' ? '✗' : r.commit_action === 'update' ? '📝' : '✓'}
+                    #{i + 1} {r.identity_action === 'match' ? <IconRefresh size={12} /> : <IconPlus size={12} />} {r.commit_action === 'reject' ? <IconX size={12} /> : r.commit_action === 'update' ? <IconEdit size={12} /> : <IconCheck size={12} />}
                     {' '}{r.display_name || r.customer_name || r.email || `Row ${r.row}`}
                     {r.errors?.length ? <span className="wksp-import-err-detail"> — {r.errors.join('; ')}</span> : ''}
                   </div>
@@ -204,7 +205,7 @@ export const ImportExportPanel: FC = () => {
 
           {step === 'result' && result && (
             <div className="wksp-import-result">
-              <h4>{result.status === 'completed' ? '✅ Import Complete' : result.status === 'partial' ? '⚠ Partial Import' : '❌ Import Failed'}</h4>
+              <h4>{result.status === 'completed' ? <><IconCheck size={14} /> Import Complete</> : result.status === 'partial' ? <><IconAlertTriangle size={14} /> Partial Import</> : <><IconX size={14} /> Import Failed</>}</h4>
               <div className="wksp-import-stats">
                 <span className="wksp-stat">Created: {result.created || 0}</span>
                 <span className="wksp-stat">Updated: {result.updated || 0}</span>
@@ -214,7 +215,7 @@ export const ImportExportPanel: FC = () => {
               {result.errors?.length > 0 && (
                 <div className="wksp-import-result-errors">
                   {result.errors.slice(0, 5).map((e: any, i: number) => (
-                    <div key={i} className="wksp-import-err">⚠ {e.message || e}</div>
+                    <div key={i} className="wksp-import-err"><IconAlertTriangle size={12} /> {e.message || e}</div>
                   ))}
                   {result.errors.length > 5 && <div>… and {result.errors.length - 5} more</div>}
                 </div>
@@ -240,7 +241,7 @@ export const ImportExportPanel: FC = () => {
           </div>
           {exportResult && !loading && (
             <div className="wksp-import-result">
-              <h4>📤 Export: {exportResult.record_count} records</h4>
+              <h4><IconUpload size={14} /> Export: {exportResult.record_count} records</h4>
               <pre className="wksp-export-json">{JSON.stringify(exportResult.records?.slice(0, 3), null, 2)}</pre>
               <p className="wksp-muted">Showing first 3 of {exportResult.record_count} records.</p>
             </div>

@@ -28,6 +28,12 @@ import { useActiveContext } from '../../hooks/use-active-context';
 import { HomePage } from '../home/home-page';
 import { AIResidentPanel } from '../ui/ai-resident-panel';
 import { LivingPresence } from '../living-workspace/living-presence';
+import {
+  IconUser, IconMessage, IconChecklist, IconDiamond, IconBackpack, IconChartBar, IconHexagon,
+  IconBuildingStore, IconBooks, IconCheck, IconBrain, IconHeartHandshake,
+  IconPencil, IconBookmark, IconFileText, IconHome, IconMicrophone,
+  IconVolume, IconRefresh, IconArrowRight, IconChevronUp, IconChevronDown, IconCircle,
+} from '@tabler/icons-react';
 
 // Code-split heavy workspace components — loaded on first use, not on initial boot
 const ObjectWorkspaceViewer = lazy(() => import('../workspace/object-workspace-viewer').then(m => ({ default: m.ObjectWorkspaceViewer })));
@@ -65,28 +71,28 @@ const OperationsWorkspace = lazy(() => import('../operations/operations-workspac
 interface Domain {
   id: string;
   label: string;
-  icon: string;
+  icon: React.ReactNode;
   description: string;
   wsType: string;
   count?: number;
 }
 
 const ORGANIZATIONAL_DOMAINS: Domain[] = [
-  { id: 'people', label: 'People', icon: '👤', description: 'Identities, team members, contacts', wsType: 'people' },
-  { id: 'conversations', label: 'Conversations', icon: '💬', description: 'All conversations and discussions', wsType: 'conversation' },
-  { id: 'work', label: 'Work', icon: '◉', description: 'Tasks, executions, SHUNYA work', wsType: 'commitment' },
-  { id: 'finance', label: 'Finance', icon: '◇', description: 'Financial information, transactions', wsType: 'object' },
-  { id: 'commercial', label: 'Commercial', icon: '◆', description: 'Deals, opportunities, revenue', wsType: 'object' },
-  { id: 'marketing', label: 'Marketing', icon: '○', description: 'Campaigns, content, outreach', wsType: 'object' },
-  { id: 'sales', label: 'Sales', icon: '⬡', description: 'Proposals, customers, pipeline', wsType: 'object' },
-  { id: 'operations', label: 'Operations', icon: '△', description: 'Processes, resources, inventory', wsType: 'object' },
-  { id: 'knowledge', label: 'Knowledge', icon: '◎', description: 'Docs, research, references', wsType: 'object' },
-  { id: 'outputs', label: 'Outputs', icon: '✓', description: 'Generated results, reports, artifacts', wsType: 'object' },
-  { id: 'memory', label: 'Memory', icon: '◈', description: 'SHUNYA memory, reflections, history', wsType: 'object' },
-  { id: 'relationships', label: 'Relationships', icon: '◈', description: 'Connections between people and entities', wsType: 'object' },
-  { id: 'content', label: 'Content', icon: '✎', description: 'AI content generation studio', wsType: 'object' },
-  { id: 'entities', label: 'Entities', icon: '◈', description: 'Dynamic entity type system', wsType: 'object' },
-  { id: 'documents', label: 'Documents', icon: '📄', description: 'Uploaded files, documents, and records', wsType: 'object' },
+  { id: 'people', label: 'People', icon: <IconUser size={18} />, description: 'Identities, team members, contacts', wsType: 'people' },
+  { id: 'conversations', label: 'Conversations', icon: <IconMessage size={18} />, description: 'All conversations and discussions', wsType: 'conversation' },
+  { id: 'work', label: 'Work', icon: <IconChecklist size={18} />, description: 'Tasks, executions, SHUNYA work', wsType: 'commitment' },
+  { id: 'finance', label: 'Finance', icon: <IconDiamond size={18} />, description: 'Financial information, transactions', wsType: 'object' },
+  { id: 'commercial', label: 'Commercial', icon: <IconBackpack size={18} />, description: 'Deals, opportunities, revenue', wsType: 'object' },
+  { id: 'marketing', label: 'Marketing', icon: <IconChartBar size={18} />, description: 'Campaigns, content, outreach', wsType: 'object' },
+  { id: 'sales', label: 'Sales', icon: <IconHexagon size={18} />, description: 'Proposals, customers, pipeline', wsType: 'object' },
+  { id: 'operations', label: 'Operations', icon: <IconBuildingStore size={18} />, description: 'Processes, resources, inventory', wsType: 'object' },
+  { id: 'knowledge', label: 'Knowledge', icon: <IconBooks size={18} />, description: 'Docs, research, references', wsType: 'object' },
+  { id: 'outputs', label: 'Outputs', icon: <IconCheck size={18} />, description: 'Generated results, reports, artifacts', wsType: 'object' },
+  { id: 'memory', label: 'Memory', icon: <IconBrain size={18} />, description: 'SHUNYA memory, reflections, history', wsType: 'object' },
+  { id: 'relationships', label: 'Relationships', icon: <IconHeartHandshake size={18} />, description: 'Connections between people and entities', wsType: 'object' },
+  { id: 'content', label: 'Content', icon: <IconPencil size={18} />, description: 'AI content generation studio', wsType: 'object' },
+  { id: 'entities', label: 'Entities', icon: <IconBookmark size={18} />, description: 'Dynamic entity type system', wsType: 'object' },
+  { id: 'documents', label: 'Documents', icon: <IconFileText size={18} />, description: 'Uploaded files, documents, and records', wsType: 'object' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════
@@ -133,7 +139,7 @@ function OrganizationalOrientation({ collapsed, onToggle }: { collapsed: boolean
           onClick={handleHomeClick}
           title="Return to the SHUNYA Home operating surface"
         >
-          <span className="pw-org-home-icon">⌂</span>
+          <span className="pw-org-home-icon"><IconHome size={16} /></span>
           <span className="pw-org-home-label">Home</span>
         </button>
       </div>
@@ -177,8 +183,8 @@ function WhatMattersNow() {
   if (!signals || signals.length === 0) return null;
 
   const top = signals[0];
-  const priorityIcon = top.priority === 'critical' ? '⬡'
-    : top.priority === 'high' ? '◈' : '◇';
+  const priorityIcon = top.priority === 'critical' ? <IconHexagon size={12} />
+    : top.priority === 'high' ? <IconDiamond size={12} /> : <IconCircle size={12} />;
 
   const handleOpen = () => {
     if (top.affected_object_id && top.affected_object_type) {
@@ -360,7 +366,7 @@ function WorkVisibility() {
             ? `SHUNYA is working on ${activeExecutions.length} task${activeExecutions.length > 1 ? 's' : ''}`
             : `${executionHistory.length} completed task${executionHistory.length > 1 ? 's' : ''}`}
         </span>
-        <span className="pw-work-toggle">{expanded ? '▲' : '▼'}</span>
+        <span className="pw-work-toggle">{expanded ? <IconChevronUp size={12} /> : <IconChevronDown size={12} />}</span>
       </div>
       <AnimatePresence>
         {expanded && (
@@ -372,7 +378,7 @@ function WorkVisibility() {
           >
             {activeExecutions.map((exec) => (
               <div key={exec.id} className="pw-work-item pw-work-active">
-                <span className="pw-work-status">⟳</span>
+                <span className="pw-work-status"><IconRefresh size={14} /></span>
                 <span className="pw-work-text">{exec.label}</span>
                 <span className="pw-work-owner">SHUNYA</span>
                 <span className="pw-work-track">
@@ -382,7 +388,7 @@ function WorkVisibility() {
             ))}
             {executionHistory.slice(-3).reverse().map((exec) => (
               <div key={exec.id} className="pw-work-item pw-work-done">
-                <span className="pw-work-status">✓</span>
+                <span className="pw-work-status"><IconCheck size={14} /></span>
                 <span className="pw-work-text">{exec.label}</span>
                 <span className="pw-work-owner">
                   {exec.status === 'completed' ? 'SHUNYA' : 'Failed'}
@@ -508,7 +514,7 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
         aria-label={listening ? 'Stop recording' : 'Start voice input'}
         title={listening ? 'Stop recording' : 'Voice input'}
       >
-        {listening ? '⬤' : '🎤'}
+        {listening ? <IconCircle size={18} /> : <IconMicrophone size={18} />}
       </button>
       <AnimatePresence>
         {draft && (
@@ -529,7 +535,7 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
                             <button className="pw-voice-submit" onClick={handleSubmit}>Submit</button>
                             <button className="pw-voice-clear" onClick={() => setDraft('')}>Clear</button>
                             {HAS_TTS && draft.trim() && (
-                              <button className="pw-voice-tts" onClick={() => speakText(draft)} title="Preview aloud">🔊</button>
+                              <button className="pw-voice-tts" onClick={() => speakText(draft)} title="Preview aloud"><IconVolume size={16} /></button>
                             )}
                             {listening && <span className="pw-voice-recording">Recording… speak now</span>}
             </div>
@@ -605,7 +611,7 @@ function IntegratedCommand() {
             exit={{ y: 4, opacity: 0 }}
           >
             <div className="pw-command-input-row">
-              <span className="pw-command-prompt">→</span>
+              <span className="pw-command-prompt"><IconArrowRight size={16} /></span>
               <input
                 ref={inputRef}
                 type="text"
@@ -624,8 +630,8 @@ function IntegratedCommand() {
         ) : (
           <button className="pw-command-trigger" onClick={() => setCommandOpen(true)}>
             <span className="pw-command-trigger-icon">
-              {activeExecutions.length > 0 ? '⟳' : '→'}
-            </span>
+                          {activeExecutions.length > 0 ? <IconRefresh size={14} /> : <IconArrowRight size={14} />}
+                        </span>
             <span className="pw-command-trigger-text">
               {activeExecutions.length > 0
                 ? `${activeExecutions.length} action${activeExecutions.length > 1 ? 's' : ''} in progress`

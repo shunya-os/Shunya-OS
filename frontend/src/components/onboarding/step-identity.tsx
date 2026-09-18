@@ -12,6 +12,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { onboardingStyles } from './onboarding-styles';
+import { IconBuilding, IconHeartHandshake, IconUser } from '@tabler/icons-react';
 
 export type IdentityChoice = 'business' | 'join' | 'personal';
 
@@ -19,22 +20,22 @@ interface Props {
   onNext: (choice: IdentityChoice) => void;
 }
 
-const OPTIONS: { value: IdentityChoice; icon: string; title: string; desc: string }[] = [
+const OPTIONS: { value: IdentityChoice; icon: React.ReactNode; title: string; desc: string }[] = [
   {
     value: 'business',
-    icon: '🏢',
+    icon: <IconBuilding size={22} />,
     title: 'My Business',
     desc: 'I own or manage a company and want to run it with SHUNYA.',
   },
   {
     value: 'join',
-    icon: '🤝',
+    icon: <IconHeartHandshake size={22} />,
     title: 'Join an Existing Company',
     desc: "I was invited to join a team. I'll use an invitation to get in.",
   },
   {
     value: 'personal',
-    icon: '🧑‍💻',
+    icon: <IconUser size={22} />,
     title: 'Personal Workspace',
     desc: "I'm using SHUNYA for myself — no company organization needed.",
   },

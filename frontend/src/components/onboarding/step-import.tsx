@@ -236,7 +236,7 @@ function UploadZone({ onUploadsChange }: { onUploadsChange: (count: number) => v
                 {u.status === 'pending' && 'Waiting…'}
                 {u.status === 'uploading' && <span className="oi-spinner" />}
                 {u.status === 'done' && <CheckCircle2 size={14} />}
-                {u.status === 'error' && <span title={u.error}>⚠</span>}
+                {u.status === 'error' && <span title={u.error}><AlertCircle size={14} /></span>}
               </span>
             </div>
           ))}

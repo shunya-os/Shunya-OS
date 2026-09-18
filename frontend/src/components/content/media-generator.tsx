@@ -9,6 +9,10 @@
  * No placeholder impersonates generated content.
  */
 import { useState, useCallback, useEffect } from 'react';
+import {
+  IconPalette, IconEdit, IconSparkles, IconCheck, IconClipboard,
+  IconAlertTriangle, IconX, IconSpeakerphone,
+} from '@tabler/icons-react';
 
 // ── Canonical Types ──────────────────────────────────────────
 
@@ -144,15 +148,15 @@ function stateLabel(state: MediaRuntimeState): string {
   return labels[state];
 }
 
-function stateIcon(state: MediaRuntimeState): string {
-  const icons: Record<MediaRuntimeState, string> = {
-    idle: '🎨',
-    preparing_brief: '📝',
-    generating: '✨',
-    generated: '✅',
-    description_only: '📋',
-    provider_unavailable: '⚠️',
-    failed: '❌',
+function stateIcon(state: MediaRuntimeState): React.ReactNode {
+  const icons: Record<MediaRuntimeState, React.ReactNode> = {
+    idle: <IconPalette size={16} />,
+    preparing_brief: <IconEdit size={16} />,
+    generating: <IconSparkles size={16} />,
+    generated: <IconCheck size={16} />,
+    description_only: <IconClipboard size={16} />,
+    provider_unavailable: <IconAlertTriangle size={16} />,
+    failed: <IconX size={16} />,
   };
   return icons[state];
 }
@@ -238,7 +242,7 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
           ) : (
             <div className="cs-media-concept-container">
               <div className="cs-media-concept-card" style={{ aspectRatio: currentAsset.aspect_ratio.replace(':', '/') }}>
-                <div className="cs-media-concept-icon">📋</div>
+                <div className="cs-media-concept-icon"><IconClipboard size={40} /></div>
                 <h3 className="cs-media-concept-title">Visual Concept</h3>
                 <p className="cs-media-concept-desc">
                   {currentAsset.description || 'A creative concept was generated based on your input.'}
@@ -276,7 +280,7 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
               onClick={() => onAddToCampaign(currentAsset)}
               style={{ marginTop: 12 }}
             >
-              📢 Add to Campaign
+              <IconSpeakerphone size={16} /> Add to Campaign
             </button>
           )}
         </div>
@@ -285,7 +289,7 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
       {/* ── Provider unavailable state ── */}
       {runtimeState === 'provider_unavailable' && currentAsset && (
         <div className="cs-media-state-card cs-state-unavailable">
-          <div className="cs-state-icon">⚠️</div>
+          <div className="cs-state-icon"><IconAlertTriangle size={36} /></div>
           <h3 className="cs-state-title">Image generation is currently unavailable</h3>
           <p className="cs-state-desc">
             {currentAsset.failure_reason || 'The image generation service could not be reached.'}
@@ -305,7 +309,7 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
       {/* ── Failed state ── */}
       {runtimeState === 'failed' && (
         <div className="cs-media-state-card cs-state-failed">
-          <div className="cs-state-icon">❌</div>
+          <div className="cs-state-icon"><IconX size={36} /></div>
           <h3 className="cs-state-title">Generation failed</h3>
           <p className="cs-state-desc">{error || 'An error occurred during generation. Your settings have been preserved.'}</p>
           <button className="cs-btn cs-btn-primary" onClick={handleGenerate} disabled={!prompt.trim()}>
@@ -347,7 +351,7 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
                   <img src={asset.asset_url} alt="" className="cs-history-thumb" />
                 ) : (
                   <div className="cs-history-thumb cs-history-placeholder">
-                    <span>{asset.result_kind === 'visual_concept' ? '📋' : '🎨'}</span>
+                    <span>{asset.result_kind === 'visual_concept' ? <IconClipboard size={24} /> : <IconPalette size={24} />}</span>
                   </div>
                 )}
                 <div className="cs-history-meta">
@@ -759,11 +763,11 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
 
         {/* Provider status indicator */}
         <div style={{ fontSize: 11, color: providerAvail ? 'var(--shunya-text-secondary, rgba(26,28,29,0.35))' : '#D97706' }}>
-          {providerAvail
-            ? '✓ Free image generation available (FLUX.1-schnell)'
-            : '⚠ Free image generation may be unavailable — visual concept fallback will be used'
-          }
-        </div>
+                  {providerAvail
+                    ? <><IconCheck size={12} /> Free image generation available (FLUX.1-schnell)</>
+                    : <><IconAlertTriangle size={12} /> Free image generation may be unavailable — visual concept fallback will be used</>
+                  }
+                </div>
 
         <button
           className="cs-btn cs-btn-primary"
@@ -774,7 +778,7 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
           {isBusy ? (
             <>{stateIcon(runtimeState)} {stateLabel(runtimeState)}</>
           ) : (
-            <>🎨 Generate Media</>
+            <><IconPalette size={16} /> Generate Media</>
           )}
         </button>
       </>

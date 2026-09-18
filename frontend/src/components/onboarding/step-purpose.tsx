@@ -9,6 +9,9 @@ import { useState, useCallback } from 'react';
 import { api } from '../../api/client';
 import { SessionManager } from '../../api/session';
 import { onboardingStyles } from './onboarding-styles';
+import {
+  IconUpload, IconEdit, IconTool, IconBuilding, IconLink, IconSeedling,
+} from '@tabler/icons-react';
 
 interface Props {
   onNext: (result: { action: string; detail?: string }) => void;
@@ -20,18 +23,18 @@ type ChoiceId = 'upload' | 'describe' | 'working_on' | 'create_org' | 'connect_o
 
 interface Choice {
   id: ChoiceId;
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   description: string;
 }
 
 const CHOICES: Choice[] = [
-  { id: 'upload', icon: '📤', title: 'Upload What I Already Have', description: 'Share documents, spreadsheets, or files — SHUNYA will read and organize them.' },
-  { id: 'describe', icon: '✍️', title: 'Describe What I Do', description: 'Tell SHUNYA about your work, projects, or business in your own words.' },
-  { id: 'working_on', icon: '🔨', title: 'Add Something I\'m Working On', description: 'A project, a trip, a plan — anything you want SHUNYA to help track.' },
-  { id: 'create_org', icon: '🏢', title: 'Create an Organization', description: 'Set up a shared workspace for your company or team.' },
-  { id: 'connect_org', icon: '🔗', title: 'Connect to an Organization', description: 'Join an existing organization via invitation or code.' },
-  { id: 'empty', icon: '🌱', title: 'Start with an Empty Workspace', description: 'Begin fresh and add things later as you go.' },
+  { id: 'upload', icon: <IconUpload size={18} />, title: 'Upload What I Already Have', description: 'Share documents, spreadsheets, or files — SHUNYA will read and organize them.' },
+  { id: 'describe', icon: <IconEdit size={18} />, title: 'Describe What I Do', description: 'Tell SHUNYA about your work, projects, or business in your own words.' },
+  { id: 'working_on', icon: <IconTool size={18} />, title: 'Add Something I\'m Working On', description: 'A project, a trip, a plan — anything you want SHUNYA to help track.' },
+  { id: 'create_org', icon: <IconBuilding size={18} />, title: 'Create an Organization', description: 'Set up a shared workspace for your company or team.' },
+  { id: 'connect_org', icon: <IconLink size={18} />, title: 'Connect to an Organization', description: 'Join an existing organization via invitation or code.' },
+  { id: 'empty', icon: <IconSeedling size={18} />, title: 'Start with an Empty Workspace', description: 'Begin fresh and add things later as you go.' },
 ];
 
 export function StepPurpose({ onNext, onBack, onSkip }: Props) {

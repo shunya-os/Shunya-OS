@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, type FC } from 'react';
+import { IconCheck, IconFileText, IconClipboard, IconPaperclip } from '@tabler/icons-react';
 
 interface OutputItem {
   id: string;
@@ -54,10 +55,10 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  document: '📄',
-  proposal: '📋',
-  execution_result: '✓',
+const TYPE_ICONS: Record<string, React.ReactNode> = {
+  document: <IconFileText size={16} />,
+  proposal: <IconClipboard size={16} />,
+  execution_result: <IconCheck size={16} />,
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -103,7 +104,7 @@ export const OutputsBrowser: FC = () => {
   return (
     <div className="pw-panel-container" style={{ padding: 'clamp(16px, 3vw, 32px)', maxWidth: 960 }}>
       <div className="pw-domain-header">
-        <span className="pw-domain-icon">✓</span>
+        <span className="pw-domain-icon"><IconCheck size={24} /></span>
         <h2 className="pw-domain-title">Outputs</h2>
       </div>
       <p style={{ fontSize: 14, color: 'rgba(26,28,29,0.55)', margin: '0 0 20px' }}>
@@ -167,7 +168,7 @@ export const OutputsBrowser: FC = () => {
           {filtered.map((item) => (
             <div key={item.id} className="out-item">
               <div className="out-item-row">
-                <span className="out-item-icon">{TYPE_ICONS[item.type] || '📎'}</span>
+                <span className="out-item-icon">{TYPE_ICONS[item.type] || <IconPaperclip size={16} />}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="out-item-title">{item.title}</div>
                   {item.description && (
