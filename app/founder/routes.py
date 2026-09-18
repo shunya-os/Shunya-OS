@@ -208,31 +208,69 @@ def api_founder_signin():
         if not tm.check_password(password):
             return jsonify({"success": False, "error": "Invalid email or password"}), 401
 
-        # Authenticated — resolve identity and workspace
+        # Authenticated — resolve identity and organization DELIBERATELY.
         session["user_id"] = tm.id
         session.modified = True
 
         try:
-            from app.models import OrgMember, Organization
-            from sqlalchemy import func
-            org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
-            if org_members:
-                org_counts = {}
-                for om in org_members:
-                    cnt = OrgMember.query.filter_by(organization_id=om.organization_id, is_active=True).count()
-                    org_counts[om.organization_id] = cnt
-                best_org_id = max(org_counts, key=org_counts.get)
-                org_member = next(om for om in org_members if om.organization_id == best_org_id)
-                identity_id = org_member.identity_id
+            from app.models import OrgMember
+
+            memberships = (OrgMember.query
+                           .filter_by(email=email, is_active=True)
+                           .order_by(OrgMember.organization_id)
+                           .all())
+
+            if memberships:
+                payload = request.get_json(silent=True) or {}
+                requested_org = payload.get("org_id") or request.headers.get("X-Organization-Id")
+                try:
+                    requested_org = int(requested_org) if requested_org not in (None, "") else None
+                except (TypeError, ValueError):
+                    requested_org = None
+
+                by_org = {m.organization_id: m for m in memberships}
+                session_org = session.get("current_org_id")
+                try:
+                    session_org = int(session_org) if session_org else None
+                except (TypeError, ValueError):
+                    session_org = None
+
+                # Resolution order — deliberate, and NEVER by member count.
+                # A person in several organizations must not silently land in
+                # whichever has the most members: that is arbitrary ownership
+                # resolution and can put them in the wrong tenant context.
+                #   1. the caller's explicit choice (if they are a member of it)
+                #   2. the organization already established in this session
+                #   3. the only membership they have
+                #   4. otherwise the most privileged, then longest-standing
+                #      membership — AND the ambiguity is reported so the product
+                #      can offer a chooser rather than deciding silently.
+                resolved_explicitly = requested_org in by_org
+                resolved_from_session = session_org in by_org
+                if resolved_explicitly:
+                    chosen = by_org[requested_org]
+                elif resolved_from_session:
+                    chosen = by_org[session_org]
+                elif len(memberships) == 1:
+                    chosen = memberships[0]
+                else:
+                    privileged = {"owner": 0, "admin": 1}
+                    chosen = sorted(
+                        memberships,
+                        key=lambda m: (privileged.get((m.role or "").lower(), 2),
+                                       m.organization_id or 0),
+                    )[0]
+
+                identity_id = chosen.identity_id
                 session["identity_id"] = identity_id
-                session["current_org_id"] = org_member.organization_id
+                session["current_org_id"] = chosen.organization_id
 
                 # Check if user has completed onboarding (has personal workspace or org membership)
                 from core.object_service import get_object_service
                 svc = get_object_service()
                 has_personal = len(svc.list_by_creator(
                     created_by=identity_id,
-                    organization_id=org_member.organization_id,
+                    organization_id=chosen.organization_id,
                     identity_id=identity_id,
                     limit=1,
                 )) > 0
@@ -242,19 +280,41 @@ def api_founder_signin():
                     "redirect": url_for("workspace_routes.workspace_home"),
                     "name": tm.name,
                     "identity_id": identity_id,
-                    "onboarding_complete": has_personal or True,
+                    "organization_id": chosen.organization_id,
+                    "organizations": [
+                        {"organization_id": m.organization_id, "role": m.role}
+                        for m in memberships
+                    ],
+                    # True when several memberships exist and nothing chose one:
+                    # the product must let the human choose, not guess.
+                    "requires_org_selection": (
+                        len(memberships) > 1
+                        and not resolved_explicitly
+                        and not resolved_from_session
+                    ),
+                    "onboarding_complete": bool(has_personal),
                 })
-        except Exception:
-            pass
+        except Exception as exc:
+            # Never hide this: falling through to the no-organization path when
+            # resolution actually FAILED would misreport the account's state.
+            import logging
+            logging.getLogger(__name__).warning(
+                "signin: organization resolution failed for %s: %s", email, exc
+            )
 
-        # Authenticated but no org membership — personal workspace
-        session["identity_id"] = session.get("identity_id") or tm.email or str(tm.id)
-        session.setdefault("current_org_id", 0)
+        # Authenticated but with no active organization membership. Do NOT invent
+        # a synthetic organization — org_id=0 is prohibited context and would
+        # make the product claim a tenant that does not exist.
+        session["identity_id"] = session.get("identity_id") or str(tm.id)
+        session.pop("current_org_id", None)
         return jsonify({
             "success": True,
             "redirect": "/",
             "name": tm.name,
             "identity_id": session["identity_id"],
+            "organization_id": None,
+            "requires_org_creation": True,
+            "onboarding_complete": False,
         })
 
     # Check if account exists but is unverified
