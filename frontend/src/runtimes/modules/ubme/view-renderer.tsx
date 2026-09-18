@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import type { ObjectTypeDef, ObjectInstance, ViewDef, FieldDef } from './types';
 import { listObjects, getViews, createObject } from './api';
 import { FieldRenderer } from './field-renderer';
+import { Package, List, BarChart3, Pin, Calendar, Clock, Image, Map, Building2, TrendingUp, Search, FileText } from 'lucide-react';
 
 interface ViewRendererProps {
   objectType: ObjectTypeDef;
@@ -124,7 +125,7 @@ export function ViewRenderer({ objectType, moduleKey: _moduleKey, initialView }:
       <div className="ubme-view-content">
         {filteredInstances.length === 0 ? (
           <div className="ubme-empty-state">
-            <div className="ubme-empty-icon">{objectType.icon || '📦'}</div>
+            <div className="ubme-empty-icon">{objectType.icon ? <span style={{ fontSize: '2rem' }}>{objectType.icon}</span> : <Package size={32} style={{ opacity: 0.3 }} />}</div>
             <h3>No {objectType.plural_name || objectType.name + 's'} yet</h3>
             <p>Create your first {objectType.name.toLowerCase()} to get started.</p>
             <button className="ubme-create-btn" onClick={() => setShowCreateForm(true)}>
@@ -139,20 +140,20 @@ export function ViewRenderer({ objectType, moduleKey: _moduleKey, initialView }:
   );
 }
 
-function getViewIcon(viewType: string): string {
-  const icons: Record<string, string> = {
-    list: '📋',
-    table: '📊',
-    kanban: '📌',
-    calendar: '📅',
-    timeline: '⏱️',
-    gallery: '🖼️',
-    map: '🗺️',
-    hierarchy: '🏗️',
-    dashboard: '📈',
-    detail: '🔍',
+function getViewIcon(viewType: string): React.ReactNode {
+  const icons: Record<string, React.ReactNode> = {
+    list: <List size={14} />,
+    table: <BarChart3 size={14} />,
+    kanban: <Pin size={14} />,
+    calendar: <Calendar size={14} />,
+    timeline: <Clock size={14} />,
+    gallery: <Image size={14} />,
+    map: <Map size={14} />,
+    hierarchy: <Building2 size={14} />,
+    dashboard: <TrendingUp size={14} />,
+    detail: <Search size={14} />,
   };
-  return icons[viewType] || '📋';
+  return icons[viewType] || <FileText size={14} />;
 }
 
 function renderView(
