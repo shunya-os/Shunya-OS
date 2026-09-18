@@ -176,6 +176,34 @@ Per `§39`, these are reported rather than decided unilaterally:
 
 ---
 
+## 1.9 DELIVERY RECORD (exact-SHA chain)
+
+| Commit | Content | CI run | Result |
+|---|---|---|---|
+| `7848f09` | credential removed from logs (source + handler filter) | 35327920807 | **CANCELLED** (superseded by a later push; the suite had already passed — 5312 passed, 128 skipped — before cancellation). Cancelled ≠ failed; the change is certified as an ancestor of `f680a41`. |
+| `3a78255` | this campaign ledger + M5/M6 truth correction | 35328439860 | **CANCELLED** (same cause; suite passed first) |
+| `f680a41` | canonical object read routes + `list_authorized()` + `api.ask` path fix | **35329653199** | **OVERALL SUCCESS** — test 19m21s; deploy 3m50s; latency 0.024366s (attempt 1/12, limit 5s); certified == deployed local == public SHA; `release_type=CI_CERTIFIED`; public health + final provenance verified |
+
+**Runtime proof on production (deployed `f680a41`, verified over HTTPS):**
+
+| Probe | Before | After |
+|---|---|---|
+| `GET /api/v1/objects/types` | 405 | **401 Authentication required** |
+| `GET /api/v1/objects/customer` | 405 | **401 Authentication required** |
+| `GET /api/v1/objects?limit=10` | 404 | **401 Authentication required** |
+
+401 (not 200, not 405) is the correct proof: the route now exists **and** the
+authorization boundary is enforced. An unauthenticated caller cannot read tenant
+data; a signed-in member gets real data (proven by the 11 HTTP tests).
+
+**Credential defect closed in production:** the post-deploy worker boot log now
+reads `"db": "postgresql://localhost:5432/shunya_os"` — scheme, host, port and
+database, **no userinfo, no password**. Previously the full DSN including the
+credential was written on every boot. Rotation of the already-exposed credential
+is still outstanding (needs founder approval).
+
+---
+
 ## 2. MILESTONE REGISTER
 
 Every milestone carries: STATUS · CURRENT SHA · built · integrated · tested ·
@@ -197,15 +225,27 @@ runtime-proven · user-proven · remains · risks · next exact action.
 - **WHAT IS RUNTIME-PROVEN:** the shell renders and `/health` is green; the
   authenticated workspace has **not** been driven end to end in this campaign.
 - **WHAT IS USER-PROVEN:** nothing.
-- **WHAT REMAINS:** F-01…F-06 contract breaks; invitation dead end; no
-  object-aware empty state on the authenticated home (only task-based text at
-  `home-page.tsx:290,300,319,338`); onboarding completion is a client-side
-  localStorage flag (`onboarding-flow.tsx:46-51`) so the identity/organization
-  gate is skippable; no 10-minute fresh-user test has been run.
-- **KNOWN RISKS:** the "false empty state" (F-01) actively misleads a new user
-  into believing their workspace is empty.
-- **NEXT EXACT ACTION:** fix F-01…F-06 so that every read path the workspace
-  uses actually resolves, then build the journey harness that can prove it.
+- **WHAT REMAINS:** **F-01, F-02, F-03, F-04 are FIXED and runtime-proven**
+  (commit `f680a41`, production probes above) — the workspace now receives real
+  object counts, typed object lists and collection/search results instead of a
+  false empty state, and `api.ask` reaches its real endpoint. Still open:
+  **F-05** invitation flow (`GET /api/v1/auth/invitation/<token>`,
+  `POST /api/v1/auth/accept-invitation` do not exist — a user following an
+  invitation still hits a dead end); **F-06** the "Ask SHUNYA" affordance is
+  still a no-op and needs a real resident AI surface rather than a route to
+  itself; no object-aware empty state on the authenticated home (only
+  task-based text at `home-page.tsx:290,300,319,338`); onboarding completion is
+  still a client-side localStorage flag (`onboarding-flow.tsx:46-51`) so the
+  identity/organization gate is skippable; no journey harness and no 10-minute
+  fresh-user test has been run. Cause of the false empty state is now recorded
+  and regression-guarded: `tests/test_objects_read_routes.py`.
+- **KNOWN RISKS:** the "false empty state" (F-01) is fixed, but the same class of
+  defect can recur anywhere a surface trusts a route that was never mounted — the
+  contract matrix (§27 of the directive) is the systematic guard and is still to
+  be produced.
+- **NEXT EXACT ACTION:** fix **F-05** (invitation endpoints — the last dead end
+  in the entry journey) and **F-06** (a real resident AI surface for "Ask
+  SHUNYA"), then build the journey harness that can prove the whole M5 journey.
 
 ### M6 — BRING YOUR BUSINESS INTO SHUNYA — `IN PROGRESS` (foundation only)
 
