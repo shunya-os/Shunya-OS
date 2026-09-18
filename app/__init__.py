@@ -59,6 +59,13 @@ def _setup_logging(app: Flask):
         except ImportError:
             pass  # fallback to default Flask logger
 
+    # Secrets hygiene (immune system): no credential may reach a log sink.
+    # Installed on handlers so every record is scrubbed before formatting,
+    # including `extra=` attributes that the JSON formatter would serialise.
+    from app.security.redaction import install_log_redaction
+
+    install_log_redaction()
+
     app.logger.info("Logging initialised", extra={"request_id": "bootstrap"})
 
 
@@ -1467,9 +1474,14 @@ a:hover{background:#4338ca}
                 except (OperationalError, ProgrammingError) as e:
                     app.logger.warning(f"Tables may already exist or DB not ready: {e}")
 
+    from app.security.redaction import safe_database_descriptor
+
     app.logger.info(
         "SHUNYA OS initialised",
-        extra={"request_id": "bootstrap", "db": app.config["SQLALCHEMY_DATABASE_URI"][:30]},
+        extra={
+            "request_id": "bootstrap",
+            "db": safe_database_descriptor(app.config.get("SQLALCHEMY_DATABASE_URI")),
+        },
     )
 
     # Load persisted identities into the identity engine
