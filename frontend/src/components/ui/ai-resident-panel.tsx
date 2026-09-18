@@ -36,7 +36,7 @@ interface ChatMessage {
   content: string;
 }
 
-async function apiPost(path: string, body: Record<string, string>): Promise<{ success: boolean; data?: any; error?: string }> {
+async function apiPost(path: string, body: Record<string, string>): Promise<{ success: boolean; data?: any; answer?: string; error?: string }> {
   try {
     const r = await fetch(path, {
       method: 'POST',
@@ -56,24 +56,38 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   const handleChatSend = async () => {
     if (!chatInput.trim() || chatSending) return;
     const text = chatInput.trim();
     setChatInput('');
     setChatSending(true);
+    setChatError(null);
     setChatMessages(prev => [...prev, { role: 'user', content: text }]);
     try {
-      const result = await apiPost('/api/v1/founder/ai/chat/ambient', { content: text });
-      if (result.success && result.data?.response) {
-        setChatMessages(prev => [...prev, { role: 'assistant', content: result.data.response }]);
+      // Canonical company-first ask pipeline (tenant identity → company evidence
+      // → internet where required → reasoning). There is no ambient endpoint;
+      // this is the real one.
+      const result = await apiPost('/api/v1/intelligence/ask', { question: text });
+      const answer = result.data?.answer ?? result.answer;
+      if (result.success && answer) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: answer }]);
       } else {
-        setChatMessages(prev => [...prev, { role: 'assistant', content: 'I understand. Let me think about that.' }]);
+        // Never fabricate an answer. Report the truthful failure and offer retry.
+        setChatError(result.error || 'SHUNYA could not answer that. The intelligence service did not respond.');
       }
     } catch {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: 'I encountered an issue processing your request.' }]);
+      setChatError('SHUNYA could not reach the intelligence service. Your message was not processed.');
     }
     setChatSending(false);
+  };
+
+  const retryLast = () => {
+    const lastUser = [...chatMessages].reverse().find(m => m.role === 'user');
+    if (!lastUser) return;
+    setChatInput(lastUser.content);
+    setChatError(null);
   };
 
   const handleActivate = () => {
@@ -141,6 +155,18 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
       {/* Conversation (Conversational mode) */}
       {expanded && mode === 'conversational' && (
         <div className="sh-ai-conversation">
+          {chatMessages.length === 0 && !chatError && (
+            <p className="sh-ai-chat-empty">
+              Ask SHUNYA about your organization. Answers come from your company
+              data first; the internet is used only when your data cannot answer.
+            </p>
+          )}
+          {chatError && (
+            <div className="sh-ai-chat-error" role="alert">
+              <p>{chatError}</p>
+              <button className="sh-ai-sugg-act" onClick={retryLast}>Try again</button>
+            </div>
+          )}
           <div className="sh-ai-chat-messages" id="sh-ai-msg-list">
             {chatMessages.map((m, i) => (
               <div key={i} className={`sh-ai-chat-msg sh-ai-chat-msg-${m.role}`}>
@@ -253,6 +279,18 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
   transition: opacity var(--shunya-duration-fast, 200ms) var(--shunya-ease, cubic-bezier(0.22,1,0.36,1));
 }
 .sh-ai-sugg-act:hover { opacity: 0.85; }
+.sh-ai-chat-empty {
+  color: var(--shunya-color-text-secondary, #6b6b6b);
+  font-size: 12px; line-height: 1.5; margin: 0 0 4px;
+}
+.sh-ai-chat-error {
+  color: var(--shunya-color-danger, #b3261e);
+  background: var(--shunya-color-danger-subtle, rgba(179, 38, 30, 0.06));
+  border-radius: var(--shunya-radius-sm, 10px);
+  padding: 8px 10px;
+  font-size: 12px; line-height: 1.5;
+}
+.sh-ai-chat-error p { margin: 0 0 6px; }
 .sh-ai-conversation {
   display: flex; flex-direction: column;
   padding: 12px 16px;

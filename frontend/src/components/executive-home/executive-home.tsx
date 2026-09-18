@@ -26,6 +26,7 @@ import { subscribeSSE } from '../../runtimes/sse-runtime';
 import { OperatingContextSelector } from '../workspace/context-selector';
 import { useActiveContext } from '../../hooks/use-active-context';
 import { HomePage } from '../home/home-page';
+import { AIResidentPanel } from '../ui/ai-resident-panel';
 import { LivingPresence } from '../living-workspace/living-presence';
 
 // Code-split heavy workspace components — loaded on first use, not on initial boot
@@ -826,7 +827,7 @@ function DomainOverview({ domain }: { domain: Domain }) {
 
           <div className="pw-domain-actions">
             <p className="pw-domain-actions-label">What you can do:</p>
-            <button className="pw-domain-action" onClick={() => useWorkspaceStore.getState().open('Ask SHUNYA', 'home')}>
+            <button className="pw-domain-action" onClick={() => useWorkspaceStore.getState().open('Ask SHUNYA', 'ai', { objectType: domain.id })}>
               Ask SHUNYA about {domain.label.toLowerCase()}
             </button>
             <button className="pw-domain-action pw-domain-action-back" onClick={() => {
@@ -893,6 +894,17 @@ function DomainWorkspaceRouter() {
     return (
       <div className="pw-panel-container pw-panel-container-home">
         <HomePage />
+      </div>
+    );
+  }
+
+  // AI workspace → the resident SHUNYA surface.
+  // "Ask SHUNYA" used to open type 'home' and simply re-render HomePage, so the
+  // primary affordance did nothing. It opens this surface instead.
+  if (active.identity.type === 'ai') {
+    return (
+      <div className="pw-panel-container pw-panel-container-home">
+        <AIResidentPanel initialMode="conversational" objectContext={active.identity.name} />
       </div>
     );
   }

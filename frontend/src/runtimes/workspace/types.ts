@@ -20,6 +20,7 @@
 export type WorkspaceStatus =
   'creating' | 'loading' | 'hydrating' | 'active' | 'suspended' | 'archived' | 'error' | 'closing';
 export type WorkspaceType =
+  | 'ai'
   | 'object'
   | 'home'
   | 'conversation'

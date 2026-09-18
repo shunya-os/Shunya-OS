@@ -183,7 +183,7 @@ function buildCapabilities(hasActive: boolean, hasAttention: boolean, hasComplet
   if (hasCompleted) {
     caps.push({ label: 'Review completed work', description: 'Browse finished tasks, results, and outputs.', open: openDomain('Outputs', 'outputs') });
   }
-  caps.push({ label: 'Ask SHUNYA anything', description: 'Direct SHUNYA to investigate, draft, or execute.', open: () => useWorkspaceStore.getState().open('Ask SHUNYA', 'home') });
+  caps.push({ label: 'Ask SHUNYA anything', description: 'Direct SHUNYA to investigate, draft, or execute.', open: () => useWorkspaceStore.getState().open('Ask SHUNYA', 'ai') });
   caps.push({ label: 'Explore your organization', description: 'People, finance, sales, marketing, knowledge — everything is one click away.', open: () => useWorkspaceStore.getState().open('Organization', 'object', { objectType: 'people', objectId: 'people' }) });
   return caps.slice(0, 4);
 }
