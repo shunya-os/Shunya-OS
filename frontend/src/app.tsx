@@ -92,8 +92,8 @@ function InvitationPage({ token, onBackToLogin }: { token: string; onBackToLogin
       try {
         const resp = await api.getInvitation(token);
         if (cancelled) return;
-        if (resp.success) {
-          setInvite({ email: resp.email, orgName: resp.orgName });
+        if (resp.success && resp.data) {
+          setInvite({ email: resp.data.email, orgName: resp.data.org_name });
         } else {
           setError(resp.error ?? 'Invalid or expired invitation.');
         }

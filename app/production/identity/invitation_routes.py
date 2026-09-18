@@ -45,9 +45,23 @@ def _require_json() -> dict:
 
 
 def _invitation_to_dict(inv: OrgInvitation) -> dict:
+    """Invitation payload for both the admin list and the accept screen.
+
+    ``org_name`` is included because an invitee must be able to see WHICH
+    organization invited them before setting a password; an invitation payload
+    that cannot name the organization made the accept screen incomplete.
+    """
+    org_name = ""
+    try:
+        from app.models import Organization
+        org = db.session.get(Organization, inv.organization_id)
+        org_name = getattr(org, "name", "") or ""
+    except Exception:  # never let a display field break the invitation
+        org_name = ""
     return {
         "id": inv.id,
         "org_id": inv.organization_id,
+        "org_name": org_name,
         "email": inv.email,
         "name": inv.name,
         "role": inv.role,

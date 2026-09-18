@@ -61,17 +61,21 @@ export const api = {
       method: 'POST', body: JSON.stringify({ token }),
     }),
 
-  /** Get invitation details (name, email, org). */
+  /** Get invitation details. Canonical route: GET /api/v1/orgs/invitations/<token>. */
   getInvitation: (token: string) =>
-    req<{ success: boolean; name?: string; email?: string; orgName?: string; error?: string }>(
-      `/auth/invitation/${token}`,
-    ),
+    req<{
+      success: boolean;
+      data?: { email?: string; name?: string; org_name?: string; role?: string; status?: string; expires_at?: string | null };
+      error?: string;
+    }>(`/orgs/invitations/${encodeURIComponent(token)}`),
 
-  /** Accept an invitation — set name and password. */
+  /** Accept an invitation — set name and password.
+   *  Canonical route: POST /api/v1/orgs/invitations/<token>/accept (201). */
   acceptInvitation: (token: string, name: string, password: string) =>
-    req<{ success: boolean; identity_id?: string; error?: string }>('/auth/accept-invitation', {
-      method: 'POST', body: JSON.stringify({ token, name, password }),
-    }),
+    req<{ success: boolean; data?: { user_id?: number; email?: string; name?: string; role?: string }; error?: string }>(
+      `/orgs/invitations/${encodeURIComponent(token)}/accept`,
+      { method: 'POST', body: JSON.stringify({ name, password }) },
+    ),
 
   /** Sign up with email, password, and name. */
   signup: (email: string, password: string, name: string) =>
