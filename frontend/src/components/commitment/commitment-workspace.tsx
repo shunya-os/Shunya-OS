@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, type FC } from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 interface Commitment {
   id: number;
@@ -511,7 +512,7 @@ export const CommitmentWorkspace: FC = () => {
                     borderRadius: 8, padding: '10px 14px', marginBottom: 20,
                     display: 'flex', alignItems: 'center', gap: 8,
                   }}>
-                    <span style={{ fontSize: 18 }}>⚠️</span>
+                    <span style={{ fontSize: 18 }}><AlertTriangle size={16} /></span>
                     <div>
                       <strong style={{ color: '#d1453b', fontSize: 13 }}>Overdue</strong>
                       <span style={{ color: '#d1453b', fontSize: 12, marginLeft: 8 }}>

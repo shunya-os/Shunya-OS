@@ -133,9 +133,8 @@ function getCategory(providerType: string): string {
   return mapping[providerType] || 'Other';
 }
 
-function getProviderIcon(icon: string): string {
-  // Backend returns emoji icons, use as-is
-  return icon || '🔌';
+function getProviderIcon(icon: string): React.ReactNode {
+  return icon || <Plug size={16} />;
 }
 
 // ── Main Component ──

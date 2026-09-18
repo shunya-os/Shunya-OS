@@ -17,6 +17,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 export interface Notification {
   id: string;
@@ -113,10 +114,10 @@ function NotificationToast({
 }) {
   if (notifications.length === 0) return null;
 
-  const typeStyles: Record<string, { bg: string; icon: string }> = {
+  const typeStyles: Record<string, { bg: string; icon: ReactNode }> = {
     success: { bg: '#065F46', icon: '✓' },
     error: { bg: '#991B1B', icon: '✕' },
-    warning: { bg: '#92400E', icon: '⚠' },
+    warning: { bg: '#92400E', icon: <AlertTriangle size={16} /> },
     info: { bg: '#1E40AF', icon: '●' },
   };
 

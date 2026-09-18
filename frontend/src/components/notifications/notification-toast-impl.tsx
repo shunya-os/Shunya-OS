@@ -8,6 +8,7 @@
  * so you don't need to render this separately in most cases.
  */
 import { type Notification } from './notification-context';
+import { AlertTriangle } from 'lucide-react';
 
 interface ToastProps {
   notifications: Notification[];
@@ -20,10 +21,10 @@ export function NotificationToast({
 }: ToastProps) {
   if (notifications.length === 0) return null;
 
-  const typeStyles: Record<string, { bg: string; icon: string }> = {
+  const typeStyles: Record<string, { bg: string; icon: React.ReactNode }> = {
     success: { bg: '#065F46', icon: '✓' },
     error: { bg: '#991B1B', icon: '✕' },
-    warning: { bg: '#92400E', icon: '⚠' },
+    warning: { bg: '#92400E', icon: <AlertTriangle size={16} /> },
     info: { bg: '#1E40AF', icon: '●' },
   };
 

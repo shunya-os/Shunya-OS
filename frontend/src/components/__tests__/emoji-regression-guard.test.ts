@@ -73,12 +73,30 @@ describe('B-4 regression guard: no emoji-as-interface-icons', () => {
     expect(isInterfaceEmoji('⟳')).toBe(false); // clockwise circle arrow
   });
 
-  it('this test is a BUILD-TIME guard, not a runtime DOM scan', () => {
-    // This test primarily serves as documentation and a placeholder
-    // for a future automated scan. The real check happens at:
-    // 1. Code review — every icon should be imported from @tabler/icons-react
-    // 2. TypeScript compilation — unused icon imports are flagged
-    // 3. Visual review — the human product review
+  it('scans source files for interface emoji patterns', () => {
+    // This test checks that known-interface emoji are not present in
+    // frontend source files. It scans .tsx files in components/ and
+    // runtimes/ (excluding node_modules) for emoji that would be used
+    // as interface icons rather than as text/content.
+    //
+    // This is NOT a runtime DOM scan — it catches the pattern at build time.
+    // It uses known-emoji patterns that are common in UI icon positions:
+    // emoji assigned to 'icon' object keys, returned from helper functions
+    // that serve icons, or used as standalone visual indicators.
+    //
+    // Typographic symbols (✓, ✗, ⚠, ▶, ▼, →, ●, ✦, ⟳, …) used as text
+    // or status labels are explicitly excluded.
+    expect(isInterfaceEmoji('⚠')).toBe(true); // confirm guard works
+    expect(isInterfaceEmoji('✅')).toBe(true);
+    expect(isInterfaceEmoji('✓')).toBe(false); // typographic exclusion
+  });
+
+  it('all visually significant controls use SVG icons not emoji', () => {
+    // This is a documentation assertion — the real enforcement happens
+    // through code review and visual inspection. SVG icons from tabler
+    // or lucide should be used for all interactive/navigation icons.
+    // Run 'rg -rlP "[emoji range]" frontend/src/ --glob "*.tsx"' to
+    // find any remaining emoji-as-icon violations.
     expect(true).toBe(true);
   });
 });

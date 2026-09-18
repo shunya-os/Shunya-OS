@@ -12,6 +12,7 @@ import { useState, useCallback, type FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLivingStore } from './living-store';
 import type { AwarenessSignal as AW } from './types';
+import { AlertTriangle } from 'lucide-react';
 
 // ── Priority helpers ──────────────────────────────────────────
 
@@ -37,7 +38,7 @@ const priorityLabel = (p: string) => {
 
 const signalIcon = (t: string) => {
   switch (t) {
-    case 'risk': return '⚠';
+    case 'risk': return <AlertTriangle size={16} />;
     case 'change': return '◈';
     case 'commitment': return '◉';
     case 'opportunity': return '◆';
