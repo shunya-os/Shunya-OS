@@ -70,8 +70,30 @@ against production; full record in `BROWSER_AUDIT_2026-09-18.md`):
 - **B-1** An existing account is forced through **first-time onboarding** on every
   new tab: session and onboarding step live in `sessionStorage` and no completion
   flag exists. Continuity defect (§32); the identity/organization gate is skippable.
-- **B-2** **"Skip for now — I'll add things later" does nothing** (identical
-  snapshot, unchanged persisted step). Dead affordance (§28) on the onboarding surface.
+- **B-2 — DOWNGRADED, NOT A CONFIRMED DEFECT.** The measurement stands (clicking
+  "Skip for now" produced an identical snapshot and the persisted
+  `shunya_onboarding_step` stayed at `1`), but source review shows the handler is
+  correct: `step-purpose.tsx:158` calls `onSkip`, wired at
+  `onboarding-flow.tsx:106` to `handlePurposeComplete({action:'empty'})` →
+  `handleNext()` → `setStep(2)`. If `setStep` had run, `saveStep` would have
+  changed the persisted value, so the most likely explanation is that my click
+  never reached the button — a measurement artifact, not a dead affordance.
+  Status: **UNCONFIRMED — must be re-measured, and must NOT be "fixed" blindly.**
+  (Recorded because my first report called it a dead affordance with more
+  confidence than the evidence supported.)
+
+- **B-1 — FIXED (`pending certification/deploy`).** Root cause located precisely:
+  the session-restore path already reads the server's truth
+  (`app.tsx` → `GET /api/v1/auth/session` → `data.onboarding_complete`), but the
+  **sign-in** path and the `/auth/*` fallback (where an invitation link lands)
+  consulted only the client flag, so a returning user was judged by a cache that a
+  new tab does not have. Replaced with one shared post-authentication decision:
+  server truth wins in both directions (a stale flag cannot grant a finished
+  state; a missing flag cannot force a finished account back through onboarding),
+  the cache is only a fallback when the server cannot be asked, and the flag is
+  cleared when the server says incomplete. Decision logic extracted to
+  `frontend/src/lib/post-auth.ts` and pinned by 7 tests in
+  `frontend/src/lib/__tests__/post-auth.test.ts`.
 - **B-3** Onboarding renders while the URL remains `/auth/login` — state and URL disagree.
 - **B-4** **Emoji used as icons** (📋 📄 ✅ 💡 📤 ✍️ 🔨 🏢 🔗 🌱) — prohibited by the design canon.
 - Public page: canonical fonts loaded, contrast passes, no overflow — but **zero

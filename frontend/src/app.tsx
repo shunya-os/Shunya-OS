@@ -13,7 +13,8 @@ import { orchestrator } from './runtimes/orchestrator';
 import { ModuleRegistry } from './runtimes/module-registry';
 import { SessionManager } from './api/session';
 import { api } from './api/client';
-import { OnboardingFlow, isOnboardingComplete } from './components/onboarding/onboarding-flow';
+import { OnboardingFlow, isOnboardingComplete, setOnboardingComplete, clearOnboardingFlag } from './components/onboarding/onboarding-flow';
+import { decidePostAuthPhase, resolveOnboardingComplete } from './lib/post-auth';
 import { authStyles } from './components/auth/auth-styles';
 import { useWorkspaceHydration } from './hooks/workspace-hooks';
 import { useWorkspaceStore } from './runtimes/workspace/store';
@@ -336,17 +337,25 @@ function AppShell() {
       window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
+    // Single post-authentication decision, shared by every path that can sign a
+    // person in (login, and the /auth/* fallback — which is where an invitation
+    // link lands). Server truth decides; the browser flag is only a cache.
+    const afterAuthentication = async (s: Parameters<typeof SessionManager.save>[0]) => {
+      SessionManager.save(s);
+      const serverComplete = await resolveOnboardingComplete();
+      if (serverComplete === true) setOnboardingComplete();
+      if (serverComplete === false) clearOnboardingFlag();
+      if (decidePostAuthPhase(serverComplete, isOnboardingComplete()) === 'workspace') {
+        bootstrap();
+      } else {
+        setPhase('onboarding');
+      }
+    };
+
     if (path === '/auth/login' || path === '/auth/') {
       return (
         <TokenProvider>
-          <LoginPage onLogin={(s) => {
-            SessionManager.save(s);
-            if (isOnboardingComplete()) {
-              bootstrap();
-            } else {
-              setPhase('onboarding');
-            }
-          }} onSignUp={() => {
+          <LoginPage onLogin={afterAuthentication} onSignUp={() => {
             window.location.href = '/auth/signup';
           }} />
         </TokenProvider>
@@ -425,14 +434,7 @@ function AppShell() {
     // Fallback: unknown /auth/ path → redirect to login
     return (
       <TokenProvider>
-        <LoginPage onLogin={(s) => {
-          SessionManager.save(s);
-          if (isOnboardingComplete()) {
-            bootstrap();
-          } else {
-            setPhase('onboarding');
-          }
-        }} onSignUp={() => {
+        <LoginPage onLogin={afterAuthentication} onSignUp={() => {
           window.location.href = '/auth/signup';
         }} />
       </TokenProvider>
