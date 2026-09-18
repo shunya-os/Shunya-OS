@@ -192,6 +192,13 @@ export function HomePage({ onEnterApp }: Props) {
 }
 
 .sh-public-btn {
+  /* WCAG 2.5.5 / mobile canon: an interactive target is at least 44x44px.
+     Measured before this change: the primary CTA was 116x38px, under the
+     minimum on the first surface a human touches. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 10px 24px;
   border-radius: var(--shunya-radius-sm, 10px);
   font-family: var(--shunya-font-body, 'Inter', sans-serif);

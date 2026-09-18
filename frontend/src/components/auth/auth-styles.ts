@@ -102,6 +102,9 @@ export const authStyles = `
 
 .sh-auth-btn {
   width: 100%; padding: 10px 22px;
+  /* WCAG 2.5.5 / mobile canon: >= 44px touch target. */
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px;
   background: var(--shunya-text, #1A1C1D);
   color: var(--shunya-surface, #FFFFFF);
   border: none;
@@ -122,6 +125,9 @@ export const authStyles = `
 
 .sh-auth-btn-secondary {
   width: 100%; padding: 10px 22px;
+  /* WCAG 2.5.5 / mobile canon: >= 44px touch target. */
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px;
   background: transparent;
   color: var(--shunya-text, #1A1C1D);
   border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
