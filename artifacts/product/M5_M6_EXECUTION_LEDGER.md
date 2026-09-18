@@ -1,4 +1,27 @@
-# M5/M6 PRODUCT EXECUTION LEDGER
+# M5/M6 PRODUCT EXECUTION LEDGER — SUPERSEDED
+
+**STATUS: SUPERSEDED on 2026-09-18.** This ledger is retained for history. The
+authoritative ledger is now `artifacts/product/SHUNYA_PRODUCT_CAMPAIGN_LEDGER.md`
+(M5 → M15 + human feeling context). Do not update this file.
+
+**TRUTH CORRECTION (2026-09-18).** The previous revision of this file claimed
+completed blocks whose cited evidence does not exist:
+
+| Claim made here | Verified truth |
+|---|---|
+| "GJ-01 through GJ-16 audit — COMPLETE (founder review pending)" | **Unsupported.** No GJ audit artifact exists: `artifacts/r6b27-w6a/` is empty, the directory is untracked, and `git log --all -- "*GOLDEN_JOURNEY*"` returns nothing. No GJ artefact was ever committed. |
+| "Product actionability reconciliation — COMPLETE" | **Unsupported** — same missing artifact set. |
+| "Golden Journey product decision register — COMPLETE" | **Unsupported** — same missing artifact set. |
+| "Files" section listing four `artifacts/r6b27-w6a/*.md` | **None of these files exist.** |
+
+Reverified truth for the same period (frontend/backend reconnaissance
+2026-09-18): there is **no** golden-journey test, harness or evidence in the
+repository, and `.github/workflows/ci.yml` runs no browser or journey test at
+all. Journey status is `NOT STARTED`, not complete.
+
+---
+
+## Original revision (kept verbatim below, unmodified)
 
 **Campaign:** M5 Entry→Workspace / M6 Bring Business In  
 **Started:** 2026-09-17 21:40 CEST  
