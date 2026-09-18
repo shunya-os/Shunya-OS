@@ -52,7 +52,10 @@ async function apiPost(path: string, body: Record<string, string>): Promise<{ su
 
 export function AIResidentPanel({ initialMode = 'ambient', objectContext, suggestions = [] }: Props) {
   const [mode, setMode] = useState<PresenceMode>(initialMode);
-  const [expanded, setExpanded] = useState(false);
+  // A conversational surface must OPEN conversational. This previously defaulted
+  // to false, so routing "Ask SHUNYA" here landed the human on a collapsed panel
+  // with no input: the affordance still did not present an ask surface.
+  const [expanded, setExpanded] = useState(initialMode === 'conversational');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
@@ -173,7 +176,7 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
                 {m.content}
               </div>
             ))}
-            {chatSending && <div className="sh-ai-chat-typing">SHUNYA is thinking…</div>}
+            {chatSending && <div className="sh-ai-chat-typing">Request in progress…</div>}
           </div>
           <div className="sh-ai-chat-input-row">
             <input

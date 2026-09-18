@@ -37,6 +37,37 @@ EMAIL = "journey-founder@example.com"
 PASSWORD = "journey-pass-123"
 OBJECT_NAME = "Bali Retreat Customer"
 
+SHELL_MARKER = "SHUNYA_RELEASE_SHELL_MARKER"
+SHELL_HTML = (
+    "<!doctype html><html><head><title>SHUNYA</title></head>"
+    f"<body>{SHELL_MARKER}<script crossorigin src=\"/assets/journey.js\"></script></body></html>"
+)
+
+
+@pytest.fixture(scope="module")
+def release_shell_dir(tmp_path_factory):
+    """A stand-in immutable release directory holding the SPA shell.
+
+    The journey must not depend on CI's build ORDER: in the CI job the frontend
+    build runs AFTER the pytest step, so `frontend/dist/index.html` does not
+    exist yet and `GET /` legitimately answers 503. An earlier revision of this
+    harness assumed a built frontend and failed in CI for exactly that reason.
+
+    Pinning SHUNYA_FRONTEND_DIST at a marked release directory makes the step
+    deterministic AND exercises the release-integrity resolution at the same
+    time: the shell served must come from the resolved directory, not the
+    mutable worktree.
+    """
+    dist = tmp_path_factory.mktemp("journey_release")
+    (dist / "index.html").write_text(SHELL_HTML, encoding="utf-8")
+    return dist
+
+
+@pytest.fixture(autouse=True)
+def _point_frontend_at_release(release_shell_dir, monkeypatch):
+    # monkeypatch restores this after the test, so no leakage into other tests.
+    monkeypatch.setenv("SHUNYA_FRONTEND_DIST", str(release_shell_dir))
+
 
 # ---------------------------------------------------------------------------
 # Real HTTP client
@@ -198,10 +229,13 @@ def test_m5_entry_to_workspace_journey(server, journey_app):
          report["product_session_cookie_secure_declared"] is True,
          "app.config SESSION_COOKIE_SECURE=True before the harness override")
 
-    # 1. PUBLIC — the SPA shell is served to an anonymous visitor
+    # 1. PUBLIC — the SPA shell is served to an anonymous visitor, from the
+    #    RESOLVED frontend directory (not the mutable worktree)
     status, html = http.call("GET", "/")
-    step("public_shell_served", status == 200 and "<html" in html.lower(),
-         f"GET / -> {status}")
+    shell_from_release = SHELL_MARKER in html
+    step("public_shell_served_from_resolved_release",
+         status == 200 and shell_from_release,
+         f"GET / -> {status} shell_from_resolved_release={shell_from_release}")
 
     # 2. AUTH — signing in establishes a session
     status, body = http.json("POST", "/api/v1/founder/signin",
