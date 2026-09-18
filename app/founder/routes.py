@@ -168,10 +168,19 @@ def workspace(subpath=None):
     if not _founder_required():
         return redirect(url_for("founder.founder_login"))
     import os
-    frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
-    index_path = os.path.join(frontend_dist, "index.html")
-    if os.path.isfile(index_path):
-        return send_from_directory(frontend_dist, "index.html")
+    # Serve the shell from the SAME resolved directory as the assets: the
+    # immutable published release in production, so a local build cannot change
+    # what production serves. Falls back to the in-checkout build.
+    candidates = []
+    try:
+        from app.frontend_release import resolve_frontend_dist
+        candidates.append(resolve_frontend_dist())
+    except Exception:
+        pass
+    candidates.append(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
+    for frontend_dist in candidates:
+        if os.path.isfile(os.path.join(frontend_dist, "index.html")):
+            return send_from_directory(frontend_dist, "index.html")
     return render_template("workspace.html")
 
 

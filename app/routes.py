@@ -125,24 +125,50 @@ def api_create_org():
 _FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
 
+def _spa_shell_dirs() -> list:
+    """Directories to try, in order, when serving the SPA shell.
+
+    Production must serve the **immutable published release**, so a local
+    ``npm run build`` inside the checkout can never change what production
+    serves. ``resolve_frontend_dist()`` already implements that resolution (and
+    falls back to the in-checkout build when no release is published); this
+    route simply never used it, so the shell — unlike the assets — was served
+    from the mutable worktree. A local build would have replaced the shell with
+    one referencing asset hashes absent from the published release: broken
+    production with a green health endpoint.
+
+    The in-checkout build directory is retained as the development fallback.
+    """
+    dirs = []
+    try:
+        from app.frontend_release import resolve_frontend_dist
+        dirs.append(resolve_frontend_dist())
+    except Exception:  # never let resolution break shell serving
+        pass
+    if _FRONTEND_DIST not in dirs:
+        dirs.append(_FRONTEND_DIST)
+    return dirs
+
+
 def _serve_spa_shell():
-    """Serve the built React SPA shell at /frontend/dist/index.html.
+    """Serve the built React SPA shell from the resolved frontend directory.
 
     Use this for every route where the SPA should handle rendering,
     including root, auth paths, and any client-side-routed path.
     """
-    idx = os.path.join(_FRONTEND_DIST, "index.html")
-    if os.path.exists(idx):
-        from flask import make_response
-        with open(idx, "r", encoding="utf-8") as f:
-            html = f.read()
-        # Remove crossorigin from module scripts - no CORS headers needed
-        html = html.replace("crossorigin ", "")
-        resp = make_response(html)
-        resp.headers["Content-Type"] = "text/html; charset=utf-8"
-        # CORS handled by Flask-CORS middleware for /api/* routes.
-        # No wildcard CORS needed — SPA is served from same origin.
-        return resp
+    from flask import make_response
+    for dist in _spa_shell_dirs():
+        idx = os.path.join(dist, "index.html")
+        if os.path.exists(idx):
+            with open(idx, "r", encoding="utf-8") as f:
+                html = f.read()
+            # Remove crossorigin from module scripts - no CORS headers needed
+            html = html.replace("crossorigin ", "")
+            resp = make_response(html)
+            resp.headers["Content-Type"] = "text/html; charset=utf-8"
+            # CORS handled by Flask-CORS middleware for /api/* routes.
+            # No wildcard CORS needed — SPA is served from same origin.
+            return resp
     return "Frontend not built. Run `cd frontend && npm run build`", 503
 
 
