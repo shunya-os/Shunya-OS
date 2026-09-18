@@ -245,6 +245,37 @@ class ObjectService:
         ).all()
         return [self._row_to_dict(r) for r in rows]
 
+    def list_authorized(self, organization_id: int,
+                        identity_id: Optional[str] = None,
+                        status: Optional[str] = None,
+                        limit: int = 100, offset: int = 0) -> list:
+        """List every object the identity is authorized to read, by recency.
+
+        The collection-level companion to ``get_by_type``: the same
+        ``_authorized_scope`` predicate, so a collection read can never be wider
+        than a typed read or a write. ``status`` optionally filters to one
+        lifecycle status (e.g. ``"active"``); trashed objects are always
+        excluded, matching every other read surface.
+        """
+        from sqlalchemy import bindparam, text
+        authorized = self._authorized_scope(identity_id, organization_id,
+                                            "list_authorized")
+        status_clause = "AND status = :status" if status else ""
+        stmt = text(f"""
+                SELECT * FROM sh_objects
+                WHERE organization_id = :org_id
+                AND workspace_id IN :ws_ids
+                AND is_deleted = false
+                {status_clause}
+                ORDER BY updated_at DESC LIMIT :lim OFFSET :off
+            """).bindparams(bindparam("ws_ids", expanding=True))
+        params = {"org_id": organization_id, "ws_ids": list(authorized),
+                  "lim": limit, "off": offset}
+        if status:
+            params["status"] = status
+        rows = self.db.session.execute(stmt, params).all()
+        return [self._row_to_dict(r) for r in rows]
+
     def list_by_workspace(self, workspace_id: str, organization_id: int,
                           identity_id: Optional[str] = None,
                           status: str = "active", limit: int = 100,
