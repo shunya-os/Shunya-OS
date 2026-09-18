@@ -149,6 +149,16 @@ export const useWorkspaceStore = create<StoreState & WorkspaceActions>((set, get
         'people', 'admin', 'import-export', 'contact-discovery', 'settings',
         'home', 'conversation', 'commitment', 'search', 'document', 'proposals',
         'calendar', 'analytics', 'audit', 'email', 'comparison', 'music',
+        // 'ai' is the resident AI surface (AIResidentPanel). It is a
+        // SELF-CONTAINED panel: it fetches its own data. Every type that renders
+        // immediately MUST be listed here, or the workspace stays in 'loading'
+        // waiting for ObjectLoaded/TimelineLoaded events that never arrive, times
+        // out, and surfaces as "Could not open / Unknown error". That is exactly
+        // what happened when 'ai' was added to the router without being added
+        // here — a real production defect, not a cosmetic one. Verified by
+        // runtimes/workspace/__tests__/open-ai-workspace.test.ts, which fails
+        // with 'expected loading to be active' when this entry is removed.
+        'ai',
       ]);
       const DOMAIN_OBJECT_IDS = new Set([
         'commercial', 'marketing', 'sales', 'relationships', 'memory',
