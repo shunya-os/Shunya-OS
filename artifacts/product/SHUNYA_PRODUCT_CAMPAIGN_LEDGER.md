@@ -130,14 +130,23 @@ and its `GET /api/v1/intention` fetch (:713). Also orphaned with no importer:
   This is a clean slate for the emotional-context layer — build it on
   Observation/Evidence/Conversation, not on new parallel structures.
 
-### 1.6 Release integrity gap (production risk)
-The SPA **shell** is served from the mutable worktree for `/` and `/auth/*`
-(`app/routes.py:125-144`) and `/workspace/*` (`app/founder/routes.py:171`), both
+### 1.6 Release integrity gap — RESOLVED (a7457d0, run 35335847766)
+
+**Was:** the SPA **shell** was served from the mutable worktree for `/` and
+`/auth/*` (`app/routes.py`) and `/workspace/*` (`app/founder/routes.py`), both
 hard-coding `frontend/dist` and bypassing `resolve_frontend_dist()`
-(`app/frontend_release.py:44-72`). Assets are release-pinned via
-`/home/shunya-deploy/releases/current`. A local `npm run build` would therefore
-change the served shell to reference asset hashes that are absent from the
-published release → broken production, with health still green.
+(`app/frontend_release.py:44-72`) — while the **assets** were release-pinned via
+`/home/shunya-deploy/releases/current`. A local `npm run build` could therefore
+switch the served shell to asset hashes absent from the published release:
+broken production with a green health endpoint.
+
+**Now:** both shell sites resolve the directory exactly as the assets do
+(`resolve_frontend_dist()`, falling back to the in-checkout build when no release
+is published). No new resolution logic was written — the existing canonical
+helper is now actually used. Verified: the shell served over HTTPS is
+byte-identical to the published release's `index.html`, and
+`tests/test_spa_shell_release_integrity.py` pins the resolution behaviour
+including the fallback.
 
 ### 1.7 Production secrets in logs — FIXED, rotation outstanding
 The production DSN including its password was written to the journal on every
@@ -184,17 +193,34 @@ Per `§39`, these are reported rather than decided unilaterally:
 | `3a78255` | this campaign ledger + M5/M6 truth correction | 35328439860 | **CANCELLED** (same cause; suite passed first) |
 | `f680a41` | canonical object read routes + `list_authorized()` + `api.ask` path fix | **35329653199** | **OVERALL SUCCESS** — test 19m21s; deploy 3m50s; latency 0.024366s (attempt 1/12, limit 5s); certified == deployed local == public SHA; `release_type=CI_CERTIFIED`; public health + final provenance verified |
 
-**Runtime proof on production (deployed `f680a41`, verified over HTTPS):**
+| `674c84b` | invitation journey connected to the canonical routes (F-05) | 35332643640 | **CANCELLED** (superseded; suite in progress) — no deploy, so NOT deployed by this run |
+| `55fd680` | resident AI surface mounted; fake reply removed (F-06) | 35333631840 | test **SUCCESS** 19m11s, deploy **FAILED** in 10s: `ERROR: Working tree has uncommitted changes — refusing to deploy` naming `app/routes.py`, `app/founder/routes.py`. The pre-flight protected THIS agent's own uncommitted work sitting in the production checkout. F-05/F-06 did NOT reach production in this run. |
+| `a7457d0` | SPA shell served from the immutable release; + the F-05/F-06 code | **35335847766** | **OVERALL SUCCESS** — test 18m26s; deploy 3m19s; latency 0.006619s (attempt 1/12); certified == deployed local == public SHA; public health + final provenance verified. F-05, F-06 and the shell fix are deployed together. |
+
+**Runtime proof on production (deployed `a7457d0`, verified over HTTPS):**
 
 | Probe | Before | After |
 |---|---|---|
 | `GET /api/v1/objects/types` | 405 | **401 Authentication required** |
 | `GET /api/v1/objects/customer` | 405 | **401 Authentication required** |
 | `GET /api/v1/objects?limit=10` | 404 | **401 Authentication required** |
+| `GET /api/v1/orgs/invitations/<bogus>` | route never called by the client | **404 `"404 Not Found: Invitation not found or expired"`** — the handler's own message, not the framework's route-missing text, so the route exists, was reached and its query ran |
+| `POST /api/v1/intelligence/ask` | client posted to a non-existent ambient route | **401 Authentication required** — the endpoint the resident panel now calls exists and is gated |
+| `GET /` (shell HTML) | served from the mutable worktree | **byte-identical** to `/home/shunya-deploy/releases/current/index.html` (after the `crossorigin` strip the route performs); both reference `/assets/index-Dh3p5BGI.js` |
 
-401 (not 200, not 405) is the correct proof: the route now exists **and** the
-authorization boundary is enforced. An unauthenticated caller cannot read tenant
-data; a signed-in member gets real data (proven by the 11 HTTP tests).
+Note on the shell evidence: the worktree build currently references the same
+asset hash, because `deploy.sh` builds the worktree and then publishes it. The
+identity with the published release is therefore the honest claim; the resolution
+*path* is proven by `tests/test_spa_shell_release_integrity.py`.
+
+**OPERATIONAL LESSON (cost a real deploy failure, now recorded):** the production
+checkout at `/home/shunya-deploy/shunya_os` is both the working tree and the
+deploy target. Uncommitted or untracked files there cause
+`deploy_preflight.sh` to refuse the deployment — correctly, so no work is
+destroyed. Holding changes locally "to avoid cancelling a run" therefore blocks
+the deploy. Commit or stash before a deploy is expected, and expect any push to
+cancel the in-flight run's `test` job (the `deploy` job is never interrupted:
+its concurrency group sets `cancel-in-progress: false`).
 
 **Credential defect closed in production:** the post-deploy worker boot log now
 reads `"db": "postgresql://localhost:5432/shunya_os"` — scheme, host, port and
@@ -225,27 +251,29 @@ runtime-proven · user-proven · remains · risks · next exact action.
 - **WHAT IS RUNTIME-PROVEN:** the shell renders and `/health` is green; the
   authenticated workspace has **not** been driven end to end in this campaign.
 - **WHAT IS USER-PROVEN:** nothing.
-- **WHAT REMAINS:** **F-01, F-02, F-03, F-04 are FIXED and runtime-proven**
-  (commit `f680a41`, production probes above) — the workspace now receives real
-  object counts, typed object lists and collection/search results instead of a
-  false empty state, and `api.ask` reaches its real endpoint. Still open:
-  **F-05** invitation flow (`GET /api/v1/auth/invitation/<token>`,
-  `POST /api/v1/auth/accept-invitation` do not exist — a user following an
-  invitation still hits a dead end); **F-06** the "Ask SHUNYA" affordance is
-  still a no-op and needs a real resident AI surface rather than a route to
-  itself; no object-aware empty state on the authenticated home (only
-  task-based text at `home-page.tsx:290,300,319,338`); onboarding completion is
-  still a client-side localStorage flag (`onboarding-flow.tsx:46-51`) so the
-  identity/organization gate is skippable; no journey harness and no 10-minute
-  fresh-user test has been run. Cause of the false empty state is now recorded
-  and regression-guarded: `tests/test_objects_read_routes.py`.
+- **WHAT REMAINS:** **F-01 … F-06 are ALL FIXED and runtime-proven** (commit
+  `a7457d0`, run 35335847766 — see §1.9). The workspace now receives real object
+  counts, typed lists and collection/search results instead of a false empty
+  state; `api.ask` reaches its real endpoint; the invitation journey reaches the
+  canonical routes; and "Ask SHUNYA" opens the resident AI surface instead of
+  navigating to itself. Still open in M5: no object-aware empty state on the
+  authenticated home (only the task-based text at
+  `home-page.tsx:290,300,319,338`); onboarding completion is still a client-side
+  localStorage flag (`onboarding-flow.tsx:46-51`) so the identity/organization
+  gate is skippable; **no journey harness exists**, so the M5 journey is not yet
+  `USER-PROVEN`; the 10-minute fresh-user test has not been run.
 - **KNOWN RISKS:** the "false empty state" (F-01) is fixed, but the same class of
   defect can recur anywhere a surface trusts a route that was never mounted — the
   contract matrix (§27 of the directive) is the systematic guard and is still to
   be produced.
-- **NEXT EXACT ACTION:** fix **F-05** (invitation endpoints — the last dead end
-  in the entry journey) and **F-06** (a real resident AI surface for "Ask
-  SHUNYA"), then build the journey harness that can prove the whole M5 journey.
+- **NEXT EXACT ACTION:** build the **journey harness** — the campaign's single
+  biggest evidence gap. Nothing above the unit level is provable today (CI runs
+  5,429 SQLite tests and no browser or journey test at all), so M5 cannot reach
+  `USER-PROVEN` and M13 cannot begin. The harness must drive real HTTP against a
+  running server instance and record DISCOVERABLE → CLICKABLE → FUNCTIONAL →
+  PERSISTENT → INTELLIGENT → TRUSTWORTHY → RECOVERABLE → RESPONSIVE per journey.
+  After that: the Customer vertical nerve, reused for Supplier → Document →
+  Content.
 
 ### M6 — BRING YOUR BUSINESS INTO SHUNYA — `IN PROGRESS` (foundation only)
 
@@ -359,18 +387,23 @@ shell serving (§1.6), journey harness, and the constitutional conflicts in §1.
    currently unprovable. This is the single biggest evidence gap.
 3. **Canonical/legacy split** — the directive's "one canonical object truth"
    cannot hold while six subsystems own their own tables.
-4. **Release-integrity gap** — a local frontend build can break production while
-   health stays green.
+4. ~~**Release-integrity gap** — a local frontend build can break production while
+   health stays green.~~ **RESOLVED** (`a7457d0`): the shell now resolves the same
+   immutable release as the assets.
 5. **Unrotated exposed credential.**
 6. **Five constitutional conflicts** (§1.8) that must not be silently "fixed".
 
 ## 5. NEXT EXACT ACTION (campaign cursor)
 
-1. Land and certify the credential fix (`7848f09`) — CI in flight.
-2. Fix F-01…F-06 so no surface lies to the human, each with a regression test.
-3. Build the journey harness (HTTP-first, against a real server, runnable in CI)
-   so M5/M6 can reach `USER-PROVEN`.
-4. Close the M5 journey: entry → workspace with a truthful, object-aware empty
-   state and a working first meaningful action; run the 10-minute fresh-user test.
-5. Then the Customer vertical nerve, end to end, reused for Supplier → Document →
-   Content.
+1. ~~Land and certify the credential fix~~ — **DONE** (`7848f09`, deployed within `a7457d0`; production boot log verified credential-free).
+2. ~~Fix F-01…F-06 so no surface lies to the human~~ — **DONE and runtime-proven** (`f680a41` + `a7457d0`, HTTP probes in §1.9), with 25 new regression tests across four files.
+3. ~~Close the release-integrity gap~~ — **DONE** (`a7457d0`).
+4. **NEXT: build the journey harness** (HTTP-first against a real running server,
+   runnable in CI) so M5/M6 can reach `USER-PROVEN`. This is the single biggest
+   evidence gap: CI currently proves unit-level behaviour on SQLite and nothing
+   about a user journey.
+5. Then close the M5 journey: entry → workspace with a truthful, object-aware
+   empty state and a working first meaningful action; run the 10-minute
+   fresh-user test.
+6. Then the Customer vertical nerve, end to end, reused for Supplier → Document →
+   Content, followed by the ingestion journey and document intelligence.
