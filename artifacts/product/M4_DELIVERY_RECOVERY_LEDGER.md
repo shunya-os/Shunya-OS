@@ -1,9 +1,10 @@
 # M4 DELIVERY RECOVERY — EXECUTION LEDGER
 
-**M4 STATUS:** COMPLETE — CLOSED 2026-09-18 09:05 CEST (CI/CD overall SUCCESS + independent post-CI verification)
+**M4 STATUS:** COMPLETE — CLOSED 2026-09-18 (CI/CD overall SUCCESS + independent post-CI verification)
 **PREVIOUS BLOCKER:** runtime /health stall on new connections — RESOLVED (gthread unit) — and no successful exact-SHA CI/CD run — RESOLVED (run 35315700874)
-**CERTIFIED SHA:** 69c49fab9dbc7f55c1b88db5d6367ad7905d922a (HEAD = origin/master = GitHub certified = production local = production public)
-**LAST UPDATED:** 2026-09-18 09:05 CEST
+**M4-CLOSING CERTIFIED SHA:** 69c49fab9dbc7f55c1b88db5d6367ad7905d922a (run 35315700874 — the run whose OVERALL conclusion was SUCCESS and that closed M4)
+**LEDGER REPUBLISH RULE:** this ledger is a tracked artifact, so each commit that changes it creates a new SHA. Every such commit is re-certified by its own exact-SHA CI run; the deployed/certified SHA is therefore always "the SHA of the commit carrying this file", never a value hard-coded here. The chain so far: 69c49fa (M4 closed, run 35315700874) → 4848d18 (M4 COMPLETE ledger, run 35317776165 SUCCESS) → the commit carrying this text (`git log -1 --format=%H -- artifacts/product/M4_DELIVERY_RECOVERY_LEDGER.md`, certified by its own run). The SHA-specific facts in "M4 CERTIFICATION" and "Git truth" describe the state at the time each was verified.
+**LAST UPDATED:** 2026-09-18 09:30 CEST
 
 > M4 closed on a GitHub Actions run whose OVERALL conclusion is SUCCESS for the
 > deployed exact SHA — not on a deployed application, a passing test job, or a
