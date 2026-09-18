@@ -96,9 +96,29 @@ against production; full record in `BROWSER_AUDIT_2026-09-18.md`):
   `frontend/src/lib/post-auth.ts` and pinned by 7 tests in
   `frontend/src/lib/__tests__/post-auth.test.ts`.
 - **B-3** Onboarding renders while the URL remains `/auth/login` — state and URL disagree.
-- **B-4** **Emoji used as icons** (📋 📄 ✅ 💡 📤 ✍️ 🔨 🏢 🔗 🌱) — prohibited by the design canon.
+- **B-4 — SCOPE NOW MEASURED, NOT ESTIMATED: 60 frontend files** contain emoji or
+  glyph-as-icon usage (`grep -rlP '[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]'`).
+  In the primary workspace navigation the organisation rail carries 👤 People and
+  💬 Conversations among twelve geometric glyphs; onboarding adds 📋 📄 ✅ 💡 📤 ✍️
+  🔨 🏢 🔗 🌱 and the completion screen 👤. The design canon prohibits **emoji as
+  icons** (multi-colour pictographs) and requires a single stroke-icon family.
+  This is therefore a design-system remediation across the product, not a
+  one-file fix, and it needs a canonical stroke-icon set plus visual verification
+  (§30) that I cannot perform in this session. **NOT STARTED — scoped honestly.**
+
+- **TOUCH TARGETS — FIXED AND VERIFIED ON PRODUCTION (`b80e811`).** Measured in a
+  real browser after deploy, on the login surface:
+  `.sh-auth-btn` (Sign In) 334x44 · `.sh-auth-btn-oauth` (Google) 334x44 ·
+  `.sh-auth-btn-oauth` (GitHub) 334x44 · public `.sh-public-btn` (Get Started)
+  116x44 — and a sweep of every button on the page returned `stillBelow44: []`.
+  The first fix covered one class only; measuring the live page found the OAuth
+  buttons still at 40px, which is why the loop is fix → deploy → **measure** →
+  fix again rather than fix → assume. Guard: 3 classes pinned in
+  `components/__tests__/touch-target-invariant.test.ts` (59 frontend tests pass).
 - Public page: canonical fonts loaded, contrast passes, no overflow — but **zero
-  images** (declared hero-artwork TODO) and the CTA is 38px against a 44px minimum.
+  images** (declared hero-artwork TODO, §28 placeholder). The 38px CTA noted in
+  the first pass is superseded by the touch-target section above (now 44px,
+  verified on production).
 
 **Why these faults happened, stated plainly:** I optimised for provable transport-level
 correctness because that is what I could verify mechanically, and I let that stand in
