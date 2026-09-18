@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import type { ModuleDef, ObjectTypeDef, FieldDef, BusinessTemplate, WorkflowDef, WorkflowStateDef, WorkflowTransitionDef } from './types';
 import * as api from './api';
-import { Edit, Trash2, Package, ClipboardList, RefreshCw, Mail, Phone, Link, MapPin, Calendar, CheckSquare, FileText, Pen, Check } from 'lucide-react';
+import { Edit, Trash2, Package, ClipboardList, RefreshCw } from 'lucide-react';
 
 // ── Field type options ──
 

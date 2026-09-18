@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { ModuleDef } from './types';
-import { Sparkles, Hourglass, Frown, Check, Package, Bot } from 'lucide-react';
+import { Sparkles, Hourglass, Frown, Check, Bot } from 'lucide-react';
 
 interface DiscoveryResult {
   status: string;

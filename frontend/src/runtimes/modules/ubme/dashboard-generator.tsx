@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import type { DashboardCard } from './types';
 import { getDashboard } from './api';
-import { Bell, ChartBar } from 'lucide-react';
+import { Bell } from 'lucide-react';
 
 interface DashboardGeneratorProps {
   moduleKey: string;

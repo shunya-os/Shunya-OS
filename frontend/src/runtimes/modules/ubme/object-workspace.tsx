@@ -184,7 +184,7 @@ function OverviewTab({ object, fields }: { object: ObjectInstance; fields: Field
 function RelationshipsTab({ relationships }: { object: ObjectInstance; relationships: Record<string, any>[] }) {
   if (!relationships || relationships.length === 0) {
     return (
-      <GenericEmptyState icon="🔗" title="No relationships" message="This object type has no relationships configured." />
+      <GenericEmptyState icon={<Link size={48} style={{ opacity: 0.3 }} />} title="No relationships" message="This object type has no relationships configured." />
     );
   }
 
@@ -196,7 +196,7 @@ function RelationshipsTab({ relationships }: { object: ObjectInstance; relations
           padding: '1rem',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <span>🔗</span>
+            <span><Link size={16} /></span>
             <strong style={{ color: '#e2e8f0', fontSize: '0.9rem' }}>
               {rel.label || rel.type || rel.target_object_type || 'Relationship'}
             </strong>
