@@ -33,7 +33,7 @@ function declaredMinHeightPx(source: string, selector: string): number | null {
 }
 
 describe('interactive targets meet the 44px minimum', () => {
-  const selectors = ['.sh-auth-btn', '.sh-auth-btn-secondary'];
+  const selectors = ['.sh-auth-btn', '.sh-auth-btn-secondary', '.sh-auth-btn-oauth'];
 
   for (const selector of selectors) {
     it(`${selector} declares min-height >= ${REQUIRED_MIN_HEIGHT}px`, () => {

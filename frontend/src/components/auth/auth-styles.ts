@@ -157,6 +157,8 @@ export const authStyles = `
 }
 .sh-auth-btn-oauth {
   width: 100%; padding: 10px 22px;
+  /* WCAG 2.5.5 / mobile canon: >= 44px touch target. Measured at 40px before. */
+  min-height: 44px;
   background: var(--shunya-surface, #FFFFFF);
   color: var(--shunya-text, #1A1C1D);
   border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
