@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import type { ModuleDef, ObjectTypeDef, FieldDef, BusinessTemplate, WorkflowDef, WorkflowStateDef, WorkflowTransitionDef } from './types';
 import * as api from './api';
+import { Edit, Trash2, Package, ClipboardList, RefreshCw, Mail, Phone, Link, MapPin, Calendar, CheckSquare, FileText, Pen, Check } from 'lucide-react';
 
 // ── Field type options ──
 
@@ -59,7 +60,7 @@ export function ModuleBuilder() {
     return (
       <div className="ubme-builder">
         <div className="ubme-builder-header">
-          <h2>📦 Install Business Template</h2>
+          <h2><Package size={20} style={{ marginRight: 8 }} /> Install Business Template</h2>
           <button className="ubme-back-btn" onClick={() => setShowTemplatePicker(false)}>← Back</button>
         </div>
         <div className="ubme-template-grid">
@@ -140,10 +141,10 @@ export function ModuleBuilder() {
 
         <div className="ubme-module-tabs">
           <button className={`ubme-tab ${tab === 'objects' ? 'active' : ''}`} onClick={() => setTab('objects')}>
-            📋 Object Types ({activeModule.object_types?.length || 0})
+            <ClipboardList size={14} /> Object Types ({activeModule.object_types?.length || 0})
           </button>
           <button className={`ubme-tab ${tab === 'workflows' ? 'active' : ''}`} onClick={() => setTab('workflows')}>
-            🔄 Workflows ({activeModule.workflows?.length || 0})
+            <RefreshCw size={14} /> Workflows ({activeModule.workflows?.length || 0})
           </button>
         </div>
 
@@ -156,13 +157,13 @@ export function ModuleBuilder() {
                   <strong>{ot.name}</strong>
                   <span className="ubme-badge">{ot.plural_name || ot.name + 's'}</span>
                   <span className="ubme-field-count">{ot.fields?.length || 0} fields</span>
-                  <button className="ubme-edit-btn" onClick={() => setEditingObjectType({ ...ot })}>✏️</button>
+                  <button className="ubme-edit-btn" onClick={() => setEditingObjectType({ ...ot })}><Edit size={14} /></button>
                   <button className="ubme-delete-btn" onClick={async () => {
                     if (!confirm(`Delete object type "${ot.name}"?`)) return;
                     activeModule.object_types = (activeModule.object_types || []).filter((x) => x.key !== ot.key);
                     await api.updateModule(activeModule.key, activeModule);
                     setActiveModule({ ...activeModule });
-                  }}>🗑️</button>
+                  }}><Trash2 size={14} /></button>
                 </div>
                 <div className="ubme-ot-fields">
                   {(ot.fields || []).slice(0, 5).map((f) => (
@@ -211,7 +212,7 @@ export function ModuleBuilder() {
   return (
     <div className="ubme-builder">
       <div className="ubme-builder-header">
-        <h2>📦 Universal Module Builder</h2>
+        <h2><Package size={20} style={{ marginRight: 8 }} /> Universal Module Builder</h2>
         <div className="ubme-header-actions">
           <button className="ubme-btn-secondary" onClick={() => setShowTemplatePicker(true)}>
             Install Template
@@ -240,7 +241,7 @@ export function ModuleBuilder() {
 
       {modules.length === 0 && !showNewModule ? (
         <div className="ubme-empty-state">
-          <div className="ubme-empty-icon">📦</div>
+          <div className="ubme-empty-icon"><Package size={32} style={{ opacity: 0.3 }} /></div>
           <h3>No modules yet</h3>
           <p>Install a template or create a new module to get started.</p>
         </div>
@@ -376,10 +377,10 @@ function ObjectTypeEditor({ objectType, onSave, onCancel, allObjectTypes }: {
           <span className="ubme-field-editor-type">{FIELD_TYPE_LABELS[field.field_type] || field.field_type}</span>
           {field.required && <span className="ubme-badge">required</span>}
           {field.display_in_list && <span className="ubme-badge">list</span>}
-          <button className="ubme-edit-btn" onClick={() => setEditingField({ ...field })}>✏️</button>
+          <button className="ubme-edit-btn" onClick={() => setEditingField({ ...field })}><Edit size={14} /></button>
           <button className="ubme-delete-btn" onClick={() => {
             setOt({ ...ot, fields: (ot.fields || []).filter((f) => f.key !== field.key) });
-          }}>🗑️</button>
+          }}><Trash2 size={14} /></button>
         </div>
       ))}
 
@@ -550,7 +551,7 @@ function WorkflowEditor({ module, onSave }: {
             <option value="intermediate">Intermediate</option>
             <option value="final">Final</option>
           </select>
-          <button className="ubme-delete-btn" onClick={() => setStates(states.filter((_, j) => j !== i))}>🗑️</button>
+          <button className="ubme-delete-btn" onClick={() => setStates(states.filter((_, j) => j !== i))}><Trash2 size={14} /></button>
         </div>
       ))}
       <button className="ubme-add-btn" onClick={() => {
@@ -587,7 +588,7 @@ function WorkflowEditor({ module, onSave }: {
               setTransitions(nt);
             }} /> Approval
           </label>
-          <button className="ubme-delete-btn" onClick={() => setTransitions(transitions.filter((_, j) => j !== i))}>🗑️</button>
+          <button className="ubme-delete-btn" onClick={() => setTransitions(transitions.filter((_, j) => j !== i))}><Trash2 size={14} /></button>
         </div>
       ))}
       <button className="ubme-add-btn" onClick={() => {

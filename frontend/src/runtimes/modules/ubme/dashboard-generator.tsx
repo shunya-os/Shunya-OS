@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import type { DashboardCard } from './types';
 import { getDashboard } from './api';
+import { Bell, ChartBar } from 'lucide-react';
 
 interface DashboardGeneratorProps {
   moduleKey: string;
@@ -95,7 +96,7 @@ function renderCardValue(card: DashboardCard): React.ReactNode {
     case 'alert':
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '1.25rem' }}>🔔</span>
+          <Bell size={20} style={{ color: '#fca5a5' }} />
           <span style={{ fontSize: '1.25rem', fontWeight: 600, color: '#fca5a5' }}>
             {typeof card.value === 'number' ? card.value : 0}
           </span>
