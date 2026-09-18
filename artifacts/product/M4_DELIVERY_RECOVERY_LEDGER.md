@@ -1,13 +1,63 @@
 # M4 DELIVERY RECOVERY — EXECUTION LEDGER
 
-**M4 STATUS:** BLOCKED — DELIVERY CERTIFICATION FAILED (runtime recovered, CI/CD gate NOT yet green)
-**CURRENT BLOCKER:** no successful exact-SHA CI/CD run since the runtime recovery
-**CURRENT SHA:** 8738d29 (HEAD = origin/master; production content = 8738d29)
-**LAST UPDATED:** 2026-09-18 08:40 CEST
+**M4 STATUS:** COMPLETE — CLOSED 2026-09-18 09:05 CEST (CI/CD overall SUCCESS + independent post-CI verification)
+**PREVIOUS BLOCKER:** runtime /health stall on new connections — RESOLVED (gthread unit) — and no successful exact-SHA CI/CD run — RESOLVED (run 35315700874)
+**CERTIFIED SHA:** 69c49fab9dbc7f55c1b88db5d6367ad7905d922a (HEAD = origin/master = GitHub certified = production local = production public)
+**LAST UPDATED:** 2026-09-18 09:05 CEST
 
-> M4 is NOT complete. A deployed application, passing tests, or a healthy public
-> endpoint is NOT sufficient by itself. M4 closes only on a fresh GitHub Actions
-> run whose OVERALL conclusion is SUCCESS for the deployed exact SHA.
+> M4 closed on a GitHub Actions run whose OVERALL conclusion is SUCCESS for the
+> deployed exact SHA — not on a deployed application, a passing test job, or a
+> healthy public endpoint. Evidence in "M4 CERTIFICATION" below.
+
+---
+
+## M4 CERTIFICATION (2026-09-18)
+
+### CI/CD run 35315700874 — OVERALL SUCCESS
+
+| Item | Value |
+|------|-------|
+| Run | 35315700874 (workflow CI-CD, `push` to master, 2026-09-18T06:37:42Z) |
+| Overall conclusion | **SUCCESS** (24m34s total) |
+| Certified SHA | 69c49fab9dbc7f55c1b88db5d6367ad7905d922a |
+| `test` job | **SUCCESS** — 19m22s (job 105506756539) |
+| `Deploy to Production` job | **SUCCESS** — 3m11s (job 105511222758); all steps ✓: Set up job, Record certified SHA, Deploy via SSH, Verify local health SHA, Verify public health SHA, Final provenance check, Complete job |
+
+Gate-by-gate evidence, taken from the CI log (timestamps UTC on 2026-09-18):
+
+```
+07:00:26.147  Health responded on attempt 1/12 in 0.030679s       <- latency 0.031s < 5s limit
+07:00:26.305  Certified SHA: 69c49fab9dbc7f55c1b88db5d6367ad7905d9***a
+07:00:26.305  Deployed (local health) SHA: 69c49fab9dbc7f55c1b88db5d6367ad7905d9***a   <- exact match
+07:00:26.380  LOCAL HEALTH PROVENANCE: VERIFIED (release_type=CI_CERTIFIED)
+07:00:27.711  Public health SHA: 69c49fab9dbc7f55c1b88db5d6367ad7905d9***a
+07:00:27.711  PUBLIC HEALTH PROVENANCE: VERIFIED
+07:00:27.721  CI_CERTIFIED_SHA: 69c49fab9dbc7f55c1b88db5d6367ad7905d9***a
+07:00:27.721  === DEPLOYMENT VERIFIED ===
+```
+
+Latency under the 5s limit on the **first** readiness attempt — the gate that
+failed run 35288107886 with 18.7829s now passes at 0.0307s.
+
+### Independent post-CI verification (performed outside CI, 2026-09-18T07:03Z)
+
+| Check | Result |
+|-------|--------|
+| `git rev-parse HEAD` == `origin/master` == GitHub certified SHA | **69c49fab9dbc7f55c1b88db5d6367ad7905d922a** — all three equal |
+| Production local `/health` `git_commit` | 69c49fab… — equals certified SHA (3/3 trials) |
+| Public `/health` `git_commit` | 69c49fab… — equals certified SHA (3/3 trials) |
+| `release_type` (local + public) | `CI_CERTIFIED` (6/6 responses) |
+| `release_health_verified` / `frontend_release_matches_backend` | `true` / `true` (6/6) |
+| `release_authorized_by` / `release_deployed_at` | `CI/CD` / `2026-09-18T07:00:22.464784+00:00` |
+| **New TCP connection** local `/health` (separate `curl --no-keepalive` each) | 0.008812s, 0.023945s, 0.008877s — HTTP 200 (limit 5s) |
+| **New TCP connection** public `/health` | 0.172057s, 0.073656s, 0.086378s — HTTP 200 |
+| **Restart survival** | Deploy restarted the unit: old master 621802 `Shutting down: Master` 09:00:14 CEST → new master **633185** `Starting gunicorn 26.0.0` / `Using worker: gthread` 09:00:15 CEST; 3 gthread workers (633192/633193/633194); `NRestarts=0`; **0** SIGKILL events since the deploy; `/health` green immediately after (0.031s first CI attempt, 0.009s independent) |
+
+M4 delivery gate: **GREEN**. All named gates (test, deployment, local health
+verification, latency < 5s, deployed SHA == certified SHA, `release_type ==
+CI_CERTIFIED`, public health verification, final provenance) passed on a single
+exact-SHA run, and were then re-verified independently against the running
+production system.
 
 ---
 
@@ -15,10 +65,14 @@
 
 | Ref | SHA |
 |-----|-----|
-| HEAD | 8738d29b45608d97288139c5afe7d460438d5954 |
-| origin/master | 8738d29 (matches) |
-| CI latest (8738d29) | run 35288107886 — **FAILURE** (deploy step "Verify local health SHA") |
-| Production git_commit (local **and** public /health) | 8738d29b45608d97288139c5afe7d460438d5954 |
+| HEAD | 69c49fab9dbc7f55c1b88db5d6367ad7905d922a |
+| origin/master | 69c49fa (matches) |
+| CI latest (69c49fa) | run 35315700874 — **SUCCESS** (all jobs, all steps) |
+| CI previous (8738d29) | run 35288107886 — FAILURE (deploy step "Verify local health SHA") |
+| Production git_commit (local **and** public /health) | 69c49fab9dbc7f55c1b88db5d6367ad7905d922a |
+
+Historical refs: at 08:33 CEST HEAD/origin were 8738d29 with SHA 8738d29 in production; at 01:35 CEST
+they were 93c689a with bc0656d content. Both are superseded and kept for history.
 
 Preserved commits: 023233e, bc0656d, 93c689a, 8738d29, c6bca28, d2b3fc8, 8479135.
 
@@ -244,19 +298,25 @@ on run 35288107886, against a genuinely slow application.
 
 ## M4 STATUS STATEMENT
 
-**M4 remains BLOCKED.** The runtime defect that failed run 35288107886 is recovered and the
-recovery is independently measured (§1–§5). However, M4 closure requires a **fresh CI/CD run for
-a new exact SHA whose OVERALL conclusion is SUCCESS** — test job, deployment, local health SHA
-match, latency < 5s, `release_type == CI_CERTIFIED`, public health SHA match, final provenance.
-Individual green jobs do not close M4.
+**M4 is COMPLETE** for SHA `69c49fab9dbc7f55c1b88db5d6367ad7905d922a`, closed on an exact-SHA
+CI/CD run whose overall conclusion was SUCCESS (run 35315700874) and re-verified independently
+against production (local + public `/health` SHA, `release_type=CI_CERTIFIED`, new-TCP latency,
+restart survival). The runtime defect that failed run 35288107886 is recovered, measured, and
+confirmed fixed after a full service restart by the deploy.
+
+Closure is NOT claimed from any individual green job: the run's overall conclusion, the
+exact-SHA equality at every layer, and the post-CI independent measurements are all required and
+all present.
+
+## REMAINING WORK AFTER M4 (does not reopen M4)
+
+1. Remaining risks listed above (log-embedded DB credential, audit scratch location, per-worker
+   Redis subscribe thread) — quality work, not M4 gates.
+2. M5 — may now begin. Gate: M4 was closed by overall CI/CD SUCCESS for the deployed exact SHA.
 
 ## NEXT ACTION
 
-1. Commit + push this ledger update → new exact SHA.
-2. Wait for the GitHub Actions run for that exact SHA; require **overall SUCCESS**.
-3. Then independently verify: `HEAD == origin/master == GitHub certified SHA`; production local
-   `/health` SHA == certified SHA; public `/health` SHA == certified SHA;
-   `release_type == CI_CERTIFIED`; a new TCP connection to `/health` remains fast; restart survival.
-4. Only then update this ledger to **M4 COMPLETE**.
-5. **No M5 work under any circumstance until the complete M4 delivery gate is green.**
-   If ANY gate fails → stop and report M4 BLOCKED with the exact failed gate.
+1. M4 closed — no further M4 actions.
+2. **M5 may start** from certified SHA `69c49fab9dbc7f55c1b88db5d6367ad7905d922a`.
+3. Any future M4 regression (a failing exact-SHA run, a SHA mismatch, `release_type != CI_CERTIFIED`,
+   or slow new connections) reopens M4 BLOCKED with the exact failed gate named.
