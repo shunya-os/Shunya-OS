@@ -1,2 +1,2 @@
 export { PrimaryWorkspace as ExecutiveHome } from './executive-home';
-export { CommandSurface } from './command-surface';
+// CommandSurface archived — was at ./command-surface, never imported externally

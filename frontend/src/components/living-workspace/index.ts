@@ -1,2 +1,2 @@
-export { LivingWorkspace } from './living-workspace';
 export type { LivingWorkspaceState, RealityEvent, AIObservation, AIRecommendation, Execution, LivingObject } from './types';
+// LivingWorkspace component archived — was at ./living-workspace, never imported externally
