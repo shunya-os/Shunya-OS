@@ -154,7 +154,7 @@ export const CommitmentPanel: FC<Props> = ({ commitments, relationshipId }) => {
                     onClick={() => handleTransition(c.id, s)}
                     disabled={transitioning === c.id}
                   >
-                    {transitioning === c.id ? '…' : s === 'in_progress' ? '▶ Start' : s === 'completed' ? '✓ Complete' : s === 'failed' ? '✗ Fail' : s === 'blocked' ? '⊘ Block' : s === 'cancelled' ? '✕ Cancel' : s}
+                    {transitioning === c.id ? '…' : s === 'in_progress' ? 'Start' : s === 'completed' ? 'Complete' : s === 'failed' ? 'Fail' : s === 'blocked' ? 'Block' : s === 'cancelled' ? 'Cancel' : s}
                   </button>
                 ))}
               </div>

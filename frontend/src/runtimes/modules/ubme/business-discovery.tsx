@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ModuleDef } from './types';
+import { Sparkles, Hourglass, Frown, Check, Package, Bot } from 'lucide-react';
 
 interface DiscoveryResult {
   status: string;
@@ -69,7 +70,7 @@ export function BusinessDiscovery({ onInstalled }: { onInstalled?: (module: Modu
     return (
       <div className="ubme-discovery">
         <div className="ubme-discovery-header">
-          <span className="ubme-discovery-icon">🤖</span>
+          <span className="ubme-discovery-icon"><Bot size={24} /></span>
           <h2>Business Discovery Engine</h2>
           <p className="ubme-discovery-subtitle">
             Describe your business — SHUNYA will build your module automatically
@@ -116,7 +117,7 @@ export function BusinessDiscovery({ onInstalled }: { onInstalled?: (module: Modu
             onClick={handleDiscover}
             disabled={!description.trim()}
           >
-            🪄 Generate Business Module
+            <><Sparkles size={14} /> Generate Business Module</>
           </button>
         </div>
       </div>
@@ -127,7 +128,7 @@ export function BusinessDiscovery({ onInstalled }: { onInstalled?: (module: Modu
   if (step === 'generating') {
     return (
       <div className="ubme-discovery ubme-discovery-generating">
-        <div className="ubme-discovery-spinner">⏳</div>
+        <div className="ubme-discovery-spinner"><Hourglass size={24} /></div>
         <h3>Analyzing your business...</h3>
         <p>SHUNYA is determining the right object types, fields, workflows, and dashboards for your business.</p>
         <div className="ubme-discovery-progress">
@@ -147,7 +148,7 @@ export function BusinessDiscovery({ onInstalled }: { onInstalled?: (module: Modu
   if (step === 'error') {
     return (
       <div className="ubme-discovery ubme-discovery-error">
-        <div className="ubme-discovery-error-icon">😕</div>
+        <div className="ubme-discovery-error-icon"><Frown size={24} /></div>
         <h3>Discovery Failed</h3>
         <p>{errorMessage}</p>
         <button className="ubme-btn-secondary" onClick={() => setStep('describe')}>
@@ -217,7 +218,7 @@ export function BusinessDiscovery({ onInstalled }: { onInstalled?: (module: Modu
 
       <div className="ubme-discovery-actions">
         <button className="ubme-btn-primary" onClick={handleInstall}>
-          ✅ Install Module
+          <><Check size={14} /> Install Module</>
         </button>
         <button className="ubme-btn-secondary" onClick={() => setStep('describe')}>
           ← Regenerate

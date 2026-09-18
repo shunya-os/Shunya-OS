@@ -184,7 +184,7 @@ export const ProposalDetail: FC<ProposalDetailProps> = ({ proposalId, onBack, on
             <span className="pw-commercial-tag">v{proposal.version_number}</span>
           )}
           {proposal.ai_generated && (
-            <span className="pw-commercial-tag" style={{ color: '#4a9e9e' }}>🤖 AI-generated</span>
+            <span className="pw-commercial-tag" style={{ color: '#4a9e9e' }}>AI-generated</span>
           )}
         </div>
       </div>

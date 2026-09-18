@@ -9,6 +9,7 @@
  */
 import { useState, useRef, useEffect, type FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AlertTriangle } from 'lucide-react';
 import { useLivingStore } from './living-store';
 import type { RealityEvent } from './types';
 
@@ -165,7 +166,7 @@ export const RealityStream: FC = () => {
 
       {realityError && (
         <div className="lw-narrative-error">
-          <span>⚠</span> {realityError}
+          <span><AlertTriangle size={14} /></span> {realityError}
           <button className="lw-narrative-retry" onClick={fetchReality}>Retry</button>
         </div>
       )}

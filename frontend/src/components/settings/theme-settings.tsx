@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { AlertTriangle, Image } from 'lucide-react';
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -232,7 +233,7 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
           </div>
         ) : error && !theme ? (
           <div className="ts-error-state">
-            <div className="ts-error-icon">⚠</div>
+            <div className="ts-error-icon"><AlertTriangle size={32} /></div>
             <div className="ts-error-msg">{error}</div>
           </div>
         ) : theme ? (
@@ -326,7 +327,7 @@ export function ThemeSettings({ onClose }: ThemeSettingsProps) {
                     />
                   ) : (
                     <div className="ts-logo-placeholder">
-                      <span className="ts-logo-placeholder-icon">🖼</span>
+                      <span className="ts-logo-placeholder-icon"><Image size={32} /></span>
                       <span>No logo uploaded</span>
                     </div>
                   )}

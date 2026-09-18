@@ -14,6 +14,7 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { useActiveWorkspace } from '../../hooks/workspace-hooks';
 import { useRuntimeHealth } from '../../hooks/runtime-hooks';
 import { useWorkspaceStore } from '../../runtimes/workspace/store';
@@ -34,7 +35,7 @@ import { bus } from '../../runtimes/event-bus';
 function WorkspaceErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
     <div className="wksp-error" role="alert">
-      <div className="wksp-error-icon">⚠</div>
+      <div className="wksp-error-icon"><AlertTriangle size={24} /></div>
       <div className="wksp-error-title">Workspace Error</div>
       <div className="wksp-error-message">{error}</div>
       <button className="wksp-error-retry" onClick={onRetry}>Retry</button>

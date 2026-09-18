@@ -83,11 +83,12 @@ const STATUS_LABELS: Record<string, string> = {
   expired: 'Expired',
 };
 
-const PROPOSAL_TYPE_ICONS: Record<string, string> = {
-  proposal: '📋',
-  offer: '🤝',
-  quote: '💰',
-  estimate: '📊',
+// Using text labels instead of emoji icons
+const PROPOSAL_TYPE_LABELS: Record<string, string> = {
+  proposal: 'Proposal',
+  offer: 'Offer',
+  quote: 'Quote',
+  estimate: 'Estimate',
 };
 
 async function apiGet<T>(path: string): Promise<T | null> {
@@ -203,7 +204,7 @@ export const ProposalList: FC<ProposalListProps> = ({ onSelect, onCreate, compac
         <div className="proposal-list-items">
           {sorted.map((proposal) => {
             const statusColor = STATUS_COLORS[proposal.status] || 'rgba(26,28,29,0.55)';
-            const typeIcon = PROPOSAL_TYPE_ICONS[proposal.proposal_type] || '📋';
+            const typeLabel = PROPOSAL_TYPE_LABELS[proposal.proposal_type] || proposal.proposal_type;
             return (
               <div
                 key={proposal.id}
@@ -214,8 +215,8 @@ export const ProposalList: FC<ProposalListProps> = ({ onSelect, onCreate, compac
                 onKeyDown={(e) => { if (e.key === 'Enter') onSelect(proposal); }}
               >
                 <div className="proposal-card-head">
-                  <span className="proposal-type-icon" style={{ fontSize: 16, marginRight: 6 }}>
-                    {typeIcon}
+                  <span className="proposal-type-badge" style={{ fontSize: 10, fontWeight: 600, color: 'rgba(26,28,29,0.45)', background: 'rgba(26,28,29,0.04)', padding: '2px 6px', borderRadius: 4, marginRight: 6 }}>
+                    {typeLabel}
                   </span>
                   <span className="pw-commercial-item-title" style={{ flex: 1 }}>
                     {proposal.title}
@@ -256,8 +257,8 @@ export const ProposalList: FC<ProposalListProps> = ({ onSelect, onCreate, compac
                 <div className="proposal-card-meta-row" style={{ marginTop: 6, display: 'flex', gap: 8, fontSize: 11, color: 'rgba(26,28,29,0.45)' }}>
                   {proposal.opportunity_id && <span>Opp #{proposal.opportunity_id}</span>}
                   {proposal.created_by && <span>by {proposal.created_by}</span>}
-                  {proposal.ai_generated && <span style={{ color: '#4a9e9e' }}>🤖 AI-generated</span>}
-                  {proposal.can_accept && <span style={{ color: '#6a9f6a' }}>✓ Ready to accept</span>}
+                  {proposal.ai_generated && <span style={{ color: '#4a9e9e' }}>AI-generated</span>}
+                  {proposal.can_accept && <span style={{ color: '#6a9f6a' }}>Ready to accept</span>}
                 </div>
               </div>
             );

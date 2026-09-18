@@ -7,6 +7,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useWorkspaceStore } from '../../runtimes/workspace/store';
+import { AlertTriangle, ClipboardList } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────── */
 
@@ -152,7 +153,7 @@ export function AuditViewer() {
       {/* Error */}
       {error && !loading && (
         <div className="av-error">
-          <div className="av-error-icon">⚠</div>
+          <div className="av-error-icon"><AlertTriangle size={24} /></div>
           <div className="av-error-msg">{error}</div>
           <button className="av-retry-btn" onClick={() => fetchLogs(offset)}>Retry</button>
         </div>
@@ -161,7 +162,7 @@ export function AuditViewer() {
       {/* Empty */}
       {!loading && !error && logs.length === 0 && (
         <div className="av-empty">
-          <div className="av-empty-icon">📋</div>
+          <div className="av-empty-icon"><ClipboardList size={32} /></div>
           <div className="av-empty-text">No audit entries recorded yet.</div>
           <div className="av-empty-hint">Audit entries are created automatically when objects are created, updated, or deleted.</div>
         </div>

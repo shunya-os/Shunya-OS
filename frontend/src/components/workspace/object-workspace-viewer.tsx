@@ -5,6 +5,7 @@
  * Object-type-agnostic — driven by data from the backend API.
  */
 import { useState, useEffect, type FC } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { getObjectWorkspace } from '../../api/workspace-api';
 import { CopilotPanel } from './copilot-panel';
 import { TimelineView } from './timeline-view';
@@ -178,7 +179,7 @@ export const ObjectWorkspaceViewer: FC<Props> = ({ objectId, objectType }) => {
   if (error) {
     return (
       <div className="wksp-object-viewer wksp-error" role="alert">
-        <div className="wksp-error-icon">⚠</div>
+        <div className="wksp-error-icon"><AlertTriangle size={24} /></div>
         <div className="wksp-error-title">Could not load workspace</div>
         <div className="wksp-error-message">{error}</div>
       </div>

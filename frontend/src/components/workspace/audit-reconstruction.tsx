@@ -10,6 +10,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import type { FC } from 'react';
+import { Lock, Search, AlertTriangle } from 'lucide-react';
 
 /* ── Types ───────────────────────────────────────────────────── */
 
@@ -310,7 +311,7 @@ export const AuditReconstruction: FC<Props> = ({ objectId, objectType }) => {
         <div className="ar-card-title">Audit Trail</div>
         <div className={`ar-error ar-error-${isUnauthorized ? 'auth' : isNotFound ? 'notfound' : 'server'}`}>
           <div className="ar-error-icon">
-            {isUnauthorized ? '🔒' : isNotFound ? '🔍' : '⚠️'}
+            {isUnauthorized ? <Lock size={24} /> : isNotFound ? <Search size={24} /> : <AlertTriangle size={24} />}
           </div>
           <div className="ar-error-title">
             {isUnauthorized ? 'Authentication Required' :

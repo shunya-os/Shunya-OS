@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { orchestrator, type RuntimeStatus } from '../../runtimes/orchestrator';
+import { AlertTriangle } from 'lucide-react';
 
 interface ConsoleData {
   topology: { id: string; status: RuntimeStatus; deps: string[] }[];
@@ -49,7 +50,7 @@ export function RuntimeDevConsole() {
         }}
       >
         Runtimes: {data?.health.ready ?? 0}/{data?.health.total ?? 0}
-        {data?.health.failed ? ` ⚠${data.health.failed}` : ''}
+        {data?.health.failed ? <><AlertTriangle size={12} style={{marginRight:2}} />{data.health.failed}</> : ''}
       </button>
 
       {open && data && (

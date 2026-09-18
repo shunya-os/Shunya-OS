@@ -286,13 +286,13 @@ export function CalendarPanel() {
         </div>
         <div className="cl-smart-suggestions-row">
           <button className="cl-suggestion-btn" onClick={() => applySuggestion('Block focus time tomorrow 10 AM - 12 PM')}>
-            🎯 Block Focus Time
+            Block Focus Time
           </button>
           <button className="cl-suggestion-btn" onClick={() => applySuggestion('Schedule 1:1 with team for Friday')}>
-            👥 Schedule 1:1
+            Schedule 1:1
           </button>
           <button className="cl-suggestion-btn" onClick={() => applySuggestion('Set recurring weekly planning every Monday 9 AM')}>
-            🔄 Weekly Planning
+            Weekly Planning
           </button>
         </div>
       </div>

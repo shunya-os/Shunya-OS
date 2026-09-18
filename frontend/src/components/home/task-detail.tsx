@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { AlertTriangle } from 'lucide-react';
 import { fetchTaskDetail, type TaskLifecycle, type TaskDetail } from '../../api/execution-api';
 import { useWorkspaceStore } from '../../runtimes/workspace/store';
 
@@ -243,7 +244,7 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
 
         {error && !loading && (
           <div className="td-error-banner" role="alert">
-            <span className="td-error-icon">⚠</span> {error}
+            <span className="td-error-icon"><AlertTriangle size={14} /></span> {error}
           </div>
         )}
 

@@ -236,7 +236,12 @@ export function MapView({ address, locations = [], onLocationSelect }: MapViewPr
       {/* Toolbar */}
       <div className="mv-toolbar">
         <div className="mv-toolbar-left">
-          <span className="mv-title">📍 Map View</span>
+          <span className="mv-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            Map View</span>
         </div>
         <div className="mv-toolbar-right">
           <button className="mv-btn mv-btn-ghost" onClick={() => setShowSearch(!showSearch)}>

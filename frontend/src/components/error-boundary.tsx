@@ -8,6 +8,7 @@
  */
 
 import { Component, ReactNode } from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -31,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         this.props.fallback || (
           <div className="un-error-boundary">
-            <div className="un-error-boundary-icon">⚠</div>
+            <div className="un-error-boundary-icon"><AlertTriangle size={32} /></div>
             <p className="un-error-boundary-text">Something went wrong with this panel.</p>
             <p className="un-error-boundary-detail">{this.state.error?.message || 'Unknown error'}</p>
             <button className="un-error-boundary-btn" onClick={() => this.setState({ hasError: false, error: null })}>

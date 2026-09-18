@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { authStyles } from './auth-styles';
+import { Mail } from 'lucide-react';
 
 interface Props {
   token: string;
@@ -121,7 +122,7 @@ export function InvitationAccept({
 
             {invitationEmail && (
               <div className="sh-auth-info" style={{ border: '1px solid #2a2a3a', borderRadius: 6, padding: '6px 12px' }}>
-                📧 {invitationEmail}
+                <Mail size={16} style={{ verticalAlign: 'middle', marginRight: 4 }} /> {invitationEmail}
               </div>
             )}
 

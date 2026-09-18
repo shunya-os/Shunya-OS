@@ -5,7 +5,7 @@
  * Usage:
  *   if (error) return <ErrorFallback message={error} onRetry={refetch} />;
  */
-import { RefreshCw, ExternalLink } from 'lucide-react';
+import { RefreshCw, ExternalLink, AlertTriangle } from 'lucide-react';
 
 interface ErrorFallbackProps {
   message: string;
@@ -17,7 +17,7 @@ interface ErrorFallbackProps {
 export function ErrorFallback({ message, onRetry, details, url }: ErrorFallbackProps) {
   return (
     <div className="un-error-fallback">
-      <div className="un-error-fallback-icon">⚠</div>
+      <div className="un-error-fallback-icon"><AlertTriangle size={40} /></div>
       <h3 className="un-error-fallback-title">{message}</h3>
       {details && <p className="un-error-fallback-details">{details}</p>}
       <div className="un-error-fallback-actions">

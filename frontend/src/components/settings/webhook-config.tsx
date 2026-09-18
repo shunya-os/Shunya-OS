@@ -17,6 +17,7 @@ import {
   type WebhookDelivery,
   AVAILABLE_EVENTS,
 } from '../../api/webhooks';
+import { PauseCircle, PlayCircle, Edit, Key, X, ClipboardList } from 'lucide-react';
 
 export function WebhookConfig() {
   const [webhooks, setWebhooks] = useState<WebhookEntry[]>([]);
@@ -312,31 +313,31 @@ export function WebhookConfig() {
                 onClick={() => toggleEnabled(hook)}
                 title={hook.is_active ? 'Pause' : 'Activate'}
               >
-                {hook.is_active ? '⏸' : '▶'}
+                {hook.is_active ? <PauseCircle size={14} /> : <PlayCircle size={14} />}
               </button>
               <button className="wh-btn wh-btn-ghost wh-btn-sm" onClick={() => handleEdit(hook)} title="Edit">
-                ✎
+                <Edit size={14} />
               </button>
               <button
                 className="wh-btn wh-btn-ghost wh-btn-sm"
                 onClick={() => handleRotateSecret(hook)}
                 title="Rotate secret"
               >
-                🔑
+                <Key size={14} />
               </button>
               <button
                 className="wh-btn wh-btn-ghost wh-btn-sm wh-btn-danger"
                 onClick={() => handleDelete(hook.id)}
                 title="Delete"
               >
-                ✕
+                <X size={14} />
               </button>
               <button
                 className="wh-btn wh-btn-ghost wh-btn-sm"
                 onClick={() => handleShowDeliveries(hook)}
                 title="Delivery log"
               >
-                📋
+                <ClipboardList size={14} />
               </button>
             </div>
             {testResult && testResult.id === hook.id && (
