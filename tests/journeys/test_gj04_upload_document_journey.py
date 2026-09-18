@@ -4,6 +4,7 @@ Demonstrates: SELECT → UPLOAD → ANALYZE → VERIFY → AVAILABLE IN WORKSPAC
 
 Uses the same Http/Server harness pattern as other journey tests.
 """
+import http.cookiejar
 import json
 import os
 import tempfile
@@ -42,6 +43,7 @@ class Http:
     def __init__(self, base: str):
         self.base = base
         self.jar = http.cookiejar.CookieJar()
+        self.identity_id = ""
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(self.jar)
         )
@@ -81,7 +83,9 @@ class Http:
 
         req = urllib.request.Request(
             f"{self.base}{path}", data=body, method="POST",
-            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}",
+                     "X-Workspace-Id": WS_ID,
+                     "X-Identity-Id": self.identity_id},
         )
         try:
             with self.opener.open(req, timeout=30) as resp:
@@ -203,11 +207,13 @@ def test_upload_document_journey(server, journey_app, sample_pdf):
     step("public_shell_served", status == 200 and SHELL_MARKER in html,
          f"GET / -> {status}")
 
-    # 2. AUTH
+    # 2. AUTH — capture identity_id for upload headers
     status, body = http.json("POST", "/api/v1/founder/signin",
                              {"email": EMAIL, "password": PASSWORD})
     step("signin_success", status == 200 and body.get("success") is True,
          f"signin -> {status}")
+    identity_id = body.get("identity_id") or ""
+    http.identity_id = identity_id
 
     # 3. UPLOAD PDF
     status, body_text = http.upload_multipart("/api/v1/upload",
@@ -220,7 +226,9 @@ def test_upload_document_journey(server, journey_app, sample_pdf):
     step("upload_accepted", status in (200, 201),
          f"upload -> {status} {body_text[:200]}")
 
-    doc_id = uploaded.get("document_id") or uploaded.get("id")
+    # The upload returns files with object_id in the response
+    files = (uploaded.get("data") or {}).get("files") or []
+    doc_id = files[0].get("object_id") if files else None
     step("upload_returns_document_id", bool(doc_id),
          f"doc_id={doc_id}")
 

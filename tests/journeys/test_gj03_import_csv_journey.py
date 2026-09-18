@@ -46,6 +46,7 @@ class Http:
     def __init__(self, base: str):
         self.base = base
         self.jar = http.cookiejar.CookieJar()
+        self.identity_id = ""
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(self.jar)
         )
@@ -89,6 +90,8 @@ class Http:
             method="POST",
             headers={
                 "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "X-Workspace-Id": WS_ID,
+                "X-Identity-Id": self.identity_id,
             },
         )
         try:
@@ -213,11 +216,13 @@ def test_import_csv_journey(server, journey_app, csv_data):
     step("public_shell_served", status == 200 and SHELL_MARKER in html,
          f"GET / -> {status}")
 
-    # 2. AUTH
+    # 2. AUTH — capture identity_id for subsequent upload headers
     status, body = http.json("POST", "/api/v1/founder/signin",
                              {"email": EMAIL, "password": PASSWORD})
     step("signin_success", status == 200 and body.get("success") is True,
          f"signin -> {status}")
+    identity_id = body.get("identity_id") or ""
+    http.identity_id = identity_id
 
     # 3. UPLOAD CSV — send as multipart file upload
     status, body_text = http.upload("/api/v1/upload", "test_customers.csv", csv_data)
@@ -229,8 +234,9 @@ def test_import_csv_journey(server, journey_app, csv_data):
     step("upload_accepted", status in (200, 201),
          f"upload -> {status} {body_text[:200]}")
 
-    # The upload may return canonical object(s) or a document reference
-    doc_id = uploaded.get("document_id") or uploaded.get("id")
+    # The upload returns files with object_id in the response
+    files = (uploaded.get("data") or {}).get("files") or []
+    doc_id = files[0].get("object_id") if files else None
     step("upload_returns_id", bool(doc_id),
          f"upload returned id={doc_id}")
 
