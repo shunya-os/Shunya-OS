@@ -145,6 +145,48 @@ def api_upload():
             "content_type": content_type,
         }
         results.append(meta)
+
+        # ── CSV ingestion: parse rows into canonical business objects ──
+        if ext == '.csv':
+            import csv as csv_module
+            import io
+            try:
+                text = file_bytes.decode('utf-8-sig')
+                reader = csv_module.DictReader(io.StringIO(text))
+                csv_rows = list(reader)
+                # Detect entity type from columns (heuristic)
+                has_name = any('name' in (k or '').lower() for k in (reader.fieldnames or []))
+                has_email = any('email' in (k or '').lower() for k in (reader.fieldnames or []))
+                entity_type = 'customer' if (has_name or has_email) else 'record'
+
+                created_objects = []
+                for row in csv_rows:
+                    cleaned = {k.strip(): (v.strip() if v else '') for k, v in row.items()}
+                    obj_name = (cleaned.get('name') or cleaned.get('Name') or
+                                cleaned.get('email') or cleaned.get('Email') or
+                                f"{entity_type}_{obj_uuid[:8]}")
+                    try:
+                        created = get_object_service().create(
+                            object_type=entity_type,
+                            name=obj_name,
+                            organization_id=int(workspace.organization_id),
+                            workspace_id=ws_id,
+                            data=cleaned,
+                            created_by=identity_id,
+                            identity_id=identity_id,
+                        )
+                        created_objects.append(created.get("object_id", created.get("id", "")))
+                    except (OwnershipContextError, ValueError) as exc:
+                        logger.warning("CSV row skipped: %s — %s", obj_name, exc)
+                        continue
+
+                if created_objects:
+                    results[-1]["imported_objects"] = created_objects
+                    logger.info("CSV imported: %d %s objects from %s",
+                                len(created_objects), entity_type, f.filename)
+            except Exception as exc:
+                logger.warning("CSV processing failed for %s: %s", f.filename, exc)
+
         logger.info("File uploaded: %s (%d bytes) to workspace=%s", f.filename, file_size, ws_id)
 
     return _ok({"files": results}, 201)
