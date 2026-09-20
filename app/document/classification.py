@@ -185,3 +185,279 @@ def classify_document(text: str, filename: str = "", file_type: str = "") -> dic
         "reason": f"Identified as '{top_cls}' from {len(matched.get(top_cls, []))} content signal(s).",
         "signals": matched.get(top_cls, [])[:6],
     }
+
+
+def detect_hierarchy(text: str, filename: str = "", file_type: str = "",
+                     base_classification: str = "") -> list[str]:
+    """Detect a hierarchical document type path from meaning, not folders.
+
+    Examples:
+        classify_document -> "itinerary"
+        detect_hierarchy -> ["Itinerary", "International", "Bali 4N5D"]
+
+        classify_document -> "invoice"
+        detect_hierarchy -> ["Invoice", "Vendor", "Acme Corp"]
+
+    Returns a list of path segments from most general to most specific.
+    """
+    text = (text or "").strip().lower()
+    hierarchy: list[str] = []
+    cls_label = base_classification or ""
+
+    # ── Itinerary hierarchy ──────────────────────────────────────────
+    if cls_label in ("itinerary", "unknown") and _has_travel_signals(text):
+        hierarchy.append("Itinerary")
+
+        # Determine scope: International or Domestic
+        if _is_international_travel(text, filename):
+            hierarchy.append("International")
+        elif _is_domestic_travel(text):
+            hierarchy.append("Domestic")
+        else:
+            hierarchy.append("Travel")
+
+        # Extract destination / trip name
+        dest = _extract_destination(text)
+        if dest:
+            hierarchy.append(dest)
+
+    # ── Invoice hierarchy ────────────────────────────────────────────
+    elif cls_label in ("invoice",) or _is_invoice_like(text):
+        hierarchy.append("Invoice")
+
+        # Detect vendor
+        vendor = _extract_vendor(text)
+        if vendor:
+            hierarchy.append(f"Vendor")
+            hierarchy.append(vendor)
+
+    # ── Contract hierarchy ───────────────────────────────────────────
+    elif cls_label in ("contract",) or _is_contract_like(text):
+        hierarchy.append("Contract")
+
+        contract_type = _detect_contract_type(text)
+        hierarchy.append(contract_type)
+
+        # Extract counterparty
+        counterparty = _extract_counterparty(text)
+        if counterparty:
+            hierarchy.append(counterparty)
+
+    # ── Quotation / Proposal hierarchy ───────────────────────────────
+    elif cls_label in ("quotation", "proposal"):
+        hierarchy.append(cls_label.capitalize())
+
+        client = _extract_client_name(text)
+        if client:
+            hierarchy.append(client)
+
+    # ── Spreadsheet / CSV hierarchy ──────────────────────────────────
+    elif cls_label in ("spreadsheet",):
+        hierarchy.append("Spreadsheet")
+
+        sheet_subject = _extract_spreadsheet_subject(text, filename)
+        if sheet_subject:
+            hierarchy.append(sheet_subject)
+
+    # ── Report hierarchy ─────────────────────────────────────────────
+    elif cls_label in ("report",):
+        hierarchy.append("Report")
+
+        report_type = _detect_report_type(text)
+        hierarchy.append(report_type)
+
+        report_subject = _extract_report_subject(text)
+        if report_subject:
+            hierarchy.append(report_subject)
+
+    # ── Statement hierarchy ──────────────────────────────────────────
+    elif cls_label in ("statement",):
+        hierarchy.append("Statement")
+
+        period = _extract_statement_period(text)
+        if period:
+            hierarchy.append(period)
+
+    # ── Fallback: use extracted signals as hierarchy hints ────────
+    if not hierarchy and cls_label:
+        hierarchy.append(cls_label.capitalize())
+
+    return hierarchy
+
+
+# ── Hierarchy helper predicates ────────────────────────────────────
+
+
+def _has_travel_signals(text: str) -> bool:
+    """Check if text has travel/itinerary signals."""
+    travel_signals = [
+        r"\bcheck[- ]?in\b", r"\bcheck[- ]?out\b",
+        r"\bitinerary\b", r"\bflight\b", r"\bbooking\b",
+        r"\bhotel\b", r"\bdeparture\b", r"\barrival\b",
+        r"\bdestination\b", r"\bpassenger\b", r"\bguest\b",
+        r"\broom\b", r"\breservation\b", r"\btrip\b",
+        r"\bvacation\b", r"\bhoneymoon\b", r"\bretreat\b",
+    ]
+    for pat in travel_signals:
+        if re.search(pat, text, re.I):
+            return True
+    return False
+
+
+def _is_international_travel(text: str, filename: str = "") -> bool:
+    """Detect if travel involves international destinations."""
+    intl_signals = [
+        r"\bpassport\b", r"\bvisa\b", r"\binternational\b",
+        r"\b(?:bali|thailand|singapore|dubai|paris|london|tokyo|"
+        r"new\s*york|sydney|maldives|switzerland|dubai|phuket|"
+        r"kuala\s*lumpur|bangkok|hong\s*kong)\b",
+    ]
+    for pat in intl_signals:
+        if re.search(pat, text, re.I) or re.search(pat, filename, re.I):
+            return True
+    return False
+
+
+def _is_domestic_travel(text: str) -> bool:
+    """Detect if travel is domestic (within India focus)."""
+    domestic_signals = [
+        r"\b(?:mumbai|delhi|bangalore|goa|jaipur|chennai|kolkata|"
+        r"kerala|manali|shimla|rishikesh|varanasi|agra|udaipur)\b",
+    ]
+    for pat in domestic_signals:
+        if re.search(pat, text, re.I):
+            return True
+    return False
+
+
+def _extract_destination(text: str) -> str | None:
+    """Extract a destination or trip name from travel text."""
+    # Look for "X N" patterns like "Bali 4N5D", "4 Nights 5 Days in Bali"
+    m = re.search(
+        r"(?:trip\s+(?:to|name)[:\s]+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)"
+        r"\s+(\d+\s*[nN]\s*\d*\s*[dD]|\d+\s*[nN]|\d+\s*[dD])",
+        text,
+    )
+    if m:
+        dest = m.group(1).strip()[:30]
+        duration = m.group(2).strip()
+        return f"{dest} {duration}" if dest else None
+
+    # Look for just destination name
+    m = re.search(
+        r"(?:destination|location|place)[:\s]+([A-Z][a-zA-Z\s]{2,40})",
+        text,
+    )
+    if m:
+        return m.group(1).strip()[:40]
+
+    # Known destinations in text
+    known = re.search(
+        r"\b(Bali|Thailand|Singapore|Dubai|Paris|London|Tokyo|"
+        r"New\s+York|Sydney|Maldives|Switzerland|Phuket|"
+        r"Mumbai|Goa|Jaipur|Kerala|Manali)\b",
+        text,
+    )
+    if known:
+        return known.group(1)
+
+    return None
+
+
+def _is_invoice_like(text: str) -> bool:
+    return bool(re.search(r"\binvoice\b", text, re.I))
+
+
+def _extract_vendor(text: str) -> str | None:
+    m = re.search(r"(?:vendor|supplier|from|company|provider)[:\s]+([A-Z][A-Za-z0-9\s&.]{3,40})", text)
+    if m:
+        return m.group(1).strip()[:40]
+    return None
+
+
+def _is_contract_like(text: str) -> bool:
+    return bool(re.search(r"\b(?:contract|agreement)\b", text, re.I))
+
+
+def _detect_contract_type(text: str) -> str:
+    types = [
+        (r"\bservice\b", "Service"),
+        (r"\b(?:nda|non.?disclosure|confidentiality)\b", "NDA"),
+        (r"\bemploy(?:ee|ment)\b", "Employment"),
+        (r"\blemse?\b", "Lease"),
+        (r"\bconsult(?:ing|ancy)?\b", "Consulting"),
+        (r"\blicens(?:e|ing)\b", "License"),
+        (r"\bpartnership\b", "Partnership"),
+        (r"\b(?:master\s+)?s(?:ervice\s+)?a(?:greement)?\b", "Service Agreement"),
+    ]
+    for pat, label in types:
+        if re.search(pat, text, re.I):
+            return label
+    return "General"
+
+
+def _extract_counterparty(text: str) -> str | None:
+    m = re.search(
+        r"(?:between|with|party)[:\s]+([A-Z][A-Za-z0-9\s&.]{3,50})",
+        text,
+    )
+    if m:
+        return m.group(1).strip()[:50]
+    return None
+
+
+def _extract_client_name(text: str) -> str | None:
+    m = re.search(r"(?:client|customer|to)[:\s]+([A-Z][A-Za-z0-9\s&.]{3,50})", text)
+    if m:
+        return m.group(1).strip()[:50]
+    return None
+
+
+def _extract_spreadsheet_subject(text: str, filename: str = "") -> str | None:
+    # First try to infer from filename
+    name = filename.rsplit("/", 1)[-1] if "/" in filename else filename
+    name = name.rsplit("\\", 1)[-1] if "\\" in name else name
+    base = name.rsplit(".", 1)[0] if "." in name else name
+    if base and base.lower() not in ("data", "sheet", "export", "report"):
+        return base[:40]
+
+    # Try to infer from header row
+    lines = text.split("\n")
+    if lines:
+        header = lines[0].strip()
+        if header and len(header) < 200:
+            return header[:40]
+
+    return None
+
+
+def _detect_report_type(text: str) -> str:
+    types = [
+        (r"\bfinancial\b", "Financial"),
+        (r"\bsales\b", "Sales"),
+        (r"\bmarket(?:ing|)\b", "Marketing"),
+        (r"\bquarter(?:ly)?\b", "Quarterly"),
+        (r"\bannual\b", "Annual"),
+        (r"\bexpense\b", "Expense"),
+        (r"\banalytics?\b", "Analytics"),
+    ]
+    for pat, label in types:
+        if re.search(pat, text, re.I):
+            return label
+    return "General"
+
+
+def _extract_report_subject(text: str) -> str | None:
+    m = re.search(r"(?:report\s+(?:on|for|of)[:\s]+)?([A-Z][A-Za-z0-9\s&.]{3,50})", text[:500])
+    if m:
+        subject = m.group(1).strip()[:50]
+        if subject.lower() not in ("report", "this report"):
+            return subject
+    return None
+
+
+def _extract_statement_period(text: str) -> str | None:
+    m = re.search(r"(?:period|for\s+the\s+(?:month|period|quarter|year))[\s:]*(.+?)(?:\n|$)", text)
+    if m:
+        return m.group(1).strip()[:40]
+    return None

@@ -11,10 +11,11 @@ Result shape (stored in Document.structured_data as JSON):
         "confidence": 0.82,
         "reason": "...",
         "signals": ["invoice no", "amount due"],
+        "hierarchy": ["Invoice", "Vendor", "Acme Corp"],
         "entities": {"amounts": [...], "dates": [...], ...},
         "entity_count": 7,
         "analysed_at": "2026-09-17T...Z",
-        "engine": "document_intelligence/1"
+        "engine": "document_intelligence/2"
       }
     }
 """
@@ -25,16 +26,16 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from app.document.classification import classify_document
+from app.document.classification import classify_document, detect_hierarchy
 from app.document.extraction_pipeline import extract_entities
 
 logger = logging.getLogger(__name__)
 
-ENGINE_VERSION = "document_intelligence/1"
+ENGINE_VERSION = "document_intelligence/2"
 
 
 def analyse_document(doc: Any, persist: bool = True) -> dict[str, Any]:
-    """Classify + extract entities for a Document, optionally persisting.
+    """Classify + extract entities + detect hierarchy for a Document, optionally persisting.
 
     Args:
         doc: a `Document` model instance (must have extracted_text/filename).
@@ -47,6 +48,14 @@ def analyse_document(doc: Any, persist: bool = True) -> dict[str, Any]:
     text = doc.extracted_text or ""
     result = classify_document(text, filename=doc.filename or "", file_type=doc.file_type or "")
 
+    # Detect hierarchy from meaning
+    hierarchy = detect_hierarchy(
+        text,
+        filename=doc.filename or "",
+        file_type=doc.file_type or "",
+        base_classification=result["classification"],
+    )
+
     entities: dict[str, list] = {}
     try:
         entities = extract_entities(text) if text.strip() else {}
@@ -55,15 +64,21 @@ def analyse_document(doc: Any, persist: bool = True) -> dict[str, Any]:
 
     entity_count = sum(len(v) for v in entities.values())
 
+    extraction_supported = bool(text.strip())
+    extraction_available = True
+
     intelligence = {
         "classification": result["classification"],
         "confidence": result["confidence"],
         "reason": result["reason"],
         "signals": result["signals"],
+        "hierarchy": hierarchy,
         "entities": entities,
         "entity_count": entity_count,
         "analysed_at": datetime.now(timezone.utc).isoformat(),
         "engine": ENGINE_VERSION,
+        "extraction_supported": extraction_supported,
+        "extraction_available": extraction_available,
     }
 
     if persist:

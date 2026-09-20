@@ -853,6 +853,11 @@ def create_app(config_override: dict | None = None):
     # EP-04 — Universal Communication Runtime
     from app.communication.routes import comm_bp
     app.register_blueprint(comm_bp)
+    # GATE 6 — Document Intelligence API (unified document intelligence)
+    # Register BEFORE the existing doc_bp so our routes take precedence over
+    # generic string-parameterised routes.
+    from app.document.routes_api import document_intel_bp
+    app.register_blueprint(document_intel_bp)
     # EP-05 — Universal Document Runtime
     from app.document_runtime.routes import doc_bp
     app.register_blueprint(doc_bp)
@@ -1584,9 +1589,5 @@ a:hover{background:#4338ca}
                     time.sleep(3)
         except KeyboardInterrupt:
             print(f"[WORKER] Stopped after {cycle_count} cycles")
-
-    # GATE 6 — Document Intelligence API (unified document intelligence)
-    from app.document.routes_api import document_intel_bp
-    app.register_blueprint(document_intel_bp)
 
     return app
