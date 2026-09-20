@@ -23,8 +23,92 @@ from flask import Blueprint, jsonify
 from sqlalchemy import text
 from datetime import datetime, timezone, timedelta
 from app.authz.decorators import require_permission
+from app.attention.service import create_attention_item, list_active
 
 intention_bp = Blueprint("intention", __name__, url_prefix="/api/v1/intention")
+
+
+def _intention_org_id():
+    """Resolve the current canonical org id for scoped reads, or None.
+
+    None means "no ownership context": callers must withhold tenant-scoped
+    signals (fail closed) rather than read across all tenants. Never returns a
+    synthetic id.
+    """
+    try:
+        from app.authz.decorators import _resolve_org_id
+        org_id = _resolve_org_id()
+        return int(org_id) if org_id else None
+    except Exception:
+        return None
+
+
+def _resolve_identity_id() -> str | None:
+    """Resolve the current identity id from session, g, or header."""
+    from flask import session, g, request
+    return (
+        session.get("identity_id")
+        or session.get("user_id")
+        or getattr(g, "identity_id", None)
+        or request.headers.get("X-Identity-Id")
+    )
+
+
+def _maybe_create_attention_from_signals():
+    """Scan signals and create attention items for active ones."""
+    from app.attention.service import detect_attention_from_signals
+    org_id = _intention_org_id()
+    identity_id = _resolve_identity_id()
+    if org_id and identity_id:
+        try:
+            detect_attention_from_signals(
+                identity_id=identity_id,
+                organization_id=org_id,
+            )
+        except Exception:
+            pass  # Non-critical — don't break signal collection
+
+
+def _persist_attention_from_signals(signals: list[dict]):
+    """Create attention items for high-priority signals that don't already have one."""
+    org_id = _intention_org_id()
+    identity_id = _resolve_identity_id()
+    if not org_id or not identity_id:
+        return
+    from app import db
+    from app.attention.service import create_attention_item
+    from app.attention.models import AttentionState
+
+    for sig in signals:
+        if sig.get("priority", 0) < 3:
+            continue  # Only persist priority 3+ signals
+
+        # Dedup: skip if an active item already exists for this signal type
+        existing = list_active(
+            organization_id=org_id,
+            identity_id=identity_id,
+            limit=100,
+        )
+        if any(e.related_object_type == sig.get("object_type") and e.state == AttentionState.ACTIVE.value for e in existing):
+            continue
+
+        try:
+            create_attention_item(
+                identity_id=identity_id,
+                organization_id=org_id,
+                source="intention.engine",
+                related_object_type=sig.get("object_type"),
+                related_object_id=sig.get("object_name"),
+                reason=sig.get("label", ""),
+                priority=sig.get("priority", 3),
+                provenance={
+                    "detected_at": datetime.now(timezone.utc).isoformat(),
+                    "signal_type": sig.get("type"),
+                    "method": "_collect_signals",
+                },
+            )
+        except Exception:
+            pass  # Non-critical
 
 
 def _collect_signals():
@@ -33,6 +117,9 @@ def _collect_signals():
     from core.object_service import get_object_service
 
     signals = []
+
+    # 0. Persist signals as attention items for active signals
+    _maybe_create_attention_from_signals()
 
     # 1. Overdue invoices
     rows = db.session.execute(
@@ -148,63 +235,11 @@ def _collect_signals():
 
     # Sort by priority (highest first)
     signals.sort(key=lambda s: -s["priority"])
+
+    # Persist attention items for high-priority signals
+    _persist_attention_from_signals(signals)
+
     return signals
-
-
-def _intention_org_id():
-    """Resolve the current canonical org id for scoped reads, or None.
-
-    None means "no ownership context": callers must withhold tenant-scoped
-    signals (fail closed) rather than read across all tenants. Never returns a
-    synthetic id.
-    """
-    try:
-        from app.authz.decorators import _resolve_org_id
-        org_id = _resolve_org_id()
-        return int(org_id) if org_id else None
-    except Exception:
-        return None
-
-
-def _recent_canonical_objects(org_id: int, identity_id: str,
-                              exclude_proposals: bool = False) -> list:
-    """Recent active objects from sh_objects (timezone-aware), empty if none.
-
-    Canonical read used first by _collect_signals; callers fall back to the
-    legacy founder_objects raw SQL when this returns nothing (compat boundary).
-
-    ``identity_id`` is REQUIRED: the read is authorized against the caller's
-    canonical workspace memberships, so an identity-less call cannot read
-    tenant data. (This helper currently has no callers; the parameter is kept
-    mandatory so an unauthorized read cannot be reintroduced by accident.)
-    """
-    from datetime import datetime as _dt
-    from core.object_service import get_object_service
-    if not org_id or org_id < 1:
-        return []
-    since = _dt.now(timezone.utc) - timedelta(hours=24)
-    results = []
-    for obj_type in ("Document", "Note", "Proposal", "Lead", "Invoice", "Contract", "Task"):
-        try:
-            rows = get_object_service().get_by_type(obj_type, org_id,
-                                                    identity_id=identity_id,
-                                                    limit=20)
-        except Exception:
-            rows = []
-        for r in rows:
-            created_raw = r.get("created_at")
-            if isinstance(created_raw, str):
-                try:
-                    created_raw = _dt.fromisoformat(created_raw)
-                except Exception:
-                    continue
-            if not created_raw:
-                continue
-            if exclude_proposals and (r.get("object_type") or "").lower() == "proposal":
-                continue
-            results.append((r.get("name") or "", r.get("object_type") or "Object", created_raw))
-    results.sort(key=lambda t: t[2], reverse=True)
-    return results[:1] if exclude_proposals else results[:50]
 
 
 @intention_bp.route("", methods=["GET"])

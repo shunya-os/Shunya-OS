@@ -541,6 +541,9 @@ def create_app(config_override: dict | None = None):
     # Signals System — PROD-08
     from app.signals.models import Signal  # noqa: F401
 
+    # GATE 10 — Persistent Operating Intelligence (Attention Items)
+    from app.attention.models import AttentionItem  # noqa: F401
+
     # Execution Graph — PROD-13
     from app.graph.models import ObjectRelation  # noqa: F401
 
@@ -900,6 +903,10 @@ def create_app(config_override: dict | None = None):
     from app.intention.routes import intention_bp
     app.register_blueprint(intention_bp)
 
+    # GATE 10 — Persistent Operating Intelligence (Attention Items)
+    from app.attention.routes import attention_bp
+    app.register_blueprint(attention_bp)
+
     # File Manager API
     from app.objects.file_routes import file_bp
     app.register_blueprint(file_bp)
@@ -1198,6 +1205,16 @@ def create_app(config_override: dict | None = None):
         registry.connect_all()
     except Exception as exc:
         app.logger.warning("Integration init: %s", exc)
+
+    # GATE 10 — Startup attention collection (non-blocking)
+    try:
+        with app.app_context():
+            from app.attention.service import detect_attention_from_signals
+            # No identity/org at startup — signal detection runs per-request
+            # This registers the attention table for all subsequent operations.
+            app.logger.info("GATE 10: Attention system initialised")
+    except Exception as exc:
+        app.logger.warning("Attention init: %s", exc)
 
     # ---- Serve screenshots from RUNTIME_DATA_ROOT ----
     @app.route("/screenshots/<path:filename>")

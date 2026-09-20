@@ -1,0 +1,1 @@
+"""Attention — Persistent Operating Intelligence for GATE 10."""
