@@ -1145,6 +1145,13 @@ def create_app(config_override: dict | None = None):
     from app.ai.routes import ai_bp
     app.register_blueprint(ai_bp)
 
+    # GATE 12 — AI Action Tool Registry: wire real business action handlers
+    # into the Intelligence Runtime's ToolExecutionLayer at startup.
+    # Each handler: validates input → calls service → persists outcome → emits event.
+    from app.ai.tool_registry import register_tool_handlers
+    register_tool_handlers()
+    app.logger.info("GATE 12: AI tool handlers registered")
+
     # ACTIVATION-07 — Human Command Layer (proposal decisions)
     from app.communication.proposal_routes import proposals_bp
     app.register_blueprint(proposals_bp)
