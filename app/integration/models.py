@@ -286,12 +286,27 @@ class AdCampaign(db.Model):
 # ---------------------------------------------------------------------------
 
 class ContentGeneration(db.Model):
-    """History of AI-generated content pieces."""
+    """History of AI-generated content pieces with full lifecycle management.
+
+    Implements the ACTIVE / ARCHIVED / TRASHED lifecycle state machine:
+      ACTIVE    -- archive --> ARCHIVED  -- trash --> TRASHED -- restore --> ACTIVE
+      ARCHIVED  -- restore --> ACTIVE
+      TRASHED   -- restore --> ACTIVE  -- permanent-delete --> (removed)
+
+    Also carries provenance metadata (provider, model, cost, generation_metadata,
+    provenance, source) for auditing and cost tracking.
+    """
 
     __tablename__ = "m6_content_generations"
 
     id = db.Column(db.Integer, primary_key=True)
     identity_id = db.Column(db.String(64), nullable=False, index=True)
+
+    # -- Tenant / ownership context --
+    organization_id = db.Column(db.Integer, nullable=True)
+    workspace_id = db.Column(db.String(64), nullable=True)
+
+    # -- Generation input --
     content_type = db.Column(db.String(40), nullable=False)
     # Types: blog_post, social_post, ad_copy, email, landing_page, product_desc,
     #        seo_meta, press_release, newsletter, script, caption, reply
@@ -303,14 +318,40 @@ class ContentGeneration(db.Model):
     word_count = db.Column(db.Integer, nullable=True)
     ai_model = db.Column(db.String(60), default="groq")
     is_favorited = db.Column(db.Boolean, default=False)
+
+    # -- Lifecycle --
+    # ACTIVE | ARCHIVED | TRASHED
+    lifecycle_status = db.Column(db.String(20), nullable=False, default="active")
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    deleted_by = db.Column(db.String(64), nullable=True)
+    archived_at = db.Column(db.DateTime, nullable=True)
+    archived_by = db.Column(db.String(64), nullable=True)
+    restored_at = db.Column(db.DateTime, nullable=True)
+    restored_by = db.Column(db.String(64), nullable=True)
+
+    # Legacy columns -- kept for backward compat, derive from lifecycle_status
     status = db.Column(db.String(20), default="active", nullable=False)
     is_deleted = db.Column(db.Boolean, default=False)
+
+    # -- Provenance / metadata --
+    provider = db.Column(db.String(60), nullable=True)
+    generation_cost = db.Column(db.Float, nullable=True)
+    generation_metadata = db.Column(db.JSON, nullable=True, default=dict)
+    provenance = db.Column(db.String(120), nullable=True)
+    source = db.Column(db.String(120), nullable=True)
+
+    # -- Timestamps --
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     def to_dict(self):
         return {
             "id": self.id,
             "identity_id": self.identity_id,
+            "organization_id": self.organization_id,
+            "workspace_id": self.workspace_id,
             "content_type": self.content_type,
             "platform": self.platform,
             "prompt": self.prompt,
@@ -320,9 +361,22 @@ class ContentGeneration(db.Model):
             "word_count": self.word_count,
             "ai_model": self.ai_model,
             "is_favorited": self.is_favorited,
+            "lifecycle_status": self.lifecycle_status,
             "status": self.status,
             "is_deleted": bool(self.is_deleted) if self.is_deleted is not None else False,
+            "provider": self.provider,
+            "generation_cost": self.generation_cost,
+            "generation_metadata": self.generation_metadata or {},
+            "provenance": self.provenance,
+            "source": self.source,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
+            "deleted_by": self.deleted_by,
+            "archived_at": self.archived_at.isoformat() if self.archived_at else None,
+            "archived_by": self.archived_by,
+            "restored_at": self.restored_at.isoformat() if self.restored_at else None,
+            "restored_by": self.restored_by,
         }
 
 
