@@ -157,8 +157,31 @@ function HomeSection({ title, hint, children, count }: {
   );
 }
 
-function EmptyState({ message }: { message: string }) {
-  return <p className="hp-empty">{message}</p>;
+interface EmptyContinuation {
+  label: string;
+  open: () => void;
+}
+
+/**
+ * An empty state is never a dead end.
+ *
+ * When SHUNYA has nothing to show, the human is offered the next real action
+ * rather than a silent paragraph. `action.open` must reach a surface that
+ * actually exists (a real workspace, the ingestion panel, or Ask SHUNYA) — a
+ * decorative button would be worse than no button at all.
+ */
+function EmptyState({ message, action }: { message: string; action?: EmptyContinuation }) {
+  return (
+    <div className="hp-empty">
+      <p className="hp-empty-msg">{message}</p>
+      {action && (
+        <button type="button" className="hp-empty-action" onClick={action.open}>
+          <span>{action.label}</span>
+          <IconArrowRight size={13} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 // ── SHUNYA CAN HELP — contextual capabilities ──────────────────────────
@@ -298,7 +321,13 @@ export function HomePage() {
               </AnimatePresence>
             </div>
           ) : (
-            <EmptyState message="Nothing in motion right now — SHUNYA is observing your organization." />
+            <EmptyState
+              message="Nothing in motion right now — SHUNYA is observing your organization."
+              action={{
+                label: 'Bring your business into SHUNYA',
+                open: () => useWorkspaceStore.getState().open('Bring data into SHUNYA', 'import-export'),
+              }}
+            />
           )}
         </HomeSection>
 
@@ -317,7 +346,15 @@ export function HomePage() {
               </AnimatePresence>
             </div>
           ) : (
-            <EmptyState message="Nothing needs you. SHUNYA is handling what it can." />
+            <EmptyState
+              message="Nothing needs you. SHUNYA is handling what it can."
+              action={{
+                label: 'Review your organization',
+                open: () => useWorkspaceStore.getState().open(
+                  'Organization', 'object', { objectType: 'people', objectId: 'people' },
+                ),
+              }}
+            />
           )}
         </HomeSection>
 
@@ -336,7 +373,13 @@ export function HomePage() {
               </AnimatePresence>
             </div>
           ) : (
-            <EmptyState message="No completed work yet. When SHUNYA finishes something, it will appear here." />
+            <EmptyState
+              message="No completed work yet. When SHUNYA finishes something, it will appear here."
+              action={{
+                label: 'Ask SHUNYA to do something',
+                open: () => useWorkspaceStore.getState().open('Ask SHUNYA', 'ai'),
+              }}
+            />
           )}
         </HomeSection>
 
@@ -624,6 +667,35 @@ const homeStyles = `
   font-style: italic;
   padding: 10px 14px;
   margin: 0;
+}
+
+.hp-empty-msg {
+  margin: 0;
+}
+
+/* The continuation. An empty state is never a dead end: this always reaches a
+   surface that exists (ingestion panel, a real workspace, or Ask SHUNYA).
+   44px minimum touch target per the mobile canon. */
+.hp-empty-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0;
+  font: inherit;
+  font-size: 12.5px;
+  font-style: normal;
+  font-weight: 500;
+  color: var(--shunya-gold, #a4865f);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.hp-empty-action:hover {
+  color: var(--shunya-ink, #1a1c1d);
+  transform: translateX(2px);
 }
 
 /* ── Capabilities ─────────────────────────────────────────── */
