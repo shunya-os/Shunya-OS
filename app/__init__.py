@@ -556,6 +556,9 @@ def create_app(config_override: dict | None = None):
     # Customer/Lead entities — PROD-21/22
     from app.customers.models import Customer  # noqa: F401
 
+    # Supplier model — GATE 5
+    from app.models import Supplier  # noqa: F401
+
     # Canonical consolidated models (from FOR-1/2)
     from app.models import (  # noqa: F401
         Organization, OrgMember, OrgInvitation, Department,
@@ -618,6 +621,7 @@ def create_app(config_override: dict | None = None):
     from app.human_context.models import (  # noqa: F401
         ContextConcept, HumanContextItem, ContextProposal,
     )
+    from app.human_context.emotional import EmotionalContextItem  # noqa: F401
     from app.memory.models import (  # noqa: F401
         MemoryRecord, MemoryCandidate, MemoryProvenance,
         MemoryConcept,
@@ -1089,6 +1093,14 @@ def create_app(config_override: dict | None = None):
     from app.import_export.routes import import_bp
     app.register_blueprint(import_bp)
 
+    # GATE 5 — Supplier REST API
+    from app.suppliers.routes import supplier_bp
+    app.register_blueprint(supplier_bp)
+
+    # GATE 3/4 — Customer REST API
+    from app.customers.routes import customer_bp
+    app.register_blueprint(customer_bp)
+
     # M8 — Executive Intelligence
     from app.intelligence.routes import intelligence_bp
     app.register_blueprint(intelligence_bp)
@@ -1292,6 +1304,10 @@ def create_app(config_override: dict | None = None):
     # ---- Import API ---------------------------------------------------------
     from app.import_api.routes import import_bp
     app.register_blueprint(import_bp)
+
+    # ---- GATE 12 — Emotional/Human Context Intelligence --------------------
+    from app.human_context.routes import emotional_bp
+    app.register_blueprint(emotional_bp)
 
     # ---- 404 catch-all: redirect admin routes to settings ----
     @app.route("/admin/")
@@ -1568,5 +1584,9 @@ a:hover{background:#4338ca}
                     time.sleep(3)
         except KeyboardInterrupt:
             print(f"[WORKER] Stopped after {cycle_count} cycles")
+
+    # GATE 6 — Document Intelligence API (unified document intelligence)
+    from app.document.routes_api import document_intel_bp
+    app.register_blueprint(document_intel_bp)
 
     return app

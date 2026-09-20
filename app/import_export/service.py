@@ -109,6 +109,7 @@ def _validate_records(records: List[Dict], target_type: str) -> List[Dict]:
         "lead": ["customer_name", "phone"],
         "customer": ["display_name", "email"],
         "campaign": ["name"],
+        "supplier": ["name"],
     }.get(target_type, [])
 
     validated = []
@@ -161,6 +162,15 @@ def _resolve_identities(records: List[Dict], target_type: str) -> List[Dict]:
                     rec["identity_action"] = "match"
                     rec["matched_identity"] = {"id": existing.id, "name": existing.display_name}
 
+        elif target_type == "supplier":
+            name = data.get("name", "")
+            if name:
+                from app.models import Supplier
+                existing = db.session.query(Supplier).filter_by(name=name).first()
+                if existing:
+                    rec["identity_action"] = "match"
+                    rec["matched_identity"] = {"id": existing.id, "name": existing.name}
+
     return records
 
 
@@ -169,7 +179,10 @@ def _deduplicate(records: List[Dict], target_type: str) -> List[Dict]:
     seen = set()
     for rec in records:
         data = rec["data"]
-        key = data.get("phone", "") or data.get("email", "")
+        if target_type == "supplier":
+            key = data.get("name", "")
+        else:
+            key = data.get("phone", "") or data.get("email", "")
         rec["is_duplicate"] = key in seen and key != ""
         rec["has_conflict"] = False
         rec["commit_action"] = "reject" if rec.get("is_duplicate") and not rec.get("valid") else ("create" if rec.get("valid") else "reject")
@@ -221,6 +234,10 @@ def commit_import(
                             evidence_ids.append(result["evidence_id"])
                 elif target_type == "customer":
                     result = _import_customer(organization_id, data, identity_id)
+                    if result:
+                        created += 1
+                elif target_type == "supplier":
+                    result = _import_supplier(organization_id, data, identity_id)
                     if result:
                         created += 1
             except Exception as e:
@@ -313,6 +330,49 @@ def _import_customer(org_id: int, data: Dict, identity_id: str) -> Optional[Dict
     return {"id": rel.id}
 
 
+def _import_supplier(org_id: int, data: Dict, identity_id: str) -> Optional[Dict]:
+    """Import a single supplier record with provenance."""
+    from app import db
+    from app.models import Supplier
+    from app.evidence.models_db import EvidenceRecord
+    from datetime import datetime, timezone
+
+    name = data.get("name", "").strip()
+    if not name:
+        return None
+
+    now = datetime.now(timezone.utc)
+    supplier = Supplier(
+        name=name,
+        category=data.get("category", "").strip(),
+        contact=data.get("contact", "").strip(),
+        email=data.get("email", "").strip(),
+        phone=data.get("phone", "").strip(),
+        city=data.get("city", "").strip(),
+        gstin=data.get("gstin", "").strip(),
+        payment_terms=data.get("payment_terms", "").strip(),
+        notes=data.get("notes", "").strip(),
+        rating=int(data.get("rating", 0)),
+        status="active",
+        tenant_id=org_id,
+        created_by=identity_id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.session.add(supplier)
+    db.session.flush()
+
+    ev = EvidenceRecord(
+        source_type="import",
+        source_id=str(supplier.id),
+        raw_reference={"imported_by": identity_id, "source_data": data},
+    )
+    db.session.add(ev)
+    db.session.flush()
+    db.session.commit()
+    return {"id": supplier.id, "evidence_id": ev.id}
+
+
 # =========================================================================
 # Export
 # =========================================================================
@@ -339,6 +399,11 @@ def export_records(
         from app.relationship.models import CanonicalRelationship
         customers = db.session.query(CanonicalRelationship).filter_by(organization_id=organization_id).limit(limit).all()
         records = [c.to_dict() for c in customers]
+
+    elif target_type == "supplier":
+        from app.models import Supplier
+        suppliers = db.session.query(Supplier).filter_by(tenant_id=organization_id).limit(limit).all()
+        records = [s.to_dict() for s in suppliers]
 
     # Audit the export
     log_audit("read", "export", target_type, {
