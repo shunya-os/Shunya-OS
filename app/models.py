@@ -243,6 +243,7 @@ class Supplier(db.Model):
     __tablename__ = "suppliers"
     __table_args__ = (
         Index("ix_suppliers_city_category", "city", "category"),
+        Index("ix_suppliers_tenant", "tenant_id", "status"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -256,7 +257,12 @@ class Supplier(db.Model):
     payment_terms = db.Column(db.String(255))
     notes = db.Column(db.Text)
     rating = db.Column(db.Integer, default=0)
+    status = db.Column(db.String(30), default="active")  # active / archived
+    tenant_id = db.Column(db.Integer, nullable=True, index=True)
+    workspace_id = db.Column(db.String(64), nullable=True)
+    created_by = db.Column(db.String(120), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         return f"<Supplier {self.name} [{self.category}] {self.city}>"
@@ -274,6 +280,12 @@ class Supplier(db.Model):
             "payment_terms": self.payment_terms,
             "rating": self.rating,
             "notes": self.notes,
+            "status": self.status,
+            "tenant_id": self.tenant_id,
+            "workspace_id": self.workspace_id,
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
 
