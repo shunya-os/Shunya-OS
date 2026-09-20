@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import copy
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 
 import pytest
@@ -58,7 +58,13 @@ def reset_engine():
 
 @pytest.fixture
 def engine():
-    return ExecutorEngine()
+    eng = ExecutorEngine()
+    # Register a basic executor for 'notify' so pipeline tests continue to work.
+    # Unknown actions (tested in test_empty_action_defaults) still fail via _default_executor.
+    def _test_executor(task: Task) -> Tuple[bool, str, Dict[str, Any]]:
+        return True, f"msg_{task.task_id[:8]}", {"action": task.action, "target": task.target}
+    eng.register_task_executor("notify", _test_executor)
+    return eng
 
 
 def make_task(task_id: str = "t1", action: str = "notify",
@@ -602,11 +608,14 @@ class TestEdgeCases:
     """Edge case tests."""
 
     def test_empty_action_defaults(self, engine):
-        """A task with no action should use the default executor."""
+        """A task with no action should fail with unknown action error (no more mock fallback)."""
         t = Task(task_id="t1")
         inp = make_valid_input([t])
         output = engine.execute(inp)
-        assert output.success
+        # Unknown action type now raises ValueError via _default_executor
+        # _dispatch_task catches this and returns failure
+        assert not output.success
+        assert output.workflow_state == "failed"
 
     def test_large_number_of_tasks(self, engine):
         tasks = [make_task(task_id=f"t{i}") for i in range(50)]

@@ -134,9 +134,10 @@ class ExecutorEngine:
 
         self._task_executors["send_message"] = _send_message
 
-        # Default fallback executor
+        # Default fallback executor — raises ValueError for unknown task types
+        # instead of silently returning mock success
         def _default_executor(task: Task) -> Tuple[bool, str, Dict[str, Any]]:
-            return True, f"mock_{task.task_id[:8]}", {"action": task.action, "target": task.target}
+            raise ValueError(f"Unknown task action: '{task.action}' — no executor registered for this action type")
 
         self._task_executors["__default__"] = _default_executor
 

@@ -30,17 +30,21 @@ def _get_ai_client():
         import openai
         api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
         if not api_key:
-            return None  # No AI available; caller will use mock fallback
+            return None  # No AI available; caller propagates error
         base_url = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
         _AI_CLIENT = openai.OpenAI(api_key=api_key, base_url=base_url)
     return _AI_CLIENT
 
 
 def _call_ai(system_prompt: str, user_prompt: str, temp: float = 0.7) -> str:
-    """Call the AI model with given prompts. Returns response text."""
+    """Call the AI model with given prompts. Returns response text.
+
+    Raises RuntimeError if AI is unavailable (no client or API error)
+    instead of returning a fabricated mock response.
+    """
     client = _get_ai_client()
     if client is None:
-        return _mock_proposal_response(user_prompt, "No API key configured")
+        raise RuntimeError("AI provider unavailable — cannot generate proposal")
     try:
         resp = client.chat.completions.create(
             model=_AI_MODEL,
@@ -53,88 +57,7 @@ def _call_ai(system_prompt: str, user_prompt: str, temp: float = 0.7) -> str:
         )
         return resp.choices[0].message.content or ""
     except Exception as e:
-        return _mock_proposal_response(user_prompt, str(e))
-
-
-def _mock_proposal_response(user_prompt: str, error: str = "") -> str:
-    """Generate a realistic proposal JSON when AI is unavailable."""
-    import json, random
-    # Extract destination and budget from prompt
-    dest = "Bali"
-    budget = 150000
-    for line in user_prompt.split("\n"):
-        ll = line.lower()
-        if "destination" in ll:
-            dest = line.split(":")[-1].strip() or "Bali"
-        if "budget" in ll:
-            try:
-                budget = int("".join(c for c in line if c.isdigit()))
-            except ValueError:
-                pass
-
-    itinerary = []
-    for day in range(1, 6):
-        activities = [
-            f"Morning: Visit {dest} cultural sites and temples",
-            f"Afternoon: Beach activities and water sports at {dest} beach",
-            f"Evening: Traditional dinner experience with cultural show",
-        ]
-        itinerary.append({
-            "day": day,
-            "title": f"Day {day} — {'Arrival' if day == 1 else 'Exploration' if day < 5 else 'Departure'}",
-            "description": f"A full day of {dest} experiences including " + activities[day % 3],
-            "meals": "Breakfast, Dinner",
-            "accommodation": f"{'Luxury Beach Resort' if day < 5 else 'Airport Transfer'}",
-            "highlights": [f"Activity {day}{i}" for i in range(1, 4)],
-        })
-
-    pricing_breakdown = [
-        {"item": "Flights (economy)", "amount": int(budget * 0.25)},
-        {"item": "Accommodation (5 nights)", "amount": int(budget * 0.35)},
-        {"item": "Meals", "amount": int(budget * 0.15)},
-        {"item": "Activities & Tours", "amount": int(budget * 0.12)},
-        {"item": "Transport & Transfers", "amount": int(budget * 0.08)},
-    ]
-    total = sum(i["amount"] for i in pricing_breakdown)
-
-    result = {
-        "title": f"Enchanting {dest} Family Getaway",
-        "destination": dest,
-        "duration_days": 5,
-        "overview": f"A carefully curated {dest} experience designed for families seeking the perfect blend of adventure, relaxation, and cultural discovery.",
-        "highlights": [
-            f"Explore the stunning beaches and temples of {dest}",
-            "Private guided tours with local experts",
-            "Family-friendly water sports and activities",
-            "Gourmet dining experiences with local cuisine",
-            "Stress-free travel with dedicated concierge support",
-        ],
-        "itinerary": itinerary,
-        "pricing": {
-            "currency": "INR",
-            "total": total,
-            "breakdown": pricing_breakdown,
-            "tax": int(total * 0.05),
-            "grand_total": int(total * 1.05),
-        },
-        "inclusions": [
-            "Economy class airfare for all travelers",
-            "5 nights accommodation at premium resorts",
-            "Daily breakfast and select dinners",
-            "Private airport transfers",
-            "All listed activities and entrance fees",
-            "Travel insurance",
-            "24/7 concierge support",
-        ],
-        "exclusions": [
-            "Visa fees",
-            "Personal expenses and shopping",
-            "Optional activities not listed in itinerary",
-            "Tips and gratuities",
-        ],
-        "terms": "Prices are valid for 15 days from the date of this proposal. Bookings are subject to availability. A 50% deposit is required to confirm the booking. Cancellation policy applies as per the terms and conditions.",
-    }
-    return json.dumps(result, indent=2)
+        raise RuntimeError(f"AI provider error — cannot generate proposal: {e}")
 
 
 # ── Knowledge Retrieval ─────────────────────────────────────────────────
@@ -277,7 +200,14 @@ Special Requests: {lead_data.get('notes', 'None')}{knowledge_context}{supplier_c
 Generate the complete JSON proposal."""
     
     system_prompt = _build_system_prompt(tenant)
-    response = _call_ai(system_prompt, user_prompt)
+    try:
+        response = _call_ai(system_prompt, user_prompt)
+    except RuntimeError as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "code": "AI_PROVIDER_UNAVAILABLE",
+        }
 
     # Extract JSON from response
     json_match = re.search(r'\{[\s\S]*\}', response)

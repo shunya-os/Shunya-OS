@@ -40,7 +40,7 @@ class CredentialResolver:
 
         if ref.startswith("literal:"):
             if not IN_TESTING:
-                return ""  # rejected outside TESTING
+                return ""  # PRODUCTION SAFE: literal: prefix is rejected when not in TESTING
             return ref[8:]
 
         return ""

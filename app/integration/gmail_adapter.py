@@ -371,7 +371,8 @@ class _MockGmailService:
         return self._messages[:limit]
 
     def send_message(self, to: list[str], subject: str, body: str) -> dict:
-        return {"id": "mock_sent", "status": "sent"}
+        """Mock send — always raises RuntimeError to prevent fake success signals."""
+        raise RuntimeError("Gmail adapter not connected to real Gmail API — cannot send email")
 
     def users(self):
         return self
@@ -403,8 +404,7 @@ class _MockGmailService:
         return self
 
     def send(self, userId="me", body=None):
-        self._send_result = {"id": "sent_msg", "labelIds": ["SENT"]}
-        return self
+        raise RuntimeError("Gmail adapter not connected to real Gmail API — cannot send email")
 
     def execute(self):
         if hasattr(self, "_list_result"):
@@ -412,7 +412,7 @@ class _MockGmailService:
         if hasattr(self, "_get_result"):
             return self._get_result
         if hasattr(self, "_send_result"):
-            return self._send_result
+            raise RuntimeError("Gmail adapter not connected to real Gmail API — cannot send email")
         return {}
 
 
