@@ -281,6 +281,13 @@ function AppShell() {
           }
         }
       } catch { /* No backend session — show login */ }
+      // Entering the auth surface from the public page must be a real
+      // navigation, exactly like the onboarding transition already is. The
+      // login form used to render while the address bar still read '/', so a
+      // reload dropped the human back onto the marketing page and the back
+      // button did not describe what they were looking at. Found by rendering
+      // the journey in a real browser, not by reading the code.
+      window.history.pushState({}, '', '/auth/login');
       setPhase('login');
     }
   };
