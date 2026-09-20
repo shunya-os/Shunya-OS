@@ -112,10 +112,6 @@ def _is_allowed(value: str) -> bool:
     v = value.strip()
     if v.lower() in PLACEHOLDERS:
         return True
-    # An ALL_CAPS identifier is a reference to an environment variable, not a
-    # secret in its own right (`api_key_env: OPENROUTER_API_KEY`).
-    if _ENV_REFERENCE.match(v):
-        return True
     low = v.lower()
     return any(marker in low for marker in TEMPLATE_MARKERS)
 
@@ -158,6 +154,12 @@ def _violations_in_line(line: str, rel: str = "config.yml") -> list[str]:
         for m in pattern.finditer(line):
             val = m.groupdict().get("val") or ""
             if _is_allowed(val):
+                continue
+            # The environment-reference allowance is scoped to the config rule.
+            # Applied globally it would let an all-caps secret through the
+            # connection-URL rule (postgresql://user:MY_SECRET_VALUE@host).
+            if (label == "unquoted credential assignment"
+                    and _ENV_REFERENCE.match(val.strip())):
                 continue
             found.append(label)
     return found
@@ -220,6 +222,18 @@ def test_guard_detects_secret_disclosed_in_prose():
         "guard FAILED to detect a secret disclosed in prose")
 
 
+def test_guard_scopes_env_reference_allowance_to_config_rule():
+    """An all-caps secret in a connection URL must NOT be waved through.
+
+    The environment-reference allowance exists for `api_key_env: OPENROUTER_KEY`.
+    Applied to every rule it silently allowed `postgresql://user:MY_SECRET@host`.
+    """
+    line = ("os.environ['DATABASE_URL'] = "
+            "'postgresql://shunya:MY_SECRET_VALUE@127.0.0.1:5432/db'")
+    assert _violations_in_line(line, "x.py"), (
+        "env-reference allowance leaked out of the config rule")
+
+
 def test_guard_allows_placeholders_and_templated_values():
     allowed = (
         ('PGPASSWORD="${DB_PASSWORD}" psql', "x.sh"),
@@ -227,7 +241,9 @@ def test_guard_allows_placeholders_and_templated_values():
          "'postgresql://shunya:***@127.0.0.1:5433/shunya_db'", "x.py"),
         ('password=os.environ.get("SHUNYA_DEMO_PASSWORD", "")', "x.py"),
         ("'postgresql://user:password@host:5432/db'", "x.py"),
+        ("'postgresql://user:***@host:5432/db'", "x.py"),
         ("    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?must be set}", "docker-compose.yml"),
+        ("    api_key_env: OPENROUTER_API_KEY", "config/inference.yaml"),
         ("The actual password is `[REDACTED-CREDENTIAL]`.", "doc.md"),
     )
     for line, rel in allowed:
