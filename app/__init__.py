@@ -289,6 +289,32 @@ def _health_check(app: Flask) -> dict:
     except Exception as e:  # never break health on provenance introspection
         checks["frontend_provenance_error"] = str(e)
 
+    # Immutable build identity — the LOADED artifact must correspond to the
+    # certified deployment record, not merely to whatever `git rev-parse HEAD`
+    # says at worker-import time. A mismatch means this process is running code
+    # that no immutable release was published for, so it is reported truthfully
+    # (degraded) instead of being smoothed over. A missing record is absent, not
+    # a mismatch, and never invented.
+    try:
+        from app.build_identity import build_identity, identity_mismatch
+        identity = build_identity()
+        if identity is not None:
+            checks["backend_release_sha"] = identity.get("backend_release_sha", "")
+            checks["build_identity_deployed_at"] = identity.get("deployed_at", "")
+            mismatch = (not app.config.get("TESTING")
+                        and identity_mismatch(checks["git_commit"], identity))
+            checks["build_identity_matches_running_build"] = not mismatch
+            if mismatch:
+                checks["status"] = "degraded"
+                checks.setdefault(
+                    "build_identity_reason",
+                    "The loaded build does not match the certified deployment record",
+                )
+        else:
+            checks["build_identity_matches_running_build"] = None
+    except Exception as e:  # never break health on identity introspection
+        checks["build_identity_error"] = str(e)
+
     return checks
 
 

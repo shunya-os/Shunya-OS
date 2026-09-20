@@ -28,7 +28,9 @@ cd "${DEPLOY_DIR}"
 # =============================================================================
 
 _health_check() {
-    curl -sf "http://127.0.0.1:8000/health" 2>/dev/null || echo "unreachable"
+    # Production serves on 127.0.0.1:5001 (the 8000 default was a stale
+    # docker-era port, which made every recovery check report "unreachable").
+    curl -sf --max-time 15 "http://127.0.0.1:5001/health" 2>/dev/null || echo "unreachable"
 }
 
 _restart_app() {
@@ -53,8 +55,14 @@ _recover_deployment() {
         return 0
     fi
 
-    # Rollback to previous commit
+    # Rollback to previous commit. Guarded exactly like the deploy path: a
+    # recovery must never silently discard uncommitted work.
     echo "  Previous deployment not responding — rolling back" | tee -a "${RECOVERY_LOG}"
+    PREFLIGHT="infrastructure/scripts/deploy_preflight.sh"
+    if [ -f "${PREFLIGHT}" ] && ! bash "${PREFLIGHT}" "$(pwd)" 2>&1 | tee -a "${RECOVERY_LOG}"; then
+        echo "  ERROR: tree is dirty — refusing to reset. Recover manually." | tee -a "${RECOVERY_LOG}"
+        return 1
+    fi
     git reset --hard HEAD~1 2>&1 | tee -a "${RECOVERY_LOG}"
     _restart_app
     sleep 5
@@ -106,9 +114,9 @@ _recover_restart() {
     fi
 
     # Check port conflicts
-    if ss -tlnp 2>/dev/null | grep -q ":8000 "; then
-        echo "  Port 8000 in use — checking..." | tee -a "${RECOVERY_LOG}"
-        ss -tlnp 2>/dev/null | grep ":8000 " | tee -a "${RECOVERY_LOG}"
+    if ss -tlnp 2>/dev/null | grep -q ":5001 "; then
+        echo "  Port 5001 in use — checking..." | tee -a "${RECOVERY_LOG}"
+        ss -tlnp 2>/dev/null | grep ":5001 " | tee -a "${RECOVERY_LOG}"
     fi
 
     # Try force restart

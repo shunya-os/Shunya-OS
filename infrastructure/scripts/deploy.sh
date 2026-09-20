@@ -189,6 +189,20 @@ else
     echo "  SKIP: no frontend/dist to publish" | tee -a "${DEPLOY_LOG}"
 fi
 
+# ---- Step 6c: Publish the IMMUTABLE BUILD IDENTITY ----
+# Written BEFORE the service restart so the workers that come up in step 9
+# already see this deployment's identity. /health reports it as
+# backend_release_sha and marks the runtime degraded if the loaded build does
+# not match it — so a worker recycling after an un-deployed checkout change is
+# reported truthfully instead of appearing certified.
+RUNTIME_DATA_ROOT="${RUNTIME_DATA_ROOT:-${HOME}/shunya_data}"
+mkdir -p "${RUNTIME_DATA_ROOT}"
+BUILD_IDENTITY_FILE="${RUNTIME_DATA_ROOT}/build_identity.json"
+cat > "${BUILD_IDENTITY_FILE}" <<IDENTITY
+{"backend_release_sha": "${DEPLOYED_SHA}", "build_id": "${DEPLOYED_SHA:0:7}", "deployed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)", "frontend_release_sha": "${DEPLOYED_SHA}", "frontend_asset_manifest_sha256": "${ASSET_MANIFEST_SHA:-}"}
+IDENTITY
+echo "[6/12] Build identity published -> ${BUILD_IDENTITY_FILE}" | tee -a "${DEPLOY_LOG}"
+
 # ---- Step 7: Migration check + backup ----
 echo "[7/12] Checking migrations..." | tee -a "${DEPLOY_LOG}"
 if [ -f "alembic.ini" ]; then
