@@ -31,6 +31,16 @@ from app.authz.decorators import require_permission, _resolve_org_id
 
 logger = logging.getLogger(__name__)
 
+
+def _identity_id() -> str:
+    """Extract identity from flask g or session."""
+    from flask import g
+    uid = g.get("identity_id")
+    if uid:
+        return str(uid)
+    return session.get("identity_id") or session.get("user_id", "")
+
+
 document_intel_bp = Blueprint(
     "document_intel", __name__, url_prefix="/api/v1/documents"
 )
@@ -224,9 +234,12 @@ def _make_upload_dir(org_id: int | None) -> str:
 
 
 @document_intel_bp.route("/upload", methods=["POST"])
-@require_permission("knowledge.upload")
 def api_upload():
     """Upload a file, extract text, classify, detect hierarchy, return intelligence."""
+    identity_id = _identity_id()
+    if not identity_id:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
     from app import db
     from app.models import Document
 
@@ -313,9 +326,12 @@ def api_upload():
 
 @document_intel_bp.route("", methods=["GET"],
                           strict_slashes=False)
-@require_permission("knowledge.view")
 def api_list():
     """List documents with intelligence metadata, tenant-scoped."""
+    identity_id = _identity_id()
+    if not identity_id:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
     from app import db
     from app.models import Document
 
@@ -326,7 +342,6 @@ def api_list():
     if org_id is not None:
         q = q.filter(Document.tenant_id == org_id)
     else:
-        identity_id = session.get("identity_id", "")
         if identity_id:
             q = q.filter(Document.uploaded_by == identity_id)
     docs = q.order_by(Document.created_at.desc()).limit(limit).all()

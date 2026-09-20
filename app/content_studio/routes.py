@@ -52,18 +52,23 @@ def _workspace_id() -> str:
 def _derive_lifecycle_state(item) -> str:
     """Derive the lifecycle state from model fields.
 
-    Precedence: lifecycle_status overrides legacy is_deleted/status.
+    Precedence: lifecycle_status overrides legacy is_deleted/status, but
+    when lifecycle_status is the default 'active' and the legacy fields
+    indicate a different state, the legacy state wins (covers items
+    created before the lifecycle_status column was added).
     """
     if item.lifecycle_status == "trashed":
         return "trashed"
     if item.lifecycle_status == "archived":
         return "archived"
-    if item.lifecycle_status == "active":
-        return "active"
-    # Fallback to legacy fields
+    # lifecycle_status is "active" (default) or None — check legacy fields
     if item.is_deleted:
         return "trashed"
-    return "archived" if item.status == "archived" else "active"
+    if item.status == "archived":
+        return "archived"
+    if item.status == "trashed":
+        return "trashed"
+    return "active"
 
 
 LIFECYCLE_TRANSITIONS = {
@@ -306,6 +311,7 @@ def api_lifecycle(item_id: int):
         # Returning False from apply_fn means "not a valid transition".
         def _do_archive(i):
             i.lifecycle_status = "archived"
+            i.status = "archived"
             i.archived_at = datetime.utcnow()
             i.archived_by = actor
             return True
@@ -320,6 +326,7 @@ def api_lifecycle(item_id: int):
 
         def _do_trash(i):
             i.lifecycle_status = "trashed"
+            i.status = "trashed"
             i.is_deleted = True
             i.deleted_at = datetime.utcnow()
             i.deleted_by = actor

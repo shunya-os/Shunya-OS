@@ -37,3 +37,4 @@ httpx>=0.28
 # Web Search & AI Analysis
 ddgs>=9.0
 Pillow>=10.0
+openai>=1.0
