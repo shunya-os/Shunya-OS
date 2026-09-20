@@ -49,7 +49,7 @@
 **Severity:** P3
 **Status:** IDENTIFIED (not a bug)
 
-**Description:** The `.env` file shows `DATABASE_URL=postgresql://shunya:***@127.0.0.1:5433/shunya_db`. The actual password is `shunya_os_2024` (matching the Docker Compose file). The `***` is a masking artifact from the tooling.
+**Description:** The `.env` file shows `DATABASE_URL=postgresql://shunya:***@127.0.0.1:5433/shunya_db`. The actual password is `[REDACTED-CREDENTIAL]` (matching the Docker Compose file). The `***` is a masking artifact from the tooling.
 
 **Root Cause:** The `.env` file presumably contains the actual password but the Hermes tooling masks it. The Docker Compose file has the definitive password.
 

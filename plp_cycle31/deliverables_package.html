@@ -1716,7 +1716,7 @@
 <h3>GAP-004: Password in .env File is Masked as <code>***</code></h3>
 <p><strong>Severity:</strong> P3
 <strong>Status:</strong> IDENTIFIED (not a bug)</p>
-<p><strong>Description:</strong> The <code>.env</code> file shows <code>DATABASE_URL=postgresql://shunya:***@127.0.0.1:5433/shunya_db</code>. The actual password is <code>shunya_os_2024</code> (matching the Docker Compose file). The <code>***</code> is a masking artifact from the tooling.</p>
+<p><strong>Description:</strong> The <code>.env</code> file shows <code>DATABASE_URL=postgresql://shunya:***@127.0.0.1:5433/shunya_db</code>. The actual password is <code>[REDACTED-CREDENTIAL]</code> (matching the Docker Compose file). The <code>***</code> is a masking artifact from the tooling.</p>
 <p><strong>Root Cause:</strong> The <code>.env</code> file presumably contains the actual password but the Hermes tooling masks it. The Docker Compose file has the definitive password.</p>
 <p><strong>Status:</strong> Not a code issue. The app connects correctly.</p>
 <hr />
