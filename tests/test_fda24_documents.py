@@ -33,10 +33,36 @@ def client(app):
 
 @pytest.fixture(scope="function")
 def auth_headers(app, client):
+    """Create legitimate org/member context for RBAC authorization."""
+    from app import db
+    from app.models import Organization, OrgMember
+    from app.authz.services import seed_default_roles
+
+    ORG_ID = 999
+    IDENTITY = "test_user"
+
+    org = db.session.get(Organization, ORG_ID)
+    if not org:
+        org = Organization(id=ORG_ID, name="FDA24 Test Org",
+                           slug="fda24-test", is_active=True)
+        db.session.add(org)
+        db.session.flush()
+
+    # Seed roles so permission checks can resolve them
+    seed_default_roles(ORG_ID)
+
+    member = OrgMember.query.filter_by(
+        organization_id=ORG_ID, identity_id=IDENTITY).first()
+    if not member:
+        member = OrgMember(organization_id=ORG_ID, identity_id=IDENTITY,
+                           role="owner", is_active=True)
+        db.session.add(member)
+        db.session.commit()
+
     with client.session_transaction() as s:
-        s["identity_id"] = "test_user"
-        s["current_org_id"] = 1
-    return {"X-Identity-Id": "test_user"}
+        s["identity_id"] = IDENTITY
+        s["current_org_id"] = ORG_ID
+    return {"X-Identity-Id": IDENTITY}
 
 
 class TestDocumentAPI:

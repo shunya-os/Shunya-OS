@@ -63,7 +63,13 @@ def record_emotional_context():
     or emotional dependency. Stores what was communicated, no more.
     """
     data = request.get_json(silent=True) or {}
-    tenant_id, _person_id, _sensitive, _identity = _auth_context()
+    tenant_id, _person_id, _sensitive, identity = _auth_context()
+
+    if not identity:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    person_id = data.get("person_id") or _person_id
+    if not person_id:
+        return jsonify({"success": False, "error": "person_id is required"}), 400
 
     expression_type = data.get("expression_type", "")
     if not expression_type:
@@ -83,7 +89,7 @@ def record_emotional_context():
         related_object_type=data.get("related_object_type"),
         provenance=data.get("provenance"),
         retention=data.get("retention"),
-        created_by=_identity or data.get("created_by", ""),
+        created_by=identity or data.get("created_by", ""),
     )
 
     if not result["success"]:

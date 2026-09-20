@@ -234,12 +234,9 @@ def _make_upload_dir(org_id: int | None) -> str:
 
 
 @document_intel_bp.route("/upload", methods=["POST"])
+@require_permission("knowledge.upload")
 def api_upload():
     """Upload a file, extract text, classify, detect hierarchy, return intelligence."""
-    identity_id = _identity_id()
-    if not identity_id:
-        return jsonify({"success": False, "error": "Authentication required"}), 401
-
     from app import db
     from app.models import Document
 
@@ -326,17 +323,15 @@ def api_upload():
 
 @document_intel_bp.route("", methods=["GET"],
                           strict_slashes=False)
+@require_permission("knowledge.view")
 def api_list():
     """List documents with intelligence metadata, tenant-scoped."""
-    identity_id = _identity_id()
-    if not identity_id:
-        return jsonify({"success": False, "error": "Authentication required"}), 401
-
     from app import db
     from app.models import Document
 
     org_id = _resolve_org_id()
     limit = request.args.get("limit", 50, type=int)
+    identity_id = _identity_id()
 
     q = db.session.query(Document)
     if org_id is not None:
