@@ -6,8 +6,12 @@ from datetime import datetime, timezone
 from typing import Optional
 from app import db
 from app.human_context.models import (
-    HumanContextItem, ContextProposal, ContextConcept, ContextCategory,
+    ContextConcept, HumanContextItem, ContextProposal, ContextCategory,
     ScopeType, AssertionType, ContextStatus, ProposalStatus, ValueType,
+)
+from app.human_context.emotional import (
+    EmotionalContextService, EmotionalContextItem, ExpressionType,
+    EmotionalStatus,
 )
 from app.privacy import PrivacyService
 from app.privacy.models import MemoryEligibility, SensitivityLevel

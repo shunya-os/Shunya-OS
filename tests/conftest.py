@@ -88,6 +88,7 @@ def app():
         from app.communication.email_models import EmailRecord  # noqa: F401
         from app.privacy import models as _privacy_models  # noqa: F401
         from app.human_context import models as _hc_models  # noqa: F401
+        from app.human_context.emotional import EmotionalContextItem  # noqa: F401
         from app.memory import models as _mem_models  # noqa: F401
         from app.evidence import models as _ev_models  # noqa: F401
         from app.execution import models as _exec_models  # noqa: F401 - registers IdempotencyRecord, Outcome
