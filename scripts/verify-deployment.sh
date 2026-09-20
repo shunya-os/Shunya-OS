@@ -34,7 +34,15 @@ if [ "$HEALTH" != "200" ]; then
 fi
 
 # 5. DB schema (check that shunya_identities table exists)
-DB_SCHEMA=$(PGPASSWORD='Shunya@2026!' psql -h localhost -p 5432 -U shunya -d shunya_os -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='shunya_identities';" 2>/dev/null | xargs || echo "0")
+# The connection string comes from the deployment environment (DATABASE_URL),
+# never from a credential committed to the repository. The URI is read at run
+# time and is never echoed to stdout or logs.
+SHUNYA_DB_URL="${SHUNYA_DB_URL:-$(grep -E '^DATABASE_URL=' "$(dirname "$0")/../.env" 2>/dev/null | head -1 | cut -d= -f2-)}"
+if [ -z "$SHUNYA_DB_URL" ]; then
+  echo "FAIL: DATABASE_URL not available — cannot verify schema without a credential source"
+  exit 1
+fi
+DB_SCHEMA=$(psql "$SHUNYA_DB_URL" -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='shunya_identities';" 2>/dev/null | xargs || echo "0")
 echo "DB schema: shunya_identities table exists: $DB_SCHEMA"
 if [ "$DB_SCHEMA" != "1" ]; then
   echo "FAIL: Database schema mismatch"

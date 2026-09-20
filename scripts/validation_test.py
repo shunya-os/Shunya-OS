@@ -1,7 +1,7 @@
 """AI Capability Validation Test Script for SHUNYA OS Intelligence Runtime."""
 import os, json, sys
 
-os.environ['DATABASE_URL'] = 'postgresql://shunya:shunya_os_2024@127.0.0.1:5433/shunya_db'
+os.environ['DATABASE_URL'] = 'postgresql://shunya@127.0.0.1:5433/shunya_db'
 os.environ['SECRET_KEY'] = 'shunya-club-secret-key-2024'
 os.environ['FLASK_ENV'] = 'production'
 os.environ['DISABLE_RATE_LIMIT'] = 'true'

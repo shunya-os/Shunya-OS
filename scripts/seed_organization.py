@@ -4,7 +4,7 @@ Creates the organization, departments, and all members.
 """
 import sys, os, json, secrets, hashlib
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-os.environ['DATABASE_URL'] = 'postgresql://shunya:shunya_os_2024@127.0.0.1:5433/shunya_db'
+os.environ['DATABASE_URL'] = 'postgresql://shunya@127.0.0.1:5433/shunya_db'
 
 from app import create_app, db
 from app.models import Organization, OrgMember, Department

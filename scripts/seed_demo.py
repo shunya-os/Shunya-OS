@@ -21,7 +21,7 @@ import json, hashlib, os, sys, uuid, argparse
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ.setdefault("DATABASE_URL", "postgresql://shunya:Shunya%402026!@localhost:5432/shunya_os")
+os.environ.setdefault("DATABASE_URL", "postgresql://shunya@localhost:5432/shunya_os")
 os.environ.setdefault("SECRET_KEY", "ShunyaSecretKey2026ReplaceThisWithALongRandomString")
 os.environ.setdefault("FLASK_ENV", "development")
 

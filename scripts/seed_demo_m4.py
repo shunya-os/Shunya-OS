@@ -1,4 +1,5 @@
 """Seed rich demo data for M4 founder validation."""
+import os
 import sys, uuid
 sys.path.insert(0, '.')
 
@@ -27,7 +28,7 @@ with app.app_context():
 
     # Sign in to create OS identity
     from app.adapters.os_adapter import sign_in
-    result = sign_in(email="nishesh@shunyaos.com", password="demo123", name="Nishesh")
+    result = sign_in(email="nishesh@shunyaos.com", password=os.environ.get("SHUNYA_DEMO_PASSWORD", ""), name="Nishesh")
     assert result["success"]
     identity_id = result["identity_id"]
     print(f"Identity: {identity_id}")
