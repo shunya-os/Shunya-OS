@@ -28,11 +28,26 @@ def _auth_context():
     """Resolve auth context from the request.
 
     Returns (tenant_id, person_id, include_sensitive, identity).
-    Sensitive fields require explicit auth — they are gated behind
-    X-Include-Sensitive header or identity matching the person.
+
+    TENANT AUTHORITY NEVER COMES FROM A REQUEST HEADER. The tenant is the org
+    context the middleware resolved from the caller's persistent membership
+    (``g.current_org_id``). This route previously fell back to a client-supplied
+    ``X-Tenant-Id``, which meant the ENTIRE tenant boundary here rested on an
+    upstream guard rather than on the route itself. Falsification proved the
+    stake: when the membership denial was bypassed, a forged ``X-Tenant-Id``
+    returned another tenant's emotional context with HTTP 200 — including its
+    confidential ``context`` field. ``/living`` is already personal-scope
+    eligible, so the personal-scope registry can grow; this route must not depend
+    on that guard continuing to deny.
+
+    Missing tenant context FAILS CLOSED (see the per-endpoint 403s) — it is never
+    resolved to "whatever the caller asked for".
+
+    Sensitive fields still require explicit auth via the X-Include-Sensitive
+    header.
     """
     identity = getattr(g, "identity_id", None) or request.headers.get("X-Identity-Id", "")
-    tenant_id = getattr(g, "current_org_id", None) or request.headers.get("X-Tenant-Id", type=int)
+    tenant_id = getattr(g, "current_org_id", None)
 
     # Only allow reading sensitive fields when explicitly requested and
     # the identity matches (belongs to the same person)
@@ -67,6 +82,9 @@ def record_emotional_context():
 
     if not identity:
         return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    if tenant_id is None:
+        return jsonify({"success": False, "error": "Tenant context required"}), 403
 
     expression_type = data.get("expression_type", "")
     if not expression_type:
@@ -118,9 +136,11 @@ def list_emotional_context():
 
     svc = _service()
 
-    # If no person_id specified and no auth identity,  refuse
-    if not person_id and not tenant_id and not include_sensitive:
-        return jsonify({"success": False, "error": "No person or tenant context"}), 403
+    # FAIL CLOSED: the tenant is the ONLY thing scoping this query. Without it a
+    # list() call would span every organization, which is precisely the leak the
+    # route-level header fallback used to permit.
+    if tenant_id is None:
+        return jsonify({"success": False, "error": "Tenant context required"}), 403
 
     result = svc.list(
         tenant_id=tenant_id,
@@ -156,6 +176,9 @@ def correct_emotional_entry(item_id):
     data = request.get_json(silent=True) or {}
     tenant_id, _person_id, _sensitive, _identity = _auth_context()
 
+    if tenant_id is None:
+        return jsonify({"success": False, "error": "Tenant context required"}), 403
+
     new_expression_type = data.get("new_expression_type")
     if new_expression_type and new_expression_type not in ExpressionType.ALL:
         return jsonify({"success": False, "error": f"Invalid expression_type",
@@ -190,6 +213,9 @@ def expire_emotional_entry(item_id):
     The entry is marked EXPIRED but preserved in the database for audit.
     """
     tenant_id, _person_id, _sensitive, _identity = _auth_context()
+
+    if tenant_id is None:
+        return jsonify({"success": False, "error": "Tenant context required"}), 403
 
     svc = _service()
     result = svc.expire(

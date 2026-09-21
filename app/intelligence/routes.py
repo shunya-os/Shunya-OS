@@ -20,7 +20,15 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_tenant() -> dict:
-    """Resolve tenant identity from session or header context."""
+    """Resolve tenant identity from the session or the request's org context.
+
+    TENANT AUTHORITY NEVER COMES FROM A REQUEST HEADER. This previously fell back
+    to a client-supplied ``X-Tenant-Id``, the same pattern that allowed a forged
+    header to return another tenant's data in the emotional-context routes once
+    the upstream membership guard was bypassed. A caller must not be able to name
+    the tenant it is reading; the tenant comes from the session or from the org
+    context the middleware resolved from persistent membership.
+    """
     identity_id = (
         session.get("identity_id")
         or session.get("user_id")
@@ -30,7 +38,7 @@ def _resolve_tenant() -> dict:
     tenant_id = (
         session.get("current_org_id")
         or session.get("tenant_id")
-        or request.headers.get("X-Tenant-Id")
+        or getattr(g, "current_org_id", None)
     )
     return {
         "identity_id": str(identity_id) if identity_id else None,
