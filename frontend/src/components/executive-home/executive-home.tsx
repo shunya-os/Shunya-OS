@@ -1472,6 +1472,7 @@ styles.textContent = `
   gap: 10px;
   width: 100%;
   padding: 8px 10px;
+  min-height: 44px;
   border: none;
   border-radius: 6px;
   background: rgba(164, 134, 95, 0.08);
@@ -1665,8 +1666,9 @@ styles.textContent = `
   flex-shrink: 0;
 }
 .pw-voice-btn {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   border-radius: 50%;
   border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
   background: transparent;
