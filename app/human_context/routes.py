@@ -67,14 +67,13 @@ def record_emotional_context():
 
     if not identity:
         return jsonify({"success": False, "error": "Authentication required"}), 401
-    person_id = data.get("person_id") or _person_id
-    if not person_id:
-        return jsonify({"success": False, "error": "person_id is required"}), 400
 
     expression_type = data.get("expression_type", "")
     if not expression_type:
         return jsonify({"success": False, "error": "expression_type is required",
                         "valid_types": sorted(ExpressionType.ALL)}), 400
+
+    person_id = data.get("person_id") or _person_id
 
     svc = _service()
     result = svc.record(
