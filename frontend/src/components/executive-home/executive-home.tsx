@@ -630,7 +630,7 @@ function IntegratedCommand() {
         ) : (
           <button className="pw-command-trigger" onClick={() => setCommandOpen(true)}>
             <span className="pw-command-trigger-icon" aria-hidden="true">
-                          {activeExecutions.length > 0 ? <IconRefresh size={14} /> : <IconArrowRight size={14} />}
+                          {activeExecutions.length > 0 ? <IconRefresh size={14} focusable="false" /> : <IconArrowRight size={14} focusable="false" />}
                         </span>
             <span className="pw-command-trigger-text">
               {activeExecutions.length > 0

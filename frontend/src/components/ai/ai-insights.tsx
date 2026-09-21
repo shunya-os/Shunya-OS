@@ -291,6 +291,7 @@ Analyze this business data and provide key insights, trends, and recommendations
         <ActionIcon
           variant="subtle"
           color="gray"
+          size={44}
           onClick={fetchInsights}
           disabled={loading}
           aria-label="Refresh insights"

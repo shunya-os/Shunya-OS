@@ -742,6 +742,7 @@ const homeStyles = `
 .hp-footer-btn {
   font-size: 12px;
   padding: 4px 12px;
+  min-height: 44px;
   border-radius: 6px;
   border: 1px solid var(--shunya-border, rgba(26,28,29,0.12));
   background: transparent;
