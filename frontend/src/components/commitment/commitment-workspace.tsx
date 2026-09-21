@@ -166,8 +166,30 @@ export const CommitmentWorkspace: FC = () => {
     load();
   };
 
-  const handleStatusChange = async (id: number, status: string) => {
-    await api(`/api/v1/commitments/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+  /**
+   * Change a commitment's status.
+   *
+   * When an evidence note is supplied it MUST go to the canonical transition
+   * route (`/api/v1/workspace/commitments/<id>/transition`), which is the only
+   * endpoint that persists the note — it writes a TimelineEntry with the
+   * evidence as the description. The previous implementation sent the note to
+   * `/api/v1/commitments/<id>/resolve`, which has NEVER existed, inside a
+   * `.catch(() => {})`: the note was silently discarded while the UI reported
+   * success. Failures are never swallowed here.
+   */
+  const handleStatusChange = async (id: number, status: string, evidence?: string) => {
+    const note = (evidence ?? '').trim();
+    if (note) {
+      const result = await api(`/api/v1/workspace/commitments/${id}/transition`, {
+        method: 'POST',
+        body: JSON.stringify({ status, evidence: note }),
+      });
+      if (!result) {
+        throw new Error('Could not record that status change and its evidence.');
+      }
+    } else {
+      await api(`/api/v1/commitments/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    }
     // If detail is open and matches, update it too
     if (detailCommitment && detailCommitment.id === id) {
       setDetailCommitment(prev => prev ? { ...prev, status } : null);
@@ -226,13 +248,14 @@ export const CommitmentWorkspace: FC = () => {
       }
     }
 
-    // If evidence was provided, log via transition endpoint
-    if (editEvidence.trim()) {
-      await api(`/api/v1/commitments/${detailCommitment.id}/resolve`, {
-        method: 'POST',
-        body: JSON.stringify({ resolution_note: editEvidence.trim() }),
-      }).catch(() => { /* transition endpoint may not exist on all backends */ });
-    }
+    // NOTE: a bare evidence note (no status change) has no persistence path in
+    // the API — the PATCH accepts only title/owner/issue_type/due_at/meta and
+    // the transition route requires a legal status change. So we do NOT send it
+    // anywhere: the previous attempt posted it to
+    // `/api/v1/commitments/<id>/resolve` (a route that has never existed) behind
+    // a `.catch(() => {})`, which made the note vanish while looking saved.
+    // Evidence IS persisted when it accompanies a status change — see
+    // handleStatusChange / handleDetailStatusChange.
 
     setEditSaving(false);
     setEditEvidence('');
@@ -242,9 +265,10 @@ export const CommitmentWorkspace: FC = () => {
   /** Handle status transition in detail modal */
   const handleDetailStatusChange = async (newStatus: string) => {
     if (!detailCommitment) return;
-    const evidence = editEvidence.trim() ? `: ${editEvidence.trim()}` : '';
-    console.log(`Transition: ${detailCommitment.status} → ${newStatus}${evidence}`);
-    await handleStatusChange(detailCommitment.id, newStatus);
+    // Pass the note through so it is PERSISTED by the canonical transition route
+    // (it was previously only console.logged, so the typed evidence was lost).
+    await handleStatusChange(detailCommitment.id, newStatus, editEvidence);
+    setEditEvidence('');
     // Re-fetch detail to get updated timeline
     handleOpenDetail(detailCommitment.id);
   };

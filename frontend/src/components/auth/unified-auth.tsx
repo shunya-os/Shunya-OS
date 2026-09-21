@@ -84,7 +84,11 @@ export function UnifiedAuth({ initialMode, onSubmit, onForgotPassword }: Props) 
       const fn = onSubmit;
       if (!fn) {
         // Default inline submission
-        const endpoint = mode === 'signin' ? '/api/v1/founder/signin' : '/api/v1/founder/signup';
+        // Sign-IN lives on the founder surface, but there is NO
+        // `/api/v1/founder/signup` — sign-up is `/api/v1/auth/signup`, whose
+        // body is exactly {name, email, password}. Pointing the default at a
+        // non-existent route meant this fallback could only ever 404.
+        const endpoint = mode === 'signin' ? '/api/v1/founder/signin' : '/api/v1/auth/signup';
         const body =
           mode === 'signin'
             ? JSON.stringify({ email: email.trim().toLowerCase(), password })

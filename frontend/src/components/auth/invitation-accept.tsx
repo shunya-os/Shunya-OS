@@ -26,10 +26,15 @@ async function defaultAcceptInvitation(
   name: string,
   password: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const resp = await fetch('/api/v1/auth/accept-invitation', {
+  // The canonical route carries the token in the PATH
+  // (identity_bp at /orgs, mounted under /api/v1) and takes {name, password}.
+  // The previous `/api/v1/auth/accept-invitation` does not exist, so this
+  // default could only ever 404. `api.acceptInvitation` already used the
+  // correct path; this keeps the two in agreement.
+  const resp = await fetch(`/api/v1/orgs/invitations/${encodeURIComponent(token)}/accept`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, name, password }),
+    body: JSON.stringify({ name, password }),
     credentials: 'include',
   });
   const data = await resp.json();
