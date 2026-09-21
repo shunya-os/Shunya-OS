@@ -628,20 +628,30 @@ function IntegratedCommand() {
             </div>
           </motion.div>
         ) : (
-          <button className="pw-command-trigger" onClick={() => setCommandOpen(true)}>
-            <span className="pw-command-trigger-icon" aria-hidden="true">
-                          {activeExecutions.length > 0 ? <IconRefresh size={14} focusable="false" /> : <IconArrowRight size={14} focusable="false" />}
-                        </span>
-            <span className="pw-command-trigger-text">
-              {activeExecutions.length > 0
-                ? `${activeExecutions.length} action${activeExecutions.length > 1 ? 's' : ''} in progress`
-                : observations.length > 0
-                ? `${observations.length} thing${observations.length > 1 ? 's' : ''} to discuss`
-                : 'Ask SHUNYA or type a command…'}
-            </span>
-            <span className="pw-command-kbd">⌘K</span>
+          <div className="pw-command-trigger">
+            {/* The command trigger and the voice input are SIBLINGS. They used to
+                be nested (a button inside a button), which is invalid HTML and
+                was reported by axe as nested-interactive / no-focusable-content
+                (relatedNode: .pw-voice-btn). */}
+            <button
+              type="button"
+              className="pw-command-trigger-main"
+              onClick={() => setCommandOpen(true)}
+            >
+              <span className="pw-command-trigger-icon" aria-hidden="true">
+                {activeExecutions.length > 0 ? <IconRefresh size={14} focusable="false" /> : <IconArrowRight size={14} focusable="false" />}
+              </span>
+              <span className="pw-command-trigger-text">
+                {activeExecutions.length > 0
+                  ? `${activeExecutions.length} action${activeExecutions.length > 1 ? 's' : ''} in progress`
+                  : observations.length > 0
+                  ? `${observations.length} thing${observations.length > 1 ? 's' : ''} to discuss`
+                  : 'Ask SHUNYA or type a command…'}
+              </span>
+              <span className="pw-command-kbd">⌘K</span>
+            </button>
             <VoiceInput onTranscript={handleVoiceTranscript} />
-          </button>
+          </div>
         )}
       </div>
     </div>
@@ -1572,16 +1582,30 @@ styles.textContent = `
 .pw-command-trigger {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   width: 100%;
-  padding: 10px 16px;
+  padding: 2px 8px 2px 16px;
   border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
   border-radius: 10px;
   background: var(--shunya-surface, #ffffff);
-  cursor: pointer;
-  text-align: left;
   transition: all 0.15s;
   color: var(--shunya-text, #1A1C1D);
+}
+/* The clickable part is a SIBLING of the voice button (never a parent), so no
+   interactive control is nested inside another. */
+.pw-command-trigger-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
   font: inherit;
 }
 .pw-command-trigger:hover {
@@ -2117,7 +2141,7 @@ styles.textContent = `
   .pw-panel-container { padding: 20px 14px; }
   .pw-attention { padding: 18px 16px; }
   .pw-attention-title { font-size: 16px; }
-  .pw-command-trigger { padding: 9px 12px; }
+  .pw-command-trigger { padding: 2px 6px 2px 12px; }
   .pw-intention { flex-direction: column; gap: 2px; }
   .pw-intention-label { white-space: normal; }
 }
