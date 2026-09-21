@@ -18,6 +18,28 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 
+# Accepted header aliases per target type, in priority order. The first alias
+# present and non-empty is normalized onto the canonical (first) name, which is
+# what the writers read. Keep this aligned with the *_import_* writers — a
+# validator stricter than its writer silently rejects importable files.
+_REQUIRED_ALIASES: Dict[str, Dict[str, Tuple[str, ...]]] = {
+    "lead": {
+        "customer_name": ("customer_name", "name", "customer", "client"),
+        "phone": ("phone", "mobile", "telephone", "contact_number"),
+    },
+    "customer": {
+        "display_name": ("display_name", "name", "customer_name", "company"),
+        "email": ("email", "e-mail", "email_address"),
+    },
+    "campaign": {
+        "name": ("name", "campaign_name", "title"),
+    },
+    "supplier": {
+        "name": ("name", "supplier_name", "vendor", "vendor_name"),
+    },
+}
+
+
 # =========================================================================
 # Import — Preview Phase
 # =========================================================================
@@ -104,20 +126,38 @@ def _parse_xlsx(content: str) -> List[Dict[str, Any]]:
 
 
 def _validate_records(records: List[Dict], target_type: str) -> List[Dict]:
-    """Validate records against target type requirements."""
-    required_fields = {
-        "lead": ["customer_name", "phone"],
-        "customer": ["display_name", "email"],
-        "campaign": ["name"],
-        "supplier": ["name"],
-    }.get(target_type, [])
+    """Validate records against target type requirements.
+
+    Required fields are matched through ACCEPTED ALIASES and normalized onto the
+    canonical field name, so a header a real user would actually export
+    (``name``, ``customer_name``, ``mobile`` …) maps onto the canonical field
+    instead of being rejected. This keeps the validator consistent with what the
+    writers accept — previously a CSV of ``name,email`` was 100% rejected for a
+    missing ``display_name`` even though the customer writer accepts ``name``.
+    """
+    aliases = _REQUIRED_ALIASES.get(target_type, {})
+    canonical_required = list(aliases.keys())
 
     validated = []
     for i, rec in enumerate(records):
         errors = []
-        for field in required_fields:
-            if field not in rec or not rec[field].strip():
-                errors.append(f"Missing required field: {field}")
+        mapping = {}
+        for field in canonical_required:
+            accepted = aliases[field]
+            found = next(
+                (a for a in accepted
+                 if a in rec and str(rec.get(a) or "").strip()),
+                None,
+            )
+            if found is None:
+                errors.append(
+                    f"Missing required field: {field} "
+                    f"(accepted: {', '.join(accepted)})"
+                )
+            elif found != field:
+                # Normalize the alias onto the canonical field the writer reads.
+                rec[field] = rec[found]
+                mapping[field] = found
 
         warnings = []
         if target_type == "lead" and rec.get("email") and "@" not in rec.get("email", ""):
@@ -131,6 +171,7 @@ def _validate_records(records: List[Dict], target_type: str) -> List[Dict]:
             "valid": len(errors) == 0,
             "errors": errors,
             "warnings": warnings,
+            "field_mapping": mapping,
         })
     return validated
 
@@ -217,11 +258,30 @@ def commit_import(
     created = 0
     updated = 0
     errors = []
+    rejected = []
+    duplicates_skipped = 0
     evidence_ids = []
 
     try:
         for rec in preview_result.get("records", []):
             if rec.get("commit_action") == "reject":
+                # A rejected row is an OUTCOME, not silence. Record why so the
+                # caller never receives "success" for an import that changed
+                # nothing.
+                rejected.append({
+                    "row": rec.get("row"),
+                    "error": "; ".join(rec.get("errors") or [])
+                             or "rejected during validation/deduplication",
+                })
+                continue
+
+            # Identity resolution already established this row matches an
+            # existing canonical record. Re-creating it would duplicate a
+            # customer/supplier — importing the same file twice must not corrupt
+            # the graph. (There is no canonical update writer yet, so a match is
+            # reported as skipped rather than silently rewritten.)
+            if rec.get("identity_action") == "match":
+                duplicates_skipped += 1
                 continue
 
             data = rec["data"]
@@ -243,24 +303,57 @@ def commit_import(
             except Exception as e:
                 errors.append({"row": rec.get("row"), "error": str(e)})
 
-        if errors:
-            # Partial failure — rollback is not possible for already-committed rows
-            # with external side effects. Record the partial outcome honestly.
+        all_errors = errors + rejected
+
+        if created or updated:
+            if all_errors:
+                # Partial failure — rollback is not possible for already-committed
+                # rows with external side effects. Record the partial outcome
+                # honestly.
+                return {
+                    "status": "partial",
+                    "created": created,
+                    "updated": updated,
+                    "errors": all_errors,
+                    "rejected": len(rejected),
+                    "duplicates_skipped": duplicates_skipped,
+                    "evidence_ids": evidence_ids,
+                    "warning": "Import completed partially. See errors for rejected rows.",
+                }
             return {
-                "status": "partial",
+                "status": "completed",
                 "created": created,
                 "updated": updated,
-                "errors": errors,
+                "errors": [],
+                "rejected": 0,
+                "duplicates_skipped": duplicates_skipped,
                 "evidence_ids": evidence_ids,
-                "warning": "Import completed partially. See errors for rejected rows.",
             }
 
+        if duplicates_skipped and not all_errors:
+            # Every row already exists. Reporting "completed" with 0 created
+            # would read as a fake success; report the idempotent no-op.
+            return {
+                "status": "noop",
+                "created": 0,
+                "updated": 0,
+                "errors": [],
+                "rejected": 0,
+                "duplicates_skipped": duplicates_skipped,
+                "evidence_ids": evidence_ids,
+                "warning": "Nothing imported: every row already exists.",
+            }
+
+        # Nothing was imported. Never report this as success.
         return {
-            "status": "completed",
-            "created": created,
-            "updated": updated,
-            "errors": [],
+            "status": "rejected",
+            "created": 0,
+            "updated": 0,
+            "errors": all_errors,
+            "rejected": len(rejected),
+            "duplicates_skipped": duplicates_skipped,
             "evidence_ids": evidence_ids,
+            "warning": "No records were imported. Every row was rejected; see errors.",
         }
 
     except Exception as e:

@@ -195,15 +195,19 @@ def test_ai_action_journey(server, journey_app):
     identity_id = body.get("identity_id") or ""
     http.identity_id = identity_id
 
-    # ── 3. Verify tool handlers are registered ─────────────────────────────
+    # ── 3. Verify tool handlers are registered (public introspection) ─────
     from core.intelligence_runtime import get_runtime
+    from core.intelligence_runtime.integration import ensure_runtime
+    # Pin the shared-singleton wiring so this assertion does not depend on
+    # whether an earlier test in the suite already booted the runtime.
+    ensure_runtime()
     runtime = get_runtime()
     executor: ToolExecutionLayer = runtime.executor
-    registered_keys = list(executor._handlers.keys())
+    registered_keys = executor.registered_actions()
     step("handlers_registered",
-         "create_customer" in registered_keys
-         and "create_supplier" in registered_keys
-         and "search_objects" in registered_keys,
+         executor.is_registered("create_customer")
+         and executor.is_registered("create_supplier")
+         and executor.is_registered("search_objects"),
          f"registered: {registered_keys}")
 
     # ── 4. Create Customer via ToolExecutionLayer ─────────────────────────
@@ -350,23 +354,70 @@ def test_ai_action_journey(server, journey_app):
     finally:
         restarted.stop()
 
-    # ── 13. Executor.execute() dispatches correctly to registered handlers ──
+    # ── 13. ToolExecutionLayer dispatch contract — DETERMINISTIC ──────────
+    # The runtime executor is the process-global singleton (see
+    # core.intelligence_runtime.execution lifecycle doc). Its handler set is
+    # monotonic, so this proof pins its inputs instead of assuming a key is
+    # absent. Two independent proofs:
+    #   (a)-(c) the dispatch CONTRACT on an isolated layer (no order effects)
+    #   (d)-(e) the SHARED singleton's actual lifecycle
     with journey_app.app_context():
         from core.intelligence_runtime.types import ActionType, PlanStep
+        from core.intelligence_runtime.execution import ToolExecutionLayer as _TEL
 
-        # Test that executor.execute() finds the right handler when action matches
-        step_for_create = PlanStep(
-            action=ActionType.EXECUTE,
-            description="Create customer",
-            parameters={"name": "Executor-Test-Corp", "tenant_id": ORG_ID},
-        )
-        exec_result = executor.execute(step_for_create)
-    # ActionType.EXECUTE has value "execute" — our handler is "create_customer",
-    # so this correctly returns "skipped". Business-specific action routing
-    # requires intent→action mapping in the planner/reasoning layer.
-    step("executor_skipped_nonregistered",
-         exec_result.get("status") == "skipped",
-         f"executor for EXECUTE action: {exec_result.get('status')}")
+        # (a) registered action → dispatches to the CORRECT handler
+        isolated = _TEL()
+        calls: list = []
+
+        def _probe_handler(params):
+            calls.append(params.get("token"))
+            return {"echo": params.get("token")}
+
+        isolated.register(ActionType.ANSWER.value, _probe_handler)
+        iso_registered = isolated.execute(PlanStep(
+            action=ActionType.ANSWER, description="probe",
+            parameters={"token": "abc"}))
+        step("isolated_registered_dispatches",
+             iso_registered.get("status") == "success"
+             and iso_registered.get("result", {}).get("echo") == "abc"
+             and calls == ["abc"],
+             f"isolated registered -> {iso_registered.get('status')}")
+
+        # (b) unregistered action → deterministically "skipped"
+        iso_unregistered = isolated.execute(PlanStep(
+            action=ActionType.ROUTE, description="p", parameters={}))
+        step("isolated_unregistered_skipped",
+             iso_unregistered.get("status") == "skipped",
+             f"isolated unregistered -> {iso_unregistered.get('status')}")
+
+        # (c) repetition → identical result (determinism)
+        repeat = [isolated.execute(PlanStep(
+            action=ActionType.ROUTE, description="p", parameters={})).get("status")
+            for _ in range(2)]
+        step("unregistered_repeat_is_stable",
+             repeat == ["skipped", "skipped"]
+             and iso_unregistered.get("status") == "skipped",
+             f"repeats -> {repeat}")
+
+        # (d) shared singleton — ActionType.EXECUTE IS registered (ensure_runtime,
+        #     pinned in step 3) and therefore dispatches, not skips.
+        singleton_execute = executor.execute(PlanStep(
+            action=ActionType.EXECUTE, description="Create customer",
+            parameters={"name": "Executor-Test-Corp", "tenant_id": ORG_ID}))
+        step("singleton_execute_action_registered",
+             executor.is_registered(ActionType.EXECUTE.value)
+             and singleton_execute.get("status") == "success",
+             f"singleton EXECUTE -> {singleton_execute.get('status')}")
+
+        # (e) shared singleton — a genuinely unregistered ActionType skips.
+        #     Nothing in the codebase ever registers "defer" (verified by grep),
+        #     so this holds in every suite order.
+        singleton_defer = executor.execute(PlanStep(
+            action=ActionType.DEFER, description="Escalate", parameters={}))
+        step("singleton_unregistered_action_skipped",
+             not executor.is_registered(ActionType.DEFER.value)
+             and singleton_defer.get("status") == "skipped",
+             f"singleton DEFER -> {singleton_defer.get('status')}")
 
     # ── 14. SECURITY — anonymous read denied ──────────────────────────────
     anon = Http(server.base)

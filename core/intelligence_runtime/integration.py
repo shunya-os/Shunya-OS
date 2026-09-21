@@ -59,6 +59,20 @@ def reset_telemetry() -> None:
 _initialized = False
 
 
+def reset_runtime_wiring() -> None:
+    """Clear the ``ensure_runtime()`` guard so a fresh singleton can re-wire.
+
+    ``core.intelligence_runtime.runtime.reset_runtime()`` drops the singleton
+    (and clears its executor), so the wiring guard MUST be cleared with it.
+    Otherwise ``ensure_runtime()`` becomes a permanent no-op and the next
+    singleton stays forever unwired — i.e. the base action handlers
+    (``answer``/``clarify``/``execute``/``automate``) disappear after any reset,
+    making behaviour depend on test/suite order.
+    """
+    global _initialized
+    _initialized = False
+
+
 def ensure_runtime() -> None:
     """Ensure the runtime is fully wired with SHUNYA providers.
     

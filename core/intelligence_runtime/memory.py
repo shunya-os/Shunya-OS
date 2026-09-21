@@ -215,12 +215,31 @@ class MemoryEngine:
               identity_id: str = "", tenant_id: str = "") -> None:
         owner = identity_id or self._default_identity
         tid = tenant_id or self._default_tenant
-        self._repo.clear(identity_id=owner, tenant_id=tid, memory_type=memory_type)
+        self._clear_repository(owner, tid, memory_type)
         if memory_type:
             self._stores[memory_type].clear()
         else:
             for mt in MemoryType:
                 self._stores[mt].clear()
+
+    def _clear_repository(self, owner: str, tid: str,
+                          memory_type: MemoryType | None) -> None:
+        """Clear the durable repository, tolerating an unbound app context.
+
+        The DB-backed repository (wired by ``integration.ensure_runtime()``)
+        needs a Flask application context. The runtime's testing lifecycle —
+        ``reset_runtime()`` — may legitimately run without one, so in that case
+        there is no durable scope this process can clear: skip it rather than
+        raising, since the process-local stores are still cleared by the caller.
+        """
+        try:
+            from flask import has_app_context
+        except Exception:  # pragma: no cover — flask is a hard dependency
+            has_app_context = None
+        if (has_app_context is not None and not has_app_context()
+                and not isinstance(self._repo, InMemoryMemoryRepository)):
+            return
+        self._repo.clear(identity_id=owner, tenant_id=tid, memory_type=memory_type)
 
     def count(self, memory_type: MemoryType | None = None,
               identity_id: str = "", tenant_id: str = "") -> int:

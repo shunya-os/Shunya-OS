@@ -77,8 +77,24 @@ def commit():
             target_type=body.get("target_type", "lead"),
             identity_id=_identity_id(),
         )
-        status = 201 if result["status"] == "completed" else (200 if result["status"] == "partial" else 500)
-        return jsonify({"success": True if result["status"] != "failed" else False, "data": result}), status
+        #   completed -> 201 (records written)
+        #   partial   -> 200 (some written, some rejected)
+        #   noop      -> 200 (nothing to do: every row already exists)
+        #   rejected  -> 400 (nothing written: the data was invalid)
+        #   failed    -> 500 (server-side failure)
+        status_by_outcome = {
+            "completed": 201,
+            "partial": 200,
+            "noop": 200,
+            "rejected": 400,
+            "failed": 500,
+        }
+        outcome = str(result.get("status") or "")
+        status = status_by_outcome[outcome] if outcome in status_by_outcome else 500
+        return jsonify({
+            "success": outcome in ("completed", "partial", "noop"),
+            "data": result,
+        }), status
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

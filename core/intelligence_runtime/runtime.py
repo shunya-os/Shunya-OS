@@ -210,7 +210,19 @@ def get_runtime() -> IntelligenceRuntime:
 
 
 def reset_runtime() -> None:
+    """Drop the singleton and clear its state.
+
+    Also clears the integration wiring guard (``ensure_runtime()``) so the next
+    ``get_runtime()`` can be fully re-wired. Without that, resetting the runtime
+    would permanently strip its base action handlers and make behaviour depend
+    on call order.
+    """
     global _INSTANCE
     if _INSTANCE:
         _INSTANCE.reset()
     _INSTANCE = None
+    try:
+        from .integration import reset_runtime_wiring
+        reset_runtime_wiring()
+    except Exception:  # pragma: no cover — integration is always importable
+        pass
