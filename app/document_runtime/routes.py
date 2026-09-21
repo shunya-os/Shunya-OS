@@ -1,5 +1,26 @@
-"""EP-05 — Universal Document Runtime API.
-FDA24 consolidated: injection detection + context added to canonical doc_bp.
+"""EP-05 — Universal Document Runtime API (document EXTENSION surface).
+
+Route-ownership contract (guarded by tests/test_document_route_ownership.py):
+
+  * The COLLECTION rule ``GET /api/v1/documents`` is owned by
+    ``app.document.document_intel_bp`` — the RBAC + tenant-isolated document
+    intelligence surface (``@require_permission("knowledge.view")``).
+    This blueprint previously registered the IDENTICAL rule as well, and which
+    one served a request was decided silently by blueprint registration order.
+    That is security-relevant: this module only checks an identity header
+    (``X-Identity-Id``/``g.identity_id``), while the canonical surface enforces a
+    permission and tenant scoping.
+  * ``GET /api/v1/documents/<non-int>`` is the only document-by-id request that
+    reaches this blueprint; ``<int:doc_id>`` is more specific and resolves to
+    ``document_intel_bp``.
+  * ``/api/v1/workspace/documents/*`` (``app.documents_api``) is the FRONTEND
+    contract (``frontend/src/components/documents/document-browser.tsx``).
+
+This module's remaining routes are the lifecycle/intelligence EXTENSION surface:
+transition, ocr, risk, recommend, evidence, context, relationships, search,
+types, check-injection.
+
+FDA24 consolidated: injection detection + context added here.
 """
 
 from flask import Blueprint, jsonify, request, g
@@ -30,8 +51,13 @@ def create_document():
     return jsonify({"success": True, "data": doc.to_dict()}), 201
 
 
-@doc_bp.route("", methods=["GET"])
+# NOTE: this blueprint deliberately does NOT register GET /api/v1/documents.
+# That collection rule is owned by app.document.document_intel_bp (RBAC +
+# tenant isolation). Two blueprints previously registered the identical rule and
+# registration order silently decided the winner. Unrouted-but-retained: the
+# implementation is preserved, the ambiguous route is not.
 def list_documents():
+    """Superseded — document_intel.api_list owns GET /api/v1/documents."""
     identity_id = _require_identity()
     if not identity_id:
         return jsonify({"success": False, "error": "Authentication required"}), 401
