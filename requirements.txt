@@ -49,3 +49,13 @@ openai>=1.0
 pdfplumber>=0.11
 python-docx>=1.1
 openpyxl>=3.1
+
+# Gmail / Google Workspace integration.
+# app/integration/gmail_adapter.py imports these to build a real Gmail service.
+# It was never declared here, and its ImportError path does NOT fail — it falls
+# back to _MockGmailService, so an environment built from this file would serve
+# MOCK Gmail data as though it were real. Declared so the dependency is explicit
+# and the mock fallback is not reached in a correctly provisioned environment.
+google-api-python-client>=2.100
+google-auth>=2.30
+google-auth-oauthlib>=1.2

@@ -50,7 +50,10 @@ from app.integration.service import (
     save_content_generation,
     save_content_history,
     save_social_account,
-    simulate_platform_post,
+    # NOTE: `simulate_platform_post` is intentionally NOT imported here any more.
+    # It fabricated a success payload with no external call, and this module's
+    # publish route used it to persist status="published". The helper still
+    # exists in service.py for development use; no production route wires it.
     toggle_favorite_content,
     update_ad_campaign,
     update_content_generation,
@@ -363,7 +366,24 @@ def api_delete_post(post_id: int):
 @integration_bp.route("/social/posts/<int:post_id>/publish", methods=["POST"])
 @require_permission("admin.manage_integrations")
 def api_publish_post(post_id: int):
-    """Publish a post to its social platform (simulated)."""
+    """Publish a post to its social platform.
+
+    NOT IMPLEMENTED — this deliberately REFUSES rather than fabricating success.
+
+    Previously this called `simulate_platform_post()`, which performs no external
+    call and returns a synthetic payload, and then persisted
+    ``status="published"`` plus ``published_at`` while returning
+    ``{"success": True}``. A caller therefore got a success response AND the
+    database recorded the post as published when it had been sent nowhere — fake
+    success plus a state that misrepresents reality (§21: every production
+    capability must terminate in real state; §10: no buttons that fake it).
+
+    No real publisher exists for any platform (no per-platform OAuth credentials
+    are configured in this codebase), so until one does this returns 501 and
+    leaves the post's status UNCHANGED, letting the UI tell the user the truth.
+    `simulate_platform_post` is retained in service.py as a development helper but
+    is no longer wired into a production route.
+    """
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     from app.integration.models import ScheduledPost
@@ -371,17 +391,15 @@ def api_publish_post(post_id: int):
     if not post:
         return jsonify({"success": False, "error": "Post not found"}), 404
 
-    result = simulate_platform_post(post.platform, post.content)
-    post.status = "published"
-    post.published_at = datetime.now(timezone.utc)
-    from app import db
-    db.session.commit()
-
-    return jsonify({"success": True, "data": {
-        **result,
+    return jsonify({
+        "success": False,
+        "error": "No social platform connector is configured — this post was NOT published.",
+        "detail": ("Publishing requires per-platform OAuth credentials, which are not "
+                   "present. The post's status has been left unchanged."),
         "post_id": post_id,
-        "status": "published",
-    }})
+        "status": post.status,
+        "published": False,
+    }), 501
 
 
 # =========================================================================
