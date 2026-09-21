@@ -38,3 +38,14 @@ httpx>=0.28
 ddgs>=9.0
 Pillow>=10.0
 openai>=1.0
+
+# Document extraction.
+# These three are IMPORTED BY PRODUCTION CODE (app/document/routes_api.py
+# _extract_pdf_text / _extract_docx_text / _extract_xlsx_text) but were never
+# declared here, so an environment built from this file could not extract
+# PDF/DOCX/XLSX text at all — the extractors swallow the ImportError and return
+# empty text, which silently makes every document "unknown". Declared so the
+# dependency is explicit and installable.
+pdfplumber>=0.11
+python-docx>=1.1
+openpyxl>=3.1

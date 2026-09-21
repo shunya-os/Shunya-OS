@@ -9,9 +9,12 @@ NEUTRAL filenames (`doc-8371.pdf`, `scan-2210.docx`, ...). If the itinerary
 hierarchy came from the name it could not appear; the only source of "Bali" and
 "International" is the text extracted from inside the real PDF bytes.
 
-Documents are GENERATED at test time (reportlab / python-docx / openpyxl), so no
-binary fixtures are committed and the bytes are genuinely parsable by the same
-libraries production uses (pdfplumber / python-docx / openpyxl).
+Documents are GENERATED at test time with the STANDARD LIBRARY only (a
+hand-written PDF, plus python-docx / openpyxl, which are declared production
+dependencies), so no binary fixtures are committed and the bytes are genuinely
+parsable by the same libraries production uses (pdfplumber / python-docx /
+openpyxl). The PDF is assembled by hand because reportlab is NOT a declared
+dependency and a test fixture must not add one.
 
 IMAGE + OCR: an image cannot be content-classified without an OCR provider.
 pytesseract is NOT installed in this environment, so the image case asserts only
@@ -88,19 +91,46 @@ QUOTATION_TEXT = [
 # ---------------------------------------------------------------------------
 
 def make_pdf(lines: list[str]) -> bytes:
-    from reportlab.lib.pagesizes import A4
-    from reportlab.pdfgen import canvas
+    """Build a minimal but REAL PDF with the standard library only.
 
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    _, height = A4
-    y = height - 60
+    reportlab is not a declared dependency (and is absent in CI), and a test
+    fixture must not add a production dependency, so the PDF is assembled by
+    hand: a valid xref table, a page, and a Helvetica text stream using Tj/T*
+    operators — which is exactly what pdfplumber parses in production.
+    """
+    def esc(s: str) -> str:
+        return s.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
+
+    parts = ["BT", "/F1 11 Tf", "14 TL", "55 780 Td"]
     for line in lines:
-        c.drawString(55, y, line)
-        y -= 16
-    c.showPage()
-    c.save()
-    return buf.getvalue()
+        parts.append(f"({esc(line)}) Tj")
+        parts.append("T*")
+    parts.append("ET")
+    stream = "\n".join(parts).encode("latin-1")
+
+    bodies = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+         b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"),
+        (b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n"
+         + stream + b"\nendstream"),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for idx, body in enumerate(bodies, start=1):
+        offsets.append(len(out))
+        out += f"{idx} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref_at = len(out)
+    out += f"xref\n0 {len(bodies) + 1}\n".encode()
+    out += b"0000000000 65535 f \n"
+    for off in offsets:
+        out += f"{off:010d} 00000 n \n".encode()
+    out += (f"trailer\n<< /Size {len(bodies) + 1} /Root 1 0 R >>\n"
+            f"startxref\n{xref_at}\n%%EOF\n").encode()
+    return bytes(out)
 
 
 def make_docx(lines: list[str]) -> bytes:
