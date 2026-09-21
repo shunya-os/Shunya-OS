@@ -195,7 +195,7 @@ export const LivingPresence: FC<{ compact?: boolean }> = ({ compact = false }) =
 .lp-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .lp-label { font-size: 12px; font-weight: 500; color: var(--shunya-text, #1A1C1D); white-space: nowrap; }
 .lp-count { font-weight: 400; color: rgba(26,28,29,0.5); }
-.lp-activity { font-size: 10px; color: rgba(26,28,29,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp-activity { font-size: 10px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.66)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 640px) {
   .lp-activity { display: none; }
   .lp-presence { padding: 5px 9px; }

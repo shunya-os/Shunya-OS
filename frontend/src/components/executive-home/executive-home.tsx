@@ -629,7 +629,7 @@ function IntegratedCommand() {
           </motion.div>
         ) : (
           <button className="pw-command-trigger" onClick={() => setCommandOpen(true)}>
-            <span className="pw-command-trigger-icon">
+            <span className="pw-command-trigger-icon" aria-hidden="true">
                           {activeExecutions.length > 0 ? <IconRefresh size={14} /> : <IconArrowRight size={14} />}
                         </span>
             <span className="pw-command-trigger-text">
@@ -1268,7 +1268,7 @@ styles.textContent = `
 .pw-attention-critical .pw-attention-priority { color: #c0392b; }
 .pw-attention-high .pw-attention-priority { color: #e67e22; }
 .pw-attention-normal .pw-attention-priority { color: #6a9f6a; }
-.pw-attention-count { font-size: 11px; color: rgba(26,28,29,0.45); }
+.pw-attention-count { font-size: 11px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.66)); }
 .pw-attention-title {
   font-size: 18px; font-weight: 500;
   color: var(--shunya-text, #1A1C1D);
@@ -1301,13 +1301,13 @@ styles.textContent = `
   border-color: var(--shunya-gold, #a4865f);
 }
 .pw-attention-btn-primary:hover { opacity: 0.85; }
-.pw-attention-btn-ghost { border-color: transparent; color: rgba(26,28,29,0.45); }
+.pw-attention-btn-ghost { border-color: transparent; color: var(--shunya-text-tertiary, rgba(26,28,29,0.66)); }
 
 /* ── Narrative ────────────────────────────────────────────── */
 .pw-narrative { margin-bottom: 20px; }
 .pw-narrative-header { margin-bottom: 8px; }
 .pw-narrative-label {
-  font-size: 12px; font-weight: 500; color: rgba(26,28,29,0.4);
+  font-size: 12px; font-weight: 500; color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   text-transform: uppercase; letter-spacing: 0.06em;
 }
 .pw-narrative-items { display: flex; flex-direction: column; gap: 4px; }
@@ -1324,9 +1324,9 @@ styles.textContent = `
   font-size: 13px; color: var(--shunya-text, #1A1C1D); line-height: 1.4;
 }
 .pw-narrative-detail { font-size: 12px; color: rgba(26,28,29,0.55); }
-.pw-narrative-time { font-size: 11px; color: rgba(26,28,29,0.35); }
+.pw-narrative-time { font-size: 11px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.66)); }
 .pw-narrative-empty {
-  font-size: 13px; color: rgba(26,28,29,0.45); font-style: italic;
+  font-size: 13px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.66)); font-style: italic;
 }
 
 /* ── Calm State ───────────────────────────────────────────── */
@@ -1350,7 +1350,7 @@ styles.textContent = `
   font-size: 13px; color: var(--shunya-gold, #a4865f);
   margin: 0;
 }
-.pw-calm-updated { font-size: 11px; color: rgba(26,28,29,0.3); }
+.pw-calm-updated { font-size: 11px; color: var(--shunya-text-tertiary, rgba(26,28,29,0.66)); }
 
 /* ── Work Visibility ──────────────────────────────────────── */
 .pw-work {
@@ -1376,7 +1376,7 @@ styles.textContent = `
 }
 .pw-work-toggle {
   font-size: 10px;
-  color: rgba(26,28,29,0.3);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
 }
 .pw-work-items {
   border-top: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
@@ -1403,7 +1403,7 @@ styles.textContent = `
 }
 .pw-work-owner {
   font-size: 11px;
-  color: rgba(26,28,29,0.45);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   padding: 1px 6px;
   border-radius: 4px;
   background: rgba(26,28,29,0.04);
@@ -1411,7 +1411,7 @@ styles.textContent = `
 }
 .pw-work-time {
   font-size: 11px;
-  color: rgba(26,28,29,0.3);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   flex-shrink: 0;
 }
 .pw-work-track {
@@ -1486,15 +1486,20 @@ styles.textContent = `
 .pw-org-toggle {
   background: transparent;
   border: none;
-  color: rgba(26,28,29,0.35);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   cursor: pointer;
   padding: 4px;
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 4px;
 }
 .pw-org-toggle:hover { color: var(--shunya-text, #1A1C1D); }
 .pw-org-hint {
   font-size: 11px;
-  color: rgba(26,28,29,0.35);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   padding: 0 16px 8px;
   margin: 0;
 }
@@ -1509,6 +1514,7 @@ styles.textContent = `
   gap: 10px;
   width: 100%;
   padding: 8px 10px;
+  min-height: 44px;
   border: none;
   border-radius: 6px;
   background: transparent;
@@ -1534,14 +1540,14 @@ styles.textContent = `
 }
 .pw-org-domain-count {
   font-size: 11px;
-  color: rgba(26,28,29,0.35);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   background: rgba(26,28,29,0.06);
   padding: 1px 6px;
   border-radius: 8px;
 }
 .pw-org-footer {
   font-size: 10px;
-  color: rgba(26,28,29,0.3);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   padding: 12px 16px;
   margin: 0;
   text-align: center;
@@ -1590,14 +1596,14 @@ styles.textContent = `
 .pw-command-trigger-text {
   flex: 1;
   font-size: 13px;
-  color: rgba(26,28,29,0.45);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
 }
 .pw-command-kbd {
   font-size: 11px;
   padding: 2px 8px;
   border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
   border-radius: 4px;
-  color: rgba(26,28,29,0.35);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   flex-shrink: 0;
 }
 .pw-command-expanded {
@@ -1627,7 +1633,7 @@ styles.textContent = `
   color: var(--shunya-text, #1A1C1D);
   padding: 6px 0;
 }
-.pw-command-input::placeholder { color: rgba(26,28,29,0.3); }
+.pw-command-input::placeholder { color: var(--shunya-text-tertiary, rgba(26,28,29,0.66)); }
 
 /* ── Voice Input ──────────────────────────────────────────── */
 .pw-voice {
@@ -1762,7 +1768,7 @@ styles.textContent = `
 }
 .pw-domain-loading {
   font-size: 13px;
-  color: rgba(26,28,29,0.45);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   font-style: italic;
 }
 .pw-domain-data {
@@ -1785,7 +1791,7 @@ styles.textContent = `
 }
 .pw-domain-empty-hint {
   font-size: 13px;
-  color: rgba(26,28,29,0.45);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   font-style: italic;
 }
 .pw-domain-actions { }
@@ -1881,7 +1887,7 @@ styles.textContent = `
 .pw-mobile-nav-title {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(26,28,29,0.4);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin: 0 0 8px;
@@ -1954,7 +1960,7 @@ styles.textContent = `
 .pw-status-lead { color: #a4865f; }
 .pw-commercial-date {
   font-size: 11px;
-  color: rgba(26,28,29,0.35);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
 }
 .pw-tab-btn {
   padding: 6px 16px;
@@ -2046,7 +2052,7 @@ styles.textContent = `
 }
 .pw-loading-text {
   font-size: 13px;
-  color: rgba(26,28,29,0.45);
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
 }
 .pw-error {
   display: flex;

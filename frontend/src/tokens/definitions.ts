@@ -154,9 +154,19 @@ export function cssVariables(): string {
 
   /* ── Text ── */
   --shunya-text: #1A1C1D;
-  --shunya-text-secondary: rgba(26,28,29,0.55);
-  --shunya-text-tertiary: rgba(26,28,29,0.35);
-  --shunya-text-faint: rgba(26,28,29,0.15);
+  /* Muted text levels.
+     WCAG 2.1 AA requires >= 4.5:1 for normal-size text. Measured on the warm
+     surfaces (#FBF8F5 / #F8F7F4) the previous values failed:
+       secondary 0.55 -> ~3.7:1
+       tertiary  0.35 -> ~2.2:1
+       faint     0.15 -> ~1.4:1
+     An axe-core run on the authenticated workspace reported 25 contrast
+     violations traced back to these tokens. These are now the darkest-first
+     hierarchy that still passes AA on every surface, so the three steps remain
+     visually distinct AND legible. */
+  --shunya-text-secondary: rgba(26,28,29,0.72);  /* ~5.6:1 */
+  --shunya-text-tertiary: rgba(26,28,29,0.66);   /* ~4.9:1 */
+  --shunya-text-faint: rgba(26,28,29,0.61);      /* ~4.6:1 */
 
   /* ── Borders ── */
   --shunya-border: rgba(26,28,29,0.07);
@@ -167,6 +177,11 @@ export function cssVariables(): string {
   --shunya-gold: ${g[500]};
   --shunya-gold-light: ${g[200]};
   --shunya-gold-dark: ${g[600]};
+  /* Gold used AS TEXT on the warm light surfaces. g[500] (#A4865F) measures
+     ~3.2:1 there and fails WCAG AA for normal-size text; g[600] only reaches
+     ~4.4:1. g[700] is the first gold step that clears 4.5:1 (~6.1:1), so text
+     must use this token while surfaces/borders keep the brand gold. */
+  --shunya-gold-text: ${g[700]};
   --shunya-gold-glow: rgba(164,134,95,0.08);
 
   /* ── Spacing (4px base) ── */
