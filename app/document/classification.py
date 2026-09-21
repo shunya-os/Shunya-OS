@@ -49,6 +49,22 @@ _SIGNALS: dict[str, list[tuple[str, float]]] = {
         (r"\bestimate\b", 1.0),
         (r"\boffer\b", 0.8),
     ],
+    # Travel documents. detect_hierarchy() has always special-cased an
+    # "itinerary" class, but the classifier had NO signal group for it — so a
+    # real travel itinerary was reported as "unknown" while its own hierarchy
+    # still said "Itinerary". That contradiction is what these signals close.
+    "itinerary": [
+        (r"\bitinerary\b", 2.0),
+        (r"\bcheck[- ]?in\b", 1.2),
+        (r"\bcheck[- ]?out\b", 1.2),
+        (r"\bpassenger\b|\bguest\b", 1.0),
+        (r"\bflight\b|\bboarding\b|\bdeparture\b|\barrival\b", 1.2),
+        (r"\bhotel\b|\breservation\b|\bbooking\b", 1.2),
+        (r"\bdestination\b", 1.0),
+        (r"\btrip\b|\bvacation\b|\bhoneymoon\b|\bretreat\b", 1.0),
+        (r"\bday\s*\d+\b", 0.6),
+        (r"\bpassport\b|\bvisa\b", 1.0),
+    ],
     DocumentClassification.CONTRACT: [
         (r"\bcontract\b", 2.0),
         (r"\bagreement\b", 1.8),
@@ -200,7 +216,13 @@ def detect_hierarchy(text: str, filename: str = "", file_type: str = "",
 
     Returns a list of path segments from most general to most specific.
     """
-    text = (text or "").strip().lower()
+    # Keep the ORIGINAL casing for the extractors: _extract_destination and
+    # _extract_vendor match TitleCase patterns ([A-Z][a-z]+), so running them on
+    # a lowercased string can never match — which silently disabled destination
+    # and vendor naming in every hierarchy. Signals are matched on the
+    # lowercased copy only.
+    raw_text = (text or "").strip()
+    text = raw_text.lower()
     hierarchy: list[str] = []
     cls_label = base_classification or ""
 
@@ -217,7 +239,7 @@ def detect_hierarchy(text: str, filename: str = "", file_type: str = "",
             hierarchy.append("Travel")
 
         # Extract destination / trip name
-        dest = _extract_destination(text)
+        dest = _extract_destination(raw_text)
         if dest:
             hierarchy.append(dest)
 
@@ -226,7 +248,7 @@ def detect_hierarchy(text: str, filename: str = "", file_type: str = "",
         hierarchy.append("Invoice")
 
         # Detect vendor
-        vendor = _extract_vendor(text)
+        vendor = _extract_vendor(raw_text)
         if vendor:
             hierarchy.append(f"Vendor")
             hierarchy.append(vendor)

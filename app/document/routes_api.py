@@ -203,6 +203,22 @@ def _apply_intelligence(doc: Any, extracted_text: str, mime_type: str) -> dict[s
     return intel
 
 
+def _text_fields(text: str, cap: int = 20000) -> dict[str, Any]:
+    """Expose the text SHUNYA actually read from the document.
+
+    The upload response advertised `extraction_available: true` while returning
+    NO text at all, so a caller could not see the basis of the classification.
+    The field is bounded so a very large document cannot bloat the response; the
+    true length and a truncation flag are always reported.
+    """
+    text = text or ""
+    return {
+        "extracted_text": text[:cap],
+        "extracted_text_length": len(text),
+        "extracted_text_truncated": len(text) > cap,
+    }
+
+
 def _build_document_response(doc: Any) -> dict[str, Any]:
     """Build a JSON-serializable document response with full intelligence."""
     from app.document.intelligence import read_intelligence
@@ -218,6 +234,7 @@ def _build_document_response(doc: Any) -> dict[str, Any]:
         "hierarchy": intel.get("hierarchy", []) if intel else [],
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
         "updated_at": None,
+        **_text_fields(getattr(doc, "extracted_text", "")),
     }
 
 
@@ -315,6 +332,7 @@ def api_upload():
             "intelligence": intelligence_data,
             "hierarchy": intelligence_data.get("hierarchy", []),
             "created_at": doc.created_at.isoformat() if doc.created_at else None,
+            **_text_fields(extracted_text),
         },
     }
 
