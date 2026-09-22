@@ -11,7 +11,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   IconPalette, IconEdit, IconSparkles, IconCheck, IconClipboard,
-  IconAlertTriangle, IconX, IconSpeakerphone,
+  IconAlertTriangle, IconX, IconSpeakerphone, IconArchive, IconTrash,
 } from '@tabler/icons-react';
 
 // ── Canonical Types ──────────────────────────────────────────
@@ -117,6 +117,28 @@ async function apiGetAssets(): Promise<MediaAsset[]> {
     return body.data;
   } catch {
     return [];
+  }
+}
+
+async function apiArchiveAsset(assetId: number): Promise<boolean> {
+  try {
+    const resp = await fetch(`/api/v1/media/assets/${assetId}/archive`, {
+      method: 'POST', credentials: 'include',
+    });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function apiTrashAsset(assetId: number): Promise<boolean> {
+  try {
+    const resp = await fetch(`/api/v1/media/assets/${assetId}/trash`, {
+      method: 'POST', credentials: 'include',
+    });
+    return resp.ok;
+  } catch {
+    return false;
   }
 }
 
@@ -359,6 +381,31 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
                   <span className={`cs-history-state cs-state-${asset.runtime_state}`}>
                     {stateLabel(asset.runtime_state)}
                   </span>
+                  {/* Archive / Trash actions for generated assets */}
+                  <div className="cs-history-actions" onClick={e => e.stopPropagation()}>
+                    <button
+                      className="cs-history-action-btn"
+                      title="Archive"
+                      onClick={async () => {
+                        if (await apiArchiveAsset(asset.id)) {
+                          setHistory(prev => prev.filter(a => a.id !== asset.id));
+                        }
+                      }}
+                    >
+                      <IconArchive size={12} />
+                    </button>
+                    <button
+                      className="cs-history-action-btn cs-action-trash"
+                      title="Trash"
+                      onClick={async () => {
+                        if (await apiTrashAsset(asset.id)) {
+                          setHistory(prev => prev.filter(a => a.id !== asset.id));
+                        }
+                      }}
+                    >
+                      <IconTrash size={12} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -680,6 +727,34 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
   color: #5a3bc9;
 }
 .cs-state-failed {
+  background: rgba(185,28,28,0.1);
+  color: #991b1b;
+}
+
+/* ── History card action buttons ── */
+.cs-history-actions {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+}
+.cs-history-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--shunya-text-secondary, rgba(26,28,29,0.45));
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+.cs-history-action-btn:hover {
+  background: var(--shunya-surface-1, #e8e4de);
+  color: var(--shunya-text, #1A1C1D);
+}
+.cs-action-trash:hover {
   background: rgba(185,28,28,0.1);
   color: #991b1b;
 }
