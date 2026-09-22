@@ -150,6 +150,7 @@ export const ImportExportPanel: FC = () => {
                       <select value={targetType} onChange={e => setTargetType(e.target.value)} className="wksp-input wksp-input-sm">
                         <option value="lead">Leads</option>
                         <option value="customer">Customers</option>
+                        <option value="supplier">Suppliers</option>
                         <option value="campaign">Campaigns</option>
                       </select>
                     </label>
@@ -161,6 +162,7 @@ export const ImportExportPanel: FC = () => {
                     <select value={targetType} onChange={e => setTargetType(e.target.value)} className="wksp-input wksp-input-sm">
                       <option value="lead">Leads</option>
                       <option value="customer">Customers</option>
+                      <option value="supplier">Suppliers</option>
                       <option value="campaign">Campaigns</option>
                     </select>
                   </label>
