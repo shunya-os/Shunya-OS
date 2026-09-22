@@ -129,7 +129,7 @@ def api_list_assets():
 
     from app.media.service import list_assets
 
-    items, total = list_assets(_identity_id(), limit=limit, offset=offset, lifecycle_status=lifecycle_status)
+    items, total = list_assets(_identity_id(), _organization_id(), limit=limit, offset=offset, lifecycle_status=lifecycle_status)
 
     return jsonify({"success": True, "data": items, "total": total})
 
@@ -143,7 +143,7 @@ def api_get_asset(asset_id: int):
 
     from app.media.service import get_asset
 
-    asset = get_asset(asset_id, _identity_id())
+    asset = get_asset(asset_id, _identity_id(), _organization_id())
     if not asset:
         return jsonify({"success": False, "error": "Not found"}), 404
 
@@ -197,7 +197,7 @@ def api_archive_asset(asset_id: int):
     if not _require_auth():
         return jsonify({"success": False, "error": "Authentication required"}), 401
     from app.media.service import archive_asset
-    asset = archive_asset(asset_id, _identity_id())
+    asset = archive_asset(asset_id, _identity_id(), _organization_id())
     if not asset:
         return jsonify({"success": False, "error": "Asset not found or not in active state"}), 404
     return jsonify({"success": True, "data": asset})
@@ -210,7 +210,7 @@ def api_trash_asset(asset_id: int):
     if not _require_auth():
         return jsonify({"success": False, "error": "Authentication required"}), 401
     from app.media.service import trash_asset
-    asset = trash_asset(asset_id, _identity_id())
+    asset = trash_asset(asset_id, _identity_id(), _organization_id())
     if not asset:
         return jsonify({"success": False, "error": "Asset not found or cannot be trashed"}), 404
     return jsonify({"success": True, "data": asset})
@@ -223,7 +223,7 @@ def api_restore_asset(asset_id: int):
     if not _require_auth():
         return jsonify({"success": False, "error": "Authentication required"}), 401
     from app.media.service import restore_asset
-    asset = restore_asset(asset_id, _identity_id())
+    asset = restore_asset(asset_id, _identity_id(), _organization_id())
     if not asset:
         return jsonify({"success": False, "error": "Asset not found or not in recoverable state"}), 404
     return jsonify({"success": True, "data": asset})
@@ -236,7 +236,7 @@ def api_permanent_delete_asset(asset_id: int):
     if not _require_auth():
         return jsonify({"success": False, "error": "Authentication required"}), 401
     from app.media.service import permanently_delete_asset
-    if not permanently_delete_asset(asset_id, _identity_id()):
+    if not permanently_delete_asset(asset_id, _identity_id(), _organization_id()):
         return jsonify({"success": False, "error": "Asset not found, not in trashed state, or not authorized"}), 404
     return jsonify({"success": True})
 

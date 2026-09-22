@@ -401,10 +401,10 @@ def _generate_visual_concept(
     )
 
 
-def get_asset(asset_id: int, identity_id: str) -> Optional[dict]:
-    """Get a single media asset by ID (scoped to identity)."""
+def get_asset(asset_id: int, identity_id: str, organization_id: Optional[int]) -> Optional[dict]:
+    """Get a single media asset by ID (scoped to identity + organization)."""
     asset = MediaAsset.query.filter_by(
-        id=asset_id, identity_id=identity_id
+        id=asset_id, identity_id=identity_id, organization_id=organization_id
     ).first()
     if not asset:
         return None
@@ -412,10 +412,10 @@ def get_asset(asset_id: int, identity_id: str) -> Optional[dict]:
 
 
 def list_assets(
-    identity_id: str, limit: int = 50, offset: int = 0,
+    identity_id: str, organization_id: Optional[int], limit: int = 50, offset: int = 0,
     lifecycle_status: Optional[str] = None
 ) -> tuple[list[dict], int]:
-    """List media assets for an identity, newest first.
+    """List media assets for an identity + organization, newest first.
 
     Args:
         lifecycle_status: If set, filter by lifecycle_status (active, archived, trashed).
@@ -423,26 +423,26 @@ def list_assets(
     """
     if lifecycle_status:
         q = (
-            MediaAsset.query.filter_by(identity_id=identity_id, lifecycle_status=lifecycle_status)
+            MediaAsset.query.filter_by(identity_id=identity_id, organization_id=organization_id, lifecycle_status=lifecycle_status)
             .order_by(MediaAsset.created_at.desc())
             .offset(offset)
             .limit(limit)
         )
     else:
         q = (
-            MediaAsset.query.filter_by(identity_id=identity_id, lifecycle_status="active")
+            MediaAsset.query.filter_by(identity_id=identity_id, organization_id=organization_id, lifecycle_status="active")
             .order_by(MediaAsset.created_at.desc())
             .offset(offset)
             .limit(limit)
         )
     items = q.all()
-    total = MediaAsset.query.filter_by(identity_id=identity_id, lifecycle_status=lifecycle_status or "active").count()
+    total = MediaAsset.query.filter_by(identity_id=identity_id, organization_id=organization_id, lifecycle_status=lifecycle_status or "active").count()
     return [a.to_canonical() for a in items], total
 
 
-def archive_asset(asset_id: int, identity_id: str) -> Optional[dict]:
+def archive_asset(asset_id: int, identity_id: str, organization_id: Optional[int]) -> Optional[dict]:
     """Move an active asset to ARCHIVED."""
-    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id, lifecycle_status="active").first()
+    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id, organization_id=organization_id, lifecycle_status="active").first()
     if not asset:
         return None
     asset.lifecycle_status = "archived"
@@ -452,9 +452,9 @@ def archive_asset(asset_id: int, identity_id: str) -> Optional[dict]:
     return asset.to_canonical()
 
 
-def trash_asset(asset_id: int, identity_id: str) -> Optional[dict]:
+def trash_asset(asset_id: int, identity_id: str, organization_id: Optional[int]) -> Optional[dict]:
     """Move an asset to TRASHED (recoverable deletion)."""
-    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id).first()
+    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id, organization_id=organization_id).first()
     if not asset:
         return None
     # Only active and archived can be trashed
@@ -467,9 +467,9 @@ def trash_asset(asset_id: int, identity_id: str) -> Optional[dict]:
     return asset.to_canonical()
 
 
-def restore_asset(asset_id: int, identity_id: str) -> Optional[dict]:
+def restore_asset(asset_id: int, identity_id: str, organization_id: Optional[int]) -> Optional[dict]:
     """Restore an asset from TRASHED or ARCHIVED back to ACTIVE."""
-    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id).first()
+    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id, organization_id=organization_id).first()
     if not asset:
         return None
     if asset.lifecycle_status not in ("trashed", "archived"):
@@ -481,13 +481,13 @@ def restore_asset(asset_id: int, identity_id: str) -> Optional[dict]:
     return asset.to_canonical()
 
 
-def permanently_delete_asset(asset_id: int, identity_id: str) -> bool:
+def permanently_delete_asset(asset_id: int, identity_id: str, organization_id: Optional[int]) -> bool:
     """Permanently delete an asset. Only TRASHED assets can be permanently deleted.
 
     Removes the database record and the file from storage.
     Returns True if deleted, False if not found/authorized.
     """
-    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id, lifecycle_status="trashed").first()
+    asset = MediaAsset.query.filter_by(id=asset_id, identity_id=identity_id, organization_id=organization_id, lifecycle_status="trashed").first()
     if not asset:
         return False
     # Remove the file from disk if it exists
