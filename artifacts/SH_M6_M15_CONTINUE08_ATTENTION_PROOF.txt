@@ -1,0 +1,32 @@
+{"asctime": "2026-10-08 22:00:30,363", "name": "app", "levelname": "INFO", "message": "Logging initialised", "request_id": "bootstrap"}
+{"asctime": "2026-10-08 22:00:30,372", "name": "app", "levelname": "INFO", "message": "CORS disabled \u2014 frontend served from same origin", "request_id": null}
+{"asctime": "2026-10-08 22:00:30,372", "name": "app", "levelname": "INFO", "message": "Rate limiter initialised (storage: memory://)", "request_id": null}
+{"asctime": "2026-10-08 22:00:30,973", "name": "app.campaign.adapter", "levelname": "INFO", "message": "Campaign provider registered: meta", "request_id": null}
+{"asctime": "2026-10-08 22:00:30,973", "name": "app.campaign.adapter", "levelname": "INFO", "message": "Campaign provider registered: google", "request_id": null}
+{"asctime": "2026-10-08 22:00:32,274", "name": "app.ai.tool_registry", "levelname": "INFO", "message": "Registered AI tool handlers: create_customer, create_supplier, search_objects", "request_id": null}
+{"asctime": "2026-10-08 22:00:32,274", "name": "app", "levelname": "INFO", "message": "GATE 12: AI tool handlers registered", "request_id": null}
+{"asctime": "2026-10-08 22:00:32,312", "name": "app.integration.registry", "levelname": "INFO", "message": "Integration registered: email (Gmail)", "request_id": null}
+{"asctime": "2026-10-08 22:00:32,312", "name": "app", "levelname": "INFO", "message": "Registered 1 integrations", "request_id": null}
+{"asctime": "2026-10-08 22:00:32,333", "name": "app", "levelname": "INFO", "message": "GATE 10: Attention system initialised", "request_id": null}
+{"asctime": "2026-10-08 22:00:32,433", "name": "app", "levelname": "INFO", "message": "SHUNYA OS initialised", "request_id": "bootstrap", "db": "postgresql://localhost:5432/shunya_os"}
+{"asctime": "2026-10-08 22:00:32,737", "name": "app", "levelname": "INFO", "message": "Loaded 12 persisted identities", "request_id": null}
+[PASS] A1 canonical event published by IngestionService — event=4680b3cb-ce43-468d-9fe0-5f08ccec08f1
+[PASS] A2 AttentionItem persisted from the event (no UI access) — item_id=3
+[PASS] A3 item carries canonical owner — identity=sid_5ef358418d4246ba8e156de0 org=278
+[PASS] A4 item provenance links the event — provenance={"detected_at": "2026-10-08T20:00:32.747129+00:00", "event_id": "4680b3cb-ce43-468d-9fe0-5f08ccec08f1", "event_type": "ingestion:csv", "correlation_id": "4680b3cb-ce43-468d-9fe0-5f
+[PASS] A5 restart-survival item created (left active) — restart_item_id=4
+REVIEW_ITEM_ID=3
+RESTART_ITEM_ID=4
+[PASS] B0 certification sign-in — status=200
+[PASS] B1 certification session sees the event-sourced item — status=200 active_ids=[4, 3, 2]
+[PASS] B2 anonymous access refused (401/302) — status=401
+[FAIL] B3 founder HTTPS sign-in (archived credential file) — status=401 — archived file did not authenticate
+[PASS] B3b second real tenant resolved (app level) — org=7
+[PASS] B4 other tenant cannot READ the item (403) — status=403 detail=Item belongs to a different organization
+[PASS] B5 other tenant cannot RESOLVE the item (403) — status=403 detail=Item belongs to a different organization
+[PASS] B6 certification session resolves the item — status=200
+[PASS] B7 resolved item leaves the active list (truth after action) — active_ids=[4, 2]
+[PASS] B8 resolved item remains auditable (state=resolved) — status=200
+
+14/15 checks passed
+FAILED: B3 founder HTTPS sign-in (archived credential file)

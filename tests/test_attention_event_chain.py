@@ -149,3 +149,46 @@ def test_real_ingestion_service_produces_attention(app):
     assert len(items) == 1
     assert items[0].related_object_id == "ing_e2e_1"
     assert items[0].identity_id == "sid_actor_a"
+
+
+def test_attention_persistence_failure_never_breaks_ingestion(app, monkeypatch):
+    """Failure matrix: if attention persistence fails, ingestion still succeeds,
+    the failure is not silent (logged), and the next event recovers."""
+    from core.ingestion import IngestionRecord, InformationClass, SourceType
+    from core.ingestion.service import IngestionService
+
+    def broken_create(**kwargs):
+        raise RuntimeError("simulated attention persistence failure")
+
+    # The subscriber imports create_attention_item inside the handler, so this
+    # patch is picked up at delivery time.
+    monkeypatch.setattr(
+        "app.attention.service.create_attention_item", broken_create)
+
+    with app.app_context():
+        result = IngestionService().process(IngestionRecord(
+            ingestion_id="ing_fail_1",
+            tenant_id=401,
+            source=SourceType.CSV,
+            source_identity="sid_actor_a",
+            normalized_payload={"name": "FailPath"},
+            information_class=InformationClass.USER_PROVIDED,
+        ))
+    # Ingestion is unaffected by the attention failure and the event is
+    # still published (the handler logs the error and never raises).
+    assert result.outcome.value == "accepted"
+    assert result.canonical_event_id, "event still published"
+
+    # Recovery: once persistence works again, a NEW event creates its item.
+    monkeypatch.undo()
+    with app.app_context():
+        IngestionService().process(IngestionRecord(
+            ingestion_id="ing_fail_2",
+            tenant_id=401,
+            source=SourceType.CSV,
+            source_identity="sid_actor_a",
+            normalized_payload={"name": "RecoverPath"},
+            information_class=InformationClass.USER_PROVIDED,
+        ))
+    items = _items(app, 401)
+    assert [i.related_object_id for i in items] == ["ing_fail_2"]
