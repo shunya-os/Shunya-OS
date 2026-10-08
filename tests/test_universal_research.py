@@ -6,6 +6,7 @@ All 7 required end-to-end scenarios plus failure modes and security tests.
 
 import pytest
 from unittest.mock import patch, MagicMock
+from tests.ddg_probe import ddg_upstream_refusal_reason
 from core.intelligence import (
     IntelligenceRequest, IntelligenceResponse, IntelligenceCapability,
     KnowledgeStatus, EvidenceSource, FreshnessRequirement,
@@ -464,6 +465,17 @@ class TestRealEntryPath:
 # 14. Real External Provider Integration
 # ═══════════════════════════════════════════════════════════════════
 
+# These tests measure the LIVE third-party service. DuckDuckGo rate-limits /
+# bot-walls datacenter IPs (observed from GitHub Actions runners: the raw
+# upstream raises "No results found."). That condition is external — no SHUNYA
+# code change can make the assertion pass — so the tests SKIP with the upstream
+# reason ONLY after probing that the raw upstream itself is refusing
+# (tests/ddg_probe.py, shared with test_connector_certification.py). If the
+# upstream serves, the assertions are strict and an empty provider result is a
+# PRODUCT defect (fail). The provider's normalization contract is additionally
+# pinned offline (no network) by TestDuckDuckGoProviderNormalizationContract,
+# so a refusal-skip can never hide a provider regression.
+
 
 class TestRealExternalProvider:
     """DuckDuckGo live search works through the canonical provider."""
@@ -473,7 +485,17 @@ class TestRealExternalProvider:
         from app.search.provider import DuckDuckGoProvider
         provider = DuckDuckGoProvider()
         results = provider.search("latest AI developments 2026", max_results=3)
-        assert len(results) >= 1, "DuckDuckGo should return results"
+        if not results:
+            reason = ddg_upstream_refusal_reason()
+            if reason:
+                pytest.skip(
+                    f"DuckDuckGo upstream refused this network: {reason}. "
+                    "Provider normalization is covered offline."
+                )
+            pytest.fail(
+                "Upstream served results but the canonical provider returned "
+                "none — provider defect"
+            )
         for r in results:
             assert "title" in r
             assert "url" in r
@@ -484,6 +506,16 @@ class TestRealExternalProvider:
         from app.search.provider import DuckDuckGoProvider
         provider = DuckDuckGoProvider()
         results = provider.search("test query", max_results=2)
+        if not results:
+            reason = ddg_upstream_refusal_reason()
+            if reason:
+                pytest.skip(
+                    f"DuckDuckGo upstream refused this network: {reason}."
+                )
+            pytest.fail(
+                "Upstream served results but the canonical provider returned "
+                "none — provider defect"
+            )
         for r in results:
             assert r.get("title")
             assert r.get("url")
@@ -495,7 +527,79 @@ class TestRealExternalProvider:
         assert provider is not None
         assert provider.name == "duckduckgo"
         results = provider.search("test", max_results=1)
+        if provider.name == "duckduckgo" and not results:
+            reason = ddg_upstream_refusal_reason()
+            if reason:
+                pytest.skip(
+                    f"DuckDuckGo upstream refused this network: {reason}."
+                )
+            pytest.fail(
+                "Upstream served results but the resolved provider returned "
+                "none — provider defect"
+            )
         assert isinstance(results, list)
+
+
+class TestDuckDuckGoProviderNormalizationContract:
+    """Offline, deterministic coverage of the canonical provider's own code.
+
+    Complements the live smoke tests above: runs with no network and strictly
+    pins normalization, filtering, and failure behavior, so the live tests'
+    refusal-skips never hide a provider regression.
+    """
+
+    def test_normalization_contract(self):
+        """ddgs items are normalized; empty-body items are filtered."""
+        from datetime import datetime
+
+        from app.search.provider import DuckDuckGoProvider
+
+        items = [
+            {"title": "A", "body": "body A", "href": "https://example.com/a"},
+            {"title": "B", "body": "", "href": "https://example.com/b"},
+            {"title": "C", "body": "body C", "href": "https://example.com/c"},
+        ]
+        with patch("ddgs.DDGS") as MockDDGS:
+            MockDDGS.return_value.__enter__.return_value.text.return_value = items
+            results = DuckDuckGoProvider().search("anything", max_results=3)
+
+        assert [r["title"] for r in results] == ["A", "C"], (
+            "empty-body items must be filtered out"
+        )
+        for r in results:
+            assert r["url"].startswith("https://example.com/")
+            ts = datetime.fromisoformat(r["acquisition_timestamp"])
+            assert ts.tzinfo is not None, "timestamps must be timezone-aware"
+
+    def test_upstream_error_returns_empty_list_not_crash(self):
+        """An upstream exception yields [] — the provider contract, not a raise."""
+        from app.search.provider import DuckDuckGoProvider
+
+        with patch("ddgs.DDGS") as MockDDGS:
+            MockDDGS.return_value.__enter__.return_value.text.side_effect = (
+                RuntimeError("No results found.")
+            )
+            results = DuckDuckGoProvider().search("anything", max_results=3)
+
+        assert results == []
+
+    def test_refusal_probe_distinguishes_upstream_from_product(self):
+        """The refusal probe reports upstream refusal, service, and emptiness."""
+        with patch("ddgs.DDGS") as MockDDGS:
+            MockDDGS.return_value.__enter__.return_value.text.side_effect = (
+                RuntimeError("No results found.")
+            )
+            assert ddg_upstream_refusal_reason() is not None
+
+        with patch("ddgs.DDGS") as MockDDGS:
+            MockDDGS.return_value.__enter__.return_value.text.return_value = [
+                {"title": "ok"}
+            ]
+            assert ddg_upstream_refusal_reason() is None
+
+        with patch("ddgs.DDGS") as MockDDGS:
+            MockDDGS.return_value.__enter__.return_value.text.return_value = []
+            assert ddg_upstream_refusal_reason() is not None
 
 
 # ═══════════════════════════════════════════════════════════════════

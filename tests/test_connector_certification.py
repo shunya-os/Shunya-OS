@@ -212,21 +212,46 @@ class TestExternalApiConnectorCertification:
         assert hasattr(provider, "search")
 
     def test_search_provider_returns_structured_results(self):
+        """Structured-result contract when the upstream serves.
+
+        A DuckDuckGo upstream refusal (datacenter-IP rate limit/bot wall —
+        see tests/ddg_probe.py) is external and skips with the reason; if the
+        upstream serves, an empty provider result is a product defect (fail).
+        """
         from app.search.provider import DuckDuckGoProvider
+        from tests.ddg_probe import ddg_upstream_refusal_reason
         provider = DuckDuckGoProvider()
         results = provider.search("test query", max_results=1)
+        if not results:
+            reason = ddg_upstream_refusal_reason()
+            if reason:
+                pytest.skip(f"DuckDuckGo upstream refused this network: {reason}.")
+            pytest.fail(
+                "Upstream served results but the canonical provider returned "
+                "none — provider defect"
+            )
         for r in results:
             assert "title" in r
             assert "body" in r
             assert "url" in r
 
     def test_search_results_include_source_reference(self):
+        """Provenance contract when the upstream serves (see above for skips)."""
         from app.search.provider import DuckDuckGoProvider
+        from tests.ddg_probe import ddg_upstream_refusal_reason
         provider = DuckDuckGoProvider()
         results = provider.search("test query", max_results=1)
+        if not results:
+            reason = ddg_upstream_refusal_reason()
+            if reason:
+                pytest.skip(f"DuckDuckGo upstream refused this network: {reason}.")
+            pytest.fail(
+                "Upstream served results but the canonical provider returned "
+                "none — provider defect"
+            )
         for r in results:
-            if r.get("url"):
-                assert r["url"].startswith("http")
+            assert r.get("url"), "results must carry a source url"
+            assert r["url"].startswith("http")
             assert r.get("title")
 
     def test_search_failure_returns_empty_list(self):
