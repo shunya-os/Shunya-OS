@@ -174,10 +174,15 @@ def main() -> int:
                              headers=auth_headers)
     check("archive 200", status == 200, f"status={status}")
 
-    # State guard: trash while archived must fail (guard, not success)
+    # Trash from ARCHIVED is allowed by the service contract (active|archived).
     status, _body = http.json("POST", f"/api/v1/media/assets/{asset_id}/trash",
                               headers=auth_headers)
-    check("state guard: trash-while-archived refused", status >= 400,
+    check("trash from archived allowed (200)", status == 200, f"status={status}")
+
+    # State guard: trash from TRASHED must be refused.
+    status, _body = http.json("POST", f"/api/v1/media/assets/{asset_id}/trash",
+                              headers=auth_headers)
+    check("state guard: trash-from-trashed refused", status == 404,
           f"status={status}")
 
     status, _body = http.json("POST", f"/api/v1/media/assets/{asset_id}/restore",

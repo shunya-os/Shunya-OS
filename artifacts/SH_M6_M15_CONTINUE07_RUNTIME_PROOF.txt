@@ -1,0 +1,22 @@
+[PASS] unauthenticated /documents refuses (302) — status=302
+[PASS] unauthenticated redirect targets /login — /login?next=/documents
+[PASS] certification sign-in over HTTPS — status=200
+[PASS] authenticated /documents serves 200 (no 500) — status=200
+[PASS] /documents is the SPA shell, not an error page
+[PASS] /documents content-type is html — text/html; charset=utf-8
+[PASS] authenticated /documents/<id> serves the SPA shell (no crash) — status=200
+[PASS] authenticated document API 200 — status=200
+[PASS] media generate 200 + asset persisted — status=200, error=None, runtime_state=description_only
+[PASS] rename 200 + persisted — status=200, name=CONTINUE-07 renamed
+[PASS] archive 200 — status=200
+[PASS] trash from archived allowed (200) — status=200
+[PASS] state guard: trash-from-trashed refused — status=404
+[PASS] restore-from-archive 200 — status=200
+[PASS] trash 200 — status=200
+[PASS] restore-from-trash 200 — status=200
+[PASS] trash (final) 200 — status=200
+[PASS] permanent delete 200 — status=200
+[PASS] permanent delete is irreversible (asset gone: 404) — status=404
+[PASS] unauthenticated media API fails closed (401/302) — status=401
+
+20/20 checks passed

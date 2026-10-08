@@ -1,94 +1,88 @@
-# SH-M6→M15 CONTINUE-07 — CHECKPOINT (mid-execution, honestly bounded)
+# SH-M6→M15 CONTINUE-07 — CHECKPOINT (post-deploy runtime proofs)
 
-**Campaign**: SH-M6→M15-CONTINUE-07 (directive: CONTINUE-07, "DO NOT CLOSE GAPS PREMATURELY")
+**Campaign**: SH-M6→M15-CONTINUE-07 ("DO NOT CLOSE GAPS PREMATURELY")
 **Date**: 2026-10-08
-**Deployed/Production SHA at campaign start**: 5e0720e (CI_CERTIFIED, healthy)
-**HEAD at this checkpoint**: (set at push time — this file is committed WITH the batch)
-**Origin/master**: = HEAD (single push, one CI lifecycle)
+**Production SHA at campaign start**: 5e0720e
 
----
+## SHA CHAIN (history — never a moving "current")
 
-## STATUS BOARD
+- `5e0720e` — production SHA at campaign start (CI_CERTIFIED, healthy)
+- `618b3da` — CI run 37812844215 SUCCESS; deploy SUCCESS (deployed 17:20:42Z). Contents: documents page-route ownership fix (single owners, deep-link crash removed), live DuckDuckGo tests retry-aware + offline provider contract, CI Node 22 pin, CONTINUE-07 checkpoint.
+- `1772ac4` — CI run 37817220980 SUCCESS; deploy SUCCESS (deployed 17:56:47Z). Contents: media canonical workspace-context fix (web journey was fail-closed 403), +4 web-journey contract tests, `scripts/verify_continue07_runtime.py`.
+- Deployed SHA at proof time: `1772ac4` — health `backend_release_sha` matched, `build_identity_matches_running_build: true`, `database: connected`.
 
-### A. Worktree reconciliation — DONE (verified this session)
-- `frontend/src/components/content/media-generator.tsx` 26px→44px change is an INTENTIONAL
-  WCAG touch-target fix, committed in 73a9d33: `.cs-history-overflow-btn` 26x26 → 44x44
-  (+ min-width/min-height, radius 6→8). Not audit residue; kept as pending product work.
-  It has NOT yet passed CI/deploy — it rides the current batch.
-- `artifacts/SH_M6_M15_CONTINUE04_CHECKPOINT.md` was reconciled in 73a9d33 (granular item-17 breakdown).
-- This CONTINUE-07 checkpoint file is the only untracked artifact and is committed with this batch.
+## WHAT WAS PROVEN — RUNTIME, OVER HTTPS, ON THE DEPLOYED BUILD
 
-### B. /documents — PROVEN RED, FIXED, TESTED (CI + authenticated-runtime proof pending)
-- Investigation found THREE overlapping registrations (more than the two the directive named):
-  1. `main.documents_page` — GET /documents → had been switched (73a9d33) to `_serve_spa_shell()` (release-aware).
-  2. `main.documents_detail` — GET /documents/<id> → `render_template("documents.html")`, a template that
-     NEVER existed → **proven RED this session**: a live `TemplateNotFound: documents.html` crash
-     (production 500) for every real document deep link, with the stack trace captured in the test run.
-  3. `main._legacy_spa_fallback` — DUPLICATED both rules (`/documents`, `/documents/<int:doc_id>`),
-     serving the raw checkout dist (non-release-aware). First-registered-wins made this a latent
-     order-dependent hazard. Proven by `app.url_map.bind().match()` in the new tests.
-- Fix: `documents_detail` serves the SPA shell (like documents_page / /living); both duplicate
-  decorators removed from `_legacy_spa_fallback`. Canonical owners are now explicit and single.
-- Regression suite: `tests/test_documents_page_route_ownership.py` (6 tests) — proven RED (2 collisions +
-  interactive crash), then GREEN (16 passed together with test_documents_authenticated_journey.py
-  and test_document_route_ownership.py).
-- Legacy surface inventory recorded: of the fallback's visible paths, only `/pipeline` resolves to the
-  fallback; the others resolve to dedicated handlers (leads_list, invoices, payments, tasks_list,
-  calendar_view, reports, settings, itinerary_builder, auth.team_list).
-- REMAINING (not closed): authenticated runtime proof over HTTPS post-deploy; browser deep-link behavior.
+`scripts/verify_continue07_runtime.py` → **20/20 PASS** (raw output committed as
+`artifacts/SH_M6_M15_CONTINUE07_RUNTIME_PROOF.txt`):
 
-### C. Media lifecycle (from 73a9d33, never CI-executed until now) — CI VERIFIED pending
-- rename endpoint + 8 lifecycle tests are IN HEAD since 73a9d33, but the two failing runs died at the
-  Python suite step, so the frontend gates and these tests have NOT been CI-executed yet.
-- REMAINING: browser interaction, restart survival, tenant isolation through the real API, provider
-  failure/recovery, frontend refresh — not closed.
+- unauthenticated `/documents` → 302 → `/login?next=/documents`
+- certification sign-in (isolated tenant) → `/documents` → 200 SPA shell, no 500;
+  `/documents/<id>` deep link 200 (the TemplateNotFound crash is gone); document API 200
+- media: generate 200 (`runtime_state=description_only` — the truthful provider-unavailable
+  path, no fake success), rename persisted, archive, trash-from-archived allowed,
+  trash-from-trashed refused (404 state guard), restore cycles, permanent delete,
+  irreversibility proven (GET after delete → 404), unauthenticated media API 401 fail-closed.
 
-### D. GJ-13 — kept as TEST-LEVEL; no PRODUCTION VERIFIED promotion.
+**New product defect found by this proof and fixed in `1772ac4`**: media mutations were
+fail-closed 403 for EVERY real web user — `_workspace_id()` only accepted session/g values
+that no product path sets (`/api/*` returns early in `_check_auth`; `session["workspace_id"]`
+set nowhere). The CI fixtures masked it by injecting the session value. Fixed via the ONE
+canonical authority (`app.authz.workspace_context.resolve_current_workspace`) + frontend
+`fetchWithAuth` wiring (previously unwired); contract tests exercise the journey WITHOUT
+the injected session key.
 
-### E. Signal→Attention — push bridge in HEAD (emit_signal → attention item); end-to-end
-  business-state-change proof NOT YET executed. Not closed.
+## CI TRUTH
 
-### F/G/H/I/K — NOT STARTED or not closed (semantic M6 ingestion, document intelligence depth, AI
-  operating layer, human-context behavioural proof, browser journeys). Not closed.
+- 37807894159 (`0b25c9c`): FAILED — single live-DDG failure (upstream refuses individual
+  requests from datacenter IPs; canonical call refused while a raw probe served seconds later)
+- 37812844215 (`618b3da`): **SUCCESS** (retry-aware classification + offline contract; frontend
+  gates incl. pinned Node 22; deploy SUCCESS)
+- 37817220980 (`1772ac4`): **SUCCESS**; deploy SUCCESS
 
-### J. Historical credential — previous session recorded an investigation (shunya_test, test-only,
-  deleted ci-cd.yml, rotation not needed). Directive requires this be verified independently, not
-  inherited. Independent verification PENDING (next block). Not closed.
+## LOCAL FULL SUITE (directive L)
 
-### L. Full-suite local timeout — investigated: CI full suite = 1122s (5454 passed, 1 DDG failure);
-  earlier green run 1093s; local ~2026s (disk/tooling). CI SUCCESS remains the gate; local timeout at
-  the 420s tool limit is a tooling limit, and the local run being slower is environmental.
-  The DDG failure cause is now understood/fixed (below), not dismissed.
+1923.15s (32:03), **5458 passed, 125 skipped, 9 failed** — all 9 classified and evidenced as
+deploy-host artifact failures (health fail-closed because the working tree was ahead of the
+deployed build_identity + immutable-release provenance; the identical content is CI-green and
+the live service is healthy). The earlier "420s timeout" was a tool wait limit, not a hang.
 
-### CI blocker (this batch's core fix) — ROOT-CAUSED
-- Run 37770012008 (51e9c9f): **failure** — exactly 1 failed test:
-  `test_universal_research.py::TestRealExternalProvider::test_real_provider_returns_results`
-  → `DuckDuckGo search failed: No results found.` (raw upstream refusal).
-- Evidence: ddgs version identical (9.16.0) in the Sept-green and Oct-failing runs; the same test
-  PASSED locally minutes ago (3 passing live tests); same lockfile; upstream rate-limits datacenter
-  IPs (GitHub runner). External condition, not a product defect — but it was correctly failing CI.
-- Fix (truthful, not weakened): live DDG tests now probe the RAW upstream; on PROVEN refusal they
-  SKIP with the reason (external), and if the upstream serves but the provider returns nothing they
-  FAIL (product defect). Added offline deterministic normalization/filter/failure tests
-  (`TestDuckDuckGoProviderNormalizationContract`) + shared `tests/ddg_probe.py`. Upgraded the two
-  vacuous live tests in test_connector_certification.py to the same contract.
-- Also: CI now pins Node 22 for the frontend gates (runner-image node drift; local node 26 breaks a
-  jsdom test with an identical lockfile — reproducibility requires the pin).
+## J — HISTORICAL CREDENTIAL: RESOLVED (independently verified)
 
-## WHAT IS ACTUALLY PROVEN (this session)
-- documents: RED (collisions + 500 crash w/ stack trace) → GREEN (16 passed) locally.
-- provider: refusal classification + offline contract (84 passed incl. both search test files).
-- frontend gates: eslint governance PASS (459≤460), tsc PASS locally.
-- worktree: media-generator change reconciled & intentional.
+Four historical credential literals found in history (verify-deployment.sh PGPASSWORD, script
+DSNs, ci-cd.yml test DSN, docker-compose value). Hash-only comparison: **none match the live
+database credential** (password auth enforced; postgres loopback-only; the 5433 test cluster no
+longer exists; tracked tree clean). 0233254's recorded claim ("removed values do NOT match the
+production DATABASE_URL password") independently CONFIRMED. **ROTATION NOT REQUIRED — evidenced.
+No rotation performed; no founder decision required for this item.**
 
-## WHAT REMAINS UNPROVEN (explicitly)
-- CI for this batch (next run), deploy, exact-SHA parity, authenticated /documents runtime proof.
-- Everything in F/G/H/I/K + C-remainder + E end-to-end + J independent verification.
-- Local vitest: 3 failures in onboarding-url-truth.test.ts under node 26 (env-specific; CI's npm ci
-  with identical lockfile passed it in Sept). CI remains the authority; flagged, not dismissed.
+## E — SIGNAL→ATTENTION: GAP PROVEN (not closed)
 
-## NEXT EXECUTION BLOCK (after CI green)
-1. Deploy + SHA chain verification + health.
-2. Authenticated /documents runtime proof (cert tenant, HTTPS) + media lifecycle runtime proof.
-3. J: independent credential-history verification.
-4. E: signal→attention real loop; then F (semantic M6), G (doc intelligence), H (AI layer), K (browser).
+The `emit_signal` push-bridge has **zero callers passing tenant context**
+(`app/runtime/entry.py`, `app/runtime/loop.py`) — it never fires from the real runtime loop.
+
+## WORKTREE (directive A)
+
+Clean at every push. The media-generator 26px→44px change is the intentional WCAG fix from
+`73a9d33`, CI-verified in the applied runs.
+
+## RESTART-SURVIVAL — IN FLIGHT
+
+Media asset `id=35` created 2026-10-08 (pre-restart). The next deploy's service restart must
+preserve it (GET after restart), then it is cleaned up. Result recorded in the next ledger update.
+
+## REMAINS UNPROVEN (explicit)
+
+- restart-survival result (asset 35) + cleanup
+- E wiring + end-to-end loop; F semantic M6 ingestion (NOT STARTED); G document-intelligence
+  depth (real-document semantic hierarchy); H AI operating layer; I human-context behavioural
+  proof; K browser journeys (media UI click-through, frontend refresh, logout/login)
+- Observation (read-only diag, NOT touched): newest pre-existing media assets (ids 23–32,
+  identity `sid_a3cd…`, org 0) include explicit prompts — a data-hygiene/provenance item
+  surfaced by inspection; no autonomous action taken.
+
+## NEXT EXECUTION BLOCK
+
+1. Verify asset 35 survived the deploy restart → cleanup → record
+2. E: wire `emit_signal` callers with tenant context and prove the real loop
+3. F/G/H/I/K in directive order
