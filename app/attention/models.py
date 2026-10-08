@@ -18,6 +18,7 @@ class AttentionSource(str, PyEnum):
     INTENTION_ENGINE = "intention.engine"
     SIGNAL = "signal"
     AI = "ai"
+    EVENT = "event"  # canonical EventBus business events (e.g. ingestion review)
 
 
 class AttentionItem(db.Model):

@@ -1210,8 +1210,12 @@ def create_app(config_override: dict | None = None):
     try:
         with app.app_context():
             from app.attention.service import detect_attention_from_signals
+            from core.attention.subscriber import start_attention_subscriber
             # No identity/org at startup — signal detection runs per-request
             # This registers the attention table for all subsequent operations.
+            # The EventBus subscriber makes attention push-based: qualifying
+            # business events create attention items without any UI access.
+            start_attention_subscriber()
             app.logger.info("GATE 10: Attention system initialised")
     except Exception as exc:
         app.logger.warning("Attention init: %s", exc)
