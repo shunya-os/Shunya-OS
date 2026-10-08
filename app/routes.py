@@ -1641,10 +1641,14 @@ def voice_process():
 
 @main.route("/documents")
 def documents_page():
-    """Document management page — upload, view, classify documents."""
-    documents = Document.query.order_by(Document.created_at.desc()).limit(100).all()
-    leads = Lead.query.order_by(Lead.created_at.desc()).limit(300).all()
-    return render_template("documents.html", documents=documents, leads=leads)
+    """Document management — served as SPA shell.
+
+    The server-side template (documents.html) was never created. The SPA's
+    DocumentBrowser component handles the document surface through
+    /api/v1/workspace/documents and the sidebar navigation. This route
+    serves the SPA shell (same pattern as /living — see living_spa_shell).
+    """
+    return _serve_spa_shell()
 
 
 @main.route("/documents/upload", methods=["POST"])

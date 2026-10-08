@@ -241,6 +241,35 @@ def api_permanent_delete_asset(asset_id: int):
     return jsonify({"success": True})
 
 
+@media_bp.route("/assets/<int:asset_id>/rename", methods=["PATCH"])
+@require_permission("knowledge.upload")
+def api_rename_asset(asset_id: int):
+    """Rename a media asset (display name in raw_prompt).
+
+    Request body:
+        name (str, required): New display name for the asset
+
+    Authorization: caller must own the asset (session identity + org).
+    Validation: name must be a non-empty string.
+    Persistence: updates raw_prompt and updated_at.
+    """
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    data = request.get_json(silent=True) or {}
+    new_name = data.get("name", "").strip()
+    if not new_name:
+        return jsonify({"success": False, "error": "name is required"}), 400
+
+    from app.media.service import rename_asset
+
+    asset = rename_asset(asset_id, _identity_id(), _organization_id(), new_name)
+    if not asset:
+        return jsonify({"success": False, "error": "Asset not found or not authorized"}), 404
+
+    return jsonify({"success": True, "data": asset})
+
+
 # ── Serve uploaded media files ──────────────────────────────
 @media_bp.route("/uploads/<path:filename>", methods=["GET"])
 @require_permission("knowledge.view")

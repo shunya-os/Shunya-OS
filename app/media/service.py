@@ -507,6 +507,33 @@ def permanently_delete_asset(asset_id: int, identity_id: str, organization_id: O
     return True
 
 
+def rename_asset(
+    asset_id: int, identity_id: str, organization_id: int | None,
+    new_name: str
+) -> dict | None:
+    """Rename a media asset (updates raw_prompt as the display name).
+
+    Authorization: caller must own the asset (identity_id + organization_id).
+    Validation: new_name must be a non-empty string.
+    Persistence: updates raw_prompt and updated_at.
+    Audit: no separate audit log — updated_at timestamp records the mutation.
+    Tenant isolation: scoped to identity_id + organization_id.
+
+    Returns the updated canonical dict, or None if not found/unauthorized.
+    """
+    if not new_name or not new_name.strip():
+        return None
+    asset = MediaAsset.query.filter_by(
+        id=asset_id, identity_id=identity_id, organization_id=organization_id
+    ).first()
+    if not asset:
+        return None
+    asset.raw_prompt = new_name.strip()
+    asset.updated_at = datetime.utcnow()
+    db.session.commit()
+    return asset.to_canonical()
+
+
 def attach_to_campaign(
     asset_id: int, campaign_id: int, identity_id: str
 ) -> Optional[dict]:

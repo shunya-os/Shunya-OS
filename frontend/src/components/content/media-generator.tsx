@@ -498,7 +498,7 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
 
 /* Overflow menu */
 .cs-history-overflow { position: absolute; top: 4px; right: 4px; z-index: 10; }
-.cs-history-overflow-btn { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: none; border-radius: 6px; background: rgba(255,255,255,0.85); color: var(--shunya-text-secondary, rgba(26,28,29,0.55)); cursor: pointer; backdrop-filter: blur(4px); transition: background 0.1s ease, color 0.1s ease; }
+.cs-history-overflow-btn { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 44px; min-height: 44px; border: none; border-radius: 8px; background: rgba(255,255,255,0.85); color: var(--shunya-text-secondary, rgba(26,28,29,0.55)); cursor: pointer; backdrop-filter: blur(4px); transition: background 0.1s ease, color 0.1s ease; }
 .cs-history-overflow-btn:hover { background: rgba(255,255,255,0.95); color: var(--shunya-text, #1A1C1D); }
 .cs-history-menu { position: absolute; top: 100%; right: 0; margin-top: 2px; background: #fff; border: 1px solid var(--shunya-surface-1, #e8e4de); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); min-width: 160px; padding: 4px; z-index: 100; }
 .cs-history-menu-item { display: flex; align-items: center; gap: 6px; width: 100%; padding: 7px 10px; border: none; background: none; font-size: 12px; color: var(--shunya-text, #1A1C1D); cursor: pointer; border-radius: 4px; font-family: inherit; white-space: nowrap; }
