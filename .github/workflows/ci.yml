@@ -44,6 +44,14 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+      # Node is pinned explicitly: the runner image's default node drifts
+      # between image releases, and the frontend gates (vitest + jsdom) behave
+      # differently across node majors — local node 26 breaks a jsdom test that
+      # passed on the runner default with an identical lockfile. Certification
+      # must be reproducible, so the node for the frontend gates is explicit.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
       - name: Install dependencies
         run: |
           set -o pipefail
