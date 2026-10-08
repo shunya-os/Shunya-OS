@@ -21,6 +21,7 @@ const homeState = {
   activeTasks: [],
   completedTasks: [],
   attentionTasks: [],
+  reviewItems: [],
   isLoading: false,
   error: null,
   lastUpdated: null,
@@ -28,6 +29,7 @@ const homeState = {
   refreshActive: vi.fn(),
   clearError: vi.fn(),
   loadAll: vi.fn(),
+  refreshLists: vi.fn(),
 };
 
 vi.mock('../../../runtimes/home-store', () => ({

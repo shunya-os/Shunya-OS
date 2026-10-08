@@ -329,7 +329,7 @@ export function HomePage() {
   const session = SessionManager.load();
   const name = session?.name || session?.email?.split('@')[0] || '';
 
-  const needsHuman = attentionTasks.length + reviewItems.length;
+  const needsHuman = attentionTasks.length + (reviewItems?.length ?? 0);
   const pulseMode: PulseMode = error ? 'offline'
     : needsHuman > 0 ? 'attentive'
     : activeTasks.length > 0 ? 'working'
@@ -348,7 +348,7 @@ export function HomePage() {
   const visibleActive = activeTasks.slice(0, 5);
   const visibleRecent = completedTasks.slice(0, 5);
   const visibleAttention = attentionTasks.slice(0, 5);
-  const visibleReviews = reviewItems.slice(0, 5);
+  const visibleReviews = (reviewItems ?? []).slice(0, 5);
 
   return (
     <motion.div
@@ -436,7 +436,7 @@ export function HomePage() {
         <HomeSection
           title="NEEDS YOUR ATTENTION"
           hint="Human input required"
-          count={attentionTasks.length + reviewItems.length}
+          count={attentionTasks.length + (reviewItems?.length ?? 0)}
         >
           {reviewNotice && <p className="hp-review-notice" role="status">{reviewNotice}</p>}
           {visibleReviews.length > 0 && (
