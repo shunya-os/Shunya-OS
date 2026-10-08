@@ -25,6 +25,19 @@ import pytest
 
 @pytest.fixture(scope="function")
 def app():
+    """Create test app with a mock SPA shell so /documents returns 200, not 503."""
+    # Ensure frontend/dist/index.html exists for SPA shell routes.
+    # In CI the frontend isn't built before Python tests, but _serve_spa_shell()
+    # needs index.html to return 200 instead of 503.
+    import os, tempfile
+    dist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                            "frontend", "dist")
+    os.makedirs(dist_dir, exist_ok=True)
+    shell_path = os.path.join(dist_dir, "index.html")
+    if not os.path.exists(shell_path):
+        with open(shell_path, "w") as f:
+            f.write('<!doctype html><html><body data-test-shell>SHUNYA</body></html>')
+
     from app import create_app, db
     app = create_app({
         "TESTING": True,
