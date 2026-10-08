@@ -4,6 +4,7 @@ import {
   IconAlertTriangle, IconX, IconSpeakerphone, IconArchive, IconTrash,
   IconDownload, IconInfoCircle, IconRestore, IconDotsVertical,
 } from '@tabler/icons-react';
+import { fetchWithAuth } from '../../api/fetch-with-auth';
 
 export type MediaRuntimeState =
   | 'idle'
@@ -63,9 +64,8 @@ async function apiGenerateMedia(params: {
   prompt: string; aspect_ratio: string; visual_style: string;
   business_context?: Record<string, unknown>;
 }): Promise<MediaAsset> {
-  const resp = await fetch('/api/v1/media/generate', {
+  const resp = await fetchWithAuth('/api/v1/media/generate', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify(params),
   });
   if (!resp.ok) {
@@ -79,7 +79,7 @@ async function apiGenerateMedia(params: {
 
 async function apiGetAssets(): Promise<MediaAsset[]> {
   try {
-    const resp = await fetch('/api/v1/media/assets', { credentials: 'include' });
+    const resp = await fetchWithAuth('/api/v1/media/assets');
     if (!resp.ok) return [];
     const body = await resp.json();
     if (!body.success) return [];
@@ -90,7 +90,7 @@ async function apiGetAssets(): Promise<MediaAsset[]> {
 async function apiLifecycleAction(assetId: number, action: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const method = action === 'permanent_delete' ? 'DELETE' : 'POST';
-    const resp = await fetch(`/api/v1/media/assets/${assetId}/${action}`, { method, credentials: 'include' });
+    const resp = await fetchWithAuth(`/api/v1/media/assets/${assetId}/${action}`, { method });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
       return { ok: false, error: err.error };
@@ -103,7 +103,7 @@ async function apiLifecycleAction(assetId: number, action: string): Promise<{ ok
 
 async function apiGetProviderStatus(): Promise<ProviderStatus | null> {
   try {
-    const resp = await fetch('/api/v1/media/status', { credentials: 'include' });
+    const resp = await fetchWithAuth('/api/v1/media/status');
     if (!resp.ok) return null;
     const body = await resp.json();
     return body.providers;

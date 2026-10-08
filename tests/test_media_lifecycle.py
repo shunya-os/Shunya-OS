@@ -329,3 +329,108 @@ class TestMediaLifecycle:
         # Trash again from trashed — should fail (state guard)
         resp = client.post(f"/api/v1/media/assets/{asset_id}/trash", headers=headers)
         assert resp.status_code == 404, "Cannot trash an already-trashed asset"
+
+
+class TestMediaWorkspaceContextContract:
+    """Web-journey workspace-context contract for media mutations.
+
+    The other fixtures inject ``sess["workspace_id"]`` directly — and NO
+    product path sets that session key, so those tests masked a production
+    defect: every real web user got 403 "No canonical workspace context" on
+    media mutations. These tests exercise the ACTUAL journey: identity + org
+    in the session, the workspace carried by the request (X-Workspace-Id — the
+    canonical SPA carrier), with membership validation through the canonical
+    authority (sh_workspaces membership + organization ownership). Fail-closed
+    behavior is pinned too.
+    """
+
+    @pytest.fixture
+    def web_ctx(self, app, client):
+        from tests.auth_helper import seed_canonical_tenancy
+        from app import db
+        from app.models import Organization, OrgMember
+        from app.authz.services import seed_default_roles
+
+        ORG_ID = 302
+        IDENTITY = "media-web-journey-user"
+
+        with app.app_context():
+            org = db.session.get(Organization, ORG_ID)
+            if not org:
+                org = Organization(id=ORG_ID, name="Media Web Org",
+                                   slug="media-web-org", is_active=True)
+                db.session.add(org)
+                db.session.flush()
+            seed_default_roles(ORG_ID)
+            member = OrgMember.query.filter_by(
+                organization_id=ORG_ID, identity_id=IDENTITY).first()
+            if not member:
+                db.session.add(OrgMember(organization_id=ORG_ID,
+                                         identity_id=IDENTITY,
+                                         role="owner", is_active=True))
+                db.session.commit()
+            ws_id = seed_canonical_tenancy(db, ORG_ID, IDENTITY)
+
+        with client.session_transaction() as sess:
+            sess["identity_id"] = IDENTITY
+            sess["user_id"] = 1
+            sess["current_org_id"] = ORG_ID
+            # Deliberately NO workspace in the session — no product path sets
+            # one, so the journey must not depend on it.
+        return {"X-Identity-Id": IDENTITY}, ORG_ID, ws_id
+
+    def _generate(self, client, headers):
+        return client.post("/api/v1/media/generate", headers=headers, json={
+            "prompt": "web journey asset",
+            "platform": "instagram-square",
+            "aspect_ratio": "1:1",
+            "visual_style": "realistic",
+        })
+
+    def test_workspace_resolves_from_request_header(self, client, web_ctx):
+        headers, _org, ws_id = web_ctx
+        resp = self._generate(client, {**headers, "X-Workspace-Id": ws_id})
+        assert resp.status_code == 200, resp.get_json()
+
+    def test_single_authorized_workspace_auto_resolves(self, client, web_ctx):
+        headers, _org, _ws = web_ctx
+        resp = self._generate(client, headers)
+        assert resp.status_code == 200, resp.get_json()
+
+    def test_unauthorized_workspace_header_fails_closed(self, client, web_ctx):
+        headers, _org, _ws = web_ctx
+        resp = self._generate(
+            client, {**headers, "X-Workspace-Id": "ws_someone_elses"})
+        assert resp.status_code == 403, resp.get_json()
+
+    def test_missing_workspace_context_fails_closed(self, app, client):
+        from app import db
+        from app.models import Organization, OrgMember
+        from app.authz.services import seed_default_roles
+
+        ORG_ID = 303
+        IDENTITY = "media-no-workspace-user"
+
+        with app.app_context():
+            org = db.session.get(Organization, ORG_ID)
+            if not org:
+                org = Organization(id=ORG_ID, name="Media No WS Org",
+                                   slug="media-no-ws", is_active=True)
+                db.session.add(org)
+                db.session.flush()
+            seed_default_roles(ORG_ID)
+            member = OrgMember.query.filter_by(
+                organization_id=ORG_ID, identity_id=IDENTITY).first()
+            if not member:
+                db.session.add(OrgMember(organization_id=ORG_ID,
+                                         identity_id=IDENTITY,
+                                         role="owner", is_active=True))
+                db.session.commit()
+
+        with client.session_transaction() as sess:
+            sess["identity_id"] = IDENTITY
+            sess["user_id"] = 1
+            sess["current_org_id"] = ORG_ID
+
+        resp = self._generate(client, {"X-Identity-Id": IDENTITY})
+        assert resp.status_code == 403, resp.get_json()

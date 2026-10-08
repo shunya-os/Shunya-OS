@@ -49,16 +49,44 @@ def _organization_id() -> int | None:
 
 
 def _workspace_id() -> str:
-    """Resolve the current workspace ID from session or flask.g.
+    """Canonical workspace context for media operations.
 
-    Returns the real workspace ID or empty string. Returns empty string
-    instead of a synthetic default like 'spc_business'.
+    Resolution delegates to the ONE canonical authority
+    (``app.authz.workspace_context.resolve_current_workspace``): the explicit
+    request workspace (session value or ``X-Workspace-Id`` header) must belong
+    to the caller's organization AND the caller must be actively authorized
+    for it; when none is given and exactly one workspace is authorized, it may
+    resolve automatically. Anything else fails closed (returns ""). No
+    synthetic default is ever produced.
+
+    Why the header is accepted here: media mutations originate from the SPA,
+    which carries its active workspace as ``X-Workspace-Id`` — the same
+    canonical carrier used by the object, upload, customer and supplier
+    routes. The value is never trusted directly: it is validated against the
+    canonical membership table below.
     """
-    return (
+    explicit = (
         session.get("workspace_id")
         or g.get("workspace_id")
+        or request.headers.get("X-Workspace-Id")
         or ""
     )
+    identity_id = _identity_id()
+    organization_id = _organization_id()
+    if not identity_id or not organization_id:
+        return ""
+    try:
+        from app.authz.workspace_context import resolve_current_workspace
+        return resolve_current_workspace(
+            identity_id, organization_id,
+            requested_workspace_id=explicit or None,
+        )
+    except Exception:
+        logger.warning(
+            "Media workspace context resolution failed (identity=%s org=%s)",
+            identity_id, organization_id,
+        )
+        return ""
 
 
 @media_bp.route("/generate", methods=["POST"])
