@@ -17,6 +17,11 @@ import { useHomeStore } from '../../runtimes/home-store';
 import { useWorkspaceStore } from '../../runtimes/workspace/store';
 import { SessionManager } from '../../api/session';
 import type { TaskLifecycle } from '../../api/execution-api';
+import {
+  confirmAttentionReview,
+  dismissAttentionItem,
+  type PersistedAttentionItem,
+} from '../../api/attention-api';
 import { TaskDetail } from './task-detail';
 import { IconRefresh, IconCheck, IconAlertTriangle, IconArrowRight, IconCircle } from '@tabler/icons-react';
 
@@ -157,6 +162,71 @@ function HomeSection({ title, hint, children, count }: {
   );
 }
 
+// ── Event-driven Attention Row ─────────────────────────────────────────
+// A persisted AttentionItem from the canonical event pipeline. Clicking
+// opens the inline review block; the human decision (confirm) is the
+// canonical state transition recorded server-side.
+
+function ReviewBlock({ item, open, busy, error, onToggle, onConfirm, onDismiss }: {
+  item: PersistedAttentionItem;
+  open: boolean;
+  busy: boolean;
+  error: string;
+  onToggle: () => void;
+  onConfirm: () => void;
+  onDismiss: () => void;
+}) {
+  const eventType = (item.provenance && (item.provenance as Record<string, unknown>).event_type) as string | undefined;
+  return (
+    <div className="hp-review-block">
+      <motion.button
+        className="hp-task-row hp-review-row"
+        onClick={onToggle}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        whileHover={{ backgroundColor: 'rgba(26,28,29,0.03)' }}
+        aria-expanded={open}
+      >
+        <span className="hp-row-icon hp-row-icon-attention"><IconAlertTriangle size={13} /></span>
+        <span className="hp-row-body">
+          <span className="hp-row-title">{item.reason}</span>
+          <span className="hp-row-sub">
+            From a real business event{eventType ? ` (${eventType})` : ''} · detected {_timeAgo(item.created_at)}
+          </span>
+        </span>
+        <span className="hp-row-arrow"><IconArrowRight size={14} /></span>
+      </motion.button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="hp-review-detail"
+            role="group"
+            aria-label="Review details"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <p className="hp-review-provenance">
+              SHUNYA ingested data it could not classify confidently. Confirming records your
+              review as canonical state; the item then resolves.
+            </p>
+            {error && <p className="hp-review-error" role="alert">{error}</p>}
+            <div className="hp-review-actions">
+              <button className="hp-review-btn hp-review-btn-primary" onClick={onConfirm} disabled={busy}>
+                {busy ? 'Recording…' : 'Confirm review'}
+              </button>
+              <button className="hp-review-btn" onClick={onDismiss} disabled={busy}>
+                Set aside
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 interface EmptyContinuation {
   label: string;
   open: () => void;
@@ -216,10 +286,39 @@ function buildCapabilities(hasActive: boolean, hasAttention: boolean, hasComplet
 
 export function HomePage() {
   const {
-    activeTasks, completedTasks, attentionTasks,
+    activeTasks, completedTasks, attentionTasks, reviewItems,
     isLoading, error, lastUpdated, startPolling, refreshActive,
   } = useHomeStore();
   const [selected, setSelected] = useState<TaskLifecycle | null>(null);
+  const [openReviewId, setOpenReviewId] = useState<number | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [reviewNotice, setReviewNotice] = useState('');
+
+  // The human action for a persisted event-driven attention item. Confirming
+  // records the review decision as canonical state server-side and resolves
+  // the item; the store refresh then removes it from this list — the UI only
+  // ever reflects server truth.
+  const handleReviewAction = useCallback(async (item: PersistedAttentionItem, action: 'confirm' | 'dismiss') => {
+    setReviewBusy(true); setReviewError(''); setReviewNotice('');
+    const res = action === 'confirm'
+      ? await confirmAttentionReview(item.id)
+      : await dismissAttentionItem(item.id);
+    setReviewBusy(false);
+    if (res.success) {
+      setOpenReviewId(null);
+      setReviewNotice(action === 'confirm'
+        ? 'Review confirmed — recorded as canonical state.'
+        : 'Set aside — it no longer needs you now.');
+      useHomeStore.getState().refreshLists();
+    } else {
+      setReviewError(res.error || 'SHUNYA could not record that — please try again.');
+      if (/already been handled|no longer exists/i.test(res.error || '')) {
+        // Stale UI self-heals from server truth.
+        useHomeStore.getState().refreshLists();
+      }
+    }
+  }, []);
 
   // Live polling — active every 5s, lists every 30s (store-owned timers)
   useEffect(() => {
@@ -230,14 +329,15 @@ export function HomePage() {
   const session = SessionManager.load();
   const name = session?.name || session?.email?.split('@')[0] || '';
 
+  const needsHuman = attentionTasks.length + reviewItems.length;
   const pulseMode: PulseMode = error ? 'offline'
-    : attentionTasks.length > 0 ? 'attentive'
+    : needsHuman > 0 ? 'attentive'
     : activeTasks.length > 0 ? 'working'
     : 'observing';
 
   const capabilities = buildCapabilities(
     activeTasks.length > 0,
-    attentionTasks.length > 0,
+    needsHuman > 0,
     completedTasks.length > 0,
   );
 
@@ -248,6 +348,7 @@ export function HomePage() {
   const visibleActive = activeTasks.slice(0, 5);
   const visibleRecent = completedTasks.slice(0, 5);
   const visibleAttention = attentionTasks.slice(0, 5);
+  const visibleReviews = reviewItems.slice(0, 5);
 
   return (
     <motion.div
@@ -274,7 +375,7 @@ export function HomePage() {
           <h1 className="hp-greeting-title">
             {activeTasks.length > 0
               ? `SHUNYA is working on ${activeTasks.length} thing${activeTasks.length > 1 ? 's' : ''} right now.`
-              : attentionTasks.length > 0
+              : needsHuman > 0
               ? 'A few things need you.'
               : 'Everything is calm.'}
           </h1>
@@ -335,9 +436,31 @@ export function HomePage() {
         <HomeSection
           title="NEEDS YOUR ATTENTION"
           hint="Human input required"
-          count={attentionTasks.length}
+          count={attentionTasks.length + reviewItems.length}
         >
-          {visibleAttention.length > 0 ? (
+          {reviewNotice && <p className="hp-review-notice" role="status">{reviewNotice}</p>}
+          {visibleReviews.length > 0 && (
+            <div className="hp-task-list">
+              <AnimatePresence mode="popLayout">
+                {visibleReviews.map((item) => (
+                  <ReviewBlock
+                    key={`review-${item.id}`}
+                    item={item}
+                    open={openReviewId === item.id}
+                    busy={reviewBusy}
+                    error={openReviewId === item.id ? reviewError : ''}
+                    onToggle={() => {
+                      setReviewError(''); setReviewNotice('');
+                      setOpenReviewId(openReviewId === item.id ? null : item.id);
+                    }}
+                    onConfirm={() => handleReviewAction(item, 'confirm')}
+                    onDismiss={() => handleReviewAction(item, 'dismiss')}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+          {visibleAttention.length > 0 && (
             <div className="hp-task-list">
               <AnimatePresence mode="popLayout">
                 {visibleAttention.map((t) => (
@@ -345,7 +468,8 @@ export function HomePage() {
                 ))}
               </AnimatePresence>
             </div>
-          ) : (
+          )}
+          {visibleAttention.length === 0 && visibleReviews.length === 0 && (
             <EmptyState
               message="Nothing needs you. SHUNYA is handling what it can."
               action={{
@@ -658,6 +782,46 @@ const homeStyles = `
 .hp-task-row:hover .hp-row-arrow {
   transform: translateX(3px);
   color: var(--shunya-gold-text, #70583D);
+}
+
+/* ── Event-driven attention review ─────────────────────────── */
+.hp-review-notice {
+  font-size: 12px;
+  color: var(--shunya-success, #6a9f6a);
+  padding: 4px 6px;
+}
+.hp-review-block { display: flex; flex-direction: column; }
+.hp-review-detail {
+  overflow: hidden;
+  padding: 10px 14px 12px 38px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.hp-review-provenance {
+  font-size: 12px;
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
+  margin: 0;
+  line-height: 1.5;
+}
+.hp-review-error { font-size: 12px; color: #8a2f2f; margin: 0; }
+.hp-review-actions { display: flex; gap: 8px; }
+.hp-review-btn {
+  font-size: 12px; padding: 7px 14px; border-radius: 8px;
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.12));
+  background: transparent; color: var(--shunya-text, #1A1C1D);
+  font-family: inherit; cursor: pointer; transition: border-color 0.15s, opacity 0.15s;
+}
+.hp-review-btn:hover { border-color: var(--shunya-gold, #a4865f); }
+.hp-review-btn:disabled { opacity: 0.6; cursor: default; }
+.hp-review-btn:focus-visible { outline: 2px solid var(--shunya-gold, #a4865f); outline-offset: 2px; }
+.hp-review-btn-primary {
+  background: var(--shunya-gold-text, #70583D);
+  border-color: var(--shunya-gold-text, #70583D);
+  color: #fff;
+}
+.hp-review-btn-primary:hover { border-color: var(--shunya-gold-text, #70583D); opacity: 0.9; }
+@media (pointer: coarse) {
+  /* Accessible touch targets on touch devices; desktop unchanged. */
+  .hp-review-btn { min-height: 44px; padding: 12px 16px; }
 }
 
 /* ── Empty states ─────────────────────────────────────────── */

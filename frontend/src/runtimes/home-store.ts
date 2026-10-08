@@ -17,6 +17,10 @@ import {
   fetchAttentionTasks,
   type TaskLifecycle,
 } from '../api/execution-api';
+import {
+  fetchAttentionItems,
+  type PersistedAttentionItem,
+} from '../api/attention-api';
 
 const ACTIVE_POLL_MS = 5000;
 const LISTS_POLL_MS = 30000;
@@ -26,6 +30,11 @@ interface HomeStoreState {
   activeTasks: TaskLifecycle[];
   recentTasks: TaskLifecycle[];
   attentionTasks: TaskLifecycle[];
+
+  // Canonical event-driven attention (persisted AttentionItems, server-scoped).
+  // This is the same server truth the action endpoints mutate — never a
+  // frontend-side copy of attention state.
+  reviewItems: PersistedAttentionItem[];
 
   // Derived convenience — completed view of recentTasks
   completedTasks: TaskLifecycle[];
@@ -70,9 +79,10 @@ export const useHomeStore = create<HomeStoreState>((set, get) => {
   };
 
   const refreshLists = async (): Promise<void> => {
-    const [recentRes, attentionRes] = await Promise.all([
+    const [recentRes, attentionRes, reviewRes] = await Promise.all([
       fetchRecentTasks(),
       fetchAttentionTasks(),
+      fetchAttentionItems(),
     ]);
 
     if (recentRes.success) {
@@ -95,6 +105,18 @@ export const useHomeStore = create<HomeStoreState>((set, get) => {
       }));
     } else if (attentionRes.error) {
       set({ error: attentionRes.error });
+    }
+
+    // Canonical persisted AttentionItems — kept last-known on failure (the
+    // store never fabricates; the error banner reflects connectivity).
+    if (reviewRes.success) {
+      set((s) => ({
+        reviewItems: reviewRes.data ?? s.reviewItems,
+        error: null,
+        lastUpdated: Date.now(),
+      }));
+    } else if (reviewRes.error) {
+      set({ error: reviewRes.error });
     }
   };
 
@@ -130,6 +152,7 @@ export const useHomeStore = create<HomeStoreState>((set, get) => {
     activeTasks: [],
     recentTasks: [],
     attentionTasks: [],
+    reviewItems: [],
     completedTasks: [],
     isLoading: true,
     error: null,

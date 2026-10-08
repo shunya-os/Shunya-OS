@@ -28,7 +28,12 @@ import { useActiveContext } from '../../hooks/use-active-context';
 import { HomePage } from '../home/home-page';
 import { AIResidentPanel } from '../ui/ai-resident-panel';
 import { LivingPresence } from '../living-workspace/living-presence';
-import { fetchWithAuth } from '../../api/fetch-with-auth';
+import {
+  fetchAttentionItems,
+  confirmAttentionReview,
+  dismissAttentionItem,
+  type PersistedAttentionItem,
+} from '../../api/attention-api';
 import {
   IconUser, IconMessage, IconChecklist, IconDiamond, IconBackpack, IconChartBar, IconHexagon,
   IconBuildingStore, IconBooks, IconCheck, IconBrain, IconHeartHandshake,
@@ -173,15 +178,6 @@ function OrganizationalOrientation({ collapsed, onToggle }: { collapsed: boolean
 // 3. WHAT MATTERS NOW — Primary attention item
 // ═══════════════════════════════════════════════════════════════════
 
-interface PersistedAttention {
-  id: number;
-  reason: string;
-  priority: number;
-  source: string;
-  related_object_type?: string | null;
-  related_object_id?: string | null;
-}
-
 function WhatMattersNow() {
   const signals = useLivingStore((s) => s.awarenessSignals);
   const count = useLivingStore((s) => s.awarenessCount);
@@ -194,42 +190,31 @@ function WhatMattersNow() {
   // items the EventBus subscriber creates from real business events.
   // Frontend filtering is never the security boundary: the server already
   // scoped this list to the authorized organization/identity.
-  const [reviewItems, setReviewItems] = useState<PersistedAttention[]>([]);
+  const [reviewItems, setReviewItems] = useState<PersistedAttentionItem[]>([]);
   const [actionError, setActionError] = useState('');
 
   const loadAttention = useCallback(async () => {
-    try {
-      const resp = await fetchWithAuth('/api/v1/attention/');
-      if (!resp.ok) return; // calm fallback — existing surface unchanged
-      const body = await resp.json();
-      const items: PersistedAttention[] = (body?.data || []).filter(
-        (i: PersistedAttention) => i.source === 'event');
-      setReviewItems(items);
-    } catch {
-      /* fail calm — awareness signals remain the surface */
+    const res = await fetchAttentionItems();
+    if (res.success) {
+      setReviewItems((res.data || []).filter((i) => i.source === 'event'));
     }
+    // failure → calm fallback; awareness signals remain the surface
   }, []);
 
   useEffect(() => { loadAttention(); }, [loadAttention]);
 
-  const actOnReview = useCallback(async (itemId: number, action: 'confirm-review' | 'dismiss') => {
+  const actOnReview = useCallback(async (itemId: number, action: 'confirm' | 'dismiss') => {
     setActionError('');
-    try {
-      const resp = await fetchWithAuth(`/api/v1/attention/${itemId}/${action}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (!resp.ok) {
-        setActionError(resp.status === 403
-          ? "This item isn't yours to act on."
-          : 'SHUNYA could not record that — please try again.');
-        return;
-      }
-      await loadAttention();
-    } catch {
-      setActionError('SHUNYA could not be reached — the item stays in your attention list.');
+    const res = action === 'confirm'
+      ? await confirmAttentionReview(itemId)
+      : await dismissAttentionItem(itemId);
+    if (!res.success) {
+      setActionError(res.error === 'You are not authorized to act on this item.'
+        ? "This item isn't yours to act on."
+        : (res.error || 'SHUNYA could not record that — please try again.'));
+      return;
     }
+    await loadAttention();
   }, [loadAttention]);
 
   // Persisted event-driven attention takes the primary-operating slot when
@@ -259,7 +244,7 @@ function WhatMattersNow() {
           <p className="pw-attention-action" role="alert">{actionError}</p>
         )}
         <div className="pw-attention-actions">
-          <button className="pw-attention-btn pw-attention-btn-primary" onClick={() => actOnReview(top.id, 'confirm-review')}>
+          <button className="pw-attention-btn pw-attention-btn-primary" onClick={() => actOnReview(top.id, 'confirm')}>
             Confirm review
           </button>
           <button className="pw-attention-btn pw-attention-btn-ghost" onClick={() => actOnReview(top.id, 'dismiss')}>
