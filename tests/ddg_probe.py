@@ -1,32 +1,61 @@
-"""Upstream-refusal probe for the live DuckDuckGo dependency.
+"""Live-DuckDuckGo helpers shared by the web-search test files.
 
-Shared by the live web-search tests (test_universal_research.py,
-test_connector_certification.py) so they can distinguish an EXTERNAL upstream
-refusal (datacenter-IP rate limit / bot wall — observed from GitHub Actions
-runners: the raw upstream raises "No results found.") from a PRODUCT defect in
-the canonical provider.
+The upstream intermittently refuses INDIVIDUAL requests from datacenter IPs
+(GitHub runners): run 37807894159 refused the canonical call ("No results
+found.") while a raw probe of the same upstream served seconds later. These
+helpers distinguish that external flakiness from a PRODUCT defect in the
+canonical provider:
 
-Contract:
-  * None when the upstream serves items — a canonical provider that then
-    returns nothing is a product defect, so the test must FAIL;
-  * a reason string when the upstream itself is refusing — the test must SKIP
-    with that reason (no SHUNYA code change can satisfy the assertion);
-  * None when the ddgs dependency is missing — that is a product/config
-    problem, so the test must FAIL, never excuse it.
+  * ``live_search_with_retries`` — the canonical provider called with bounded
+    retries (an intermittent refusal is retried, not excused);
+  * ``raw_search_attempts``     — the raw ddgs upstream probed with the SAME
+    query. Only when it demonstrably serves that exact query (>= 2 successful
+    attempts) while the provider returned nothing after its retries is the
+    empty result a product defect and the test must FAIL. When the upstream
+    itself refuses too, the test must SKIP with the reason.
+
+A missing ddgs dependency is a product/config problem (counted as 0 successes
+with an explicit error, so the live test FAILS rather than skips).
 """
+import time
 
 
-def ddg_upstream_refusal_reason() -> str | None:
-    """Return a reason string when DuckDuckGo itself is refusing this network."""
+def live_search_with_retries(provider, query: str, max_results: int = 3,
+                             attempts: int = 3) -> list:
+    """Canonical provider search with bounded retries for a flaky upstream."""
+    results: list = []
+    for index in range(attempts):
+        results = provider.search(query, max_results=max_results)
+        if results:
+            return results
+        if index < attempts - 1:
+            time.sleep(1.0 + index)
+    return results
+
+
+def raw_search_attempts(query: str, max_results: int = 3, attempts: int = 3):
+    """Raw ddgs attempts for the SAME query.
+
+    Returns ``(successes, items, last_error)`` where ``successes`` counts
+    attempts that returned items.
+    """
     try:
         from ddgs import DDGS
-    except ImportError:  # dependency missing is a product problem — do not excuse it
-        return None
-    try:
-        with DDGS() as ddgs:
-            items = list(ddgs.text("test", max_results=1))
-        if not items:
-            return "raw ddgs probe returned no items"
-        return None  # upstream served — the provider must work
-    except Exception as e:  # DDGSException('No results found.'), rate limits, timeouts
-        return f"{type(e).__name__}: {e}"
+    except ImportError:
+        return 0, [], "ddgs not installed (product defect — do not excuse)"
+    successes: int = 0
+    items: list = []
+    last_error = None
+    for index in range(attempts):
+        try:
+            with DDGS() as ddgs:
+                items = list(ddgs.text(query, max_results=max_results))
+            if items:
+                successes += 1
+            else:
+                last_error = "raw ddgs returned no items"
+        except Exception as e:  # DDGSException('No results found.'), rate limits
+            last_error = f"{type(e).__name__}: {e}"
+        if index < attempts - 1:
+            time.sleep(1.0 + index)
+    return successes, items, last_error
