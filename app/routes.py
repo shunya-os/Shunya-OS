@@ -1745,11 +1745,16 @@ def documents_upload():
 
 @main.route("/documents/<int:doc_id>")
 def documents_detail(doc_id):
-    """View document details — extracted text, structured data, classification."""
-    doc = Document.query.get_or_404(doc_id)
-    documents = [doc]
-    leads = Lead.query.order_by(Lead.created_at.desc()).limit(300).all()
-    return render_template("documents.html", view_doc=doc, documents=documents, leads=leads)
+    """Document deep link — served as SPA shell.
+
+    Like documents_page, there is no server-side document surface: the SPA
+    resolves the document client-side through /api/v1/workspace/documents.
+    The previous implementation rendered the never-created template
+    "documents.html", crashing every real document deep link with
+    TemplateNotFound (HTTP 500). Serving the shell keeps deep links and
+    refreshes working.
+    """
+    return _serve_spa_shell()
 
 
 @main.route("/api/documents/extract", methods=["POST"])
@@ -2083,8 +2088,8 @@ SPA_INDEX = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist", "i
 @main.route("/payments")
 @main.route("/tasks")
 @main.route("/calendar")
-@main.route("/documents")
-@main.route("/documents/<int:doc_id>")
+# /documents and /documents/<id> are owned by main.documents_page /
+# main.documents_detail (release-aware SPA shell) — not duplicated here.
 @main.route("/reports")
 @main.route("/team")
 @main.route("/pipeline")
