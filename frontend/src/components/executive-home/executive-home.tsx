@@ -28,6 +28,7 @@ import { useActiveContext } from '../../hooks/use-active-context';
 import { HomePage } from '../home/home-page';
 import { AIResidentPanel } from '../ui/ai-resident-panel';
 import { LivingPresence } from '../living-workspace/living-presence';
+import { fetchWithAuth } from '../../api/fetch-with-auth';
 import {
   IconUser, IconMessage, IconChecklist, IconDiamond, IconBackpack, IconChartBar, IconHexagon,
   IconBuildingStore, IconBooks, IconCheck, IconBrain, IconHeartHandshake,
@@ -172,12 +173,102 @@ function OrganizationalOrientation({ collapsed, onToggle }: { collapsed: boolean
 // 3. WHAT MATTERS NOW — Primary attention item
 // ═══════════════════════════════════════════════════════════════════
 
+interface PersistedAttention {
+  id: number;
+  reason: string;
+  priority: number;
+  source: string;
+  related_object_type?: string | null;
+  related_object_id?: string | null;
+}
+
 function WhatMattersNow() {
   const signals = useLivingStore((s) => s.awarenessSignals);
   const count = useLivingStore((s) => s.awarenessCount);
   const calm = useLivingStore((s) => s.awarenessCalm);
   const acknowledgeSignal = useLivingStore((s) => s.acknowledgeSignal);
   const dismissSignal = useLivingStore((s) => s.dismissSignal);
+
+  // ── Persisted event-driven attention (server truth, tenant-scoped) ──
+  // The Home consumes the canonical attention API — the same persisted
+  // items the EventBus subscriber creates from real business events.
+  // Frontend filtering is never the security boundary: the server already
+  // scoped this list to the authorized organization/identity.
+  const [reviewItems, setReviewItems] = useState<PersistedAttention[]>([]);
+  const [actionError, setActionError] = useState('');
+
+  const loadAttention = useCallback(async () => {
+    try {
+      const resp = await fetchWithAuth('/api/v1/attention/');
+      if (!resp.ok) return; // calm fallback — existing surface unchanged
+      const body = await resp.json();
+      const items: PersistedAttention[] = (body?.data || []).filter(
+        (i: PersistedAttention) => i.source === 'event');
+      setReviewItems(items);
+    } catch {
+      /* fail calm — awareness signals remain the surface */
+    }
+  }, []);
+
+  useEffect(() => { loadAttention(); }, [loadAttention]);
+
+  const actOnReview = useCallback(async (itemId: number, action: 'confirm-review' | 'dismiss') => {
+    setActionError('');
+    try {
+      const resp = await fetchWithAuth(`/api/v1/attention/${itemId}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!resp.ok) {
+        setActionError(resp.status === 403
+          ? "This item isn't yours to act on."
+          : 'SHUNYA could not record that — please try again.');
+        return;
+      }
+      await loadAttention();
+    } catch {
+      setActionError('SHUNYA could not be reached — the item stays in your attention list.');
+    }
+  }, [loadAttention]);
+
+  // Persisted event-driven attention takes the primary-operating slot when
+  // present — it is real operating intelligence, not a decorative nudge.
+  if (reviewItems.length > 0) {
+    const top = reviewItems[0];
+    const prio = top.priority >= 4 ? 'high' : top.priority <= 2 ? 'low' : 'normal';
+    const prioIcon = prio === 'high' ? <IconDiamond size={12} /> : <IconCircle size={12} />;
+    return (
+      <motion.div
+        className="pw-attention"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+      >
+        <div className={`pw-attention-header pw-attention-${prio}`}>
+          <span className="pw-attention-priority">{prioIcon} SHUNYA recommends focusing here</span>
+          {reviewItems.length > 1 && (
+            <span className="pw-attention-count">+{reviewItems.length - 1} more</span>
+          )}
+        </div>
+        <h2 className="pw-attention-title">Data needs your review</h2>
+        <p className="pw-attention-reason">{top.reason}</p>
+        <p className="pw-attention-why">Why: SHUNYA ingested this and could not classify it confidently — your review makes it canonical.</p>
+        <p className="pw-attention-action">→ Confirm the review to accept it</p>
+        {actionError && (
+          <p className="pw-attention-action" role="alert">{actionError}</p>
+        )}
+        <div className="pw-attention-actions">
+          <button className="pw-attention-btn pw-attention-btn-primary" onClick={() => actOnReview(top.id, 'confirm-review')}>
+            Confirm review
+          </button>
+          <button className="pw-attention-btn pw-attention-btn-ghost" onClick={() => actOnReview(top.id, 'dismiss')}>
+            Not now — I'll review later
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
 
   if (calm) return null;
   if (!signals || signals.length === 0) return null;
@@ -1304,6 +1395,14 @@ styles.textContent = `
   border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
   background: transparent; color: var(--shunya-text, #1A1C1D);
   cursor: pointer; transition: all 0.15s;
+}
+.pw-attention-btn:focus-visible {
+  outline: 2px solid var(--shunya-gold, #a4865f);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  /* Accessible touch targets on touch devices; desktop unchanged. */
+  .pw-attention-btn { min-height: 44px; padding: 12px 16px; }
 }
 .pw-attention-btn:hover { border-color: var(--shunya-gold, #a4865f); }
 .pw-attention-btn-primary {

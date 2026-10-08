@@ -4,11 +4,14 @@ Every attention item carries full tenant/identity/workspace scope, so all querie
 are scoped by organization_id. Callers that need cross-tenant reads must explicitly
 opt in — the defaults fail closed.
 """
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from app import db
 from app.attention.models import AttentionItem, AttentionState, AttentionSource
+
+logger = logging.getLogger(__name__)
 
 
 def create_attention_item(
@@ -73,6 +76,62 @@ def resolve(item_id: int, *, resolved_by: str) -> Optional[AttentionItem]:
     item.resolved_at = datetime.now(timezone.utc)
     item.resolved_by = resolved_by
     db.session.commit()
+    return item
+
+
+def confirm_review(item_id: int, *, reviewed_by: str, note: str = "") -> Optional[AttentionItem]:
+    """Record a human review decision on an active event-sourced item.
+
+    This is the review/decision action required by the M9 human-action contract:
+    the decision itself IS the canonical business-state transition for an
+    ingestion-review item (the ingestion is a transient event, so there is no
+    other persistent row to mutate). The decision is persisted canonically on
+    the item (``provenance.review_decision``), the item resolves, and a
+    canonical ``attention:review_confirmed`` event is emitted (non-fatal).
+
+    Returns None when the item does not exist or is not active.
+    """
+    item = db.session.get(AttentionItem, item_id)
+    if not item or item.state != AttentionState.ACTIVE.value:
+        return None
+
+    now = datetime.now(timezone.utc)
+    provenance = dict(item.provenance or {})
+    provenance["review_decision"] = {
+        "decision": "confirmed",
+        "decided_by": reviewed_by,
+        "decided_at": now.isoformat(),
+        "note": note or "",
+        "source_event_id": provenance.get("event_id"),
+    }
+    item.provenance = provenance
+    item.state = AttentionState.RESOLVED.value
+    item.resolved_at = now
+    item.resolved_by = reviewed_by
+    db.session.commit()
+
+    # Canonical event record of the human decision (never fatal).
+    try:
+        from app.shunya.infrastructure.event_bus import CanonicalEvent, get_event_bus
+        get_event_bus().publish(CanonicalEvent(
+            event_type="attention:review_confirmed",
+            tenant_id=item.organization_id,
+            workspace_id=None,
+            actor_id=reviewed_by,
+            actor_type="human",
+            object_id=item.related_object_id or str(item.id),
+            object_type=item.related_object_type or "attention_item",
+            payload={
+                "attention_item_id": item.id,
+                "decision": "confirmed",
+                "note": note or "",
+                "related_object_id": item.related_object_id,
+                "related_object_type": item.related_object_type,
+            },
+        ))
+    except Exception as e:  # never fail the decision because the bus failed
+        logger.warning("Review-confirmed event emission failed: %s", e)
+
     return item
 
 

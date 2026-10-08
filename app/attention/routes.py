@@ -10,7 +10,7 @@ Endpoints:
     POST   /api/v1/attention/<id>/resolve — mark resolved
 """
 from flask import Blueprint, jsonify, session, request, g
-from app.attention.models import AttentionItem, AttentionState
+from app.attention.models import AttentionItem, AttentionSource, AttentionState
 from app.attention import service as attention_service
 from app.authz.decorators import require_permission
 
@@ -142,6 +142,46 @@ def resolve_attention(item_id: int):
         return jsonify({"error": "Forbidden", "detail": "Item belongs to a different organization"}), 403
 
     updated = attention_service.resolve(item_id, resolved_by=identity_id)
+    if not updated:
+        return jsonify({"error": "Not found"}), 404
+
+    return jsonify({"success": True, "data": updated.to_dict()})
+
+
+@attention_bp.route("/<int:item_id>/confirm-review", methods=["POST"])
+@require_permission("ai.use")
+def confirm_review_attention(item_id: int):
+    """Record the human review decision for an event-sourced attention item.
+
+    This is the meaningful human action for ingestion-review items: it persists
+    the decision canonically (provenance.review_decision), emits a canonical
+    event, and resolves the item. Tenancy is enforced exactly like resolve.
+    """
+    org_id = _resolve_org_id()
+    if not org_id:
+        return jsonify({"error": "No organization context"}), 403
+
+    identity_id = _resolve_identity_id()
+    if not identity_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    item = attention_service.get(item_id)
+    if not item:
+        return jsonify({"error": "Not found", "detail": f"Attention item {item_id} not found"}), 404
+    if item.organization_id != org_id:
+        return jsonify({"error": "Forbidden", "detail": "Item belongs to a different organization"}), 403
+    if item.state != AttentionState.ACTIVE.value:
+        return jsonify({"error": "Conflict",
+                        "detail": f"Item is {item.state}; only active items can be reviewed"}), 409
+    if item.source != AttentionSource.EVENT.value:
+        return jsonify({"error": "Conflict",
+                        "detail": "Item is not a reviewable event-sourced item"}), 409
+
+    body = request.get_json(silent=True) or {}
+    note = (body.get("note") or "").strip()
+
+    updated = attention_service.confirm_review(
+        item_id, reviewed_by=identity_id, note=note)
     if not updated:
         return jsonify({"error": "Not found"}), 404
 
