@@ -1,0 +1,37 @@
+M9 RUNTIME PROOF — SH-M9→M6 CONTINUE-09
+========================================
+Run 1: HTTPS runtime closure over the deployed build 170c28f (2026-10-08 21:16Z / local 23:16)
+Script: ~/.hermes/cache/scratch/verify_m9_closure_runtime.py (cert tenant 278 over https://shunyaos.com + app-level cross-tenant)
+
+[PASS] C0 cert sign-in — status=200
+[PASS] C1 cert list is org-scoped (no org-7 item) — active=[6]
+[PASS] C2 cert sees its own item 6 — active=[6]
+[PASS] C3 confirm-review over HTTPS → resolved — status=200 state=resolved
+[PASS] C4 decision persisted canonically — decided_by=sid_5ef358418d4246ba8e156de0
+[PASS] C5 resolved item left the active list — active=[]
+[PASS] C6 founder cannot READ cert item (403) — status=403 detail=Item belongs to a different organization
+[PASS] C7 founder cannot CONFIRM cert item (403) — status=403
+[PASS] C8 anonymous refused — status=401
+RESTART_PROBE_ITEM_ID=7
+[PASS] C9 restart probe created (left active)
+
+10/10 checks passed
+
+Run 2: restart survival over the deployed build 026f2b1 (2026-10-08 22:0xZ)
+Item 7 was created BEFORE the 026f2b1 deploy (22:01:36Z restart).
+Script: ~/.hermes/cache/scratch/verify_m9_restart.py (cert tenant over HTTPS)
+
+[PASS] R0 cert sign-in — status=200
+[PASS] R1 item 7 survived deploy restart (still active) — active_ids=[7]
+[PASS] R2 item 7 associated with correct tenant — org=278
+[PASS] R3 resolving remains possible after restart — status=200 state=resolved
+[PASS] R4 decision persisted
+[PASS] R5 cert active list empty after resolution — active=[]
+
+6/6 checks passed
+
+Canonical-state verification (production DB, read-only follow-up):
+- AttentionItem 5 (org 7): state=resolved; provenance.review_decision {decision: confirmed, decided_by: sid_a3cd…, source_event_id: f5a9917d-…}
+- AttentionItem 6 (org 278): resolved via cert session over HTTPS
+- AttentionItem 7 (org 278): created pre-restart, survived, resolved via cert session over HTTPS
+- No active AttentionItems remain for either tenant at the time of closure

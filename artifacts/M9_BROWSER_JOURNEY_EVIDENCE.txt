@@ -1,0 +1,59 @@
+M9 BROWSER / USER-JOURNEY EVIDENCE — SH-M9→M6 CONTINUE-09
+===========================================================
+Deployed product: https://shunyaos.com — production SHA 026f2b1 (backend+frontend), deployed 2026-10-08 22:01:36Z
+Authenticated tenant: founder organization 7, identity sid_a3cd655b1e6f4b0f9c1113ba7ec26d41 (real login via vault, https://shunyaos.com/auth/login)
+Traceable chain: CanonicalEvent f5a9917d-239e-4033-9120-4ada3f2a33fc → AttentionItem #5 (org 7) → Home response → browser row.
+
+STEP 1-5 — EVENT → HOME VISIBILITY (landing surface, post-login)
+J1_home_state: {"url":"https://shunyaos.com/auth/login","identityId":"sid_a3cd655b1e6f4b0f9c1113ba7ec26d41","homeVisible":true,"greeting":"A few things need you.","pulse":"Needs attention","attentionCount":"1","reviewRowPresent":true,"reviewRowText":"Ingestion pending — processing incomplete; review required (ingestion ing_continue09_org7_1791493240)\nFrom a real business event (ingestion:csv) · detected 1h ago","hasConfirmBtn":false}
+J2_item_traceable_to_ingestion: True (row text carries the canonical ingestion id)
+J3_event_provenance_in_row: True ("From a real business event (ingestion:csv)")
+J4_screenshot: captured (Home with the attention section and the item row; also M3/M5/after-action shots captured during the run)
+J5_review_detail_opened: {"detailOpen":true,"detailText":"SHUNYA ingested data it could not classify confidently. Confirming records your review as canonical state; the item then resolves.\n\nConfirm review\nSet aside","buttons":["Confirm review","Set aside"]}
+
+STEP 6-7 — SNAPSHOTS (visual evidence captured via capture_screenshot; last frame copied to artifacts/M9_HOME_FINAL_STATE.png)
+- Desktop 1280: full shell — sidebar, "A few things need you.", NEEDS YOUR ATTENTION [1] with the canonical row. VERIFIED VISUALLY.
+- Mobile 390 + tablet 768: row + open detail ("Confirm review" / "Set aside"), calm layout, no horizontal overflow. VERIFIED VISUALLY.
+
+STEP 12 — RESPONSIVE / ACCESSIBILITY MEASUREMENTS
+M1_desktop: viewport 1280; row 680×67; primary btn 116×34 bg rgb(112,88,61) color rgb(255,255,255); no horizontal overflow
+M2_mobile390: viewport 390 coarse-pointer TRUE; primary btn 120×44 (>=44px touch target); no horizontal overflow; row visible
+M4_tablet768: viewport 768; primary btn height 44; no horizontal overflow
+M6_keyboard_review_focus (real Tab keys via CDP):
+  - Tab reaches row  "hp-task-row hp-review-row" — focusVisible TRUE
+  - Tab reaches "Confirm review" button — focusVisible TRUE, outline "solid 2px rgb(164,134,95)" (visible gold focus ring)
+  - Tab reaches "Set aside" button — focusVisible TRUE, same outline
+Contrast: primary button #70583D on #fff ≈ 6.7:1 (AA+ for the 12px label); row title #1A1C1D on #FFFFFF ≈ 15:1.
+(Measured at desktop/tablet/mobile-portrait; not a full WCAG certification.)
+
+STEP 7 — FAILURE / RECOVERY (attention API blocked via CDP network emulation)
+F1_blocked_state: {"homeVisible":true,"reviewRowPresent":false,"errorBanner":true,"errorText":"SHUNYA could not be reached.","retryVisible":true,"appAlive":true}
+  → API failure degrades truthfully: no fake item, no dead end, Home intact, reconnecting banner + Retry.
+F3_recovered_state: {"reviewRowPresent":true,"rowText":"Ingestion pending — processing incomplete; review required (ingestion ing_continue09_org7_1791493240)\nFrom a real busine","errorBanner":false,"greeting":"A few things need you."}
+  → Recovery: item reappears only from server truth (no manual DB operation).
+
+STEP 8 — THE HUMAN ACTION (click "Confirm review" in the browser)
+A0_detail_open: True
+A1_after_confirm: {"reviewRowPresent":false,"detailStillOpen":false,"notice":"Review confirmed — recorded as canonical state.","greeting":"Everything is calm.","pulse":"Observing","emptyMsg":true,"sectionCount":"(none)"}
+A3_server_truth (page-session fetch against the real server):
+  list_status 200, list_ids [] (no active items)
+  item5_status 200, item5_state "resolved"
+  item5_decision {"decided_at":"2026-10-08T22:03:59.454307+00:00","decided_by":"sid_a3cd655b1e6f4b0f9c1113ba7ec26d41","decision":"confirmed","note":"","source_event_id":"f5a9917d-239e-4033-9120-4ada3f2a33fc"}
+  item6_status 403 (another tenant's item — browser-level cross-tenant refusal)
+  reconfirm_status 409 (stale/resolved re-action refused truthfully)
+
+STEP 10-11 — REFRESH CONTINUITY
+A4_after_refresh: {"reviewRowPresent":false,"greeting":"Everything is calm.","emptyMsg":true}
+  → Resolved item does not return as active after refresh.
+
+STEP 12-14 — LOGOUT / LOGIN CONTINUITY
+L0_chip: user chip clicked — no logout menu exists in the SPA (no visible logout control found; FINDING — see checkpoint)
+L2_after_logout: canonical logout via the product's own /logout endpoint → unauthenticated public surface
+L3_session_gone: {"status":401,"authenticated":false} — server session destroyed
+L4_relogin_continuity: {"homeVisible":true,"reviewRowPresent":false,"greeting":"Everything is calm.","emptyMsg":true,"activeIds":[],"item5State":"resolved"}
+  → After logout → real re-login: Home calm, resolved item does NOT return as active, item 5 still resolved.
+
+STEP 15 — CROSS-TENANT (repeated after Home wiring)
+- In-browser (founder session): GET /api/v1/attention/6 → 403 (item belongs to org 278 / cert tenant)
+- App-level: founder confirm on item 6 → 403 "Item belongs to a different organization" (see runtime proof C6/C7)
+- Cert tenant: cannot see org-7 item 5 (see runtime proof C1)

@@ -100,7 +100,27 @@ UPDATED STATUS:
 ### M6 — BRING YOUR BUSINESS INTO SHUNYA — `IN PROGRESS` (foundation only)
 ### M7 — SHUNYA UNDERSTANDS — `NOT STARTED`
 ### M8 — SHUNYA OPERATES — `NOT STARTED`
-### M9 — SHUNYA NOTICES — `NOT STARTED`
+### M9 — SHUNYA NOTICES — `CLOSED` (2026-10-08)
+
+Canonical event-driven attention is live and user-journey proven:
+- Architecture (CONTINUE-08, preserved): real event → CanonicalEvent → org/workspace/actor →
+  attention subscriber → AttentionItem (persisted) → Home → human action → canonical state change
+  → resolution → auditable truth. No legacy runtime loop; no synthetic tenants.
+- Human action (CONTINUE-09): POST /api/v1/attention/<id>/confirm-review — persists the review
+  decision canonically (provenance.review_decision + canonical event) and resolves the item.
+- Home: the real post-login landing (home-page.tsx "NEEDS YOUR ATTENTION") consumes the canonical
+  API via one shared client (api/attention-api.ts); greeting/pulse/count reflect it truthfully.
+- Evidence: CI 37848178854 SUCCESS · product SHA 026f2b1 deployed (health parity verified) ·
+  runtime 10/10 (HTTPS) + restart 6/6 · browser user journey (visibility → action → resolution →
+  refresh → logout/login → cross-tenant 403 → stale 409) · DB read-only confirms resolved states
+  and zero active items · failure/recovery (blocked API → truthful banner → recovery) ·
+  accessibility/responsive measured at 3 breakpoints.
+- Artifacts: artifacts/M9_RUNTIME_PROOF.txt · artifacts/M9_BROWSER_JOURNEY_EVIDENCE.txt ·
+  artifacts/M9_HOME_FINAL_STATE.png · artifacts/SH_M6_M15_CONTINUE09_CHECKPOINT.md
+- Findings flagged: no visible logout control in the SPA (logout works via /logout); PrimaryFocusArea
+  surface classified legacy (documented, not revived).
+- M6 semantic ingestion unblocked per directive §18; contract frozen (see CONTINUE-09 checkpoint).
+
 ### M10 — SHUNYA IS ALIVE — `NOT STARTED`
 ### M11 — SHUNYA RECOVERS — `NOT STARTED`
 ### M12 — SHUNYA WORKS EVERYWHERE — `NOT STARTED`
