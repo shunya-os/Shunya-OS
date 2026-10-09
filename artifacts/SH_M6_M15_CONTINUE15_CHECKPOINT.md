@@ -92,6 +92,16 @@ SSE); the test-side gate is the correct fix.
    sh_outcomes with state.customer_id 240. The duplicate attempt wrote
    nothing.
 
+### Supplier leg — live on the same build (6291795)
+
+- Chat: "confirm: add supplier E4 Live Supply Co" → "Created supplier
+  “E4 Live Supply Co” (id 14). Recorded as outcome 488E2EB6595A…"
+- Duplicate retry → "A supplier named “E4 Live Supply Co” already exists
+  (id 14) — nothing new was created."
+- Production DB probe: exactly ONE suppliers row (id 14, tenant_id 7 — the
+  organization, active) and outcome 488E2EB6595A exists with
+  state.supplier_id 14. Screenshot: STAGE_E4_LIVE_SUPPLIER.png.
+
 - tests/test_e4_chat_business_actions.py — 10 tests: detection (confirm/name
   trimming/negative/supplier), preview writes nothing, confirmed create lands
   in rel_relationships scoped to the org, reported outcome id exists, duplicate
