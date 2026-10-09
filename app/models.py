@@ -466,6 +466,7 @@ class Document(db.Model):
         Index("ix_documents_lead", "lead_id"),
         Index("ix_documents_classification", "classification"),
         Index("ix_documents_created", "created_at"),
+        Index("ix_documents_content_sha256", "content_sha256"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -477,6 +478,10 @@ class Document(db.Model):
     extracted_text = db.Column(db.Text, default="")
     structured_data = db.Column(db.Text, default="")  # JSON string
     classification = db.Column(db.String(50), default="other")
+    # SHA-256 of the file bytes — canonical content identity for duplicate
+    # detection on upload (migration c_documents_content_sha256). NULL for
+    # documents added before the column existed.
+    content_sha256 = db.Column(db.String(64), nullable=True)
     uploaded_by = db.Column(db.String(120), default="")
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 

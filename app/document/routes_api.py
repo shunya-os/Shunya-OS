@@ -397,10 +397,14 @@ def api_classify(doc_id: int):
 
     # Read current intelligence, modify, persist
     intel = read_intelligence(doc) or {}
+    # Capture the previous value BEFORE overwriting — assigning the new
+    # classification first made previous_classification record the new value,
+    # so the audit trail always claimed the change was a no-op.
+    previous_classification = intel.get("classification", "unknown")
     intel["classification"] = new_classification
     intel["corrected_by_human"] = True
     intel["corrected_at"] = datetime.now(timezone.utc).isoformat()
-    intel["previous_classification"] = intel.get("classification", "unknown")
+    intel["previous_classification"] = previous_classification
 
     doc.classification = new_classification
     try:

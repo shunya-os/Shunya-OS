@@ -176,15 +176,54 @@ def ingest_file():
         return jsonify({"success": False, "error": "No tenant context — cannot determine document scope"}), 403
 
     from app.runtime_config import uploads_dir
+    import hashlib
     upload_dir = os.path.join(uploads_dir(), "documents")
     os.makedirs(upload_dir, exist_ok=True)
     safe_name = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{f.filename}"
     file_path = os.path.join(upload_dir, safe_name)
 
+    # Save while hashing — the digest becomes the document's canonical content
+    # identity (duplicate detection below), computed on the way to disk.
+    digest = hashlib.sha256()
     try:
-        f.save(file_path)
+        with open(file_path, "wb") as out:
+            while True:
+                chunk = f.stream.read(65536)
+                if not chunk:
+                    break
+                digest.update(chunk)
+                out.write(chunk)
     except Exception as e:
         return jsonify({"success": False, "error": f"Failed to save file: {e}"}), 500
+    content_sha256 = digest.hexdigest()
+
+    # ── Duplicate detection: identical bytes already in this tenant scope? ──
+    # Same content = same document. Return the existing record with a truthful
+    # explanation instead of silently creating a second one. The redundant blob
+    # just written is removed — its canonical twin already exists in scope.
+    existing = Document.query.filter(
+        Document.tenant_id == tid,
+        Document.content_sha256 == content_sha256,
+    ).first()
+    if existing:
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+        added = existing.created_at.strftime("%d %b %Y") if existing.created_at else "earlier"
+        return jsonify({
+            "success": True,
+            "duplicate": True,
+            "document_id": existing.id,
+            "filename": existing.filename,
+            "file_type": existing.file_type,
+            "summary": (
+                f"'{f.filename}' is already in your {ctx['context_type']} workspace — "
+                f"identical file (same SHA-256), added {added} as '{existing.filename}'. "
+                f"Nothing new was stored."
+            ),
+            "context": ctx,
+        })
 
     ext = os.path.splitext(f.filename)[1].lower()
     file_type = "pdf" if ext == ".pdf" else ("xlsx" if ext == ".xlsx" else "csv" if ext == ".csv" else "text")
@@ -195,6 +234,7 @@ def ingest_file():
         file_type=file_type,
         classification="ingested",
         tenant_id=tid,
+        content_sha256=content_sha256,
         uploaded_by=ctx["identity_id"],
         created_at=datetime.now(timezone.utc),
     )
@@ -207,24 +247,29 @@ def ingest_file():
     try:
         if file_type == "pdf":
             import subprocess
+            import sys as _sys
+            # Isolated extraction (a malformed PDF must not take down the web
+            # worker) via an argv-based module — never the caller's filename
+            # interpolated into Python source, and the venv interpreter
+            # (sys.executable), not whichever `python3` happens to be on PATH.
             pdf_result = subprocess.run(
-                ["python3", "-c", f"""
-import sys; sys.path.insert(0, '{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}')
-try:
-    import pdfplumber
-    with pdfplumber.open('{file_path}') as pdf:
-        text = ' '.join(page.extract_text() or '' for page in pdf.pages)
-        print(text[:5000] if text else 'No text could be extracted from this PDF.')
-except Exception as e:
-    print(f'[extraction limited: {{e}}]')
-"""],
-                capture_output=True, text=True, timeout=15,
+                [_sys.executable, "-m", "app.document.extract_cli", file_path],
+                capture_output=True, text=True, timeout=25,
+                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             )
-            extracted_text = pdf_result.stdout.strip()
-            if extracted_text and not extracted_text.startswith("[extraction"):
+            raw_out = (pdf_result.stdout or "").strip()
+            if raw_out.startswith("[extraction"):
+                extracted_text = ""
+                analysis_summary = f"Content analysis limited: {raw_out}"
+            elif raw_out.startswith("No text could be extracted"):
+                extracted_text = ""
+                analysis_summary = ("PDF saved, but no text layer could be extracted — "
+                                    "it may be a scanned document.")
+            else:
+                extracted_text = raw_out
                 analysis_summary = f"PDF extracted: {len(extracted_text)} characters. "
                 if len(extracted_text) > 100:
-                    sentences = extracted_text.replace('\\n', ' ').split('. ')
+                    sentences = extracted_text.replace('\n', ' ').split('. ')
                     key_points = [s.strip() for s in sentences if len(s.strip()) > 30][:3]
                     if key_points:
                         analysis_summary += "Key content: " + "; ".join(key_points) + "."
