@@ -103,3 +103,35 @@ def test_retrieval_without_canonical_provider_still_works(app):
     layer = RetrievalLayer()
     evidence = layer.retrieve("anything")
     assert evidence == []
+
+
+def test_null_org_legacy_documents_stay_searchable(app):
+    """CI contract (test_g11_e2e): a knowledge document with NULL
+    organization_id (pre-convergence upload) must remain searchable for an
+    identity whose organization has resolved — it belongs to no OTHER tenant.
+    Documents owned by a different organization stay invisible."""
+    from app import db
+    from app.models import KnowledgeDocument, Organization, OrgMember
+    from app.authz.services import seed_default_roles
+    from app.search.universal_search import search_canonical_objects
+
+    db.session.add(Organization(id=999, name="Search Org", slug="search-org",
+                                is_active=True))
+    db.session.flush()
+    seed_default_roles(999)
+    db.session.add(OrgMember(organization_id=999, identity_id="test_user",
+                             role="owner", is_active=True))
+    db.session.add(KnowledgeDocument(
+        title="Acme Corp Contract", summary="Contract with Acme Corporation",
+        category="legal", tags="contract,acme", uploaded_by="test_user"))
+    db.session.commit()
+
+    payload = search_canonical_objects("Acme", org_id=999, limit=8)
+    assert "Acme Corp Contract" in [r["name"] for r in payload["results"]]
+
+    # owned by a DIFFERENT organization -> must stay hidden
+    db.session.add(KnowledgeDocument(title="Acme Secret Other Org",
+                                     organization_id=998, uploaded_by="other"))
+    db.session.commit()
+    payload = search_canonical_objects("Acme", org_id=999, limit=8)
+    assert "Acme Secret Other Org" not in [r["name"] for r in payload["results"]]

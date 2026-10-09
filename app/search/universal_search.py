@@ -126,11 +126,18 @@ def search_canonical_objects(query: str, org_id=None, limit: int = 8,
             q = db.session.query(model).filter(or_(*filters))
             # Tenant isolation where applicable — legacy tenant_id models AND
             # canonical organization_id models (commercial).
+            #
+            # organization_id models also accept NULL rows: pre-convergence
+            # documents were uploaded before organization stamping and belong
+            # to no other tenant, so hiding them would make the founder's own
+            # legacy knowledge vanish from search (observed as a CI contract
+            # break in test_g11_e2e). Other organizations' rows stay hidden.
             if org_id:
                 if hasattr(model, "tenant_id"):
                     q = q.filter(model.tenant_id == int(org_id))
                 elif hasattr(model, "organization_id"):
-                    q = q.filter(model.organization_id == int(org_id))
+                    q = q.filter(or_(model.organization_id == int(org_id),
+                                     model.organization_id.is_(None)))
 
             rows = q.order_by(
                 (getattr(model, "updated_at", None) or getattr(model, "created_at", None) or model.id).desc()
