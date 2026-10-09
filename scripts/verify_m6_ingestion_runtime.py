@@ -115,10 +115,11 @@ def main() -> int:
     check("C8 import session recorded", bool(session_id), f"session={session_id[:8]}…")
 
     # C9 — FIND IN THE PRODUCT (canonical Relationships surface)
-    status, _h, raw = cert.call("GET", f"/relationships/api/v1/relationships?q=M6+Cert+{suffix}&limit=50")
+    # Search by the run-unique suffix (a contiguous substring of every name).
+    status, _h, raw = cert.call("GET", f"/relationships/api/v1/relationships?q={suffix}&limit=100")
     rels = (_json.loads(raw).get("relationships", []) if raw else [])
     names = [r.get("display_name") for r in rels]
-    check("C9 imported customers findable in Relationships",
+    check("C9 imported customers findable in Relationships (by search)",
           status == 200 and cust_name_a in names and cust_name_b in names,
           f"found={names[:5]}")
 
@@ -204,7 +205,8 @@ def main() -> int:
     })
     sup_commit = (_json.loads(raw).get("data", {}) if raw else {})
     check("S2 supplier committed", status == 201 and sup_commit.get("created") == 1,
-          f"status={status} created={sup_commit.get('created')}")
+          f"status={status} created={sup_commit.get('created')} "
+          f"errors={str(sup_commit.get('errors'))[:220]}")
     sup_ids = [p.get("record_id") for p in sup_commit.get("provenance", [])]
     if sup_ids:
         status, _h, raw = cert.call("GET", f"/api/v1/data/provenance/supplier/{sup_ids[0]}")
