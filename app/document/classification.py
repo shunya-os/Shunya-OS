@@ -43,8 +43,15 @@ _SIGNALS: dict[str, list[tuple[str, float]]] = {
     ],
     "quotation": [
         (r"\bquotation\b|\bquote\b", 2.0),
+        # A quotation carrying its own reference number is near-certain (mirror
+        # of the invoice "no./number" pattern). Without it, a real supplier
+        # quote can lose to generic invoice-ish totals (subtotal / GST /
+        # payment terms) and be misclassified as an invoice — observed live on
+        # a real quotation PDF (classified "invoice" at 0.6 confidence).
+        (r"\bquotation\b[^\n]{0,80}\b(ref|no|number|#)\b", 1.5),
         (r"\bproposal\s*(no|number|#)?\b", 1.0),
-        (r"\bvalid(ity)?\s*(until|for|till)\b", 1.5),
+        # "Validity: 15 days" is as common as "valid for 15 days".
+        (r"\bvalid(ity)?\b[^\n]{0,16}\b(until|for|till|days?|weeks?)\b", 1.5),
         (r"\bunit\s*price\b", 1.5),
         (r"\bestimate\b", 1.0),
         (r"\boffer\b", 0.8),

@@ -58,6 +58,24 @@ def test_classification_is_deterministic():
     assert a == b
 
 
+def test_real_supplier_quotation_beats_invoice_like_totals():
+    """Regression — observed live: a supplier quotation PDF containing
+    subtotal/GST/payment-terms (true, but not discriminating) was classified
+    'invoice' at 0.6 confidence, because those generic signals outweighed the
+    single 'quotation' word. The reference-number and 'Validity: N days'
+    signals must tip it back to 'quotation'."""
+    text = (
+        "SUNDARA RESORTS & SPA\nQuotation — Ref SR-Q-2026-114\n"
+        "To: Panchi Club, Mumbai | Date: 09 Oct 2026 | Validity: 15 days\n"
+        "Deluxe Pool Villa 4 nights 18,500 74,000\n"
+        "Subtotal 83,200\nGST 12% 9,984\nTotal 93,184\n"
+        "Payment terms: 50% advance on confirmation."
+    )
+    r = classify_document(text, filename="sundara_resorts_quote.pdf", file_type="pdf")
+    assert r["classification"] == "quotation", f"got {r['classification']} ({r['signals']})"
+    assert r["confidence"] > 0.3
+
+
 # ── Persistence ─────────────────────────────────────────────────────────
 
 
