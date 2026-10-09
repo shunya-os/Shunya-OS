@@ -64,6 +64,25 @@ def clean_relay_channel(redis_url: str) -> None:
         conn.close()
 
 
+def _wait_until(predicate, timeout: float = 15.0, interval: float = 0.1) -> bool:
+    """Bounded wait for a condition — deterministic under CI load.
+
+    The multi-worker tests previously slept a fixed second and asserted
+    delivery; on a loaded CI runner the relay subscriber threads sometimes had
+    not subscribed yet, and Redis Pub/Sub has NO replay — the event was lost
+    and the test failed with "assert 0 >= 1" (observed twice consecutively on
+    2026-10-09, blocking every deploy). A bounded wait keeps the test truthful
+    (it still fails when delivery is genuinely broken) while giving slow
+    runners a fair window.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return bool(predicate())
+
+
 def make_event(
     event_type: str = "reality.state_change",
     tenant_id: int = 1,
@@ -117,8 +136,25 @@ def workers(redis_url: str):
         worker_buses.append(bus)
         worker_relays.append(relay)
 
-    # Wait for all subscriber threads to connect to Redis
-    time.sleep(1.0)
+    # Readiness gate (not a blind sleep): wait until every relay's subscriber
+    # is actually registered on the Redis channel. Redis Pub/Sub has no replay,
+    # so publishing before subscription loses the event outright — the root
+    # cause of the intermittent "assert 0 >= 1" failures on loaded runners.
+    import redis as redis_mod
+    probe = redis_mod.from_url(redis_url, socket_timeout=5)
+    try:
+        def _all_subscribed() -> bool:
+            try:
+                _ch, count = probe.pubsub_numsub(RedisEventRelay.REDIS_CHANNEL)[0]
+                return count >= WORKER_COUNT
+            except Exception:
+                return False
+
+        assert _wait_until(_all_subscribed, timeout=20.0), (
+            "relay subscriber threads did not register on the Redis channel "
+            "within 20s — cross-worker delivery cannot be certified")
+    finally:
+        probe.close()
 
     yield worker_buses, worker_relays
 
@@ -151,7 +187,8 @@ class TestMultiWorkerDelivery:
         event = make_event(event_type="reality.state_change", object_id="prop_001")
         buses[0].publish(event)
 
-        time.sleep(1.0)  # Allow Redis round-trip
+        assert _wait_until(lambda: all(len(received[wid]) >= 1 for wid in range(3))), (
+            "not every worker received the event within 15s")
 
         # All workers must have received the event
         for wid in range(3):
@@ -175,8 +212,8 @@ class TestMultiWorkerDelivery:
         event = make_event(object_id="worker_a_to_b_test")
         buses[0].publish(event)
 
-        time.sleep(1.0)
-        assert len(b_events) >= 1
+        assert _wait_until(lambda: len(b_events) >= 1), (
+            "Worker B did not receive the event within 15s")
         assert b_events[0].event_id == event.event_id
 
     def test_worker_b_to_worker_a_delivery(
@@ -191,8 +228,8 @@ class TestMultiWorkerDelivery:
         event = make_event(object_id="worker_b_to_a_test")
         buses[1].publish(event)
 
-        time.sleep(1.0)
-        assert len(a_events) >= 1
+        assert _wait_until(lambda: len(a_events) >= 1), (
+            "Worker A did not receive the event within 15s")
         assert a_events[0].event_id == event.event_id
 
     def test_worker_a_to_worker_c_delivery(
@@ -207,8 +244,8 @@ class TestMultiWorkerDelivery:
         event = make_event(object_id="worker_a_to_c_test")
         buses[0].publish(event)
 
-        time.sleep(1.0)
-        assert len(c_events) >= 1
+        assert _wait_until(lambda: len(c_events) >= 1), (
+            "Worker C did not receive the event within 15s")
         assert c_events[0].event_id == event.event_id
 
     def test_worker_c_to_worker_a_delivery(
@@ -223,8 +260,8 @@ class TestMultiWorkerDelivery:
         event = make_event(object_id="worker_c_to_a_test")
         buses[2].publish(event)
 
-        time.sleep(1.0)
-        assert len(a_events) >= 1
+        assert _wait_until(lambda: len(a_events) >= 1), (
+            "Worker A did not receive the event within 15s")
         assert a_events[0].event_id == event.event_id
 
     def test_no_self_republication_loop(
@@ -304,7 +341,10 @@ class TestMultiWorkerDelivery:
         event = make_event(object_id="concurrent_test")
         buses[0].publish(event)
 
-        time.sleep(1.0)
+        assert _wait_until(lambda: all(
+            f"w{wid}_client{sub}" in results for wid in range(3) for sub in range(2)
+        )), "not every concurrent client received the event within 15s"
+        time.sleep(0.5)  # settle window: any (wrong) duplicate would land now
 
         for wid in range(3):
             for sub in range(2):
@@ -328,7 +368,22 @@ class TestMultiWorkerDelivery:
         bus_b._redis_relay = relay_b
         bus_b.start_redis_relay()
 
-        time.sleep(0.3)
+        # Readiness gate: both relays must be subscribed before any publish
+        # (Pub/Sub has no replay — a publish before subscription is lost).
+        import redis as redis_mod2
+        probe2 = redis_mod2.from_url(redis_url, socket_timeout=5)
+        try:
+            def _both_subscribed() -> bool:
+                try:
+                    _ch, count = probe2.pubsub_numsub(RedisEventRelay.REDIS_CHANNEL)[0]
+                    return count >= 2
+                except Exception:
+                    return False
+
+            assert _wait_until(_both_subscribed, timeout=20.0), (
+                "relays did not register on the Redis channel within 20s")
+        finally:
+            probe2.close()
 
         b_events: list[CanonicalEvent] = []
         bus_b.subscribe("*", b_events.append, consumer_name="reconnect_listener")
@@ -336,20 +391,34 @@ class TestMultiWorkerDelivery:
         # Publish before reconnect
         event_a = make_event(object_id="before_reconnect")
         bus_a.publish(event_a)
-        time.sleep(0.5)
-        assert len(b_events) >= 1
+        assert _wait_until(lambda: len(b_events) >= 1), (
+            "pre-reconnect event was not delivered within 15s")
 
         # Simulate relay failure on bus_a by stopping and restarting
         relay_a.stop()
         time.sleep(0.3)
         relay_a.start()
-        time.sleep(0.3)
+
+        # Wait until relay_a is subscribed again before publishing
+        probe3 = redis_mod2.from_url(redis_url, socket_timeout=5)
+        try:
+            def _both_subscribed_again() -> bool:
+                try:
+                    _ch, count = probe3.pubsub_numsub(RedisEventRelay.REDIS_CHANNEL)[0]
+                    return count >= 2
+                except Exception:
+                    return False
+
+            assert _wait_until(_both_subscribed_again, timeout=20.0), (
+                "relay did not re-register after restart within 20s")
+        finally:
+            probe3.close()
 
         # Publish after reconnect
         event_b = make_event(object_id="after_reconnect")
         bus_a.publish(event_b)
-        time.sleep(0.5)
-        assert len(b_events) >= 2, "Reconnected relay did not deliver event"
+        assert _wait_until(lambda: len(b_events) >= 2), (
+            "Reconnected relay did not deliver the event within 15s")
         assert b_events[-1].event_id == event_b.event_id
 
         relay_a.stop()
