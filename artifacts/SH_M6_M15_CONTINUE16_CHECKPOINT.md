@@ -1,8 +1,9 @@
-# SH-M6→M15 CONTINUE-16 CHECKPOINT — Tenancy FK convergence, tier 1
+# SH-M6→M15 CONTINUE-16 CHECKPOINT — Tenancy FK convergence (tier 1 deployed; tier 2 in this push)
 
-Base: b9b1330 (CI-27, deployed). This work: migration
-c_tenancy_fk_convergence_tier1 (dry-run verified against production, then
-deployed via this push).
+Base: b9b1330 (CI-27, deployed). Tier 1: c_tenancy_fk_convergence_tier1
+(dry-run verified, deployed via 60764e4, production-verified 65 -> 9). Tier 2:
+c_tenancy_fk_convergence_tier2 (dry-run verified 9 -> 2 in-transaction,
+rollback clean; rides this push).
 
 ## The convergence map (production, measured — not estimated)
 
@@ -39,12 +40,26 @@ returned the count to 65 — ROLLBACK CLEAN. Production alembic head confirmed
 at c_human_context_tenancy_retarget before the chain link. `alembic heads`
 shows a single new head (no branch). Migration-engine suite: 14 passed.
 
-## Next increments (tier 2 planning inputs)
+## Tier 2 — shipped with this block
 
-- memory_records / memory_provenances: decide the semantics (legacy values
-  are historical; new writes should be organization-scoped) — likely a
-  dual-read migration with a mapping for the organizations that HAVE a
-  legacy bridge row, and an explicit "unmapped legacy" marker otherwise.
-- campaigns / outcomes / tenant_themes / workspaces: same decision, small
-  row counts.
-- tenants.parent_id: keep (self-referential, intentional).
+TIER 2 SHIPPED (c_tenancy_fk_convergence_tier2, dry-run: 9 -> 2 in-transaction,
+rollback clean; 7 FKs dropped with rows preserved — no data rewrite):
+campaigns, memory_provenances, memory_records, observations, outcomes,
+tenant_themes, workspaces. The survivors after tier 2 are exactly the two
+deliberate ones: organizations.legacy_tenant_id (bridge, org 7 <-> legacy 89)
+and tenants.parent_id (self-referential).
+
+Deferred by design — the historical-memory rewrite (89 -> 7 for 1,226 rows
+across campaigns/memory_*/observations/outcomes/workspaces): value
+distribution measured (89 is the only bridge-mappable legacy value; org 7 is
+its owner); tenant_themes carries unmapped dead-demo values (91/97/113/...)
+that stay as historical markers. The rewrite is a founder-reviewed product
+decision (it changes what the intelligence engine can recall), NOT a schema
+step; new writes already use organization ids everywhere.
+
+## Verification (post-deploy, production)
+
+- /health: 60764e4 CI_CERTIFIED; alembic head c_tenancy_fk_convergence_tier1
+  applied; live FK inventory: 65 -> 9 survivors, exactly the documented set.
+- CI-28 required two Docker-Hub-rate-limit retries (infrastructure, not
+  code; the tests never ran on the failed attempts) — resolved on attempt 5.
