@@ -10,7 +10,7 @@ import type { FC } from 'react';
 
 interface RelItem {
   id: number;
-  name?: string;
+  display_name?: string;
   company_name?: string;
   email?: string;
   relationship_type: string;
@@ -96,7 +96,9 @@ export const RelationshipWorkspace: FC = () => {
         <div className="pw-commercial-list">
           {relationships.length === 0 && <div className="pw-domain-empty"><p>No relationships found.</p></div>}
           {relationships.map((rel) => {
-            const name = rel.name || rel.company_name || rel.email || `Relationship #${rel.id}`;
+            // The API returns `display_name`; `name` never existed on this
+            // payload, so every title silently degraded to company/email.
+            const name = rel.display_name || rel.company_name || rel.email || `Relationship #${rel.id}`;
             return (
               <div key={rel.id}>
                 <div

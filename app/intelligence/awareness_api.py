@@ -22,11 +22,15 @@ def api_awareness():
         from app.intelligence.awareness import scan
         signals = scan()
 
-        # Ensure each signal has a timestamp
-        now = now().isoformat()
+        # Ensure each signal has a timestamp.
+        # (This line previously read `now = now().isoformat()` — the local
+        # assignment shadowed the imported function, so every call raised
+        # UnboundLocalError and the endpoint silently returned
+        # {"signals": [], "error": ...} with HTTP 200.)
+        stamp = now().isoformat()
         for s in signals:
             if "timestamp" not in s:
-                s["timestamp"] = now
+                s["timestamp"] = stamp
 
         # Sort: high > medium > low, then newest first (ISO strings compare correctly)
         severity_order = {"high": 0, "medium": 1, "low": 2}
