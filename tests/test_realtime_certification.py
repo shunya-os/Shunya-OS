@@ -126,33 +126,45 @@ def workers(redis_url: str):
     finally:
         pub_conn.close()
 
-    worker_buses = []
-    worker_relays = []
-    for wid in range(WORKER_COUNT):
-        bus = EventBus()
-        relay = RedisEventRelay(redis_url=redis_url, event_bus=bus)
-        bus._redis_relay = relay
-        relay.start()
-        worker_buses.append(bus)
-        worker_relays.append(relay)
-
-    # Readiness gate (not a blind sleep): wait until every relay's subscriber
-    # is actually registered on the Redis channel. Redis Pub/Sub has no replay,
-    # so publishing before subscription loses the event outright — the root
-    # cause of the intermittent "assert 0 >= 1" failures on loaded runners.
-    import redis as redis_mod
+    # Baseline subscriber count BEFORE this fixture's relays start. Earlier
+    # suite boots leak global relays (SSEStreamManager.start() starts one and
+    # stop() never stops it), so an absolute count of 3 could be reached with
+    # only 2 fresh relays subscribed — and Pub/Sub has no replay: a publish
+    # that beats the third relay's subscription is lost forever (intermittent
+    # CI failures of this class, 2026-10-09). Gate on the DELTA instead.
     probe = redis_mod.from_url(redis_url, socket_timeout=5)
     try:
-        def _all_subscribed() -> bool:
+        def _subscriber_count() -> int:
             try:
                 _ch, count = probe.pubsub_numsub(RedisEventRelay.REDIS_CHANNEL)[0]
-                return count >= WORKER_COUNT
+                return count
             except Exception:
-                return False
+                return -1
 
-        assert _wait_until(_all_subscribed, timeout=20.0), (
-            "relay subscriber threads did not register on the Redis channel "
-            "within 20s — cross-worker delivery cannot be certified")
+        baseline = _subscriber_count()
+        assert baseline >= 0, "could not read PUBSUB NUMSUB from Redis"
+
+        worker_buses = []
+        worker_relays = []
+        for wid in range(WORKER_COUNT):
+            bus = EventBus()
+            relay = RedisEventRelay(redis_url=redis_url, event_bus=bus)
+            bus._redis_relay = relay
+            relay.start()
+            worker_buses.append(bus)
+            worker_relays.append(relay)
+
+        # Readiness gate (not a blind sleep): wait until all WORKER_COUNT
+        # FRESH relays are registered — i.e. the subscriber count grew by
+        # WORKER_COUNT from the baseline. Redis Pub/Sub has no replay, so
+        # publishing before a subscription loses the event outright.
+        assert _wait_until(
+            lambda: _subscriber_count() >= baseline + WORKER_COUNT,
+            timeout=20.0,
+        ), (
+            f"relay subscriber threads did not register on the Redis channel "
+            f"within 20s (baseline {baseline}, needed +{WORKER_COUNT}) — "
+            f"cross-worker delivery cannot be certified")
     finally:
         probe.close()
 
@@ -214,6 +226,32 @@ class TestMultiWorkerDelivery:
 
         assert _wait_until(lambda: len(b_events) >= 1), (
             "Worker B did not receive the event within 15s")
+        assert b_events[0].event_id == event.event_id
+
+    def test_delivery_after_idle_period(
+        self, workers: tuple[list[EventBus], list[RedisEventRelay]]
+    ):
+        """A relay that has been IDLE must still receive the next event.
+
+        Pins the idle-delivery invariant for the Redis relay: after a period
+        of silence (beyond the relay's socket timeout), the next published
+        event must still be delivered — Pub/Sub has no replay, so any
+        subscription lapse loses events permanently. (The 2026-10-09
+        intermittent CI failures at a_to_b were root-caused to the fixture's
+        readiness gate counting leaked subscribers; this test guards the
+        adjacent invariant that idle relays keep their subscription.)
+        """
+        buses, relays = workers
+
+        b_events: list[CanonicalEvent] = []
+        buses[1].subscribe("*", b_events.append, consumer_name="idle_listener")
+
+        time.sleep(11)  # inside the old reconnect gap (socket timeout 10s + delay 2s)
+
+        event = make_event(object_id="after_idle")
+        buses[0].publish(event)
+        assert _wait_until(lambda: len(b_events) >= 1), (
+            "Worker B did not receive the event published after an idle period")
         assert b_events[0].event_id == event.event_id
 
     def test_worker_b_to_worker_a_delivery(

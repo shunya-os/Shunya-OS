@@ -802,7 +802,16 @@ class RedisEventRelay:
     # ---- Internal: subscriber loop ---------------------------------------
 
     def _subscriber_loop(self) -> None:
-        """Daemon thread: subscribe to Redis and relay events to local bus."""
+        """Daemon thread: subscribe to Redis and relay events to local bus.
+
+        Uses ``pubsub.get_message(timeout=...)`` polling rather than
+        ``pubsub.listen()``: polling returns control to this loop regularly
+        (prompt stop()/shutdown handling) and keeps the subscription
+        explicitly live across idle periods. (Note: an intermittent CI
+        failure at test_worker_a_to_worker_b_delivery was root-caused to the
+        test fixture's readiness gate counting leaked subscribers from other
+        suite boots — fixed in the fixture — not to this loop.)
+        """
         import redis as redis_mod
 
         while self._running:
@@ -818,9 +827,10 @@ class RedisEventRelay:
                         self.REDIS_CHANNEL,
                     )
 
-                for message in pubsub.listen():
-                    if not self._running:
-                        break
+                while self._running:
+                    message = pubsub.get_message(timeout=1.0)
+                    if message is None:
+                        continue  # idle — subscription stays live
                     if message["type"] != "message":
                         continue
                     self._handle_redis_message(message["data"])
