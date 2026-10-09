@@ -135,3 +135,30 @@ def test_null_org_legacy_documents_stay_searchable(app):
     db.session.commit()
     payload = search_canonical_objects("Acme", org_id=999, limit=8)
     assert "Acme Secret Other Org" not in [r["name"] for r in payload["results"]]
+
+
+def test_execute_and_automate_handlers_never_fabricate_success(app):
+    """E4 regression: the chat execute/automate handlers returned
+    status 'executed' / 'automation_created' while changing NOTHING — a false
+    success in the decision trail. They must report the truth: no executor is
+    wired, nothing was changed."""
+    from core.intelligence_runtime.integration import ensure_runtime, get_runtime
+    from core.intelligence_runtime.types import ActionType, PlanStep
+
+    ensure_runtime()
+    runtime = get_runtime()
+
+    step = PlanStep(action=ActionType.EXECUTE, description="create a customer",
+                    parameters={"intent": "create a new customer"})
+    result = runtime.executor.execute(step)
+    inner = result.get("result", {})
+    assert inner.get("status") == "not_executed", result
+    assert inner.get("reason") == "no_executor_wired"
+    assert "executed" != inner.get("status")
+
+    step2 = PlanStep(action=ActionType.AUTOMATE, description="automate this",
+                     parameters={})
+    result2 = runtime.executor.execute(step2)
+    inner2 = result2.get("result", {})
+    assert inner2.get("status") == "not_created", result2
+    assert inner2.get("reason") == "no_automation_writer_wired"

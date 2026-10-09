@@ -408,18 +408,33 @@ def ensure_runtime() -> None:
         return {"status": "clarified", "question": params.get("question", "")}
 
     def _handle_execute(params: dict) -> dict:
+        """Truthful execution outcome — never a fabricated success.
+
+        No canonical executor is wired for chat-issued create/update requests
+        yet. The previous implementation returned ``status: executed`` with a
+        "queued for user confirmation" note while changing NOTHING and queueing
+        NOTHING — a false success written into the decision trail. Until a real
+        executor exists, the runtime must say exactly that (E4: an action is
+        not done until canonical state confirms it).
+        """
         intent_text = params.get("intent", "")
-        try:
-            if "create" in intent_text.lower():
-                return {"status": "executed", "action": "create", "note": "Action queued for user confirmation"}
-            if "update" in intent_text.lower():
-                return {"status": "executed", "action": "update", "note": "Action queued"}
-            return {"status": "executed", "action": "unknown", "note": f"Recognized: {intent_text[:100]}"}
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
+        return {
+            "status": "not_executed",
+            "reason": "no_executor_wired",
+            "note": ("Nothing was created or changed: I cannot perform this "
+                     "change from chat yet. Use the workspace surface for this "
+                     "action (creation or import flows record canonically)."),
+            "recognized": intent_text[:120],
+        }
 
     def _handle_automate(params: dict) -> dict:
-        return {"status": "automation_created", "note": "Automation rule created from suggestion"}
+        """Truthful automation outcome — nothing is written until a real
+        automation writer exists."""
+        return {
+            "status": "not_created",
+            "reason": "no_automation_writer_wired",
+            "note": "No automation was created — that capability is not wired yet.",
+        }
 
     runtime.wire_action("answer", _handle_answer)
     runtime.wire_action("clarify", _handle_clarify)
