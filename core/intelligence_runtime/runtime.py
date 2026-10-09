@@ -26,8 +26,10 @@ from .reasoning import ReasoningEngine
 from .retrieval import RetrievalLayer
 from .suggestions import SuggestionsEngine
 from .types import (
+    ActionType,
     IntelligenceResponse,
     MemoryType,
+    PlanStep,
     UniversalSuggestion,
 )
 
@@ -105,8 +107,76 @@ class IntelligenceRuntime:
         # 6. Plan actions
         plan = self.planner.decide(intent, response)
 
+        # 6a. Business-action confirmation gate (E4). Create-requests carry the
+        # authenticated organization and identity scope; unless the user's
+        # message explicitly confirmed, they become a truthful preview and
+        # nothing executes (create-requests have real side effects).
+        gated_plan: list[PlanStep] = []
+        for step in plan:
+            if step.action in (ActionType.CREATE_CUSTOMER, ActionType.CREATE_SUPPLIER):
+                if scope_identity:
+                    step.parameters.setdefault("_identity_id", scope_identity)
+                if scope_tenant:
+                    try:
+                        step.parameters.setdefault("organization_id", int(scope_tenant))
+                    except (TypeError, ValueError):
+                        pass
+                if not step.parameters.get("confirmed"):
+                    response.content = step.parameters.get("preview", "")
+                    # Nothing was executed: strip any reasoning-planned
+                    # actions so the governed execution chain does NOT report
+                    # a completed business action (ledger truth).
+                    response.actions = []
+                    # Replace the create-step with a no-op answer: an
+                    # unconfirmed create-request MUST NOT execute.
+                    gated_plan.append(
+                        PlanStep(action=ActionType.ANSWER, description=step.description)
+                    )
+                    continue
+            gated_plan.append(step)
+        plan = gated_plan
+
         # 7. Execute actions
         results = self.executor.execute_all(plan)
+
+        # 7a. A business action that actually ran replaces the (unrelated)
+        # reasoning text with its truthful report.
+        for r in results:
+            if not isinstance(r, dict) or r.get("action") not in ("create_customer", "create_supplier"):
+                continue
+            kind = "customer" if r["action"] == "create_customer" else "supplier"
+            if r.get("status") == "error":
+                response.content = f"The {kind} could not be created: {r.get('error')}"
+                continue
+            inner = r.get("result") or {}
+            if not isinstance(inner, dict):
+                continue
+            if inner.get("status") == "success":
+                res = inner.get("result") or {}
+                oid = res.get("customer_id") or res.get("supplier_id")
+                response.content = (
+                    f"Created {kind} \u201c{res.get('name', '')}\u201d (id {oid}). "
+                    f"Recorded as outcome {inner.get('outcome_id')} and emitted to your event history."
+                )
+                # The action really ran: record it on the response so the
+                # governed execution chain completes truthfully.
+                try:
+                    response.actions.append(PlanStep(
+                        action=ActionType(r["action"]),
+                        description=f"Created {kind} \u201c{res.get('name', '')}\u201d",
+                        parameters={"object_id": oid, "outcome_id": inner.get("outcome_id")},
+                    ))
+                except ValueError:
+                    pass
+            elif inner.get("status") == "duplicate":
+                res = inner.get("result") or {}
+                oid = res.get("customer_id") or res.get("supplier_id")
+                response.content = (
+                    f"A {kind} named \u201c{res.get('name', '')}\u201d already exists (id {oid}) "
+                    f"\u2014 nothing new was created."
+                )
+            elif inner.get("status") == "error":
+                response.content = f"The {kind} was not created: {inner.get('error')}"
 
         # 8. Store response in memory
         self.memory.store(

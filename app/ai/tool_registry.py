@@ -9,7 +9,6 @@ import logging
 from typing import Any
 
 from app import db
-from app.customers.models import Customer
 from app.models import Supplier
 from app.objects.models import Object
 from app.execution.models import Outcome
@@ -86,36 +85,68 @@ def _emit_action_event(
 
 
 def _handle_create_customer(params: dict) -> dict:
-    """Create a customer from AI action parameters.
+    """Create a customer as a canonical relationship.
 
-    Expected params:
-        name (str): Customer name (required)
-        email (str): Email address
-        phone (str): Phone number
-        tenant_id (int, optional): Tenant/organisation ID
+    The legacy ``customer`` table (app.customers.models.Customer) is
+    vestigial: production carries zero rows and no product surface reads it —
+    the customer store is ``rel_relationships`` (CanonicalRelationship,
+    organization-scoped). Writing anywhere else would create a customer that
+    never appears in the product. Duplicate name in the org: return the
+    existing record truthfully, create nothing.
     """
     identity_id = params.get("identity_id", params.get("_identity_id", "ai_runtime"))
-    tenant_id = params.get("tenant_id")
+    org_id = params.get("organization_id") or params.get("tenant_id")
 
     name = (params.get("name") or "").strip()
     if not name:
         return {"error": "Customer name is required", "status": "error"}
 
-    customer = Customer(
-        name=name,
-        phone=(params.get("phone") or "").strip(),
+    try:
+        org_id = int(org_id) if org_id not in (None, "") else None
+    except (TypeError, ValueError):
+        org_id = None
+    if not org_id:
+        return {"error": "An organization context is required to create a customer", "status": "error"}
+
+    from app.relationship.models import CanonicalRelationship
+
+    existing = (
+        CanonicalRelationship.query.filter(
+            CanonicalRelationship.organization_id == org_id,
+            db.func.lower(CanonicalRelationship.display_name) == name.lower(),
+            CanonicalRelationship.status != "archived",
+        ).first()
+    )
+    if existing is not None:
+        return {
+            "status": "duplicate",
+            "result": {
+                "action": "create_customer",
+                "customer_id": existing.id,
+                "name": existing.display_name,
+                "note": "a customer with this name already exists",
+            },
+            "outcome_id": None,
+        }
+
+    rel = CanonicalRelationship(
+        organization_id=org_id,
+        display_name=name,
+        relationship_type="customer",
         email=(params.get("email") or "").strip(),
-        tenant_id=tenant_id,
+        phone=(params.get("phone") or "").strip(),
+        source="ai_chat",
+        created_by=identity_id or "",
         status=params.get("status", "active"),
     )
-    db.session.add(customer)
+    db.session.add(rel)
     db.session.commit()
 
     result = {
         "action": "create_customer",
-        "customer_id": customer.id,
-        "name": customer.name,
-        "email": customer.email,
+        "customer_id": rel.id,
+        "name": rel.display_name,
+        "email": rel.email,
     }
 
     outcome = _persist_outcome(
@@ -123,13 +154,14 @@ def _handle_create_customer(params: dict) -> dict:
         intention=f"Create customer: {name}",
         state={
             "action": "create_customer",
-            "customer_id": customer.id,
+            "customer_id": rel.id,
+            "relationship_id": rel.id,
             "name": name,
         },
     )
 
     _emit_action_event(
-        "create_customer", result, outcome.outcome_id, identity_id, tenant_id
+        "create_customer", result, outcome.outcome_id, identity_id, org_id
     )
 
     return {
@@ -140,23 +172,43 @@ def _handle_create_customer(params: dict) -> dict:
 
 
 def _handle_create_supplier(params: dict) -> dict:
-    """Create a supplier from AI action parameters.
+    """Create a supplier in the organization's supplier store.
 
-    Expected params:
-        name (str): Supplier name (required)
-        category (str): Supplier category
-        contact (str): Contact person
-        email (str): Email address
-        phone (str): Phone number
-        city (str): City
-        tenant_id (int, optional): Tenant/organisation ID
+    ``suppliers`` IS the product's supplier store (its tenancy FK was
+    retargeted to organizations in M6). Duplicate name in the org: return the
+    existing record truthfully, create nothing.
     """
     identity_id = params.get("identity_id", params.get("_identity_id", "ai_runtime"))
-    tenant_id = params.get("tenant_id")
+    org_id = params.get("organization_id") or params.get("tenant_id")
 
     name = (params.get("name") or "").strip()
     if not name:
         return {"error": "Supplier name is required", "status": "error"}
+
+    try:
+        org_id = int(org_id) if org_id not in (None, "") else None
+    except (TypeError, ValueError):
+        org_id = None
+    if not org_id:
+        return {"error": "An organization context is required to create a supplier", "status": "error"}
+
+    existing = (
+        Supplier.query.filter(
+            Supplier.tenant_id == org_id,
+            db.func.lower(Supplier.name) == name.lower(),
+        ).first()
+    )
+    if existing is not None:
+        return {
+            "status": "duplicate",
+            "result": {
+                "action": "create_supplier",
+                "supplier_id": existing.id,
+                "name": existing.name,
+                "note": "a supplier with this name already exists",
+            },
+            "outcome_id": None,
+        }
 
     supplier = Supplier(
         name=name,
@@ -165,7 +217,7 @@ def _handle_create_supplier(params: dict) -> dict:
         email=(params.get("email") or "").strip(),
         phone=(params.get("phone") or "").strip(),
         city=(params.get("city") or "").strip(),
-        tenant_id=tenant_id,
+        tenant_id=org_id,
         status=params.get("status", "active"),
     )
     db.session.add(supplier)
@@ -189,7 +241,7 @@ def _handle_create_supplier(params: dict) -> dict:
     )
 
     _emit_action_event(
-        "create_supplier", result, outcome.outcome_id, identity_id, tenant_id
+        "create_supplier", result, outcome.outcome_id, identity_id, org_id
     )
 
     return {

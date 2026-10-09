@@ -49,6 +49,9 @@ class ActionType(str, enum.Enum):
     AUTOMATE = "automate"               # Set up automation
     DEFER = "defer"                     # Escalate to human
     ROUTE = "route"                     # Redirect to appropriate handler
+    CREATE_CUSTOMER = "create_customer" # Business action: create a customer
+    CREATE_SUPPLIER = "create_supplier" # Business action: create a supplier
+    SEARCH_OBJECTS = "search_objects"   # Business action: search objects
 
 
 class MemoryType(str, enum.Enum):

@@ -230,13 +230,16 @@ def test_ai_action_journey(server, journey_app):
     step("customer_has_outcome_id", customer_outcome_id is not None,
          f"outcome_id={customer_outcome_id}")
 
-    # ── 5. Verify Customer persisted via REST API ──────────────────────────
-    status, customer_list = http.json("GET", "/api/v1/customers/")
+    # ── 5. Verify Customer persisted in the CANONICAL store via REST ───────
+    # The product's customer store is rel_relationships (the legacy `customer`
+    # table is vestigial: zero rows in production, no product surface reads
+    # it). Same URL the authenticated Relationships workspace consumes.
+    status, customer_list = http.json("GET", "/relationships/api/v1/relationships?limit=100")
     step("customer_list_accessible", status == 200,
-         f"list customers -> {status}")
-    customer_names = [c.get("name") for c in customer_list.get("data", [])]
+         f"list relationships -> {status}")
+    customer_names = [c.get("display_name") for c in customer_list.get("relationships", [])]
     step("ai_action_corp_in_list", "AI Action Corp" in customer_names,
-         f"customers: {customer_names}")
+         f"relationships: {customer_names}")
 
     # ── 6. Create Supplier via ToolExecutionLayer ─────────────────────────
     with journey_app.app_context():
@@ -320,13 +323,15 @@ def test_ai_action_journey(server, journey_app):
     step("events_received", len(received_events) >= 3,
          f"events received: {received_events}")
 
-    # ── 11. TENANT ISOLATION — records have tenant_id ────────────────────
+    # ── 11. TENANT ISOLATION — records carry the organization ─────────────
     with journey_app.app_context():
-        from app.customers.models import Customer as CustomerModel
-        cust = CustomerModel.query.filter_by(name="AI Action Corp").first()
-        if cust:
-            step("customer_has_tenant_id", cust.tenant_id == ORG_ID,
-                 f"tenant_id={cust.tenant_id} expected={ORG_ID}")
+        from app.relationship.models import CanonicalRelationship
+        rel = CanonicalRelationship.query.filter_by(display_name="AI Action Corp").first()
+        step("customer_in_canonical_store", rel is not None,
+             f"CanonicalRelationship={rel.id if rel else None}")
+        if rel:
+            step("customer_has_organization_id", rel.organization_id == ORG_ID,
+                 f"organization_id={rel.organization_id} expected={ORG_ID}")
 
         from app.models import Supplier as SupplierModel
         supp = SupplierModel.query.filter_by(name="AI Supplier Pro").first()
@@ -340,8 +345,8 @@ def test_ai_action_journey(server, journey_app):
         http2 = Http(restarted.base)
         status2, body2 = http2.json("POST", "/api/v1/founder/signin",
                                     {"email": EMAIL, "password": PASSWORD})
-        status3, customer_list2 = http2.json("GET", "/api/v1/customers/")
-        names2 = [c.get("name") for c in customer_list2.get("data", [])]
+        status3, customer_list2 = http2.json("GET", "/relationships/api/v1/relationships?limit=100")
+        names2 = [c.get("display_name") for c in customer_list2.get("relationships", [])]
         step("customer_survives_server_restart",
              status2 == 200 and status3 == 200 and "AI Action Corp" in names2,
              f"restart: signin={status2} list={status3}")
