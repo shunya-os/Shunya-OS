@@ -233,6 +233,66 @@ class WorkspaceScope(str, enum.Enum):
     ORGANIZATION = "organization"
 
 
+def _map_legacy_selection(requested) -> int | None:
+    """Map a legacy tenant id selection to its bridged organization id."""
+    try:
+        rid = int(requested)
+    except (TypeError, ValueError):
+        return None
+    from app.models import Organization
+    org = Organization.query.filter_by(legacy_tenant_id=rid).first()
+    return int(org.id) if org else None
+
+
+def _is_real_organization(rid) -> bool:
+    try:
+        rid = int(rid)
+    except (TypeError, ValueError):
+        return False
+    from app.models import Organization
+    return Organization.query.filter_by(id=rid).first() is not None
+
+
+def resolve_caller_organization(identity_id: str, requested_org_id=None) -> int | None:
+    """Canonical organization for the caller, tolerating LEGACY selections.
+
+    A session may still carry a legacy tenant id (``tenants`` table) in
+    ``current_org_id`` — e.g. the founder's session selects 89 ("Panchi Club"
+    legacy tenant) while the canonical organization is 7. Strategy:
+
+    1. A selection matching an organization's recorded legacy bridge
+       (``organizations.legacy_tenant_id``) maps to that organization and must
+       validate as an active membership.
+    2. Otherwise the selection itself must validate as a membership.
+    3. An INTERPRETABLE selection (a real organization id, or a bridge id whose
+       organization the identity is not a member of) is DENIED — never retried.
+    4. An uninterpretable stale value falls back to automatic resolution, which
+       succeeds only for single-membership identities; multi-membership
+       identities still fail closed (an explicit selection is required).
+
+    Never returns an organization the identity is not an active member of.
+    """
+    requested = requested_org_id
+    if requested is not None:
+        try:
+            rid = int(requested)
+        except (TypeError, ValueError):
+            rid = None
+        mapped = _map_legacy_selection(rid) if rid is not None else None
+        candidate = mapped if mapped is not None else rid
+        if candidate is not None:
+            try:
+                return resolve_current_organization(identity_id, candidate)
+            except OwnershipContextError:
+                if mapped is not None or _is_real_organization(candidate):
+                    return None  # interpretable selection, not authorized
+
+    try:
+        return resolve_current_organization(identity_id, None)
+    except OwnershipContextError:
+        return None
+
+
 def resolve_workspace_scope(identity_id: str) -> WorkspaceScope:
     """Resolve the caller's workspace scope.
 
@@ -272,3 +332,54 @@ def resolve_workspace_scope(identity_id: str) -> WorkspaceScope:
         return WorkspaceScope.PERSONAL
 
     return WorkspaceScope.NONE
+
+
+def resolve_tenant_scope(identity_id: str, requested_org_id=None):
+    """Resolve the canonical tenant scope for a caller (organization + bridge).
+
+    Returns ``(organization_id, accepted_tenant_ids)``:
+
+    * ``organization_id`` — the authorized canonical ``organizations.id``, or
+      ``None`` when the caller has no organization context (callers must then
+      fall back to identity scope and fail closed).
+    * ``accepted_tenant_ids`` — every ``tenant_id`` value legacy data may
+      legally carry for this organization: the canonical id, plus the
+      organization's recorded legacy bridge (``organizations.legacy_tenant_id``)
+      when one exists and differs.
+
+    WHY THE BRIDGE LIST EXISTS (observed live, 2026-10-09): the founder's data
+    is split by an unfinished tenancy convergence — legacy subsystems (documents,
+    leads, campaigns, memory, ...) wrote the LEGACY tenant id (89, tenants row
+    "Panchi Club") while canonical subsystems wrote the ORGANIZATION id (7,
+    organizations row "Panchi Club"). A canonical reader that filtered
+    ``tenant_id == 7`` found nothing (manual document classification returned
+    404 for a document the same human could see), while a legacy reader that
+    filtered ``== 89`` found everything. Both surfaces must read the same
+    logical tenant while the data converges: the reader accepts the union, the
+    writer moves toward canonical, and the bridge itself is recorded in
+    ``organizations.legacy_tenant_id`` (migration c_org_legacy_bridge) instead
+    of being guessed at each call site.
+
+    Stale legacy selections: a session may still carry a legacy id in
+    ``current_org_id`` (e.g. 89). Resolution retries once with no explicit
+    selection — identities with exactly ONE active membership resolve
+    automatically; identities with several still fail closed, exactly as
+    ``resolve_current_organization`` requires.
+    """
+    org_id = resolve_caller_organization(identity_id, requested_org_id)
+
+    if not org_id:
+        return None, []
+
+    accepted = [int(org_id)]
+    try:
+        from app.models import Organization
+
+        org = Organization.query.filter_by(id=org_id).first()
+        bridge = getattr(org, "legacy_tenant_id", None) if org else None
+        if bridge and int(bridge) not in accepted:
+            accepted.append(int(bridge))
+    except Exception:  # noqa: BLE001 — bridge lookup is best-effort by design
+        logger.warning("legacy bridge lookup failed for organization %s", org_id)
+
+    return int(org_id), accepted

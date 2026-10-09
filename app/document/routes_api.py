@@ -176,18 +176,29 @@ def _get_mime_purpose(mime_type: str) -> str:
 
 
 def _get_scoped_document(doc_id: int):
-    """Fetch a Document enforcing tenant scope via _resolve_org_id()."""
+    """Fetch a Document enforcing the canonical tenant scope.
+
+    Uses the shared canonical scope resolver (organization + recorded legacy
+    bridge, app/authz/workspace_context.resolve_tenant_scope) so this blueprint
+    and the workspace-documents blueprint read the same logical tenant. When no
+    organization scope resolves, falls back to the caller's own uploads; an
+    unauthenticated caller gets nothing (fail closed — the previous code
+    returned an unscoped row in that case).
+    """
     from app import db
     from app.models import Document
+    from app.authz.workspace_context import resolve_tenant_scope
 
-    org_id = _resolve_org_id()
+    identity_id = session.get("identity_id", "")
+    _org_id, accepted = resolve_tenant_scope(identity_id,
+                                             session.get("current_org_id"))
     q = db.session.query(Document).filter(Document.id == doc_id)
-    if org_id is not None:
-        q = q.filter(Document.tenant_id == org_id)
+    if accepted:
+        q = q.filter(Document.tenant_id.in_(accepted))
+    elif identity_id:
+        q = q.filter(Document.uploaded_by == identity_id)
     else:
-        identity_id = session.get("identity_id", "")
-        if identity_id:
-            q = q.filter(Document.uploaded_by == identity_id)
+        return None
     return q.first()
 
 

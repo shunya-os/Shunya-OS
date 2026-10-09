@@ -24,39 +24,63 @@ def _require_auth():
     return {"user_id": user_id, "identity_id": identity_id}
 
 
-def _resolve_tenant_id() -> int | None:
-    """Resolve the current user's tenant_id from session context.
+def _resolve_scope() -> tuple[int | None, list[int]]:
+    """Canonical tenant scope for this request: (organization_id, accepted ids).
 
-    Canonical order:
-    1. TeamMember lookup by session user_id (most authoritative)
-    2. session['current_org_id'] mapped via organization.legacy_tenant_id
+    Delegates to the canonical authorization boundary (authz.workspace_context
+    .resolve_tenant_scope), which returns the authorized organization plus the
+    recorded legacy bridge (organizations.legacy_tenant_id). Reads accept the
+    union so no document ever disappears at a surface that shares its logical
+    tenant; writes move toward the canonical id.
     """
-    from app import db
-    from app.auth import TeamMember
+    identity_id = session.get("identity_id", "")
+    requested = session.get("current_org_id")
+    try:
+        from app.authz.workspace_context import resolve_tenant_scope
+        return resolve_tenant_scope(identity_id, requested)
+    except Exception:
+        logger.exception("tenant scope resolution failed")
+        return None, []
+
+
+def _resolve_tenant_id() -> int | None:
+    """Single tenant id for NEW writes — canonical organization when
+    resolvable, else the legacy team-member tenant (pre-convergence personal
+    sessions), else None (identity-scoped personal writes)."""
+    org_id, _accepted = _resolve_scope()
+    if org_id:
+        return int(org_id)
 
     user_id = session.get("user_id")
     if user_id:
-        tm = db.session.get(TeamMember, int(user_id))
-        if tm and tm.tenant_id:
-            return int(tm.tenant_id)
-
-    org_id = session.get("current_org_id")
-    if org_id:
-        from app.models import Organization
-        org = db.session.get(Organization, int(org_id))
-        if org and org.legacy_tenant_id:
-            return int(org.legacy_tenant_id)
+        try:
+            from app import db
+            from app.auth import TeamMember
+            tm = db.session.get(TeamMember, int(user_id))
+            if tm and tm.tenant_id:
+                return int(tm.tenant_id)
+        except (TypeError, ValueError):
+            pass
 
     return None
 
 
 def _get_context():
-    tid = _resolve_tenant_id()
+    identity_id = session.get("identity_id", "")
+    try:
+        org_id, accepted = _resolve_scope()
+        if not accepted:
+            write_tid = _resolve_tenant_id()
+            accepted = [write_tid] if write_tid else []
+    except Exception:
+        logger.exception("context resolution failed")
+        org_id, accepted = None, []
     return {
-        "identity_id": session.get("identity_id", ""),
-        "tenant_id": tid,
+        "identity_id": identity_id,
+        "tenant_id": int(org_id) if org_id else (accepted[0] if accepted else None),
+        "accepted_tenants": accepted,
         "current_org_id": session.get("current_org_id"),
-        "context_type": "organization" if session.get("current_org_id") else "personal",
+        "context_type": "organization" if org_id else "personal",
     }
 
 
@@ -76,11 +100,11 @@ def list_documents():
     ctx = _get_context()
     limit = request.args.get("limit", 50, type=int)
 
-    tid = ctx.get("tenant_id")
+    accepted = ctx.get("accepted_tenants") or []
     try:
-        if tid:
+        if accepted:
             docs = Document.query \
-                .filter(sa.text("tenant_id = :tid")).params(tid=tid) \
+                .filter(Document.tenant_id.in_(accepted)) \
                 .order_by(Document.created_at.desc()).limit(limit).all()
         else:
             # Personal scope — filter by uploader identity
@@ -117,10 +141,10 @@ def serve_document(doc_id):
     if not auth:
         return jsonify({"success": False, "error": "Authentication required"}), 401
 
-    tid = _resolve_tenant_id()
-    if tid:
+    org_id, accepted = _resolve_scope()
+    if accepted:
         doc = Document.query \
-            .filter(Document.id == doc_id, sa.text("tenant_id = :tid")).params(tid=tid) \
+            .filter(Document.id == doc_id, Document.tenant_id.in_(accepted)) \
             .first()
     else:
         doc = Document.query \
@@ -201,10 +225,11 @@ def ingest_file():
     # Same content = same document. Return the existing record with a truthful
     # explanation instead of silently creating a second one. The redundant blob
     # just written is removed — its canonical twin already exists in scope.
+    accepted = ctx.get("accepted_tenants") or ([tid] if tid else [])
     existing = Document.query.filter(
-        Document.tenant_id == tid,
+        Document.tenant_id.in_(accepted),
         Document.content_sha256 == content_sha256,
-    ).first()
+    ).first() if accepted else None
     if existing:
         try:
             os.remove(file_path)
@@ -324,10 +349,10 @@ def _get_scoped_document(doc_id: int):
     from app.models import Document
     import sqlalchemy as sa
 
-    tid = _resolve_tenant_id()
-    if tid:
+    org_id, accepted = _resolve_scope()
+    if accepted:
         return Document.query \
-            .filter(Document.id == doc_id, sa.text("tenant_id = :tid")).params(tid=tid) \
+            .filter(Document.id == doc_id, Document.tenant_id.in_(accepted)) \
             .first()
     return Document.query \
         .filter(Document.id == doc_id, Document.uploaded_by == session.get("identity_id", "")) \
@@ -411,10 +436,10 @@ def document_detail(doc_id):
     if not auth:
         return jsonify({"success": False, "error": "Authentication required"}), 401
 
-    tid = _resolve_tenant_id()
-    if tid:
+    org_id, accepted = _resolve_scope()
+    if accepted:
         doc = Document.query \
-            .filter(Document.id == doc_id, sa.text("tenant_id = :tid")).params(tid=tid) \
+            .filter(Document.id == doc_id, Document.tenant_id.in_(accepted)) \
             .first()
     else:
         doc = Document.query \

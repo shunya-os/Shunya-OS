@@ -26,26 +26,22 @@ def _resolve_identity() -> str:
 def _resolve_org_id() -> int | None:
     """Resolve the current user's organization, canonically.
 
-    Canonical order:
-    1. session current_org_id, VALIDATED against the identity's active membership
-    2. exactly one active membership → that organization
-    3. multiple active memberships with no explicit selection → None (fail closed)
+    Delegates to the canonical boundary (workspace_context
+    .resolve_caller_organization), which validates the selection as an active
+    membership, maps a stale LEGACY tenant selection through the recorded
+    bridge (organizations.legacy_tenant_id), and otherwise resolves only
+    single-membership identities — multi-membership identities still require
+    an explicit, valid selection (fail closed).
 
     An arbitrary ``.first()`` is never used to pick an organization: an identity
     that belongs to several organizations must select one explicitly, and an
     identity that belongs to none must be refused.
     """
-    from app.authz.workspace_context import (
-        OwnershipContextError, resolve_current_organization,
-    )
+    from app.authz.workspace_context import resolve_caller_organization
     identity = _resolve_identity()
     if not identity:
         return None
-    requested = session.get("current_org_id")
-    try:
-        return resolve_current_organization(identity, requested)
-    except OwnershipContextError:
-        return None
+    return resolve_caller_organization(identity, session.get("current_org_id"))
 
 
 def _resolve_org_workspace_ids(org_id: int) -> list:
@@ -78,15 +74,36 @@ def _resolve_org_or_denial(identity: str):
       malformed request hides an authorization decision from both the operator
       and the audit trail.
 
-    ``_resolve_org_id()`` itself is left unchanged: it is used in ~40 places as
-    a nullable tenant lookup, and those callers depend on the ``None``.
+    Tolerant of stale LEGACY selections, exactly like ``_resolve_org_id`` /
+    ``resolve_caller_organization``: a selection that maps through the recorded
+    legacy bridge (organizations.legacy_tenant_id) or validates as a membership
+    resolves; an interpretable selection the identity is NOT a member of is a
+    genuine denial (``organization_not_authorized``); an uninterpretable stale
+    value falls back to automatic resolution, which only single-membership
+    identities may pass.
     """
     from app.authz.workspace_context import (
         OwnershipContextError,
+        _is_real_organization,
+        _map_legacy_selection,
         resolve_current_organization,
     )
+    requested = session.get("current_org_id")
+    if requested is not None:
+        try:
+            rid = int(requested)
+        except (TypeError, ValueError):
+            rid = None
+        mapped = _map_legacy_selection(rid) if rid is not None else None
+        candidate = mapped if mapped is not None else rid
+        if candidate is not None:
+            try:
+                return resolve_current_organization(identity, candidate), None
+            except OwnershipContextError as exc:
+                if mapped is not None or _is_real_organization(candidate):
+                    return None, getattr(exc, "code", "organization_not_authorized")
     try:
-        return resolve_current_organization(identity, session.get("current_org_id")), None
+        return resolve_current_organization(identity, None), None
     except OwnershipContextError as exc:
         return None, getattr(exc, "code", "ownership_context_missing")
 
