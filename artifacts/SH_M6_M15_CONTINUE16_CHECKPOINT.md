@@ -63,3 +63,13 @@ step; new writes already use organization ids everywhere.
   applied; live FK inventory: 65 -> 9 survivors, exactly the documented set.
 - CI-28 required two Docker-Hub-rate-limit retries (infrastructure, not
   code; the tests never ran on the failed attempts) — resolved on attempt 5.
+
+## FINAL STATE (production-verified, 2026-10-09 late)
+
+- /health: bca7e12 CI_CERTIFIED; alembic head c_tenancy_fk_convergence_tier2.
+- Live FK inventory: **FKs referencing tenants: 2** — exactly the deliberate
+  pair: the organizations.legacy_tenant_id bridge (org 7 <-> legacy 89) and
+  tenants.parent_id (self-referential). Campaign total: **68 -> 2** stale
+  legacy FKs eliminated (suppliers, documents, human-context x2 retargeted
+  to organizations; 56 dropped on empty tables in tier 1; 7 dropped with rows
+  preserved in tier 2). No row was rewritten by any tier.
