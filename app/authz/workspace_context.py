@@ -244,15 +244,6 @@ def _map_legacy_selection(requested) -> int | None:
     return int(org.id) if org else None
 
 
-def _is_real_organization(rid) -> bool:
-    try:
-        rid = int(rid)
-    except (TypeError, ValueError):
-        return False
-    from app.models import Organization
-    return Organization.query.filter_by(id=rid).first() is not None
-
-
 def resolve_caller_organization(identity_id: str, requested_org_id=None) -> int | None:
     """Canonical organization for the caller, tolerating LEGACY selections.
 
@@ -264,11 +255,14 @@ def resolve_caller_organization(identity_id: str, requested_org_id=None) -> int 
        (``organizations.legacy_tenant_id``) maps to that organization and must
        validate as an active membership.
     2. Otherwise the selection itself must validate as a membership.
-    3. An INTERPRETABLE selection (a real organization id, or a bridge id whose
-       organization the identity is not a member of) is DENIED — never retried.
-    4. An uninterpretable stale value falls back to automatic resolution, which
-       succeeds only for single-membership identities; multi-membership
-       identities still fail closed (an explicit selection is required).
+    3. Anything else — a real organization id the identity is not a member of,
+       an unmapped or non-numeric value — FAILS CLOSED (returns None). A
+       mismatched or malformed context is never silently replaced by the
+       identity's own organization; the FDA16 tenant-isolation contract
+       requires the denial.
+    4. With no explicit selection, automatic resolution applies exactly as
+       ``resolve_current_organization`` specifies: single-membership identities
+       resolve; multi-membership identities still require an explicit choice.
 
     Never returns an organization the identity is not an active member of.
     """
@@ -277,15 +271,13 @@ def resolve_caller_organization(identity_id: str, requested_org_id=None) -> int 
         try:
             rid = int(requested)
         except (TypeError, ValueError):
-            rid = None
-        mapped = _map_legacy_selection(rid) if rid is not None else None
+            return None  # non-numeric selection: fail closed
+        mapped = _map_legacy_selection(rid)
         candidate = mapped if mapped is not None else rid
-        if candidate is not None:
-            try:
-                return resolve_current_organization(identity_id, candidate)
-            except OwnershipContextError:
-                if mapped is not None or _is_real_organization(candidate):
-                    return None  # interpretable selection, not authorized
+        try:
+            return resolve_current_organization(identity_id, candidate)
+        except OwnershipContextError:
+            return None
 
     try:
         return resolve_current_organization(identity_id, None)

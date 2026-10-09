@@ -76,15 +76,14 @@ def _resolve_org_or_denial(identity: str):
 
     Tolerant of stale LEGACY selections, exactly like ``_resolve_org_id`` /
     ``resolve_caller_organization``: a selection that maps through the recorded
-    legacy bridge (organizations.legacy_tenant_id) or validates as a membership
-    resolves; an interpretable selection the identity is NOT a member of is a
-    genuine denial (``organization_not_authorized``); an uninterpretable stale
-    value falls back to automatic resolution, which only single-membership
-    identities may pass.
+    legacy bridge (organizations.legacy_tenant_id) resolves (membership still
+    required); anything else — a foreign organization id, an unmapped or
+    non-numeric value — keeps the ORIGINAL fail-closed semantics and denial
+    codes. A mismatched context is never silently replaced by the identity's
+    own organization.
     """
     from app.authz.workspace_context import (
         OwnershipContextError,
-        _is_real_organization,
         _map_legacy_selection,
         resolve_current_organization,
     )
@@ -93,15 +92,13 @@ def _resolve_org_or_denial(identity: str):
         try:
             rid = int(requested)
         except (TypeError, ValueError):
-            rid = None
-        mapped = _map_legacy_selection(rid) if rid is not None else None
+            return None, "invalid_requested_organization"
+        mapped = _map_legacy_selection(rid)
         candidate = mapped if mapped is not None else rid
-        if candidate is not None:
-            try:
-                return resolve_current_organization(identity, candidate), None
-            except OwnershipContextError as exc:
-                if mapped is not None or _is_real_organization(candidate):
-                    return None, getattr(exc, "code", "organization_not_authorized")
+        try:
+            return resolve_current_organization(identity, candidate), None
+        except OwnershipContextError as exc:
+            return None, getattr(exc, "code", "organization_not_authorized")
     try:
         return resolve_current_organization(identity, None), None
     except OwnershipContextError as exc:
