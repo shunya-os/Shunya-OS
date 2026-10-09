@@ -1330,7 +1330,12 @@ def api_ai_chat(conv_id: str):
     if not content:
         return jsonify({"success": False, "error": "Message is required"}), 400
     from app.ai.copilot import process_message
-    result = process_message(conv_id=conv_id, user_message=content)
+    # Pass the AUTHENTICATED context (set by require_permission) so retrieval
+    # is tenant-scoped — company-first evidence must never be fetched unscoped.
+    from flask import g as _g
+    result = process_message(conv_id=conv_id, user_message=content,
+                             identity_id=getattr(_g, "identity_id", "") or "",
+                             org_id=getattr(_g, "current_org_id", None))
     if result.get("error"):
         return jsonify({"success": False, "error": result["error"]}), 400
     return jsonify({"success": True, "data": {

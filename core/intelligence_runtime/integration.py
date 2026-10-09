@@ -124,6 +124,50 @@ def ensure_runtime() -> None:
                                 results.append(inst)
         return results[:20]
 
+    # ── Canonical Business Objects Provider (company data before internet) ──
+    def _canonical_search(query: str) -> list[dict]:
+        """Search canonical business objects via the ONE universal search
+        implementation (app.search.universal_search.search_canonical_objects),
+        scoped to the runtime's organization context.
+
+        The raw user message rarely matches object names verbatim, so when the
+        full phrase finds nothing the provider retries with up to three of the
+        most significant terms (longest words >= 5 chars)."""
+        try:
+            import re as _re
+
+            from app.search.universal_search import search_canonical_objects
+
+            ctx = runtime.context.get(runtime.context._current_session)
+            org_id = getattr(ctx, "tenant_id", "") if ctx else ""
+            try:
+                org_id = int(org_id) if org_id else None
+            except (TypeError, ValueError):
+                org_id = None
+
+            candidates = [query]
+            words = sorted({w for w in _re.split(r"[^A-Za-z0-9]+", query)
+                            if len(w) >= 5}, key=len, reverse=True)
+            candidates.extend(words[:3])
+
+            seen = set()
+            out = []
+            for q in candidates:
+                if not q:
+                    continue
+                payload = search_canonical_objects(q, org_id=org_id, limit=6)
+                for r in payload.get("results", []):
+                    key = (r.get("object_type"), r.get("id"))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    out.append(r)
+            return out[:10]
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Canonical search failed: %s", e)
+            return []
+
     # ── Memory Provider ──
     def _memory_search(query: str) -> list:
         # Identity-scoped memory retrieval — the runtime context carries the
@@ -176,7 +220,18 @@ def ensure_runtime() -> None:
             try:
                 from app import db
                 from app.models import KnowledgeDocument
-                rows = db.session.query(KnowledgeDocument).order_by(
+                # Tenant scope — knowledge evidence must come from the
+                # runtime's organization, never from every organization.
+                ctx = runtime.context.get(runtime.context._current_session)
+                _org = getattr(ctx, "tenant_id", "") if ctx else ""
+                try:
+                    _org = int(_org) if _org else None
+                except (TypeError, ValueError):
+                    _org = None
+                q = db.session.query(KnowledgeDocument)
+                if _org:
+                    q = q.filter(KnowledgeDocument.organization_id == _org)
+                rows = q.order_by(
                     KnowledgeDocument.updated_at.desc()
                 ).limit(50).all()
                 for r in rows:
@@ -222,6 +277,7 @@ def ensure_runtime() -> None:
     runtime.wire_memory_provider(_memory_search)
     runtime.wire_internet_provider(_internet_search)
     runtime.wire_knowledge_provider(_knowledge_search)
+    runtime.wire_canonical_provider(_canonical_search)
 
     # ── Identity Profile Provider (ZGC-PR-17C identity convergence) ──
     # Gives core.identity_engine.IdentityEngine a canonical production caller:

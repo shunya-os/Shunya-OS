@@ -39,7 +39,11 @@ OBJECT_SEARCH_CONFIG = [
     ("Commitment", "commitments", ["title", "status", "owner"], "/api/v1/commitments/{}"),
     ("Task", "tasks", ["title", "status", "assigned_to"], "/api/v1/tasks/{}"),
     ("FinInvoice", "invoices", ["invoice_number", "status", "customer_name"], "/api/v1/finance/invoices/{}"),
-    ("CommercialOpportunity", "opportunities", ["name", "status", "stage"], "/api/v1/commercial/opportunities/{}"),
+    # g4_opportunities actual columns: title / lifecycle_state / description
+    # (the previous name/status/stage list matched NO column, so the loop's
+    # "if not filters: continue" silently skipped opportunities entirely —
+    # observed live: the AI could not find an opportunity the UI showed).
+    ("CommercialOpportunity", "opportunities", ["title", "lifecycle_state", "description"], "/api/v1/commercial/opportunities/{}"),
     ("CommercialProposal", "proposals", ["title", "status"], "/api/v1/commercial/proposals/{}"),
     ("KnowledgeDocument", "knowledge", ["title", "summary", "category", "tags"], "/api/v1/knowledge/documents/{}"),
     ("MemoryRecord", "memory", ["memory_key", "value", "summary", "memory_type"], "/api/v1/memory/entries/{}"),
@@ -85,21 +89,18 @@ def _model_for_table(table_name: str):
         return None
 
 
-@search_bp.route("/global", methods=["POST"])
-def global_search():
-    """Search across all canonical object types. Returns type-ahead results grouped by domain."""
-    if not _require_auth():
-        return jsonify({"success": False, "error": "Authentication required"}), 401
+def search_canonical_objects(query: str, org_id=None, limit: int = 8,
+                             domains=None, include_recent: bool = True) -> dict:
+    """Canonical cross-domain object search — the ONE implementation.
 
-    data = request.get_json(silent=True) or {}
-    query = data.get("query", "").strip()
-    if not query:
-        return jsonify({"success": True, "data": {"results": [], "total": 0}})
+    Used by the /api/v1/search/global route AND by the AI runtime's retrieval
+    (company data before internet data). Returns
+    ``{"results": [...], "total": n, "query": query}``.
 
-    limit = min(int(data.get("limit", 8)), 50)
-    domains = data.get("domains", [])  # Optional filter: only search specific domains
-    include_recent = data.get("recent", True)
-
+    Tenant isolation: models carrying ``tenant_id`` (legacy) or
+    ``organization_id`` (canonical, e.g. commercial) are scoped to ``org_id``
+    when one is provided.
+    """
     from app import db
     like = f"%{query}%"
     results = []
@@ -123,11 +124,13 @@ def global_search():
                 continue
 
             q = db.session.query(model).filter(or_(*filters))
-            # Tenant isolation where applicable
-            if hasattr(model, "tenant_id"):
-                tenant_id = _resolve_org_id()
-                if tenant_id:
-                    q = q.filter(model.tenant_id == int(tenant_id))
+            # Tenant isolation where applicable — legacy tenant_id models AND
+            # canonical organization_id models (commercial).
+            if org_id:
+                if hasattr(model, "tenant_id"):
+                    q = q.filter(model.tenant_id == int(org_id))
+                elif hasattr(model, "organization_id"):
+                    q = q.filter(model.organization_id == int(org_id))
 
             rows = q.order_by(
                 (getattr(model, "updated_at", None) or getattr(model, "created_at", None) or model.id).desc()
@@ -136,7 +139,7 @@ def global_search():
             for row in rows:
                 name = getattr(row, "title", None) or getattr(row, "name", None) or getattr(row, "memory_key", None) or getattr(row, "decision", None) or str(getattr(row, "id", ""))
                 summary = getattr(row, "summary", None) or getattr(row, "description", None) or getattr(row, "value", None) or ""
-                status = getattr(row, "status", None) or ""
+                status = getattr(row, "status", None) or getattr(row, "lifecycle_state", None) or ""
                 obj_id = getattr(row, "id", None)
                 obj_type = table_name
 
@@ -174,21 +177,43 @@ def global_search():
 
     results.sort(key=_rank)
 
-    # Add recency boost
+    # Add recency boost (request context only; the AI path may run without one)
     if include_recent:
-        recent_ids = session.get("_visited_object_ids", [])
-        for item in results:
-            if item["id"] and f"{item['type']}:{item['id']}" in recent_ids:
-                item["recent"] = True
+        try:
+            recent_ids = session.get("_visited_object_ids", [])
+            for item in results:
+                if item["id"] and f"{item['type']}:{item['id']}" in recent_ids:
+                    item["recent"] = True
+        except RuntimeError:
+            pass
 
-    return jsonify({
-        "success": True,
-        "data": {
-            "results": results[:limit],
-            "total": min(total, limit * 3),
-            "query": query,
-        },
-    })
+    return {
+        "results": results[:limit],
+        "total": min(total, limit * 3),
+        "query": query,
+    }
+
+
+@search_bp.route("/global", methods=["POST"])
+def global_search():
+    """Search across all canonical object types. Returns type-ahead results grouped by domain."""
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    data = request.get_json(silent=True) or {}
+    query = data.get("query", "").strip()
+    if not query:
+        return jsonify({"success": True, "data": {"results": [], "total": 0}})
+
+    limit = min(int(data.get("limit", 8)), 50)
+    domains = data.get("domains", [])  # Optional filter: only search specific domains
+    include_recent = data.get("recent", True)
+
+    payload = search_canonical_objects(
+        query, org_id=_resolve_org_id(), limit=limit,
+        domains=domains, include_recent=include_recent,
+    )
+    return jsonify({"success": True, "data": payload})
 
 
 @search_bp.route("/recent", methods=["GET"])

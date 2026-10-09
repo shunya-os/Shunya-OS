@@ -169,6 +169,10 @@ class IntelligenceRuntime:
         """Wire a knowledge search provider."""
         self.retrieval.set_knowledge_provider(fn)
 
+    def wire_canonical_provider(self, fn: Callable) -> None:
+        """Wire the canonical business-objects search provider (company data)."""
+        self.retrieval.set_canonical_provider(fn)
+
     def wire_identity_profile_provider(self, fn: Callable) -> None:
         """Wire an identity profile provider (identity intelligence).
 

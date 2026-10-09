@@ -45,6 +45,8 @@ def process_message(conv_id: str, user_message: str, space_id: str | None = None
             module_key=module_key,
             workspace=space_id or "founder",
             explain=False,
+            identity_id=identity_id or "",
+            tenant_id=str(org_id) if org_id else "",
         )
 
         response_text = result.get("content", "I processed your request.")

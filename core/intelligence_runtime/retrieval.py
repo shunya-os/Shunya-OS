@@ -17,12 +17,19 @@ class RetrievalLayer:
         self._internet_provider = None
         self._memory_provider = None
         self._knowledge_provider = None
+        self._canonical_provider = None
 
     def set_graph_provider(self, fn: Callable) -> None:
         self._graph_provider = fn
 
     def set_object_provider(self, fn: Callable) -> None:
         self._object_provider = fn
+
+    def set_canonical_provider(self, fn: Callable) -> None:
+        """Provider for canonical business objects (opportunities, proposals,
+        leads, customers, suppliers, invoices, documents, ...). Highest-
+        authority company evidence after the business graph."""
+        self._canonical_provider = fn
 
     def set_internet_provider(self, fn: Callable) -> None:
         self._internet_provider = fn
@@ -49,7 +56,33 @@ class RetrievalLayer:
                     metadata=item,
                 ))
 
-        # 2. Object instances
+        # 2. Canonical business objects (company data — opportunities,
+        # proposals, leads, customers, suppliers, invoices, documents ...).
+        # Authority: just below the business graph, above generic objects,
+        # memory, knowledge and the internet.
+        if self._canonical_provider:
+            try:
+                for item in (self._canonical_provider(query) or []):
+                    label = item.get("type", "object")
+                    name = item.get("name", "")
+                    status = item.get("status", "")
+                    summary = item.get("summary", "")
+                    content = f"{label}: {name}"
+                    if status:
+                        content += f" [{status}]"
+                    if summary:
+                        content += f" — {summary}"
+                    evidence.append(RetrievedEvidence(
+                        source="canonical",
+                        content=content[:400],
+                        relevance=0.85,
+                        confidence=0.8,
+                        metadata=item,
+                    ))
+            except Exception:
+                pass
+
+        # 3. Object instances
         if self._object_provider:
             for item in self._object_provider(query, module_key):
                 evidence.append(RetrievedEvidence(
@@ -124,3 +157,4 @@ class RetrievalLayer:
         self._internet_provider = None
         self._memory_provider = None
         self._knowledge_provider = None
+        self._canonical_provider = None
