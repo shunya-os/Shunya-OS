@@ -261,6 +261,106 @@ def test_supplier_import_journey(server, journey_app, supplier_csv):
     step("anonymous_read_denied", status == 401,
          f"anonymous GET -> {status}")
 
+    # ── M6 semantic ingestion contract (SH-M6→M15 Stage A) ──
+
+    # 9. INSPECT + UNDERSTAND — vendor aliases and explanations
+    m6_csv = (
+        "Vendor Name,Type,Contact Person,Email,Phone,City,Payment Terms\n"
+        "Sundara Resorts,hotel,Priya Sharma,priya@sundara.com,+91 98450 33333,Goa,Net 30\n"
+    )
+    status, m6_preview_body = http.json("POST", "/api/v1/data/import/preview", {
+        "content": m6_csv, "content_type": "csv", "target_type": "supplier",
+    })
+    m6_preview = m6_preview_body.get("data", {})
+    colmap = {m["source_column"]: m for m in m6_preview.get("column_mapping", [])}
+    step("m6_supplier_mapping_explained",
+         status == 200
+         and colmap.get("Vendor Name", {}).get("target_field") == "name"
+         and colmap.get("Contact Person", {}).get("target_field") == "contact"
+         and colmap.get("Payment Terms", {}).get("target_field") == "payment_terms"
+         and all(m.get("reason") for m in m6_preview.get("column_mapping", [])),
+         f"mapping={[(k, v.get('target_field')) for k, v in colmap.items()]}")
+
+    # 10. SIMILAR NAME — surfaced, never merged
+    status, sim_body = http.json("POST", "/api/v1/data/import/preview", {
+        "content": "name,category\nACME Hotel,hotel\n",
+        "content_type": "csv", "target_type": "supplier",
+    })
+    sim_rec = (sim_body.get("data", {}).get("records") or [{}])[0]
+    sim_codes = [a.get("code") for a in sim_body.get("data", {}).get("ambiguities", [])]
+    step("m6_similar_name_surfaced_not_merged",
+         sim_rec.get("identity_action") == "create"
+         and bool(sim_rec.get("similar_candidates"))
+         and "similar_existing_entity" in sim_codes,
+         f"action={sim_rec.get('identity_action')} candidates={[c.get('name') for c in (sim_rec.get('similar_candidates') or [])]}")
+
+    # 11. CONFIRM + PERSIST + PROVENANCE
+    status, m6_commit_body = http.json("POST", "/api/v1/data/import/commit", {
+        "content": m6_csv, "content_type": "csv", "target_type": "supplier",
+        "source_name": "journey_suppliers.csv",
+    })
+    m6_commit = m6_commit_body.get("data", {})
+    step("m6_supplier_commit_created",
+         status == 201 and m6_commit.get("created") == 1,
+         f"commit -> {status} created={m6_commit.get('created')}")
+    m6_rec_ids = [p.get("record_id") for p in m6_commit.get("provenance", [])]
+
+    if m6_rec_ids:
+        status, prov_body = http.json(
+            "GET", f"/api/v1/data/provenance/supplier/{m6_rec_ids[0]}")
+        prov = prov_body.get("data", {})
+        origin = prov.get("origin") or {}
+        step("m6_supplier_provenance_readable",
+             status == 200 and prov.get("has_provenance") is True
+             and origin.get("source_name") == "journey_suppliers.csv"
+             and origin.get("field_mapping", {}).get("name") == "Vendor Name",
+             f"origin source={origin.get('source_name')} mapping={origin.get('field_mapping')}")
+
+        # 12. CORRECT — auditable update
+        status, corr_body = http.json("POST", "/api/v1/data/import/correct", {
+            "target_type": "supplier", "record_id": m6_rec_ids[0],
+            "field": "city", "new_value": "Panaji",
+            "reason": "corrected city",
+        })
+        corr = corr_body.get("data", {})
+        step("m6_supplier_correction_applied",
+             status == 200 and corr.get("ok") is True
+             and corr.get("correction", {}).get("old_value") == "Goa",
+             f"correction -> {status}")
+
+    # 13. DUPLICATE RESOLUTION — re-import is an idempotent no-op
+    status, dup_body = http.json("POST", "/api/v1/data/import/commit", {
+        "content": m6_csv, "content_type": "csv", "target_type": "supplier",
+        "source_name": "journey_suppliers.csv",
+    })
+    dup = dup_body.get("data", {})
+    step("m6_supplier_reimport_noop",
+         dup.get("status") == "noop" and dup.get("created") == 0
+         and dup.get("duplicates_skipped") == 1,
+         f"status={dup.get('status')} created={dup.get('created')}")
+
+    # 14. FAILURE + RECOVERY
+    status, fail_body = http.json("POST", "/api/v1/data/import/commit", {
+        "content": "garbage content", "content_type": "json",
+        "target_type": "supplier",
+    })
+    step("m6_supplier_failure_truthful",
+         fail_body.get("success") is False
+         and (fail_body.get("data") or {}).get("status") == "rejected",
+         f"failure -> success={fail_body.get('success')}")
+    status, rec_body = http.json("POST", "/api/v1/data/import/commit", {
+        "content": "name,category\nBlue Ocean DMC,dmc\n",
+        "content_type": "csv", "target_type": "supplier",
+    })
+    step("m6_supplier_recovery_after_failure",
+         status == 201 and (rec_body.get("data") or {}).get("created") == 1,
+         f"recovery -> {status}")
+
+    # 15. SECURITY — anonymous provenance denied
+    status, _ = anon.json("GET", f"/api/v1/data/provenance/supplier/{m6_rec_ids[0] if m6_rec_ids else 1}")
+    step("m6_supplier_anonymous_provenance_denied", status == 401,
+         f"anonymous provenance -> {status}")
+
     report["failed_steps"] = [s["step"] for s in report["steps"] if not s["ok"]]
     report["ok"] = not report["failed_steps"]
     out_dir = os.environ.get("JOURNEY_REPORT_DIR", tempfile.gettempdir())

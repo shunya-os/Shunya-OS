@@ -631,8 +631,11 @@ def test_case_10_partial_import(env):
     def step(name, ok, detail=""):
         steps.append({"step": name, "ok": bool(ok), "detail": detail})
 
-    # Row 1 is importable; row 2 is missing the required email.
-    csv_body = "name,email\nImport Good,good@test.com\nImport Bad,"
+    # Row 1 is importable; row 2 is missing the required name.
+    # (M6 contract: customer email/phone are optional — a row without either is
+    # imported with a weak-identity warning, never silently rejected. The
+    # genuinely invalid case is a row with NO name.)
+    csv_body = "name,email\nImport Good,good@test.com\n,missing-name@test.com"
 
     def _good_rows():
         with env.app.app_context():

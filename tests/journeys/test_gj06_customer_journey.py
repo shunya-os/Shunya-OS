@@ -266,6 +266,132 @@ def test_customer_import_journey(server, journey_app, customer_csv):
     step("anonymous_read_denied", status == 401,
          f"anonymous GET -> {status}")
 
+    # ── M6 semantic ingestion contract (SH-M6→M15 Stage A) ──
+    # A representative customer file with realistic, varying column names.
+    m6_csv = (
+        "Client Name,Mobile,Email,Company,City\n"
+        "Meera Nair,+91 98200 11111,meera@example.com,Saffron Travels,Delhi\n"
+        "Arjun Rao,+91 98200 22222,arjun@example.com,,Pune\n"
+    )
+
+    # 10. INSPECT + UNDERSTAND — preview explains its interpretation
+    status, m6_preview_body = http.json("POST", "/api/v1/data/import/preview", {
+        "content": m6_csv, "content_type": "csv", "target_type": "customer",
+    })
+    m6_preview = m6_preview_body.get("data", {})
+    step("m6_preview_accepted",
+         status == 200 and m6_preview_body.get("success") is True,
+         f"preview -> {status}")
+    colmap = {m["source_column"]: m for m in m6_preview.get("column_mapping", [])}
+    step("m6_mapping_explained",
+         colmap.get("Client Name", {}).get("target_field") == "display_name"
+         and colmap.get("Client Name", {}).get("method") == "alias"
+         and colmap.get("Mobile", {}).get("target_field") == "phone"
+         and colmap.get("Company", {}).get("target_field") == "company_name",
+         f"mapping={[(k, v.get('target_field')) for k, v in colmap.items()]}")
+    step("m6_every_column_has_reason",
+         all(m.get("reason") for m in m6_preview.get("column_mapping", [])),
+         "each column carries an explanation")
+
+    # 11. DETECT AMBIGUITY — two name-like columns surface a decision
+    status, amb_body = http.json("POST", "/api/v1/data/import/preview", {
+        "content": "Name,Guest Name,Phone\nX,Y,+1-555-0199\n",
+        "content_type": "csv", "target_type": "customer",
+    })
+    amb_data = amb_body.get("data", {})
+    amb_codes = [a.get("code") for a in amb_data.get("ambiguities", [])]
+    step("m6_ambiguity_surfaced", "multiple_candidates" in amb_codes,
+         f"ambiguities={amb_codes}")
+
+    # 12. CONFIRM + CANONICAL PERSISTENCE — commit with a human mapping decision
+    status, m6_commit_body = http.json("POST", "/api/v1/data/import/commit", {
+        "content": m6_csv, "content_type": "csv", "target_type": "customer",
+        "source_name": "journey_customers.csv",
+        "column_overrides": {"City": "city"},
+    })
+    m6_commit = m6_commit_body.get("data", {})
+    step("m6_commit_created",
+         status == 201 and m6_commit.get("created") == 2
+         and m6_commit.get("status") == "completed",
+         f"commit -> {status} created={m6_commit.get('created')}")
+    m6_rec_ids = [p.get("record_id") for p in m6_commit.get("provenance", [])]
+    step("m6_provenance_written", len(m6_rec_ids) == 2 and all(m6_rec_ids),
+         f"record ids={m6_rec_ids}")
+
+    # 13. FIND IN THE PRODUCT — the canonical Relationships surface
+    # (same URL the authenticated Relationships workspace consumes)
+    status, rels = http.json("GET", "/relationships/api/v1/relationships?limit=100")
+    rel_names = [r.get("display_name") for r in (rels.get("relationships") or [])]
+    step("m6_found_in_relationships",
+         status == 200 and "Meera Nair" in rel_names and "Arjun Rao" in rel_names,
+         f"status={status} relationships={rel_names[:10]} raw={str(rels)[:180]}")
+
+    # 14. PROVENANCE — where did SHUNYA get this, and why?
+    if m6_rec_ids:
+        status, prov_body = http.json(
+            "GET", f"/api/v1/data/provenance/customer/{m6_rec_ids[0]}")
+        prov = prov_body.get("data", {})
+        origin = prov.get("origin") or {}
+        step("m6_provenance_readable",
+             status == 200 and prov.get("has_provenance") is True
+             and origin.get("source_name") == "journey_customers.csv"
+             and origin.get("row") == 1
+             and origin.get("field_mapping", {}).get("display_name") == "Client Name",
+             f"origin={ {k: origin.get(k) for k in ('source_name', 'row', 'import_session')} }")
+
+        # 15. CORRECT AN ERROR — canonical update + audit
+        status, corr_body = http.json("POST", "/api/v1/data/import/correct", {
+            "target_type": "customer", "record_id": m6_rec_ids[0],
+            "field": "city", "new_value": "New Delhi",
+            "reason": "customer moved",
+        })
+        corr = corr_body.get("data", {})
+        step("m6_correction_applied",
+             status == 200 and corr.get("ok") is True
+             and corr.get("correction", {}).get("old_value") == "Delhi"
+             and corr.get("correction", {}).get("new_value") == "New Delhi",
+             f"correction -> {status}")
+        status, prov2_body = http.json(
+            "GET", f"/api/v1/data/provenance/customer/{m6_rec_ids[0]}")
+        prov2 = prov2_body.get("data", {})
+        step("m6_correction_in_provenance",
+             len(prov2.get("corrections") or []) == 1
+             and prov2["corrections"][0].get("field") == "city",
+             f"corrections={len(prov2.get('corrections') or [])}")
+
+    # 16. RESOLVE DUPLICATE — re-import is an idempotent no-op, no duplicates
+    status, dup_body = http.json("POST", "/api/v1/data/import/commit", {
+        "content": m6_csv, "content_type": "csv", "target_type": "customer",
+        "source_name": "journey_customers.csv",
+    })
+    dup = dup_body.get("data", {})
+    step("m6_reimport_noop",
+         dup.get("status") == "noop" and dup.get("created") == 0
+         and dup.get("duplicates_skipped") == 2,
+         f"status={dup.get('status')} created={dup.get('created')}")
+
+    # 17. RECOVER FROM AN INDUCED FAILURE — truthful failure, then recovery
+    status, fail_body = http.json("POST", "/api/v1/data/import/commit", {
+        "content": "not parseable json", "content_type": "json",
+        "target_type": "customer",
+    })
+    step("m6_failure_truthful",
+         fail_body.get("success") is False
+         and (fail_body.get("data") or {}).get("status") == "rejected",
+         f"failure -> success={fail_body.get('success')}")
+    status, rec_body = http.json("POST", "/api/v1/data/import/commit", {
+        "content": "Client Name,Email\nKavya Iyer,kavya@example.com\n",
+        "content_type": "csv", "target_type": "customer",
+    })
+    step("m6_recovery_after_failure",
+         status == 201 and (rec_body.get("data") or {}).get("created") == 1,
+         f"recovery -> {status}")
+
+    # 18. SECURITY — anonymous provenance read denied
+    status, _ = anon.json("GET", f"/api/v1/data/provenance/customer/{m6_rec_ids[0] if m6_rec_ids else 1}")
+    step("m6_anonymous_provenance_denied", status == 401,
+         f"anonymous provenance -> {status}")
+
     report["failed_steps"] = [s["step"] for s in report["steps"] if not s["ok"]]
     report["ok"] = not report["failed_steps"]
     out_dir = os.environ.get("JOURNEY_REPORT_DIR", tempfile.gettempdir())
