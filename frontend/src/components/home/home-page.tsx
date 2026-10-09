@@ -334,7 +334,10 @@ export function HomePage() {
   // session, clear local session state, land on the public entry.
   const handleSignOut = useCallback(async () => {
     try {
-      await fetch('/api/v1/founder/logout', {
+      // The canonical founder logout lives at /founder/logout (founder_bp has
+      // no url_prefix; only the api/v1/* routes spell the full path). The
+      // route-contract test pinned this: /api/v1/founder/logout does not exist.
+      await fetch('/founder/logout', {
         method: 'POST',
         credentials: 'include',
         redirect: 'manual',
