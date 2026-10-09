@@ -478,8 +478,8 @@ def _get_capability_context(query: str, identity_id: str = "",
 def ask(query: str, session_id: str = "", module_key: str = "",
         workspace: str = "", object_type: str = "", object_id: str = "",
         explain: bool = False,
-        identity_id: str = "", tenant_id: str = "",
-        user_role: str = "", workspace_type: str = "") -> dict[str, Any]:
+        identity_id: str = "", tenant_id: str = "", user_role: str = "",
+        workspace_type: str = "", human_context: str = "") -> dict[str, Any]:
     """Single entry point for every intelligence request in SHUNYA.
 
     Every surface calls this function. No alternative path exists.
@@ -519,6 +519,11 @@ def ask(query: str, session_id: str = "", module_key: str = "",
         ctx_updates["user_role"] = user_role
     if workspace_type:
         ctx_updates["workspace_type"] = workspace_type
+    if human_context:
+        # Behavioral guidance from explicitly-recorded human context (Stage G).
+        # Kept separate from business facts; the reasoning layer may use it for
+        # tone/pacing, and must never quote it back to the user.
+        ctx_updates["human_context_guidance"] = human_context
     if ctx_updates:
         runtime.context.update(session_id, **ctx_updates)
 

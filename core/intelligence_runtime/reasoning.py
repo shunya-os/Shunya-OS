@@ -146,6 +146,16 @@ class ReasoningEngine:
         if context and context.active_module:
             user_parts.append(f"Active module: {context.active_module}")
 
+        if context and getattr(context, "human_context_guidance", ""):
+            # Stage G: an explicitly stated user circumstance adjusts HOW the
+            # answer is delivered (tone, pacing, depth). It is guidance for
+            # behavior only — never mention it, never treat it as a fact.
+            user_parts.append(
+                "Human context (delivery guidance only — do not mention it or "
+                "treat it as a business fact): "
+                + context.human_context_guidance
+            )
+
         if evidence:
             user_parts.append("\nAvailable evidence:")
             for i, e in enumerate(evidence[:5], 1):

@@ -39,6 +39,24 @@ def process_message(conv_id: str, user_message: str, space_id: str | None = None
         if space_id:
             module_key = "travel"  # default for backward compat
 
+        # Human context (Stage G): an explicitly stated circumstance changes
+        # HOW SHUNYA communicates — tone, pacing, depth — nothing else.
+        # Best-effort: never blocks the chat path.
+        human_guidance = ""
+        try:
+            from flask import session as _sess
+
+            from app.human_context.guidance import build_human_context_guidance
+            _email = ""
+            _uid = _sess.get("user_id")
+            if _uid:
+                from app.auth import TeamMember
+                _tm = db.session.get(TeamMember, int(_uid))
+                _email = (_tm.email or "") if _tm else ""
+            human_guidance = build_human_context_guidance(_email, tenant_id=org_id)
+        except Exception:
+            human_guidance = ""
+
         result = ask(
             query=user_message,
             session_id=session_id,
@@ -47,6 +65,7 @@ def process_message(conv_id: str, user_message: str, space_id: str | None = None
             explain=False,
             identity_id=identity_id or "",
             tenant_id=str(org_id) if org_id else "",
+            human_context=human_guidance,
         )
 
         response_text = result.get("content", "I processed your request.")

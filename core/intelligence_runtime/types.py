@@ -104,6 +104,10 @@ class ContextFrame:
     user_role: str = ""
     workspace_type: str = ""  # "personal" or "organization"
     identity_profile: dict = field(default_factory=dict)  # Decision style, goals, preferences
+    # Behavioral guidance from explicitly-recorded human context (Stage G).
+    # Shapes tone/pacing only; never quoted to the user, never mixed with
+    # business facts.
+    human_context_guidance: str = ""
 
     def to_dict(self) -> dict:
         return {
