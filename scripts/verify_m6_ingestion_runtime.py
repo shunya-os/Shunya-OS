@@ -64,10 +64,16 @@ def main() -> int:
     # ═══════════════════════════════════════════════════════════════════
     cust_name_a = f"M6 Cert Meera {suffix}"
     cust_name_b = f"M6 Cert Arjun {suffix}"
+    # Phones must be run-unique too: customer matching is by email OR phone,
+    # so fixed numbers match the previous run's records and turn every row
+    # into a (correct) duplicate skip — created=0, failing C6 for the wrong
+    # reason. Derive both phones from the full timestamp.
+    phone_a = f"+91 9{str(stamp)[-9:]}"
+    phone_b = f"+91 8{str(stamp)[-9:]}"
     cust_csv = (
         "Client Name,Mobile,Email,Company,City\n"
-        f"{cust_name_a},+91 98200 11111,m6a{suffix}@example.com,Saffron Travels,Delhi\n"
-        f"{cust_name_b},+91 98200 22222,m6b{suffix}@example.com,,Pune\n"
+        f"{cust_name_a},{phone_a},m6a{suffix}@example.com,Saffron Travels,Delhi\n"
+        f"{cust_name_b},{phone_b},m6b{suffix}@example.com,,Pune\n"
     )
 
     # C1 — INSPECT + UNDERSTAND: mapping explanation

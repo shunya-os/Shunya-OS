@@ -1,0 +1,51 @@
+M6 RUNTIME PROOF — semantic customer/supplier ingestion on the DEPLOYED build
+================================================================
+Build: 7ada65b (CI-5, run 37913252096, SUCCESS — deployed)
+Date: 2026-10-09 ~12:12 UTC
+Command: .venv/bin/python scripts/verify_m6_ingestion_runtime.py
+Result: 25/25 checks passed (EXIT=0)
+Tenant: certification org 278 over HTTPS; values never printed.
+================================================================
+
+{"asctime": "2026-10-09 12:12:40,039", "name": "app", "levelname": "INFO", "message": "Logging initialised", "request_id": "bootstrap"}
+{"asctime": "2026-10-09 12:12:40,045", "name": "app", "levelname": "INFO", "message": "CORS disabled \u2014 frontend served from same origin", "request_id": null}
+{"asctime": "2026-10-09 12:12:40,045", "name": "app", "levelname": "INFO", "message": "Rate limiter initialised (storage: memory://)", "request_id": null}
+{"asctime": "2026-10-09 12:12:40,455", "name": "app.campaign.adapter", "levelname": "INFO", "message": "Campaign provider registered: meta", "request_id": null}
+{"asctime": "2026-10-09 12:12:40,455", "name": "app.campaign.adapter", "levelname": "INFO", "message": "Campaign provider registered: google", "request_id": null}
+{"asctime": "2026-10-09 12:12:41,549", "name": "app.ai.tool_registry", "levelname": "INFO", "message": "Registered AI tool handlers: create_customer, create_supplier, search_objects", "request_id": null}
+{"asctime": "2026-10-09 12:12:41,550", "name": "app", "levelname": "INFO", "message": "GATE 12: AI tool handlers registered", "request_id": null}
+{"asctime": "2026-10-09 12:12:41,585", "name": "app.integration.registry", "levelname": "INFO", "message": "Integration registered: email (Gmail)", "request_id": null}
+{"asctime": "2026-10-09 12:12:41,585", "name": "app", "levelname": "INFO", "message": "Registered 1 integrations", "request_id": null}
+{"asctime": "2026-10-09 12:12:41,605", "name": "app", "levelname": "INFO", "message": "GATE 10: Attention system initialised", "request_id": null}
+{"asctime": "2026-10-09 12:12:41,705", "name": "app", "levelname": "INFO", "message": "SHUNYA OS initialised", "request_id": "bootstrap", "db": "postgresql://localhost:5432/shunya_os"}
+{"asctime": "2026-10-09 12:12:42,015", "name": "app", "levelname": "INFO", "message": "Loaded 12 persisted identities", "request_id": null}
+[PASS] 0 certification sign-in over HTTPS — status=200
+[PASS] C1 preview accepted (200) — status=200
+[PASS] C2 mapping explained (Client Name → display_name, alias) — mapping=[('Client Name', 'display_name'), ('Mobile', 'phone'), ('Email', 'email'), ('Company', 'company_name'), ('City', 'city')]
+[PASS] C3 every column carries a reason
+[PASS] C4 preview does not write (valid=2, invalid=0)
+[PASS] C5 ambiguity surfaced (multiple name-like columns) — codes=['multiple_candidates']
+[PASS] C6 commit created 2 customers — status=201 created=2
+[PASS] C7 provenance written per record — ids=[236, 237]
+[PASS] C8 import session recorded — session=91b4c5dd…
+[PASS] C9 imported customers findable in Relationships (by search) — found=['M6 Cert Arjun 540758', 'M6 Cert Meera 540758']
+[PASS] C10 provenance readable (source, row, session, mapping) — origin={'source_name': 'm6_cert_customers_540758.csv', 'row': 1, 'imported_by': 'sid_5ef358418d4246ba8e156de0'}
+[PASS] C11 correction applied with audit — status=200
+[PASS] C12 correction visible in provenance trail
+[PASS] C13 re-import is an idempotent no-op (no duplicates) — status=noop created=0
+[PASS] C14 induced failure is truthful (no fake success) — status=rejected
+[PASS] C15 recovery after failure (import succeeds) — status=201
+[PASS] S1 supplier mapping explained (Vendor Name → name) — mapping=[('Vendor Name', 'name'), ('Type', 'category'), ('Contact Person', 'contact'), ('Email', 'email'), ('City', 'city'), ('Payment Terms', 'payment_terms')]
+[PASS] S2 supplier committed — status=201 created=1 errors=[]
+[PASS] S3 supplier provenance readable
+[PASS] S4 supplier correction applied — status=200
+[PASS] S5 similar supplier surfaced (never merged) — candidates=['M6 Cert Sundara 540758', 'M6 Cert Sundara 540453']
+[PASS] X1 anonymous provenance refused (401/302) — status=401
+[PASS] X2 second real tenant resolved — org=7
+[PASS] X3 other tenant cannot READ provenance (404) — status=404
+[PASS] X4 other tenant cannot CORRECT (404) — status=404
+
+RESTART_SURVIVAL_RECORD_IDS=customer:[236, 237] supplier:[12]
+IMPORT_SESSION=91b4c5ddd02f4573b56f4f2741c57fdf
+
+25/25 checks passed

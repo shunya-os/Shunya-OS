@@ -102,10 +102,37 @@ Walked on the deployed 6b68d92 build (screenshots archived under artifacts/):
   the two meters use different sources (attention items vs awareness observations);
   the awareness source was found broken (defect #3) and fixed.
 
-Pending on the c60403e deployment (final round): supplier paste-import through the
-UI (unblocked by the tenancy migration), ambiguity block ("Needs your decision")
-rendered live, duplicate re-import → "Nothing New" state, corrected relationship
-titles, awareness endpoint live payload.
+Final round executed on the **7ada65b deployment** (CI-5, run 37913252096, SUCCESS):
+
+- **Supplier paste-import through the UI**: Import panel → Import as: Suppliers → mapping
+  table rendered with supplier fields (Vendor Name → Supplier name, Type → Category,
+  Contact Person → Contact person, Email → Email, City → City, Payment Terms → Payment
+  terms — each with "known column name" reasons) → row basis "no existing supplier with
+  this name — row will create a new supplier" → **"Import Complete — Created: 1"**
+  (Final Round Vendors 541200, session 4582741d). Screenshot: M6_FINAL_SUPPLIER_MAPPING.png,
+  M6_FINAL_SUPPLIER_CREATED.png. (This exact flow failed with a tenancy FK 400 before the
+  migration — the fix is verified through the real UI.)
+- **Duplicate re-import through the UI**: preview "1 valid · 0 new · 1 matched", basis
+  "supplier name 'Final Round Vendors 541200' already exists as #13" → commit →
+  **"Nothing New — Created: 0 — Already existed: 1"** with "Skipped — already exists"
+  detail and "Retrying the same file is safe: rows that already exist are skipped, not
+  duplicated." Screenshot: M6_FINAL_DUPLICATE_NOOP.png.
+- **Ambiguity block**: customer paste with two name-like columns → amber
+  "⚠ Needs your decision: 2 columns could serve 'display_name': Name, Guest Name.
+  SHUNYA will use 'Name'. If that is wrong, map the columns explicitly before
+  importing." with Guest Name marked "not used for 'display_name' — 'Name' was chosen
+  (override to change)". Screenshot: M6_FINAL_AMBIGUITY_DECISION.png.
+- **Ambiguity RESOLVED by the human**: set Guest Name → Not imported, commit →
+  "Import Complete — Created: 1"; provenance of record 239 shows
+  field_mapping {display_name: "Name", phone: "Phone"} — the override is canonically
+  recorded; Guest Name absent from the mapping.
+- **Relationship titles corrected** on the deployed build: "Cert Browser Aarti 36812"
+  and "Cert Browser Vikram 36812" render as row titles (no more company/email
+  fallback). Screenshot: M6_FINAL_RELATIONSHIP_TITLES.png.
+- **Awareness endpoint fixed**: GET /api/v1/awareness now returns a clean 200 payload
+  (no error body; verified live from the page after deploy).
+- **Attention integration observed**: sidebar accumulated "Needs your attention ·
+  N to review" purely from the real ingestion canonical events.
 
 ## M6 completion gate — status per requirement
 
@@ -113,15 +140,32 @@ titles, awareness endpoint live payload.
 |---|---|---|
 | Import a representative customer source | VERIFIED | browser (paste) + HTTP journeys + runtime proof |
 | Inspect SHUNYA's interpretation | VERIFIED | live mapping table + preview API |
-| Review mappings and ambiguities | VERIFIED (ambiguity block pending final round screenshot) | API + tests + live table |
-| Confirm the import | VERIFIED | live commit → created 2 |
-| Find the resulting canonical customers | VERIFIED | Relationships surface live; title fix pending deploy verification |
-| Inspect their provenance | VERIFIED | live drawer + provenance API |
-| Correct an error | VERIFIED | live correction, audited |
-| Resolve a duplicate or ambiguity | API-VERIFIED (noop + conflicts); browser noop pending final round | tests + runtime proof |
-| Recover from a deliberately induced failure | API-VERIFIED; browser pending final round | tests + runtime proof |
-| Refresh and re-login without losing truth | VERIFIED | live reload + re-login |
-| Repeat for suppliers | PENDING c60403e deploy (migration) | — |
-| Tenant isolation + persistence after restart | Runtime X3/X4 verified; restart-survival rides the checkpoint deploy | proofs below |
+| Review mappings and ambiguities | VERIFIED | live mapping table + live decision block + preview API + tests |
+| Confirm the import | VERIFIED | live commit → created 2 (customer), 1 (supplier), 1 (ambiguity-resolved) |
+| Find the resulting canonical customers | VERIFIED | Relationships surface live, titles corrected; runtime C9 |
+| Inspect their provenance | VERIFIED | live drawer + provenance API (customer + supplier) |
+| Correct an error | VERIFIED | live correction, audited (customer + supplier via runtime S4) |
+| Resolve a duplicate or ambiguity | VERIFIED | live "Nothing New" noop + live override resolution with recorded mapping |
+| Recover from a deliberately induced failure | VERIFIED | runtime C14 rejected + C15 recovery; unit tests + induced GJ-13 journey |
+| Refresh and re-login without losing truth | VERIFIED | live reload + re-login (records + correction persisted) |
+| Repeat for suppliers | VERIFIED | live UI import + runtime S1–S5 |
+| Tenant isolation + persistence after restart | Runtime X1–X4 (401/404 on other tenant); restart survival pending CI-6 checkpoint deploy | proofs above |
+
+## Post-migration production verification (7ada65b)
+
+- alembic_version = m6_supplier_tenancy_retarget; suppliers tenant FK = → organizations;
+  remaining FKs → tenants: 67 (was 68 — suppliers retargeted; recorded for per-stage
+  remediation).
+- Runtime proof re-run: **25/25 checks passed** (artifacts/M6_RUNTIME_PROOF.txt).
+  Restart-survival record IDs for the closing check: customer [236, 237] + browser
+  records; supplier [12] + 13.
+
+## Fix carried in this commit
+
+- scripts/verify_m6_ingestion_runtime.py: customer phones are now run-unique (customer
+  matching is by email OR phone; fixed phones made the second run match the first run's
+  records and — correctly — skip all rows, which failed C6 for the wrong reason). The
+  observed product behavior during this investigation was itself correct: a phone-match
+  with conflicting fields is skipped with its basis reported, never merged.
 
 
