@@ -52,3 +52,20 @@ export async function resolveOnboardingComplete(
     return null;
   }
 }
+
+/**
+ * After a successful sign-in from an /auth/* surface, the address bar must stop
+ * describing the login page.
+ *
+ * The login form lives at /auth/login; `bootstrap()` only rewrites the URL when
+ * a /workspace path is present, and the store-driven history writer only fires
+ * on a workspace-change event — so right after signing in the bar kept reading
+ * /auth/login. A reload there drops the human back onto the login form, and the
+ * back button does not describe what they are looking at. Found by walking the
+ * real sign-in journey in a browser.
+ *
+ * Returns the replacement path ('/'), or null when no change is needed.
+ */
+export function normalizeAuthUrlAfterSignIn(pathname: string): string | null {
+  return pathname.startsWith('/auth/') ? '/' : null;
+}

@@ -14,7 +14,7 @@ import { ModuleRegistry } from './runtimes/module-registry';
 import { SessionManager } from './api/session';
 import { api } from './api/client';
 import { OnboardingFlow, isOnboardingComplete, setOnboardingComplete, clearOnboardingFlag } from './components/onboarding/onboarding-flow';
-import { decidePostAuthPhase, resolveOnboardingComplete } from './lib/post-auth';
+import { decidePostAuthPhase, normalizeAuthUrlAfterSignIn, resolveOnboardingComplete } from './lib/post-auth';
 import { authStyles } from './components/auth/auth-styles';
 import { useWorkspaceHydration } from './hooks/workspace-hooks';
 import { useWorkspaceStore } from './runtimes/workspace/store';
@@ -369,6 +369,11 @@ function AppShell() {
       if (serverComplete === true) setOnboardingComplete();
       if (serverComplete === false) clearOnboardingFlag();
       if (decidePostAuthPhase(serverComplete, isOnboardingComplete()) === 'workspace') {
+        // Leaving the auth surface must also fix the address bar (see
+        // normalizeAuthUrlAfterSignIn) — replaceState, not pushState, so Back
+        // never returns to a login form the person already completed.
+        const cleanPath = normalizeAuthUrlAfterSignIn(window.location.pathname);
+        if (cleanPath) window.history.replaceState({ workspaceId: null }, '', cleanPath);
         bootstrap();
       } else {
         goToOnboarding(setPhase);

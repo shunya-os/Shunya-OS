@@ -8,7 +8,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 
-import { decidePostAuthPhase, resolveOnboardingComplete } from '../post-auth';
+import { decidePostAuthPhase, normalizeAuthUrlAfterSignIn, resolveOnboardingComplete } from '../post-auth';
 
 describe('decidePostAuthPhase', () => {
   it('sends a server-confirmed account to the workspace', () => {
@@ -58,5 +58,18 @@ describe('resolveOnboardingComplete', () => {
 
     const boom = vi.fn().mockRejectedValue(new Error('network down'));
     expect(await resolveOnboardingComplete(boom as unknown as typeof fetch)).toBeNull();
+  });
+});
+
+describe('normalizeAuthUrlAfterSignIn', () => {
+  it('replaces a leftover /auth/* bar with / after sign-in', () => {
+    expect(normalizeAuthUrlAfterSignIn('/auth/login')).toBe('/');
+    expect(normalizeAuthUrlAfterSignIn('/auth/signup')).toBe('/');
+  });
+
+  it('leaves an already-correct path alone', () => {
+    expect(normalizeAuthUrlAfterSignIn('/')).toBeNull();
+    expect(normalizeAuthUrlAfterSignIn('/workspace/documents')).toBeNull();
+    expect(normalizeAuthUrlAfterSignIn('/onboarding')).toBeNull();
   });
 });
