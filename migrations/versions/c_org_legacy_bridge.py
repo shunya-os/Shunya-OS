@@ -43,7 +43,10 @@ depends_on = None
 
 
 def _bridge_candidate(bind):
-    """The (org_id, legacy_id) pair that both tables agree on, or None."""
+    """The (org_id, legacy_id, ...) pair that both tables agree on, or None.
+
+    Always returns ``(pair_or_none, rows)`` — the caller unpacks two values.
+    """
     rows = bind.execute(text("""
         SELECT o.id, t.id, o.name, t.company_name, o.slug, t.slug
         FROM organizations o
@@ -54,7 +57,7 @@ def _bridge_candidate(bind):
         ORDER BY o.id
     """)).fetchall()
     if len(rows) == 1:
-        return rows[0]
+        return rows[0], rows
     return None, rows
 
 
