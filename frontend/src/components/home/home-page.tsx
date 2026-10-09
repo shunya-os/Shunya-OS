@@ -329,6 +329,22 @@ export function HomePage() {
   const session = SessionManager.load();
   const name = session?.name || session?.email?.split('@')[0] || '';
 
+  // Sign out — the SPA previously had NO visible logout control even though
+  // the server session endpoints work. Calm, honest flow: clear the server
+  // session, clear local session state, land on the public entry.
+  const handleSignOut = useCallback(async () => {
+    try {
+      await fetch('/api/v1/founder/logout', {
+        method: 'POST',
+        credentials: 'include',
+        redirect: 'manual',
+      });
+    } catch { /* server session may already be gone — still clear locally */ }
+    SessionManager.clear();
+    try { sessionStorage.clear(); } catch { /* noop */ }
+    window.location.href = '/';
+  }, []);
+
   const needsHuman = attentionTasks.length + (reviewItems?.length ?? 0);
   const pulseMode: PulseMode = error ? 'offline'
     : needsHuman > 0 ? 'attentive'
@@ -366,6 +382,13 @@ export function HomePage() {
           </div>
           <div className="hp-header-right">
             {name && <span className="hp-hello">{name}</span>}
+            <button
+              className="hp-signout"
+              onClick={handleSignOut}
+              aria-label="Sign out"
+            >
+              Sign out
+            </button>
             <PulseIndicator mode={pulseMode} lastUpdated={lastUpdated} />
           </div>
         </header>
@@ -599,6 +622,27 @@ const homeStyles = `
 .hp-hello {
   font-size: 13px;
   color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
+}
+.hp-signout {
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(26,28,29,0.25);
+}
+.hp-signout:hover {
+  color: var(--shunya-text, #1A1C1D);
+  text-decoration-color: rgba(26,28,29,0.55);
+}
+.hp-signout:focus-visible {
+  outline: 2px solid var(--shunya-accent, #a4865f);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 /* ── Pulse ────────────────────────────────────────────────── */
