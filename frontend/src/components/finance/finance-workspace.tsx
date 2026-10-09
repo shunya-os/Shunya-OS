@@ -191,6 +191,87 @@ export const FinanceWorkspace: FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // ── B3 — record an invoice (user-facing ledger record creation) ──
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [invCustomer, setInvCustomer] = useState('');
+  const [invAmount, setInvAmount] = useState('');
+  const [invCurrency, setInvCurrency] = useState('INR');
+  const [invDueDate, setInvDueDate] = useState('');
+  const [invDescription, setInvDescription] = useState('');
+  const [invBusy, setInvBusy] = useState(false);
+  const [invError, setInvError] = useState('');
+  const [invNotice, setInvNotice] = useState('');
+  // Record payment against an invoice
+  const [payFor, setPayFor] = useState<number | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState('bank_transfer');
+  const [payBusy, setPayBusy] = useState(false);
+  const [payError, setPayError] = useState('');
+  const [payNotice, setPayNotice] = useState('');
+
+  const postJson = async <T,>(path: string, payload: Record<string, unknown>) => {
+    try {
+      const r = await fetch(path, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const bodyJson = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+      return { ok: r.ok, status: r.status, body: bodyJson as T };
+    } catch {
+      return { ok: false, status: 0, body: {} as T };
+    }
+  };
+
+  const submitInvoice = async () => {
+    setInvError(''); setInvNotice('');
+    if (!invCustomer.trim()) { setInvError('A customer name is required.'); return; }
+    const amount = parseFloat(invAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setInvError('Amount must be a positive number — source values are preserved as entered.');
+      return;
+    }
+    setInvBusy(true);
+    const { ok, status, body } = await postJson<{ invoice?: { number: string }; error?: string }>(
+      '/api/v1/finance/invoices',
+      {
+        customer_name: invCustomer.trim(),
+        amount,
+        currency: invCurrency,
+        due_date: invDueDate || undefined,
+        description: invDescription.trim(),
+      },
+    );
+    setInvBusy(false);
+    if (ok && body.invoice) {
+      setInvNotice(`Invoice ${body.invoice.number} created as draft for ${invCustomer.trim()}.`);
+      setInvCustomer(''); setInvAmount(''); setInvDueDate(''); setInvDescription('');
+      await loadData();
+    } else {
+      setInvError(body.error || `Could not record the invoice (HTTP ${status}).`);
+    }
+  };
+
+  const submitPayment = async (invoiceId: number) => {
+    setPayError(''); setPayNotice('');
+    const amount = parseFloat(payAmount);
+    if (!Number.isFinite(amount) || amount <= 0) { setPayError('Amount must be a positive number.'); return; }
+    setPayBusy(true);
+    const { ok, status, body } = await postJson<{ payment?: { id: number }; error?: string }>(
+      '/api/v1/finance/payments',
+      { invoice_id: invoiceId, amount, method: payMethod },
+    );
+    setPayBusy(false);
+    if (ok && body.payment) {
+      setPayNotice(`Payment recorded against invoice #${invoiceId}.`);
+      setPayFor(null); setPayAmount('');
+      await loadData();
+    } else {
+      setPayError(body.error || `Could not record the payment (HTTP ${status}).`);
+    }
+  };
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -455,12 +536,88 @@ export const FinanceWorkspace: FC = () => {
       {/* ── INVOICES TAB ── */}
       {!loading && tab === 'invoices' && (
         <>
+          {/* B3 — user-facing record creation. Uses the canonical finance
+              service (draft invoice linked to the customer relationship);
+              no accounting semantics are invented here. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+            <button
+              className="pw-tab-btn"
+              onClick={() => { setShowInvoiceForm(v => !v); setInvError(''); setInvNotice(''); }}
+              aria-expanded={showInvoiceForm}
+            >
+              {showInvoiceForm ? 'Close' : 'Record an invoice'}
+            </button>
+            {invNotice && <span style={{ fontSize: 12.5, color: '#2e7d32' }} role="status">{invNotice}</span>}
+            {payNotice && <span style={{ fontSize: 12.5, color: '#2e7d32' }} role="status">{payNotice}</span>}
+          </div>
+
+          {showInvoiceForm && (
+            <div className="pw-commercial-item" style={{ marginBottom: 16, padding: 16 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                <input
+                  className="pw-tab-btn"
+                  style={{ minWidth: 200, textAlign: 'left' }}
+                  placeholder="Customer name"
+                  value={invCustomer}
+                  onChange={(e) => setInvCustomer(e.target.value)}
+                  aria-label="Customer name"
+                />
+                <input
+                  className="pw-tab-btn"
+                  style={{ width: 130, textAlign: 'left' }}
+                  placeholder="Amount"
+                  inputMode="decimal"
+                  value={invAmount}
+                  onChange={(e) => setInvAmount(e.target.value)}
+                  aria-label="Amount"
+                />
+                <select
+                  className="pw-tab-btn"
+                  value={invCurrency}
+                  onChange={(e) => setInvCurrency(e.target.value)}
+                  aria-label="Currency"
+                >
+                  <option value="INR">INR</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="GBP">GBP</option>
+                </select>
+                <input
+                  className="pw-tab-btn"
+                  style={{ width: 160, textAlign: 'left' }}
+                  type="date"
+                  value={invDueDate}
+                  onChange={(e) => setInvDueDate(e.target.value)}
+                  aria-label="Due date"
+                />
+              </div>
+              <input
+                className="pw-tab-btn"
+                style={{ width: '100%', textAlign: 'left', marginBottom: 10 }}
+                placeholder="Description (optional)"
+                value={invDescription}
+                onChange={(e) => setInvDescription(e.target.value)}
+                aria-label="Description"
+              />
+              {invError && <div style={{ color: '#c0392b', fontSize: 12.5, marginBottom: 8 }}>{invError}</div>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  className="pw-tab-btn pw-tab-active"
+                  onClick={submitInvoice}
+                  disabled={invBusy}
+                >
+                  {invBusy ? 'Recording…' : 'Record invoice'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {invoices.length === 0 ? (
             <div className="pw-domain-empty">
               <p>No invoices found.</p>
               <p className="pw-domain-empty-hint">
-                Create an invoice from a commercial proposal or record one
-                directly via the Finance API.
+                Record one with “Record an invoice” above, or create one from a
+                commercial proposal.
               </p>
             </div>
           ) : (
@@ -479,6 +636,18 @@ export const FinanceWorkspace: FC = () => {
                       Issued {formatDate(inv.issue_date)} · Due{' '}
                       {formatDate(inv.due_date)}
                     </span>
+                    {inv.status !== 'paid' && inv.status !== 'void' && (
+                      <button
+                        className="pw-tab-btn"
+                        style={{ fontSize: 12, padding: '2px 10px' }}
+                        onClick={() => {
+                          setPayFor(payFor === inv.id ? null : inv.id);
+                          setPayAmount(''); setPayError(''); setPayNotice('');
+                        }}
+                      >
+                        {payFor === inv.id ? 'Close' : 'Record payment'}
+                      </button>
+                    )}
                   </div>
                   {inv.notes && (
                     <div
@@ -489,6 +658,39 @@ export const FinanceWorkspace: FC = () => {
                       }}
                     >
                       {inv.notes}
+                    </div>
+                  )}
+                  {payFor === inv.id && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <input
+                        className="pw-tab-btn"
+                        style={{ width: 120, textAlign: 'left' }}
+                        placeholder="Amount"
+                        inputMode="decimal"
+                        value={payAmount}
+                        onChange={(e) => setPayAmount(e.target.value)}
+                        aria-label="Payment amount"
+                      />
+                      <select
+                        className="pw-tab-btn"
+                        value={payMethod}
+                        onChange={(e) => setPayMethod(e.target.value)}
+                        aria-label="Payment method"
+                      >
+                        <option value="bank_transfer">Bank transfer</option>
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                        <option value="upi">UPI</option>
+                        <option value="cheque">Cheque</option>
+                      </select>
+                      <button
+                        className="pw-tab-btn pw-tab-active"
+                        onClick={() => submitPayment(inv.id)}
+                        disabled={payBusy}
+                      >
+                        {payBusy ? 'Recording…' : 'Record'}
+                      </button>
+                      {payError && <span style={{ color: '#c0392b', fontSize: 12.5 }}>{payError}</span>}
                     </div>
                   )}
                 </div>

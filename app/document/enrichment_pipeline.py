@@ -74,7 +74,16 @@ def _find_or_create_person(name: str, email: str = "", confidence: float = 0.5,
 def enrich_document_facts(doc_id: int) -> dict:
     """Enrich a document's extracted facts into Person + Relationship + Knowledge records."""
     from app.shunya.knowledge_store.sql_repository import SqlKnowledgeRepository
-    from app.models import Relationship
+
+    # The legacy graph-edge model (document→person/organization "mentions"
+    # edges) was removed from app.models in the canonical consolidation. When
+    # it is absent, mention-link creation is SKIPPED AND REPORTED instead of
+    # crashing the whole enrichment — the deterministic parts (persons,
+    # knowledge entries) still run and their outcomes are returned truthfully.
+    try:
+        from app.models import Relationship as _MentionEdge  # type: ignore[attr-defined]
+    except ImportError:
+        _MentionEdge = None
 
     doc = Document.query.filter(Document.id == doc_id).first()
     if not doc:
@@ -88,6 +97,7 @@ def enrich_document_facts(doc_id: int) -> dict:
     persons_created = 0
     persons_matched = 0
     relationships_created = 0
+    mention_links_skipped = 0
     knowledge_entries_created = 0
 
     for fact_key, fact in facts.items():
@@ -119,17 +129,45 @@ def enrich_document_facts(doc_id: int) -> dict:
                     persons_matched += 1
 
                 # Create Relationship: Document → Person
-                existing_rel = Relationship.query.filter_by(
+                if _MentionEdge is None:
+                    mention_links_skipped += 1
+                else:
+                    existing_rel = _MentionEdge.query.filter_by(
+                        source_id=f"doc_{doc_id}",
+                        target_id=str(person.id),
+                        type="mentions"
+                    ).first()
+                    if not existing_rel:
+                        rel = _MentionEdge(
+                            source_type="document",
+                            source_id=f"doc_{doc_id}",
+                            target_type="person",
+                            target_id=str(person.id),
+                            type="mentions",
+                            context=fact.get("evidence", ""),
+                            confidence=fact.get("confidence", 0.5),
+                            created_at=datetime.now(timezone.utc),
+                        )
+                        db.session.add(rel)
+                        relationships_created += 1
+
+        elif entity_type == "organization" and value:
+            # Create Relationship: Document → Organization
+            org_name = str(value)
+            if _MentionEdge is None:
+                mention_links_skipped += 1
+            else:
+                existing_rel = _MentionEdge.query.filter_by(
                     source_id=f"doc_{doc_id}",
-                    target_id=str(person.id),
+                    target_id=org_name,
                     type="mentions"
-                ).first()
+                ).filter_by(source_type="document", target_type="organization").first()
                 if not existing_rel:
-                    rel = Relationship(
+                    rel = _MentionEdge(
                         source_type="document",
                         source_id=f"doc_{doc_id}",
-                        target_type="person",
-                        target_id=str(person.id),
+                        target_type="organization",
+                        target_id=org_name,
                         type="mentions",
                         context=fact.get("evidence", ""),
                         confidence=fact.get("confidence", 0.5),
@@ -137,28 +175,6 @@ def enrich_document_facts(doc_id: int) -> dict:
                     )
                     db.session.add(rel)
                     relationships_created += 1
-
-        elif entity_type == "organization" and value:
-            # Create Relationship: Document → Organization
-            org_name = str(value)
-            existing_rel = Relationship.query.filter_by(
-                source_id=f"doc_{doc_id}",
-                target_id=org_name,
-                type="mentions"
-            ).filter_by(source_type="document", target_type="organization").first()
-            if not existing_rel:
-                rel = Relationship(
-                    source_type="document",
-                    source_id=f"doc_{doc_id}",
-                    target_type="organization",
-                    target_id=org_name,
-                    type="mentions",
-                    context=fact.get("evidence", ""),
-                    confidence=fact.get("confidence", 0.5),
-                    created_at=datetime.now(timezone.utc),
-                )
-                db.session.add(rel)
-                relationships_created += 1
 
     # Also populate knowledge_entries from facts
     from app.models import KnowledgeEntry
@@ -195,6 +211,7 @@ def enrich_document_facts(doc_id: int) -> dict:
         "persons_created": persons_created,
         "persons_matched": persons_matched,
         "relationships_created": relationships_created,
+        "mention_links_skipped": mention_links_skipped,
         "knowledge_entries_created": knowledge_entries_created,
     }
 

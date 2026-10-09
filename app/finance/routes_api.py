@@ -98,17 +98,25 @@ def api_create_invoice():
     else:
         due_date = date.today() + timedelta(days=30)
     description = data.get("description", "").strip()
-    # Find or create a simple relationship for this customer
-    from app.models import Relationship
-    rel = Relationship.query.filter_by(
-        organization_id=org_id, name=customer_name
+    # Find or create the customer as a canonical relationship.
+    # (The legacy `app.models.Relationship` no longer exists — it was
+    # superseded by CanonicalRelationship; this path used to raise ImportError.)
+    from app.relationship.models import CanonicalRelationship
+    from app.relationship.services import create_relationship
+    rel = CanonicalRelationship.query.filter_by(
+        organization_id=org_id, display_name=customer_name
     ).first()
     if not rel:
-        rel = Relationship(
-            organization_id=org_id, name=customer_name,
-            type="customer", status="active",
+        rel = create_relationship(
+            org_id,
+            {
+                "display_name": customer_name,
+                "relationship_type": "customer",
+                "source": "finance",
+                "status": "active",
+            },
+            created_by=_identity(),
         )
-        db.session.add(rel)
         db.session.flush()
     inv_count = Invoice.query.filter_by(organization_id=org_id).count() + 1
     inv_number = f"INV-{date.today().strftime('%Y%m')}-{inv_count:04d}"
@@ -139,9 +147,11 @@ def api_list_invoices():
     for inv in q.order_by(Invoice.created_at.desc()).all():
         d = inv.to_dict()
         if inv.relationship_id:
-            from app.models import Relationship
-            rel = db.session.get(Relationship, inv.relationship_id)
-            d["relationship_name"] = rel.name if rel else None
+            # Canonical relationship (the legacy models.Relationship no longer
+            # exists; this used to raise ImportError and 500 the whole list).
+            from app.relationship.models import CanonicalRelationship
+            rel = db.session.get(CanonicalRelationship, inv.relationship_id)
+            d["relationship_name"] = rel.display_name if rel else None
         invoices.append(d)
     return jsonify({"invoices": invoices})
 
