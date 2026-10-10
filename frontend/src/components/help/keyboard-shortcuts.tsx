@@ -83,10 +83,10 @@ export function KeyboardShortcuts({ visible, onClose }: { visible: boolean; onCl
     }
   }, [visible, onClose]);
 
-  useEffect(() => {
+  useEffect((): void | (() => void) => {
     if (visible) {
       window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
+      return (): void => window.removeEventListener('keydown', handleKeyDown);
     }
   }, [visible, handleKeyDown]);
 

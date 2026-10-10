@@ -6,7 +6,7 @@
  * GET  /api/v1/export/download/:id → download file
  */
 import { useState, useCallback, useRef } from 'react';
-import { IconFileExport, IconDownload, IconLoader2, IconCheck, IconX } from '@tabler/icons-react';
+import { IconFileExport, IconDownload, IconLoader2 } from '@tabler/icons-react';
 
 interface ExportJob {
   id: string;
@@ -41,7 +41,7 @@ export function DataExport() {
   const [job, setJob] = useState<ExportJob | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const pollRef = useRef<ReturnType<typeof setInterval>>();
+  const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const pollStatus = useCallback(async (jobId: string) => {
     try {

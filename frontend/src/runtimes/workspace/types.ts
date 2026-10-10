@@ -39,7 +39,16 @@ export type WorkspaceType =
   | 'import-export'
   | 'audit'
   | 'analytics'
-  | 'settings';
+  | 'settings'
+  | 'workspace-settings'
+  | 'api-docs'
+  | 'help'
+  | 'shortcuts'
+  | 'profile'
+  | 'team'
+  | 'data-export'
+  | 'sessions'
+  | 'notifications-preferences';
 
 export interface WorkspaceIdentity {
   id: string;
