@@ -12,7 +12,7 @@ import requests
 from urllib.parse import quote
 from app.authz.decorators import require_permission
 
-from .provider import _registry
+
 
 logger = logging.getLogger(__name__)
 
@@ -425,13 +425,13 @@ def chat():
             # Non-critical — continue with the original messages
 
     # ── Canonical SHUNYAAI Kernel Inference ──
-    # Primary path: IntelligenceRuntime kernel (intent→context→memory→retrieval→reasoning→planning)
-    # Secondary: InferenceOrchestrator (classify→policy→select→execute→observe)
-    # Tertiary: direct provider chain (resilience fallback)
-    fallback_used = False
+    # PRIMARY: IntelligenceRuntime kernel (intent→context→memory→retrieval→reasoning→planning)
+    # FALLBACK: InferenceOrchestrator (classify→policy→select→execute→observe)
+    # No tertiary fallback — the orchestrator handles its own provider chain internally
+    # (Phase 1.3 consolidation: single provider chain via InferenceOrchestrator).
     last_error = ''
     result = None
-    p = None  # provider reference for side effects
+    provider_name = ''
 
     # Extract the last user message for the kernel
     input_text = ''
@@ -465,12 +465,12 @@ def chat():
                     'finish_reason': 'stop',
                     '_kernel_trace': kernel_resp.get('trace'),
                 }
-                p = type('ProviderRef', (), {'name': 'shunyaai', 'model': 'kernel'})()
+                provider_name = 'shunyaai'
         except Exception as e:
             last_error = str(e)
             logger.warning(f'SHUNYAAI kernel failed, falling back to orchestrator: {last_error}')
 
-    # 2) Fallback: InferenceOrchestrator (canonical routing)
+    # 2) Fallback: InferenceOrchestrator (canonical routing with internal provider chain)
     if result is None and input_text:
         try:
             from core.inference_orchestrator import (
@@ -498,36 +498,13 @@ def chat():
                         if orch_response.pipeline else []
                     ),
                 }
-                p = type('ProviderRef', (), {'name': 'orchestrator', 'model': orch_response.model or 'unknown'})()
+                provider_name = orch_response.provider or 'orchestrator'
             else:
                 last_error = orch_response.error or 'Orchestrator returned no success'
                 logger.warning(f'Orchestrator fell through: {last_error}')
         except Exception as e:
             last_error = str(e)
-            logger.warning(f'Orchestrator failed, falling back to provider chain: {last_error}')
-
-    # 3) Fallback: try providers in order
-    if result is None:
-        provider = _registry.resolve()
-        chain = _registry.chain
-        for p in chain:
-            if not p.is_available():
-                continue
-            try:
-                result = p.complete(messages, temperature=temperature, max_tokens=max_tokens)
-                if result.get('finish_reason') == 'error':
-                    last_error = result.get('error', 'Provider error')
-                    logger.warning(f'AI provider {p.name} failed: {last_error}')
-                    fallback_used = True
-                    result = None
-                    continue
-                break
-            except Exception as e:
-                last_error = str(e)
-                logger.warning(f'AI provider {p.name} exception: {last_error}')
-                fallback_used = True
-                result = None
-                continue
+            logger.warning(f'Orchestrator failed: {last_error}')
 
     if result is None:
         return jsonify({
@@ -542,13 +519,13 @@ def chat():
         from app.evidence.service import log_evidence
         log_evidence(
             action="ai_response",
-            source=result.get('provider', p.name if p else 'unknown'),
-            confidence=0.92 if not fallback_used else 0.65,
+            source=result.get('provider', provider_name or 'unknown'),
+            confidence=0.92,
             evidence_type="ai",
             inputs={"model": result.get('model', 'unknown'), "messages_count": len(messages)},
             outputs={
                 "finish_reason": result.get('finish_reason', 'stop'),
-                "fallback_used": fallback_used,
+                "fallback_used": False,
             },
         )
         from app import db
@@ -561,8 +538,8 @@ def chat():
         observe_ai_response(
             provider=result.get('provider', 'unknown'),
             model=result.get('model', 'unknown'),
-            confidence=0.92 if not fallback_used else 0.65,
-            fallback_used=fallback_used,
+            confidence=0.92,
+            fallback_used=False,
         )
     except Exception:
         pass
@@ -624,7 +601,7 @@ def chat():
         'provider': result.get('provider', 'unknown'),
         'usage': result.get('usage', {}),
         'finish_reason': result.get('finish_reason', 'stop'),
-        'fallback': fallback_used,
+        'fallback': False,
         'outcome_id': chat_outcome_id,
     }
     if result.get('_orchestrator_pipeline'):

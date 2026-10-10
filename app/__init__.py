@@ -1159,6 +1159,16 @@ def create_app(config_override: dict | None = None):
     register_tool_handlers()
     app.logger.info("GATE 12: AI tool handlers registered")
 
+    # G3 Phase 1.3 — Initialize InferenceOrchestrator at startup
+    # Populates the canonical provider chain from env vars so it's warm on first
+    # chat request. The orchestrator handles all provider fallback internally.
+    try:
+        from core.inference_orchestrator import get_orchestrator
+        get_orchestrator()
+        app.logger.info("G3 Phase 1.3: InferenceOrchestrator initialized")
+    except Exception:
+        app.logger.warning("G3 Phase 1.3: InferenceOrchestrator init deferred")
+
     # ACTIVATION-07 — Human Command Layer (proposal decisions)
     from app.communication.proposal_routes import proposals_bp
     app.register_blueprint(proposals_bp)
