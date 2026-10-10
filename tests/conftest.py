@@ -152,6 +152,29 @@ def client(app):
     return app.test_client()
 
 
+@pytest.fixture(autouse=True)
+def _pin_frontend_release_resolution(monkeypatch):
+    """Keep HOST release state out of test outcomes.
+
+    The test host may have a production frontend release published at
+    ``<checkout>/../releases/current`` (or SHUNYA_FRONTEND_DIST exported).
+    /health fails closed (503/degraded) whenever an immutable release cannot
+    be tied to the running build SHA, so ambient host state would flip
+    unrelated tests' health assertions — and it would differ between the CI
+    runner (no release published) and this host (release deployed). Pin
+    resolution to the in-checkout build dir (worktree_build mode) for every
+    test; tests that exercise the release contract override this with their
+    own monkeypatch (tests/test_release_governance.py,
+    tests/test_spa_shell_release_integrity.py).
+    """
+    from app import frontend_release
+
+    monkeypatch.setenv(
+        frontend_release.FRONTEND_RELEASE_ENV,
+        frontend_release.default_build_dir(),
+    )
+
+
 @pytest.fixture(scope="function")
 def tenant(app):
     """Create a sample tenant for multi-tenant tests."""

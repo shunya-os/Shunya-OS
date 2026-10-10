@@ -282,9 +282,12 @@ def _health_check(app: Flask) -> dict:
         prov = frontend_provenance()
         checks.update(prov)
         # Fail the health signal if production is meant to serve an immutable
-        # release but the artifact cannot be tied to the running SHA.
-        # Skip in TESTING mode (no frontend build in test environment).
-        if prov["frontend_dist_mode"] == "immutable_release" and not app.config.get("TESTING"):
+        # release but the artifact cannot be tied to the running SHA. This
+        # holds in EVERY mode, tests included: a TESTING skip here would let a
+        # real frontend/backend SHA mismatch certify green. Test hermeticity is
+        # the suite's job — tests pin their own provenance resolution
+        # (tests/conftest.py) instead of the endpoint skipping the check.
+        if prov["frontend_dist_mode"] == "immutable_release":
             declared = prov.get("frontend_release_sha")
             if not prov["frontend_release_verified"] or (
                 declared and declared != _GIT_COMMIT
