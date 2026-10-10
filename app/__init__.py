@@ -1169,6 +1169,19 @@ def create_app(config_override: dict | None = None):
     except Exception:
         app.logger.warning("G3 Phase 1.3: InferenceOrchestrator init deferred")
 
+    # G3 Phase 1.5 — Wire durable memory bridge (MemoryEngine → MemoryRecord)
+    # Swaps the runtime MemoryEngine's in-memory repository for the DB-backed
+    # DBMemoryRepository so memory survives process restarts.
+    # The bridge is at core/intelligence_runtime/memory_db.py.
+    try:
+        from core.intelligence_runtime import get_runtime
+        from core.intelligence_runtime.memory_db import DBMemoryRepository
+        runtime = get_runtime()
+        runtime.memory.set_repository(DBMemoryRepository())
+        app.logger.info("G3 Phase 1.5: Durable memory bridge wired")
+    except Exception:
+        app.logger.warning("G3 Phase 1.5: Durable memory bridge skipped (will use in-memory)")
+
     # ACTIVATION-07 — Human Command Layer (proposal decisions)
     from app.communication.proposal_routes import proposals_bp
     app.register_blueprint(proposals_bp)
