@@ -1,18 +1,7 @@
-"""SHUNYA — Push Notifications (Web Push / PWA).
+"""SHUNYA — Notification models.
 
-Persistence for Web Push API subscriptions (PushSubscription) and a
-notification dispatch service.
-
-This implements the browser/PWA notification path for CG-10 (D-10). The
-Web Push API provides end-to-end push notifications through the browser
-service worker — no app store deployment required. This satisfies the
-SHUNYA product requirement for transactional notifications (commitment
-due, status change, conversation reply, automation fired).
-
-Platform coverage (Web Push API):
-  - Desktop: Chrome, Firefox, Edge, Safari 16.4+
-  - Mobile: Android Chrome (PWA-installed), Android WebView
-  - iOS: Safari 16.4+ PWA with limited support
+PushSubscription for Web Push / PWA subscriptions.
+NotificationPreference for event-type × channel preference matrix.
 """
 
 from __future__ import annotations
@@ -24,11 +13,7 @@ from sqlalchemy import Index, Text
 
 
 class PushSubscription(db.Model):
-    """A user's Web Push subscription (per device/browser).
-
-    The subscription object is the opaque JSON the browser returns from
-    PushManager.subscribe(). It is passed verbatim to the push service.
-    """
+    """A user's Web Push subscription (per device/browser)."""
 
     __tablename__ = "shunya_push_subscriptions"
     __table_args__ = (
@@ -38,12 +23,9 @@ class PushSubscription(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     identity_id = db.Column(db.String(64), nullable=False, index=True)
-    # Browser push endpoint URL supplied by the push service.
     endpoint = db.Column(Text, nullable=False)
-    # Keys object from the PushSubscription JSON ({p256dh, auth}).
     p256dh = db.Column(Text, default="")
     auth = db.Column(Text, default="")
-    # Full subscription JSON for round-trip fidelity.
     subscription_json = db.Column(Text, default="")
     user_agent = db.Column(db.String(255), default="")
     is_active = db.Column(db.Boolean, default=True)
@@ -68,4 +50,55 @@ class PushSubscription(db.Model):
                 "p256dh": self.p256dh,
                 "auth": self.auth,
             },
+        }
+
+
+DEFAULT_EVENT_TYPES = [
+    "attention.item",
+    "execution.completed",
+    "execution.failed",
+    "document.processed",
+    "invitation.received",
+    "proposal.status",
+    "payment.received",
+    "system.alert",
+]
+
+CHANNELS = ["email", "push", "in-app", "browser"]
+
+
+class NotificationPreference(db.Model):
+    """Per-event-type × per-channel preference toggle.
+
+    One row per (identity_id, event_type, channel) combination.
+    Created lazily on first read for the default-set of event_types × channels.
+    """
+
+    __tablename__ = "notif_event_preferences"
+    __table_args__ = (
+        Index("ix_notif_pref_identity", "identity_id", "tenant_id"),
+        Index("ix_notif_pref_lookup", "identity_id", "event_type", "channel", unique=True),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    identity_id = db.Column(db.String(64), nullable=False, index=True)
+    tenant_id = db.Column(db.String(64), nullable=True)
+    event_type = db.Column(db.String(60), nullable=False)
+    channel = db.Column(db.String(20), nullable=False)  # email, push, in-app, browser
+    enabled = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "identity_id": self.identity_id,
+            "tenant_id": self.tenant_id,
+            "event_type": self.event_type,
+            "channel": self.channel,
+            "enabled": self.enabled,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

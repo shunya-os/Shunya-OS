@@ -579,6 +579,21 @@ class Pipeline:
         )
         self._router.record(record)
 
+        # G3 Phase 7.3: Record cost tracking
+        try:
+            from core.intelligence_runtime.cost_tracker import get_cost_tracker
+            tracker = get_cost_tracker()
+            tracker.record(
+                provider=result.provider,
+                model=result.model,
+                input_tokens=record.input_tokens,
+                output_tokens=record.output_tokens,
+                latency_ms=result.latency_ms,
+                success=result.success,
+            )
+        except Exception:
+            logger.debug("Cost tracker unavailable (non-fatal)")
+
 
 # ── Inference Orchestrator ──────────────────────────────────────────────────
 

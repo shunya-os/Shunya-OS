@@ -7,6 +7,7 @@
 import { useState, useCallback, useEffect, type FC } from 'react';
 import { AddToShunya } from '../ingestion/add-to-shunya';
 import { IconBook, IconChartBar, IconClipboard, IconFileText, IconPhoto, IconFolder } from '@tabler/icons-react';
+import { ShunyaAICommandBar } from '../ai/shunya-ai-command-bar';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -415,6 +416,14 @@ export const DocumentBrowser: FC = () => {
           ))}
         </div>
       )}
+
+      {/* AI Command Bar */}
+      <div style={{ marginTop: 16, maxWidth: 400 }}>
+        <ShunyaAICommandBar
+          surfaceContext={{ surface: 'documents', label: 'Documents' }}
+          placeholder="Ask about your documents…"
+        />
+      </div>
     </div>
   );
 };

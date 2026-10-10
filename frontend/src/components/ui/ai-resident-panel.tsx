@@ -14,6 +14,7 @@
 
 import { useState } from 'react';
 import { ShunyaPresence } from '../ui/shunya-presence';
+import { aiChat, type AIChatMessage } from '../../api/ai-chat';
 
 type PresenceMode = 'idle' | 'ambient' | 'active' | 'attention' | 'attentive' | 'processing' | 'success' | 'error' | 'recovery' | 'suggestive' | 'conversational';
 
@@ -36,20 +37,6 @@ interface ChatMessage {
   content: string;
 }
 
-async function apiPost(path: string, body: Record<string, string>): Promise<{ success: boolean; data?: any; answer?: string; error?: string }> {
-  try {
-    const r = await fetch(path, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    return await r.json();
-  } catch {
-    return { success: false, error: 'Network error' };
-  }
-}
-
 export function AIResidentPanel({ initialMode = 'ambient', objectContext, suggestions = [] }: Props) {
   const [mode, setMode] = useState<PresenceMode>(initialMode);
   // A conversational surface must OPEN conversational. This previously defaulted
@@ -69,15 +56,15 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
     setChatError(null);
     setChatMessages(prev => [...prev, { role: 'user', content: text }]);
     try {
-      // Canonical company-first ask pipeline (tenant identity → company evidence
-      // → internet where required → reasoning). There is no ambient endpoint;
-      // this is the real one.
-      const result = await apiPost('/api/v1/intelligence/ask', { question: text });
-      const answer = result.data?.answer ?? result.answer;
-      if (result.success && answer) {
-        setChatMessages(prev => [...prev, { role: 'assistant', content: answer }]);
+      // Canonical company-first ask pipeline via IntelligenceRuntime's chat endpoint.
+      const messages: AIChatMessage[] = [
+        { role: 'system', content: 'You are SHUNYA, the operating intelligence for this organization. Answer from company data first; use the internet only when company data cannot answer.' + (objectContext ? ` Current surface context: ${objectContext}.` : '') },
+        { role: 'user', content: text },
+      ];
+      const result = await aiChat(messages, { max_tokens: 512, webSearch: true });
+      if (result.content && !result.error) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: result.content }]);
       } else {
-        // Never fabricate an answer. Report the truthful failure and offer retry.
         setChatError(result.error || 'SHUNYA could not answer that. The intelligence service did not respond.');
       }
     } catch {

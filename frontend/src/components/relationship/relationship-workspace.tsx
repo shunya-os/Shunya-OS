@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
+import { ShunyaAICommandBar } from '../ai/shunya-ai-command-bar';
 
 interface RelItem {
   id: number;
@@ -154,6 +155,14 @@ export const RelationshipWorkspace: FC = () => {
           })}
         </div>
       )}
+
+      {/* AI Command Bar */}
+      <div style={{ marginTop: 16, maxWidth: 400 }}>
+        <ShunyaAICommandBar
+          surfaceContext={{ surface: 'relationships', label: 'Relationships' }}
+          placeholder="Ask about a relationship…"
+        />
+      </div>
     </div>
   );
 };

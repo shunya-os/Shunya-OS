@@ -258,6 +258,7 @@ class IntelligenceResponse:
     trace: ReasoningTrace | None = None
     requires_clarification: bool = False
     clarification_question: str = ""
+    degradations: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -267,6 +268,7 @@ class IntelligenceResponse:
             "trace": self.trace.to_dict() if self.trace else None,
             "requires_clarification": self.requires_clarification,
             "clarification_question": self.clarification_question,
+            "degradations": self.degradations,
         }
 
 

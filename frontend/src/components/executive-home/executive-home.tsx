@@ -28,6 +28,7 @@ import { useActiveContext } from '../../hooks/use-active-context';
 import { HomePage } from '../home/home-page';
 import { AIResidentPanel } from '../ui/ai-resident-panel';
 import { LivingPresence } from '../living-workspace/living-presence';
+import { KeyboardShortcuts } from '../help/keyboard-shortcuts';
 import {
   fetchAttentionItems,
   confirmAttentionReview,
@@ -39,6 +40,8 @@ import {
   IconBuildingStore, IconBooks, IconCheck, IconBrain, IconHeartHandshake,
   IconPencil, IconBookmark, IconFileText, IconHome, IconMicrophone,
   IconVolume, IconRefresh, IconArrowRight, IconChevronUp, IconChevronDown, IconCircle,
+  IconBell, IconFileExport, IconDeviceLaptop, IconUsers,
+  IconSettings, IconApi, IconKeyboard, IconHelp,
 } from '@tabler/icons-react';
 
 // Code-split heavy workspace components — loaded on first use, not on initial boot
@@ -66,9 +69,24 @@ const KnowledgeBrowser = lazy(() => import('../knowledge/knowledge-browser-panel
 const SettingsPanel = lazy(() => import('../settings/settings-panel').then(m => ({ default: m.SettingsPanel })));
 const SearchBar = lazy(() => import('../search/universal-search').then(m => ({ default: m.SearchBar })));
 
+// ── NEW: Notification Preferences, Data Export, Sessions ──
+const NotificationPreferences = lazy(() => import('../notifications/notification-preferences').then(m => ({ default: m.NotificationPreferences })));
+const DataExport = lazy(() => import('../data/data-export').then(m => ({ default: m.DataExport })));
+const ActiveSessions = lazy(() => import('../sessions/active-sessions').then(m => ({ default: m.ActiveSessions })));
+const ProfilePage = lazy(() => import('../profile/profile-page').then(m => ({ default: m.ProfilePage })));
+
 // ── NEW: Finance & Operations Workspaces ──
 const FinanceWorkspace = lazy(() => import('../finance/finance-workspace').then(m => ({ default: m.FinanceWorkspace })));
 const OperationsWorkspace = lazy(() => import('../operations/operations-workspace').then(m => ({ default: m.OperationsWorkspace })));
+
+// ── Team Management ──
+const TeamPage = lazy(() => import('../team/team-page').then(m => ({ default: m.TeamPage })));
+
+// ── NEW: System Tools — Settings, API Docs, Help, Shortcuts, Analytics ──
+const WorkspaceSettings = lazy(() => import('../workspace/workspace-settings').then(m => ({ default: m.WorkspaceSettings })));
+const ApiExplorer = lazy(() => import('../dev/api-explorer').then(m => ({ default: m.ApiExplorer })));
+const HelpCenter = lazy(() => import('../help/help-center').then(m => ({ default: m.HelpCenter })));
+const AnalyticsPanel = lazy(() => import('../analytics/analytics-panel').then(m => ({ default: m.AnalyticsPanel })));
 
 // ═══════════════════════════════════════════════════════════════════
 // DOMAIN DEFINITIONS — Universal organizational domains
@@ -99,6 +117,11 @@ const ORGANIZATIONAL_DOMAINS: Domain[] = [
   { id: 'content', label: 'Content', icon: <IconPencil size={18} />, description: 'AI content generation studio', wsType: 'object' },
   { id: 'entities', label: 'Entities', icon: <IconBookmark size={18} />, description: 'Dynamic entity type system', wsType: 'object' },
   { id: 'documents', label: 'Documents', icon: <IconFileText size={18} />, description: 'Uploaded files, documents, and records', wsType: 'object' },
+  { id: 'profile', label: 'Profile', icon: <IconUser size={18} />, description: 'Your profile and preferences', wsType: 'profile' },
+  { id: 'notifications_preferences', label: 'Notifications', icon: <IconBell size={18} />, description: 'Configure notification preferences', wsType: 'settings' },
+  { id: 'data_export', label: 'Data Export', icon: <IconFileExport size={18} />, description: 'Export data for backup or migration', wsType: 'settings' },
+  { id: 'sessions', label: 'Sessions', icon: <IconDeviceLaptop size={18} />, description: 'Manage active sessions', wsType: 'settings' },
+  { id: 'team', label: 'Team', icon: <IconUsers size={18} />, description: 'Invite and manage team members', wsType: 'team' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════
@@ -111,7 +134,7 @@ const ORGANIZATIONAL_DOMAINS: Domain[] = [
 // 2. ORGANIZATIONAL ORIENTATION — Zone Left
 // ═══════════════════════════════════════════════════════════════════
 
-function OrganizationalOrientation({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+function OrganizationalOrientation({ collapsed, onToggle, onOpenShortcuts }: { collapsed: boolean; onToggle: () => void; onOpenShortcuts: () => void }) {
   const handleHomeClick = useCallback(() => {
     useWorkspaceStore.getState().open('Home', 'home');
   }, []);
@@ -165,6 +188,25 @@ function OrganizationalOrientation({ collapsed, onToggle }: { collapsed: boolean
             )}
           </button>
         ))}
+      </div>
+      <div className="pw-org-tools">
+        <p className="pw-org-hint">Tools & Help</p>
+        <button className="pw-org-domain" onClick={() => useWorkspaceStore.getState().open('Analytics', 'analytics')} title="System analytics and dashboards">
+          <span className="pw-org-domain-icon"><IconChartBar size={16} /></span>
+          <span className="pw-org-domain-label">Analytics</span>
+        </button>
+        <button className="pw-org-domain" onClick={() => useWorkspaceStore.getState().open('API Docs', 'api-docs')} title="API documentation explorer">
+          <span className="pw-org-domain-icon"><IconApi size={16} /></span>
+          <span className="pw-org-domain-label">API Docs</span>
+        </button>
+        <button className="pw-org-domain" onClick={() => useWorkspaceStore.getState().open('Help Center', 'help')} title="Help center and guides">
+          <span className="pw-org-domain-icon"><IconHelp size={16} /></span>
+          <span className="pw-org-domain-label">Help</span>
+        </button>
+        <button className="pw-org-domain" onClick={onOpenShortcuts} title="Keyboard shortcuts">
+          <span className="pw-org-domain-icon"><IconKeyboard size={16} /></span>
+          <span className="pw-org-domain-label">Shortcuts</span>
+        </button>
       </div>
       <p className="pw-org-footer">Ask SHUNYA or click to explore any area</p>
       <div className="pw-org-presence">
@@ -826,6 +868,15 @@ function PrimaryFocusArea() {
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <LivingPresence />
+          {/* Workspace Settings gear */}
+          <button
+            className="pw-focus-settings-btn"
+            onClick={() => useWorkspaceStore.getState().open('Workspace Settings', 'workspace-settings')}
+            title="Workspace Settings"
+            aria-label="Workspace Settings"
+          >
+            <IconSettings size={16} />
+          </button>
           {/* Mobile domain button */}
           <MobileDomainNav />
         </div>
@@ -1023,9 +1074,48 @@ function DomainWorkspaceRouter() {
     return <div className="pw-panel-container"><ContactDiscovery /></div>;
   }
 
-  // Settings panel
+  // Settings panel (generic) or sub-pages
   if (active.identity.type === 'settings') {
+    if (active.identity.objectId === 'notifications_preferences') {
+      return <div className="pw-panel-container"><NotificationPreferences /></div>;
+    }
+    if (active.identity.objectId === 'data_export') {
+      return <div className="pw-panel-container"><DataExport /></div>;
+    }
+    if (active.identity.objectId === 'sessions') {
+      return <div className="pw-panel-container"><ActiveSessions /></div>;
+    }
     return <div className="pw-panel-container"><SettingsPanel /></div>;
+  }
+
+  // Workspace Settings
+  if (active.identity.type === 'workspace-settings') {
+    return <div className="pw-panel-container"><WorkspaceSettings /></div>;
+  }
+
+  // API Docs
+  if (active.identity.type === 'api-docs') {
+    return <div className="pw-panel-container"><ApiExplorer /></div>;
+  }
+
+  // Help Center
+  if (active.identity.type === 'help') {
+    return <div className="pw-panel-container"><HelpCenter /></div>;
+  }
+
+  // Analytics
+  if (active.identity.type === 'analytics') {
+    return <div className="pw-panel-container"><AnalyticsPanel /></div>;
+  }
+
+  // Profile page
+  if (active.identity.type === 'profile') {
+    return <div className="pw-panel-container"><ProfilePage /></div>;
+  }
+
+  // Team management page
+  if (active.identity.type === 'team') {
+    return <div className="pw-panel-container"><TeamPage /></div>;
   }
 
   // Commitment workspace — self-contained, reads from API
@@ -1160,6 +1250,7 @@ function DomainWorkspaceRouter() {
 export function PrimaryWorkspace({ loading: _loading }: { loading?: boolean }) {
   const [arrivalDone, setArrivalDone] = useState(false);
   const [orgCollapsed, setOrgCollapsed] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const startPolling = useLivingStore((s) => s.startPolling);
 
   useEffect(() => {
@@ -1167,6 +1258,22 @@ export function PrimaryWorkspace({ loading: _loading }: { loading?: boolean }) {
     const sse = subscribeSSE('reality');
     return () => { stop(); sse.close(); };
   }, [startPolling]);
+
+  // '?' key opens keyboard shortcuts modal
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // Only when no input/textarea is focused
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+          e.preventDefault();
+          setShortcutsOpen(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
 
   return (
     <div className="pw-workspace">
@@ -1178,6 +1285,7 @@ export function PrimaryWorkspace({ loading: _loading }: { loading?: boolean }) {
         <OrganizationalOrientation
           collapsed={orgCollapsed}
           onToggle={() => setOrgCollapsed(!orgCollapsed)}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
         />
 
         {/* CENTER — DomainWorkspaceRouter handles ALL workspace types */}
@@ -1196,6 +1304,9 @@ export function PrimaryWorkspace({ loading: _loading }: { loading?: boolean }) {
       <div className="pw-mobile-presence">
         <LivingPresence />
       </div>
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcuts visible={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
 }
@@ -1308,6 +1419,23 @@ styles.textContent = `
   color: var(--shunya-text, #1A1C1D);
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+.pw-focus-settings-btn {
+  width: 32px; height: 32px;
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(26,28,29,0.4);
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.pw-focus-settings-btn:hover {
+  border-color: var(--shunya-gold, #a4865f);
+  color: var(--shunya-text, #1A1C1D);
 }
 
 /* ── Presence ─────────────────────────────────────────────── */
@@ -1602,6 +1730,12 @@ styles.textContent = `
   flex: 1;
   overflow-y: auto;
   padding: 0 8px;
+}
+.pw-org-tools {
+  flex-shrink: 0;
+  padding: 0 8px 4px;
+  border-top: 1px solid var(--shunya-border, rgba(26,28,29,0.06));
+  margin-top: 4px;
 }
 .pw-org-domain {
   display: flex;
@@ -2230,6 +2364,87 @@ styles.textContent = `
   .pw-command-trigger { padding: 2px 6px 2px 12px; }
   .pw-intention { flex-direction: column; gap: 2px; }
   .pw-intention-label { white-space: normal; }
+}
+
+/* ── Notification Preferences ───────────────────────────── */
+.notif-prefs { padding: 40px 48px; max-width: 640px; }
+.notif-prefs-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.notif-prefs-header h2 { font-size: 20px; font-weight: 500; margin: 0; display: flex; align-items: center; gap: 8px; }
+.notif-prefs-subtitle { font-size: 14px; color: rgba(26,28,29,0.55); margin: 0 0 24px; }
+.notif-prefs-loading, .notif-prefs-error { font-size: 13px; color: rgba(26,28,29,0.55); }
+.notif-prefs-error { color: #c0392b; }
+.notif-prefs-retry { padding: 6px 16px; border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 6px; background: transparent; cursor: pointer; font-size: 12px; }
+.notif-prefs-saving { font-size: 12px; color: var(--shunya-gold, #a4865f); margin-left: auto; }
+.notif-prefs-table { border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 8px; overflow: hidden; }
+.notif-prefs-row { display: flex; align-items: center; }
+.notif-prefs-head { background: var(--shunya-surface-subtle, #f8f7f4); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(26,28,29,0.55); }
+.notif-prefs-body-row { border-top: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); }
+.notif-prefs-body-row:hover { background: rgba(26,28,29,0.02); }
+.notif-prefs-cell { padding: 10px 12px; }
+.notif-prefs-event { flex: 1; font-size: 13px; color: var(--shunya-text, #1A1C1D); min-width: 0; }
+.notif-prefs-channel { width: 44px; text-align: center; display: flex; align-items: center; justify-content: center; }
+.notif-prefs-toggle-cell { width: 44px; text-align: center; }
+.notif-prefs-toggle { width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.notif-prefs-toggle:focus-visible { outline: 2px solid var(--shunya-gold, #a4865f); outline-offset: 2px; }
+.notif-prefs-on { color: var(--shunya-gold, #a4865f); border-color: var(--shunya-gold, #a4865f); }
+.notif-prefs-off { color: rgba(26,28,29,0.25); }
+.notif-prefs-off:hover { color: rgba(26,28,29,0.5); }
+
+/* ── Data Export ─────────────────────────────────────────── */
+.data-export { padding: 40px 48px; max-width: 560px; }
+.data-export-header h2 { font-size: 20px; font-weight: 500; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+.data-export-subtitle { font-size: 14px; color: rgba(26,28,29,0.55); margin: 0 0 24px; }
+.data-export-form { display: flex; flex-direction: column; gap: 16px; }
+.data-export-field { display: flex; flex-direction: column; gap: 6px; }
+.data-export-label { font-size: 12px; font-weight: 500; color: rgba(26,28,29,0.55); text-transform: uppercase; letter-spacing: 0.05em; }
+.data-export-select { padding: 8px 12px; border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 6px; font-size: 13px; background: var(--shunya-surface, #fff); color: var(--shunya-text, #1A1C1D); font-family: inherit; }
+.data-export-format-group { display: flex; gap: 6px; }
+.data-export-format-btn { padding: 6px 16px; border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 6px; background: transparent; cursor: pointer; font-size: 12px; color: rgba(26,28,29,0.55); font-family: inherit; transition: all 0.15s; }
+.data-export-format-btn:hover { border-color: var(--shunya-gold, #a4865f); }
+.data-export-format-active { background: var(--shunya-gold, #a4865f); color: #fff; border-color: var(--shunya-gold, #a4865f); }
+.data-export-btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border: none; border-radius: 6px; background: var(--shunya-gold, #a4865f); color: #fff; font-size: 13px; cursor: pointer; font-family: inherit; transition: opacity 0.15s; }
+.data-export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.data-export-btn:hover:not(:disabled) { opacity: 0.85; }
+.data-export-spin { animation: pw-shimmer 1.5s infinite; }
+.data-export-error { font-size: 13px; color: #c0392b; margin-top: 12px; }
+.data-export-job { margin-top: 20px; padding: 16px; border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 8px; }
+.data-export-job-done { border-color: #6a9f6a; }
+.data-export-job-failed { border-color: #c0392b; }
+.data-export-job-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.data-export-job-label { font-size: 13px; font-weight: 500; }
+.data-export-job-scope { font-size: 11px; color: rgba(26,28,29,0.55); }
+.data-export-progress-track { height: 4px; background: var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 2px; overflow: hidden; }
+.data-export-progress-fill { height: 100%; background: var(--shunya-gold, #a4865f); border-radius: 2px; transition: width 0.3s; }
+.data-export-download-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 8px 16px; border: 1px solid #6a9f6a; border-radius: 6px; background: transparent; color: #6a9f6a; font-size: 12px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.data-export-download-btn:hover { background: #6a9f6a; color: #fff; }
+.data-export-job-error { font-size: 12px; color: #c0392b; margin-top: 4px; }
+
+/* ── Active Sessions ─────────────────────────────────────── */
+.active-sessions { padding: 40px 48px; max-width: 640px; }
+.active-sessions-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.active-sessions-header h2 { font-size: 20px; font-weight: 500; margin: 0; display: flex; align-items: center; gap: 8px; flex: 1; }
+.active-sessions-refresh { width: 32px; height: 32px; border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 6px; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: rgba(26,28,29,0.55); transition: all 0.15s; }
+.active-sessions-refresh:hover { border-color: var(--shunya-gold, #a4865f); color: var(--shunya-text); }
+.active-sessions-loading { font-size: 13px; color: rgba(26,28,29,0.55); }
+.active-sessions-error { font-size: 13px; color: #c0392b; }
+.active-sessions-message { font-size: 13px; color: #6a9f6a; }
+.active-sessions-terminate-all { display: inline-flex; align-items: center; gap: 6px; margin: 12px 0; padding: 6px 14px; border: 1px solid #c0392b; border-radius: 6px; background: transparent; color: #c0392b; font-size: 12px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.active-sessions-terminate-all:hover { background: #c0392b; color: #fff; }
+.active-sessions-list { display: flex; flex-direction: column; gap: 4px; }
+.active-sessions-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--shunya-border, rgba(26,28,29,0.07)); border-radius: 8px; transition: border-color 0.15s; }
+.active-sessions-item:hover { border-color: var(--shunya-gold, #a4865f); }
+.active-sessions-current { border-left: 3px solid #6a9f6a; }
+.active-sessions-item-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--shunya-surface-subtle, #f8f7f4); display: flex; align-items: center; justify-content: center; color: rgba(26,28,29,0.55); flex-shrink: 0; }
+.active-sessions-item-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.active-sessions-item-agent { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.active-sessions-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: #6a9f6a; color: #fff; font-weight: 500; }
+.active-sessions-item-meta { font-size: 11px; color: rgba(26,28,29,0.55); }
+.active-sessions-item-terminate { width: 32px; height: 32px; border: none; border-radius: 6px; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: rgba(26,28,29,0.35); transition: all 0.15s; flex-shrink: 0; }
+.active-sessions-item-terminate:hover { color: #c0392b; background: rgba(192,57,43,0.06); }
+.active-sessions-empty { font-size: 13px; color: rgba(26,28,29,0.55); padding: 20px; text-align: center; }
+
+@media (max-width: 768px) {
+  .notif-prefs, .data-export, .active-sessions { padding: 24px 20px; }
 }
 `;
 styles.id = 'pw-workspace-styles';

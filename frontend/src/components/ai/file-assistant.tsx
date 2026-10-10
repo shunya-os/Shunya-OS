@@ -41,6 +41,8 @@ import { uploadFile, createObject, getStoredWorkspaceId } from '../../api/object
 export interface FileAssistantProps {
   workspaceId?: string;
   onCreated?: (type: string, result: any) => void;
+  /** Surface context for the IntelligenceRuntime's context-aware ask(). */
+  surfaceContext?: string;
 }
 
 interface ExtractionResult {
@@ -117,7 +119,7 @@ function confidenceColor(c: string): string {
 
 // ── Main Component ────────────────────────────────────────────
 
-export function AIFileAssistant({ workspaceId, onCreated }: FileAssistantProps) {
+export function AIFileAssistant({ workspaceId, onCreated, surfaceContext }: FileAssistantProps) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -190,7 +192,8 @@ export function AIFileAssistant({ workspaceId, onCreated }: FileAssistantProps) 
               '  "confidence": "high | medium | low",\n' +
               '  "summary": "One-sentence description of what you extracted."\n' +
               '}\n' +
-              'Map field keys to standard names: company_name, email, phone, amount, due_date, status, name, description, notes, address, etc.',
+              'Map field keys to standard names: company_name, email, phone, amount, due_date, status, name, description, notes, address, etc.' +
+              (surfaceContext ? `\nCurrent workspace context: ${surfaceContext}. File belongs to this context.` : ''),
           },
           {
             role: 'user',

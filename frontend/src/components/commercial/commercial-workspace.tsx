@@ -15,6 +15,7 @@ import type { FC } from 'react';
 import { ProposalList, ProposalEdit } from '../proposals/index';
 import { ProposalDetail } from '../proposals/ProposalDetail';
 import type { ProposalData } from '../proposals/ProposalList';
+import { ShunyaAICommandBar } from '../ai/shunya-ai-command-bar';
 
 interface Opportunity {
   id: number;
@@ -345,6 +346,14 @@ export const CommercialWorkspace: FC = () => {
           onCreate={handleCreateProposal}
         />
       )}
+
+      {/* AI Command Bar */}
+      <div style={{ marginTop: 16, maxWidth: 400 }}>
+        <ShunyaAICommandBar
+          surfaceContext={{ surface: 'commercial', label: 'Commercial' }}
+          placeholder="Ask about opportunities and proposals…"
+        />
+      </div>
     </div>
   );
 };

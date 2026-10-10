@@ -34,6 +34,7 @@ import {
   Sliders,
   Archive,
 } from 'lucide-react';
+import { ShunyaAICommandBar } from '../ai/shunya-ai-command-bar';
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -1784,6 +1785,14 @@ export function ContentStudio() {
           <span>{error}</span>
         </div>
       )}
+
+      {/* AI Command Bar */}
+      <div style={{ marginTop: 12, maxWidth: 400 }}>
+        <ShunyaAICommandBar
+          surfaceContext={{ surface: 'content', label: 'Content Studio' }}
+          placeholder="Ask about content generation…"
+        />
+      </div>
 
       <style>{csCss}</style>
     </div>

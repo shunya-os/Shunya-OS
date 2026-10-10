@@ -24,6 +24,7 @@ import {
 } from '../../api/attention-api';
 import { TaskDetail } from './task-detail';
 import { IconRefresh, IconCheck, IconAlertTriangle, IconArrowRight, IconCircle } from '@tabler/icons-react';
+import { ShunyaAICommandBar } from '../ai/shunya-ai-command-bar';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -559,6 +560,14 @@ export function HomePage() {
           </button>
           {lastUpdated && <span className="hp-footer-updated">Live · updated {_timeAgo(new Date(lastUpdated).toISOString())}</span>}
         </footer>
+      </div>
+
+      {/* ── AI Command Bar ──────────────────────────────────── */}
+      <div style={{ marginTop: 24, maxWidth: 400 }}>
+        <ShunyaAICommandBar
+          surfaceContext={{ surface: 'home', label: 'Home' }}
+          placeholder="Ask SHUNYA about your organization…"
+        />
       </div>
 
       {/* ── Task Detail overlay ──────────────────────────────── */}

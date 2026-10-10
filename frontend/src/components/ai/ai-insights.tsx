@@ -48,6 +48,8 @@ export interface AIInsightsProps {
   workspaceId?: string;
   /** Auto-refresh interval in seconds (default: 0 = no auto-refresh). */
   autoRefresh?: number;
+  /** Surface context for the IntelligenceRuntime's context-aware ask(). */
+  surfaceContext?: string;
 }
 
 interface AIInsightData {
@@ -134,7 +136,7 @@ function trendIcon(trend: string) {
 
 // ── Main Component ────────────────────────────────────────────
 
-export function AIBusinessInsights({ workspaceId, autoRefresh }: AIInsightsProps) {
+export function AIBusinessInsights({ workspaceId, autoRefresh, surfaceContext }: AIInsightsProps) {
   const [data, setData] = useState<AIInsightData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -209,7 +211,8 @@ Analyze this business data and provide key insights, trends, and recommendations
             '  "recommendations": ["Actionable recommendation 1", ...],\n' +
             '  "metrics": [{"label": "Metric name", "value": "formatted value", "change": "+X% or -X% or null"}],\n' +
             '  "categories": [{"type": "invoice", "count": 5, "icon": "invoice"}]\n' +
-            '}',
+            '}' +
+            (surfaceContext ? `\nCurrent surface context: ${surfaceContext}. Base analysis on this workspace context.` : ''),
         },
         { role: 'user', content: dataPrompt },
       ];

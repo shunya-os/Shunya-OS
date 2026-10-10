@@ -544,6 +544,9 @@ def create_app(config_override: dict | None = None):
     # GATE 10 — Persistent Operating Intelligence (Attention Items)
     from app.attention.models import AttentionItem  # noqa: F401
 
+    # Notification Preferences — event_type × channel matrix
+    from app.notifications.models import NotificationPreference  # noqa: F401
+
     # Execution Graph — PROD-13
     from app.graph.models import ObjectRelation  # noqa: F401
 
@@ -1084,6 +1087,12 @@ def create_app(config_override: dict | None = None):
     from app.g5.routes import g5_bp
     app.register_blueprint(g5_bp)
 
+    # Profile Management — user profiles and preferences
+    from app.profile.models import UserProfile  # noqa: F401
+    from app.profile import profile_bp
+    if not app.config.get('TESTING', False):
+        app.register_blueprint(profile_bp)
+
     # FDA21 — Audit & Governance reconstruction API
     _importlib.import_module("app.audit.service")
     from app.audit.routes import audit_bp
@@ -1100,6 +1109,14 @@ def create_app(config_override: dict | None = None):
         app.register_blueprint(people_bp)
     except ValueError:
         pass  # Already registered (test isolation)
+
+    # Team Management API — member listing, invitations, role changes
+    if not app.config.get("TESTING"):
+        from app.team import team_bp
+        try:
+            app.register_blueprint(team_bp)
+        except ValueError:
+            pass  # Already registered (test isolation)
 
     # FDA25 — Import / Export / Migration API
     from app.import_export.routes import import_bp
@@ -1253,7 +1270,39 @@ def create_app(config_override: dict | None = None):
     from app.platform import platform_bp
     app.register_blueprint(platform_bp)
 
-    # FDA26: API versioning headers on every response
+    # Notification Preferences API — event_type × channel toggle matrix
+    if not app.config.get("TESTING"):
+        try:
+            from app.notifications.preferences_routes import preferences_bp
+            app.register_blueprint(preferences_bp)
+            app.logger.info("Notification preferences API registered")
+        except Exception:
+            app.logger.warning("Notification preferences API registration skipped")
+
+    # Data Export API — asynchronous export jobs
+    if not app.config.get("TESTING"):
+        try:
+            from app.export.routes import export_bp
+            app.register_blueprint(export_bp)
+            app.logger.info("Export API registered")
+        except Exception:
+            app.logger.warning("Export API registration skipped")
+
+    # Session Management API — list/terminate sessions
+    if not app.config.get("TESTING"):
+        try:
+            from app.sessions.routes import sessions_bp
+            app.register_blueprint(sessions_bp)
+            app.logger.info("Session management API registered")
+        except Exception:
+            app.logger.warning("Session management API registration skipped")
+
+    # System Analytics Dashboard
+    if not app.config.get('TESTING', False):
+        from app.analytics.routes import analytics_bp as system_analytics_bp
+        app.register_blueprint(system_analytics_bp)
+
+    # FDA26 — API versioning headers on every response
     from app.platform.versioning import apply_version_headers
     app.after_request(apply_version_headers)
 
@@ -1266,6 +1315,28 @@ def create_app(config_override: dict | None = None):
         from app.notifications.models import PushSubscription  # noqa: F401 — registers push subscription model
     except Exception:
         pass
+
+    # G3 Phase 7.5 — Register diagnostics and observability blueprints
+    try:
+        from core.intelligence_runtime.diagnostics import diagnostics_bp
+        app.register_blueprint(diagnostics_bp)
+        app.logger.info("G3 Phase 7.5: Diagnostics blueprint registered")
+    except Exception:
+        app.logger.warning("G3 Phase 7.5: Diagnostics blueprint registration skipped")
+
+    try:
+        from app.observability.routes import observability_bp
+        app.register_blueprint(observability_bp)
+        app.logger.info("G3 Phase 7.5: Observability blueprint registered")
+    except Exception:
+        app.logger.warning("G3 Phase 7.5: Observability blueprint registration skipped")
+
+    # G3 Phase 7.2 — Register AIExecutionRecord model
+    try:
+        from app.observability.models import AIExecutionRecord  # noqa: F401
+        app.logger.info("G3 Phase 7.2: AIExecutionRecord model registered")
+    except Exception:
+        app.logger.warning("G3 Phase 7.2: AIExecutionRecord model registration skipped")
 
     # Auto-connect configured integrations on boot
     try:
@@ -1303,6 +1374,14 @@ def create_app(config_override: dict | None = None):
     def serve_report(filename):
         return send_from_directory(
             reports_dir(),
+            filename
+        )
+
+    # ---- Serve uploaded user files (avatars, etc.) ----
+    @app.route("/uploads/<path:filename>")
+    def serve_upload(filename):
+        return send_from_directory(
+            uploads_dir(),
             filename
         )
 

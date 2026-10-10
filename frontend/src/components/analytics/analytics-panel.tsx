@@ -16,11 +16,16 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
+  Database,
+  Share2,
+  Brain,
+  Activity,
 } from 'lucide-react';
+import { fetchDashboard, type DashboardData } from '../../api/analytics-api';
 
 // ── Types ──
 
-type TabId = 'revenue' | 'invoice' | 'task' | 'proposal';
+type TabId = 'dashboard' | 'revenue' | 'invoice' | 'task' | 'proposal';
 type DateRange = '7d' | '30d' | '90d' | '1y';
 
 interface RevenueRow {
@@ -531,13 +536,167 @@ function ProposalTab() {
   );
 }
 
+// ── Dashboard Tab (Real System Data) ──
+
+function DashboardTab() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const res = await fetchDashboard();
+      if (res.success && res.data) {
+        setData(res.data);
+      } else {
+        setError(res.error || 'Failed to load dashboard data');
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="ap-tab-content">
+        <div className="ap-loading"><div className="ap-loading-shimmer" /><p>Loading system analytics…</p></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="ap-tab-content">
+        <div className="ap-error-state">
+          <Activity size={24} style={{ color: 'rgba(26,28,29,0.3)' }} />
+          <p className="ap-error-text">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="ap-tab-content">
+        <div className="ap-error-state">
+          <p className="ap-error-text">No analytics data available</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ap-tab-content">
+      {/* Summary Cards */}
+      <div className="ap-summary-row">
+        <div className="ap-summary-card">
+          <Database size={14} style={{ color: '#6C4AE2' }} />
+          <div className="ap-summary-info">
+            <span className="ap-summary-value">{data.total_objects.toLocaleString()}</span>
+            <span className="ap-summary-label">Total Objects</span>
+          </div>
+        </div>
+        <div className="ap-summary-card">
+          <Share2 size={14} style={{ color: '#0891B2' }} />
+          <div className="ap-summary-info">
+            <span className="ap-summary-value">{data.total_relationships.toLocaleString()}</span>
+            <span className="ap-summary-label">Relationships</span>
+          </div>
+        </div>
+        <div className="ap-summary-card">
+          <FileText size={14} style={{ color: '#2D6A4F' }} />
+          <div className="ap-summary-info">
+            <span className="ap-summary-value">{data.total_documents.toLocaleString()}</span>
+            <span className="ap-summary-label">Documents</span>
+          </div>
+        </div>
+        <div className="ap-summary-card">
+          <Brain size={14} style={{ color: '#A4865F' }} />
+          <div className="ap-summary-info">
+            <span className="ap-summary-value">{data.total_ai_queries.toLocaleString()}</span>
+            <span className="ap-summary-label">AI Queries</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="ap-card">
+        <div className="ap-card-header">
+          <Activity size={13} style={{ color: '#A4865F' }} />
+          <span className="ap-card-title">Recent Activity (7 Days)</span>
+        </div>
+        {data.recent_activity.length > 0 ? (
+          <div className="ap-activity-chart">
+            {data.recent_activity.map((day, i) => {
+              const maxCount = Math.max(...data.recent_activity.map(d => d.count), 1);
+              const height = Math.max((day.count / maxCount) * 60, 4);
+              return (
+                <div key={i} className="ap-activity-bar-wrapper" title={`${day.date}: ${day.count} objects`}>
+                  <div className="ap-activity-bar" style={{ height: `${height}px` }} />
+                  <span className="ap-activity-label">{day.date.slice(5)}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="ap-empty-text">No activity in the last 7 days</p>
+        )}
+      </div>
+
+      {/* Workspace Breakdown + Top AI Queries */}
+      <div className="ap-dashboard-grid">
+        <div className="ap-card">
+          <div className="ap-card-header">
+            <Database size={13} style={{ color: '#A4865F' }} />
+            <span className="ap-card-title">Workspace Breakdown</span>
+          </div>
+          {data.workspace_breakdown.length > 0 ? (
+            <div className="ap-breakdown-list">
+              {data.workspace_breakdown.map((ws, i) => (
+                <div key={i} className="ap-breakdown-item">
+                  <span className="ap-breakdown-label">{ws.type}</span>
+                  <span className="ap-breakdown-bar-bg">
+                    <span className="ap-breakdown-bar" style={{ width: `${Math.min((ws.count / Math.max(...data.workspace_breakdown.map(w => w.count), 1)) * 100, 100)}%` }} />
+                  </span>
+                  <span className="ap-breakdown-count">{ws.count}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="ap-empty-text">No workspace data</p>
+          )}
+        </div>
+        <div className="ap-card">
+          <div className="ap-card-header">
+            <Brain size={13} style={{ color: '#A4865F' }} />
+            <span className="ap-card-title">Top AI Queries</span>
+          </div>
+          {data.top_ai_queries.length > 0 ? (
+            <div className="ap-breakdown-list">
+              {data.top_ai_queries.map((q, i) => (
+                <div key={i} className="ap-breakdown-item">
+                  <span className="ap-query-rank">#{i + 1}</span>
+                  <span className="ap-breakdown-label ap-query-text">{q.query}</span>
+                  <span className="ap-breakdown-count">{q.count}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="ap-empty-text">No AI queries recorded yet</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ──
 
 export function AnalyticsPanel() {
-  const [activeTab, setActiveTab] = useState<TabId>('revenue');
+  const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [dateRange, setDateRange] = useState<DateRange>('30d');
 
   const TABS: { id: TabId; label: string; icon: any }[] = [
+    { id: 'dashboard', label: 'System Dashboard', icon: Activity },
     { id: 'revenue', label: 'Revenue Report', icon: DollarSign },
     { id: 'invoice', label: 'Invoice Report', icon: FileText },
     { id: 'task', label: 'Task Report', icon: ClipboardList },
@@ -594,6 +753,7 @@ export function AnalyticsPanel() {
       </div>
 
       {/* Tab Content */}
+      {activeTab === 'dashboard' && <DashboardTab />}
       {activeTab === 'revenue' && <RevenueTab range={dateRange} />}
       {activeTab === 'invoice' && <InvoiceTab />}
       {activeTab === 'task' && <TaskTab />}
@@ -687,6 +847,28 @@ const apCss = `
 /* Export */
 .ap-export-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border: 1px solid rgba(108,74,226,0.15); border-radius: 6px; background: rgba(108,74,226,0.04); font-size: 10px; font-weight: 600; color: #6C4AE2; cursor: pointer; font-family: inherit; transition: all 0.15s; }
 .ap-export-btn:hover { background: rgba(108,74,226,0.1); }
+
+/* Dashboard */
+.ap-loading { display: flex; flex-direction: column; gap: 12px; padding: 40px; align-items: center; }
+.ap-loading-shimmer { height: 3px; width: 200px; background: linear-gradient(90deg, rgba(26,28,29,0.07) 0%, #A4865F 50%, rgba(26,28,29,0.07) 100%); background-size: 200% 100%; animation: ap-shimmer 1.5s infinite; border-radius: 2px; }
+.ap-loading p { font-size: 13px; color: rgba(26,28,29,0.5); margin: 0; }
+@keyframes ap-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.ap-error-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px; }
+.ap-error-text { font-size: 13px; color: rgba(26,28,29,0.45); margin: 0; }
+.ap-empty-text { font-size: 12px; color: rgba(26,28,29,0.35); padding: 16px 0; text-align: center; margin: 0; }
+.ap-dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ap-activity-chart { display: flex; align-items: flex-end; gap: 6px; padding: 8px 0; min-height: 80px; }
+.ap-activity-bar-wrapper { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ap-activity-bar { width: 100%; max-width: 32px; border-radius: 4px 4px 0 0; background: #A4865F; min-height: 4px; transition: height 0.3s; }
+.ap-activity-label { font-size: 9px; color: rgba(26,28,29,0.35); white-space: nowrap; }
+.ap-breakdown-list { display: flex; flex-direction: column; gap: 6px; }
+.ap-breakdown-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.ap-breakdown-label { font-size: 12px; color: rgba(26,28,29,0.6); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-query-text { font-size: 11px; }
+.ap-breakdown-bar-bg { flex: 1; height: 6px; background: rgba(26,28,29,0.05); border-radius: 3px; overflow: hidden; max-width: 100px; }
+.ap-breakdown-bar { display: block; height: 100%; border-radius: 3px; background: #A4865F; transition: width 0.3s; }
+.ap-breakdown-count { font-size: 11px; font-weight: 600; color: rgba(26,28,29,0.5); font-variant-numeric: tabular-nums; min-width: 24px; text-align: right; }
+.ap-query-rank { font-size: 10px; font-weight: 600; color: rgba(26,28,29,0.3); min-width: 20px; }
 
 @media (max-width: 768px) {
   .ap-container { padding: 14px; }

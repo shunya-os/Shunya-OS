@@ -756,6 +756,25 @@ def ask(query: str, session_id: str = "", module_key: str = "",
         from core.intelligence_runtime.explain import ExplainabilityEngine
         result["explanation"] = ExplainabilityEngine.explain_response(response)
 
+    # G3 Phase 7.2: Record AI execution observability
+    try:
+        from app.observability.routes import record_execution as _record_exec
+        tracker_conf = response.trace.confidence if response.trace else 0.0
+        _record_exec(
+            request_id=result.get("execution_chain", {}).get("execution_id", ""),
+            session_id=session_id,
+            query=query,
+            action_class=capability_context.get("action_class", ""),
+            provider=result.get("intelligence_pipeline", {}).get("stages_detail", {}).get("inference_governance", {}).get("provider", ""),
+            model=result.get("intelligence_pipeline", {}).get("stages_detail", {}).get("inference_governance", {}).get("model", ""),
+            latency_ms=latency_ms,
+            confidence=tracker_conf,
+            evidence_count=len(result.get("evidence_used", result.get("intelligence_pipeline", result))),
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).debug("Observability recording skipped (non-fatal)")
+
     return result
 
 

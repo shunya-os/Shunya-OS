@@ -59,6 +59,10 @@ class IntelligenceRuntime:
     def process(self, user_input: str, session_id: str = "",
                 module_key: str = "", **context_kw: Any) -> IntelligenceResponse:
         """Full processing pipeline: intent → context → retrieval → reason → respond."""
+        # G3 Phase 7.4: Graceful degradation handler
+        from .degradation import GracefulDegradationHandler as _Deg
+        _degradations: list[dict] = []
+
         # 1. Classify intent
         intent = self.intent.classify(user_input, context_kw.get("workspace", ""))
 
@@ -98,18 +102,25 @@ class IntelligenceRuntime:
             tenant_id=scope_tenant,
         )
 
-        # 4. Retrieve evidence
+        # 4. Retrieve evidence (with degradation)
         ws_type = ctx.workspace_type or ""
-        evidence = self.retrieval.retrieve(
-            user_input, module_key=module_key,
+        evidence, deg_info = _Deg.execute(
+            "retrieval.retrieve",
+            self.retrieval.retrieve,
+            fallback_fn=lambda *a, **kw: [],
+            context={"query": user_input[:200], "module_key": module_key},
+            query=user_input,
+            module_key=module_key,
             workspace_type=ws_type,
         )
+        if deg_info.get("degraded"):
+            _degradations.append(deg_info)
 
         # 5. Reason over evidence
-        response = self.reasoning.reason(intent, ctx, evidence)
+        response = self.reasoning.reason(intent=intent, context=ctx, evidence=evidence)
 
         # 6. Plan actions
-        plan = self.planner.decide(intent, response)
+        plan = self.planner.decide(intent, response) or []
 
         # 6a. Business-action confirmation gate (E4). Create-requests carry the
         # authenticated organization and identity scope; unless the user's
@@ -197,6 +208,10 @@ class IntelligenceRuntime:
         # 9. Add to conversation
         self.conversation.add_message(session_id, "user", user_input, ctx)
         self.conversation.add_message(session_id, "assistant", response.content, ctx)
+
+        # Attach degradation info to response
+        if _degradations:
+            response.degradations = _degradations
 
         return response
 
