@@ -60,8 +60,37 @@ Stages delivered since SH-M6→M15 opened:
 | Single-Ledger Consolidation | CONTINUE-17 | CLOSED |
 
 Remaining per master milestone tracker:
-- G3 Phase 5 — Learning Loop (intelligence engine)
-- G1 — identity duplicates reconciliation
-- G10 — frontend wiring
-- G11 — auth gates completion
+- G3 Phase 2.6/2.7 — RBAC gates on tool handlers (partially pre-wired by E4)
+- G3 Phase 2.8 — Evidence transformation enforcement
+- G3 Phase 3 — Knowledge graph wiring (8 items)
+- G3 Phase 4 — Proactive intelligence (8 items)
+- G3 Phase 5 — Learning & memory loop (6 items)
+- G3 Phase 6 — Frontend integration (6 items)
+- G3 Phase 7 — Observability (remaining)
+- G10 — Frontend wiring
+- G11 — Auth gates completion
 - G12 — Founder Acceptance / Launch Readiness
+
+## G3 Phase 1 — Critical Connectivity (ALL DELIVERED)
+
+| Item | Status |
+|------|--------|
+| 1.1 — cross_boundary_routes blueprint | ALREADY DONE (registered in app factory) |
+| 1.2 — intelligence_routes blueprint | INTENTIONALLY ARCHIVED (single canonical path) |
+| 1.3 — Provider chain consolidation | DELIVERED (commit 05d543f) |
+| 1.4 — Context enrichment | DELIVERED (commit d06b87f) |
+| 1.5 — Durable memory bridge | DELIVERED (commit 25e27db) |
+| 1.6 — Conversation persistence | DELIVERED (commit c8b7d48) |
+
+## G3 Phase 2 — Context & Security Foundation (PARTIALLY DELIVERED)
+
+| Item | Status |
+|------|--------|
+| 2.1 — Enrich ContextFrame with permissions | DELIVERED (commit e8f2ae1) |
+| 2.2 — PERSONAL vs ORGANIZATION types | DELIVERED (workspace_type in ContextFrame) |
+| 2.3 — workspace_type filter in retrieval | DELIVERED (commit 2f2280c) |
+| 2.4 — Cross-boundary authority in ask() | PARTIALLY DELIVERED (wired in cross_boundary.py + routes) |
+| 2.5 — Action classification registry | DELIVERED (commit e8f2ae1) |
+| 2.6 — RBAC gate on _handle_execute | PRE-WIRED (E4 handlers validate scope) |
+| 2.7 — ExecutionAuthorityEnforcer wiring | PRE-WIRED (cross_boundary path) |
+| 2.8 — Evidence transformation enforcement | NOT STARTED |
