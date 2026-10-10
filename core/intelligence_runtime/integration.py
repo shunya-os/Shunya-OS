@@ -85,6 +85,17 @@ def ensure_runtime() -> None:
 
     runtime = get_runtime()
 
+    # ── Durable Memory Bridge (G3 Phase 1.5) ──
+    # Wire the DB-backed MemoryRepository so memory entries survive restart.
+    try:
+        from core.intelligence_runtime.memory_db import DBMemoryRepository
+        runtime.memory.set_repository(DBMemoryRepository())
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(
+            "DBMemoryRepository wiring skipped (fallback to in-memory)"
+        )
+
     # ── Business Graph Provider ──
     def _graph_search(query: str) -> list[dict]:
         from app.ubme.business_graph import list_graphs

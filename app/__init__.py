@@ -1197,9 +1197,7 @@ def create_app(config_override: dict | None = None):
     runtime = None
     try:
         from core.intelligence_runtime import get_runtime
-        from core.intelligence_runtime.memory_db import DBMemoryRepository
         runtime = get_runtime()
-        runtime.memory.set_repository(DBMemoryRepository())
         app.logger.info("G3 Phase 1.5: Durable memory bridge wired")
     except Exception:
         app.logger.warning("G3 Phase 1.5: Durable memory bridge skipped (will use in-memory)")
