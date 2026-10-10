@@ -98,6 +98,12 @@ def _security_headers_middleware(app: Flask):
         response.headers.setdefault("X-XSS-Protection", "1; mode=block")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(self), camera=()")
+        # HSTS — 1 year, include subdomains, preload
+        # Required for public launch per G11 readiness assessment.
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains; preload"
+        )
         response.headers.setdefault(
             "Content-Security-Policy",
             "default-src 'self'; "
