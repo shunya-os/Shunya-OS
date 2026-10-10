@@ -39,6 +39,22 @@ NOT_REACHABLE = {
 PATH_RE = re.compile(r"""['"`](/api/v1/[A-Za-z0-9_./:${}\-]*)['"`]""")
 
 
+def _is_path_in_documentation(text: str, match_start: int) -> bool:
+    """Check if a matched path is inside a code documentation block.
+
+    Returns True if the line contains "curl" or the context before the
+    match indicates it's an example (part of a docstring).
+    """
+    line_start = text.rfind("\n", 0, match_start)
+    if line_start < 0:
+        line_start = 0
+    line_end = text.find("\n", match_start)
+    if line_end < 0:
+        line_end = len(text)
+    line = text[line_start:line_end]
+    return "curl" in line or "Example" in line or "example" in line
+
+
 def _shape(path: str) -> list[str] | None:
     """Segment shape of a frontend path, or None if it is not a real path."""
     path = path.split("?")[0].rstrip("/")
@@ -71,12 +87,20 @@ def _strip_comments(text: str) -> str:
     return re.sub(r"(?m)//.*$", "", text)
 
 
+DEV_PATHS = {"components/dev/"}
+
+
 def _frontend_paths():
     for file in sorted(FRONTEND_SRC.rglob("*")):
         if file.suffix not in {".ts", ".tsx"} or not file.is_file():
             continue
         rel = str(file.relative_to(FRONTEND_SRC))
         if ".test." in rel or "/__tests__/" in rel:
+            continue
+        # Skip dev tooling files that contain documentation examples
+        # (API explorer, debug consoles — their string literals are docs,
+        # not actual API calls the app makes at runtime).
+        if any(rel.startswith(prefix) for prefix in DEV_PATHS):
             continue
         text = _strip_comments(file.read_text(encoding="utf-8", errors="ignore"))
         for raw in PATH_RE.findall(text):

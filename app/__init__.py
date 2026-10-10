@@ -283,7 +283,8 @@ def _health_check(app: Flask) -> dict:
         checks.update(prov)
         # Fail the health signal if production is meant to serve an immutable
         # release but the artifact cannot be tied to the running SHA.
-        if prov["frontend_dist_mode"] == "immutable_release":
+        # Skip in TESTING mode (no frontend build in test environment).
+        if prov["frontend_dist_mode"] == "immutable_release" and not app.config.get("TESTING"):
             declared = prov.get("frontend_release_sha")
             if not prov["frontend_release_verified"] or (
                 declared and declared != _GIT_COMMIT
@@ -1096,8 +1097,10 @@ def create_app(config_override: dict | None = None):
     # Profile Management — user profiles and preferences
     from app.profile.models import UserProfile  # noqa: F401
     from app.profile import profile_bp
-    if not app.config.get('TESTING', False):
+    try:
         app.register_blueprint(profile_bp)
+    except ValueError:
+        pass  # Already registered (test isolation)
 
     # FDA21 — Audit & Governance reconstruction API
     _importlib.import_module("app.audit.service")
@@ -1117,12 +1120,11 @@ def create_app(config_override: dict | None = None):
         pass  # Already registered (test isolation)
 
     # Team Management API — member listing, invitations, role changes
-    if not app.config.get("TESTING"):
-        from app.team import team_bp
-        try:
-            app.register_blueprint(team_bp)
-        except ValueError:
-            pass  # Already registered (test isolation)
+    from app.team import team_bp
+    try:
+        app.register_blueprint(team_bp)
+    except ValueError:
+        pass  # Already registered (test isolation)
 
     # FDA25 — Import / Export / Migration API
     from app.import_export.routes import import_bp
@@ -1275,36 +1277,32 @@ def create_app(config_override: dict | None = None):
     app.register_blueprint(platform_bp)
 
     # Notification Preferences API — event_type × channel toggle matrix
-    if not app.config.get("TESTING"):
-        try:
-            from app.notifications.preferences_routes import preferences_bp
-            app.register_blueprint(preferences_bp)
-            app.logger.info("Notification preferences API registered")
-        except Exception:
-            app.logger.warning("Notification preferences API registration skipped")
+    try:
+        from app.notifications.preferences_routes import preferences_bp
+        app.register_blueprint(preferences_bp)
+        app.logger.info("Notification preferences API registered")
+    except Exception:
+        app.logger.warning("Notification preferences API registration skipped")
 
     # Data Export API — asynchronous export jobs
-    if not app.config.get("TESTING"):
-        try:
-            from app.export.routes import export_bp
-            app.register_blueprint(export_bp)
-            app.logger.info("Export API registered")
-        except Exception:
-            app.logger.warning("Export API registration skipped")
+    try:
+        from app.export.routes import export_bp
+        app.register_blueprint(export_bp)
+        app.logger.info("Export API registered")
+    except Exception:
+        app.logger.warning("Export API registration skipped")
 
     # Session Management API — list/terminate sessions
-    if not app.config.get("TESTING"):
-        try:
-            from app.sessions.routes import sessions_bp
-            app.register_blueprint(sessions_bp)
-            app.logger.info("Session management API registered")
-        except Exception:
-            app.logger.warning("Session management API registration skipped")
+    try:
+        from app.sessions.routes import sessions_bp
+        app.register_blueprint(sessions_bp)
+        app.logger.info("Session management API registered")
+    except Exception:
+        app.logger.warning("Session management API registration skipped")
 
     # System Analytics Dashboard
-    if not app.config.get('TESTING', False):
-        from app.analytics.routes import analytics_bp as system_analytics_bp
-        app.register_blueprint(system_analytics_bp)
+    from app.analytics.routes import analytics_bp as system_analytics_bp
+    app.register_blueprint(system_analytics_bp)
 
     # FDA26 — API versioning headers on every response
     from app.platform.versioning import apply_version_headers

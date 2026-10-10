@@ -212,12 +212,19 @@ def test_ai_action_journey(server, journey_app):
 
     # ── 4. Create Customer via ToolExecutionLayer ─────────────────────────
     with journey_app.app_context():
+        # The identity_id must match the OrgMember seeded in the fixture
+        # (see journey_app fixture — role='owner' for full permissions).
+        from app.auth import TeamMember
+        fixture_member = TeamMember.query.filter_by(email=EMAIL).first()
+        id_for_auth = str(fixture_member.id) if fixture_member else ""
         customer_params = {
             "name": "AI Action Corp",
             "email": "ai@action.corp",
             "phone": "+1-555-AI-ACTION",
             "tenant_id": ORG_ID,
             "status": "active",
+            "identity_id": id_for_auth,
+            "_identity_id": id_for_auth,
         }
         customer_result = executor._handlers["create_customer"](customer_params)
     step("customer_handler_executed",
@@ -251,6 +258,8 @@ def test_ai_action_journey(server, journey_app):
             "phone": "+1-555-SUPPLIER",
             "city": "San Francisco",
             "tenant_id": ORG_ID,
+            "identity_id": id_for_auth,
+            "_identity_id": id_for_auth,
         }
         supplier_result = executor._handlers["create_supplier"](supplier_params)
     step("supplier_handler_executed",
@@ -315,9 +324,10 @@ def test_ai_action_journey(server, journey_app):
             "name": "Event Test Corp",
             "email": "event@test.corp",
             "tenant_id": ORG_ID,
+            "identity_id": identity_id,
         }
         executor._handlers["create_customer"](handler_params_cust)
-        executor._handlers["create_supplier"]({"name": "Event Test Supplier", "tenant_id": ORG_ID})
+        executor._handlers["create_supplier"]({"name": "Event Test Supplier", "tenant_id": ORG_ID, "identity_id": identity_id})
         executor._handlers["search_objects"]({"query": "Event", "tenant_id": ORG_ID})
 
     step("events_received", len(received_events) >= 3,
