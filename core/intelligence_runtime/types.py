@@ -101,11 +101,12 @@ class ContextFrame:
     recent_history: list[str] = field(default_factory=list)
     current_task: str = ""
     query_params: dict = field(default_factory=dict)
-    # Identity & authorization context (G3 convergence)
+    # Identity & authorization context (G3 Phase 2.1 convergence)
     identity_id: str = ""
     tenant_id: str = ""
     user_role: str = ""
     workspace_type: str = ""  # "personal" or "organization"
+    permissions: list[str] = field(default_factory=list)  # Resolved permission keys
     identity_profile: dict = field(default_factory=dict)  # Decision style, goals, preferences
     # Behavioral guidance from explicitly-recorded human context (Stage G).
     # Shapes tone/pacing only; never quoted to the user, never mixed with
@@ -125,6 +126,7 @@ class ContextFrame:
             "tenant_id": self.tenant_id,
             "user_role": self.user_role,
             "workspace_type": self.workspace_type,
+            "permissions": self.permissions,
         }
 
 

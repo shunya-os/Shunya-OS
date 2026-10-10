@@ -446,33 +446,50 @@ def ensure_runtime() -> None:
 
 
 def _get_capability_context(query: str, identity_id: str = "",
-                            tenant_id: str = "", workspace_type: str = "") -> dict:
+                            tenant_id: str = "", workspace_type: str = "",
+                            object_type: str = "") -> dict:
     """Resolve relevant capabilities for a query via the capability registry.
 
     Returns capability routing info that enriches the runtime processing
     context so SHUNYAAI knows which capabilities are relevant and available.
+    Also includes action classification (G3 Phase 2.5) for RBAC gating.
     """
+    result: dict[str, Any] = {
+        "matched_capabilities": [],
+        "capability_count": 0,
+        "available_count": 0,
+        "unwired_count": 0,
+        "can_execute": False,
+        "can_write": False,
+    }
     try:
         from core.capability_registry import get_registry
         registry = get_registry()
         matched = registry.route(query)
-        return {
+        result.update({
             "matched_capabilities": [c.name for c in matched],
             "capability_count": len(matched),
             "available_count": sum(1 for c in matched if c.status == "AVAILABLE"),
             "unwired_count": sum(1 for c in matched if c.status == "UNWIRED"),
             "can_execute": any(c.can_execute for c in matched),
             "can_write": any(c.can_write for c in matched),
-        }
+        })
     except Exception:
-        return {
-            "matched_capabilities": [],
-            "capability_count": 0,
-            "available_count": 0,
-            "unwired_count": 0,
-            "can_execute": False,
-            "can_write": False,
-        }
+        pass
+
+    # Action classification (G3 Phase 2.5)
+    try:
+        from core.intelligence_runtime.action_classification import (
+            classify_action, required_permission,
+        )
+        action_class = classify_action(query, object_type)
+        result["action_class"] = action_class.value
+        result["action_permission"] = required_permission(action_class, object_type)
+    except Exception:
+        result["action_class"] = "read"
+        result["action_permission"] = "org.view"
+
+    return result
 
 
 def ask(query: str, session_id: str = "", module_key: str = "",
@@ -497,7 +514,7 @@ def ask(query: str, session_id: str = "", module_key: str = "",
     # Resolve relevant capabilities before processing so the runtime
     # knows which engines to invoke for this particular query.
     capability_context = _get_capability_context(
-        query, identity_id, tenant_id, workspace_type)
+        query, identity_id, tenant_id, workspace_type, object_type)
 
     # Update context
     if module_key:
@@ -509,7 +526,7 @@ def ask(query: str, session_id: str = "", module_key: str = "",
     if object_id:
         runtime.context.update(session_id, active_object_id=object_id)
 
-    # Identity & authorization context (G3 convergence)
+    # Identity & authorization context (G3 Phase 2.1 convergence)
     ctx_updates = {}
     if identity_id:
         ctx_updates["identity_id"] = identity_id
@@ -519,6 +536,17 @@ def ask(query: str, session_id: str = "", module_key: str = "",
         ctx_updates["user_role"] = user_role
     if workspace_type:
         ctx_updates["workspace_type"] = workspace_type
+    if identity_id and tenant_id:
+        try:
+            from app.authz.services import check_permission
+            from app.authz.models import PERMISSIONS
+            resolved = []
+            for perm_key in PERMISSIONS:
+                if check_permission(int(tenant_id) if str(tenant_id).isdigit() else 0, identity_id, perm_key):
+                    resolved.append(perm_key)
+            ctx_updates["permissions"] = resolved
+        except Exception:
+            pass  # Permission resolution is advisory, not blocking
     if human_context:
         # Behavioral guidance from explicitly-recorded human context (Stage G).
         # Kept separate from business facts; the reasoning layer may use it for
