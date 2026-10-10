@@ -14,7 +14,7 @@
 
 import { useState } from 'react';
 import { ShunyaPresence } from '../ui/shunya-presence';
-import { aiChat, type AIChatMessage } from '../../api/ai-chat';
+import { api } from '../../api/client';
 
 type PresenceMode = 'idle' | 'ambient' | 'active' | 'attention' | 'attentive' | 'processing' | 'success' | 'error' | 'recovery' | 'suggestive' | 'conversational';
 
@@ -56,14 +56,14 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
     setChatError(null);
     setChatMessages(prev => [...prev, { role: 'user', content: text }]);
     try {
-      // Canonical company-first ask pipeline via IntelligenceRuntime's chat endpoint.
-      const messages: AIChatMessage[] = [
-        { role: 'system', content: 'You are SHUNYA, the operating intelligence for this organization. Answer from company data first; use the internet only when company data cannot answer.' + (objectContext ? ` Current surface context: ${objectContext}.` : '') },
-        { role: 'user', content: text },
-      ];
-      const result = await aiChat(messages, { max_tokens: 512, webSearch: true });
-      if (result.content && !result.error) {
-        setChatMessages(prev => [...prev, { role: 'assistant', content: result.content }]);
+      // Canonical company-first ask pipeline (POST /api/v1/intelligence/ask):
+      // company data answers first; the internet is used only when company
+      // data cannot. A failed ask is reported truthfully — never a fabricated
+      // assistant reply.
+      const result = await api.ask(text);
+      const answer = result.answer;
+      if (result.success && answer) {
+        setChatMessages(prev => [...prev, { role: 'assistant', content: answer }]);
       } else {
         setChatError(result.error || 'SHUNYA could not answer that. The intelligence service did not respond.');
       }
