@@ -41,8 +41,17 @@ class RetrievalLayer:
         self._knowledge_provider = fn
 
     def retrieve(self, query: str, module_key: str = "",
-                 max_results: int = 10) -> list[RetrievedEvidence]:
-        """Retrieve evidence from all available sources."""
+                 max_results: int = 10,
+                 workspace_type: str = "") -> list[RetrievedEvidence]:
+        """Retrieve evidence from all available sources.
+
+        Args:
+            query: The search query.
+            module_key: Optional module context.
+            max_results: Maximum number of results to return.
+            workspace_type: "personal" or "organization" — providers may
+                filter results by scope (G3 Phase 2.3).
+        """
         evidence = []
 
         # 1. Business Graph

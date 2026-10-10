@@ -99,7 +99,11 @@ class IntelligenceRuntime:
         )
 
         # 4. Retrieve evidence
-        evidence = self.retrieval.retrieve(user_input, module_key=module_key)
+        ws_type = ctx.workspace_type or ""
+        evidence = self.retrieval.retrieve(
+            user_input, module_key=module_key,
+            workspace_type=ws_type,
+        )
 
         # 5. Reason over evidence
         response = self.reasoning.reason(intent, ctx, evidence)
