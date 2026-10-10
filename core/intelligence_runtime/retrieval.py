@@ -156,6 +156,33 @@ class RetrievalLayer:
                     metadata=item.get("metadata", {}),
                 ))
 
+        # 6. G3 Phase 3 — Additional intelligence providers
+        # (relationship_intelligence, financial_intelligence,
+        #  operations_intelligence, sales_intelligence,
+        #  marketing_intelligence, cross_object_relationship, universal_search)
+        additional = getattr(self, "_additional_providers", {}) or {}
+        for provider_name, provider_fn in additional.items():
+            try:
+                for item in (provider_fn(query) or []):
+                    name = item.get("name", "")
+                    item_type = item.get("type", provider_name)
+                    status = item.get("status", "")
+                    summary = item.get("summary", "")
+                    content = f"{item_type}: {name}"
+                    if status:
+                        content += f" [{status}]"
+                    if summary:
+                        content += f" — {summary}"
+                    evidence.append(RetrievedEvidence(
+                        source=f"intelligence/{provider_name}",
+                        content=content[:400],
+                        relevance=item.get("relevance", 0.6),
+                        confidence=item.get("confidence", 0.7),
+                        metadata=item.get("metadata", {}),
+                    ))
+            except Exception:
+                pass
+
         # Sort by relevance and limit
         evidence.sort(key=lambda e: -e.relevance)
         return evidence[:max_results]
@@ -167,3 +194,4 @@ class RetrievalLayer:
         self._memory_provider = None
         self._knowledge_provider = None
         self._canonical_provider = None
+        self._additional_providers = {}

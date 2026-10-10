@@ -1194,6 +1194,41 @@ def create_app(config_override: dict | None = None):
         except Exception:
             app.logger.warning("G3 Phase 1.6: Conversation persistence skipped (will use in-memory)")
 
+    # G3 Phase 3 — Wire knowledge graph providers to RetrievalLayer
+    if runtime and not app.config.get('TESTING', False):
+        try:
+            from core.intelligence_runtime.provider_wiring import wire_all_providers
+            wire_all_providers(runtime)
+            app.logger.info("G3 Phase 3: Knowledge graph providers wired")
+        except Exception:
+            app.logger.warning("G3 Phase 3: Knowledge graph wiring skipped")
+
+    # G3 Phase 4 — Start proactive intelligence engine
+    if not app.config.get('TESTING', False):
+        try:
+            from core.intelligence_runtime.proactive import start_proactive_engine
+            start_proactive_engine()
+            app.logger.info("G3 Phase 4: Proactive intelligence engine started")
+        except Exception:
+            app.logger.warning("G3 Phase 4: Proactive intelligence start skipped")
+
+    # G3 Phase 5 — Start background learning loop
+    if not app.config.get('TESTING', False):
+        try:
+            from core.intelligence_runtime.learning import start_learning_loop
+            start_learning_loop()
+            app.logger.info("G3 Phase 5: Background learning loop started")
+        except Exception:
+            app.logger.warning("G3 Phase 5: Learning loop start skipped")
+
+    # G3 Phase 5.4 — Register feedback blueprint
+    try:
+        from app.feedback.routes import feedback_bp
+        app.register_blueprint(feedback_bp)
+        app.logger.info("G3 Phase 5.4: Feedback API registered")
+    except Exception:
+        app.logger.warning("G3 Phase 5.4: Feedback API registration skipped")
+
     # ACTIVATION-07 — Human Command Layer (proposal decisions)
     from app.communication.proposal_routes import proposals_bp
     app.register_blueprint(proposals_bp)

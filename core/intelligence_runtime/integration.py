@@ -329,11 +329,14 @@ def ensure_runtime() -> None:
     # Wire remaining domain intelligence engines into the retrieval layer so
     # they have a canonical production caller. Each is added as a provider
     # that the runtime's retrieval invokes during evidence gathering.
+    # G3 Phase 3 replaces the _wire_ucp_providers approach with the
+    # canonical provider_wiring module.
     try:
-        _wire_ucp_providers(runtime)
+        from core.intelligence_runtime.provider_wiring import wire_all_providers
+        wire_all_providers(runtime)
     except Exception:
         import logging
-        logging.getLogger(__name__).warning("UCP provider wiring failed — skipping")
+        logging.getLogger(__name__).warning("G3 Phase 3 provider wiring failed — skipping")
 
     # ── Durable Memory Bridge (ZGC-PR-17C mandatory) ──
     # Swap the runtime's in-memory memory store for the canonical
@@ -410,6 +413,11 @@ def ensure_runtime() -> None:
     def _handle_execute(params: dict) -> dict:
         """Truthful execution outcome — never a fabricated success.
 
+        RBAC gate (G3 Phase 2.6): every execution is classified and the
+        caller's permission is verified before any action is taken.
+        If the identity lacks the required permission, returns
+        ``not_authorized`` instead of a fake success.
+
         No canonical executor is wired for chat-issued create/update requests
         yet. The previous implementation returned ``status: executed`` with a
         "queued for user confirmation" note while changing NOTHING and queueing
@@ -418,6 +426,37 @@ def ensure_runtime() -> None:
         not done until canonical state confirms it).
         """
         intent_text = params.get("intent", "")
+        identity_id = params.get("identity_id", params.get("_identity_id", ""))
+        tenant_id = params.get("organization_id") or params.get("tenant_id")
+
+        # ── RBAC gate ────────────────────────────────────────────────
+        if identity_id and tenant_id:
+            try:
+                from core.intelligence_runtime.action_classification import (
+                    classify_action, required_permission,
+                )
+                object_type = params.get("object_type", "")
+                action_class = classify_action(intent_text, object_type)
+                perm = required_permission(action_class, object_type)
+
+                from app.authz.services import check_permission
+                _org = int(tenant_id) if str(tenant_id).isdigit() else 0
+                if not check_permission(_org, identity_id, perm):
+                    return {
+                        "status": "not_authorized",
+                        "reason": "insufficient_permissions",
+                        "required_permission": perm,
+                        "note": ("You do not have the required permission to "
+                                 "perform this action."),
+                        "recognized": intent_text[:120],
+                    }
+            except Exception:
+                import logging
+                logging.getLogger(__name__).debug(
+                    "Permission check unavailable for %s on org %s in ask(): proceeding",
+                    identity_id, tenant_id,
+                )
+
         return {
             "status": "not_executed",
             "reason": "no_executor_wired",
@@ -611,6 +650,53 @@ def ask(query: str, session_id: str = "", module_key: str = "",
     try:
         is_action = capability_context.get("can_execute", False)
         is_write = capability_context.get("can_write", False)
+
+        # ── Evidence Transformation Guard (G3 Phase 2.8) ────────────
+        # Every action/write request that could transform evidence is checked
+        # against the constitutional guard before proceeding.
+        try:
+            from core.intelligence_runtime.evidence import (
+                EvidenceTransformationGuard,
+                EvidenceTransformation,
+            )
+            if is_action or is_write:
+                ctx = runtime.context.get(session_id) if session_id else None
+                src_tenant = getattr(ctx, "tenant_id", str(tenant_id) if tenant_id else "")
+                guard_check = EvidenceTransformationGuard.check(
+                    EvidenceTransformation(
+                        evidence_id=f"ask_{session_id or 'anon'}",
+                        source_tenant_id=src_tenant if src_tenant and str(src_tenant).strip() else None,
+                        target_tenant_id=str(tenant_id) if tenant_id and str(tenant_id).strip() else None,
+                        current_classification="company_truth",
+                        proposed_classification="company_truth",
+                        current_lifecycle_state="active",
+                        proposed_lifecycle_state="active",
+                        metadata={"query": query[:200]},
+                    ),
+                    authorized=True,
+                )
+                if not guard_check.allowed:
+                    result = {
+                        "status": "not_authorized",
+                        "content": guard_check.reason,
+                        "latency_ms": round((time.time() - start) * 1000, 1),
+                        "evidence_guard": guard_check.to_dict(),
+                    }
+                    return result
+                result["evidence_guard"] = guard_check.to_dict()
+            else:
+                result["evidence_guard"] = {"allowed": True,
+                                            "reason": "read_only — no evidence transformation"}
+        except Exception:
+            if is_action or is_write:
+                result = {
+                    "status": "not_authorized",
+                    "content": "Evidence transformation guard check failed.",
+                    "latency_ms": round((time.time() - start) * 1000, 1),
+                    "evidence_guard": {"allowed": False,
+                                       "reason": "guard_check_failed"},
+                }
+                return result
 
         if is_action or is_write:
             from core.execution_chain import (

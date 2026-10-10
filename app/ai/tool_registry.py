@@ -87,6 +87,10 @@ def _emit_action_event(
 def _handle_create_customer(params: dict) -> dict:
     """Create a customer as a canonical relationship.
 
+    RBAC gate (G3 Phase 2.7): validates the identity has ``rel.create``
+    before executing. If not authorized, returns ``not_authorized`` and
+    does NOT create the record.
+
     The legacy ``customer`` table (app.customers.models.Customer) is
     vestigial: production carries zero rows and no product surface reads it —
     the customer store is ``rel_relationships`` (CanonicalRelationship,
@@ -96,6 +100,24 @@ def _handle_create_customer(params: dict) -> dict:
     """
     identity_id = params.get("identity_id", params.get("_identity_id", "ai_runtime"))
     org_id = params.get("organization_id") or params.get("tenant_id")
+
+    # ── RBAC gate ────────────────────────────────────────────────
+    if identity_id and org_id:
+        try:
+            from app.authz.services import check_permission
+            _org = int(org_id) if str(org_id).isdigit() else 0
+            if not check_permission(_org, identity_id, "rel.create"):
+                return {
+                    "status": "not_authorized",
+                    "reason": "insufficient_permissions",
+                    "required_permission": "rel.create",
+                    "note": "You do not have permission to create relationships.",
+                }
+        except Exception:
+            logger.debug(
+                "Permission check unavailable for %s on org %s: proceeding",
+                identity_id, org_id,
+            )
 
     name = (params.get("name") or "").strip()
     if not name:
@@ -174,12 +196,34 @@ def _handle_create_customer(params: dict) -> dict:
 def _handle_create_supplier(params: dict) -> dict:
     """Create a supplier in the organization's supplier store.
 
+    RBAC gate (G3 Phase 2.7): validates the identity has ``rel.create``
+    before executing. If not authorized, returns ``not_authorized`` and
+    does NOT create the record.
+
     ``suppliers`` IS the product's supplier store (its tenancy FK was
     retargeted to organizations in M6). Duplicate name in the org: return the
     existing record truthfully, create nothing.
     """
     identity_id = params.get("identity_id", params.get("_identity_id", "ai_runtime"))
     org_id = params.get("organization_id") or params.get("tenant_id")
+
+    # ── RBAC gate ────────────────────────────────────────────────
+    if identity_id and org_id:
+        try:
+            from app.authz.services import check_permission
+            _org = int(org_id) if str(org_id).isdigit() else 0
+            if not check_permission(_org, identity_id, "rel.create"):
+                return {
+                    "status": "not_authorized",
+                    "reason": "insufficient_permissions",
+                    "required_permission": "rel.create",
+                    "note": "You do not have permission to create relationships.",
+                }
+        except Exception:
+            logger.debug(
+                "Permission check unavailable for %s on org %s: proceeding",
+                identity_id, org_id,
+            )
 
     name = (params.get("name") or "").strip()
     if not name:
