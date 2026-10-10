@@ -484,11 +484,16 @@ def complete_action_chain(
     tenant_id: int = 89,
     state: dict | None = None,
     observation_id: int | None = None,
+    existing_outcome_id: str | None = None,
 ) -> dict[str, Any]:
     """Complete a previously-initiated action chain.
 
     Sets execution to SUCCEEDED or FAILED, updates the observation,
     and creates the outcome record.
+
+    ``existing_outcome_id``: when the executing layer already recorded the
+    outcome for this action (business tool handlers do), the chain LINKS it
+    instead of creating a duplicate row.
 
     Call this AFTER the real business operation has completed.
     """
@@ -539,14 +544,32 @@ def complete_action_chain(
             db.session.rollback()
             logger.warning(f"complete_action_chain: observation update failed: {e}")
 
-    # Create outcome only on success
+    # Create outcome only on success — unless the executing layer ALREADY
+    # recorded one (e.g. a business tool handler persisted its outcome and the
+    # reply cites it): then LINK that outcome instead of duplicating it
+    # (single-ledger rule; consolidation of the 2026-10-09 double-outcome
+    # observation from Stage E4).
     if is_success:
-        outcome_id = create_outcome(
-            identity_id=identity_id,
-            intention=response_summary[:500] if response_summary else "",
-            state=state or {"type": "shunyaai_action", "result": outcome},
-        )
-        result["outcome_id"] = outcome_id
+        linked = None
+        if existing_outcome_id:
+            try:
+                from app.execution.models import Outcome
+                if db.session.query(Outcome).filter_by(
+                        outcome_id=existing_outcome_id).first() is not None:
+                    linked = existing_outcome_id
+            except Exception as link_err:
+                logger.warning(f"complete_action_chain: outcome link check failed: {link_err}")
+                linked = None
+        if linked:
+            result["outcome_id"] = linked
+            result["outcome_linked"] = True
+        else:
+            outcome_id = create_outcome(
+                identity_id=identity_id,
+                intention=response_summary[:500] if response_summary else "",
+                state=state or {"type": "shunyaai_action", "result": outcome},
+            )
+            result["outcome_id"] = outcome_id
 
     return result
 

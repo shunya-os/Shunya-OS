@@ -99,15 +99,24 @@ class TestChatExecutionGate:
         assert rel.organization_id == 7
 
     def test_confirmed_create_records_outcome(self, app):
-        """The outcome id REPORTED in the reply must exist in the ledger."""
+        """Exactly ONE outcome row per confirmed action; the cited id exists.
+
+        Single-ledger rule (Stage E4 consolidation): the tool handler persists
+        the action's outcome and the governed execution chain LINKS it instead
+        of creating a duplicate row.
+        """
         import re
         from app.execution.models import Outcome
+        before = Outcome.query.count()
         res = _run_chat("confirmed: create customer E4 Ledger Proof")
         assert "Created customer" in res["content"]
         m = re.search(r"outcome ([0-9A-Fa-f]+)", res["content"])
         assert m, res["content"]
         oid = m.group(1)
         assert Outcome.query.filter_by(outcome_id=oid).first() is not None
+        after = Outcome.query.count()
+        assert after == before + 1, (
+            f"expected exactly one new outcome row, got {after - before}")
 
     def test_duplicate_refused_truthfully(self, app):
         from app.relationship.models import CanonicalRelationship

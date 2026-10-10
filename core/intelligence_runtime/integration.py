@@ -602,6 +602,15 @@ def ask(query: str, session_id: str = "", module_key: str = "",
             # The IntelligenceResponse always has content (errors are handled
             # internally by the runtime and reflected in the response).
             chain_has_actions = bool(response.actions)
+            # If an executed business action already recorded its outcome (the
+            # tool handlers persist one and the reply cites it), LINK it rather
+            # than duplicating it (single-ledger rule, Stage E4 consolidation).
+            executed_outcome_id = None
+            for _act in (response.actions or []):
+                _p = getattr(_act, "parameters", None)
+                if isinstance(_p, dict) and _p.get("outcome_id"):
+                    executed_outcome_id = _p.get("outcome_id")
+                    break
             completion = complete_action_chain(
                 exec_id=chain_result.get("execution_id"),
                 outcome="succeeded" if chain_has_actions else "failed",
@@ -610,6 +619,7 @@ def ask(query: str, session_id: str = "", module_key: str = "",
                 tenant_id=int(tenant_id) if tenant_id and tenant_id != "" else 0,
                 state={"has_actions": chain_has_actions},
                 observation_id=chain_result.get("observation_id"),
+                existing_outcome_id=executed_outcome_id,
             )
             chain_result.update(completion)
             result["execution_chain"] = chain_result
