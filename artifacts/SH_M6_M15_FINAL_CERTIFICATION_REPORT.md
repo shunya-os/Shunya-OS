@@ -12,32 +12,25 @@
 |------|-------|
 | Repository | `shunya-os/Shunya-OS` |
 | Branch | `master` |
-| Latest origin/master | `eef9c17cd4cfac7869960a9887a2ca45d63234fb` |
+| Latest origin/master | `31753027bd0f617da74f7031298bc2bd383b649f` |
 | Production (shunyaos.com) | `509d6c9f2d17255c0a22606dfd7f12518e3f617c` |
 | Production deployed at | 2026-10-10T04:29:34Z |
 | Production release_type | `CI_CERTIFIED` |
-| Production health | `build_identity_matches_running_build: true` |
-| Production frontend | `frontend_release_matches_backend: true` |
-| Gaps ahead of production | 27 commits (509d6c9 → eef9c17) — NONE DEPLOYED |
-| CI run 882 (eef9c17) | **IN PROGRESS** |
+| Gaps ahead of production | 28 commits (509d6c9 → 3175302) — NONE DEPLOYED |
+| CI run 884 (3175302) | **IN PROGRESS** (25+ minutes — abnormally long) |
 
 ## 2. CI RUN HISTORY
 
 | CI Run | SHA | Conclusion | Notes |
 |--------|-----|-----------|-------|
-| 882 | eef9c17 | **IN PROGRESS** | Blocker register commit |
+| 884 | 3175302 | **IN PROGRESS** | DBMemoryRepository governance fix — the fix that should resolve CI |
+| 883 | e9afe5e | FAILURE | Final certification report — failed, root cause was FDA3 test |
+| 882 | eef9c17 | CANCELLED | Blocker register — cancelled by newer push |
 | 881 | 8eb3993 | CANCELLED | Knowledge 403 + HSTS fix — cancelled by newer push |
-| 880 | cba5b74 | **FAILURE** | Master directive report commit |
+| 880 | cba5b74 | FAILURE | Master directive report — root cause was FDA3 governance test |
 | 879 | 49f1deb | CANCELLED | G3 phases 6+7 + all user features |
-| 878 | 3aa8b7e | CANCELLED | CONTINUE-17 update |
-| 877 | ff2424d | CANCELLED | Cleanup |
-| 876 | aafdb64 | **FAILURE** | CONTINUE-17 update |
-| 875 | 2f2280c | CANCELLED | G3 phase 2 |
-| 874 | 509d6c9 | **SUCCESS** | Single-ledger fix — LAST DEPLOYED |
-| 873 | 918a349 | SUCCESS | Tenancy docs |
-| 872 | bca7e12 | SUCCESS | FK convergence tier 2 |
-| 871 | 60764e4 | SUCCESS | FK convergence tier 1 |
-| 870-863 | various | SUCCESS/FAILURE | Stage E4, GHI, human context |
+| 878-875 | various | CANCELLED | Consecutive pushes cancelled by each other |
+| 874 | 509d6c9 | **SUCCESS** | Single-ledger fix — LAST DEPLOYED TO PRODUCTION |
 
 **Key finding:** Only runs 871-874 and 863, 866, 868, 870 produced SUCCESS + deployment.  
 Runs 880, 876, 867, 865, 862 FAILED. Runs 879, 881, 878, 877, 875, 864, 861 CANCELLED.
