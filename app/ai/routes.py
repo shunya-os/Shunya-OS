@@ -484,6 +484,15 @@ def chat():
                 max_tokens=max_tokens,
                 request_type='chat',
                 conversation_history=messages[:-1],
+                metadata={
+                    'workspace_id': str(workspace.id) if workspace else '',
+                    'object_type': data.get('object_type', ''),
+                    'object_id': str(conv_object_id) if conv_object_id else '',
+                    'identity_id': identity_id,
+                    'tenant_id': str(tenant_id),
+                    'user_role': str(flask_session.get('user_role', '')),
+                    'workspace_type': 'organization' if flask_session.get('current_org_id') else 'personal',
+                },
             )
             orch_response = orch.process(orch_request)
             if orch_response.success:
