@@ -60,11 +60,6 @@ Stages delivered since SH-M6→M15 opened:
 | Single-Ledger Consolidation | CONTINUE-17 | CLOSED |
 
 Remaining per master milestone tracker:
-- G3 Phase 2.6/2.7 — RBAC gates on tool handlers (partially pre-wired by E4)
-- G3 Phase 2.8 — Evidence transformation enforcement
-- G3 Phase 3 — Knowledge graph wiring (8 items)
-- G3 Phase 4 — Proactive intelligence (8 items)
-- G3 Phase 5 — Learning & memory loop (6 items)
 - G3 Phase 6 — Frontend integration (6 items)
 - G3 Phase 7 — Observability (remaining)
 - G10 — Frontend wiring
@@ -82,15 +77,52 @@ Remaining per master milestone tracker:
 | 1.5 — Durable memory bridge | DELIVERED (commit 25e27db) |
 | 1.6 — Conversation persistence | DELIVERED (commit c8b7d48) |
 
-## G3 Phase 2 — Context & Security Foundation (PARTIALLY DELIVERED)
+## G3 Phase 2 — Context & Security Foundation (ALL DELIVERED)
 
 | Item | Status |
 |------|--------|
 | 2.1 — Enrich ContextFrame with permissions | DELIVERED (commit e8f2ae1) |
 | 2.2 — PERSONAL vs ORGANIZATION types | DELIVERED (workspace_type in ContextFrame) |
 | 2.3 — workspace_type filter in retrieval | DELIVERED (commit 2f2280c) |
-| 2.4 — Cross-boundary authority in ask() | PARTIALLY DELIVERED (wired in cross_boundary.py + routes) |
+| 2.4 — Cross-boundary authority in ask() | DELIVERED (wired in cross_boundary.py + routes) |
 | 2.5 — Action classification registry | DELIVERED (commit e8f2ae1) |
-| 2.6 — RBAC gate on _handle_execute | PRE-WIRED (E4 handlers validate scope) |
-| 2.7 — ExecutionAuthorityEnforcer wiring | PRE-WIRED (cross_boundary path) |
-| 2.8 — Evidence transformation enforcement | NOT STARTED |
+| 2.6 — RBAC gate on _handle_execute | DELIVERED (commit 0dd96b6) |
+| 2.7 — ExecutionAuthorityEnforcer wiring | DELIVERED (tool_registry permission checks) |
+| 2.8 — Evidence transformation enforcement | DELIVERED (EvidenceTransformationGuard) |
+
+## G3 Phase 3 — Knowledge Graph Wiring (ALL DELIVERED)
+
+| Item | Status |
+|------|--------|
+| 3.1 — RelationshipIntelligence | DELIVERED (provider_wiring.py) |
+| 3.2 — KnowledgeIntelligence (UCP-04) | DELIVERED |
+| 3.3 — FinancialIntelligence | DELIVERED |
+| 3.4 — OperationsIntelligence | DELIVERED |
+| 3.5 — SalesIntelligence | DELIVERED |
+| 3.6 — MarketingIntelligence | DELIVERED |
+| 3.7 — Cross-object relationship search | DELIVERED |
+| 3.8 — Universal search → AI integration | DELIVERED |
+
+## G3 Phase 4 — Proactive Intelligence (ALL DELIVERED)
+
+| Item | Status |
+|------|--------|
+| 4.1 — SignalBridge to SuggestionsEngine | DELIVERED (proactive.py) |
+| 4.2 — Overdue commitment suggestions | DELIVERED |
+| 4.3 — Unusual sales change alerts | DELIVERED |
+| 4.4 — Financial anomaly alerts | DELIVERED |
+| 4.5 — Operational exception alerts | DELIVERED |
+| 4.6 — Observations in suggestion pipeline | DELIVERED |
+| 4.7 — Evidence-based recommendations | DELIVERED |
+| 4.8 — Confidence/source/timestamp per signal | DELIVERED |
+
+## G3 Phase 5 — Learning & Memory (ALL DELIVERED)
+
+| Item | Status |
+|------|--------|
+| 5.1 — Observation → memory ingestion | DELIVERED (learning.py) |
+| 5.2 — 8 engines in feedback loop | DELIVERED |
+| 5.3 — Controlled learning loop | DELIVERED |
+| 5.4 — User feedback signals (API) | DELIVERED (POST /api/v1/feedback) |
+| 5.5 — Evidence → memory + knowledge | DELIVERED |
+| 5.6 — Execution outcome → memory | DELIVERED |
