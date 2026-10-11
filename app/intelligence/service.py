@@ -66,15 +66,21 @@ def get_traces(identity_id: str,
     return [t.to_dict() for t in traces]
 
 
-def get_trace(trace_id: str) -> dict[str, Any] | None:
-    """Get a single trace by trace_id."""
-    trace = ReasoningTrace.query.filter_by(trace_id=trace_id).first()
+def get_trace(trace_id: str, identity_id: str = "") -> dict[str, Any] | None:
+    """Get a single trace by trace_id — only when owned by the identity."""
+    query = ReasoningTrace.query.filter_by(trace_id=trace_id)
+    if identity_id:
+        query = query.filter_by(identity_id=identity_id)
+    trace = query.first()
     return trace.to_dict() if trace else None
 
 
-def correct_trace(trace_id: str, corrected_response: str) -> bool:
-    """Record a correction to a reasoning trace."""
-    trace = ReasoningTrace.query.filter_by(trace_id=trace_id).first()
+def correct_trace(trace_id: str, corrected_response: str, identity_id: str = "") -> bool:
+    """Record a correction to a reasoning trace (owner-scoped)."""
+    query = ReasoningTrace.query.filter_by(trace_id=trace_id)
+    if identity_id:
+        query = query.filter_by(identity_id=identity_id)
+    trace = query.first()
     if not trace:
         return False
 

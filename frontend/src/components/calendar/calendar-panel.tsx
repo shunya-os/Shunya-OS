@@ -83,7 +83,7 @@ export function CalendarPanel() {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch(`/calendar/events?month=${viewMonth + 1}&year=${viewYear}`, { credentials: 'include' });
+      const r = await fetch(`/api/v1/calendar/events?month=${viewMonth + 1}&year=${viewYear}`, { credentials: 'include' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
       setEvents(Array.isArray(d) ? d : d.data || []);
@@ -138,7 +138,7 @@ export function CalendarPanel() {
       const parsed = JSON.parse(raw);
       if (parsed.title) {
         // Create event via API
-        const createResp = await fetch('/calendar/events', {
+        const createResp = await fetch('/api/v1/calendar/events', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',

@@ -286,6 +286,26 @@ jobs:
           fi
           echo "PUBLIC HEALTH PROVENANCE: VERIFIED"
 
+      - name: Verify public HTTPS/HSTS contract
+        run: |
+          set -o pipefail
+          # 1) HTTP must redirect to HTTPS (reverse-proxy behavior)
+          REDIRECT_FILE=$(mktemp)
+          trap 'rm -f "${REDIRECT_FILE}"' EXIT
+          curl -fsS --max-time 30 -o /dev/null -D "${REDIRECT_FILE}" http://shunyaos.com/
+          grep -qi "^HTTP/.* 301" "${REDIRECT_FILE}" || { echo "ERROR: HTTP endpoint did not return 301"; exit 1; }
+          grep -qi "^Location: https://" "${REDIRECT_FILE}" || { echo "ERROR: 301 did not point at https://"; exit 1; }
+          echo "HTTP → HTTPS redirect: VERIFIED"
+
+          # 2) HTTPS endpoint must carry the security header contract
+          HEADER_FILE=$(mktemp)
+          trap 'rm -f "${HEADER_FILE}"' EXIT
+          curl -fsS --proto '=https' --max-time 30 -o /dev/null -D "${HEADER_FILE}" https://shunyaos.com/
+          grep -qi "strict-transport-security:.*max-age=31536000" "${HEADER_FILE}" || { echo "ERROR: HSTS missing"; exit 1; }
+          grep -qi "x-content-type-options:.*nosniff" "${HEADER_FILE}" || { echo "ERROR: X-Content-Type-Options missing"; exit 1; }
+          grep -qi "x-frame-options:.*DENY" "${HEADER_FILE}" || { echo "ERROR: X-Frame-Options missing"; exit 1; }
+          echo "PUBLIC HTTPS/HSTS CONTRACT: VERIFIED"
+
       - name: Final provenance check
         run: |
           echo "=== RELEASE PROVENANCE ==="

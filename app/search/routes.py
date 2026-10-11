@@ -170,6 +170,22 @@ def ai_analyze():
     if not question:
         return jsonify({"success": False, "error": "question is required"}), 400
 
+    # SHUNYA Safety Governance gate
+    try:
+        from app.shunya.safety_governance import check_request_safety
+        _safety_error = check_request_safety(
+            question,
+            identity_id=str(session.get("identity_id", "") or ""),
+            tenant_id=session.get("current_org_id") or 0,
+        )
+    except Exception:
+        _safety_error = (
+            {"error": "Safety governance unavailable — request blocked"},
+            503,
+        )
+    if _safety_error:
+        return jsonify(_safety_error[0]), _safety_error[1]
+
     identity_id = session.get("identity_id")
 
     # 1. Build company context from database

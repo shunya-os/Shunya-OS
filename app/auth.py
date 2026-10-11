@@ -52,6 +52,14 @@ class TeamMember(db.Model):
     api_token = Column(String(128), unique=True)
     is_active = Column(Boolean, default=True)
     verified = Column(Boolean, default=False)
+    # Age/safety governance: birth_date is self-declared supporting data;
+    # age_verified=True is recorded by an authorized admin/founder AFTER an
+    # external age-verification process. Neither is set here at signup.
+    birth_date = Column(db.Date, nullable=True)
+    # server_default matches the r6b28 migration so raw-SQL inserts and
+    # create_all-built tables behave identically to migrated production.
+    age_verified = Column(Boolean, default=False, nullable=False,
+                          server_default=db.text("false"))
     verify_token = Column(String(128), nullable=True)
     onboarding_completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)

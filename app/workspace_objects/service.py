@@ -148,7 +148,10 @@ def _resolve_identity(object_id: str, object_type: str, tenant_id: int) -> Optio
     # If object_type is specified, try that first
     if object_type and object_type != "unknown":
         if object_type == "lead":
-            lead = db.session.query(Lead).filter_by(id=_safe_int(object_id)).first()
+            lead = db.session.query(Lead).filter(
+                Lead.id == _safe_int(object_id),
+                Lead.tenant_id == tenant_id,
+            ).first()
             if lead:
                 return {
                     "object_id": str(lead.id),
@@ -159,7 +162,10 @@ def _resolve_identity(object_id: str, object_type: str, tenant_id: int) -> Optio
                     "relationship_id": lead.person_id,
                 }
         elif object_type == "relationship":
-            rel = db.session.query(CanonicalRelationship).filter_by(id=_safe_int(object_id)).first()
+            rel = db.session.query(CanonicalRelationship).filter(
+                CanonicalRelationship.id == _safe_int(object_id),
+                CanonicalRelationship.organization_id == tenant_id,
+            ).first()
             if rel:
                 return {
                     "object_id": str(rel.id),
@@ -170,7 +176,7 @@ def _resolve_identity(object_id: str, object_type: str, tenant_id: int) -> Optio
                     "created_at": rel.created_at.isoformat() if rel.created_at else None,
                 }
         elif object_type == "commitment":
-            comm = db.session.query(Commitment).filter_by(id=_safe_int(object_id)).first()
+            comm = _scoped_commitment(db.session, _safe_int(object_id), tenant_id)
             if comm:
                 return {
                     "object_id": str(comm.id),
@@ -180,7 +186,10 @@ def _resolve_identity(object_id: str, object_type: str, tenant_id: int) -> Optio
                     "created_at": comm.created_at.isoformat() if comm.created_at else None,
                 }
         elif object_type == "campaign":
-            campaign = db.session.query(Campaign).filter_by(id=_safe_int(object_id)).first()
+            campaign = db.session.query(Campaign).filter(
+                Campaign.id == _safe_int(object_id),
+                Campaign.tenant_id == tenant_id,
+            ).first()
             if campaign:
                 return {
                     "object_id": str(campaign.id),
@@ -190,8 +199,11 @@ def _resolve_identity(object_id: str, object_type: str, tenant_id: int) -> Optio
                     "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
                 }
 
-    # Fallback: try all types in order
-    lead = db.session.query(Lead).filter_by(id=_safe_int(object_id)).first()
+    # Fallback: try all types in order (each scoped to the tenant)
+    lead = db.session.query(Lead).filter(
+        Lead.id == _safe_int(object_id),
+        Lead.tenant_id == tenant_id,
+    ).first()
     if lead:
         return {
             "object_id": str(lead.id),
@@ -202,7 +214,10 @@ def _resolve_identity(object_id: str, object_type: str, tenant_id: int) -> Optio
             "relationship_id": lead.person_id,
         }
 
-    rel = db.session.query(CanonicalRelationship).filter_by(id=_safe_int(object_id)).first()
+    rel = db.session.query(CanonicalRelationship).filter(
+        CanonicalRelationship.id == _safe_int(object_id),
+        CanonicalRelationship.organization_id == tenant_id,
+    ).first()
     if rel:
         return {
             "object_id": str(rel.id),
@@ -213,7 +228,7 @@ def _resolve_identity(object_id: str, object_type: str, tenant_id: int) -> Optio
             "created_at": rel.created_at.isoformat() if rel.created_at else None,
         }
 
-    comm = db.session.query(Commitment).filter_by(id=_safe_int(object_id)).first()
+    comm = _scoped_commitment(db.session, _safe_int(object_id), tenant_id)
     if comm:
         return {
             "object_id": str(comm.id),
@@ -223,7 +238,10 @@ def _resolve_identity(object_id: str, object_type: str, tenant_id: int) -> Optio
             "created_at": comm.created_at.isoformat() if comm.created_at else None,
         }
 
-    campaign = db.session.query(Campaign).filter_by(id=_safe_int(object_id)).first()
+    campaign = db.session.query(Campaign).filter(
+        Campaign.id == _safe_int(object_id),
+        Campaign.tenant_id == tenant_id,
+    ).first()
     if campaign:
         return {
             "object_id": str(campaign.id),
@@ -244,10 +262,42 @@ def _safe_int(val: Any) -> Optional[int]:
         return None
 
 
+def _scoped_commitment(session, commitment_id: Optional[int], tenant_id) -> Any:
+    """Fetch a Commitment only when it belongs to the tenant.
+
+    A commitment carries no org column; it is scoped through its canonical
+    relationship (rel_relationships.organization_id) or its campaign
+    (campaigns.tenant_id). Commitments with neither cannot be proven to
+    belong to the tenant and are treated as not found (fail closed).
+    """
+    if not commitment_id or not tenant_id:
+        return None
+    from app.commitments.models import Commitment
+    from app.relationship.models import CanonicalRelationship
+    from app.marketing.models import Campaign
+    return (
+        session.query(Commitment)
+        .outerjoin(CanonicalRelationship,
+                   CanonicalRelationship.id == Commitment.relationship_id)
+        .outerjoin(Campaign, Campaign.id == Commitment.campaign_id)
+        .filter(
+            Commitment.id == commitment_id,
+            (
+                (CanonicalRelationship.organization_id == tenant_id)
+                | (Campaign.tenant_id == tenant_id)
+            ),
+        )
+        .first()
+    )
+
+
 def _get_lead(object_id: str, tenant_id: int) -> Optional[Dict[str, Any]]:
     from app import db
     from app.models import Lead
-    lead = db.session.query(Lead).filter_by(id=_safe_int(object_id)).first()
+    lead = db.session.query(Lead).filter(
+        Lead.id == _safe_int(object_id),
+        Lead.tenant_id == tenant_id,
+    ).first()
     if not lead:
         return None
     return lead.to_dict()
@@ -256,7 +306,10 @@ def _get_lead(object_id: str, tenant_id: int) -> Optional[Dict[str, Any]]:
 def _get_relationship(object_id: str, tenant_id: int) -> Optional[Dict[str, Any]]:
     from app import db
     from app.relationship.models import CanonicalRelationship
-    rel = db.session.query(CanonicalRelationship).filter_by(id=_safe_int(object_id)).first()
+    rel = db.session.query(CanonicalRelationship).filter(
+        CanonicalRelationship.id == _safe_int(object_id),
+        CanonicalRelationship.organization_id == tenant_id,
+    ).first()
     if not rel:
         return None
     return rel.to_dict()
@@ -265,7 +318,10 @@ def _get_relationship(object_id: str, tenant_id: int) -> Optional[Dict[str, Any]
 def _get_campaign(object_id: str, tenant_id: int) -> Optional[Dict[str, Any]]:
     from app import db
     from app.marketing.models import Campaign
-    campaign = db.session.query(Campaign).filter_by(id=_safe_int(object_id)).first()
+    campaign = db.session.query(Campaign).filter(
+        Campaign.id == _safe_int(object_id),
+        Campaign.tenant_id == tenant_id,
+    ).first()
     if not campaign:
         return None
     return campaign.to_dict()
@@ -273,8 +329,7 @@ def _get_campaign(object_id: str, tenant_id: int) -> Optional[Dict[str, Any]]:
 
 def _get_commitment(object_id: str, tenant_id: int) -> Optional[Dict[str, Any]]:
     from app import db
-    from app.commitments.models import Commitment
-    comm = db.session.query(Commitment).filter_by(id=_safe_int(object_id)).first()
+    comm = _scoped_commitment(db.session, _safe_int(object_id), tenant_id)
     if not comm:
         return None
     return {
@@ -376,12 +431,15 @@ def _get_timeline(
     from app import db
     events = []
 
-    # 1. TimelineEntry (canonical relationship timeline)
+    # 1. TimelineEntry (canonical relationship timeline) — tenant-scoped
     if relationship_id:
         from app.relationship.models import TimelineEntry as RelTimeline
         entries = (
             db.session.query(RelTimeline)
-            .filter_by(relationship_id=relationship_id)
+            .filter(
+                RelTimeline.relationship_id == relationship_id,
+                RelTimeline.organization_id == tenant_id,
+            )
             .order_by(RelTimeline.event_time.desc())
             .limit(50)
             .all()
@@ -400,14 +458,18 @@ def _get_timeline(
                 "source": "relationship_timeline",
             })
 
-    # 2. ActivityLog (lead activities)
+    # 2. ActivityLog (lead activities) — tenant-scoped through the lead
     if object_type == "lead":
-        from app.models import ActivityLog
+        from app.models import ActivityLog, Lead
         lead_id = _safe_int(object_id)
         if lead_id:
             activities = (
                 db.session.query(ActivityLog)
-                .filter_by(lead_id=lead_id)
+                .join(Lead, Lead.id == ActivityLog.lead_id)
+                .filter(
+                    ActivityLog.lead_id == lead_id,
+                    Lead.tenant_id == tenant_id,
+                )
                 .order_by(ActivityLog.created_at.desc())
                 .limit(50)
                 .all()
@@ -426,16 +488,22 @@ def _get_timeline(
                     "source": "activity_log",
                 })
 
-    # 3. Commitments as timeline events
+    # 3. Commitments as timeline events (tenant-scoped)
     if relationship_id:
         from app.commitments.models import Commitment
-        commitments = (
+        from app.relationship.models import CanonicalRelationship
+        commit_query = (
             db.session.query(Commitment)
-            .filter_by(relationship_id=relationship_id)
+            .join(CanonicalRelationship,
+                  CanonicalRelationship.id == Commitment.relationship_id)
+            .filter(
+                Commitment.relationship_id == relationship_id,
+                CanonicalRelationship.organization_id == tenant_id,
+            )
             .order_by(Commitment.created_at.desc())
             .limit(20)
-            .all()
         )
+        commitments = commit_query.all()
         for c in commitments:
             events.append({
                 "id": c.id,
@@ -467,9 +535,15 @@ def _get_commitments_for_object(
     commitments = []
 
     if relationship_id:
+        from app.relationship.models import CanonicalRelationship
         comms = (
             db.session.query(Commitment)
-            .filter_by(relationship_id=relationship_id)
+            .join(CanonicalRelationship,
+                  CanonicalRelationship.id == Commitment.relationship_id)
+            .filter(
+                Commitment.relationship_id == relationship_id,
+                CanonicalRelationship.organization_id == tenant_id,
+            )
             .order_by(Commitment.created_at.desc())
             .limit(20)
             .all()
@@ -541,9 +615,15 @@ def _get_relationships_for_object(
     # For lead, find the person relationship
     if object_type == "lead":
         from app.models import Lead
-        lead = db.session.query(Lead).filter_by(id=_safe_int(object_id)).first()
+        lead = db.session.query(Lead).filter(
+            Lead.id == _safe_int(object_id),
+            Lead.tenant_id == tenant_id,
+        ).first()
         if lead and lead.person_id:
-            rel = db.session.query(CanonicalRelationship).filter_by(id=lead.person_id).first()
+            rel = db.session.query(CanonicalRelationship).filter(
+                CanonicalRelationship.id == lead.person_id,
+                CanonicalRelationship.organization_id == tenant_id,
+            ).first()
             if rel:
                 relationships.append({
                     "id": rel.id,
@@ -615,7 +695,10 @@ def _get_intelligence(relationship_id: int, tenant_id: int) -> Dict[str, Any]:
 
     memory = (
         db.session.query(RelationshipMemory)
-        .filter_by(relationship_id=relationship_id)
+        .filter(
+            RelationshipMemory.relationship_id == relationship_id,
+            RelationshipMemory.organization_id == tenant_id,
+        )
         .first()
     )
     if memory:

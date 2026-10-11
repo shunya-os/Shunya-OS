@@ -56,6 +56,7 @@ def admin_health():
             "POST /api/v1/admin/policies",
             "GET /api/v1/admin/policies",
             "GET /api/v1/admin/policies/<key>",
+            "POST /api/v1/admin/identities/<identity_id>/age-verification",
         ],
     })
 
@@ -287,3 +288,61 @@ def set_policy():
         return jsonify({"success": True, "data": result}), 201
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+# =========================================================================
+# Age / Safety Governance
+# =========================================================================
+
+
+@admin_bp.route("/identities/<identity_id>/age-verification", methods=["POST"])
+def record_age_verification(identity_id: str):
+    """Record an age-verification outcome for an identity.
+
+    AGING POLICY: only an org owner/admin with admin.manage_age_verification
+    may record verification. The body carries the OUTCOME of an external
+    age-verification process, plus optional supporting birth_date
+    (ISO YYYY-MM-DD, validated to be a past date).
+
+    This endpoint never performs identity proofing itself — it records
+    the result of the trusted verification step.
+    """
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    if not _require_permission("admin.manage_age_verification"):
+        return jsonify({"success": False, "error": "Insufficient permissions"}), 403
+
+    data = request.get_json(silent=True) or {}
+    verified = bool(data.get("verified", False))
+    birth_date_raw = (data.get("birth_date") or "").strip()
+
+    from datetime import date
+    from app import db
+    from app.shunya.safety_governance import _resolve_team_member
+
+    tm = _resolve_team_member(identity_id)
+    if tm is None:
+        return jsonify({"success": False, "error": "Identity not found"}), 404
+
+    birth_date = None
+    if birth_date_raw:
+        try:
+            birth_date = date.fromisoformat(birth_date_raw)
+        except ValueError:
+            return jsonify({"success": False, "error": "birth_date must be ISO YYYY-MM-DD"}), 400
+        if birth_date >= date.today():
+            return jsonify({"success": False, "error": "birth_date must be a past date"}), 400
+
+    tm.age_verified = verified
+    if birth_date is not None:
+        tm.birth_date = birth_date
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "identity_id": tm.identity_id or str(tm.id),
+            "age_verified": tm.age_verified,
+            "birth_date": tm.birth_date.isoformat() if tm.birth_date else None,
+            "recorded_by": _identity_id(),
+        },
+    })

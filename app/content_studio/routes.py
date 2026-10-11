@@ -113,6 +113,24 @@ def api_generate():
     if not prompt:
         return jsonify({"success": False, "error": "prompt is required"}), 400
 
+    # SHUNYA Safety Governance gate (generation prompts + instructions)
+    try:
+        from app.shunya.safety_governance import check_request_safety
+        _safety_payload, _safety_status = (None, None)
+        for _piece in (prompt, data.get("additional_instructions", "") or ""):
+            _err = check_request_safety(
+                _piece,
+                identity_id=str(getattr(g, "identity_id", "") or session.get("identity_id", "") or ""),
+                tenant_id=getattr(g, "current_org_id", None) or session.get("current_org_id") or 0,
+            )
+            if _err:
+                _safety_payload, _safety_status = _err
+                break
+        if _safety_payload is not None:
+            return jsonify(_safety_payload), _safety_status
+    except Exception:
+        return jsonify({"error": "Safety governance unavailable — request blocked"}), 503
+
     content_type = data.get("content_type", "blog_post")
     tone = data.get("tone", "professional")
     platform = data.get("platform")

@@ -57,6 +57,11 @@ def get_object_workspace(object_id: str):
     try:
         from app.workspace_objects.service import get_unified_workspace
         workspace = get_unified_workspace(object_id, object_type, tenant)
+        # Fail closed: an object that does not resolve inside this tenant is
+        # indistinguishable from a nonexistent object. No identity/context
+        # means the tenant cannot see it — return 404, never empty data.
+        if not workspace.get("identity") and not workspace.get("context"):
+            return jsonify({"success": False, "error": "Not found"}), 404
         return jsonify({"success": True, "data": workspace})
     except Exception as e:
         return jsonify({
@@ -111,13 +116,24 @@ def get_memory_timeline():
     if not relationship_id:
         return jsonify({"success": False, "error": "relationship_id is required"}), 400
 
+    tenant = _tenant_id()
+
     try:
         from app import db
         from app.memory.models import MemoryRecord
+        from app.relationship.models import CanonicalRelationship
 
+        # Tenant-scoped: memory is readable only when its relationship
+        # belongs to the caller's organization.
         memories = (
             db.session.query(MemoryRecord)
-            .filter_by(relationship_id=relationship_id, status="active")
+            .join(CanonicalRelationship,
+                  CanonicalRelationship.id == MemoryRecord.relationship_id)
+            .filter(
+                MemoryRecord.relationship_id == relationship_id,
+                MemoryRecord.status == "active",
+                CanonicalRelationship.organization_id == tenant,
+            )
             .order_by(MemoryRecord.created_at.desc())
             .limit(50)
             .all()
@@ -166,6 +182,16 @@ def copilot_ask():
     if not query:
         return jsonify({"success": False, "error": "query is required"}), 400
 
+    # SHUNYA Safety Governance gate
+    from app.shunya.safety_governance import check_request_safety
+    _safety_error = check_request_safety(
+        query,
+        identity_id=str(getattr(g, "identity_id", "") or ""),
+        tenant_id=getattr(g, "current_org_id", None) or 0,
+    )
+    if _safety_error:
+        return jsonify(_safety_error[0]), _safety_error[1]
+
     object_type = data.get("object_type", "")
     object_id = data.get("object_id", "")
     relationship_id = data.get("relationship_id")
@@ -199,6 +225,8 @@ def copilot_context():
     try:
         from app.workspace_objects.service import get_unified_workspace
         workspace = get_unified_workspace(object_id, object_type, tenant)
+        if not workspace.get("identity") and not workspace.get("context"):
+            return jsonify({"success": False, "error": "Not found"}), 404
         return jsonify({"success": True, "data": workspace})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -216,9 +244,11 @@ def get_commitment_detail(commitment_id: int):
 
     try:
         from app import db
-        from app.commitments.models import Commitment
+        from app.workspace_objects.service import _scoped_commitment
 
-        c = db.session.query(Commitment).filter_by(id=commitment_id).first()
+        tenant = _tenant_id()
+        # Tenant-scoped commitment lookup (via relationship/campaign org).
+        c = _scoped_commitment(db.session, commitment_id, tenant)
         if not c:
             return jsonify({"success": False, "error": "Commitment not found"}), 404
 
@@ -236,11 +266,14 @@ def get_commitment_detail(commitment_id: int):
             "updated_at": c.updated_at.isoformat() if c.updated_at else None,
         }
 
-        # Get related timeline events
+        # Get related timeline events (tenant-scoped)
         from app.relationship.models import TimelineEntry
         timeline = (
             db.session.query(TimelineEntry)
-            .filter_by(relationship_id=c.relationship_id)
+            .filter(
+                TimelineEntry.relationship_id == c.relationship_id,
+                TimelineEntry.organization_id == tenant,
+            )
             .order_by(TimelineEntry.event_time.desc())
             .limit(20)
             .all()

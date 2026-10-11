@@ -32,6 +32,23 @@ def generate_image():
     if not prompt:
         return jsonify({"success": False, "error": "Prompt is required"}), 400
 
+    # SHUNYA Safety Governance gate (generation prompts)
+    try:
+        from flask import g
+        from app.shunya.safety_governance import check_request_safety
+        _safety_error = check_request_safety(
+            prompt,
+            identity_id=str(getattr(g, "identity_id", "") or session.get("identity_id", "") or ""),
+            tenant_id=getattr(g, "current_org_id", None) or session.get("current_org_id") or 0,
+        )
+    except Exception:
+        _safety_error = (
+            {"error": "Safety governance unavailable — request blocked"},
+            503,
+        )
+    if _safety_error:
+        return jsonify(_safety_error[0]), _safety_error[1]
+
     tier_str = data.get("tier", "economy")
     provider_name = data.get("provider")
 

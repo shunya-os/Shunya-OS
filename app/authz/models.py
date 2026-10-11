@@ -49,6 +49,7 @@ PERMISSIONS = {
     "admin.manage_roles": "Manage roles and permissions",
     "admin.manage_industry_packs": "Manage industry packs",
     "admin.manage_integrations": "Manage integrations",
+    "admin.manage_age_verification": "Record age verification on identities",
     "people.view": "View people and team operations",
     "people.manage": "Manage people, attendance, policies, training",
 }
@@ -61,6 +62,7 @@ DEFAULT_ROLES = {
         "tenant.edit","tenant.view",
         "admin.manage_connectors","admin.manage_delegations","admin.manage_policies",
         "admin.manage_service_accounts","admin.view_audit","admin.manage_roles",
+        "admin.manage_age_verification",
         "audit.view","audit.export",
     ], "is_system": True},
     "admin": {"display_name": "Admin", "description": "Manage settings, members, data",
@@ -69,6 +71,7 @@ DEFAULT_ROLES = {
             "knowledge.view","knowledge.upload","knowledge.edit","knowledge.search",
             "finance.view","finance.create_invoice","finance.edit_invoice","finance.record_payment","finance.view_reports",
             "admin.manage_integrations","admin.view_audit","admin.manage_roles",
+            "admin.manage_age_verification",
             "task.view","task.create","task.edit","task.assign","task.complete","ai.use","ai.edit_memory",
             "people.view","people.manage"],
         "is_system": True},

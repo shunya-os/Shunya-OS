@@ -46,36 +46,37 @@ def list_calendar_events():
         end = datetime.now(timezone.utc) + timedelta(days=90)
 
     from app import db
+    from app.authz.decorators import _resolve_org_id
+
+    tenant_id = _resolve_org_id()
     events = []
 
-    # 1. Events from app/events/
-    try:
-        from app.events.models import Event
-        event_rows = Event.query.filter(
-            Event.created_at >= start,
-            Event.created_at <= end,
-        ).order_by(Event.created_at.asc()).limit(limit).all()
-        for e in event_rows:
-            events.append({
-                "id": f"event_{e.id}",
-                "title": getattr(e, "title", "") or getattr(e, "event_type", "") or "Event",
-                "start": e.created_at.isoformat() if e.created_at else "",
-                "end": "",
-                "type": "event",
-                "source": "events",
-                "status": getattr(e, "status", ""),
-                "url": f"/workspace/events/{e.id}",
-            })
-    except Exception as exc:
-        logger.debug("Calendar events source failed: %s", exc)
-
-    # 2. Commitments
+    # 1. Commitments — tenant-scoped through the canonical relationship or
+    #    campaign ownership (a commitment with neither is not org-provable
+    #    and is excluded — fail closed).
     try:
         from app.commitments.models import Commitment
-        commitments = Commitment.query.filter(
+        from app.relationship.models import CanonicalRelationship
+        from app.marketing.models import Campaign
+        commitments_query = db.session.query(Commitment)
+        if tenant_id:
+            commitments_query = commitments_query.outerjoin(
+                CanonicalRelationship,
+                CanonicalRelationship.id == Commitment.relationship_id,
+            ).outerjoin(
+                Campaign, Campaign.id == Commitment.campaign_id,
+            ).filter(
+                db.or_(
+                    CanonicalRelationship.organization_id == int(tenant_id),
+                    Campaign.tenant_id == int(tenant_id),
+                )
+            )
+        else:
+            commitments_query = None
+        commitments = commitments_query.filter(
             Commitment.due_at >= start,
             Commitment.due_at <= end,
-        ).order_by(Commitment.due_at.asc()).limit(limit).all()
+        ).order_by(Commitment.due_at.asc()).limit(limit).all() if commitments_query else []
         for c in commitments:
             events.append({
                 "id": f"cmt_{c.id}",

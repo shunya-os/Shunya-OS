@@ -38,6 +38,28 @@ def _owned_conversation(conv_id):
     return conv
 
 
+def _safety_gate_error(text: str):
+    """Evaluate the SHUNYA safety gate for an AI request.
+
+    Identity/tenant come from the authenticated request context (g, then
+    session). Returns None when the request may proceed, otherwise
+    (payload_dict, status_code) — 403 blocked by policy, 503 fail-closed.
+    """
+    from flask import session
+    from app.shunya.safety_governance import check_request_safety
+
+    identity_id = str(
+        getattr(g, "identity_id", "") or session.get("identity_id", "") or ""
+    )
+    tenant_id = (
+        getattr(g, "current_org_id", None)
+        or session.get("current_org_id")
+        or session.get("tenant_id", 0)
+        or 0
+    )
+    return check_request_safety(text, identity_id=identity_id, tenant_id=tenant_id)
+
+
 @ai_bp.route('/research', methods=['POST'])
 @require_permission('ai.use')
 def research():
@@ -54,6 +76,11 @@ def research():
     question = data.get('question', '')
     if not question:
         return jsonify({'error': 'question is required'}), 400
+
+    # SHUNYA Safety Governance gate
+    safety_error = _safety_gate_error(str(question))
+    if safety_error:
+        return jsonify(safety_error[0]), safety_error[1]
     
     from flask import session
     tenant_id = session.get('tenant_id', 0)
@@ -116,6 +143,13 @@ def explain():
     request_id = data.get('request_id', '')
     if not request_id:
         return jsonify({'error': 'request_id is required'}), 400
+
+    # SHUNYA Safety Governance gate (explains the previous result)
+    safety_error = _safety_gate_error(
+        f"{data.get('question', '')} {data.get('target_claim', '')}"
+    )
+    if safety_error:
+        return jsonify(safety_error[0]), safety_error[1]
     
     from flask import session
     tenant_id = session.get('tenant_id', 0)
@@ -177,6 +211,11 @@ def correct():
     
     if not target_claim or not corrected_value:
         return jsonify({'error': 'target_claim and corrected_value are required'}), 400
+
+    # SHUNYA Safety Governance gate
+    safety_error = _safety_gate_error(f"{target_claim} {corrected_value}")
+    if safety_error:
+        return jsonify(safety_error[0]), safety_error[1]
     
     from flask import session
     tenant_id = session.get('tenant_id', 0)
@@ -229,6 +268,11 @@ def preference():
     
     if not key or not value:
         return jsonify({'error': 'key and value are required'}), 400
+
+    # SHUNYA Safety Governance gate
+    safety_error = _safety_gate_error(f"{key} {value}")
+    if safety_error:
+        return jsonify(safety_error[0]), safety_error[1]
     
     from flask import session
     tenant_id = session.get('tenant_id', 0)
@@ -330,6 +374,22 @@ def chat():
     user_messages = [m for m in messages if m['role'] in ('user', 'human')]
     if not user_messages:
         return jsonify({'error': 'A user message is required'}), 400
+
+    # ── SHUNYA Safety Governance gate ─────────────────────────────────
+    # Runs BEFORE any persistence or inference side effect. Blocked or
+    # fail-closed (503) requests never touch the conversation store.
+    from app.shunya.safety_governance import check_request_safety
+    user_text_for_safety = "\n".join(
+        m.get('content', '') for m in user_messages[-3:]
+    ).strip()
+    safety_error = check_request_safety(
+        user_text_for_safety,
+        identity_id=str(getattr(g, 'identity_id', '') or ''),
+        tenant_id=getattr(g, 'current_org_id', None) or 0,
+    )
+    if safety_error:
+        safety_error[0]['conversation_id'] = data.get('conversation_id') or ''
+        return jsonify(safety_error[0]), safety_error[1]
     conv = None
     try:
         if conversation_id:
@@ -521,6 +581,24 @@ def chat():
             'model': 'none',
             'fallback': True,
         }), 503
+
+    # ── Output-side safety gate ───────────────────────────────────────
+    # Model output must never carry prohibited content or policy-override
+    # language. A blocked response is discarded before any side effect
+    # (evidence, outcome, conversation) is written.
+    from app.shunya.safety_governance import check_output_safety
+    output_verdict = check_output_safety(result.get('content', '') or '')
+    if not output_verdict.allowed:
+        logger.warning(
+            'AI output blocked by SHUNYA safety policy: pattern=%s',
+            output_verdict.blocked_pattern,
+        )
+        return jsonify({
+            'error': 'Response blocked by SHUNYA safety policy',
+            'content': '',
+            'safety': output_verdict.to_dict(),
+            'conversation_id': conversation_id,
+        }), 403
 
     # ── Side Effects (preserved after canonical inference) ──
     # PHASE 2A: Evidence log for AI response

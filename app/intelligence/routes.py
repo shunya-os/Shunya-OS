@@ -73,7 +73,7 @@ def api_get_trace(trace_id: str):
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     from app.intelligence.service import get_trace
-    trace = get_trace(trace_id=trace_id)
+    trace = get_trace(trace_id=trace_id, identity_id=str(session.get("identity_id", "")))
     if not trace:
         return jsonify({"success": False, "error": "Trace not found"}), 404
     return jsonify({"success": True, "data": trace})
@@ -89,7 +89,13 @@ def api_correct_trace(trace_id: str):
     if not corrected:
         return jsonify({"success": False, "error": "corrected_response required"}), 400
     from app.intelligence.service import correct_trace
-    result = correct_trace(trace_id=trace_id, corrected_response=corrected)
+    result = correct_trace(
+        trace_id=trace_id,
+        corrected_response=corrected,
+        identity_id=str(session.get("identity_id", "")),
+    )
+    if not result:
+        return jsonify({"success": False, "error": "Trace not found"}), 404
     return jsonify({"success": result})
 
 
@@ -370,11 +376,20 @@ def api_ask():
         logger.warning("Failed to query canonical objects: %s", exc)
 
     # 3) Knowledge documents (brochures, SOPs, contracts, itineraries)
+    # Scoped to the caller's canonical organization — another tenant's
+    # documents must never enter this context.
     try:
         from app.models import KnowledgeDocument
-        docs = _db.session.query(KnowledgeDocument).order_by(
+        docs_query = _db.session.query(KnowledgeDocument)
+        if canonical_org_id:
+            docs_query = docs_query.filter(
+                KnowledgeDocument.organization_id == int(canonical_org_id)
+            )
+        else:
+            docs_query = None
+        docs = docs_query.order_by(
             KnowledgeDocument.created_at.desc()
-        ).limit(15).all()
+        ).limit(15).all() if docs_query else []
         if docs:
             doc_details = []
             for d in docs:
@@ -399,11 +414,33 @@ def api_ask():
         logger.warning("Failed to query knowledge_documents: %s", exc)
 
     # 4) Commitments — what's been promised
+    # Scoped to the caller's organization through the canonical relationship
+    # (rel_relationships.organization_id) or campaign ownership. A commitment
+    # with no relationship and no campaign has no org owner and is excluded
+    # (fail closed — it cannot be proven to belong to this tenant).
     try:
         from app.commitments.models import Commitment
-        commitments = _db.session.query(Commitment).order_by(
+        from app.relationship.models import CanonicalRelationship
+        from app.marketing.models import Campaign
+        commitments_query = _db.session.query(Commitment)
+        if canonical_org_id:
+            _org_int = int(canonical_org_id)
+            commitments_query = commitments_query.outerjoin(
+                CanonicalRelationship,
+                CanonicalRelationship.id == Commitment.relationship_id,
+            ).outerjoin(
+                Campaign, Campaign.id == Commitment.campaign_id,
+            ).filter(
+                _db.or_(
+                    CanonicalRelationship.organization_id == _org_int,
+                    Campaign.tenant_id == _org_int,
+                )
+            )
+        else:
+            commitments_query = None
+        commitments = commitments_query.order_by(
             Commitment.updated_at.desc()
-        ).limit(15).all()
+        ).limit(15).all() if commitments_query else []
         if commitments:
             cmt_details = []
             status_map = {}
@@ -425,11 +462,29 @@ def api_ask():
         logger.warning("Failed to query commitments: %s", exc)
 
     # 5) Memory records — stored knowledge about people, relationships
+    # Scoped to this tenant: the record's relationship must belong to the
+    # caller's organization (legacy tenant_id convention matches org ids and
+    # is accepted as a secondary scoping key).
     try:
         from app.memory.models import MemoryRecord
-        mems = _db.session.query(MemoryRecord).filter(
+        from app.relationship.models import CanonicalRelationship
+        mems_query = _db.session.query(MemoryRecord)
+        if canonical_org_id:
+            _org_int = int(canonical_org_id)
+            mems_query = mems_query.outerjoin(
+                CanonicalRelationship,
+                CanonicalRelationship.id == MemoryRecord.relationship_id,
+            ).filter(
+                _db.or_(
+                    CanonicalRelationship.organization_id == _org_int,
+                    MemoryRecord.tenant_id == _org_int,
+                )
+            )
+        else:
+            mems_query = None
+        mems = mems_query.filter(
             MemoryRecord.status == "active"
-        ).order_by(MemoryRecord.updated_at.desc()).limit(20).all()
+        ).order_by(MemoryRecord.updated_at.desc()).limit(20).all() if mems_query else []
         if mems:
             mem_details = []
             for m in mems:
@@ -447,10 +502,17 @@ def api_ask():
     except Exception as exc:
         logger.warning("Failed to query memory_records: %s", exc)
 
-    # 6) Financial data — invoices
+    # 6) Financial data — invoices (scoped to the caller's organization)
     try:
         from app.finance.models import FinInvoice as Invoice
-        invoice_count = _db.session.query(Invoice).count() if hasattr(Invoice, '__table__') else 0
+        invoice_query = _db.session.query(Invoice)
+        if canonical_org_id:
+            invoice_query = invoice_query.filter(
+                Invoice.organization_id == int(canonical_org_id)
+            )
+        else:
+            invoice_query = None
+        invoice_count = invoice_query.count() if invoice_query else 0
         if invoice_count > 0:
             company_evidence.append({
                 "content": f"Invoices: {invoice_count}",
@@ -464,10 +526,15 @@ def api_ask():
     except Exception as exc:
         logger.warning("Failed to query invoices: %s", exc)
 
-    # 7) Leads
+    # 7) Leads (scoped to the caller's organization — legacy tenant_id holds the org id)
     try:
         from app.models import Lead
-        lead_count = _db.session.query(Lead).count() if hasattr(Lead, '__table__') else 0
+        lead_query = _db.session.query(Lead)
+        if canonical_org_id:
+            lead_query = lead_query.filter(Lead.tenant_id == int(canonical_org_id))
+        else:
+            lead_query = None
+        lead_count = lead_query.count() if lead_query else 0
         if lead_count > 0:
             company_evidence.append({
                 "content": f"Leads: {lead_count}",
@@ -482,9 +549,12 @@ def api_ask():
         logger.warning("Failed to query leads: %s", exc)
 
     # 8) Learning events — what the AI has learned from corrections
+    # Scoped to the caller's identity (identity_id is the record's owner).
     try:
         from app.intelligence.models import LearningEvent
-        learnings = _db.session.query(LearningEvent).order_by(
+        learnings = _db.session.query(LearningEvent).filter(
+            LearningEvent.identity_id == tenant.get("identity_id", "")
+        ).order_by(
             LearningEvent.created_at.desc()
         ).limit(10).all()
         if learnings:
@@ -726,6 +796,31 @@ def api_ask():
 
     # ── Stage 6: Persist as memory record ────────────────────────────
     answer_text = gov_result.get("content", "") or ""
+
+    # ── Stage 6.5: Output-side safety gate ────────────────────────────
+    # Model output must never carry prohibited content or policy-override
+    # language. A blocked response is discarded before any persistence or
+    # execution side effect.
+    if answer_text:
+        from app.shunya.safety_governance import check_output_safety
+        output_verdict = check_output_safety(answer_text)
+        if not output_verdict.allowed:
+            total_latency = round((time.monotonic() - start) * 1000, 1)
+            return jsonify({
+                "success": False,
+                "error": "Response blocked by SHUNYA safety policy",
+                "safety": output_verdict.to_dict(),
+                "answer": "",
+                "tenant": tenant,
+                "pipeline": pipeline_stages + [{
+                    "stage": "safety_output",
+                    "status": "blocked",
+                    "reason": output_verdict.reason,
+                    "duration_ms": round((time.monotonic() - safety_start) * 1000, 1),
+                }],
+                "latency_ms": total_latency,
+            }), 403
+
     if answer_text:
         try:
             import hashlib
@@ -820,6 +915,22 @@ def api_generate_image():
     if not prompt:
         return jsonify({"success": False, "error": "Prompt is required."}), 400
 
+    # SHUNYA Safety Governance gate (image-generation prompts)
+    try:
+        from app.shunya.safety_governance import check_request_safety
+        _safety_error = check_request_safety(
+            prompt,
+            identity_id=str(session.get("identity_id", "") or ""),
+            tenant_id=_resolve_tenant().get("tenant_id") or 0,
+        )
+    except Exception:
+        _safety_error = (
+            {"error": "Safety governance unavailable — request blocked"},
+            503,
+        )
+    if _safety_error:
+        return jsonify(_safety_error[0]), _safety_error[1]
+
     import os
 
     import requests
@@ -909,6 +1020,22 @@ def api_mixed_intelligence():
     question = data.get("question", "").strip()
     if not question:
         return jsonify({"success": False, "error": "Question is required."}), 400
+
+    # SHUNYA Safety Governance gate
+    try:
+        from app.shunya.safety_governance import check_request_safety
+        _safety_error = check_request_safety(
+            question,
+            identity_id=str(session.get("identity_id", "") or ""),
+            tenant_id=_resolve_tenant().get("tenant_id") or 0,
+        )
+    except Exception:
+        _safety_error = (
+            {"error": "Safety governance unavailable — request blocked"},
+            503,
+        )
+    if _safety_error:
+        return jsonify(_safety_error[0]), _safety_error[1]
 
     identity_id = session.get("identity_id")
     org_id = data.get("org_id") or _resolve_org_id()

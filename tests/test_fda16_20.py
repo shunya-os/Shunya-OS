@@ -221,13 +221,19 @@ class TestFDA16UnifiedWorkspace:
         assert data["success"] is True
 
     def test_workspace_not_found(self, client, auth_headers):
-        """Workspace for non-existent object returns identity only."""
+        """Workspace for a non-existent/invisible object fails closed with 404.
+
+        Behavior hardened in the cross-tenant read-isolation convergence:
+        an object that does not resolve inside the caller's tenant is
+        indistinguishable from a nonexistent object — the route now returns
+        404 instead of an empty 200 workspace (which fake-presented data as
+        absent). No record data may be exposed either way.
+        """
         resp = client.get("/api/v1/workspace/objects/99999?type=lead", headers=auth_headers)
-        assert resp.status_code == 200
+        assert resp.status_code == 404
         data = resp.get_json()
-        assert data["success"] is True
-        # Returns empty workspace, not a 404
-        assert data["data"]["identity"] == {}
+        assert data["success"] is False
+        assert "SECRET" not in resp.get_data(as_text=True)
 
     def test_workspace_requires_auth(self, client):
         """Unauthenticated request returns 401."""
@@ -235,9 +241,14 @@ class TestFDA16UnifiedWorkspace:
         assert resp.status_code == 401
 
     def test_workspace_invalid_object_type(self, client, auth_headers):
-        """Request with invalid object type returns valid workspace."""
+        """Request with an invalid object type for an invisible object → 404.
+
+        An object that does not exist in the caller's tenant fails closed
+        (404) whatever type hint is supplied; the type hint never widens the
+        tenant scope.
+        """
         resp = client.get("/api/v1/workspace/objects/1?type=invalid_type", headers=auth_headers)
-        assert resp.status_code == 200
+        assert resp.status_code == 404
 
     def test_workspace_tenant_isolation(self, app, client, auth_headers, seed_data):
         """Different tenant IDs isolate data (simulated)."""
@@ -680,13 +691,19 @@ class TestFDA20ObservabilityAndSecurity:
             assert resp.status_code == 401, f"{method} {url} should return 401"
 
     def test_xss_prevention_context_values(self, client, auth_headers):
-        """Context values with HTML shouldn't render."""
-        # This is more of a frontend concern, but verify the API passes text safely
+        """API responses must never reflect HTML into a renderable surface.
+
+        The workspace route no longer returns phantom empty workspaces for
+        invisible objects; a not-found response must be JSON-only (no HTML
+        reflection) — and for a real object the identity/context values are
+        plain dicts, never markup.
+        """
         resp = client.get("/api/v1/workspace/objects/99999?type=lead", headers=auth_headers)
-        assert resp.status_code == 200
-        data = resp.get_json()
-        # Identity values should be plain dicts
-        assert isinstance(data["data"]["identity"], dict)
+        assert resp.status_code == 404
+        body = resp.get_data(as_text=True)
+        assert "<script" not in body.lower()
+        assert "<html" not in body.lower()
+        assert resp.is_json
 
     def test_tenant_isolation_commitments(self, app, client, auth_headers, seed_data):
         """Commitment API handles different org IDs gracefully."""
