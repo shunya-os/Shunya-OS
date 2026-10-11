@@ -1,5 +1,9 @@
 # SHUNYA — 100-GAP REGISTER (5-PERSPECTIVE FORENSIC SWOT)
 
+> **Umbrella register:** this file is one of three child registers under
+> `docs/launch/MASTER_GAP_PENDING_REGISTER.md` (all session + tracker gaps,
+> live defects, CI hygiene, founder-pending decisions).
+
 **Date:** 2026-10-11
 **Repository:** shunya-os/Shunya-OS @ master (3a2d3d3)
 **Method:** Five parallel read-only sweeps (frontend UI, backend/API, integrations, product journeys, operations/security) + independent verification of every P1 claim against source. 126 candidate findings deduplicated to exactly 100.

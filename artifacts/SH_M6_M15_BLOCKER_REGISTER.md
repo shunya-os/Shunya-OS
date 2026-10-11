@@ -2,6 +2,9 @@
 
 **Campaign:** SH-M6→M15 MASTER EXECUTION DIRECTIVE — COMPLETE THE PRODUCT, CERTIFY IT, PREPARE FOR PUBLIC LAUNCH
 
+> **Umbrella register:** superset of all blockers, session gaps, live
+> defects and founder decisions: `docs/launch/MASTER_GAP_PENDING_REGISTER.md`.
+
 ---
 
 ## CURRENT EVIDENCE (2026-10-11 — supersedes the historical record below)
