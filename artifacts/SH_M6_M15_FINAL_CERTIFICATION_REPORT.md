@@ -50,9 +50,9 @@
 | Verification tests (UCP, streams) | 131 | ✅ PASS (CI, run 38046678290) |
 | Python compile check | 234 files | ✅ PASS (CI) |
 | Provider adapters + PersonalOS | 10 UCPs | ✅ PASS (CI) |
-| Full pytest tests/ (CI) | per run log | ✅ PASS (CI, run 38046678290) |
+| Test suite (full pytest tests/) | 5640 passed / 125 skipped locally; full suite ✅ PASS in CI run 38141992443 | ✅ PASS (CI, c6b0fa0) |
 | Frontend vitest | 73 | ✅ PASS (CI, node 22) — 70/73 locally under node 26 (host-only divergence, documented in ci.yml) |
-| Frontend tsc + build + eslint-governance | — | ✅ PASS locally (tsc 0 errors; build OK; eslint 0 errors, warnings 460→458) |
+| Frontend tsc + build + eslint-governance | — | ✅ PASS (CI) |
 | **tests/test_safety_governance.py** (new) | 51 | ✅ PASS local (unit + integration + adversarial + fail-closed) |
 | **tests/test_tenant_read_isolation.py** (new) | 20 | ✅ PASS local (Tenant A/B adversarial, both directions) |
 | **tests/test_https_security_contract.py** (new) | 6 | ✅ PASS local |
@@ -127,7 +127,7 @@ See `artifacts/SH_M6_M15_BLOCKER_REGISTER.md` (revised 2026-10-11) for the full 
 | # | Blocker | Severity | Status |
 |---|---------|----------|--------|
 | LB-001 | Founder acceptance walkthrough not performed | P0 — LAUNCH BLOCKER | NOT STARTED (founder-gated) |
-| LB-002 | Age/safety governance | P0 — LAUNCH BLOCKER | IMPLEMENTED + TESTED — awaiting CI certification of the convergence SHA |
+| LB-002 | Age/safety governance | P0 — LAUNCH BLOCKER | **CI-CERTIFIED on c6b0fa0** (run 38141992443) + production runtime-proven (403 block live); real-world KYC method = founder decision |
 | LB-004 | PUBLIC_LAUNCH_READY flag | P0 | CONFIRMED FALSE (by design until all gates close) |
 | S-005 | knowledge.edit admin-only | P1 | PARTIAL (role-policy decision) |
 | S-006 | Branch protection absent | P1 | OPEN (founder decision) |

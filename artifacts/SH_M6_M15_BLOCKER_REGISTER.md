@@ -6,9 +6,10 @@
 
 ## CURRENT EVIDENCE (2026-10-11 — supersedes the historical record below)
 
-**Repository SHA (origin/master):** a57b7a1bf8a10280ff4d229dae3ca514a109faef (then the launch-blocker convergence push)
-**Production SHA (shunyaos.com):** a57b7a1bf8a10280ff4d229dae3ca514a109faef (deployed 2026-10-10T11:21:27Z, release_type=CI_CERTIFIED)
-**CI Run 38046678290 (a57b7a1):** SUCCESS — test job (23 steps) + Deploy to Production (7 steps)
+**Repository SHA (origin/master):** c6b0fa0fdaf4b3121fa3dbcff24efaf99a04c43d (launch-blocker convergence commit)
+**Production SHA (shunyaos.com):** c6b0fa0fdaf4b3121fa3dbcff24efaf99a04c43d (deployed 2026-10-11T13:32:54Z, release_type=CI_CERTIFIED, frontend_release_matches_backend=true)
+**CI Run 38141992443 (c6b0fa0):** SUCCESS — test job + Deploy to Production (incl. "Verify public HTTPS/HSTS contract" step)
+**Production runtime proof (browser, authenticated):** prohibited ask → 403 "Request blocked by SHUNYA safety policy"; benign ask → 200 with full pipeline (safety_governance:passed, evidence_assembly:success, execution_authority:authorized); /api/v1/workspace/documents → 200. Migration r6b28 verified live (alembic_version + columns present).
 **Branch protection:** VERIFIED ABSENT — `gh api repos/shunya-os/Shunya-OS/branches/master/protection` returns 404 "Branch not protected" (authenticated as repo owner). No required checks on master. **Governance gap — founder decision required.**
 
 ### P0 — Launch Blockers
@@ -16,7 +17,7 @@
 | # | Blocker | Status | Evidence |
 |---|---------|--------|----------|
 | **LB-001** | No founder acceptance walkthrough performed | **NOT STARTED** | No acceptance sign-off document. Founder-gated — cannot be closed by implementation |
-| **LB-002** | Age/safety governance policy not implemented | **IMPLEMENTED + TESTED (CI pending)** | `app/shunya/safety_governance.py` hardened: canonical identity resolution (TeamMember.identity_id), tenant-membership enforcement, explicit policy states UNKNOWN/UNVERIFIED/NOT_IN_TENANT/UNDERAGE/VERIFIED, fail-closed (503) on component failure, output-side gate. Wired into 12 AI surfaces (ask, chat, research, explain, correct, preference, copilot, mixed, generate-image, ai/analyze, content generate ×2). Admin recording endpoint `POST /api/v1/admin/identities/<id>/age-verification` (permission `admin.manage_age_verification`, owner+admin). Migration `r6b28_age_verification_fields` adds birth_date + age_verified. `tests/test_safety_governance.py`: 51/51 PASS local. Real-world age-proofing method (ID/KYC provider) remains a founder/provider decision |
+| **LB-002** | Age/safety governance policy not implemented | **CI-CERTIFIED** | Hardened `app/shunya/safety_governance.py` (canonical identity resolution, tenant membership, UNKNOWN/UNVERIFIED/NOT_IN_TENANT/UNDERAGE/VERIFIED states, fail-closed 503, output gate), wired into 12 AI surfaces, admin recording endpoint + migration r6b28. 51 deterministic tests + full suite PASS in CI run 38141992443; **runtime-proven on production c6b0fa0** (prohibited ask → 403). Real-world age-proofing method (ID/KYC provider) remains a founder/provider decision |
 | **LB-003** | Production behind master / CI not passing | **RESOLVED** | Production == master == a57b7a1; run 38046678290 SUCCESS + deployed. Historical run-881/884 "IN PROGRESS" claims superseded by current GitHub truth |
 | **LB-004** | PUBLIC_LAUNCH_READY flag is FALSE | **CONFIRMED (correct)** | Remains FALSE until every mandatory security, product, deployment and founder-acceptance gate is satisfied |
 
