@@ -1,7 +1,7 @@
 # SHUNYA — MASTER GAP & PENDING REGISTER (SUPERSET, ALL SOURCES)
 
-**Date:** 2026-10-11 (consolidated)
-**Repository:** shunya-os/Shunya-OS @ master **6b5767f** (CI_CERTIFIED, deployed)
+**Date:** 2026-10-11 (consolidated; baseline refreshed 2026-10-12 — ZG-03 Wave A)
+**Repository:** shunya-os/Shunya-OS @ master **26b592e** (CI_CERTIFIED, deployed; prior reference 6b5767f)
 **Sources merged:** (1) `docs/launch/SHUNYA_100_GAP_REGISTER.md` (session sweep, 5 perspectives), (2) `artifacts/SH_M6_M15_BLOCKER_REGISTER.md` (LB/S/P/F), (3) `SHUNYA_MASTER_MILESTONE_TRACKER.md` (G-gates, FDA gates, orphans, capability registry), (4) live production/host findings this session, (5) founder-pending decisions.
 **Rule:** this document is the single umbrella register. Child registers stay authoritative for their own detail; nothing here is closed without evidence.
 
@@ -27,14 +27,14 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 |----|------|--------------------------|
 | LB-001 | Founder acceptance walkthrough + sign-off | NOT STARTED — founder-gated |
 | LB-002 | Age/safety governance | CI-CERTIFIED on c6b0fa0 + runtime-proven; residual = KYC method (E18/§7-D3) |
-| LB-003 | Production behind master / CI red | RESOLVED (prod == master == 6b5767f, run 38153420213 SUCCESS) |
+| LB-003 | Production behind master / CI red | RESOLVED (prod == master == 26b592e, run 38296092034 SUCCESS, 2026-10-12) |
 | LB-004 | PUBLIC_LAUNCH_READY flag | CONFIRMED FALSE (by design) |
 | S-001 | HSTS | FIXED + live-verified + CI-enforced |
 | S-002 | Knowledge API 403 no-org | FIXED |
 | S-003 | HTTPS-only test in CI | FIXED (contract tests + deploy smoke step) |
-| S-004 | Cross-tenant read isolation | FIXED + 20 adversarial tests + CI |
+| S-004 | Cross-tenant read isolation | FIXED + 20 adversarial tests + CI; ZG-03 extension (26b592e): leads API, CRM lead surface, celebration/calendar feeds tenant-scoped — live-verified 0 exposed rows |
 | S-005 | knowledge.edit admin-only | PARTIAL — role-policy decision (§7-D6) |
-| S-006 | Branch protection absent | OPEN — founder decision (§7-D2) |
+| S-006 | Branch protection absent | FIXED — enabled 2026-10-12: required check 'test' + ≥1 approving review, admin bypass kept, force-push/deletion blocked; read-back validated. Note: CI's milestone validator needed a PR-ref fix so the required check can go green on PRs |
 | P-001 | Provider-unavailable truthful surface | NOT A BUG |
 | P-002 | GracefulDegradationHandler retrieval-only | PARTIAL (§7-D9) |
 | P-003 | Empty states not systematic | PARTIAL (§7-D7) |
