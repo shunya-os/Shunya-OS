@@ -3,6 +3,7 @@
 from flask import jsonify, request, session
 from datetime import datetime, timezone
 from app import db
+from app.authz.decorators import session_required
 from app.onboarding import onboarding_bp
 from app.onboarding.engine import (
     get_or_create_session, reset_session,
@@ -11,6 +12,7 @@ from app.onboarding.engine import (
 
 
 @onboarding_bp.route("/start", methods=["POST"])
+@session_required
 def api_start_onboarding():
     """Begin or resume the onboarding conversation."""
     uid = session.get("identity_id") or session.get("user_id") or ""
@@ -31,6 +33,7 @@ def api_start_onboarding():
 
 
 @onboarding_bp.route("/answer", methods=["POST"])
+@session_required
 def api_onboarding_answer():
     """Answer the current onboarding question."""
     uid = session.get("identity_id") or session.get("user_id") or ""
@@ -56,6 +59,7 @@ def api_onboarding_answer():
 
 
 @onboarding_bp.route("/reset", methods=["POST"])
+@session_required
 def api_reset_onboarding():
     """Reset onboarding progress."""
     uid = session.get("identity_id") or session.get("user_id") or ""
@@ -65,6 +69,7 @@ def api_reset_onboarding():
 
 
 @onboarding_bp.route("/dashboard", methods=["GET"])
+@session_required
 def api_onboarding_dashboard():
     """Get the day-one dashboard — never empty, always shows progress."""
     uid = session.get("identity_id") or session.get("user_id") or ""
@@ -81,6 +86,7 @@ def api_onboarding_dashboard():
 
 
 @onboarding_bp.route("/complete", methods=["POST"])
+@session_required
 def api_onboarding_complete():
     """Mark onboarding as complete and send confirmation email."""
     uid = session.get("identity_id") or session.get("user_id") or ""

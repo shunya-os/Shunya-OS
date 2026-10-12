@@ -11,6 +11,7 @@ These are Genesis Preparation safeguards — not new features.
 
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
+from app.authz.decorators import session_required
 
 from app import db
 from app.genesis_protection import (
@@ -30,6 +31,7 @@ genesis_bp = Blueprint("genesis", __name__, url_prefix="/api/v1/genesis")
 
 
 @genesis_bp.route("/audit", methods=["GET"])
+@session_required
 def list_audit_events():
     """List audit events with optional filtering.
 
@@ -72,6 +74,7 @@ def list_audit_events():
 
 
 @genesis_bp.route("/audit/<event_id>", methods=["GET"])
+@session_required
 def get_audit_event(event_id: str):
     """Get a single audit event by its event_id."""
     event = AuditLog.query.filter_by(event_id=event_id).first()
@@ -86,6 +89,7 @@ def get_audit_event(event_id: str):
 
 
 @genesis_bp.route("/protect/check-identity/<identity_id>", methods=["GET"])
+@session_required
 def api_check_founder_protection(identity_id: str):
     """Check if a given identity can be safely removed or deactivated.
 
@@ -105,6 +109,7 @@ def api_check_founder_protection(identity_id: str):
 
 
 @genesis_bp.route("/protect/check-org-deletion/<int:org_id>", methods=["GET"])
+@session_required
 def api_check_org_deletion(org_id: int):
     """Check the implications of deleting an organization."""
     actor_id = request.args.get("actor_id", "unknown")
@@ -118,6 +123,7 @@ def api_check_org_deletion(org_id: int):
 
 
 @genesis_bp.route("/confirm", methods=["POST"])
+@session_required
 def api_confirm_action():
     """Confirm a destructive action by providing the required input.
 
@@ -150,6 +156,7 @@ def _get_model_by_table(table_name: str):
 
 
 @genesis_bp.route("/restore/<entity_type>/<entity_id>", methods=["POST"])
+@session_required
 def api_restore_entity(entity_type: str, entity_id: str):
     """Restore a soft-deleted entity.
 
@@ -270,6 +277,7 @@ _genesis_reports = {
 }
 
 @genesis_bp.route("/report/<name>")
+@session_required
 def genesis_report(name):
     filename = _genesis_reports.get(name)
     if not filename:

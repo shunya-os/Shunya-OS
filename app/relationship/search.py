@@ -8,9 +8,11 @@ from .models import (
     TimelineEntry, RelationshipMemory, RelationshipDocument,
 )
 from app.models import Proposal, Organization
+from app.authz.decorators import session_required
 
 
 @relationship_bp.route("/api/v1/relationships/search", methods=["GET"])
+@session_required
 def api_universal_search():
     """Universal Search — returns complete business context for a relationship.
 

@@ -2,6 +2,7 @@
 
 from flask import render_template, session, redirect, url_for
 from app import db
+from app.auth_routes import login_required
 from . import relationship_bp
 from .models import (
     CanonicalRelationship as Relationship,
@@ -19,6 +20,7 @@ def _org():
 
 
 @relationship_bp.route("/")
+@login_required
 def relationship_list():
     """List all relationships in the current organization."""
     uid = _identity()
@@ -42,6 +44,7 @@ def relationship_list():
 
 
 @relationship_bp.route("/<int:rel_id>")
+@login_required
 def relationship_workspace(rel_id):
     """Unified Relationship Workspace."""
     uid = _identity()

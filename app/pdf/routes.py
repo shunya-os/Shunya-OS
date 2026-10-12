@@ -12,6 +12,7 @@ import logging
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request, send_file
+from app.authz.decorators import session_required
 from weasyprint import HTML
 
 from app import db
@@ -412,6 +413,7 @@ def _build_invoice_html(invoice: ShunyaObject) -> str:
 
 
 @pdf_bp.route("/generate", methods=["POST"])
+@session_required
 def generate_pdf():
     """Generate a PDF from arbitrary HTML.
 
@@ -444,6 +446,7 @@ def generate_pdf():
 
 
 @pdf_bp.route("/proposal/<int:proposal_id>", methods=["GET"])
+@session_required
 def generate_proposal_pdf(proposal_id: int):
     """Look up a proposal by ID, build branded HTML, return as PDF."""
     proposal = _authorized_object_or_none(
@@ -476,6 +479,7 @@ def generate_proposal_pdf(proposal_id: int):
 
 
 @pdf_bp.route("/invoice/<int:invoice_id>", methods=["GET"])
+@session_required
 def generate_invoice_pdf(invoice_id: int):
     """Look up an invoice by ID, build branded HTML, return as PDF."""
     invoice = _authorized_object_or_none(

@@ -11,6 +11,7 @@ from flask import jsonify, request, g, session
 from app import db
 from app.production import production_bp
 from app.auth_routes import login_required
+from app.authz.decorators import session_required
 
 
 OBJECT_TYPES = {
@@ -215,6 +216,7 @@ def _create_typed_object_raw(object_type: str, request_data: dict, identity_id: 
 
 
 @production_bp.route("/objects/<object_type>", methods=["POST"])
+@session_required
 def create_typed_object(object_type: str):
     """Create a typed business object (customer, supplier, etc.)."""
     identity_id = session.get("identity_id") or session.get("user_id") or ""
@@ -228,6 +230,7 @@ def create_typed_object(object_type: str):
 
 
 @production_bp.route("/objects/<object_type>/<object_id>", methods=["PUT"])
+@session_required
 def update_typed_object(object_type: str, object_id: str):
     """Update a typed business object through canonical service only."""
     identity_id = session.get("identity_id") or session.get("user_id") or ""
@@ -261,6 +264,7 @@ def update_typed_object(object_type: str, object_id: str):
 
 
 @production_bp.route("/objects/<object_type>/<object_id>", methods=["GET"])
+@session_required
 def get_typed_object(object_type: str, object_id: str):
     """Get a typed business object from canonical store only."""
     identity_id = session.get("identity_id") or session.get("user_id") or ""

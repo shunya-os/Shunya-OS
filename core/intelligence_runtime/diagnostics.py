@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, jsonify
+from app.authz.decorators import session_required
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ diagnostics_bp = Blueprint("diagnostics", __name__, url_prefix="/api/v1")
 
 
 @diagnostics_bp.route("/diagnostics", methods=["GET"])
+@session_required
 def api_diagnostics():
     """GET /api/v1/diagnostics — run engine self-diagnostics."""
     engine = DiagnosticsEngine()

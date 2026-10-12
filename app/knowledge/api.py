@@ -7,7 +7,7 @@ no backend API. Provides CRUD + search + categories for knowledge documents.
 import logging
 from flask import Blueprint, jsonify, request, session, g
 from datetime import datetime, timezone
-from app.authz.decorators import require_permission
+from app.authz.decorators import require_permission, session_required
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ def _require_auth() -> bool:
 
 
 @knowledge_bp.route("/documents", methods=["GET"])
+@session_required
 def list_knowledge_documents():
     """List knowledge documents with optional search and domain filter.
 

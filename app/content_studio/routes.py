@@ -6,6 +6,7 @@ ACTIVE / ARCHIVED / TRASHED lifecycle management.
 import logging
 from datetime import datetime
 from flask import Blueprint, jsonify, request, session, g
+from app.authz.decorators import session_required
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,7 @@ from app.content_studio.languages import (
 
 
 @content_bp.route("/languages", methods=["GET"])
+@session_required
 def api_languages():
     """Canonical output-language registry — the single source of truth for the UI.
 
@@ -103,6 +105,7 @@ def api_languages():
 
 
 @content_bp.route("/generate", methods=["POST"])
+@session_required
 def api_generate():
     """Generate content via AI provider chain."""
     if not _require_auth():
@@ -210,6 +213,7 @@ def api_generate():
 
 
 @content_bp.route("/history", methods=["GET"])
+@session_required
 def api_history():
     """List recent content generations."""
     if not _require_auth():
@@ -243,6 +247,7 @@ def api_history():
 
 
 @content_bp.route("/history/<int:item_id>", methods=["GET"])
+@session_required
 def api_get_item(item_id: int):
     """Get a specific content generation."""
     if not _require_auth():
@@ -260,6 +265,7 @@ def api_get_item(item_id: int):
 
 
 @content_bp.route("/history/<int:item_id>/favorite", methods=["POST"])
+@session_required
 def api_toggle_favorite(item_id: int):
     """Toggle favorite status."""
     if not _require_auth():
@@ -279,6 +285,7 @@ def api_toggle_favorite(item_id: int):
 
 
 @content_bp.route("/history/<int:item_id>", methods=["DELETE"])
+@session_required
 def api_delete_item(item_id: int):
     """Delete a content generation."""
     if not _require_auth():
@@ -298,6 +305,7 @@ def api_delete_item(item_id: int):
 
 
 @content_bp.route("/history/<int:item_id>/lifecycle", methods=["POST"])
+@session_required
 def api_lifecycle(item_id: int):
     """Apply a lifecycle action to a content generation.
 
@@ -415,6 +423,7 @@ def api_lifecycle(item_id: int):
 
 
 @content_bp.route("/", methods=["GET"])
+@session_required
 def api_list_content():
     """List user's content with lifecycle filter.
 
@@ -460,6 +469,7 @@ def api_list_content():
 
 
 @content_bp.route("/<int:item_id>", methods=["GET"])
+@session_required
 def api_get_content(item_id: int):
     """Get a single content item with full lifecycle metadata."""
     if not _require_auth():
@@ -477,6 +487,7 @@ def api_get_content(item_id: int):
 
 
 @content_bp.route("/<int:item_id>", methods=["PATCH"])
+@session_required
 def api_patch_content(item_id: int):
     """Update content metadata (rename, description, tone, etc.)."""
     if not _require_auth():
@@ -567,6 +578,7 @@ def _lifecycle_operation(item_id: int, action: str, target_status: str):
 
 
 @content_bp.route("/<int:item_id>/archive", methods=["POST"])
+@session_required
 def api_archive_content(item_id: int):
     """Archive content (from ACTIVE to ARCHIVED)."""
     if not _require_auth():
@@ -575,6 +587,7 @@ def api_archive_content(item_id: int):
 
 
 @content_bp.route("/<int:item_id>/trash", methods=["POST"])
+@session_required
 def api_trash_content(item_id: int):
     """Trash content (from ACTIVE or ARCHIVED to TRASHED)."""
     if not _require_auth():
@@ -583,6 +596,7 @@ def api_trash_content(item_id: int):
 
 
 @content_bp.route("/<int:item_id>/restore", methods=["POST"])
+@session_required
 def api_restore_content(item_id: int):
     """Restore content (from ARCHIVED or TRASHED back to ACTIVE)."""
     if not _require_auth():
@@ -591,6 +605,7 @@ def api_restore_content(item_id: int):
 
 
 @content_bp.route("/<int:item_id>/permanent-delete", methods=["DELETE"])
+@session_required
 def api_permanent_delete_content(item_id: int):
     """Permanently delete content (only allowed from TRASHED state).
 
@@ -675,6 +690,7 @@ def evaluate_inhibition(action_type: str, context: dict) -> dict:
 
 
 @content_bp.route("/inhibit", methods=["POST"])
+@session_required
 def api_inhibit():
     """Evaluate a proposed action via the Universal Inhibition Layer.
 
@@ -708,6 +724,7 @@ def api_inhibit():
 
 
 @content_bp.route("/inhibit/authz", methods=["POST"])
+@session_required
 def api_inhibit_authz():
     """Evaluate inhibition via canonical permission-based auth.
 

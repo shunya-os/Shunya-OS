@@ -10,6 +10,7 @@ import logging
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request, g
+from app.authz.decorators import session_required
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ def _ok(data, code: int = 200):
 
 
 @upload_bp.route("", methods=["POST"])
+@session_required
 def api_upload():
     """Upload a file. Creates a 'document' ShunyaObject for each file."""
     identity_id = _require_identity()

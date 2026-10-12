@@ -82,6 +82,8 @@ def login_required(view):
             return redirect(url_for("auth.login_page"))
         g.user = user
         return view(**kwargs)
+    # B16: explicit-policy marker for the route/blueprint inventory test.
+    wrapped_view._shunya_policy = "session:login_required"  # type: ignore[attr-defined]
     return wrapped_view
 
 
@@ -94,6 +96,7 @@ def admin_required(view):
             flash("Admin access required", "error")
             return redirect(url_for("workspace_routes.workspace_home"))
         return view(**kwargs)
+    wrapped_view._shunya_policy = "admin"  # type: ignore[attr-defined]
     return wrapped_view
 
 
@@ -107,6 +110,7 @@ def permission_required(resource: str, action: str = "read"):
                 flash(f"No permission to {action} {resource}", "error")
                 return redirect(url_for("main.index"))
             return view(**kwargs)
+        wrapped_view._shunya_policy = f"permission:{resource}.{action}"  # type: ignore[attr-defined]
         return wrapped_view
     return decorator
 

@@ -6,8 +6,9 @@ bridging the core protocol contract with SQL persistence.
 ZERO-GAP-CONTINUATION-04B M10: B-P01 HTTP/API integration.
 """
 import json
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, g
 from app import db
+from app.authz.decorators import require_permission
 from app.kernel.object import UniversalObject
 from app.kernel.models import UOPObject
 
@@ -16,8 +17,13 @@ uop_bp = Blueprint("uop", __name__, url_prefix="/api/v1/uop")
 
 
 def _resolve_tenant() -> int:
-    """Resolve current tenant from session."""
-    org_id = session.get("current_org_id")
+    """Resolve current tenant from the VERIFIED org context (B22).
+
+    ``require_permission`` has already validated membership for the caller's
+    organization and stored it in ``g.current_org_id``; client-supplied
+    ``tenant_id`` (query/body/header) is NEVER trusted for scoping.
+    """
+    org_id = getattr(g, "current_org_id", None) or session.get("current_org_id")
     if org_id:
         return int(org_id)
     identity = session.get("identity_id") or session.get("user_id")
@@ -37,7 +43,18 @@ def _resolve_identity() -> str:
     return str(i) if i else "system"
 
 
+def _scoped_object(object_id: str):
+    """Object only when it belongs to the caller's organization."""
+    tenant_id = _resolve_tenant()
+    if not tenant_id:
+        return None
+    return UOPObject.query.filter_by(
+        object_id=object_id, tenant_id=tenant_id
+    ).first()
+
+
 @uop_bp.route("/objects", methods=["POST"])
+@require_permission("rel.create")
 def create_object():
     """Create a UniversalObject via the protocol.
 
@@ -76,9 +93,10 @@ def create_object():
 
 
 @uop_bp.route("/objects/<object_id>", methods=["GET"])
+@require_permission("rel.view")
 def get_object(object_id: str):
     """Retrieve a UniversalObject by its protocol object_id."""
-    model = UOPObject.query.get(object_id)
+    model = _scoped_object(object_id)
     if not model:
         return jsonify({"error": "Object not found"}), 404
     return jsonify({
@@ -88,17 +106,21 @@ def get_object(object_id: str):
 
 
 @uop_bp.route("/objects", methods=["GET"])
+@require_permission("rel.view")
 def list_objects():
-    """List objects, optionally filtered by type or tenant."""
+    """List objects — ALWAYS scoped to the caller's organization (B22)."""
     object_type = request.args.get("object_type", "")
-    tenant_id = request.args.get("tenant_id", type=int)
     space_id = request.args.get("space_id", "")
+    tenant_id = _resolve_tenant()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 400
 
-    query = UOPObject.query.filter(UOPObject.is_archived.is_(False))
+    query = UOPObject.query.filter(
+        UOPObject.is_archived.is_(False),
+        UOPObject.tenant_id == tenant_id,
+    )
     if object_type:
         query = query.filter(UOPObject.object_type == object_type)
-    if tenant_id:
-        query = query.filter(UOPObject.tenant_id == tenant_id)
     if space_id:
         query = query.filter(UOPObject.space_id == space_id)
 
@@ -111,9 +133,10 @@ def list_objects():
 
 
 @uop_bp.route("/objects/<object_id>/archive", methods=["POST"])
+@require_permission("rel.edit")
 def archive_object(object_id: str):
     """Archive (soft-delete) an object."""
-    model = UOPObject.query.get(object_id)
+    model = _scoped_object(object_id)
     if not model:
         return jsonify({"error": "Object not found"}), 404
     model.is_archived = True
@@ -124,9 +147,10 @@ def archive_object(object_id: str):
 
 
 @uop_bp.route("/objects/<object_id>/evidence", methods=["POST"])
+@require_permission("rel.edit")
 def add_evidence(object_id: str):
     """Add an evidence reference to an object."""
-    model = UOPObject.query.get(object_id)
+    model = _scoped_object(object_id)
     if not model:
         return jsonify({"error": "Object not found"}), 404
     data = request.get_json(silent=True) or {}

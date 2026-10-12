@@ -7,6 +7,7 @@ from app.core.time import now
 from flask import jsonify, request
 
 from app import db
+from app.authz.decorators import require_permission
 from app.debug import debug_bp
 from app.objects.models import Object
 from app.runtime.loop import run_cycle
@@ -30,6 +31,7 @@ def _serialize(obj):
 
 
 @debug_bp.route("/entity", methods=["POST"])
+@require_permission("admin.view_audit")
 def create_entity():
     """Create a new entity (Object)."""
     data = request.get_json(silent=True) or {}
@@ -55,6 +57,7 @@ def create_entity():
 
 
 @debug_bp.route("/entities", methods=["GET"])
+@require_permission("admin.view_audit")
 def list_entities():
     """Return all Objects."""
     entities = Object.query.order_by(Object.id).all()
@@ -67,6 +70,7 @@ def list_entities():
 
 
 @debug_bp.route("/run-cycle", methods=["POST"])
+@require_permission("admin.view_audit")
 def trigger_cycle():
     """Run the runtime loop once."""
     try:
@@ -83,6 +87,7 @@ def trigger_cycle():
 
 
 @debug_bp.route("/state", methods=["GET"])
+@require_permission("admin.view_audit")
 def get_state():
     """Return current state: entities, tasks, observations, execution logs."""
     from app.models import Task
@@ -107,6 +112,7 @@ def get_state():
 
 
 @debug_bp.route("/execution/<int:object_id>", methods=["GET"])
+@require_permission("admin.view_audit")
 def get_execution_trace(object_id):
     """Return the execution timeline for a single object."""
     entity = db.session.get(Object, object_id)
@@ -132,6 +138,7 @@ def get_execution_trace(object_id):
 
 
 @debug_bp.route("/entity/<int:entity_id>", methods=["PUT"])
+@require_permission("admin.view_audit")
 def update_entity(entity_id):
     """Update entity state fields."""
     entity = db.session.get(Object, entity_id)
@@ -160,6 +167,7 @@ def update_entity(entity_id):
 
 
 @debug_bp.route("/tasks", methods=["GET"])
+@require_permission("admin.view_audit")
 def list_tasks():
     """Return tasks, optionally filtered by entity_id."""
     from app.models import Task
@@ -178,6 +186,7 @@ def list_tasks():
 
 
 @debug_bp.route("/tasks/<int:task_id>/complete", methods=["POST"])
+@require_permission("admin.view_audit")
 def complete_task(task_id):
     """Mark a task as completed."""
     from app.models import Task
@@ -199,6 +208,7 @@ def complete_task(task_id):
 
 
 @debug_bp.route("/entity/<int:entity_id>/notes", methods=["GET"])
+@require_permission("admin.view_audit")
 def get_entity_notes(entity_id):
     """Get notes stored on an entity's context."""
     entity = db.session.get(Object, entity_id)
@@ -211,6 +221,7 @@ def get_entity_notes(entity_id):
 
 
 @debug_bp.route("/entity/<int:entity_id>/notes", methods=["POST"])
+@require_permission("admin.view_audit")
 def save_entity_notes(entity_id):
     """Save notes on an entity's context."""
     entity = db.session.get(Object, entity_id)

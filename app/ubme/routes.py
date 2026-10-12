@@ -12,6 +12,7 @@ import re
 from datetime import datetime, timezone
 
 from flask import jsonify, request, session
+from app.authz.decorators import session_required
 
 from app.ubme import ubme_bp
 from app.ubme import engine as ubme_engine
@@ -70,6 +71,7 @@ def _require_auth():
 
 
 @ubme_bp.route("/modules", methods=["GET"])
+@session_required
 def list_modules():
     """List all installed modules with basic info."""
     auth_err = _require_auth()
@@ -84,6 +86,7 @@ def list_modules():
 
 
 @ubme_bp.route("/modules", methods=["POST"])
+@session_required
 def create_module():
     """Create a new module from Module Builder data."""
     auth_err = _require_auth()
@@ -105,6 +108,7 @@ def create_module():
 
 
 @ubme_bp.route("/modules/<module_key>", methods=["GET"])
+@session_required
 def get_module(module_key: str):
     auth_err = _require_auth()
     if auth_err:
@@ -117,6 +121,7 @@ def get_module(module_key: str):
 
 
 @ubme_bp.route("/modules/<module_key>", methods=["PUT"])
+@session_required
 def update_module(module_key: str):
     auth_err = _require_auth()
     if auth_err:
@@ -134,6 +139,7 @@ def update_module(module_key: str):
 
 
 @ubme_bp.route("/modules/<module_key>", methods=["DELETE"])
+@session_required
 def delete_module(module_key: str):
     auth_err = _require_auth()
     if auth_err:
@@ -149,6 +155,7 @@ def delete_module(module_key: str):
 
 
 @ubme_bp.route("/templates", methods=["GET"])
+@session_required
 def list_templates():
     """List available business templates for installation."""
     templates = ubme_engine.list_templates()
@@ -159,6 +166,7 @@ def list_templates():
 
 
 @ubme_bp.route("/modules/<module_key>/install", methods=["POST"])
+@session_required
 def install_template(module_key: str):
     """Install a template — create a new module from predefined template."""
     auth_err = _require_auth()
@@ -182,6 +190,7 @@ def install_template(module_key: str):
 
 
 @ubme_bp.route("/types", methods=["GET"])
+@session_required
 def list_types():
     """List all registered object types across all modules."""
     auth_err = _require_auth()
@@ -198,6 +207,7 @@ def list_types():
 
 
 @ubme_bp.route("/types/<type_key>", methods=["GET"])
+@session_required
 def get_type(type_key: str):
     auth_err = _require_auth()
     if auth_err:
@@ -215,6 +225,7 @@ def get_type(type_key: str):
 
 
 @ubme_bp.route("/data/<object_type>", methods=["GET"])
+@session_required
 def list_objects(object_type: str):
     """List all instances of a given object type."""
     auth_err = _require_auth()
@@ -235,6 +246,7 @@ def list_objects(object_type: str):
 
 
 @ubme_bp.route("/data/<object_type>", methods=["POST"])
+@session_required
 def create_object(object_type: str):
     """Create a new object instance."""
     auth_err = _require_auth()
@@ -255,6 +267,7 @@ def create_object(object_type: str):
 
 
 @ubme_bp.route("/data/<object_type>/<instance_id>", methods=["GET"])
+@session_required
 def get_object(object_type: str, instance_id: str):
     auth_err = _require_auth()
     if auth_err:
@@ -273,6 +286,7 @@ def get_object(object_type: str, instance_id: str):
 
 
 @ubme_bp.route("/data/<object_type>/<instance_id>", methods=["PUT"])
+@session_required
 def update_object(object_type: str, instance_id: str):
     auth_err = _require_auth()
     if auth_err:
@@ -292,6 +306,7 @@ def update_object(object_type: str, instance_id: str):
 
 
 @ubme_bp.route("/data/<object_type>/<instance_id>", methods=["DELETE"])
+@session_required
 def delete_object(object_type: str, instance_id: str):
     auth_err = _require_auth()
     if auth_err:
@@ -313,6 +328,7 @@ def delete_object(object_type: str, instance_id: str):
 
 
 @ubme_bp.route("/actions/<object_type>", methods=["GET"])
+@session_required
 def get_actions(object_type: str):
     """Get available actions for an object type."""
     auth_err = _require_auth()
@@ -335,6 +351,7 @@ def get_actions(object_type: str):
 
 
 @ubme_bp.route("/dashboard/<module_key>", methods=["GET"])
+@session_required
 def get_dashboard(module_key: str):
     """Get generated dashboard cards for a module."""
     auth_err = _require_auth()
@@ -398,6 +415,7 @@ def _resolve_dashboard_card(card, module_key: str) -> dict:
 
 
 @ubme_bp.route("/views/<object_type>", methods=["GET"])
+@session_required
 def get_views(object_type: str):
     """Get compatible views for an object type."""
     auth_err = _require_auth()
@@ -420,6 +438,7 @@ def get_views(object_type: str):
 
 
 @ubme_bp.route("/navigation", methods=["GET"])
+@session_required
 def get_navigation():
     """Get dynamic navigation from all installed modules."""
     auth_err = _require_auth()
@@ -443,6 +462,7 @@ def get_navigation():
 
 
 @ubme_bp.route("/discover", methods=["POST"])
+@session_required
 def discover_business():
     """Generate a complete business module from a natural language description.
 
@@ -474,6 +494,7 @@ def discover_business():
 
 
 @ubme_bp.route("/discover/confirm", methods=["POST"])
+@session_required
 def confirm_discovered_module():
     """Confirm the generated module and install it.
 
@@ -504,6 +525,7 @@ def confirm_discovered_module():
 
 
 @ubme_bp.route("/semantics", methods=["GET"])
+@session_required
 def get_ai_semantics():
     """Expose all object type semantics for the Intelligence Runtime."""
     auth_err = _require_auth()

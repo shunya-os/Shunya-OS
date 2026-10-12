@@ -14,8 +14,8 @@ import json
 import time
 from datetime import datetime, timezone
 
-from flask import Blueprint, jsonify, request, Response, current_app, stream_with_context
-
+from flask import Blueprint, jsonify, request, Response, current_app, stream_with_context, session, g
+from app.authz.decorators import session_required
 from app.reality_engine.engine import get_reality_engine
 from app.reality_engine.sse_stream import get_sse_manager, serialize_event, serialize_heartbeat_frame
 from app.graph_universal.traversal import GraphQueryEngine
@@ -26,15 +26,17 @@ reality_bp = Blueprint("reality", __name__, url_prefix="/api/v1/reality")
 
 
 def _require_identity():
-    """Extract identity from session or header."""
-    from flask import session, g
-    identity_id = getattr(g, 'identity_id', None)
-    if identity_id:
-        return identity_id
+    """Resolve identity from the verified session ONLY (B23).
+
+    The historical ``X-Identity-Id`` header trust and the DEMO fallback
+    allowed arbitrary spoofed or anonymous reality projections. Identity is
+    now resolved exclusively from the session set by the authentication
+    layer; callers without a session are denied 401.
+    """
     identity_id = session.get("identity_id") or session.get("user_id")
     if identity_id:
-        return identity_id
-    identity_id = request.headers.get("X-Identity-Id")
+        return str(identity_id)
+    identity_id = getattr(g, "identity_id", None)
     return identity_id
 
 
@@ -47,21 +49,24 @@ DEMO_IDENTITY = "sid_demo_tenant"
 
 
 @reality_bp.route("", methods=["GET"])
+@session_required
 def get_reality():
     """GET /api/v1/reality
 
     Returns the canonical reality snapshot. Every frontend surface subscribes
     to this reality — not to individual APIs.
 
-    Unauthenticated requests resolve to the Demonstration Tenant through the
-    same Identity → Tenant → Reality pipeline used by authenticated users.
-    The Reality Engine projects Reality from tenant data identically for all workspaces.
+    B23: identity is resolved from the verified session ONLY. The previous
+    fallbacks — spoofable ``X-Identity-Id`` header and the DEMO_IDENTITY
+    tenant — are removed; unauthenticated callers are denied 401.
 
     Query params:
         workspace_type (optional): Filter projection for a specific workspace.
         workspace_id (optional): The workspace ID for the projection.
     """
-    identity_id = _require_identity() or DEMO_IDENTITY
+    identity_id = _require_identity()
+    if not identity_id:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
     engine = get_reality_engine()
     workspace_type = request.args.get("workspace_type", "founder")
     workspace_id = request.args.get("workspace_id", "default")
@@ -84,6 +89,7 @@ def get_reality():
 
 
 @reality_bp.route("/stream", methods=["GET"])
+@session_required
 def stream_reality():
     """GET /api/v1/reality/stream
 
@@ -174,6 +180,7 @@ def stream_reality():
 
 
 @reality_bp.route("/projection/<workspace_type>", methods=["GET"])
+@session_required
 def get_projection(workspace_type: str):
     """GET /api/v1/reality/projection/:workspace_type
 
@@ -205,6 +212,7 @@ def get_projection(workspace_type: str):
 
 
 @reality_bp.route("/object/<object_id>", methods=["GET"])
+@session_required
 def get_object_reality(object_id: str):
     """GET /api/v1/reality/object/:object_id
 

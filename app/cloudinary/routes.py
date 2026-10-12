@@ -7,6 +7,7 @@ import os
 import logging
 
 from flask import Blueprint, jsonify, request
+from app.authz.decorators import session_required
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ def _is_configured() -> bool:
 
 
 @cloudinary_bp.route("/status", methods=["GET"])
+@session_required
 def status():
     """Return whether Cloudinary credentials are configured."""
     return jsonify({
@@ -31,6 +33,7 @@ def status():
 
 
 @cloudinary_bp.route("/upload", methods=["POST"])
+@session_required
 def upload():
     """Accept a multipart file, upload to Cloudinary, return the URL."""
     if not _is_configured():

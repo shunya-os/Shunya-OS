@@ -13,7 +13,7 @@ import logging
 
 from flask import Blueprint, g, jsonify, request, session
 
-from app.authz.decorators import _resolve_org_id
+from app.authz.decorators import _resolve_org_id, session_required
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ def _require_auth() -> bool:
 
 
 @execution_visibility_bp.route("/work", methods=["GET"])
+@session_required
 def list_work():
     """List all execution work from canonical sources.
 
@@ -156,6 +157,7 @@ def list_work():
 
 
 @execution_visibility_bp.route("/outputs", methods=["GET"])
+@session_required
 def list_outputs():
     """List all outputs/artifacts from canonical sources.
 

@@ -43,13 +43,19 @@ os.makedirs(EXPORT_DIR, exist_ok=True)
 # ---------------------------------------------------------------------------
 
 
-def _generate_export_data(identity_id: str, scope: str, fmt: str) -> str:
-    """Generate export data and write to a temp file. Returns file path."""
+def _generate_export_data(identity_id: str, org_id: int, scope: str, fmt: str) -> str:
+    """Generate export data scoped to the caller's ORGANIZATION (B24).
+
+    The historical "all" scope dumped every tenant's organizations, accounts,
+    ledger entries, commercial relations and customers. Every query is now
+    filtered by the server-resolved organization.
+    """
     from app import db
 
     data: dict[str, Any] = {
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "identity_id": identity_id,
+        "organization_id": org_id,
         "scope": scope,
         "format": fmt,
     }
@@ -57,9 +63,13 @@ def _generate_export_data(identity_id: str, scope: str, fmt: str) -> str:
     if scope in ("all", "contacts"):
         try:
             from app.models import OrgMember, Organization
-            orgs = Organization.query.all()
-            data["organizations"] = [o.to_dict() if hasattr(o, "to_dict") else {"id": o.id, "name": getattr(o, "name", "")} for o in orgs]
-            members = OrgMember.query.filter_by(identity_id=identity_id).all()
+            org = Organization.query.filter_by(id=org_id).first()
+            data["organization"] = org.to_dict() if org and hasattr(org, "to_dict") else (
+                {"id": org.id, "name": getattr(org, "name", "")} if org else None
+            )
+            members = OrgMember.query.filter_by(
+                organization_id=org_id, identity_id=identity_id, is_active=True
+            ).all()
             data["memberships"] = [m.to_dict() if hasattr(m, "to_dict") else {"id": m.id} for m in members]
         except Exception as exc:
             data["contacts_error"] = str(exc)
@@ -75,9 +85,9 @@ def _generate_export_data(identity_id: str, scope: str, fmt: str) -> str:
     if scope in ("all", "finance"):
         try:
             from app.finance.models import Account, LedgerEntry
-            accounts = Account.query.all()
+            accounts = Account.query.filter_by(organization_id=org_id).all()
             data["accounts"] = [a.to_dict() if hasattr(a, "to_dict") else {"id": a.id, "name": getattr(a, "name", "")} for a in accounts]
-            entries = LedgerEntry.query.limit(500).all()
+            entries = LedgerEntry.query.filter_by(organization_id=org_id).limit(500).all()
             data["ledger_entries"] = [e.to_dict() if hasattr(e, "to_dict") else {"id": e.id} for e in entries]
         except Exception as exc:
             data["finance_error"] = str(exc)
@@ -85,7 +95,7 @@ def _generate_export_data(identity_id: str, scope: str, fmt: str) -> str:
     if scope in ("all", "commercial"):
         try:
             from app.commercial.models import CommercialRelation
-            rels = CommercialRelation.query.limit(500).all()
+            rels = CommercialRelation.query.filter_by(organization_id=org_id).limit(500).all()
             data["commercial_relations"] = [r.to_dict() if hasattr(r, "to_dict") else {"id": r.id} for r in rels]
         except Exception as exc:
             data["commercial_error"] = str(exc)
@@ -101,7 +111,7 @@ def _generate_export_data(identity_id: str, scope: str, fmt: str) -> str:
     if scope in ("all", "sales"):
         try:
             from app.customers.models import Customer
-            customers = Customer.query.limit(500).all()
+            customers = Customer.query.filter_by(tenant_id=org_id).limit(500).all()
             data["customers"] = [c.to_dict() if hasattr(c, "to_dict") else {"id": c.id} for c in customers]
         except Exception as exc:
             data["sales_error"] = str(exc)
@@ -142,7 +152,7 @@ def _generate_export_data(identity_id: str, scope: str, fmt: str) -> str:
 
 
 @export_bp.route("", methods=["POST"])
-@require_permission("rel.view")
+@require_permission("org.export_data")
 def create_export():
     """Create a new data export job.
 
@@ -151,9 +161,14 @@ def create_export():
 
     scope: all | contacts | documents | finance | commercial | marketing | sales | notifications
     format: json | csv | zip
+
+    B24: identity comes from the verified session via ``g.identity_id``
+    (never the ``X-Identity-Id`` header) and all data is scoped to the
+    caller's server-resolved organization.
     """
-    identity_id = getattr(g, "identity_id", None) or request.headers.get("X-Identity-Id")
-    if not identity_id:
+    identity_id = getattr(g, "identity_id", None)
+    org_id = getattr(g, "current_org_id", None)
+    if not identity_id or not org_id:
         return jsonify({"error": "Not authenticated"}), 401
 
     data = request.get_json(silent=True) or {}
@@ -169,6 +184,7 @@ def create_export():
     EXPORT_JOBS[job_id] = {
         "id": job_id,
         "identity_id": identity_id,
+        "organization_id": org_id,
         "scope": scope,
         "format": fmt,
         "status": "processing",
@@ -179,10 +195,10 @@ def create_export():
         "completed_at": None,
     }
 
-    def _run_export(jid: str, id_: str, sc: str, fm: str):
+    def _run_export(jid: str, id_: str, org: int, sc: str, fm: str):
         try:
             with db.session.no_autoflush:
-                path = _generate_export_data(id_, sc, fm)
+                path = _generate_export_data(id_, org, sc, fm)
             EXPORT_JOBS[jid].update({
                 "status": "completed",
                 "progress": 100,
@@ -200,7 +216,7 @@ def create_export():
 
     t = threading.Thread(
         target=_run_export,
-        args=(job_id, identity_id, scope, fmt),
+        args=(job_id, identity_id, org_id, scope, fmt),
         daemon=True,
     )
     t.start()
@@ -217,10 +233,10 @@ def create_export():
 
 
 @export_bp.route("/status/<job_id>", methods=["GET"])
-@require_permission("rel.view")
+@require_permission("org.export_data")
 def get_export_status(job_id: str):
     """Poll the progress of an export job."""
-    identity_id = getattr(g, "identity_id", None) or request.headers.get("X-Identity-Id")
+    identity_id = getattr(g, "identity_id", None)
 
     job = EXPORT_JOBS.get(job_id)
     if not job:
@@ -244,10 +260,10 @@ def get_export_status(job_id: str):
 
 
 @export_bp.route("/download/<job_id>", methods=["GET"])
-@require_permission("rel.view")
+@require_permission("org.export_data")
 def download_export(job_id: str):
     """Download a completed export file."""
-    identity_id = getattr(g, "identity_id", None) or request.headers.get("X-Identity-Id")
+    identity_id = getattr(g, "identity_id", None)
 
     job = EXPORT_JOBS.get(job_id)
     if not job:

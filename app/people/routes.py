@@ -127,6 +127,7 @@ def _seed_workstreams(org_id: int):
 
 
 @people_bp.route("/health", methods=["GET"])
+@require_permission("people.view")
 def people_health():
     return jsonify({
         "status": "ok", "service": "people-operations", "version": "1.0.0",

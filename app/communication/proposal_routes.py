@@ -11,6 +11,7 @@ Endpoints:
 from app.core.time import now
 
 from flask import Blueprint, jsonify, request
+from app.authz.decorators import session_required
 
 from app import db
 from app.communication.models import MessageProposal
@@ -61,6 +62,7 @@ def _serialize(p):
 
 
 @proposals_bp.route("", methods=["GET"])
+@session_required
 def list_proposals():
     """List all proposals, newest first."""
     proposals = MessageProposal.query.order_by(MessageProposal.id.desc()).all()
@@ -68,6 +70,7 @@ def list_proposals():
 
 
 @proposals_bp.route("/<int:proposal_id>", methods=["GET"])
+@session_required
 def get_proposal(proposal_id):
     """Get a single proposal."""
     p = db.session.get(MessageProposal, proposal_id)
@@ -77,6 +80,7 @@ def get_proposal(proposal_id):
 
 
 @proposals_bp.route("/<int:proposal_id>/approve", methods=["POST"])
+@session_required
 def approve_proposal(proposal_id):
     """Human approves a proposal. System sends the message immediately."""
     p = db.session.get(MessageProposal, proposal_id)
@@ -113,6 +117,7 @@ def approve_proposal(proposal_id):
 
 
 @proposals_bp.route("/<int:proposal_id>/reject", methods=["POST"])
+@session_required
 def reject_proposal(proposal_id):
     """Human rejects a proposal. No message is sent."""
     p = db.session.get(MessageProposal, proposal_id)
@@ -129,6 +134,7 @@ def reject_proposal(proposal_id):
 
 
 @proposals_bp.route("/<int:proposal_id>/edit", methods=["POST"])
+@session_required
 def edit_proposal(proposal_id):
     """Human edits the message content of a pending proposal."""
     p = db.session.get(MessageProposal, proposal_id)

@@ -62,6 +62,7 @@ def _check_role(org_id, identity_id, min_role):
 
 
 @for2_bp.route("/for2")
+@require_permission("org.view")
 def for2_home():
     """FOR-2 landing / org selection page."""
     uid = _get_current_identity()
@@ -81,6 +82,7 @@ def for2_home():
 
 
 @for2_bp.route("/for2/org/<int:org_id>")
+@require_permission("org.view")
 def for2_workspace(org_id: int):
     """Organization workspace page."""
     uid = _get_current_identity()
@@ -484,10 +486,28 @@ def api_list_departments(org_id: int):
 @for2_bp.route("/api/v1/for2/seed", methods=["POST"])
 @require_permission("org.edit")
 def api_seed_demo():
-    """Seed a demo organization for testing."""
+    """Seed a demo organization for development/demo environments only.
+
+    B11: the demo seeder is DISABLED in production — it must never seed demo
+    data into the live tenant or expose the hardcoded founder identity.
+    Membership records use the CALLING user's own name/email, never a
+    hardcoded founder.
+    """
+    import os
+    if os.environ.get("SHUNYA_ENVIRONMENT", "development").lower() in (
+        "production", "prod"
+    ):
+        return jsonify({"error": "Demo seeding is disabled in production"}), 404
     uid = _get_current_identity()
     if not uid:
         return jsonify({"error": "Authentication required"}), 401
+
+    from app.auth import TeamMember
+    caller = None
+    if uid.isdigit():
+        caller = db.session.get(TeamMember, int(uid))
+    caller_name = caller.name if caller and caller.name else "Demo User"
+    caller_email = caller.email if caller and caller.email else f"{uid}@shunyaos.com"
 
     existing = Organization.query.filter_by(slug="panchi-club").first()
     if existing:
@@ -497,7 +517,7 @@ def api_seed_demo():
         if not member:
             member = OrgMember(
                 organization_id=existing.id, identity_id=uid,
-                name="Nishesh", email="nishesh@shunyaos.com", role="owner", designation="Founder",
+                name=caller_name, email=caller_email, role="owner", designation="Founder",
             )
             db.session.add(member)
             db.session.commit()
@@ -520,8 +540,8 @@ def api_seed_demo():
     member = OrgMember(
         organization_id=org.id,
         identity_id=uid,
-        name="Nishesh",
-        email="nishesh@shunyaos.com",
+        name=caller_name,
+        email=caller_email,
         role="owner",
         designation="Founder",
     )

@@ -10,7 +10,7 @@ Provides admin API for:
 
 from flask import Blueprint, g, jsonify, request, session
 
-from app.authz.decorators import _resolve_org_id
+from app.authz.decorators import _resolve_org_id, session_required
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/v1/admin")
 
@@ -39,6 +39,7 @@ def _require_permission(permission: str) -> bool:
 
 
 @admin_bp.route("/health", methods=["GET"])
+@session_required
 def admin_health():
     return jsonify({
         "status": "ok", "service": "admin-permissions", "version": "1.0.0",
@@ -67,6 +68,7 @@ def admin_health():
 
 
 @admin_bp.route("/permissions", methods=["GET"])
+@session_required
 def list_permissions():
     """List all available permission keys."""
     from app.authz.extended_models import EXTENDED_PERMISSIONS
@@ -79,6 +81,7 @@ def list_permissions():
 
 
 @admin_bp.route("/roles", methods=["GET"])
+@session_required
 def list_roles():
     """List all roles for the current org."""
     if not _require_auth():
@@ -90,6 +93,7 @@ def list_roles():
 
 
 @admin_bp.route("/members/<int:member_id>/permissions", methods=["GET"])
+@session_required
 def get_member_permissions_route(member_id: int):
     """Get all permissions for a specific member."""
     if not _require_auth():
@@ -112,6 +116,7 @@ def get_member_permissions_route(member_id: int):
 
 
 @admin_bp.route("/service-accounts", methods=["POST"])
+@session_required
 def create_service_account():
     """Create a new service account."""
     if not _require_auth():
@@ -144,6 +149,7 @@ def create_service_account():
 
 
 @admin_bp.route("/service-accounts", methods=["GET"])
+@session_required
 def list_service_accounts():
     """List all service accounts."""
     if not _require_auth():
@@ -157,6 +163,7 @@ def list_service_accounts():
 
 
 @admin_bp.route("/service-accounts/<int:sa_id>", methods=["DELETE"])
+@session_required
 def revoke_service_account(sa_id: int):
     """Revoke a service account."""
     if not _require_auth():
@@ -176,6 +183,7 @@ def revoke_service_account(sa_id: int):
 
 
 @admin_bp.route("/delegations", methods=["GET"])
+@session_required
 def list_delegations():
     """List all active delegations."""
     if not _require_auth():
@@ -189,6 +197,7 @@ def list_delegations():
 
 
 @admin_bp.route("/delegations", methods=["POST"])
+@session_required
 def create_delegation():
     """Create an approval delegation."""
     if not _require_auth():
@@ -221,6 +230,7 @@ def create_delegation():
 
 
 @admin_bp.route("/delegations/<int:del_id>", methods=["DELETE"])
+@session_required
 def revoke_delegation(del_id: int):
     """Revoke an approval delegation."""
     if not _require_auth():
@@ -240,6 +250,7 @@ def revoke_delegation(del_id: int):
 
 
 @admin_bp.route("/policies", methods=["GET"])
+@session_required
 def list_policies():
     """List all tenant policies."""
     if not _require_auth():
@@ -250,6 +261,7 @@ def list_policies():
 
 
 @admin_bp.route("/policies/<path:policy_key>", methods=["GET"])
+@session_required
 def get_policy(policy_key: str):
     """Get a specific tenant policy."""
     if not _require_auth():
@@ -262,6 +274,7 @@ def get_policy(policy_key: str):
 
 
 @admin_bp.route("/policies", methods=["POST"])
+@session_required
 def set_policy():
     """Set a tenant policy value."""
     if not _require_auth():
@@ -295,6 +308,7 @@ def set_policy():
 
 
 @admin_bp.route("/identities/<identity_id>/age-verification", methods=["POST"])
+@session_required
 def record_age_verification(identity_id: str):
     """Record an age-verification outcome for an identity.
 

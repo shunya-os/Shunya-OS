@@ -3,6 +3,7 @@
 from flask import jsonify, request, session
 from app import db
 from app.authz import authz_bp
+from app.authz.decorators import session_required
 from app.authz.models import Role, OrgMemberRole
 from app.authz.services import seed_default_roles, check_permission, get_member_permissions, get_all_permission_keys
 from app.models import OrgMember
@@ -33,6 +34,7 @@ def _require_org():
 
 
 @authz_bp.route("/api/v1/authz/permissions", methods=["GET"])
+@session_required
 def api_list_permissions():
     """List all canonical permission keys."""
     return jsonify({"permissions": get_all_permission_keys()})
@@ -42,6 +44,7 @@ def api_list_permissions():
 
 
 @authz_bp.route("/api/v1/authz/roles", methods=["GET"])
+@session_required
 def api_list_roles():
     """List all roles for the current organization."""
     auth = _require_auth()
@@ -54,6 +57,7 @@ def api_list_roles():
 
 
 @authz_bp.route("/api/v1/authz/roles", methods=["POST"])
+@session_required
 def api_create_role():
     """Create a custom role."""
     auth = _require_auth()
@@ -77,6 +81,7 @@ def api_create_role():
 
 
 @authz_bp.route("/api/v1/authz/roles/<int:role_id>", methods=["PATCH"])
+@session_required
 def api_update_role(role_id):
     """Update a role's permissions."""
     auth = _require_auth()
@@ -106,6 +111,7 @@ def api_update_role(role_id):
 
 
 @authz_bp.route("/api/v1/authz/members/<int:member_id>/roles", methods=["GET"])
+@session_required
 def api_get_member_roles(member_id):
     """Get all roles assigned to a member."""
     auth = _require_auth()
@@ -131,6 +137,7 @@ def api_get_member_roles(member_id):
 
 
 @authz_bp.route("/api/v1/authz/members/<int:member_id>/roles", methods=["POST"])
+@session_required
 def api_assign_role(member_id):
     """Assign a role to a member."""
     auth = _require_auth()
@@ -171,6 +178,7 @@ def api_assign_role(member_id):
 
 
 @authz_bp.route("/api/v1/authz/members/<int:member_id>/roles/<int:role_id>", methods=["DELETE"])
+@session_required
 def api_remove_role(member_id, role_id):
     """Remove a role from a member."""
     auth = _require_auth()
@@ -193,6 +201,7 @@ def api_remove_role(member_id, role_id):
 
 
 @authz_bp.route("/api/v1/authz/check", methods=["GET"])
+@session_required
 def api_check_permission():
     """Check if the current user has a specific permission."""
     auth = _require_auth()
@@ -208,6 +217,7 @@ def api_check_permission():
 
 
 @authz_bp.route("/api/v1/authz/my-permissions", methods=["GET"])
+@session_required
 def api_my_permissions():
     """Get all permissions for the current user."""
     auth = _require_auth()
@@ -223,6 +233,7 @@ def api_my_permissions():
 
 
 @authz_bp.route("/api/v1/authz/seed", methods=["POST"])
+@session_required
 def api_seed_roles():
     """Seed default roles for the current organization."""
     auth = _require_auth()

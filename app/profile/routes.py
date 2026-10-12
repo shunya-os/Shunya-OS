@@ -15,6 +15,7 @@ import logging
 import os
 
 from flask import Blueprint, jsonify, request, g, session, current_app
+from app.authz.decorators import session_required
 
 from app import db
 from app.runtime_config import uploads_dir
@@ -57,6 +58,7 @@ def _get_or_create_profile(identity_id: str):
 
 
 @profile_bp.route("", methods=["GET"])
+@session_required
 def api_get_profile():
     """GET /api/v1/profile — return current user's profile (auto-create)."""
     identity_id = _resolve_identity()
@@ -68,6 +70,7 @@ def api_get_profile():
 
 
 @profile_bp.route("", methods=["PUT"])
+@session_required
 def api_update_profile():
     """PUT /api/v1/profile — update profile fields."""
     identity_id = _resolve_identity()
@@ -88,6 +91,7 @@ def api_update_profile():
 
 
 @profile_bp.route("/password", methods=["PUT"])
+@session_required
 def api_change_password():
     """PUT /api/v1/profile/password — change password.
 
@@ -142,6 +146,7 @@ def api_change_password():
 
 
 @profile_bp.route("/avatar", methods=["POST"])
+@session_required
 def api_upload_avatar():
     """POST /api/v1/profile/avatar — upload avatar image (multipart)."""
     identity_id = _resolve_identity()
@@ -188,6 +193,7 @@ def api_upload_avatar():
 
 
 @profile_bp.route("/preferences", methods=["GET"])
+@session_required
 def api_get_preferences():
     """GET /api/v1/profile/preferences — return user preferences."""
     identity_id = _resolve_identity()
@@ -199,6 +205,7 @@ def api_get_preferences():
 
 
 @profile_bp.route("/preferences", methods=["PUT"])
+@session_required
 def api_update_preferences():
     """PUT /api/v1/profile/preferences — update preferences."""
     identity_id = _resolve_identity()

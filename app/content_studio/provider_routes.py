@@ -3,6 +3,7 @@ Image Provider Routes — API endpoints for provider registry and generation.
 """
 import os
 from flask import Blueprint, jsonify, request, session
+from app.authz.decorators import session_required
 from app.content_studio.image_providers import (
     get_registry, init_providers, ImageQualityTier,
 )
@@ -11,6 +12,7 @@ provider_bp = Blueprint("image_providers", __name__, url_prefix="/api/v1/content
 
 
 @provider_bp.route("/providers", methods=["GET"])
+@session_required
 def list_providers():
     """List available image providers and tiers."""
     registry = get_registry()
@@ -23,6 +25,7 @@ def list_providers():
 
 
 @provider_bp.route("/generate", methods=["POST"])
+@session_required
 def generate_image():
     """Generate an image using the specified tier or provider."""
     from app.media.service import _save_image_file

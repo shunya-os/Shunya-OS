@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 
 from flask import Blueprint, jsonify, request
+from app.authz.decorators import session_required
 
 from .models import Feedback
 
@@ -39,6 +40,7 @@ def _resolve_identity() -> dict:
 
 
 @feedback_bp.route("", methods=["POST"])
+@session_required
 def api_create_feedback():
     """Record user feedback on a recommendation.
 
@@ -102,6 +104,7 @@ def api_create_feedback():
 
 
 @feedback_bp.route("", methods=["GET"])
+@session_required
 def api_list_feedback():
     """List feedback entries for a signal or all feedback."""
     signal_id = request.args.get("signal_id", "").strip()

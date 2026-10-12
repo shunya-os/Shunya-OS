@@ -11,6 +11,7 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 from app import db
 from app.auth import TeamMember
 from app.auth_routes import login_required
+from app.authz.decorators import session_required
 
 shunya_bp = Blueprint("shunya", __name__)
 
@@ -258,6 +259,7 @@ def api_unlink_auth_method():
 
 
 @shunya_bp.route("/space/personal")
+@login_required
 def space_personal():
     """Create or enter personal space."""
     if "user_id" not in session:
@@ -266,6 +268,7 @@ def space_personal():
 
 
 @shunya_bp.route("/space/organization")
+@login_required
 def space_organization():
     """Show organization creation/join page."""
     if "user_id" not in session:
@@ -279,6 +282,7 @@ def space_organization():
 
 
 @shunya_bp.route("/api/v1/conversation/think", methods=["POST"])
+@session_required
 def api_conversation_think():
     """Process a thought from the pre-auth thinking surface.
 

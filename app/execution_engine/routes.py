@@ -9,11 +9,13 @@ from flask import Blueprint, jsonify, request
 from app import db
 from app.models import Proposal
 from app.execution_log.models import ExecutionLog
+from app.authz.decorators import session_required
 
 execution_bp = Blueprint("execution_engine", __name__, url_prefix="/api/v1/execution")
 
 
 @execution_bp.route("/outputs", methods=["GET"])
+@session_required
 def list_outputs():
     """Return aggregated output items for the OutputsBrowser.
 
@@ -121,6 +123,7 @@ def list_outputs():
 
 
 @execution_bp.route("/work", methods=["GET"])
+@session_required
 def list_work_items():
     """Return execution work items for the ExecutionWorkspace component.
 

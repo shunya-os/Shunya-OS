@@ -20,6 +20,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, g, jsonify, request, session
+from app.authz.decorators import session_required
 
 from core.intelligence_runtime.cross_boundary import (
     TenantIdentity,
@@ -75,6 +76,7 @@ def _validate_tenant_required() -> TenantIdentity | tuple:
 
 
 @cb_bp.route("/ask", methods=["POST"])
+@session_required
 def api_ask():
     """Canonical cross-boundary intelligence query.
 
@@ -156,6 +158,7 @@ def api_ask():
 
 
 @cb_bp.route("/tenant-verify", methods=["POST"])
+@session_required
 def api_tenant_verify():
     """Verify tenant isolation — prove cross-tenant access is denied."""
     identity = _validate_tenant_required()
@@ -196,6 +199,7 @@ def api_health():
 
 
 @cb_bp.route("/identity", methods=["GET"])
+@session_required
 def api_identity():
     """Return current tenant identity for debugging."""
     identity = _resolve_tenant_identity()

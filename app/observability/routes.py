@@ -13,6 +13,7 @@ from flask import Blueprint, jsonify, request
 
 from app import db
 from app.observability.models import AIExecutionRecord
+from app.authz.decorators import session_required
 
 observability_bp = Blueprint("observability", __name__, url_prefix="/api/v1/observability")
 
@@ -63,6 +64,7 @@ def record_execution(
 
 
 @observability_bp.route("/record", methods=["POST"])
+@session_required
 def api_record_execution():
     """POST /api/v1/observability/record — record an AI execution.
 
@@ -97,6 +99,7 @@ def api_record_execution():
 
 
 @observability_bp.route("/history", methods=["GET"])
+@session_required
 def api_list_history():
     """GET /api/v1/observability/history — list recent execution records.
 

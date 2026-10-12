@@ -32,6 +32,7 @@ from app.adapters.os_adapter import (
 )
 from app.founder import founder_bp
 from app.authz.decorators import require_permission
+from app.auth_routes import login_required
 from app.founder.models import (
     BusinessRelationship,
     FounderConversation,
@@ -78,6 +79,7 @@ def _get_identity_name() -> str:
 
 
 @founder_bp.route("/founder/home")
+@login_required
 def founder_home():
     if not _founder_required():
         return redirect(url_for("founder.founder_login"))
@@ -85,6 +87,7 @@ def founder_home():
 
 
 @founder_bp.route("/founder/login")
+@login_required
 def founder_login():
     if _founder_required():
         return redirect(url_for("founder.founder_home"))
@@ -93,6 +96,7 @@ def founder_login():
 
 
 @founder_bp.route("/founder/space/create")
+@login_required
 def founder_space_create():
     if not _founder_required():
         return redirect(url_for("founder.founder_login"))
@@ -101,6 +105,7 @@ def founder_space_create():
 
 
 @founder_bp.route("/founder/space/<space_id>")
+@login_required
 def founder_space_workspace(space_id: str):
     if not _founder_required():
         return redirect(url_for("founder.founder_login"))
@@ -121,6 +126,7 @@ def founder_space_workspace(space_id: str):
 
 
 @founder_bp.route("/founder/object/<object_id>")
+@login_required
 def founder_object_view(object_id: str):
     if not _founder_required():
         return redirect(url_for("founder.founder_login"))
@@ -182,6 +188,9 @@ def workspace(subpath=None):
         if os.path.isfile(os.path.join(frontend_dist, "index.html")):
             return send_from_directory(frontend_dist, "index.html")
     return render_template("workspace.html")
+
+
+workspace._shunya_policy = "session:founder"
 
 
 # ---------------------------------------------------------------------------
@@ -421,6 +430,7 @@ def api_pipeline_traces():
 
 
 @founder_bp.route("/founder/logout", methods=["POST", "GET"])
+@login_required
 def founder_logout():
     session.clear()
     return redirect(url_for("founder.founder_login"))

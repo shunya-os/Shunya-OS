@@ -9,6 +9,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from app import db
+from app.authz.decorators import session_required
 from app.marketing.models import Campaign
 from app.g5.service import (
     record_campaign_event,
@@ -50,6 +51,7 @@ def _resolve_tenant():
 
 
 @g5_bp.route("/campaigns/<int:cid>/events", methods=["GET"])
+@session_required
 def list_campaign_events(cid):
     """Get campaign event stream."""
     tenant_id = _resolve_tenant()
@@ -67,6 +69,7 @@ def list_campaign_events(cid):
 
 
 @g5_bp.route("/campaigns/<int:cid>/events", methods=["POST"])
+@session_required
 def create_campaign_event(cid):
     """Record a campaign lifecycle event."""
     tenant_id = _resolve_tenant()
@@ -92,6 +95,7 @@ def create_campaign_event(cid):
 
 
 @g5_bp.route("/interactions", methods=["GET"])
+@session_required
 def list_interactions():
     """List touchpoint interactions with optional filters."""
     tenant_id = _resolve_tenant()
@@ -114,6 +118,7 @@ def list_interactions():
 
 
 @g5_bp.route("/interactions", methods=["POST"])
+@session_required
 def record_new_interaction():
     """Record a new touchpoint interaction."""
     tenant_id = _resolve_tenant()
@@ -150,6 +155,7 @@ def record_new_interaction():
 
 
 @g5_bp.route("/interactions/by-identity/<path:identity_ref>", methods=["GET"])
+@session_required
 def interactions_by_identity(identity_ref):
     """Get all interactions for a given identity (person)."""
     tenant_id = _resolve_tenant()
@@ -167,6 +173,7 @@ def interactions_by_identity(identity_ref):
 
 
 @g5_bp.route("/attributions", methods=["GET"])
+@session_required
 def list_attributions():
     """List attribution records."""
     tenant_id = _resolve_tenant()
@@ -189,6 +196,7 @@ def list_attributions():
 
 
 @g5_bp.route("/attributions", methods=["POST"])
+@session_required
 def create_new_attribution():
     """Create an attribution record."""
     tenant_id = _resolve_tenant()
@@ -246,6 +254,7 @@ def create_new_attribution():
 
 
 @g5_bp.route("/attributions/chain/<int:campaign_id>", methods=["GET"])
+@session_required
 def attribution_chain(campaign_id):
     """Get the full attribution chain for a campaign."""
     tenant_id = _resolve_tenant()
@@ -254,6 +263,7 @@ def attribution_chain(campaign_id):
 
 
 @g5_bp.route("/attributions/multi-touch", methods=["GET"])
+@session_required
 def multi_touch_attribution():
     """Get multi-touch attribution for an identity."""
     tenant_id = _resolve_tenant()
@@ -270,6 +280,7 @@ def multi_touch_attribution():
 
 
 @g5_bp.route("/integrate/opportunity", methods=["POST"])
+@session_required
 def integrate_opportunity():
     """Link a G4 CommercialOpportunity to a campaign."""
     tenant_id = _resolve_tenant()
@@ -289,6 +300,7 @@ def integrate_opportunity():
 
 
 @g5_bp.route("/integrate/outcome", methods=["POST"])
+@session_required
 def integrate_outcome():
     """Link a commercial outcome/proposal to a campaign."""
     tenant_id = _resolve_tenant()
@@ -314,6 +326,7 @@ def integrate_outcome():
 
 
 @g5_bp.route("/learnings", methods=["GET"])
+@session_required
 def list_learnings():
     """List growth learnings/insights."""
     tenant_id = _resolve_tenant()
@@ -336,6 +349,7 @@ def list_learnings():
 
 
 @g5_bp.route("/learnings", methods=["POST"])
+@session_required
 def create_learning_record():
     """Create a learning/insight record."""
     tenant_id = _resolve_tenant()
@@ -373,6 +387,7 @@ def create_learning_record():
 
 
 @g5_bp.route("/intelligence/<int:campaign_id>", methods=["GET"])
+@session_required
 def campaign_intel(campaign_id):
     """Get grounded campaign intelligence assessment."""
     tenant_id = _resolve_tenant()
@@ -381,6 +396,7 @@ def campaign_intel(campaign_id):
 
 
 @g5_bp.route("/intelligence/overview", methods=["GET"])
+@session_required
 def growth_overview():
     """Overview of growth intelligence across all campaigns."""
     tenant_id = _resolve_tenant()

@@ -17,6 +17,8 @@ from app.models import (
 )
 from app.services import parse_inquiry_text, get_summary, _cached_or_new_code, format_inquiry_reply
 from app.runtime_config import uploads_dir
+from app.authz.decorators import session_required, require_permission
+from app.auth_routes import login_required
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,7 @@ def _log_activity(lead_id: int, action: str, detail: str = ""):
 
 
 @api.route("/orgs", methods=["POST"])
+@session_required
 def api_create_org():
     """Create an organization (used by SPA onboarding flow)."""
     data = request.get_json(silent=True) or {}
@@ -271,6 +274,7 @@ def living_spa_shell():
 
 
 @main.route("/welcome")
+@login_required
 def welcome():
     """Welcome screen with logo, greeting, voice."""
     from app.companion import CompanionEngine
@@ -305,12 +309,14 @@ def welcome():
 
 
 @main.route("/calendar")
+@login_required
 def calendar_view():
     """Full-page calendar view showing trips, tasks, and events."""
     return render_template("calendar.html")
 
 
 @api.route("/calendar/events")
+@session_required
 def calendar_events():
     """JSON feed of events for the calendar. Requires start= and end= params."""
     from datetime import date as dt_date
@@ -333,12 +339,14 @@ def calendar_events():
 # ---------------------------------------------------------------------------
 
 @main.route("/leads")
+@login_required
 def leads_list():
     """Serving SPA — legacy leads list replaced by Universal Space workspace."""
     return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @main.route("/leads/new", methods=["GET", "POST"])
+@login_required
 def lead_new():
     if request.method == "POST":
         f = request.form
@@ -367,6 +375,7 @@ def lead_new():
 
 
 @main.route("/leads/<int:lead_id>")
+@login_required
 def lead_detail(lead_id):
     lead = Lead.query.get_or_404(lead_id)
     activities = lead.activities.order_by(Lead.activities.property.mapper.class_.created_at.desc()).limit(50).all()
@@ -397,6 +406,7 @@ def lead_detail(lead_id):
 
 
 @main.route("/leads/<int:lead_id>/status", methods=["POST"])
+@require_permission("rel.edit")
 def lead_update_status(lead_id):
     """Update lead status and log the change."""
     lead = Lead.query.get_or_404(lead_id)
@@ -434,6 +444,7 @@ def lead_update_status(lead_id):
 
 # API endpoint for kanban drag-and-drop
 @api.route("/leads/<int:lead_id>/status", methods=["POST"])
+@session_required
 def api_lead_status(lead_id):
     return lead_update_status(lead_id)
 
@@ -445,6 +456,7 @@ def api_lead_status(lead_id):
 
 
 @api.route("/outcomes/execute", methods=["POST"])
+@session_required
 def api_execute_outcome():
     """Execute an outcome by name or by natural language intent.
     
@@ -515,6 +527,7 @@ def api_execute_outcome():
 
 
 @api.route("/outcomes/workflows", methods=["GET"])
+@session_required
 def api_list_workflows():
     """List all available business workflows (Z-11 Article III)."""
     from app.outcome_engine import build_default_registry, OutcomeEngine, WorkflowEngine
@@ -526,6 +539,7 @@ def api_list_workflows():
 
 
 @api.route("/outcomes/workflows/execute", methods=["POST"])
+@session_required
 def api_execute_workflow():
     """Execute a complete workflow by chaining outcomes.
     
@@ -615,6 +629,7 @@ def _outcome_fetch(method: str, path: str, body: dict = None) -> dict:
 
 
 @api.route("/outcomes/list", methods=["GET"])
+@session_required
 def api_list_outcomes():
     """List all available outcomes with categories, descriptions, example phrases."""
     from app.outcome_engine import build_default_registry
@@ -632,6 +647,7 @@ def api_list_outcomes():
 
 
 @main.route("/leads/<int:lead_id>/edit", methods=["GET", "POST"])
+@login_required
 def lead_edit(lead_id):
     lead = Lead.query.get_or_404(lead_id)
     if request.method == "POST":
@@ -652,6 +668,7 @@ def lead_edit(lead_id):
 
 
 @main.route("/itineraries")
+@login_required
 def itinerary_builder():
     """Itinerary builder — create, edit, share travel plans."""
     lead_id = request.args.get("lead_id", type=int)
@@ -701,6 +718,7 @@ def itinerary_builder():
 
 
 @main.route("/leads/<int:lead_id>/delete", methods=["POST"])
+@require_permission("rel.edit")
 def lead_delete(lead_id):
     lead = Lead.query.get_or_404(lead_id)
     db.session.delete(lead)
@@ -714,6 +732,7 @@ def lead_delete(lead_id):
 # ---------------------------------------------------------------------------
 
 @main.route("/payments", methods=["GET", "POST"])
+@login_required
 def payments():
     if request.method == "POST":
         f = request.form
@@ -743,6 +762,7 @@ def payments():
 
 
 @main.route("/payments/<int:payment_id>/delete", methods=["POST"])
+@login_required
 def payment_delete(payment_id):
     p = Payment.query.get_or_404(payment_id)
     lead_id = p.lead_id
@@ -777,6 +797,7 @@ def payment_link(lead_id):
 
 
 @api.route("/payment/create", methods=["POST"])
+@session_required
 def api_create_payment():
     """API: Create a payment intent."""
     data = request.get_json(silent=True) or {}
@@ -807,6 +828,7 @@ def api_create_payment():
 
 
 @api.route("/payment/verify", methods=["POST"])
+@session_required
 def api_verify_payment():
     """API: Verify a payment."""
     data = request.get_json(silent=True) or {}
@@ -842,6 +864,7 @@ def payment_checkout(payment_id):
 
 
 @main.route("/payment/complete", methods=["POST"])
+@session_required
 def payment_complete():
     """
     Complete payment (simulated). Creates a Payment record in the DB,
@@ -959,6 +982,7 @@ def payment_receipt(payment_id):
 # ---------------------------------------------------------------------------
 
 @main.route("/invoices", methods=["GET", "POST"])
+@login_required
 def invoices():
     if request.method == "POST":
         f = request.form
@@ -1003,6 +1027,7 @@ def invoices():
 
 
 @main.route("/invoices/<int:invoice_id>/pdf")
+@login_required
 def invoice_pdf(invoice_id):
     inv = Invoice.query.get_or_404(invoice_id)
     if not inv.pdf_path or not os.path.exists(inv.pdf_path):
@@ -1026,6 +1051,7 @@ def invoice_pdf(invoice_id):
 # ---------------------------------------------------------------------------
 
 @main.route("/reports")
+@login_required
 def reports():
     from sqlalchemy import func, extract
     current_year = datetime.now(timezone.utc).year
@@ -1048,6 +1074,7 @@ def reports():
 # ---------------------------------------------------------------------------
 
 @main.route("/tasks")
+@login_required
 def tasks_list():
     """Task dashboard — lists on left, tasks on right."""
     from app.tasks import TaskManager
@@ -1103,6 +1130,7 @@ def tasks_list():
 
 
 @main.route("/tasks/create", methods=["POST"])
+@login_required
 def tasks_create_list():
     """Create a new task list."""
     from app.tasks import TaskManager
@@ -1117,6 +1145,7 @@ def tasks_create_list():
 
 
 @main.route("/tasks/<int:id>/delete", methods=["POST"])
+@login_required
 def tasks_delete_list(id):
     """Delete a task list and all its tasks."""
     from app.tasks import TaskManager
@@ -1129,6 +1158,7 @@ def tasks_delete_list(id):
 
 
 @main.route("/tasks/<int:id>/add", methods=["POST"])
+@login_required
 def tasks_add_item(id):
     """Add a task to a list."""
     from app.tasks import TaskManager
@@ -1153,6 +1183,7 @@ def tasks_add_item(id):
 
 
 @main.route("/tasks/item/<int:id>/status", methods=["POST"])
+@login_required
 def tasks_update_status(id):
     """Update task status (checkbox toggle). Accepts JSON."""
     from app.tasks import TaskManager
@@ -1176,6 +1207,7 @@ def tasks_update_status(id):
 
 
 @main.route("/tasks/item/<int:id>/delete", methods=["POST"])
+@login_required
 def tasks_delete_item(id):
     """Delete a task. Accepts JSON."""
     from app.tasks import TaskManager
@@ -1193,6 +1225,7 @@ def tasks_delete_item(id):
 
 
 @main.route("/tasks/reorder", methods=["POST"])
+@login_required
 def tasks_reorder():
     """Reorder tasks within a list (drag & drop). Accepts JSON."""
     from app.tasks import TaskManager
@@ -1205,6 +1238,7 @@ def tasks_reorder():
 
 
 @api.route("/tasks")
+@session_required
 def api_tasks():
     """JSON endpoint returning all tasks."""
     from app.tasks import TaskManager
@@ -1226,6 +1260,7 @@ def api_tasks():
 # ---------------------------------------------------------------------------
 
 @main.route("/settings", methods=["GET", "POST"])
+@login_required
 def settings():
     if request.method == "POST":
         f = request.form
@@ -1247,6 +1282,7 @@ def settings():
 
 
 @main.route("/settings/fields/add", methods=["POST"])
+@login_required
 def settings_fields_add():
     """Superadmin: create a custom dynamic field."""
     from app.dynamic_fields import DynamicFieldManager
@@ -1317,6 +1353,7 @@ def telegram_webhook():
 
 
 @main.route("/telegram/setup", methods=["POST"])
+@session_required
 def telegram_setup():
     from app.services import save_telegram_token
     token = request.form.get("bot_token")
@@ -1332,6 +1369,7 @@ def telegram_setup():
 
 
 @main.route("/telegram/setwebhook", methods=["POST"])
+@session_required
 def telegram_setwebhook():
     from app.services import get_telegram_token, set_telegram_webhook
     token = get_telegram_token()
@@ -1365,6 +1403,7 @@ def whatsapp_webhook():
 
 
 @main.route("/whatsapp/setup", methods=["POST"])
+@session_required
 def whatsapp_setup():
     """Configure WhatsApp Business API settings."""
     token = request.form.get("whatsapp_token", "")
@@ -1382,6 +1421,7 @@ def whatsapp_setup():
 # ---------------------------------------------------------------------------
 
 @api.route("/shunya/process", methods=["POST"])
+@session_required
 def shunya_process():
     data = request.get_json(silent=True) or {}
     fmt = data.get("format", "text")
@@ -1409,6 +1449,7 @@ def shunya_process():
 
 
 @api.route("/shunya/knowledge", methods=["GET"])
+@session_required
 def shunya_knowledge():
     from app.shunya import KnowledgeLayer
     k = KnowledgeLayer(db.session)
@@ -1419,6 +1460,7 @@ def shunya_knowledge():
 
 
 @api.route("/shunya/summary", methods=["GET"])
+@session_required
 def shunya_summary():
     from app.shunya import WorkflowLayer
     wf = WorkflowLayer(db.session)
@@ -1426,6 +1468,7 @@ def shunya_summary():
 
 
 @api.route("/shunya/proposal/<int:lead_id>", methods=["GET"])
+@session_required
 def shunya_proposal(lead_id):
     lead = Lead.query.get_or_404(lead_id)
     fmt = request.args.get("format", "text")
@@ -1460,6 +1503,7 @@ def shunya_proposal(lead_id):
 # ---------------------------------------------------------------------------
 
 @api.route("/leads/<int:lead_id>/activities", methods=["GET"])
+@require_permission("rel.view")
 def api_lead_activities(lead_id):
     """Return activity log for a lead as JSON."""
     lead = Lead.query.get_or_404(lead_id)
@@ -1478,6 +1522,7 @@ def api_lead_activities(lead_id):
 # ---------------------------------------------------------------------------
 
 @api.route("/notifications", methods=["GET"])
+@session_required
 def api_get_notifications():
     """Get notifications for the current user (or all if no user)."""
     from app.notifications import NotificationManager
@@ -1489,6 +1534,7 @@ def api_get_notifications():
 
 
 @api.route("/notifications/unread/count", methods=["GET"])
+@session_required
 def api_unread_count():
     """Get unread notification count for the current user."""
     from app.notifications import NotificationManager
@@ -1499,6 +1545,7 @@ def api_unread_count():
 
 
 @api.route("/notifications/<int:notification_id>/read", methods=["POST"])
+@session_required
 def api_mark_read(notification_id):
     """Mark a single notification as read."""
     from app.notifications import NotificationManager
@@ -1510,6 +1557,7 @@ def api_mark_read(notification_id):
 
 
 @api.route("/notifications/read-all", methods=["POST"])
+@session_required
 def api_mark_all_read():
     """Mark all notifications as read for the current user."""
     from app.notifications import NotificationManager
@@ -1520,6 +1568,7 @@ def api_mark_all_read():
 
 
 @api.route("/notifications/create", methods=["POST"])
+@session_required
 def api_create_notification():
     """Create a notification (for system events / programmatic use)."""
     from app.notifications import NotificationManager
@@ -1547,6 +1596,7 @@ def api_create_notification():
 # ---------------------------------------------------------------------------
 
 @api.route("/celebrations", methods=["GET"])
+@session_required
 def api_get_celebrations():
     """Get recent celebrations."""
     from app.celebrations import CelebrationEngine
@@ -1558,6 +1608,7 @@ def api_get_celebrations():
 
 
 @api.route("/celebrations/scan", methods=["GET"])
+@session_required
 def api_scan_celebrations():
     """Scan for new wins and record any that haven't been recorded yet."""
     from app.celebrations import CelebrationEngine
@@ -1573,6 +1624,7 @@ def api_scan_celebrations():
 
 
 @api.route("/celebrations", methods=["POST"])
+@session_required
 def api_create_celebration():
     """Manually create a celebration."""
     from app.celebrations import CelebrationEngine
@@ -1600,6 +1652,7 @@ def api_create_celebration():
 # ---------------------------------------------------------------------------
 
 @api.route("/voice/process", methods=["POST"])
+@session_required
 def voice_process():
     """Process voice input from the browser SpeechRecognition API.
 
@@ -1640,6 +1693,7 @@ def voice_process():
 # ---------------------------------------------------------------------------
 
 @main.route("/documents")
+@login_required
 def documents_page():
     """Document management — served as SPA shell.
 
@@ -1652,6 +1706,7 @@ def documents_page():
 
 
 @main.route("/documents/upload", methods=["POST"])
+@session_required
 def documents_upload():
     """Upload and process a document — extract text, classify, parse lead info."""
     if "file" not in request.files:
@@ -1744,6 +1799,7 @@ def documents_upload():
 
 
 @main.route("/documents/<int:doc_id>")
+@login_required
 def documents_detail(doc_id):
     """Document deep link — served as SPA shell.
 
@@ -1758,6 +1814,7 @@ def documents_detail(doc_id):
 
 
 @main.route("/api/documents/extract", methods=["POST"])
+@session_required
 def api_documents_extract():
     """API: Upload a file, return extracted text + structured data as JSON."""
     if "file" not in request.files:
@@ -1800,6 +1857,7 @@ def api_documents_extract():
 
 
 @main.route("/api/documents/classify", methods=["POST"])
+@session_required
 def api_documents_classify():
     """API: Classify a document (text-based classification)."""
     data = request.get_json(silent=True) or {}
@@ -1860,8 +1918,6 @@ def _generate_invoice_pdf(invoice_id, path):
 # ---------------------------------------------------------------------------
 # Executive Workspace
 # ---------------------------------------------------------------------------
-
-from app.auth_routes import login_required
 
 
 @main.route("/executive")
@@ -1980,6 +2036,7 @@ def workspace_stats():
 
 
 @api.route("/documents/<int:doc_id>/extract-facts", methods=["POST"])
+@session_required
 def api_extract_document_facts(doc_id: int):
     """Extract entities from a document and store as knowledge_facts."""
     from app.document.extraction_pipeline import store_document_facts
@@ -2015,6 +2072,7 @@ def api_extract_document_facts(doc_id: int):
 
 
 @api.route("/documents/backfill-facts", methods=["POST"])
+@session_required
 def api_backfill_document_facts():
     """Backfill knowledge_facts from all documents with extracted text."""
     from app.document.extraction_pipeline import backfill_all_documents
@@ -2037,6 +2095,7 @@ def api_backfill_document_facts():
 
 
 @api.route("/knowledge-facts", methods=["GET"])
+@session_required
 def api_list_knowledge_facts():
     """List knowledge facts, optionally filtered by domain or category."""
     from app.shunya.knowledge_store import KnowledgeFact
@@ -2062,6 +2121,7 @@ def api_list_knowledge_facts():
 
 
 @api.route("/knowledge-facts/stats", methods=["GET"])
+@session_required
 def api_knowledge_facts_stats():
     """Get knowledge_facts statistics."""
     from app.shunya.knowledge_store import ImmutableKnowledgeStore
@@ -2098,3 +2158,6 @@ SPA_INDEX = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist", "i
 def _legacy_spa_fallback(**kwargs):
     """Serve the SPA for legacy routes — eliminates module switching."""
     return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
+
+
+_legacy_spa_fallback._shunya_policy = "spa_shell"

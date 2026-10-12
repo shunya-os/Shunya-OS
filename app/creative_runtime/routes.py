@@ -1,6 +1,7 @@
 """EP-06 — Universal Creative Runtime API."""
 
 from flask import Blueprint, jsonify, request, g
+from app.authz.decorators import session_required
 
 from .runtime import get_creative_runtime, CREATIVE_TYPES, COMMUNICATION_INTENTS
 
@@ -15,6 +16,7 @@ def _require_identity():
 
 
 @creative_bp.route("/types", methods=["GET"])
+@session_required
 def list_creative_types():
     return jsonify({"success": True, "data": {
         "creative_types": CREATIVE_TYPES,
@@ -25,6 +27,7 @@ def list_creative_types():
 
 
 @creative_bp.route("", methods=["POST"])
+@session_required
 def create_asset():
     identity_id = _require_identity()
     if not identity_id:
@@ -42,6 +45,7 @@ def create_asset():
 
 
 @creative_bp.route("", methods=["GET"])
+@session_required
 def list_assets():
     identity_id = _require_identity()
     if not identity_id:
@@ -53,6 +57,7 @@ def list_assets():
 
 
 @creative_bp.route("/<asset_id>", methods=["GET"])
+@session_required
 def get_asset(asset_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -65,6 +70,7 @@ def get_asset(asset_id: str):
 
 
 @creative_bp.route("/<asset_id>/render", methods=["GET"])
+@session_required
 def render_asset(asset_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -78,6 +84,7 @@ def render_asset(asset_id: str):
 
 
 @creative_bp.route("/generate", methods=["POST"])
+@session_required
 def generate_representations():
     """Generate multiple creative representations from one intent.
 
@@ -101,6 +108,7 @@ def generate_representations():
 
 
 @creative_bp.route("/search", methods=["GET"])
+@session_required
 def search_assets():
     identity_id = _require_identity()
     if not identity_id:
@@ -114,6 +122,7 @@ def search_assets():
 
 
 @creative_bp.route("/brands", methods=["GET", "POST"])
+@session_required
 def brands():
     identity_id = _require_identity()
     if not identity_id:
@@ -132,6 +141,7 @@ def brands():
 
 
 @creative_bp.route("/templates", methods=["GET", "POST"])
+@session_required
 def templates():
     identity_id = _require_identity()
     if not identity_id:
@@ -150,6 +160,7 @@ def templates():
 
 
 @creative_bp.route("/<asset_id>/summary", methods=["GET"])
+@session_required
 def asset_summary(asset_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -159,6 +170,7 @@ def asset_summary(asset_id: str):
 
 
 @creative_bp.route("/<asset_id>/variant", methods=["GET"])
+@session_required
 def suggest_variant(asset_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -168,6 +180,7 @@ def suggest_variant(asset_id: str):
 
 
 @creative_bp.route("/<asset_id>/brand", methods=["GET"])
+@session_required
 def brand_consistency(asset_id: str):
     identity_id = _require_identity()
     if not identity_id:

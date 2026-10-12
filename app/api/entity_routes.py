@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from app import db
+from app.authz.decorators import _resolve_org_id, require_permission
 from app.core.entity import Entity
 from app.core.timeline import get_entity_timeline
 
@@ -57,9 +58,26 @@ ENTITY_TYPE_SCHEMAS = {
 }
 
 
+def _org_context() -> int | None:
+    """Server-resolved organization context (B21)."""
+    return _resolve_org_id()
+
+
+def _scoped_entity(entity_id: int):
+    """Entity only when it belongs to the caller's organization (fail closed)."""
+    org_id = _org_context()
+    if not org_id:
+        return None
+    return Entity.query.filter_by(id=entity_id, tenant_id=org_id).first()
+
+
 @entity_bp.route("/", methods=["GET"])
+@require_permission("rel.view")
 def list_entities():
-    entities = Entity.query.all()
+    org_id = _org_context()
+    if not org_id:
+        return jsonify({"error": "No organization context"}), 400
+    entities = Entity.query.filter_by(tenant_id=org_id).all()
     return jsonify([
         {"id": e.id, "type": e.type, "state": e.state, "data": e.data, "code": e.code, "status": e.status}
         for e in entities
@@ -67,8 +85,11 @@ def list_entities():
 
 
 @entity_bp.route("/<int:entity_id>", methods=["GET"])
+@require_permission("rel.view")
 def get_entity(entity_id):
-    e = Entity.query.get_or_404(entity_id)
+    e = _scoped_entity(entity_id)
+    if not e:
+        return jsonify({"error": "Entity not found"}), 404
     return jsonify({
         "id": e.id,
         "type": e.type,
@@ -80,6 +101,7 @@ def get_entity(entity_id):
 
 
 @entity_bp.route("/", methods=["POST"])
+@require_permission("rel.create")
 def create_entity():
     data = request.get_json() or {}
     entity_type = data.get("type", "contact")
@@ -119,8 +141,11 @@ def create_entity():
 
 
 @entity_bp.route("/<int:entity_id>", methods=["PATCH"])
+@require_permission("rel.edit")
 def update_entity(entity_id):
-    e = Entity.query.get_or_404(entity_id)
+    e = _scoped_entity(entity_id)
+    if not e:
+        return jsonify({"error": "Entity not found"}), 404
     data = request.get_json() or {}
     if "type" in data:
         e.type = data["type"]
@@ -135,6 +160,7 @@ def update_entity(entity_id):
 
 
 @entity_bp.route("/types", methods=["GET"])
+@require_permission("rel.view")
 def list_types():
     """Return available entity types with their field schemas."""
     return jsonify({
@@ -146,5 +172,9 @@ def list_types():
 
 
 @entity_bp.route("/<int:entity_id>/timeline", methods=["GET"])
+@require_permission("rel.view")
 def timeline(entity_id):
-    return jsonify(get_entity_timeline(entity_id))
+    e = _scoped_entity(entity_id)
+    if not e:
+        return jsonify({"error": "Entity not found"}), 404
+    return jsonify(get_entity_timeline(e.id))

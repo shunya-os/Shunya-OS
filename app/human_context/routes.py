@@ -10,6 +10,7 @@ Endpoints:
 The endpoints must: NOT diagnose, NOT manipulate, respect auth boundaries.
 """
 from flask import Blueprint, g, jsonify, request
+from app.authz.decorators import session_required
 
 from app.human_context.emotional import (
     EmotionalContextService,
@@ -62,6 +63,7 @@ def _auth_context():
 # ---------------------------------------------------------------------------
 
 @emotional_bp.route("/", methods=["POST"])
+@session_required
 def record_emotional_context():
     """Record emotional context.
 
@@ -119,6 +121,7 @@ def record_emotional_context():
 # ---------------------------------------------------------------------------
 
 @emotional_bp.route("/", methods=["GET"])
+@session_required
 def list_emotional_context():
     """List emotional context for the current user/tenant.
 
@@ -160,6 +163,7 @@ def list_emotional_context():
 # ---------------------------------------------------------------------------
 
 @emotional_bp.route("/<int:item_id>/correct", methods=["PATCH"])
+@session_required
 def correct_emotional_entry(item_id):
     """Correct a previous emotional context entry.
 
@@ -207,6 +211,7 @@ def correct_emotional_entry(item_id):
 # ---------------------------------------------------------------------------
 
 @emotional_bp.route("/<int:item_id>", methods=["DELETE"])
+@session_required
 def expire_emotional_entry(item_id):
     """Expire (soft-delete) an emotional context entry.
 

@@ -6,6 +6,8 @@ from app import db
 from app.objects.models import Object
 from app.runtime.loop import run_cycle
 from app.ui import ui_bp
+from app.auth_routes import login_required
+from app.authz.decorators import session_required
 
 
 @ui_bp.route("/workspace")
@@ -719,7 +721,11 @@ renderAwareness();
 </html>"""
 
 
+workspace_inbox._shunya_policy = "spa_shell"
+
+
 @ui_bp.route("/app")
+@login_required
 def shunya_app():
     """Serve the minimal workspace HTML."""
     return """<!DOCTYPE html>
@@ -845,6 +851,7 @@ def shunya_app():
 
 
 @ui_bp.route("/app/execute", methods=["POST"])
+@session_required
 def shunya_execute():
     """Accept user input, create/update entity, run loop, return result."""
 

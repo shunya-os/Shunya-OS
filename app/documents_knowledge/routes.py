@@ -6,7 +6,7 @@ Documents are DATA, not AUTHORITY.
 
 from flask import Blueprint, g, jsonify, request, session
 
-from app.authz.decorators import _resolve_org_id
+from app.authz.decorators import _resolve_org_id, session_required
 
 doc_knowledge_bp = Blueprint("doc_knowledge", __name__, url_prefix="/api/v1/knowledge")
 
@@ -38,6 +38,7 @@ def health():
 
 
 @doc_knowledge_bp.route("/ingest", methods=["POST"])
+@session_required
 def ingest():
     """Ingest a document through the governed pipeline."""
     if not _require_auth():
@@ -98,6 +99,7 @@ def ingest():
 
 
 @doc_knowledge_bp.route("/<int:doc_id>", methods=["GET"])
+@session_required
 def get_document(doc_id: int):
     """Get a document with provenance."""
     if not _require_auth():
@@ -138,6 +140,7 @@ def get_document(doc_id: int):
 
 
 @doc_knowledge_bp.route("/search", methods=["GET"])
+@session_required
 def search():
     """Search documents."""
     if not _require_auth():
@@ -172,6 +175,7 @@ def search():
 
 
 @doc_knowledge_bp.route("/check-injection", methods=["POST"])
+@session_required
 def check_injection():
     """Check text for prompt injection attempts.
 
@@ -196,6 +200,7 @@ def check_injection():
 
 
 @doc_knowledge_bp.route("/<int:doc_id>/context", methods=["GET"])
+@session_required
 def document_context(doc_id: int):
     """Contextualize a document by linking to related objects."""
     if not _require_auth():

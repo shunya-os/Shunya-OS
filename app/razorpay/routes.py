@@ -19,6 +19,7 @@ from cryptography.fernet import Fernet
 from sqlalchemy import text
 
 from app import db
+from app.authz.decorators import session_required
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +104,7 @@ def _get_saved_keys(identity_id: str) -> dict | None:
 
 
 @razorpay_bp.route("/status", methods=["GET"])
+@session_required
 def status():
     """Check whether the current user has saved Razorpay keys."""
     identity_id = _get_identity_id()
@@ -118,6 +120,7 @@ def status():
 
 
 @razorpay_bp.route("/save-keys", methods=["POST"])
+@session_required
 def save_keys():
     """Save or update Razorpay API keys for the current user.
 
@@ -172,6 +175,7 @@ def save_keys():
 
 
 @razorpay_bp.route("/test-connection", methods=["POST"])
+@session_required
 def test_connection():
     """Test the saved Razorpay keys by fetching account balance."""
     identity_id = _get_identity_id()
@@ -195,6 +199,7 @@ def test_connection():
 
 
 @razorpay_bp.route("/create-link", methods=["POST"])
+@session_required
 def create_payment_link():
     """Create a Razorpay payment link.
 

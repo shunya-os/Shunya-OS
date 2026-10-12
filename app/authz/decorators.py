@@ -151,6 +151,9 @@ def require_permission(permission: str):
             g.identity_id = identity
             g.current_org_id = org_id
             return fn(*args, **kwargs)
+
+        # B16: explicit-policy marker for the route/blueprint inventory test.
+        wrapper._shunya_policy = f"permission:{permission}"  # type: ignore[attr-defined]
         return wrapper
     return decorator
 
@@ -179,5 +182,66 @@ def require_any_permission(*permissions: str):
                     g.current_org_id = org_id
                     return fn(*args, **kwargs)
             return jsonify({"success": False, "error": "Forbidden: missing permission"}), 403
+
+        wrapper._shunya_policy = "permission_any:{}".format(",".join(permissions))  # type: ignore[attr-defined]
+        return wrapper
+    return decorator
+
+
+def session_required(fn):
+    """Decorator: require a verified session (authentication only).
+
+    The minimal explicit security policy for API routes that are not public
+    but need no role/tenant authorization (B16 inventory contract). Identity
+    is resolved from the session ONLY — never from client headers. Denies
+    401 with a JSON body, sets ``g.identity_id`` for the handler.
+    """
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        identity = _resolve_identity()
+        if not identity:
+            return jsonify({"success": False, "error": "Authentication required"}), 401
+        g.identity_id = identity
+        return fn(*args, **kwargs)
+
+    wrapper._shunya_policy = "session"  # type: ignore[attr-defined]
+    return wrapper
+
+
+def session_or_permission(*permissions: str):
+    """Decorator: allow any authenticated session OR the given permission.
+
+    Used by the few surfaces where personal (no-org) users must pass while
+    org users are additionally permission-checked. The permission check is
+    applied ONLY when the caller resolves an authorized organization;
+    personal-scope callers pass on session alone (mirrors require_permission
+    personal bypass but never fabricates an org).
+    """
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            identity = _resolve_identity()
+            if not identity:
+                return jsonify({"success": False, "error": "Authentication required"}), 401
+            org_id, denial = _resolve_org_or_denial(identity)
+            if not org_id:
+                if denial in _SELECTION_REQUIRED_CODES:
+                    return jsonify({"success": False, "error": "No organization selected",
+                                    "code": denial}), 400
+                # No authorized org: session alone is NOT enough for a
+                # permission-carrying route — deny (fail closed).
+                logger.info("AUTHZ DENY: identity=%s code=%s path=%s",
+                            identity, denial, request.path)
+                return jsonify({"success": False, "code": denial,
+                                "error": "Forbidden: no authorized organization"}), 403
+            from app.authz.services import check_permission
+            for perm in permissions:
+                if check_permission(org_id, identity, perm):
+                    g.identity_id = identity
+                    g.current_org_id = org_id
+                    return fn(*args, **kwargs)
+            return jsonify({"success": False, "error": "Forbidden: missing permission"}), 403
+
+        wrapper._shunya_policy = "session_or_permission:{}".format(",".join(permissions))  # type: ignore[attr-defined]
         return wrapper
     return decorator

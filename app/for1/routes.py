@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from flask import jsonify, render_template, request, session, url_for, current_app, redirect
 
 from app import db
+from app.authz.decorators import session_required
 from app.for1 import for1_bp
 from app.for1.engine import (
     generate_proposal,
@@ -58,6 +59,7 @@ def _api_require_auth():
 
 
 @for1_bp.route("/for1/proposals")
+@session_required
 def proposal_list():
     """List all proposals."""
     auth_err = _require_auth()
@@ -68,6 +70,7 @@ def proposal_list():
 
 
 @for1_bp.route("/for1/proposal/<int:proposal_id>")
+@session_required
 def proposal_view(proposal_id: int):
     """View a single proposal."""
     auth_err = _require_auth()
@@ -81,6 +84,7 @@ def proposal_view(proposal_id: int):
 
 
 @for1_bp.route("/for1/proposal/<int:proposal_id>/preview")
+@session_required
 def proposal_preview(proposal_id: int):
     """Preview the proposal as a beautiful web page."""
     proposal = db.session.get(Proposal, proposal_id)
@@ -92,6 +96,7 @@ def proposal_preview(proposal_id: int):
 
 
 @for1_bp.route("/for1/dashboard")
+@session_required
 def for1_dashboard():
     """FOR-1 Executive dashboard."""
     auth_err = _require_auth()
@@ -120,6 +125,7 @@ def for1_dashboard():
 
 
 @for1_bp.route("/api/v1/for1/proposals", methods=["GET"])
+@session_required
 def api_proposal_list():
     """List all proposals (JSON API)."""
     auth_err = _require_auth()
@@ -133,6 +139,7 @@ def api_proposal_list():
 
 
 @for1_bp.route("/api/v1/for1/proposals", methods=["POST"])
+@session_required
 def api_create_proposal():
     """Create a new proposal from lead data, optionally with AI generation."""
     auth_err = _api_require_auth()
@@ -242,6 +249,7 @@ def api_create_proposal():
 
 
 @for1_bp.route("/api/v1/for1/proposals/<int:proposal_id>", methods=["GET"])
+@session_required
 def api_get_proposal(proposal_id: int):
     """Get a proposal by ID."""
     proposal = db.session.get(Proposal, proposal_id)
@@ -251,6 +259,7 @@ def api_get_proposal(proposal_id: int):
 
 
 @for1_bp.route("/api/v1/for1/proposals/<int:proposal_id>/pdf", methods=["POST"])
+@session_required
 def api_generate_pdf(proposal_id: int):
     """Generate PDF for a proposal."""
     proposal = db.session.get(Proposal, proposal_id)
@@ -266,6 +275,7 @@ def api_generate_pdf(proposal_id: int):
 
 
 @for1_bp.route("/api/v1/for1/proposals/<int:proposal_id>/status", methods=["PATCH"])
+@session_required
 def api_update_proposal_status(proposal_id: int):
     """Update proposal status (send, accept, cancel)."""
     proposal = db.session.get(Proposal, proposal_id)
@@ -302,6 +312,7 @@ def api_update_proposal_status(proposal_id: int):
 
 
 @for1_bp.route("/api/v1/for1/proposals/<int:proposal_id>/regenerate", methods=["POST"])
+@session_required
 def api_regenerate_proposal(proposal_id: int):
     """Regenerate a proposal with AI (creates new version)."""
     auth_err = _api_require_auth()
@@ -399,6 +410,7 @@ def _extract_text_from_file(filepath: str, file_type: str) -> str:
 
 
 @for1_bp.route("/api/v1/for1/knowledge/upload", methods=["POST"])
+@session_required
 def api_upload_knowledge():
     """Upload a knowledge document."""
     auth_err = _api_require_auth()
@@ -449,6 +461,7 @@ def api_upload_knowledge():
 
 
 @for1_bp.route("/api/v1/for1/knowledge", methods=["GET"])
+@session_required
 def api_list_knowledge():
     """List knowledge documents with optional search."""
     auth_err = _api_require_auth()
@@ -465,6 +478,7 @@ def api_list_knowledge():
 
 
 @for1_bp.route("/api/v1/for1/knowledge/<int:doc_id>", methods=["DELETE"])
+@session_required
 def api_delete_knowledge(doc_id: int):
     """Delete a knowledge document."""
     auth_err = _api_require_auth()
@@ -479,6 +493,7 @@ def api_delete_knowledge(doc_id: int):
 
 
 @for1_bp.route("/api/v1/for1/leads", methods=["GET"])
+@session_required
 def api_lead_list():
     """List all leads (JSON API)."""
     auth_err = _api_require_auth()
@@ -492,6 +507,7 @@ def api_lead_list():
 
 
 @for1_bp.route("/api/v1/for1/leads", methods=["POST"])
+@session_required
 def api_lead_create():
     """Create a new lead (JSON API)."""
     auth_err = _api_require_auth()
@@ -512,6 +528,7 @@ def api_lead_create():
 
 
 @for1_bp.route("/api/v1/for1/leads/<int:lead_id>/proposal", methods=["POST"])
+@session_required
 def api_lead_to_proposal(lead_id: int):
     """Quick-create a proposal from a lead with optional AI."""
     auth_err = _api_require_auth()

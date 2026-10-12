@@ -24,6 +24,7 @@ FDA24 consolidated: injection detection + context added here.
 """
 
 from flask import Blueprint, jsonify, request, g
+from app.authz.decorators import session_required
 from .runtime import get_document_runtime, DOCUMENT_TYPES
 
 doc_bp = Blueprint("documents", __name__, url_prefix="/api/v1/documents")
@@ -37,6 +38,7 @@ def _require_identity():
 
 
 @doc_bp.route("", methods=["POST"])
+@session_required
 def create_document():
     identity_id = _require_identity()
     if not identity_id:
@@ -67,6 +69,7 @@ def list_documents():
 
 
 @doc_bp.route("/<doc_id>", methods=["GET"])
+@session_required
 def get_document(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -79,6 +82,7 @@ def get_document(doc_id: str):
 
 
 @doc_bp.route("/<doc_id>/content", methods=["PUT"])
+@session_required
 def update_document(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -95,6 +99,7 @@ def update_document(doc_id: str):
 
 
 @doc_bp.route("/<doc_id>/convert", methods=["POST"])
+@session_required
 def convert_document(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -109,6 +114,7 @@ def convert_document(doc_id: str):
 
 
 @doc_bp.route("/search", methods=["GET"])
+@session_required
 def search_documents():
     identity_id = _require_identity()
     if not identity_id:
@@ -122,6 +128,7 @@ def search_documents():
 
 
 @doc_bp.route("/<doc_id>/summary", methods=["GET"])
+@session_required
 def document_summary(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -132,6 +139,7 @@ def document_summary(doc_id: str):
 
 
 @doc_bp.route("/<doc_id>/ocr", methods=["POST"])
+@session_required
 def document_ocr(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -142,6 +150,7 @@ def document_ocr(doc_id: str):
 
 
 @doc_bp.route("/types", methods=["GET"])
+@session_required
 def list_document_types():
     return jsonify({"success": True, "data": {
         doc_type: {"lifecycle": config["lifecycle"], "default_purpose": config["default_purpose"]}
@@ -150,6 +159,7 @@ def list_document_types():
 
 
 @doc_bp.route("/<doc_id>/transition", methods=["POST"])
+@session_required
 def transition_document(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -166,6 +176,7 @@ def transition_document(doc_id: str):
 
 
 @doc_bp.route("/<doc_id>/evidence", methods=["POST"])
+@session_required
 def add_evidence(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -183,6 +194,7 @@ def add_evidence(doc_id: str):
 
 
 @doc_bp.route("/<doc_id>/risk", methods=["GET"])
+@session_required
 def document_risk(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -193,6 +205,7 @@ def document_risk(doc_id: str):
 
 
 @doc_bp.route("/<doc_id>/recommend", methods=["GET"])
+@session_required
 def document_recommendation(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -203,6 +216,7 @@ def document_recommendation(doc_id: str):
 
 
 @doc_bp.route("/<doc_id>/relationships", methods=["POST"])
+@session_required
 def add_relationship(doc_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -222,6 +236,7 @@ def add_relationship(doc_id: str):
 
 
 @doc_bp.route("/check-injection", methods=["POST"])
+@session_required
 def check_injection():
     """POST /api/v1/documents/check-injection — detect prompt injection.
     A document is DATA, not AUTHORITY. Injected instructions are isolated.
@@ -243,6 +258,7 @@ def check_injection():
 
 
 @doc_bp.route("/<doc_id>/context", methods=["GET"])
+@session_required
 def document_context(doc_id: str):
     """GET /api/v1/documents/<id>/context — contextualize with evidence."""
     identity_id = _require_identity()

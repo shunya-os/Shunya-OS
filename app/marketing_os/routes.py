@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request
 from datetime import datetime
 from app import db
+from app.authz.decorators import require_permission, require_any_permission
 from app.marketing.models import Campaign
 from app.marketing_os import service as mo
 
@@ -9,6 +10,7 @@ mkt_bp = Blueprint("marketing_os", __name__, url_prefix="/api/v1/marketing")
 
 
 @mkt_bp.route("/campaigns", methods=["GET"])
+@require_permission("rel.view")
 def list_campaigns():
     from app.authz.decorators import _resolve_org_id
     tenant_id = _resolve_org_id()
@@ -19,6 +21,7 @@ def list_campaigns():
 
 
 @mkt_bp.route("/campaigns", methods=["POST"])
+@require_permission("rel.create")
 def create_campaign():
     from app.authz.decorators import _resolve_org_id
     tenant_id = _resolve_org_id()
@@ -40,6 +43,7 @@ def create_campaign():
 
 
 @mkt_bp.route("/campaigns/<int:cid>", methods=["GET", "PATCH", "DELETE"])
+@require_permission("rel.edit")
 def campaign(cid):
     from app.authz.decorators import _resolve_org_id
     tenant_id = _resolve_org_id()
@@ -65,6 +69,7 @@ def campaign(cid):
 
 
 @mkt_bp.route("/audiences", methods=["GET", "POST"])
+@require_any_permission("rel.view", "rel.create")
 def audiences():
     from app.authz.decorators import _resolve_org_id
     tenant_id = _resolve_org_id()
@@ -87,6 +92,7 @@ def audiences():
 
 
 @mkt_bp.route("/content", methods=["GET", "POST"])
+@require_any_permission("rel.view", "rel.create")
 def content():
     from app.authz.decorators import _resolve_org_id
     tenant_id = _resolve_org_id()
@@ -114,6 +120,7 @@ def content():
 
 
 @mkt_bp.route("/content/<int:cid>/approve", methods=["POST"])
+@require_permission("rel.edit")
 def approve_content(cid):
     from app.authz.decorators import _resolve_org_id
     tenant_id = _resolve_org_id()
@@ -127,6 +134,7 @@ def approve_content(cid):
 
 
 @mkt_bp.route("/capture-lead", methods=["POST"])
+@require_permission("rel.create")
 def capture_lead():
     from app.authz.decorators import _resolve_org_id
     tenant_id = _resolve_org_id()

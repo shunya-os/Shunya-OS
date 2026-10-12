@@ -7,11 +7,13 @@ All endpoints return structured, read-only intelligence data.
 from app.core.time import now
 
 from flask import Blueprint, jsonify, request
+from app.authz.decorators import session_required
 
 awareness_bp = Blueprint("awareness", __name__, url_prefix="/api/v1")
 
 
 @awareness_bp.route("/awareness", methods=["GET"])
+@session_required
 def api_awareness():
     """Return awareness signals sorted by severity + recency.
     
@@ -53,6 +55,7 @@ def api_awareness():
 
 
 @awareness_bp.route("/evidence", methods=["GET"])
+@session_required
 def api_evidence():
     """Return evidence logs for a given entity or type.
     
@@ -78,6 +81,7 @@ def api_evidence():
 
 
 @awareness_bp.route("/debug/state", methods=["GET"])
+@session_required
 def api_debug_state():
     """Return system state counts and consistency verification.
     
@@ -132,6 +136,7 @@ def api_debug_state():
         })
 
 @awareness_bp.route("/decision-trace/<int:object_id>", methods=["GET"])
+@session_required
 def api_decision_trace(object_id):
     """Return decision traces for a specific object."""
     try:
@@ -143,6 +148,7 @@ def api_decision_trace(object_id):
 
 
 @awareness_bp.route("/decision-trace", methods=["GET"])
+@session_required
 def api_decision_traces_all():
     """Return all recent decision traces."""
     try:
@@ -154,6 +160,7 @@ def api_decision_traces_all():
 
 
 @awareness_bp.route("/ingest/gmail", methods=["POST"])
+@session_required
 def api_ingest_gmail():
     """Trigger Gmail ingestion via canonical GmailAdapter pipeline.
 
@@ -176,6 +183,7 @@ def api_ingest_gmail():
 
 
 @awareness_bp.route("/decisions", methods=["GET"])
+@session_required
 def api_decisions():
     """Return computed decision intelligence from awareness signals.
     

@@ -82,6 +82,7 @@ def api_list_leads():
 
 
 @crm_bp.route("/leads/<int:lead_id>/qualify", methods=["POST"])
+@require_permission("rel.edit")
 def api_qualify_lead(lead_id: int):
     """Qualify a lead through the canonical path."""
     lead = db.session.get(Lead, lead_id)
@@ -97,6 +98,7 @@ def api_qualify_lead(lead_id: int):
 
 
 @crm_bp.route("/leads/<int:lead_id>/assign", methods=["POST"])
+@require_permission("rel.edit")
 def api_assign_lead(lead_id: int):
     """Assign a lead to an owner."""
     lead = db.session.get(Lead, lead_id)
@@ -112,6 +114,7 @@ def api_assign_lead(lead_id: int):
 
 
 @crm_bp.route("/leads/<int:lead_id>/sla", methods=["GET"])
+@require_permission("rel.view")
 def api_lead_sla(lead_id: int):
     """Check SLA status for a lead."""
     lead = db.session.get(Lead, lead_id)
@@ -121,6 +124,7 @@ def api_lead_sla(lead_id: int):
 
 
 @crm_bp.route("/leads/<int:lead_id>/follow-up", methods=["POST"])
+@require_permission("rel.edit")
 def api_create_followup(lead_id: int):
     """Create a follow-up task for a lead."""
     lead = db.session.get(Lead, lead_id)
@@ -139,6 +143,7 @@ def api_create_followup(lead_id: int):
 
 
 @crm_bp.route("/leads/<int:lead_id>/opportunity", methods=["POST"])
+@require_permission("rel.edit")
 def api_create_opportunity(lead_id: int):
     """Create an opportunity/proposal from a qualified lead."""
     lead = db.session.get(Lead, lead_id)
@@ -169,6 +174,7 @@ def api_lead_won(lead_id: int):
 
 
 @crm_bp.route("/leads/<int:lead_id>/lost", methods=["POST"])
+@require_permission("rel.edit")
 def api_lead_lost(lead_id: int):
     """Mark a lead as lost."""
     lead = db.session.get(Lead, lead_id)
@@ -181,6 +187,7 @@ def api_lead_lost(lead_id: int):
 
 
 @crm_bp.route("/leads/reassign", methods=["POST"])
+@require_permission("rel.edit")
 def api_reassign_leads():
     """Reassign unattended leads past SLA."""
     data = request.get_json(silent=True) or {}

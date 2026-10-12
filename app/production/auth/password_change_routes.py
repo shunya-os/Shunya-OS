@@ -8,11 +8,13 @@ from flask import jsonify, request, session
 from werkzeug.exceptions import BadRequest
 
 from app import db
+from app.authz.decorators import session_required
 from app.auth import TeamMember
 from app.auth_routes import auth_bp
 
 
 @auth_bp.route("/change-password", methods=["POST"])
+@session_required
 def change_password():
     """Change the authenticated user's password.
 

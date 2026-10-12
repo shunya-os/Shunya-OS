@@ -6,6 +6,7 @@ All communication flows through the runtime — no direct provider access.
 
 import json
 from flask import Blueprint, jsonify, request, g
+from app.authz.decorators import session_required
 
 from .runtime import get_communication_runtime
 from .conversation import ChannelType
@@ -22,6 +23,7 @@ def _require_identity():
 
 
 @comm_bp.route("/conversations", methods=["POST"])
+@session_required
 def create_conversation():
     """POST /api/v1/communication/conversations — create a new Conversation."""
     identity_id = _require_identity()
@@ -45,6 +47,7 @@ def create_conversation():
 
 
 @comm_bp.route("/conversations", methods=["GET"])
+@session_required
 def list_conversations():
     """GET /api/v1/communication/conversations — list all conversations."""
     identity_id = _require_identity()
@@ -57,6 +60,7 @@ def list_conversations():
 
 
 @comm_bp.route("/conversations/<conv_id>", methods=["GET"])
+@session_required
 def get_conversation(conv_id: str):
     """GET /api/v1/communication/conversations/<id> — full conversation detail."""
     identity_id = _require_identity()
@@ -79,6 +83,7 @@ def get_conversation(conv_id: str):
 
 
 @comm_bp.route("/conversations/<conv_id>/messages", methods=["POST"])
+@session_required
 def send_message(conv_id: str):
     """POST /api/v1/communication/conversations/<id>/messages — send a message."""
     identity_id = _require_identity()
@@ -104,6 +109,7 @@ def send_message(conv_id: str):
 
 
 @comm_bp.route("/search", methods=["GET"])
+@session_required
 def search_conversations():
     """GET /api/v1/communication/search?q= — unified search."""
     identity_id = _require_identity()
@@ -120,6 +126,7 @@ def search_conversations():
 
 
 @comm_bp.route("/summary/<conv_id>", methods=["GET", "POST"])
+@session_required
 def conversation_summary(conv_id: str):
     """GET/POST /api/v1/communication/summary/<id> — AI summary."""
     identity_id = _require_identity()

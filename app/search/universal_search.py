@@ -14,7 +14,7 @@ import logging
 from flask import Blueprint, g, jsonify, request, session
 from sqlalchemy import or_
 
-from app.authz.decorators import _resolve_org_id
+from app.authz.decorators import _resolve_org_id, session_required
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +202,7 @@ def search_canonical_objects(query: str, org_id=None, limit: int = 8,
 
 
 @search_bp.route("/global", methods=["POST"])
+@session_required
 def global_search():
     """Search across all canonical object types. Returns type-ahead results grouped by domain."""
     if not _require_auth():
@@ -224,6 +225,7 @@ def global_search():
 
 
 @search_bp.route("/recent", methods=["GET"])
+@session_required
 def recent_objects():
     """Return recently visited objects from the session."""
     if not _require_auth():
@@ -258,6 +260,7 @@ def recent_objects():
 
 
 @search_bp.route("/track-visit", methods=["POST"])
+@session_required
 def track_visit():
     """Track an object visit for recency boosting in future searches."""
     if not _require_auth():

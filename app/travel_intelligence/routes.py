@@ -3,6 +3,7 @@
 from flask import Blueprint, jsonify, request, g
 
 from .travel import get_travel_intelligence
+from app.authz.decorators import session_required
 
 travel_bp = Blueprint("travel", __name__, url_prefix="/api/v1/travel")
 
@@ -15,6 +16,7 @@ def _require_identity():
 
 
 @travel_bp.route("/trips", methods=["POST"])
+@session_required
 def plan_trip():
     identity_id = _require_identity()
     if not identity_id:
@@ -33,6 +35,7 @@ def plan_trip():
 
 
 @travel_bp.route("/trips", methods=["GET"])
+@session_required
 def list_trips():
     identity_id = _require_identity()
     if not identity_id:
@@ -44,6 +47,7 @@ def list_trips():
 
 
 @travel_bp.route("/trips/<trip_id>", methods=["GET"])
+@session_required
 def get_trip(trip_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -56,6 +60,7 @@ def get_trip(trip_id: str):
 
 
 @travel_bp.route("/trips/<trip_id>/analyze", methods=["GET"])
+@session_required
 def analyze_trip(trip_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -65,6 +70,7 @@ def analyze_trip(trip_id: str):
 
 
 @travel_bp.route("/trips/<trip_id>/proposal", methods=["GET"])
+@session_required
 def generate_proposal(trip_id: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -77,6 +83,7 @@ def generate_proposal(trip_id: str):
 
 
 @travel_bp.route("/trips/<trip_id>/supplier-comm/<supplier_type>", methods=["GET"])
+@session_required
 def supplier_communication(trip_id: str, supplier_type: str):
     identity_id = _require_identity()
     if not identity_id:
@@ -87,6 +94,7 @@ def supplier_communication(trip_id: str, supplier_type: str):
 
 
 @travel_bp.route("/trips/<trip_id>/disruption", methods=["POST"])
+@session_required
 def handle_disruption(trip_id: str):
     identity_id = _require_identity()
     if not identity_id:

@@ -20,7 +20,7 @@ import uuid
 
 from flask import Blueprint, g, jsonify, request
 
-from app.authz.decorators import require_permission
+from app.authz.decorators import require_permission, session_required
 from app.execution.run_service import get_run_service, RunServiceError
 
 logger = logging.getLogger(__name__)
@@ -81,6 +81,7 @@ def list_runs():
 
 
 @runs_bp.route("/runs/<execution_id>", methods=["GET"])
+@session_required
 def get_run(execution_id: str):
     org_id = _org_id()
     blocked = _require_org(org_id)
@@ -174,6 +175,7 @@ def fail_run(execution_id: str):
 
 
 @runs_bp.route("/tasks", methods=["GET"])
+@session_required
 def list_tasks():
     org_id = _org_id()
     blocked = _require_org(org_id)
@@ -186,6 +188,7 @@ def list_tasks():
 
 
 @runs_bp.route("/tasks/active", methods=["GET"])
+@session_required
 def list_active_tasks():
     org_id = _org_id()
     blocked = _require_org(org_id)
@@ -197,6 +200,7 @@ def list_active_tasks():
 
 
 @runs_bp.route("/tasks/attention", methods=["GET"])
+@session_required
 def list_attention_tasks():
     org_id = _org_id()
     blocked = _require_org(org_id)
@@ -208,6 +212,7 @@ def list_attention_tasks():
 
 
 @runs_bp.route("/tasks/<task_id>", methods=["GET"])
+@session_required
 def get_task(task_id: str):
     org_id = _org_id()
     blocked = _require_org(org_id)

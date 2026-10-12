@@ -9,11 +9,13 @@ from flask import Blueprint, jsonify
 from sqlalchemy import func
 
 from app import db
+from app.authz.decorators import session_required
 
 analytics_bp = Blueprint("system_analytics", __name__, url_prefix="/api/v1/analytics")
 
 
 @analytics_bp.route("/dashboard", methods=["GET"])
+@session_required
 def dashboard():
     """
     GET /api/v1/analytics/dashboard

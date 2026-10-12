@@ -27,6 +27,9 @@ from flask_limiter import Limiter  # noqa: E402
 from flask_limiter.util import get_remote_address  # noqa: E402
 limiter = Limiter(key_func=get_remote_address)
 
+# B16: canonical session/authorization gate for app-level routes.
+from app.authz.decorators import session_required  # noqa: E402
+
 # FDA12-15: Import blueprints upfront to avoid import shadowing inside create_app
 from app.sales_intelligence.routes import sales_bp  # noqa: F401
 from app.customer_experience.routes import cust_bp  # noqa: F401
@@ -1368,6 +1371,7 @@ def create_app(config_override: dict | None = None):
 
     # ---- Serve screenshots from RUNTIME_DATA_ROOT ----
     @app.route("/screenshots/<path:filename>")
+    @session_required
     def serve_screenshot(filename):
         return send_from_directory(
             screenshots_dir(),
@@ -1375,7 +1379,11 @@ def create_app(config_override: dict | None = None):
         )
 
     # ---- Serve generated reports as PDFs from RUNTIME_DATA_ROOT ----
+    # B16: generated artifacts are only served to authenticated sessions.
+    # Invoice/report delivery to external recipients (D17) uses an explicit
+    # authorized delivery path, not an unauthenticated file URL.
     @app.route("/reports/<path:filename>")
+    @session_required
     def serve_report(filename):
         return send_from_directory(
             reports_dir(),
@@ -1383,7 +1391,9 @@ def create_app(config_override: dict | None = None):
         )
 
     # ---- Serve uploaded user files (avatars, etc.) ----
+    # B16: uploaded files are user data — authenticated sessions only.
     @app.route("/uploads/<path:filename>")
+    @session_required
     def serve_upload(filename):
         return send_from_directory(
             uploads_dir(),
@@ -1552,63 +1562,74 @@ a:hover{background:#4338ca}
 </html>'''
         return html, 404
 
-    # ---- Auth Middleware ----------------------------------------------------
+    # ---- Auth Middleware (B16: canonical deny-by-default gate) --------------
     @app.before_request
     def _check_auth():
-        """Protect all routes by default. Public paths are exempt."""
-        # Bridge auth to Flask session — check HTTP-only cookie FIRST (enterprise),
-        # then fall back to the legacy X-Identity-Id header (backward compat).
-        identity_id = request.cookies.get("shunya_session")
-        if not identity_id:
-            identity_id = request.headers.get("X-Identity-Id")
-        if identity_id:
-            g.identity_id = identity_id
-            if not session.get("user_id"):
-                session["user_id"] = identity_id
-                session["identity_id"] = identity_id
-        
-        if app.config.get("TESTING"):
-            return None
-        
-        path = request.path
-        if path.startswith("/static/") or path.startswith("/health") or path.startswith("/ready") or path.startswith("/live") or path.startswith("/metrics") or path.startswith("/screenshots/") or path.startswith("/reports/") or path.startswith("/outcomes/") or path.startswith("/x/") or path.startswith("/calendar/events") or path.startswith("/audit/") or path.startswith("/app") or path.startswith("/debug") or path.startswith("/operator") or path.startswith("/api/v2") or path.startswith("/proposals"):
-            return None
-        if path.startswith("/telegram/webhook") or path.startswith("/login") or path.startswith("/logout") or path.startswith("/api/") or path == "/voice/process" or path.startswith("/client/") or path.startswith("/auth/") or path.startswith("/identity/") or path.startswith("/space/") or path.startswith("/founder/") or path.startswith("/workspace") or path.startswith("/system/") or path == "/" or path.startswith("/for1/") or path.startswith("/for2/") or path.startswith("/relationships/") or path.startswith("/finance/") or path.startswith("/api/v1/onboarding/") or path.startswith("/assets/") or path.startswith("/forgot-password") or path.startswith("/reset-password") or path.startswith("/request-verification") or path.startswith("/verify-email") or path.startswith("/change-password") or path == "/living" or path == "/manifest.json" or path.startswith("/icon-") or path.startswith("/favicon") or path == "/sw.js":
-            return None
-        user_id = session.get("user_id")
-        if not user_id:
-            if path.startswith("/shunya/") or path.startswith("/api/"):
-                return jsonify({"error": "Authentication required"}), 401
-            return redirect(url_for("auth.login_page", next=path))
-        from app.auth import TeamMember
-        # Legacy auth uses integer IDs; OS identity uses string sid_xxx
-        # Only look up TeamMember for integer IDs
-        user = None
-        if isinstance(user_id, int) or (isinstance(user_id, str) and user_id.isdigit()):
-            user = db.session.get(TeamMember, int(user_id))
-        elif not path.startswith("/for1/"):
-            # For non-FOR-1 routes, require a valid TeamMember
-            session.clear()
-            return redirect(url_for("auth.login_page"))
-        if user is not None and not user.is_active:
-            session.clear()
-            return redirect(url_for("auth.login_page"))
-        g.user = user
+        """Canonical authentication gate (B16).
 
-        # Resolve workspace context for authenticated requests
-        try:
-            from app.workspace.models import resolve_context, Workspace
-            ctx = resolve_context()
-            g.workspace_context = ctx
-            if ctx.current_workspace:
-                g.workspace_type = ctx.workspace_type.value
-                g.workspace_id = ctx.current_workspace.workspace_id
-                g.capabilities = ctx.capabilities
-        except Exception:
-            g.workspace_context = None
-            g.workspace_type = None
-            g.workspace_id = None
-            g.capabilities = None
+        Identity is resolved ONLY from the verified Flask session cookie.
+        Client-supplied signals - ``X-Identity-Id``, ``tenant_id``, query or
+        body fields - are NEVER treated as proof of identity or membership and
+        can never set or bridge a session. Authorization (roles, tenancy,
+        membership) is enforced by the route-level authz decorators.
+
+        Every request that is not an explicit public route (see
+        ``app/security/public_routes.py``) and not a serve-only asset requires
+        a session: /api* 401s, HTML pages redirect to login (E17 branded pages
+        for the error cases).
+        """
+        from app.security.public_routes import is_public, is_serve_only
+
+        path = request.path
+        method = request.method
+
+        # 1) Serve-only surfaces (static assets, SPA shell files, icons).
+        if is_serve_only(path):
+            return None
+
+        # 2) Explicit public allowlist (exact method + path, documented reasons).
+        if is_public(method, path):
+            return None
+
+        # 3) Resolve identity from the verified session ONLY.
+        identity_id = session.get("identity_id")
+        user_id = session.get("user_id")
+        if identity_id or user_id:
+            g.identity_id = identity_id or user_id
+            g.user_id = user_id
+
+            # Active-account check for legacy integer TeamMember ids.
+            from app.auth import TeamMember
+            user = None
+            if isinstance(user_id, int) or (isinstance(user_id, str) and user_id.isdigit()):
+                user = db.session.get(TeamMember, int(user_id))
+                if user is not None and not user.is_active:
+                    session.clear()
+                    if path.startswith("/api/") or path.startswith("/shunya/"):
+                        return jsonify({"error": "Authentication required"}), 401
+                    return redirect(url_for("auth.login_page"))
+            g.user = user
+
+            # Resolve workspace context for authenticated requests.
+            try:
+                from app.workspace.models import resolve_context, Workspace
+                ctx = resolve_context()
+                g.workspace_context = ctx
+                if ctx.current_workspace:
+                    g.workspace_type = ctx.workspace_type.value
+                    g.workspace_id = ctx.current_workspace.workspace_id
+                    g.capabilities = ctx.capabilities
+            except Exception:
+                g.workspace_context = None
+                g.workspace_type = None
+                g.workspace_id = None
+                g.capabilities = None
+            return None
+
+        # 4) Deny by default.
+        if path.startswith("/api/") or path.startswith("/shunya/"):
+            return jsonify({"error": "Authentication required"}), 401
+        return redirect(url_for("auth.login_page", next=path))
 
     @app.context_processor
     def inject_globals():

@@ -13,12 +13,14 @@ from app.execution.models import Outcome
 from app.runtime.loop import run_cycle
 from app.runtime.decision_engine import get_next_action
 from . import operator_bp
+from app.authz.decorators import require_permission, session_required
 
 
 _FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend", "operator")
 
 
 @operator_bp.route("/")
+@require_permission("admin.view_audit")
 def operator_index():
     """Serve the operator frontend."""
     return send_from_directory(_FRONTEND_DIR, "index.html")
@@ -41,6 +43,7 @@ def _serialize(obj):
 
 
 @operator_bp.route("/entities", methods=["GET"])
+@session_required
 def list_entities():
     """Return all entities with id, type, state, last_updated."""
     entities = Object.query.order_by(Object.id).all()
@@ -64,6 +67,7 @@ def list_entities():
 
 
 @operator_bp.route("/entity/<int:entity_id>", methods=["GET"])
+@session_required
 def entity_detail(entity_id):
     """Return entity + related tasks + observations + outcomes."""
     entity = db.session.get(Object, entity_id)
@@ -93,6 +97,7 @@ def entity_detail(entity_id):
 
 
 @operator_bp.route("/action", methods=["POST"])
+@session_required
 def execute_operator_action():
     """Execute a manual action on an entity."""
     data = request.get_json(silent=True) or {}

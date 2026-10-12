@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, current_app, jsonify, request
 
 from app import db
+from app.authz.decorators import session_required
 from app.platform.models import WebhookDelivery, WebhookSubscription
 from app.platform.webhook import deliver_webhook
 from app.platform.versioning import version_summary
@@ -71,6 +72,7 @@ def _err(message, status=400):
 
 
 @platform_bp.route("/webhooks", methods=["GET"])
+@session_required
 def list_webhooks():
     identity_id = _require_identity()
     if not identity_id:
@@ -80,6 +82,7 @@ def list_webhooks():
 
 
 @platform_bp.route("/webhooks", methods=["POST"])
+@session_required
 def create_webhook():
     identity_id = _require_identity()
     if not identity_id:
@@ -128,6 +131,7 @@ def create_webhook():
 
 
 @platform_bp.route("/webhooks/<int:webhook_id>", methods=["PUT"])
+@session_required
 def update_webhook(webhook_id):
     identity_id = _require_identity()
     if not identity_id:
@@ -167,6 +171,7 @@ def update_webhook(webhook_id):
 
 
 @platform_bp.route("/webhooks/<int:webhook_id>", methods=["DELETE"])
+@session_required
 def delete_webhook(webhook_id):
     identity_id = _require_identity()
     if not identity_id:
@@ -190,6 +195,7 @@ def delete_webhook(webhook_id):
 
 
 @platform_bp.route("/webhooks/<int:webhook_id>/rotate-secret", methods=["POST"])
+@session_required
 def rotate_webhook_secret(webhook_id):
     identity_id = _require_identity()
     if not identity_id:
@@ -211,6 +217,7 @@ def rotate_webhook_secret(webhook_id):
 
 
 @platform_bp.route("/webhooks/<int:webhook_id>/test", methods=["POST"])
+@session_required
 def test_webhook(webhook_id):
     identity_id = _require_identity()
     if not identity_id:
@@ -233,6 +240,7 @@ def test_webhook(webhook_id):
 
 
 @platform_bp.route("/webhooks/<int:webhook_id>/deliveries", methods=["GET"])
+@session_required
 def webhook_deliveries(webhook_id):
     identity_id = _require_identity()
     if not identity_id:
@@ -256,6 +264,7 @@ def webhook_deliveries(webhook_id):
 
 
 @platform_bp.route("/events", methods=["GET"])
+@session_required
 def list_events():
     return _ok({"events": AVAILABLE_EVENTS})
 
@@ -388,6 +397,7 @@ def openapi_spec():
 
 
 @platform_bp.route("/diagnostics", methods=["GET"])
+@session_required
 def diagnostics():
     """Developer diagnostics: route inventory, integration registry, health."""
     identity_id = _require_identity()
@@ -482,6 +492,7 @@ def integration_health():
 
 
 @platform_bp.route("/versioning", methods=["GET"])
+@session_required
 def get_versioning():
     return _ok(version_summary())
 
