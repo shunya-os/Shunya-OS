@@ -190,8 +190,8 @@ class TestDocumentContext:
 class TestDocumentTypes:
     """FDA24: Document type listing."""
 
-    def test_list_types(self, client):
-        resp = client.get("/api/v1/documents/types")
+    def test_list_types(self, client, auth_headers):
+        resp = client.get("/api/v1/documents/types", headers=auth_headers)
         assert resp.status_code == 200
         assert len(resp.get_json()["data"]) >= 1
 
