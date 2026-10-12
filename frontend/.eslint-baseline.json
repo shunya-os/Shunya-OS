@@ -1,12 +1,12 @@
 {
-  "sha": "3be610cd96f5fbca4355d7cb716c394bb3297e8e",
-  "date": "2026-09-01",
-  "total": 460,
+  "sha": "2db2de1",
+  "date": "2026-10-12",
+  "total": 474,
   "errors": 0,
   "by_rule": {
-    "@typescript-eslint/no-explicit-any": 412,
+    "@typescript-eslint/no-explicit-any": 424,
     "no-console": 22,
     "@typescript-eslint/no-unused-vars": 15,
-    "react-hooks/exhaustive-deps": 11
+    "react-hooks/exhaustive-deps": 13
   }
 }
