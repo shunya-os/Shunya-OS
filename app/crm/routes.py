@@ -2,7 +2,10 @@
 
 Connects to the canonical /api/v1/leads blueprint.
 """
-from flask import Blueprint, request, jsonify, session
+import logging
+
+from flask import Blueprint, g, jsonify, request, session
+
 from app import db
 from app.models import Lead, LeadStatus
 from datetime import datetime, timedelta, timezone
@@ -14,19 +17,39 @@ from app.crm.service import (
 )
 from app.authz.decorators import require_permission
 
+logger = logging.getLogger(__name__)
+
 crm_bp = Blueprint("crm", __name__, url_prefix="/api/v1/crm")
 
 
-def _resolve_tenant_from_session():
-    """Resolve the canonical tenant (organization) id from the session.
+def _crm_tenant_scope() -> tuple[int | None, list[int]]:
+    """(organization_id, accepted_tenant_ids) for this request, fail closed.
 
-    NEVER trusts request-body tenant_id — prevents cross-tenant writes.
+    Canonical resolver: the authorized organization plus the recorded legacy
+    bridge (``organizations.legacy_tenant_id``) so the founder's data (legacy
+    tenant 89) stays visible through the canonical organization. NEVER trusts
+    request-body tenant_id — prevents cross-tenant reads and writes. A missing
+    context returns ``(None, [])`` and callers must deny.
     """
-    from app.authz.decorators import _resolve_org_id
-    org_id = _resolve_org_id()
-    if org_id:
-        return org_id
-    return session.get("tenant_id") or 1
+    from app.authz.workspace_context import resolve_tenant_scope
+
+    identity_id = g.get("identity_id") or session.get("identity_id", "")
+    requested = g.get("current_org_id") or session.get("current_org_id")
+    try:
+        return resolve_tenant_scope(identity_id, requested)
+    except Exception:
+        logger.exception("crm tenant scope resolution failed")
+        return None, []
+
+
+def _scoped_lead(lead_id: int):
+    """A lead only when it belongs to the caller's tenant scope (fail closed)."""
+    org_id, accepted = _crm_tenant_scope()
+    if not org_id or not accepted:
+        return None
+    return Lead.query.filter(
+        Lead.id == lead_id, Lead.tenant_id.in_(accepted)
+    ).first()
 
 
 @crm_bp.route("/leads", methods=["POST"])
@@ -34,7 +57,9 @@ def _resolve_tenant_from_session():
 def api_create_lead():
     """Create a lead through the canonical CRM path."""
     data = request.get_json(silent=True) or {}
-    tenant_id = _resolve_tenant_from_session() or 1
+    tenant_id, _accepted = _crm_tenant_scope()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 403
     try:
         lead = create_lead_with_identity(
             tenant_id=tenant_id,
@@ -57,12 +82,14 @@ def api_create_lead():
 @crm_bp.route("/leads", methods=["GET"])
 @require_permission("rel.view")
 def api_list_leads():
-    """List leads for the current organization."""
-    tenant_id = _resolve_tenant_from_session() or 1
+    """List leads for the current organization (canonical id + legacy bridge)."""
+    tenant_id, accepted = _crm_tenant_scope()
+    if not tenant_id or not accepted:
+        return jsonify({"success": False, "error": "No organization context"}), 403
     status = request.args.get("status")
     limit = min(int(request.args.get("limit", 50)), 200)
     try:
-        q = Lead.query.filter_by(tenant_id=tenant_id)
+        q = Lead.query.filter(Lead.tenant_id.in_(accepted))
         if status:
             q = q.filter_by(stage=status)
         leads = q.order_by(Lead.created_at.desc()).limit(limit).all()
@@ -85,10 +112,12 @@ def api_list_leads():
 @require_permission("rel.edit")
 def api_qualify_lead(lead_id: int):
     """Qualify a lead through the canonical path."""
-    lead = db.session.get(Lead, lead_id)
+    lead = _scoped_lead(lead_id)
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
-    tenant_id = _resolve_tenant_from_session()
+    tenant_id, _accepted = _crm_tenant_scope()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 403
     result = qualify_lead_and_update(lead, tenant_id)
     return jsonify({
         "success": True,
@@ -101,12 +130,14 @@ def api_qualify_lead(lead_id: int):
 @require_permission("rel.edit")
 def api_assign_lead(lead_id: int):
     """Assign a lead to an owner."""
-    lead = db.session.get(Lead, lead_id)
+    lead = _scoped_lead(lead_id)
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
     data = request.get_json(silent=True) or {}
     owner = data.get("owner", "")
-    tenant_id = _resolve_tenant_from_session()
+    tenant_id, _accepted = _crm_tenant_scope()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 403
     if not owner:
         return jsonify({"success": False, "error": "Owner required"}), 400
     assign_lead(lead, owner, tenant_id)
@@ -117,7 +148,7 @@ def api_assign_lead(lead_id: int):
 @require_permission("rel.view")
 def api_lead_sla(lead_id: int):
     """Check SLA status for a lead."""
-    lead = db.session.get(Lead, lead_id)
+    lead = _scoped_lead(lead_id)
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
     return jsonify({"success": True, "sla": check_sla(lead)})
@@ -127,17 +158,20 @@ def api_lead_sla(lead_id: int):
 @require_permission("rel.edit")
 def api_create_followup(lead_id: int):
     """Create a follow-up task for a lead."""
-    lead = db.session.get(Lead, lead_id)
+    lead = _scoped_lead(lead_id)
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
     data = request.get_json(silent=True) or {}
     from dateutil import parser as dt_parser
     due = (dt_parser.parse(data.get("due_date")) if data.get("due_date")
            else datetime.now(timezone.utc) + timedelta(days=1))
+    tenant_id, _accepted = _crm_tenant_scope()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 403
     task = create_follow_up(
         lead=lead, title=data.get("title", "Follow-up"),
         due_date=due, assigned_to=data.get("assigned_to", lead.assigned_to or ""),
-        tenant_id=_resolve_tenant_from_session(),
+        tenant_id=tenant_id,
     )
     return jsonify({"success": True, "task": {"id": task.id, "title": task.title}})
 
@@ -146,11 +180,13 @@ def api_create_followup(lead_id: int):
 @require_permission("rel.edit")
 def api_create_opportunity(lead_id: int):
     """Create an opportunity/proposal from a qualified lead."""
-    lead = db.session.get(Lead, lead_id)
+    lead = _scoped_lead(lead_id)
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
     data = request.get_json(silent=True) or {}
-    tenant_id = _resolve_tenant_from_session()
+    tenant_id, _accepted = _crm_tenant_scope()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 403
     proposal = create_opportunity(lead, tenant_id, title=data.get("title", ""))
     return jsonify({
         "success": True,
@@ -167,16 +203,19 @@ def api_lead_won(lead_id: int):
     stage + timeline) and then converts — the audit gate (convert_to_customer
     refuses arbitrary new/in-progress leads) is preserved for all other paths.
     """
-    lead = db.session.get(Lead, lead_id)
+    lead = _scoped_lead(lead_id)
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
     if lead.status == LeadStatus.CANCELLED.value:
         return jsonify({"success": False, "error": "A cancelled lead cannot be marked won"}), 400
+    tenant_id, _accepted = _crm_tenant_scope()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 403
     # Mark won first (the gate then accepts the conversion)
     from app.crm.service import mark_lead_won
-    mark_lead_won(lead, _resolve_tenant_from_session())
+    mark_lead_won(lead, tenant_id)
     data = request.get_json(silent=True) or {}
-    customer = convert_to_customer(lead, _resolve_tenant_from_session())
+    customer = convert_to_customer(lead, tenant_id)
     if customer is None:
         return jsonify({
             "success": False,
@@ -196,12 +235,15 @@ def api_lead_won(lead_id: int):
 @require_permission("rel.edit")
 def api_lead_lost(lead_id: int):
     """Mark a lead as lost."""
-    lead = db.session.get(Lead, lead_id)
+    lead = _scoped_lead(lead_id)
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
     data = request.get_json(silent=True) or {}
     reason = data.get("reason", "No reason provided")
-    mark_lost(lead, reason, _resolve_tenant_from_session())
+    tenant_id, _accepted = _crm_tenant_scope()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 403
+    mark_lost(lead, reason, tenant_id)
     return jsonify({"success": True, "lead_id": lead.id, "outcome": reason})
 
 
@@ -213,7 +255,10 @@ def api_reassign_leads():
     new_owner = data.get("new_owner", "")
     if not new_owner:
         return jsonify({"success": False, "error": "new_owner required"}), 400
-    reassigned = reassign_unattended_leads(_resolve_tenant_from_session(), new_owner)
+    tenant_id, _accepted = _crm_tenant_scope()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 403
+    reassigned = reassign_unattended_leads(tenant_id, new_owner)
     return jsonify({
         "success": True,
         "reassigned_count": len(reassigned),

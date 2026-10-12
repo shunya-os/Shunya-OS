@@ -141,16 +141,26 @@ class CalendarService:
     COLOR_TASK = "#7c3aed"        # Purple
     COLOR_ITINERARY = "#059669"   # Emerald / Green
 
-    def get_events(self, start_date: date, end_date: date) -> list[dict]:
+    def get_events(self, start_date: date, end_date: date,
+                   tenant_scope: Optional[list] = None) -> list[dict]:
         """Return all events between start_date and end_date (inclusive).
 
         Each event dict:
           { id, title, date (ISO), type, status, url, color }
+
+        ``tenant_scope`` — accepted ``Lead.tenant_id`` values; when given,
+        leads and tasks are filtered to the caller's scope (ZG-03). User
+        paths must always pass it; None keeps the legacy unscoped read for
+        internal callers only.
         """
         events: list[dict] = []
 
-        # --- Leads ---
-        for lead in Lead.query.all():
+        # --- Leads (tenant-scoped when a scope is given — ZG-03) ---
+        lead_query = Lead.query
+        if tenant_scope is not None:
+            lead_query = lead_query.filter(
+                Lead.tenant_id.in_([int(t) for t in tenant_scope]))
+        for lead in lead_query.all():
             start_dt, end_dt = _parse_lead_dates(lead.dates)
             if start_dt and end_dt:
                 # Spread across the range (one event per day so calendar shows it)
@@ -202,10 +212,23 @@ class CalendarService:
                     })
                     current += timedelta(days=1)
 
-        # --- Tasks (if model exists) ---
+        # --- Tasks (if model exists; tenant-scoped when a scope is given) ---
         try:
-            from app.models import Task
-            tasks = Task.query.filter(
+            from app.models import Task, TaskList
+            tasks_query = Task.query
+            if tenant_scope is not None:
+                scope_ids = [int(t) for t in tenant_scope]
+                lead_ids_sq = db.session.query(Lead.id).filter(
+                    Lead.tenant_id.in_(scope_ids))
+                tasks_query = tasks_query.outerjoin(
+                    TaskList, Task.task_list_id == TaskList.id,
+                ).filter(
+                    db.or_(
+                        TaskList.tenant_id.in_(scope_ids),
+                        Task.lead_id.in_(lead_ids_sq),
+                    )
+                )
+            tasks = tasks_query.filter(
                 Task.due_date.isnot(None),
                 Task.due_date >= start_date,
                 Task.due_date <= end_date,

@@ -159,8 +159,9 @@ def _lead_auto_create_entity(target, args, kwargs):
     """Auto-create a generic Entity for every new Lead.
 
     tenant_id is REQUIRED. Missing tenant_id raises ValueError.
-    Entity definition_id is looked up from entity_definitions table.
-    Missing definition raises ValueError.
+    Entity definition_id is looked up from entity_definitions table; when no
+    'lead' definition exists for the tenant it is provisioned on first use
+    (ZG-03), so a legitimate lead write cannot fail for a missing definition.
     """
     from app.core.entity import Entity
     from sqlalchemy import text as _tx
@@ -188,11 +189,26 @@ def _lead_auto_create_entity(target, args, kwargs):
             {"t": tenant_id},
         )
         row = result.fetchone()
-        if not row:
-            raise ValueError(
-                f"No entity_definition found for type='lead' and tenant_id={tenant_id}."
+        if row:
+            def_id = row[0]
+        else:
+            # Root-cause provisioning (ZG-03): no 'lead' definition had ever
+            # been seeded for any tenant, so every lead write failed once this
+            # bridge became mandatory. Create the tenant-scoped definition on
+            # first use — the same default shape the entity API creates for a
+            # new type (app/api/entity_routes.py) — instead of failing the
+            # write. Writers converge on the canonical organization id.
+            inserted = db.session.execute(
+                _tx(
+                    "INSERT INTO entity_definitions "
+                    "(tenant_id, type, label, label_plural, is_active, "
+                    " code_prefix, created_at) "
+                    "VALUES (:t, 'lead', 'Lead', 'Leads', true, '', now()) "
+                    "RETURNING id"
+                ),
+                {"t": tenant_id},
             )
-        def_id = row[0]
+            def_id = inserted.fetchone()[0]
     except ValueError:
         raise
     except Exception as exc:

@@ -88,6 +88,28 @@ def qualify_lead(lead: Lead) -> QualificationResult:
 # ══════════════════════════════════════════════════════════════════
 
 
+def lead_tenant_scope(organization_id: int) -> list[int]:
+    """Accepted ``Lead.tenant_id`` values for an organization.
+
+    Reads accept the union of the canonical organization id and the recorded
+    legacy bridge (``organizations.legacy_tenant_id``); writers move toward
+    the canonical id — the same doctrine as ``app/documents_api.py`` and
+    ``app.authz.workspace_context.resolve_tenant_scope``. Never returns an id
+    the caller did not supply or the bridge did not record.
+    """
+    ids = [int(organization_id)]
+    try:
+        from app.models import Organization
+        org = db.session.get(Organization, int(organization_id))
+        bridge = getattr(org, "legacy_tenant_id", None) if org else None
+        if bridge is not None and int(bridge) not in ids:
+            ids.append(int(bridge))
+    except Exception:  # noqa: BLE001 — bridge lookup is best-effort by design
+        logger.warning("legacy bridge lookup failed for organization %s",
+                       organization_id)
+    return ids
+
+
 def create_lead_with_identity(
     *,
     tenant_id: int,
@@ -509,6 +531,7 @@ def reassign_unattended_leads(tenant_id: int, new_owner: str) -> list[Lead]:
     now = datetime.utcnow()
     deadline = now - timedelta(hours=ESCALATION_SLA_HOURS)
     unattended = Lead.query.filter(
+        Lead.tenant_id.in_(lead_tenant_scope(tenant_id)),
         Lead.status.in_([LeadStatus.NEW.value, LeadStatus.IN_PROGRESS.value]),
         Lead.created_at < deadline,
     ).all()

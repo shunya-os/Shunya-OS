@@ -65,12 +65,17 @@ class CelebrationEngine:
     # Detection
     # ------------------------------------------------------------------
 
-    def detect_wins(self) -> list[dict]:
+    def detect_wins(self, tenant_scope: Optional[list] = None) -> list[dict]:
         """
         Scan the platform for recent wins and celebrations.
         Checks: new leads (last hour), conversions (today), payments (today), tasks completed (today).
         Returns list of celebration dicts with type, title, message, icon, animation, lead_id, user.
         Does NOT auto-record; returns detected wins for the caller to decide.
+
+        ``tenant_scope`` — accepted ``Lead.tenant_id`` values. When given,
+        every source is filtered to the caller's tenant scope (ZG-03); it is
+        never None on a user-facing path. None keeps the legacy system-wide
+        scan for internal/system callers only.
         """
         now = datetime.now(timezone.utc)
         one_hour_ago = now - timedelta(hours=1)
@@ -78,9 +83,14 @@ class CelebrationEngine:
 
         wins = []
 
+        lead_base = Lead.query
+        if tenant_scope is not None:
+            scope_ids = [int(t) for t in tenant_scope]
+            lead_base = lead_base.filter(Lead.tenant_id.in_(scope_ids))
+
         # 1. New leads in the last hour
         new_leads = (
-            Lead.query
+            lead_base
             .filter(Lead.created_at >= one_hour_ago)
             .order_by(Lead.created_at.desc())
             .all()
@@ -101,7 +111,7 @@ class CelebrationEngine:
 
         # 2. Leads converted today
         converted_leads = (
-            Lead.query
+            lead_base
             .filter(
                 Lead.status == LeadStatus.CONVERTED.value,
                 Lead.updated_at >= today_start,
@@ -142,9 +152,23 @@ class CelebrationEngine:
                 "user": lead.assigned_to if lead else "",
             })
 
-        # 4. Tasks completed today
+        # 4. Tasks completed today (tenant-scoped when scope given — ZG-03)
+        tasks_query = Task.query
+        if tenant_scope is not None:
+            from app.models import TaskList
+            scope_ids = [int(t) for t in tenant_scope]
+            lead_ids_sq = db.session.query(Lead.id).filter(
+                Lead.tenant_id.in_(scope_ids))
+            tasks_query = tasks_query.outerjoin(
+                TaskList, Task.task_list_id == TaskList.id,
+            ).filter(
+                db.or_(
+                    TaskList.tenant_id.in_(scope_ids),
+                    Task.lead_id.in_(lead_ids_sq),
+                )
+            )
         tasks_done = (
-            Task.query
+            tasks_query
             .filter(
                 Task.status == "completed",
                 Task.completed_at >= today_start,
@@ -196,33 +220,56 @@ class CelebrationEngine:
         db.session.commit()
         return c.to_dict()
 
-    def get_recent_celebrations(self, limit: int = 10) -> list[dict]:
-        """Return the most recent celebrations."""
+    def get_recent_celebrations(self, limit: int = 10,
+                                tenant_scope: Optional[list] = None) -> list[dict]:
+        """Return the most recent celebrations, tenant-scoped when requested.
+
+        With a ``tenant_scope`` the feed only contains celebrations whose
+        lead belongs to the caller's scope; celebrations without a lead are
+        excluded — fail closed (ZG-03).
+        """
+        q = Celebration.query
+        if tenant_scope is not None:
+            scope_ids = [int(t) for t in tenant_scope]
+            lead_ids_sq = db.session.query(Lead.id).filter(
+                Lead.tenant_id.in_(scope_ids))
+            q = q.filter(Celebration.lead_id.in_(lead_ids_sq))
         celebrations = (
-            Celebration.query
-            .order_by(Celebration.created_at.desc())
+            q.order_by(Celebration.created_at.desc())
             .limit(limit)
             .all()
         )
         return [c.to_dict() for c in celebrations]
 
-    def get_celebration_count_since(self, since: Optional[datetime] = None) -> int:
-        """Count celebrations since a given time (default: today at midnight)."""
+    def get_celebration_count_since(self, since: Optional[datetime] = None,
+                                    tenant_scope: Optional[list] = None) -> int:
+        """Count celebrations since a given time (default: today at midnight).
+
+        With a ``tenant_scope`` only celebrations whose lead belongs to the
+        caller's scope are counted (ZG-03).
+        """
         if since is None:
             since = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-        return Celebration.query.filter(Celebration.created_at >= since).count()
+        q = Celebration.query.filter(Celebration.created_at >= since)
+        if tenant_scope is not None:
+            scope_ids = [int(t) for t in tenant_scope]
+            lead_ids_sq = db.session.query(Lead.id).filter(
+                Lead.tenant_id.in_(scope_ids))
+            q = q.filter(Celebration.lead_id.in_(lead_ids_sq))
+        return q.count()
 
     # ------------------------------------------------------------------
     # Auto-scan: detect + record new wins
     # ------------------------------------------------------------------
 
-    def scan_and_record(self) -> list[dict]:
+    def scan_and_record(self, tenant_scope: Optional[list] = None) -> list[dict]:
         """
         Detect new wins and record any that haven't been recorded yet.
         Uses a simple dedup check by type + lead_id within the last hour.
         Returns list of newly recorded celebrations.
+        With ``tenant_scope`` only the caller's scope is scanned (ZG-03).
         """
-        detected = self.detect_wins()
+        detected = self.detect_wins(tenant_scope)
         now = datetime.now(timezone.utc)
         one_hour_ago = now - timedelta(hours=1)
         recorded = []

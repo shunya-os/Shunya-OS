@@ -201,20 +201,23 @@ class TestCRMLifecycle:
 
     def test_sla_breach_detection(self, app, client):
         """D. SLA breach: lead past deadline is correctly detected."""
-        _setup_crm_auth(client)
+        org_id = _setup_crm_auth(client)
         from app.models import Lead, set_lead_tenant_id
         from app import db
         from datetime import timedelta
-        # Create a lead with a past timestamp to simulate SLA breach
+        # Create a lead with a past timestamp to simulate SLA breach.
+        # The row carries the caller's organization tenant — lead reads are
+        # tenant-scoped (ZG-03), so a thread-local alone no longer suffices.
         with app.app_context():
             from app.models import next_inquiry_code
-            set_lead_tenant_id(1)
+            set_lead_tenant_id(org_id)
             old_lead = Lead(
                 code=next_inquiry_code(db.session),
                 source="api", customer_name="Old Lead",
                 status="new",
                 created_at=datetime.now(timezone.utc) - timedelta(hours=72),
             )
+            old_lead.tenant_id = org_id
             db.session.add(old_lead)
             db.session.commit()
             old_id = old_lead.id
@@ -227,13 +230,13 @@ class TestCRMLifecycle:
 
     def test_reassignment_after_sla_breach(self, app, client):
         """E. Reassignment: leads past SLA escalation deadline are reassigned."""
-        _setup_crm_auth(client)
+        org_id = _setup_crm_auth(client)
         from app.models import Lead, set_lead_tenant_id
         from app import db
         from datetime import timedelta
         with app.app_context():
             from app.models import next_inquiry_code
-            set_lead_tenant_id(1)
+            set_lead_tenant_id(org_id)
             for i in range(3):
                 l = Lead(
                     code=f"SLA_TEST_{i}_{datetime.now(timezone.utc).timestamp()}",
@@ -241,6 +244,7 @@ class TestCRMLifecycle:
                     status="new", assigned_to="old_agent",
                     created_at=datetime.now(timezone.utc) - timedelta(hours=72),
                 )
+                l.tenant_id = org_id  # tenant-scoped reads (ZG-03)
                 db.session.add(l)
             db.session.commit()
 
