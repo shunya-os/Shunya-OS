@@ -8,14 +8,14 @@ persisted and survives restarts.
 Additive, idempotent: safe to run multiple times (column + index guarded).
 
 Revision ID: for2d_payment_status
-Revises: zgc_pr_17c_durable_memory
+Revises: r6b28_age_verification_fields
 Create Date: 2026-10-12 09:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = "for2d_payment_status"
-down_revision = "zgc_pr_17c_durable_memory"
+down_revision = "r6b28_age_verification_fields"
 
 
 def upgrade():
