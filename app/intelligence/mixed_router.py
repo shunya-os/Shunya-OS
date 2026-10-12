@@ -243,10 +243,10 @@ class AISynthesizer:
                    internet_data: list[SourceAttribution],
                    internal_knowledge: list[SourceAttribution] | None = None) -> str | None:
         """Synthesize claims into a coherent answer using the best available AI."""
-        from app.ai.provider import get_provider
+        from app.ai.provider import get_provider, complete_with_failover
 
         provider = get_provider()
-        if provider.name == "local":
+        if getattr(provider, "provider_id", provider.name) in ("local", "unavailable"):
             # Without a real AI provider, return a template-based summary
             return self._template_summary(query, business_data, internet_data)
 
@@ -287,7 +287,7 @@ Data sources found for this question:
         ]
 
         try:
-            result = provider.complete(messages, temperature=0.3, max_tokens=1024)
+            result = complete_with_failover(messages, temperature=0.3, max_tokens=1024)
             if result.get("finish_reason") != "error":
                 return result.get("content")
         except Exception as e:

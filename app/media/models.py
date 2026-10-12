@@ -93,6 +93,10 @@ class MediaAsset(db.Model):
             "visual_style": self.visual_style,
             "provider": self.provider,
             "generation_job_id": self.generation_job_id,
+            # Truthful flag (B2): a description-only/concept result is NOT an
+            # image — clients must never mistake the success envelope for a
+            # generated picture.
+            "image_generated": self.runtime_state == "generated",
             "failure_reason": self.failure_reason,
             "campaign_id": self.campaign_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,

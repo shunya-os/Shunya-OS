@@ -228,17 +228,23 @@ def test_route_never_reads_client_model_or_provider():
 
 
 def test_generation_failure_is_truthful_and_not_silently_retried(monkeypatch):
-    """A failing provider yields an honest failure — no hidden second call."""
+    """A failing provider yields an honest failure — no hidden second call.
+
+    ZG-03 B2: generate_content now delegates to the canonical failover path
+    (``app.ai.provider.complete_with_failover``) instead of resolving a single
+    provider and calling it directly — the mock target is updated to the
+    function the service actually invokes, keeping the original assertion
+    (truthful failure, exactly one orchestrator call).
+    """
     calls = {"n": 0}
 
-    class _FailingProvider:
-        name = "failing"
+    def _failing_failover(messages, temperature=0.7, max_tokens=1024):
+        calls["n"] += 1
+        return {"content": "", "finish_reason": "error", "error": "provider down",
+                "error_class": "PROVIDER_OUTAGE", "provider": "failing",
+                "model": "none"}
 
-        def complete(self, **kwargs):
-            calls["n"] += 1
-            return {"content": None, "finish_reason": "error", "error": "provider down"}
-
-    monkeypatch.setattr("app.ai.provider.resolve_provider", lambda: _FailingProvider())
+    monkeypatch.setattr("app.ai.provider.complete_with_failover", _failing_failover)
 
     result = generate_content(prompt="x", output_language="en")
     assert result["success"] is False

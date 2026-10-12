@@ -56,6 +56,7 @@ export interface MediaAsset {
 
 interface ProviderStatus {
   huggingface: { available: boolean; model?: string; error?: string };
+  pollinations?: { available: boolean; model?: string; error?: string; note?: string };
 }
 
 // ── API calls ──
@@ -111,6 +112,13 @@ async function apiGetProviderStatus(): Promise<ProviderStatus | null> {
 }
 
 // ── Helpers ──
+
+function providerLabel(provider?: string): string {
+  if (!provider) return 'generated';
+  if (provider.startsWith('pollinations')) return 'Pollinations';
+  if (provider.startsWith('hf/')) return 'Hugging Face';
+  return provider.split('/')[0] || provider;
+}
 
 function stateLabel(state: MediaRuntimeState): string {
   const labels: Record<MediaRuntimeState, string> = {
@@ -203,7 +211,11 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
   }, [prompt, aspectRatio, visualStyle, businessContext]);
 
   const isBusy = runtimeState === 'preparing_brief' || runtimeState === 'generating';
-  const providerAvail = providerStatus?.huggingface?.available ?? false;
+  // Truthful availability (B2): ANY ready provider means generation can work.
+  const hfAvailable = providerStatus?.huggingface?.available ?? false;
+  const pollinationsAvailable = providerStatus?.pollinations?.available ?? false;
+  const providerAvail = hfAvailable || pollinationsAvailable;
+  const activeImageProvider = hfAvailable ? 'huggingface' : (pollinationsAvailable ? 'pollinations' : null);
 
   // Close overflow menu when clicking outside
   useEffect(() => {
@@ -270,7 +282,7 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
             <div className="cs-media-image-container" style={{ aspectRatio: currentAsset.aspect_ratio.replace(':', '/') }}>
               <img src={currentAsset.asset_url} alt={currentAsset.raw_prompt}
                 className="cs-media-image" />
-              <span className="cs-media-badge">{currentAsset.provider || 'generated'}</span>
+              <span className="cs-media-badge">{providerLabel(currentAsset.provider)}</span>
             </div>
           ) : (
             <div className="cs-media-concept-container">
@@ -426,7 +438,7 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
                 <dt>Lifecycle</dt><dd>{detailsAsset.lifecycle_status || 'active'}</dd>
                 <dt>Aspect Ratio</dt><dd>{detailsAsset.aspect_ratio || 'N/A'}</dd>
                 <dt>Visual Style</dt><dd>{detailsAsset.visual_style || 'N/A'}</dd>
-                <dt>Provider</dt><dd>{detailsAsset.provider || 'N/A'}</dd>
+                <dt>Provider</dt><dd>{providerLabel(detailsAsset.provider) || 'N/A'}</dd>
                 <dt>Created</dt><dd>{detailsAsset.created_at ? new Date(detailsAsset.created_at).toLocaleString() : 'N/A'}</dd>
                 {detailsAsset.description && <><dt>Description</dt><dd>{detailsAsset.description}</dd></>}
                 {detailsAsset.failure_reason && <><dt>Failure</dt><dd>{detailsAsset.failure_reason}</dd></>}
@@ -492,6 +504,7 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
 .cs-history-label { font-size: 10px; color: var(--shunya-text, #1A1C1D); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cs-history-state { font-size: 9px; text-transform: uppercase; letter-spacing: 0.3px; padding: 1px 6px; border-radius: 3px; display: inline-block; width: fit-content; }
 .cs-history-trashed-badge { font-size: 9px; text-transform: uppercase; letter-spacing: 0.3px; padding: 1px 6px; border-radius: 3px; background: rgba(185,28,28,0.1); color: #991b1b; display: inline-block; width: fit-content; }
+.cs-media-note { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; background: rgba(234,179,8,0.12); color: #A16207; font-size: 12px; margin: 6px 0; }
 .cs-state-generated { background: rgba(34,197,94,0.12); color: #15803D; }
 .cs-state-description_only { background: rgba(108,74,226,0.1); color: #5a3bc9; }
 .cs-state-failed { background: rgba(185,28,28,0.1); color: #991b1b; }
@@ -557,9 +570,15 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
             placeholder="Client: Bali Resort&#10;Location: Uluwatu&#10;Season: Summer&#10;Target audience: Luxury travelers" rows={2} disabled={isBusy} />
         </div>
         {!providerAvail && (
-          <div className="cs-media-error" style={{ fontSize: 12 }}>
+          <div className="cs-media-error" style={{ fontSize: 12 }} role="status">
             <IconAlertTriangle size={13} />
-            <span>Media generation provider unavailable. Generation may fail.</span>
+            <span>Image generation providers unavailable — a visual concept (text) will be created instead of an image.</span>
+          </div>
+        )}
+        {providerAvail && activeImageProvider === 'pollinations' && (
+          <div className="cs-media-note" style={{ fontSize: 12 }} role="status">
+            <IconSparkles size={13} />
+            <span>Hugging Face unavailable — using the free Pollinations image fallback.</span>
           </div>
         )}
         <button className="cs-btn cs-btn-primary" onClick={handleGenerate} disabled={!prompt.trim()}>

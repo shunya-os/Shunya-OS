@@ -85,23 +85,24 @@ class ModelOrchestrator:
                 cost_class=CostClass.FREE,
                 capabilities=["text_generation", "chat_completion", "vision"],
             ),
-            # Low-cost routes
+            # Low-cost routes (B2: retired openai/gpt-4o-mini replaced with a
+            # valid, free open model — no retired ids advertised anywhere)
             ModelRoute(
-                provider="openrouter", model="openai/gpt-4o-mini",
+                provider="openrouter", model="deepseek/deepseek-chat",
                 cost_class=CostClass.LOW,
                 capabilities=["text_generation", "chat_completion",
-                              "function_calling", "structured_output", "vision"],
+                              "function_calling", "structured_output"],
             ),
             # Standard routes
             ModelRoute(
-                provider="openrouter", model="openai/gpt-4o",
+                provider="openrouter", model="qwen/qwen-2.5-72b-instruct",
                 cost_class=CostClass.STANDARD,
                 capabilities=["text_generation", "chat_completion",
-                              "function_calling", "structured_output", "vision"],
+                              "function_calling", "structured_output"],
             ),
             # Premium routes
             ModelRoute(
-                provider="openrouter", model="anthropic/claude-3.5-sonnet",
+                provider="openrouter", model="anthropic/claude-sonnet-4-5",
                 cost_class=CostClass.PREMIUM,
                 capabilities=["text_generation", "chat_completion",
                               "function_calling", "structured_output", "vision"],

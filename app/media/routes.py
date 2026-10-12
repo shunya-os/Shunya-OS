@@ -203,16 +203,12 @@ def api_attach_campaign(asset_id: int):
 @media_bp.route("/status", methods=["GET"])
 @require_permission("knowledge.view")
 def api_status():
-    """Check media generation provider status."""
-    from app.media.service import get_hf_status
-
-    hf_status = get_hf_status()
+    """Check media generation provider status (truthful, B2)."""
+    from app.media.service import get_media_provider_status
 
     return jsonify({
         "success": True,
-        "providers": {
-            "huggingface": hf_status,
-        },
+        "providers": get_media_provider_status(),
     })
 
 

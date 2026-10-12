@@ -201,7 +201,8 @@ def api_create_proposal():
             proposal.exclusions = "\n".join(result.get("exclusions", []))
             proposal.terms = result.get("terms", "")
             proposal.ai_generated = True
-            proposal.ai_model = "openai/gpt-4o-mini"
+            from app.for1.engine import _AI_MODEL as _for1_ai_model
+            proposal.ai_model = _for1_ai_model
             proposal.ai_prompt = json.dumps(lead_data)
             proposal.status = "review"
 

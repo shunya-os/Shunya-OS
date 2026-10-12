@@ -977,9 +977,15 @@ def create_app(config_override: dict | None = None):
     from app.content_studio.routes import content_bp
     app.register_blueprint(content_bp)
 
-    # Image Provider Abstraction — configurable model routing
-    from app.content_studio.provider_routes import provider_bp
+    # Image Provider Abstraction — configurable model routing.
+    # provider_bp now lives under /api/v1/content/image/* (B2 — the old
+    # /api/v1/content/generate image route was shadowed by content_bp's
+    # text /generate because first registration wins). The legacy
+    # /api/v1/content/providers listing alias is registered via
+    # provider_alias_bp (no /generate route, so no collision).
+    from app.content_studio.provider_routes import provider_bp, provider_alias_bp
     app.register_blueprint(provider_bp)
+    app.register_blueprint(provider_alias_bp)
 
     # Document Management API — SPA document serving, ingestion
     from app.documents_api import documents_bp
@@ -1216,6 +1222,12 @@ def create_app(config_override: dict | None = None):
     # AI Chat — Provider Registry (Groq → fallback chain)
     from app.ai.routes import ai_bp
     app.register_blueprint(ai_bp)
+
+    # Universal capability registry (ZG-03 B2 add-on) — provider-neutral
+    # capability status, execution and diagnostics for text/image/speech/
+    # video/embeddings/research.
+    from app.ai.capability_routes import capability_bp
+    app.register_blueprint(capability_bp)
 
     # GATE 12 — AI Action Tool Registry: wire real business action handlers
     # into the Intelligence Runtime's ToolExecutionLayer at startup.

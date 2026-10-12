@@ -783,24 +783,36 @@ Topic/Task: {prompt}
 Generate the content now:"""
 
     try:
-        # Try using the SHUNYA AI provider chain directly
-        from app.ai.provider import resolve_provider
-        provider = resolve_provider()
+        # Try using the SHUNYA AI provider chain directly (B2 failover).
+        # complete_with_failover walks the configured free-first chain, skips
+        # unavailable/retired providers, advances on classified errors, and
+        # never fabricates a reply when everything fails.
+        from app.ai.provider import complete_with_failover
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": full_prompt},
         ]
-        result = provider.complete(
+        result = complete_with_failover(
             messages=messages,
             temperature=0.7,
             max_tokens=min(word_count * 4, 2048),
         )
         if result and result.get("content"):
             return {"success": True, "content": result["content"], "error": None,
-                    "model": result.get("model") or getattr(provider, "name", ""),
+                    "model": result.get("model") or "provider_chain",
+                    "provider": result.get("provider"),
                     "output_language": output_language}
         if result and result.get("finish_reason") == "error":
-            return {"success": False, "content": None, "error": result.get("error", "Provider error")}
+            error_class = result.get("error_class") or "UNKNOWN"
+            detail = result.get("error") or "Provider error"
+            errors = result.get("errors")
+            if errors:
+                detail = "; ".join(
+                    f"{e.get('provider')}: {e.get('reason', e.get('error_class', ''))}"
+                    for e in errors
+                )
+            return {"success": False, "content": None, "error": detail,
+                    "error_class": error_class}
         return {"success": False, "content": None, "error": "AI provider returned empty response"}
     except ImportError:
         # Fallback: try the AI chat route

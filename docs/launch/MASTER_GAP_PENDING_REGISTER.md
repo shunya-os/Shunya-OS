@@ -1,7 +1,7 @@
 # SHUNYA — MASTER GAP & PENDING REGISTER (SUPERSET, ALL SOURCES)
 
-**Date:** 2026-10-11 (consolidated; baseline refreshed 2026-10-12 — ZG-03 Wave A)
-**Repository:** shunya-os/Shunya-OS @ master **26b592e** (CI_CERTIFIED, deployed; prior reference 6b5767f)
+**Date:** 2026-10-13 (consolidated; baseline refreshed 2026-10-12 — ZG-03 Wave A; B2 wave 2026-10-13)
+**Repository:** shunya-os/Shunya-OS @ master **583598f** (CI_CERTIFIED run 38311203988, deployed; prior baselines: 26b592e (Wave A), 6b5767f)
 **Sources merged:** (1) `docs/launch/SHUNYA_100_GAP_REGISTER.md` (session sweep, 5 perspectives), (2) `artifacts/SH_M6_M15_BLOCKER_REGISTER.md` (LB/S/P/F), (3) `SHUNYA_MASTER_MILESTONE_TRACKER.md` (G-gates, FDA gates, orphans, capability registry), (4) live production/host findings this session, (5) founder-pending decisions.
 **Rule:** this document is the single umbrella register. Child registers stay authoritative for their own detail; nothing here is closed without evidence.
 
@@ -147,6 +147,57 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 **Wave 3 — founder acceptance (D1) and G12.**
 
 **Never auto-delete any orphan** — archive-only per constitution; classification per engine-spec review (Section 4).
+
+---
+
+## SECTION 9 — ZG-03 WAVE B2 — PROVIDER & MODEL TRUTH (2026-10-13)
+
+**SHA reconciliation:** baseline released `583598f` (PR #5, CI SUCCESS run
+38311203988). Wave B2 implementation on branch
+`zero-gap-03-b2-provider-truth` → PR #6 (SHA recorded at merge). Deployed
+`backend_release_sha` verified == merged SHA post-deploy. Evidence doc:
+`docs/launch/ZG03_B2_PROVIDER_TRUTH.md` (reproductions at 583598f before any
+change) + `docs/launch/ZG03_B2_CAPABILITY_INVENTORY.md` (add-on baseline).
+
+**B2 items (status):**
+
+| # | Item | Status |
+|---|------|--------|
+| B2-1 | Reproduced: Content Studio image generation broken (HF 402 no credits; success-shaped description_only; `dummy` purple placeholder advertised; image `/generate` route shadowed by text route) | REPRODUCED at 583598f |
+| B2-2 | Reproduced: retired text models — Groq `llama-3.3-70b-versatile` RETIRED (live 404), Gemini `gemini-2.0-flash` RETIRED, Cloudflare `@cf/meta/llama-3.1-8b-instruct` RETIRED, Anthropic `claude-3-haiku-20240307` RETIRED; HF text endpoint deprecated | REPRODUCED (live catalogs) |
+| B2-3 | Explicit configuration: `app/ai/model_catalog.py` canonical catalog (defaults, valid/retired sets verified live 2026-10-13, ErrorClass taxonomy, free-first chain policy) | IMPLEMENTED |
+| B2-4 | Truthful availability: provider `is_available()` = key + valid model + no outage; image registry availability computed; `dummy` test-only | IMPLEMENTED |
+| B2-5 | Error classification: ErrorClass surfaced in provider results, content/media/capability API responses | IMPLEMENTED |
+| B2-6 | Text failover: `complete_with_failover` (skip unavailable, advance on classified errors, truthful aggregate failure; local canned fallback REMOVED from auto-path) | IMPLEMENTED |
+| B2-7 | Genuine image fallback: Pollinations (free, no key — verified real JPEG) as HF→Pollinations chain in media + image registry | IMPLEMENTED |
+| B2-8 | Route shadow fixed: image endpoints → `/api/v1/content/image/*`; legacy `/api/v1/content/providers` alias kept | IMPLEMENTED |
+| B2-9 | Retired ids purged from app/ai/provider.py, inference_orchestrator, model_orchestrator, inference_governance, llm adapter, for1 engine | IMPLEMENTED |
+| B2-10 | Add-on: universal capability registry `app/ai/capabilities.py` + `/api/v1/capabilities*` routes (status/summary/execute/diagnostics), ProviderOrchestrator truthful | IMPLEMENTED |
+| B2-11 | Tests: `test_provider_catalog_b2.py` + `test_media_fallback_b2.py` (34 tests) + adapted r6b27 | IMPLEMENTED — green local |
+| B2-12 | Production env model values (GROQ_MODEL→openai/gpt-oss-20b, GEMINI_MODEL→gemini-2.5-flash, CLOUDFLARE_MODEL→-fp8) | AT DEPLOY (not committed) |
+
+**Known negatives / remaining:**
+- Hugging Face: PRODUCTION OUTAGE (credits required) for images AND text —
+  classified truthfully; only becomes available again when credits restored
+  (PROVIDER DEPENDENCY).
+- Video generation (Wan/LTX evaluated): no free hosted provider verified —
+  capability registered, status UNAVAILABLE, no fake surface.
+- Embeddings: self-hostable (sentence-transformers NOT installed) / HF
+  credit-gated — capability registered, status UNAVAILABLE.
+- Image editing: ComfyUI adapter exists, no server configured — evaluated.
+- STT/TTS adapters exist (whisper/piper/kokoro) but HF serverless is
+  credit-gated; Groq whisper-large-v3 STT registered (free, key present).
+- `core/personal_os/providers.py` was advertising every universal provider as
+  `available` with no evidence — corrected to computed statuses (B2-10).
+- Section 4 "Provider chains duplicate" row: app/ai/provider.py remains the
+  single live chain; inference_orchestrator/provider_registry now catalog-fed
+  (no retired ids) but is still unwired (CANONICAL + MUST CONNECT — G3).
+
+**Next action:** merge PR #6 after green CI, deploy, verify production SHA +
+runtime (text generation real content; image generation real image via
+Pollinations; `/api/v1/content/providers` truthful), then proceed B3 (schema +
+NUL-byte), B4 (workspace listing + legacy tenant scope), B5 (external-provider
+test flake), then remaining launch/UX/reliability gates and full certification.
 
 ---
 

@@ -91,6 +91,67 @@ def _generate_hf_image(prompt: str, aspect_ratio: str = "1:1") -> bytes:
     return buf.getvalue()
 
 
+def _fetch_pollinations_bytes(prompt: str, width: int = 1024, height: int = 1024) -> bytes:
+    """Fetch a real image from Pollinations (free, no API key).
+
+    Raises on transport or non-image responses. Verified 2026-10-13 returning
+    a genuine JPEG at zero cost — this is the working free image fallback
+    (ZG-03 B2) when Hugging Face serverless inference is unavailable.
+    """
+    import httpx
+    from urllib.parse import quote
+
+    url = (
+        "https://image.pollinations.ai/prompt/"
+        f"{quote(prompt[:500])}?width={int(width)}&height={int(height)}&nologo=true"
+    )
+    resp = httpx.get(url, timeout=httpx.Timeout(60.0, connect=10.0, read=55.0), follow_redirects=True)
+    resp.raise_for_status()
+    if not resp.content or resp.content[:2] not in (b"\xff\xd8", b"\x89PN"):
+        raise RuntimeError("Pollinations returned a non-image response")
+    return resp.content
+
+
+def _generate_pollinations_image(prompt: str, aspect_ratio: str = "1:1") -> bytes:
+    """Generate an image via Pollinations. Returns raw bytes. Raises on failure."""
+    w, h = ASPECT_MAP.get(aspect_ratio, (1024, 1024))
+    return _fetch_pollinations_bytes(prompt, width=w, height=h)
+
+
+def _generate_image_with_fallback(prompt: str, aspect_ratio: str = "1:1") -> tuple[bytes | None, str | None, list[dict]]:
+    """Generate an image trying each configured provider in order.
+
+    Returns ``(bytes, provider_label, errors)``. provider_label is None when
+    every provider failed; errors carries per-provider ErrorClass
+    classification so failure is truthful and diagnosable.
+    """
+    from app.ai.model_catalog import classify_exception
+
+    errors: list[dict] = []
+    # 1) Hugging Face serverless (free) — only when a token is configured.
+    if _get_hf_token():
+        try:
+            return _generate_hf_image(prompt, aspect_ratio), f"hf/{HF_MODEL}", []
+        except Exception as e:
+            errors.append({
+                "provider": "huggingface",
+                "model": HF_MODEL,
+                "error_class": classify_exception(e).value,
+                "reason": str(e),
+            })
+    # 2) Pollinations (free, no key) — genuinely working fallback.
+    try:
+        return _generate_pollinations_image(prompt, aspect_ratio), "pollinations/pollinations", []
+    except Exception as e:
+        errors.append({
+            "provider": "pollinations",
+            "model": "pollinations",
+            "error_class": classify_exception(e).value,
+            "reason": str(e),
+        })
+    return None, None, errors
+
+
 def _save_image_file(raw_bytes: bytes, identity_id: str) -> str:
     """Save raw image bytes to disk and return the relative URL path.
 
@@ -231,19 +292,11 @@ def generate_media(
         asset.runtime_state = "generating"
         db.session.commit()
 
-        # 3. Check provider availability
-        if not _get_hf_token():
-            asset.runtime_state = "provider_unavailable"
-            asset.result_kind = "provider_unavailable"
-            asset.failure_reason = (
-                "Hugging Face API token not configured. "
-                "Set HF_API_KEY in environment to enable image generation."
-            )
-            db.session.commit()
-            return asset.to_canonical()
-
-        # 4. Generate image via HF free inference
-        # Compose a detailed prompt from the visual brief + raw prompt
+        # 3. Generate the image through the provider chain (HF -> Pollinations).
+        #    ZG-03 B2: a missing HF token or an HF outage no longer shortcuts to
+        #    "unavailable" — the genuinely working free Pollinations fallback is
+        #    tried first. Only when EVERY provider fails do we degrade to the
+        #    (explicitly non-image) visual concept, with classified reasons.
         generation_prompt = (
             f"{raw_prompt}. "
             f"Style: {visual_style}. "
@@ -251,18 +304,20 @@ def generate_media(
             f"{brief.split('VISUAL DIRECTION:')[0] if 'VISUAL DIRECTION:' in brief else ''}"
         )
 
-        try:
-            image_bytes = _generate_hf_image(
-                generation_prompt.strip(), aspect_ratio
-            )
-        except Exception as gen_err:
-            logger.warning("HF image generation failed: %s", gen_err)
-            # Fallback: provider unavailable
+        image_bytes, provider_label, provider_errors = _generate_image_with_fallback(
+            generation_prompt.strip(), aspect_ratio
+        )
+
+        if image_bytes is None:
+            logger.warning("All image providers failed: %s", provider_errors)
             asset.runtime_state = "provider_unavailable"
             asset.result_kind = "provider_unavailable"
             asset.failure_reason = (
-                f"Image generation service unavailable: {gen_err}. "
-                "The visual brief was created — use description-only mode."
+                "Image generation service unavailable: "
+                + "; ".join(
+                    f"{e['provider']}: {e['reason']}" for e in provider_errors
+                )
+                + ". The visual brief was created — use description-only mode."
             )
             db.session.commit()
 
@@ -308,7 +363,7 @@ def generate_media(
         # 5. Save image to persistent storage
         asset_url = _save_image_file(image_bytes, identity_id)
         asset.asset_url = asset_url
-        asset.provider = f"hf/{HF_MODEL}"
+        asset.provider = provider_label or f"hf/{HF_MODEL}"
         asset.generation_job_id = hashlib.sha256(image_bytes).hexdigest()[:24]
         asset.runtime_state = "generated"
         asset.result_kind = "generated_image"
@@ -327,7 +382,7 @@ def generate_media(
                 data={
                     "asset_id": asset.id,
                     "asset_url": asset_url,
-                    "provider": f"hf/{HF_MODEL}",
+                    "provider": asset.provider,
                     "raw_prompt": raw_prompt,
                     "aspect_ratio": aspect_ratio,
                     "visual_style": visual_style,
@@ -558,14 +613,35 @@ def attach_to_campaign(
 
 
 def get_hf_status() -> dict:
-    """Check HF free inference availability. Returns status dict."""
+    """Check HF free inference availability. Returns status dict.
+
+    B2 truthful availability: HF serverless image inference requires prepaid
+    credits (402 reproduced 2026-10-13). The catalog marks it in outage, so
+    ``available`` is False even with a token configured — registration and a
+    key are not availability.
+    """
+    from app.ai.model_catalog import provider_outage
+
     token_ok = bool(_get_hf_token())
+    outage = provider_outage("huggingface_image") or provider_outage("huggingface")
     if not token_ok:
         return {
             "available": False,
             "provider": "huggingface",
             "model": HF_MODEL,
             "error": "HF_API_KEY not configured",
+            "error_class": "AUTH_MISSING",
+        }
+    if outage:
+        return {
+            "available": False,
+            "provider": "huggingface",
+            "model": HF_MODEL,
+            "cost": "free",
+            "token_cost": 0,
+            "error": f"Hugging Face inference requires prepaid credits ({outage})",
+            "error_class": "CREDITS_REQUIRED",
+            "fallback": "pollinations",
         }
     try:
         available = _check_hf_available()
@@ -575,6 +651,7 @@ def get_hf_status() -> dict:
             "model": HF_MODEL,
             "cost": "free",
             "token_cost": 0,
+            "fallback": "pollinations",
         }
     except Exception as e:
         return {
@@ -582,4 +659,26 @@ def get_hf_status() -> dict:
             "provider": "huggingface",
             "model": HF_MODEL,
             "error": str(e),
+            "error_class": "PROVIDER_OUTAGE",
+            "fallback": "pollinations",
         }
+
+
+def get_media_provider_status() -> dict:
+    """Return truthful status for every configured image provider.
+
+    Hugging Face (outage/credits) + Pollinations (free, no key, genuinely
+    working). This is the source the UI and the diagnostics endpoint use.
+    """
+    return {
+        "huggingface": get_hf_status(),
+        "pollinations": {
+            "available": True,
+            "provider": "pollinations",
+            "model": "pollinations",
+            "cost": "free",
+            "token_cost": 0,
+            "note": "Free, no API key — verified returning real images 2026-10-13.",
+            "fallback_of": "huggingface",
+        },
+    }

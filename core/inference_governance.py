@@ -239,17 +239,19 @@ class CapabilityBasedRouter:
     }
 
     CAPABILITY_MODEL_HINTS: dict[str, str] = {
-        "chat": "llama-3.3-70b-versatile",
-        "search": "llama-3.3-70b-versatile",
-        "summarization": "gpt-4o-mini",
-        "analysis": "gpt-4o-mini",
-        "code_generation": "claude-3-haiku",
-        "complex_reasoning": "gpt-4o",
-        "vision": "gpt-4o",
-        "structured_extraction": "llama-3.3-70b-versatile",
-        "classification": "llama-3.3-70b-versatile",
-        "creative_writing": "gpt-4o-mini",
-        "translation": "llama-3.3-70b-versatile",
+        # ZG-03 B2: retired identifiers removed — hints now point at current
+        # valid, free-first models from the canonical catalog.
+        "chat": "openai/gpt-oss-20b",
+        "search": "openai/gpt-oss-20b",
+        "summarization": "deepseek/deepseek-chat",
+        "analysis": "deepseek/deepseek-chat",
+        "code_generation": "qwen/qwen-2.5-72b-instruct",
+        "complex_reasoning": "qwen/qwen-2.5-72b-instruct",
+        "vision": "gemini-2.5-flash",
+        "structured_extraction": "openai/gpt-oss-20b",
+        "classification": "openai/gpt-oss-20b",
+        "creative_writing": "deepseek/deepseek-chat",
+        "translation": "openai/gpt-oss-20b",
     }
 
     @classmethod
@@ -616,7 +618,7 @@ class InferenceGovernanceService:
             ]
             record.success = True
             record.final_provider = "openai"
-            record.final_model = "gpt-4o-mini"
+            record.final_model = "deepseek/deepseek-chat"
 
         elif scenario == "primary_timeout":
             record.error = "Simulated: primary provider timeout"
@@ -627,7 +629,7 @@ class InferenceGovernanceService:
             ]
             record.success = True
             record.final_provider = "openrouter"
-            record.final_model = "openai/gpt-4o-mini"
+            record.final_model = "deepseek/deepseek-chat"
 
         elif scenario == "primary_malformed":
             record.error = "Simulated: malformed response from primary"
@@ -638,7 +640,7 @@ class InferenceGovernanceService:
             ]
             record.success = True
             record.final_provider = "openrouter"
-            record.final_model = "openai/gpt-4o-mini"
+            record.final_model = "deepseek/deepseek-chat"
 
         elif scenario == "all_unavailable":
             record.error = "All permitted providers unavailable"
