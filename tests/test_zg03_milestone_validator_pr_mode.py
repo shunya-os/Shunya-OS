@@ -30,6 +30,10 @@ def _load_validator():
 def _run_check(monkeypatch, env, fake_sh):
     mod = _load_validator()
     monkeypatch.setattr(mod, "sh", fake_sh)
+    # Hermetic: GitHub Actions sets GITHUB_EVENT_NAME/GITHUB_HEAD_REF in CI;
+    # clear them so each case fully controls the environment it exercises.
+    monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
+    monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
     return mod.check_git_state()
