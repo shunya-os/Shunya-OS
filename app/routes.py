@@ -1331,12 +1331,22 @@ def shunya_proposal(lead_id):
 @api.route("/leads/<int:lead_id>/activities", methods=["GET"])
 @require_permission("rel.view")
 def api_lead_activities(lead_id):
-    """Return activity log for a lead as JSON."""
-    lead = Lead.query.get_or_404(lead_id)
+    """Return activity log for a lead as JSON (tenant-scoped — ZG-03 B1)."""
+    from app.models import ActivityLog
+    from app.leads.routes import _lead_tenant_scope
+
+    org_id, accepted = _lead_tenant_scope()
+    if not org_id or not accepted:
+        return jsonify({"error": "No organization context"}), 403
+    lead = Lead.query.filter(
+        Lead.id == lead_id, Lead.tenant_id.in_(accepted)
+    ).first()
+    if not lead:
+        return jsonify({"error": "Lead not found"}), 404
     limit = min(int(request.args.get("limit", 50)), 200)
     activities = (
         lead.activities
-        .order_by(Lead.activities.property.mapper.class_.created_at.desc())
+        .order_by(ActivityLog.created_at.desc())
         .limit(limit)
         .all()
     )
