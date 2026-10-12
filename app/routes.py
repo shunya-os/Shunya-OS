@@ -295,20 +295,38 @@ def lead_new():
         f = request.form
         with db.session.no_autoflush:
             code = _cached_or_new_code(db.session)
-        lead = Lead(
-            code=code,
-            source=f.get("source", "telegram"),
-            customer_name=f.get("customer_name"),
-            phone=f.get("phone"),
-            email=f.get("email"),
-            destination=f.get("destination"),
-            pax=f.get("pax"),
-            dates=f.get("dates"),
-            budget=float(f.get("budget") or 0),
-            assigned_to=f.get("assigned_to"),
-            notes=f.get("notes"),
-            status=f.get("status", "new"),
-        )
+        # Canonical tenant for the write: the session's authorized org when
+        # resolvable, else the legacy session tenant; never fabricated. The
+        # thread-local is REQUIRED by the Lead-Entity bridge and the row must
+        # carry the tenant BEFORE its first flush (NOT NULL in prod; ZG-03).
+        from app.authz.decorators import _resolve_org_id
+        from app.models import clear_lead_tenant_id, set_lead_tenant_id
+        try:
+            lead_tenant = _resolve_org_id() or int(session.get("tenant_id") or 0) or None
+        except Exception:
+            lead_tenant = int(session.get("tenant_id") or 0) or None
+        if not lead_tenant:
+            flash("No organization context — lead not created", "error")
+            return redirect(url_for("main.leads_new"))
+        try:
+            set_lead_tenant_id(lead_tenant)
+            lead = Lead(
+                code=code,
+                tenant_id=lead_tenant,
+                source=f.get("source", "telegram"),
+                customer_name=f.get("customer_name"),
+                phone=f.get("phone"),
+                email=f.get("email"),
+                destination=f.get("destination"),
+                pax=f.get("pax"),
+                dates=f.get("dates"),
+                budget=float(f.get("budget") or 0),
+                assigned_to=f.get("assigned_to"),
+                notes=f.get("notes"),
+                status=f.get("status", "new"),
+            )
+        finally:
+            clear_lead_tenant_id()
         obj = _flash_if_error(lead)
         if obj:
             _log_activity(obj.id, "created", f"Lead created via {obj.source}")
@@ -1112,24 +1130,45 @@ def telegram_webhook():
     parsed = parse_inquiry_text(text)
     with db.session.no_autoflush:
         code = _cached_or_new_code(db.session)
-    lead = Lead(
-        code=code,
-        source="telegram",
-        customer_name=parsed.get("name") or sender,
-        phone=sender,
-        destination=parsed.get("destination"),
-        pax=(
-            f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
-            if parsed.get("adults") or parsed.get("kids")
-            else None
-        ),
-        dates=parsed.get("dates"),
-        notes=text,
-        status="new",
-    )
-    db.session.add(lead)
-    db.session.commit()
-    _log_activity(lead.id, "created", f"Lead created via Telegram inquiry: {text[:200]}")
+
+    # System ingress: only project a Lead when a canonical tenant resolves —
+    # undocumented attribution is refused rather than fabricated (ZG-03).
+    resolved_tenant = None
+    try:
+        from app.authz.decorators import _resolve_org_id
+        resolved_tenant = _resolve_org_id()
+    except Exception:
+        resolved_tenant = None
+    if resolved_tenant:
+        from app.models import clear_lead_tenant_id, set_lead_tenant_id
+        try:
+            set_lead_tenant_id(int(resolved_tenant))
+            lead = Lead(
+                code=code,
+                source="telegram",
+                tenant_id=int(resolved_tenant),
+                customer_name=parsed.get("name") or sender,
+                phone=sender,
+                destination=parsed.get("destination"),
+                pax=(
+                    f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
+                    if parsed.get("adults") or parsed.get("kids")
+                    else None
+                ),
+                dates=parsed.get("dates"),
+                notes=text,
+                status="new",
+            )
+        finally:
+            clear_lead_tenant_id()
+        db.session.add(lead)
+        db.session.commit()
+        _log_activity(lead.id, "created", f"Lead created via Telegram inquiry: {text[:200]}")
+    else:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Telegram Lead projection skipped: no canonical tenant (sender %s)",
+            sender)
 
     reply = {
         "method": "sendMessage",

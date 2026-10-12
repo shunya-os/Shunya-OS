@@ -516,7 +516,19 @@ def api_lead_create():
     data = request.get_json(silent=True) or {}
     if not data.get("customer_name"):
         return jsonify({"error": "customer_name required"}), 400
-    lead = Lead(customer_name=data["customer_name"], status="new")
+    from app.authz.decorators import _resolve_org_id
+    from app.models import clear_lead_tenant_id, set_lead_tenant_id
+    org_id = _resolve_org_id()
+    if not org_id:
+        return jsonify({"error": "No organization context"}), 403
+    try:
+        set_lead_tenant_id(org_id)
+        # tenant bound at construction — the row must never flush without it
+        # (NOT NULL in production; ZG-03)
+        lead = Lead(tenant_id=org_id, customer_name=data["customer_name"],
+                    status="new")
+    finally:
+        clear_lead_tenant_id()
     lead.code = f"L{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:4]}"
     lead.source = data.get("source", "api")
     db.session.add(lead)

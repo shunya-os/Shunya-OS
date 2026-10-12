@@ -156,12 +156,15 @@ def create_lead_with_identity(
             status=LeadStatus.NEW.value,
             stage="new",
             assigned_to=assigned_to,
+            # Bind the tenant AT CONSTRUCTION: production's leads.tenant_id is
+            # NOT NULL (migration-constrained) and a NULL insert is rejected
+            # even mid-transaction. The SQLite suite could not catch the old
+            # flush-before-tenant-set order because its column is nullable
+            # (ZG-03 production verification, 2026-10-12).
+            tenant_id=tenant_id,
         )
         db.session.add(lead)
         db.session.flush()
-
-        # Set tenant_id on the lead for tenant isolation
-        lead.tenant_id = tenant_id
 
         rel = _resolve_identity(lead, tenant_id, name, phone, email, created_by)
         if rel:
