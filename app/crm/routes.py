@@ -161,10 +161,20 @@ def api_create_opportunity(lead_id: int):
 @crm_bp.route("/leads/<int:lead_id>/won", methods=["POST"])
 @require_permission("proposal.approve")
 def api_lead_won(lead_id: int):
-    """Convert a WON lead to customer (gated: only won/qualified leads)."""
+    """Mark a lead WON and convert it to customer.
+
+    This is the sanctioned 'won' transition: it marks the lead won (status +
+    stage + timeline) and then converts — the audit gate (convert_to_customer
+    refuses arbitrary new/in-progress leads) is preserved for all other paths.
+    """
     lead = db.session.get(Lead, lead_id)
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
+    if lead.status == LeadStatus.CANCELLED.value:
+        return jsonify({"success": False, "error": "A cancelled lead cannot be marked won"}), 400
+    # Mark won first (the gate then accepts the conversion)
+    from app.crm.service import mark_lead_won
+    mark_lead_won(lead, _resolve_tenant_from_session())
     data = request.get_json(silent=True) or {}
     customer = convert_to_customer(lead, _resolve_tenant_from_session())
     if customer is None:
@@ -173,7 +183,7 @@ def api_lead_won(lead_id: int):
             "error": (
                 f"Lead {lead.code} cannot be converted: status must be "
                 f"won/qualified/converted (current status={lead.status}, "
-                f"stage={lead.stage}). Mark the lead won first."
+                f"stage={lead.stage})."
             ),
         }), 400
     return jsonify({

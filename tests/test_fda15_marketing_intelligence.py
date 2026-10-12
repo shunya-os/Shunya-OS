@@ -9,7 +9,7 @@ class TestAttribution:
     def test_attribution_returns_chain(self, app, client):
         """Campaign → lead → customer chain is traceable."""
         from app.marketing_os.service import capture_lead, create_campaign
-        from app.crm.service import convert_to_customer
+        from app.crm.service import convert_to_customer, mark_lead_won
         from app.marketing_intelligence.service import get_attribution
         with app.app_context():
             camp = create_campaign(name="Attribution Test", tenant_id=1)
@@ -18,6 +18,7 @@ class TestAttribution:
                                   campaign_id=camp.id, utm_source="facebook")
             from app.models import Lead
             lead = Lead.query.get(result["lead_id"])
+            mark_lead_won(lead, 1)
             convert_to_customer(lead, 1)
             attr = get_attribution(camp.id, 1)
             assert attr["leads_count"] >= 1
@@ -51,7 +52,7 @@ class TestRevenueAttributionAudit:
         Proves the attribution result identifies the source records/IDs used.
         """
         from app.marketing_os.service import capture_lead, create_campaign
-        from app.crm.service import convert_to_customer, create_opportunity, assign_lead, qualify_lead_and_update
+        from app.crm.service import convert_to_customer, mark_lead_won, create_opportunity, assign_lead, qualify_lead_and_update
         from app.marketing_intelligence.service import get_attribution
         from app.models import Lead, Proposal
         with app.app_context():
@@ -81,6 +82,7 @@ class TestRevenueAttributionAudit:
             prop_id = prop.id
 
             # 5. Convert to customer
+            mark_lead_won(lead, 1)
             cust = convert_to_customer(lead, 1)
             cust_id = cust.id
 
@@ -109,7 +111,7 @@ class TestRevenueAttributionAudit:
 class TestRevenueTrace:
     def test_revenue_trace_from_customer(self, app, client):
         from app.marketing_os.service import capture_lead, create_campaign
-        from app.crm.service import convert_to_customer
+        from app.crm.service import convert_to_customer, mark_lead_won
         from app.marketing_intelligence.service import revenue_trace
         with app.app_context():
             camp = create_campaign(name="Revenue Trace", tenant_id=1)
@@ -118,6 +120,7 @@ class TestRevenueTrace:
                                   campaign_id=camp.id)
             from app.models import Lead
             lead = Lead.query.get(result["lead_id"])
+            mark_lead_won(lead, 1)
             cust = convert_to_customer(lead, 1)
             trace = revenue_trace(cust.id, 1)
             assert trace is not None

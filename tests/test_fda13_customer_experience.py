@@ -8,12 +8,13 @@ import pytest
 @pytest.fixture
 def seeded_customer_id(app, client):
     """Create a lead and convert to customer. Returns (customer_id, lead_id)."""
-    from app.crm.service import create_lead_with_identity, convert_to_customer
+    from app.crm.service import create_lead_with_identity, convert_to_customer, mark_lead_won
     with app.app_context():
         lead = create_lead_with_identity(
             tenant_id=1, name="CX Test", phone="+1-555-CX",
             email="cx@test.com", source="api",
         )
+        mark_lead_won(lead, 1)
         cust = convert_to_customer(lead, 1)
         return cust.id, lead.id
 

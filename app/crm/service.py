@@ -395,6 +395,33 @@ def create_opportunity(lead: Lead, tenant_id: int, title: str = "") -> Proposal:
     return proposal
 
 
+def mark_lead_won(lead: Lead, tenant_id: int) -> Lead:
+    """Mark a lead as WON (status + stage + timeline entry).
+
+    This is the sanctioned 'won' transition used by the /leads/<id>/won
+    route: it records the win explicitly before conversion, so
+    convert_to_customer's eligibility gate is satisfied through a real
+    user action — never by silently converting an arbitrary lead.
+    """
+    if lead.status == LeadStatus.CANCELLED.value:
+        raise ValueError("A cancelled lead cannot be marked won")
+    lead.status = "won"
+    lead.stage = "won"
+    lead.updated_at = datetime.utcnow()
+    if lead.person_id:
+        _add_timeline_entry(
+            organization_id=tenant_id,
+            relationship_id=_rel_id_for_lead(lead, tenant_id),
+            event_type="lead.won",
+            title="Lead won",
+            description=f"Lead {lead.code} marked as won",
+            reference_type="lead",
+            reference_id=lead.id,
+        )
+    db.session.commit()
+    return lead
+
+
 def convert_to_customer(lead: Lead, tenant_id: int) -> Optional[Customer]:
     """Convert a WON/QUALIFIED lead to a customer.
 
