@@ -243,15 +243,23 @@ class ProviderConfig:
 
 
 def resolve_provider_configs() -> list[ProviderConfig]:
-    """Build the provider chain from environment variables.
+    """Build the provider chain from environment variables + the canonical
+    model catalog (ZG-03 B2).
+
+    Never advertises a retired model identifier as a default: the catalog's
+    ``resolve_default_model`` is used so an env value that has been retired
+    (e.g. GROQ_MODEL=llama-3.3-70b-versatile, GEMINI_MODEL=gemini-2.0-flash,
+    ANTHROPIC_MODEL=claude-3-haiku-20240307) falls back to a valid current id.
 
     Priority order (by priority field, lower = higher priority):
       1. Groq (priority 10, free tier)
       2. OpenRouter (priority 20)
-      3. OpenAI (priority 30)
-      4. Anthropic (priority 40)
-      5. Local (priority 100, always available)
+      3. OpenAI (priority 30 — paid, only when explicitly configured)
+      4. Anthropic (priority 40 — paid, only when explicitly configured)
+      5. Local (priority 100 — TEST/offline only, explicit SHUNYA_AI_PROVIDERS)
     """
+    from app.ai.model_catalog import resolve_default_model
+
     # When SHUNYA_AI_PROVIDERS=local, return ONLY the local provider
     if os.getenv("SHUNYA_AI_PROVIDERS", "") == "local":
         return [ProviderConfig(
@@ -268,7 +276,7 @@ def resolve_provider_configs() -> list[ProviderConfig]:
             name="groq",
             api_key=os.getenv("GROQ_API_KEY", ""),
             base_url="https://api.groq.com/openai/v1",
-            model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            model=resolve_default_model("groq", os.getenv("GROQ_MODEL")),
             priority=10,
         ))
 
@@ -278,38 +286,45 @@ def resolve_provider_configs() -> list[ProviderConfig]:
             name="openrouter",
             api_key=os.getenv("OPENROUTER_API_KEY", ""),
             base_url="https://openrouter.ai/api/v1",
-            model=os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini"),
+            model=resolve_default_model("openrouter", os.getenv("OPENROUTER_MODEL")),
             priority=20,
         ))
 
-    # OpenAI
-    if os.getenv("OPENAI_API_KEY"):
+    # OpenAI — paid; included only when explicitly configured
+    if os.getenv("OPENAI_API_KEY") and "openai" in _explicit_chain():
         configs.append(ProviderConfig(
             name="openai",
             api_key=os.getenv("OPENAI_API_KEY", ""),
             base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            model=resolve_default_model("openai", os.getenv("OPENAI_MODEL")),
             priority=30,
         ))
 
-    # Anthropic
-    if os.getenv("ANTHROPIC_API_KEY"):
+    # Anthropic — paid; included only when explicitly configured
+    if os.getenv("ANTHROPIC_API_KEY") and "anthropic" in _explicit_chain():
         configs.append(ProviderConfig(
             name="anthropic",
             api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-            model=os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307"),
+            model=resolve_default_model("anthropic", os.getenv("ANTHROPIC_MODEL")),
             priority=40,
         ))
 
-    # Local fallback (always available)
-    configs.append(ProviderConfig(
-        name="local",
-        model="local",
-        priority=100,
-    ))
+    # Local — TEST/offline only, never an implicit paid-avoidance fallback
+    if "local" in _explicit_chain():
+        configs.append(ProviderConfig(
+            name="local",
+            model="local",
+            priority=100,
+        ))
 
     configs.sort(key=lambda c: c.priority)
     return configs
+
+
+def _explicit_chain() -> list[str]:
+    """Parse SHUNYA_AI_PROVIDERS for explicit provider membership."""
+    raw = os.getenv("SHUNYA_AI_PROVIDERS", "").strip()
+    return [p.strip() for p in raw.split(",") if p.strip()]
 
 
 # ── Execution Layer ─────────────────────────────────────────────────────────

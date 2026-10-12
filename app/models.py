@@ -6,7 +6,7 @@ All tables use created_at + updated_at timestamps.
 """
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Optional
 from app import db
@@ -787,20 +787,46 @@ def next_inquiry_code(session) -> str:
         PC10072601  (July 10, 2026 — first lead of the day)
         PC10072602  (second lead of the day)
         PC11072601  (next day, counter resets)
-    """
-    today = date.today()
-    prefix = f"PC{today.day:02d}{today.month:02d}{today.year % 100:02d}"
 
-    count = (
-        session.query(func.count(Lead.id))
-        .filter(
-            Lead.created_at >= datetime(today.year, today.month, today.day),
-            Lead.created_at < datetime(today.year, today.month, today.day) + timedelta(days=1),
-        )
+    ZG-03 B2 fix — collision-safe and clock-consistent:
+    - The date comes from the SAME UTC clock that populates ``created_at``
+      (datetime.utcnow). The previous implementation used local
+      ``date.today()`` for the prefix while ``created_at`` was UTC — whenever
+      the local and UTC dates differ (e.g. 22:00–24:00 UTC in a +2 timezone),
+      the "today" row-count window missed the rows just written, so every row
+      in a batch received the same sequence number → UNIQUE(leads.code)
+      violations (reproduced 2026-10-13: PC13102601 inserted twice).
+    - The sequence is derived from the max existing code with the same prefix
+      (``PC{DD}{MM}{YY}NN``), not from a created_at row-count — immune to
+      clock skew and to pre-existing codes sharing the prefix. Batches inside
+      one transaction are handled because SQLAlchemy autoflush makes pending
+      rows visible to the LIKE query. A busy day beyond 99 leads extends to a
+      3-digit suffix.
+    """
+    now = datetime.utcnow()
+    prefix = f"PC{now.day:02d}{now.month:02d}{now.year % 100:02d}"
+
+    existing = (
+        session.query(Lead.code)
+        .filter(Lead.code.like(f"{prefix}%"))
+        .order_by(Lead.code.desc())
+        .limit(1)
         .scalar()
-        or 0
-    ) + 1
-    return f"{prefix}{count:02d}"
+    )
+    suffix: int = 1
+    if existing:
+        tail = existing[len(prefix):]
+        if tail.isdigit():
+            suffix = int(tail) + 1
+        else:
+            count = (
+                session.query(func.count(Lead.id))
+                .filter(Lead.code.like(f"{prefix}%"))
+                .scalar()
+                or 0
+            )
+            suffix = count + 1
+    return f"{prefix}{suffix:02d}" if suffix < 100 else f"{prefix}{suffix:03d}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

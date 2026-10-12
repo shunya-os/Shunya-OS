@@ -159,7 +159,9 @@ class OpenRouterAdapter:
         import requests
         key = self._api_key
         headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-        model_map = {"default": "openai/gpt-4o", "fast": "openai/gpt-4o-mini"}
+        # B2: retired gpt-4o/gpt-4o-mini OpenRouter slugs replaced with current
+        # valid free models (catalog defaults).
+        model_map = {"default": "deepseek/deepseek-chat", "fast": "deepseek/deepseek-chat"}
         model = model_map.get(request.get("model", "default"), request.get("model"))
         body = {"model": model, "messages": request["messages"], "max_tokens": request.get("max_tokens", 4096)}
         schema = request.get("output_schema")

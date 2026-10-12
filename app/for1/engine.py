@@ -19,9 +19,12 @@ from app.models import Proposal, ProposalVersion, KnowledgeDocument
 
 
 # ── AI Client (OpenRouter / OpenAI-compatible) ──────────────────────────
+# Reads the default model from the canonical model catalog (B2) so that a
+# retired identifier (such as the old openai/gpt-4o-mini) is never baked in.
+from app.ai.model_catalog import resolve_default_model
 
 _AI_CLIENT = None
-_AI_MODEL = "openai/gpt-4o-mini"  # cost-effective for proposal generation
+_AI_MODEL = resolve_default_model("openrouter", os.getenv("OPENROUTER_MODEL"))  # deepseek/deepseek-chat
 
 
 def _get_ai_client():
