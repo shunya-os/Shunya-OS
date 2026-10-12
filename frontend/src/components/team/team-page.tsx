@@ -42,6 +42,16 @@ interface ApiResponse<T> {
   error?: string;
 }
 
+interface TeamInvitation {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  status: string;
+  created_at: string | null;
+  expires_at: string | null;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────
 
 function timeAgo(ts: string | null): string {
@@ -63,6 +73,7 @@ function timeAgo(ts: string | null): string {
 export function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [invitations, setInvitations] = useState<TeamInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -100,13 +111,21 @@ export function TeamPage() {
     } catch { /* roles are secondary */ }
   }, []);
 
+  const fetchInvitations = useCallback(async () => {
+    try {
+      const r = await fetch('/api/v1/team/invitations', { credentials: 'include' });
+      const d: ApiResponse<TeamInvitation[]> = await r.json();
+      if (d.success) setInvitations(d.data || []);
+    } catch { /* invitations are secondary */ }
+  }, []);
+
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([fetchMembers(), fetchRoles()]);
+      await Promise.all([fetchMembers(), fetchRoles(), fetchInvitations()]);
       setLoading(false);
     })();
-  }, [fetchMembers, fetchRoles]);
+  }, [fetchMembers, fetchRoles, fetchInvitations]);
 
   // ── Invite ────────────────────────────────────────────────────────────
 
@@ -134,7 +153,12 @@ export function TeamPage() {
         setInviteEmail('');
         setInviteName('');
         setInviteRole('member');
-        await fetchMembers();
+        await Promise.all([fetchMembers(), fetchInvitations()]);
+      } else if (r.status === 409) {
+        // Duplicate pending invitation — surface it instead of dead-ending.
+        setShowInvite(false);
+        setActionErr(`${d.error}. This pending invitation is shown below — you can resend or revoke it.`);
+        await fetchInvitations();
       } else {
         setInviteError(d.error || 'Invitation failed');
       }
@@ -142,6 +166,54 @@ export function TeamPage() {
       setInviteError('Network error sending invitation');
     }
     setInviting(false);
+  };
+
+  // ── Invitation resend / revoke ────────────────────────────────────────
+
+  const [resending, setResending] = useState<number | null>(null);
+  const [actionMsg, setActionMsg] = useState('');
+  const [actionErr, setActionErr] = useState('');
+
+  const handleResend = async (invId: number) => {
+    setResending(invId);
+    setActionErr('');
+    setActionMsg('');
+    try {
+      const r = await fetch(`/api/v1/team/invitations/${invId}/resend`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const d: ApiResponse<any> = await r.json();
+      if (d.success) {
+        setActionMsg('Invitation email re-sent.');
+        await fetchInvitations();
+      } else {
+        setActionErr(d.error || 'Failed to resend invitation');
+      }
+    } catch {
+      setActionErr('Network error resending invitation');
+    }
+    setResending(null);
+  };
+
+  const handleRevoke = async (invId: number) => {
+    setActionErr('');
+    setActionMsg('');
+    try {
+      const r = await fetch(`/api/v1/team/invitations/${invId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const d: ApiResponse<any> = await r.json();
+      if (d.success) {
+        setActionMsg('Invitation revoked. You can invite this email again.');
+        setInvitations((prev) => prev.filter((i) => i.id !== invId));
+      } else {
+        setActionErr(d.error || 'Failed to revoke invitation');
+      }
+    } catch {
+      setActionErr('Network error revoking invitation');
+    }
   };
 
   // ── Remove ────────────────────────────────────────────────────────────
@@ -210,6 +282,24 @@ export function TeamPage() {
         <div className="tm-banner tm-banner-error" role="alert">
           <span>{error}</span>
           <button className="tm-banner-close" onClick={() => setError('')} aria-label="Dismiss">
+            <IconX size={14} />
+          </button>
+        </div>
+      )}
+
+      {actionMsg && (
+        <div className="tm-banner tm-banner-success" role="status">
+          <IconCheck size={14} />
+          <span>{actionMsg}</span>
+          <button className="tm-banner-close" onClick={() => setActionMsg('')} aria-label="Dismiss">
+            <IconX size={14} />
+          </button>
+        </div>
+      )}
+      {actionErr && (
+        <div className="tm-banner tm-banner-error" role="alert">
+          <span>{actionErr}</span>
+          <button className="tm-banner-close" onClick={() => setActionErr('')} aria-label="Dismiss">
             <IconX size={14} />
           </button>
         </div>
@@ -303,6 +393,63 @@ export function TeamPage() {
             <IconUserPlus size={16} />
             <span>Invite member</span>
           </button>
+        </div>
+      )}
+
+      {/* Pending invitations — visibility + resend/revoke */}
+      {!loading && invitations.length > 0 && (
+        <div className="tm-table-wrap tm-invites-wrap">
+          <div className="tm-invites-title">
+            <IconMail size={15} className="tm-invites-title-icon" />
+            <span>Pending invitations</span>
+          </div>
+          <table className="tm-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Sent</th>
+                <th>Status</th>
+                <th className="tm-th-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invitations.map((inv) => (
+                <tr key={inv.id}>
+                  <td className="tm-td-email">
+                    <IconMail size={13} className="tm-email-icon" />
+                    {inv.email}
+                  </td>
+                  <td className="tm-td-role">{inv.role || 'member'}</td>
+                  <td className="tm-td-date">{timeAgo(inv.created_at)}</td>
+                  <td className="tm-td-status">
+                    <span className={`tm-status tm-status-${inv.status === 'expired' ? 'expired' : 'pending'}`}>
+                      {inv.status}
+                    </span>
+                  </td>
+                  <td className="tm-td-actions">
+                    <button
+                      className="tm-btn-icon tm-btn-confirm"
+                      onClick={() => handleResend(inv.id)}
+                      disabled={resending === inv.id}
+                      title="Resend invitation email"
+                      aria-label={`Resend invitation to ${inv.email}`}
+                    >
+                      <IconSelector size={13} />
+                    </button>
+                    <button
+                      className="tm-btn-icon tm-btn-cancel"
+                      onClick={() => handleRevoke(inv.id)}
+                      title="Revoke invitation"
+                      aria-label={`Revoke invitation for ${inv.email}`}
+                    >
+                      <IconX size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -796,6 +943,54 @@ const teamStyles = `
   font-size: 11px;
   color: rgba(26,28,29,0.55);
   white-space: nowrap;
+}
+
+/* ── Pending invitations ────────────────────────── */
+.tm-invites-wrap {
+  margin-bottom: 24px;
+  border-color: rgba(164,134,95,0.25);
+}
+.tm-invites-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(26,28,29,0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(164,134,95,0.06);
+  border-bottom: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+}
+.tm-invites-title-icon {
+  color: var(--shunya-gold, #a4865f);
+}
+.tm-td-role {
+  color: rgba(26,28,29,0.65);
+}
+.tm-td-status {
+  font-size: 12px;
+}
+.tm-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.tm-status-pending {
+  background: rgba(164,134,95,0.12);
+  color: #8a6d3b;
+}
+.tm-status-expired {
+  background: rgba(192,57,43,0.08);
+  color: #b03a2e;
+}
+.tm-banner-success {
+  background: rgba(106,159,106,0.08);
+  border: 1px solid rgba(106,159,106,0.2);
+  color: #3d7a3d;
 }
 
 /* ── Responsive ──────────────────────────────────── */

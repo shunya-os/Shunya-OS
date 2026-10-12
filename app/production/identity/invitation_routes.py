@@ -101,7 +101,7 @@ def create_invitation(org_id: int):
     data = _require_json()
 
     email = data.get("email", "").strip().lower()
-    role = data.get("role", "agent")
+    role = data.get("role", "member")  # default "member" IS seeded; "agent" is not in DEFAULT_ROLES
 
     if not email:
         raise BadRequest("'email' is required")
@@ -124,6 +124,27 @@ def create_invitation(org_id: int):
     )
     db.session.add(invitation)
     db.session.commit()
+
+    # Deliver the invitation by email — the journey is NOT complete until the
+    # invitee receives the accept link (mirrors app/team/routes.py invite_member).
+    try:
+        from app.email_service import build_invitation_email, send_email
+        org = db.session.get(Organization, org_id)
+        subject, body = build_invitation_email(
+            email, token, org_name=org.name if org else ""
+        )
+        send_email(
+            to=email,
+            subject=subject,
+            body=body,
+            notification_type="team_invitation",
+            business_event_id=f"invite:{org_id}:{token[:8]}",
+            category="security",
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "Failed to send invitation email to %s", email)
 
     return jsonify({
         "success": True,
@@ -193,6 +214,7 @@ def accept_invitation(token: str):
         email=inv.email,
         role=inv.role,
         is_active=True,
+        verified=True,  # The emailed accept link proves ownership of the inbox
     )
     user.set_password(password)
     user.generate_token()

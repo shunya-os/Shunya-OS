@@ -228,6 +228,105 @@ def change_member_role(member_id):
 
 
 # ---------------------------------------------------------------------------
+# GET /api/v1/team/invitations — list pending invitations (visibility)
+# ---------------------------------------------------------------------------
+@team_bp.route("/invitations", methods=["GET"])
+@require_permission("org.manage_members")
+def list_invitations():
+    """Return pending invitations for the caller's organization.
+
+    Closes the duplicate-invite dead-end: when an invite already exists the
+    UI must show it (email, role, status, age), not just reject the resend.
+    """
+    org_id = g.current_org_id
+    now = datetime.now(timezone.utc)
+    invites = (
+        OrgInvitation.query
+        .filter_by(organization_id=org_id)
+        .order_by(OrgInvitation.created_at.desc())
+        .all()
+    )
+    results = []
+    for inv in invites:
+        expired = bool(inv.expires_at) and inv.expires_at.replace(tzinfo=timezone.utc) < now
+        results.append({
+            "id": inv.id,
+            "email": inv.email,
+            "name": inv.name or "",
+            "role": inv.role or "member",
+            "status": "expired" if (inv.status == "pending" and expired) else (inv.status or "pending"),
+            "created_at": inv.created_at.isoformat() if inv.created_at else None,
+            "expires_at": inv.expires_at.isoformat() if inv.expires_at else None,
+        })
+    return jsonify({"success": True, "data": results, "total": len(results)}), 200
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/team/invitations/<inv_id>/resend — re-deliver the invite email
+# ---------------------------------------------------------------------------
+@team_bp.route("/invitations/<int:inv_id>/resend", methods=["POST"])
+@require_permission("org.manage_members")
+def resend_invitation(inv_id):
+    """Re-send the invitation email for a pending invitation.
+
+    Uses the SAME token (an accept link already delivered is still valid);
+    extends expiry by 7 days so stale links don't fail the invitee.
+    """
+    org_id = g.current_org_id
+    inv = OrgInvitation.query.filter_by(id=inv_id, organization_id=org_id).first()
+    if not inv:
+        return jsonify({"success": False, "error": "Invitation not found"}), 404
+    if inv.status not in ("pending", None):
+        return jsonify({"success": False, "error": f"Invitation is already {inv.status}"}), 400
+
+    # Refresh expiry so the re-sent link is usable
+    inv.expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    db.session.commit()
+
+    try:
+        from app.email_service import build_invitation_email, send_email
+        from app.models import Organization
+        org = db.session.get(Organization, org_id)
+        subject, body = build_invitation_email(
+            inv.email, inv.token, org_name=org.name if org else ""
+        )
+        email_result = send_email(
+            to=inv.email,
+            subject=subject,
+            body=body,
+            notification_type="team_invitation",
+            business_event_id=f"invite-resend:{org_id}:{inv.token[:8]}",
+            category="security",
+        )
+    except Exception:
+        logger.exception("Failed to resend invitation email to %s", inv.email)
+        return jsonify({"success": False, "error": "Invitation email could not be sent"}), 500
+
+    logger.info("Invitation resent: org=%s id=%s email=%s status=%s",
+                org_id, inv_id, inv.email, email_result.get("status"))
+    return jsonify({"success": True, "data": {"id": inv.id, "status": inv.status}}), 200
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/v1/team/invitations/<inv_id> — revoke a pending invitation
+# ---------------------------------------------------------------------------
+@team_bp.route("/invitations/<int:inv_id>", methods=["DELETE"])
+@require_permission("org.manage_members")
+def revoke_invitation(inv_id):
+    """Revoke a pending invitation so the email can be invited again."""
+    org_id = g.current_org_id
+    inv = OrgInvitation.query.filter_by(id=inv_id, organization_id=org_id).first()
+    if not inv:
+        return jsonify({"success": False, "error": "Invitation not found"}), 404
+    if inv.accepted_at:
+        return jsonify({"success": False, "error": "Cannot revoke an accepted invitation"}), 400
+    db.session.delete(inv)
+    db.session.commit()
+    logger.info("Invitation revoked: org=%s id=%s email=%s", org_id, inv_id, inv.email)
+    return jsonify({"success": True, "data": {"id": inv_id, "status": "revoked"}}), 200
+
+
+# ---------------------------------------------------------------------------
 # GET /api/v1/team/roles — list available roles with permissions
 # ---------------------------------------------------------------------------
 @team_bp.route("/roles", methods=["GET"])
