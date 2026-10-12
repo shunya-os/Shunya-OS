@@ -88,6 +88,29 @@ def test_proposal_enriched_endpoint_returns_enriched_shape(app):
         db.session.commit()
 
     with app.test_client() as client:
+        # Set up session for auth
+        from app.models import Organization, OrgMember
+        from app.authz.services import seed_default_roles
+        with app.app_context():
+            ORG_ID = 1
+            org = db.session.get(Organization, ORG_ID)
+            if not org:
+                org = Organization(id=ORG_ID, name="Test Org", slug="test-org", is_active=True)
+                db.session.add(org)
+                db.session.flush()
+            seed_default_roles(ORG_ID)
+            member = OrgMember.query.filter_by(
+                organization_id=ORG_ID, identity_id="proposal_user").first()
+            if not member:
+                member = OrgMember(organization_id=ORG_ID, identity_id="proposal_user",
+                                   role="owner", is_active=True)
+                db.session.add(member)
+                db.session.commit()
+        with client.session_transaction() as sess:
+            sess["identity_id"] = "proposal_user"
+            sess["user_id"] = 1
+            sess["current_org_id"] = ORG_ID
+
         resp = client.get("/proposals")
         assert resp.status_code == 200
         data = resp.get_json()

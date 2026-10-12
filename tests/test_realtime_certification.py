@@ -660,7 +660,7 @@ class TestSSEAuth:
             assert resp.status_code == 401
             data = resp.get_json()
             assert data is not None
-            assert data.get("error") == "Not authenticated"
+            assert data.get("error") == "Authentication required"
 
     def test_authenticated_session_allows_access(self, test_app):
         """Authenticated session allows SSE subscription.
@@ -703,7 +703,7 @@ class TestSSEAuth:
             )
             data = resp.get_json()
             assert data is not None
-            assert "Not authenticated" in str(data.get("error", ""))
+            assert data.get("error") == "Authentication required"
 
     def test_x_identity_id_without_session_returns_401(self, test_app):
         """Even with a valid-looking X-Identity-Id, no session = 401."""

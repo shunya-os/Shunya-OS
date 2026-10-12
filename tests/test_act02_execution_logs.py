@@ -6,7 +6,16 @@ import pytest
 class TestExecutionLogCreated:
     """ExecutionLog is created when an entity is created."""
 
+    def _auth(self, app, client):
+        from app import db
+        from tests.auth_helper import seed_rbac
+        org_id = seed_rbac(db, identity_id="test@test.com", role_name="admin")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test@test.com"
+            s["current_org_id"] = org_id
+
     def test_create_entity_logs_created(self, app, client):
+        self._auth(app, client)
         resp = client.post("/debug/entity", json={
             "type": "lead",
             "data": {"description": "trace test", "stage": "new"},
@@ -23,7 +32,16 @@ class TestExecutionLogCreated:
 class TestExecutionLogLoop:
     """Loop produces structured logs per entity."""
 
+    def _auth(self, app, client):
+        from app import db
+        from tests.auth_helper import seed_rbac
+        org_id = seed_rbac(db, identity_id="test@test.com", role_name="admin")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test@test.com"
+            s["current_org_id"] = org_id
+
     def test_cycle_produces_entity_seen(self, app, client):
+        self._auth(app, client)
         client.post("/debug/entity", json={
             "type": "lead",
             "data": {"description": "loop log test", "stage": "new"},
@@ -32,6 +50,7 @@ class TestExecutionLogLoop:
         assert resp.status_code == 200
 
     def test_logs_linked_to_correct_object(self, app, client):
+        self._auth(app, client)
         # Create two entities
         r1 = client.post("/debug/entity", json={"type": "lead", "data": {"tag": "A"}})
         eid1 = r1.get_json()["entity"]["id"]
@@ -56,13 +75,23 @@ class TestExecutionLogLoop:
 class TestStateIncludesLogs:
     """GET /debug/state includes execution_logs."""
 
+    def _auth(self, app, client):
+        from app import db
+        from tests.auth_helper import seed_rbac
+        org_id = seed_rbac(db, identity_id="test@test.com", role_name="admin")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test@test.com"
+            s["current_org_id"] = org_id
+
     def test_empty_state_has_logs_key(self, app, client):
+        self._auth(app, client)
         resp = client.get("/debug/state")
         data = resp.get_json()
         assert "execution_logs" in data
         assert isinstance(data["execution_logs"], list)
 
     def test_state_logs_after_actions(self, app, client):
+        self._auth(app, client)
         client.post("/debug/entity", json={"type": "lead", "data": {"x": 1}})
         client.post("/debug/run-cycle")
         data = client.get("/debug/state").get_json()
@@ -72,7 +101,16 @@ class TestStateIncludesLogs:
 class TestExecutionTrace:
     """GET /debug/execution/<id> returns timeline."""
 
+    def _auth(self, app, client):
+        from app import db
+        from tests.auth_helper import seed_rbac
+        org_id = seed_rbac(db, identity_id="test@test.com", role_name="admin")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test@test.com"
+            s["current_org_id"] = org_id
+
     def test_trace_contains_timeline_key(self, app, client):
+        self._auth(app, client)
         r = client.post("/debug/entity", json={"type": "lead", "data": {"desc": "trace me"}})
         eid = r.get_json()["entity"]["id"]
         resp = client.get(f"/debug/execution/{eid}")
@@ -82,6 +120,7 @@ class TestExecutionTrace:
         assert "timeline" in data
 
     def test_trace_events_ordered_by_timestamp(self, app, client):
+        self._auth(app, client)
         r = client.post("/debug/entity", json={"type": "lead", "data": {"desc": "ordered"}})
         eid = r.get_json()["entity"]["id"]
         client.post("/debug/run-cycle")
@@ -92,5 +131,6 @@ class TestExecutionTrace:
             assert timestamps == sorted(timestamps)
 
     def test_trace_unknown_entity_returns_404(self, app, client):
+        self._auth(app, client)
         resp = client.get("/debug/execution/99999")
         assert resp.status_code == 404

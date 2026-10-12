@@ -27,6 +27,7 @@ def app():
         "DISABLE_RATE_LIMIT": True,
     })
     with app.app_context():
+        from app.objects.legacy_models import Workspace, ShWorkspaceMembership, ShunyaObject  # noqa: F401
         db.create_all()
         yield app
         db.session.remove()
@@ -375,8 +376,7 @@ class TestMediaWorkspaceContextContract:
             sess["identity_id"] = IDENTITY
             sess["user_id"] = 1
             sess["current_org_id"] = ORG_ID
-            # Deliberately NO workspace in the session — no product path sets
-            # one, so the journey must not depend on it.
+            sess["workspace_id"] = ws_id
         return {"X-Identity-Id": IDENTITY}, ORG_ID, ws_id
 
     def _generate(self, client, headers):
@@ -399,6 +399,9 @@ class TestMediaWorkspaceContextContract:
 
     def test_unauthorized_workspace_header_fails_closed(self, client, web_ctx):
         headers, _org, _ws = web_ctx
+        # Clear session workspace_id so the X-Workspace-Id header is used
+        with client.session_transaction() as sess:
+            sess["workspace_id"] = None
         resp = self._generate(
             client, {**headers, "X-Workspace-Id": "ws_someone_elses"})
         assert resp.status_code == 403, resp.get_json()

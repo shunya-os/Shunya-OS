@@ -245,8 +245,8 @@ class TestPeopleWorkload:
 class TestPeopleHealth:
     """FDA23: Health endpoint."""
 
-    def test_health(self, client):
-        resp = client.get("/api/v1/people/health")
+    def test_health(self, client, auth_headers, seed_org):
+        resp = client.get("/api/v1/people/health", headers=auth_headers)
         assert resp.status_code == 200
         assert resp.get_json()["service"] == "people-operations"
 

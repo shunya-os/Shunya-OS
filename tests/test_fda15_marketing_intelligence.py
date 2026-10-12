@@ -152,6 +152,12 @@ class TestCAC:
 
 class TestExperiments:
     def test_create_experiment(self, app, client):
+        from tests.auth_helper import seed_rbac
+        from app import db
+        org_id = seed_rbac(db, identity_id="exp-create@test.com")
+        with client.session_transaction() as s:
+            s["identity_id"] = "exp-create@test.com"
+            s["current_org_id"] = org_id
         from app.marketing_os.service import create_campaign
         with app.app_context():
             camp = create_campaign(name="Exp Campaign", tenant_id=1)
@@ -167,12 +173,24 @@ class TestExperiments:
         assert data["name"] == "A/B Test"
 
     def test_list_experiments(self, app, client):
+        from tests.auth_helper import seed_rbac
+        from app import db
+        org_id = seed_rbac(db, identity_id="exp-list@test.com")
+        with client.session_transaction() as s:
+            s["identity_id"] = "exp-list@test.com"
+            s["current_org_id"] = org_id
         r = client.get("/api/v1/analytics/experiments?tenant_id=1")
         assert r.status_code == 200
         data = r.get_json()
         assert "experiments" in data
 
     def test_update_experiment(self, app, client):
+        from tests.auth_helper import seed_rbac
+        from app import db
+        org_id = seed_rbac(db, identity_id="exp-update@test.com")
+        with client.session_transaction() as s:
+            s["identity_id"] = "exp-update@test.com"
+            s["current_org_id"] = org_id
         from app.marketing_os.service import create_campaign
         with app.app_context():
             camp = create_campaign(name="Exp Update", tenant_id=1)

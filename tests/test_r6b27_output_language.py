@@ -20,6 +20,34 @@ import pytest
 from app.content_studio import languages as langs
 from app.integration.service import generate_content
 
+
+@pytest.fixture
+def auth_session(app, client):
+    """Authenticate the client with an identity_id for @session_required routes."""
+    from app import db
+    from app.models import Organization, OrgMember
+    from app.authz.services import seed_default_roles
+    with app.app_context():
+        ORG_ID = 1
+        org = db.session.get(Organization, ORG_ID)
+        if not org:
+            org = Organization(id=ORG_ID, name="Test Org", slug="test-org", is_active=True)
+            db.session.add(org)
+            db.session.flush()
+        seed_default_roles(ORG_ID)
+        member = OrgMember.query.filter_by(
+            organization_id=ORG_ID, identity_id="lang_test_user").first()
+        if not member:
+            member = OrgMember(organization_id=ORG_ID, identity_id="lang_test_user",
+                               role="owner", is_active=True)
+            db.session.add(member)
+            db.session.commit()
+    with client.session_transaction() as sess:
+        sess["identity_id"] = "lang_test_user"
+        sess["user_id"] = 1
+        sess["current_org_id"] = ORG_ID
+    return client
+
 #: The minimum registry required by the directive (§8).
 REQUIRED_CODES = {
     "auto", "en", "hi", "hinglish", "bn", "mr", "gu", "ta", "te", "kn",
@@ -41,7 +69,7 @@ def test_registry_rows_are_serialisable_and_labelled():
         assert row["label"]
 
 
-def test_languages_endpoint_is_public_and_serves_the_registry(client):
+def test_languages_endpoint_is_public_and_serves_the_registry(client, auth_session):
     r = client.get("/api/v1/content/languages")
     assert r.status_code == 200
     body = r.get_json()

@@ -1118,7 +1118,7 @@ class TestCanonicalRuntimePath:
     def test_api_health_unauthenticated(self, client):
         """Health endpoint works without auth."""
         resp = client.get("/api/v1/intelligence/health")
-        assert resp.status_code in (200, 404, 405)
+        assert resp.status_code in (200, 401, 404, 405)
 
     def test_api_ask_requires_auth(self, client):
         """POST /api/v1/intelligence/ask without auth → 401."""

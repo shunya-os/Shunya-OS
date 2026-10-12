@@ -145,6 +145,16 @@ class TestSingleExecutionAuthority:
 
     def test_no_http_execution_bypass(self, app, client):
         """POST /api/v1/execution/<id>/run must NOT exist (removed in PROD-06)."""
+        # Set up auth for the object creation
+        from tests.auth_helper import seed_rbac
+        from app import db
+        with app.app_context():
+            org_id = seed_rbac(db, identity_id="prod06_user", role_name="admin")
+        with client.session_transaction() as sess:
+            sess["identity_id"] = "prod06_user"
+            sess["user_id"] = 1
+            sess["current_org_id"] = str(org_id)
+
         # Create an object first
         r = client.post("/api/v1/objects/", json={
             "type": "test_entity",

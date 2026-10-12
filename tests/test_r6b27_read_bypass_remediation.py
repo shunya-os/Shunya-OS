@@ -437,6 +437,7 @@ class TestObjectsUploadWriteBoundary:
                            headers=headers, content_type="multipart/form-data")
 
     def test_upload_writes_a_canonical_object_with_organization(self, app, client, tenancy):
+        _login(client, ALICE, ORG_A)
         resp = self._post(client, ALICE, WS_A1, filename="rb-upload-ok.txt")
         assert resp.status_code == 201, resp.get_json()
         with app.app_context():
@@ -448,6 +449,7 @@ class TestObjectsUploadWriteBoundary:
             assert mine[0]["workspace_id"] == WS_A1
 
     def test_upload_into_an_unauthorized_workspace_is_refused(self, app, client, tenancy):
+        _login(client, ALICE, ORG_A)
         resp = self._post(client, ALICE, WS_B1, filename="rb-upload-cross.txt")
         assert resp.status_code in (400, 403), resp.get_json()
         with app.app_context():
@@ -455,6 +457,7 @@ class TestObjectsUploadWriteBoundary:
             assert ShunyaObject.query.filter_by(name="rb-upload-cross.txt").count() == 0
 
     def test_upload_without_membership_is_refused(self, app, client, tenancy):
+        _login(client, NOBODY, ORG_A)
         resp = self._post(client, NOBODY, WS_A1, filename="rb-upload-nobody.txt")
         assert resp.status_code in (400, 403), resp.get_json()
         with app.app_context():
@@ -463,6 +466,7 @@ class TestObjectsUploadWriteBoundary:
 
     def test_no_sh_objects_row_is_ever_written_without_organization(self, app, client, tenancy):
         """Structural invariant: the legacy NULL-organization write is gone."""
+        _login(client, ALICE, ORG_A)
         self._post(client, ALICE, WS_A1, filename="rb-upload-owner.txt")
         with app.app_context():
             from app.objects.legacy_models import ShunyaObject

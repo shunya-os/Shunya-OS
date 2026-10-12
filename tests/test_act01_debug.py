@@ -6,7 +6,16 @@ import pytest
 class TestCreateEntity:
     """POST /debug/entity — create a new runtime entity."""
 
+    def _auth(self, app, client):
+        from app import db
+        from tests.auth_helper import seed_rbac
+        org_id = seed_rbac(db, identity_id="test@test.com", role_name="admin")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test@test.com"
+            s["current_org_id"] = org_id
+
     def test_create_lead(self, app, client):
+        self._auth(app, client)
         resp = client.post("/debug/entity", json={
             "type": "lead",
             "data": {"description": "Goa trip inquiry", "stage": "new"},
@@ -19,6 +28,7 @@ class TestCreateEntity:
         assert entity["state"]["stage"] == "new"
 
     def test_create_custom_type(self, app, client):
+        self._auth(app, client)
         resp = client.post("/debug/entity", json={
             "type": "customer",
             "data": {"name": "Acme Corp", "priority": "high"},
@@ -32,12 +42,22 @@ class TestCreateEntity:
 class TestListEntities:
     """GET /debug/entities — return all entities."""
 
+    def _auth(self, app, client):
+        from app import db
+        from tests.auth_helper import seed_rbac
+        org_id = seed_rbac(db, identity_id="test@test.com", role_name="admin")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test@test.com"
+            s["current_org_id"] = org_id
+
     def test_empty(self, app, client):
+        self._auth(app, client)
         resp = client.get("/debug/entities")
         assert resp.status_code == 200
         assert resp.get_json()["entities"] == []
 
     def test_after_creation(self, app, client):
+        self._auth(app, client)
         client.post("/debug/entity", json={"type": "lead", "data": {"desc": "t1"}})
         client.post("/debug/entity", json={"type": "lead", "data": {"desc": "t2"}})
         resp = client.get("/debug/entities")
@@ -48,7 +68,16 @@ class TestListEntities:
 class TestRunCycle:
     """POST /debug/run-cycle — execute one loop iteration."""
 
+    def _auth(self, app, client):
+        from app import db
+        from tests.auth_helper import seed_rbac
+        org_id = seed_rbac(db, identity_id="test@test.com", role_name="admin")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test@test.com"
+            s["current_org_id"] = org_id
+
     def test_cycle_with_entity(self, app, client):
+        self._auth(app, client)
         # Create an entity first
         client.post("/debug/entity", json={
             "type": "lead",
@@ -62,6 +91,7 @@ class TestRunCycle:
         assert summary["noops"] >= 0  # may be noop depending on decision engine
 
     def test_cycle_empty(self, app, client):
+        self._auth(app, client)
         resp = client.post("/debug/run-cycle")
         assert resp.status_code == 200
         summary = resp.get_json()["summary"]
@@ -71,7 +101,16 @@ class TestRunCycle:
 class TestGetState:
     """GET /debug/state — return entities + tasks + observations."""
 
+    def _auth(self, app, client):
+        from app import db
+        from tests.auth_helper import seed_rbac
+        org_id = seed_rbac(db, identity_id="test@test.com", role_name="admin")
+        with client.session_transaction() as s:
+            s["identity_id"] = "test@test.com"
+            s["current_org_id"] = org_id
+
     def test_empty(self, app, client):
+        self._auth(app, client)
         resp = client.get("/debug/state")
         assert resp.status_code == 200
         data = resp.get_json()
@@ -80,6 +119,7 @@ class TestGetState:
         assert "observations" in data
 
     def test_after_creation(self, app, client):
+        self._auth(app, client)
         client.post("/debug/entity", json={
             "type": "lead",
             "data": {"title": "After state"},

@@ -110,8 +110,7 @@ class TestUnauthenticated:
         assert resp.status_code == 401, \
             f"Unauthenticated request must return 401, got {resp.status_code}"
         data = resp.get_json() or {}
-        assert data.get("success") is False, "Must not claim success"
-        assert "Authentication required" in str(data.get("error", "")), \
+        assert data.get("error") == "Authentication required", \
             "Must provide clear auth error message"
 
     def test_unauthenticated_patch_rejected(self, client):

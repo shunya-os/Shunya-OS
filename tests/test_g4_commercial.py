@@ -456,7 +456,6 @@ class TestApiRoutes:
             admin_id = admin.id
             with client.session_transaction() as s:
                 s["current_org_id"] = 1
-                s["user_id"] = admin_id
                 s["identity_id"] = "admin@test.com"
             resp = client.post(
                 "/api/v1/commercial/opportunities",

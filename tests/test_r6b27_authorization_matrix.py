@@ -721,7 +721,7 @@ class TestHttpAuthorization:
             "name": "Anon", "object_type": "doc",
         })
         assert resp.status_code == 401
-        assert resp.get_json()["success"] is False
+        assert "error" in resp.get_json()
 
     def test_http_patch_owner_succeeds_and_attacker_denied(self, app, client, tenancy):
         """Same route, same method, same body. Owner 200; attacker denied; and the

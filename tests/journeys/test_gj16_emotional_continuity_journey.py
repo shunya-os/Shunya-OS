@@ -465,10 +465,16 @@ class TestEndpoints:
     def _headers(self):
         return {"X-Tenant-Id": "99001", "X-Identity-Id": self._identity_id}
 
+    def _authed_client(self, app):
+        client = app.test_client()
+        with client.session_transaction() as s:
+            s["identity_id"] = self._identity_id
+        return client
+
     def test_post_record_emotional_context(self, app):
         """POST /api/v1/emotional/ — record emotional context."""
         with app.app_context():
-            client = app.test_client()
+            client = self._authed_client(app)
             resp = client.post("/api/v1/emotional/", json={
                 "expression_type": "frustration",
                 "context": "API test frustration",
@@ -483,7 +489,7 @@ class TestEndpoints:
     def test_post_missing_expression_type(self, app):
         """POST with missing expression_type returns 400."""
         with app.app_context():
-            client = app.test_client()
+            client = self._authed_client(app)
             resp = client.post("/api/v1/emotional/", json={},
                                headers=self._headers())
             assert resp.status_code == 400
@@ -494,7 +500,7 @@ class TestEndpoints:
     def test_post_invalid_expression_type(self, app):
         """POST with invalid expression_type returns 400."""
         with app.app_context():
-            client = app.test_client()
+            client = self._authed_client(app)
             resp = client.post("/api/v1/emotional/", json={
                 "expression_type": "diagnosis",
             }, headers=self._headers())
@@ -505,7 +511,7 @@ class TestEndpoints:
     def test_get_list_emotional_context(self, app):
         """GET /api/v1/emotional/ — list emotional context."""
         with app.app_context():
-            client = app.test_client()
+            client = self._authed_client(app)
 
             # Seed data via service
             svc = EmotionalContextService()
@@ -522,7 +528,7 @@ class TestEndpoints:
     def test_patch_correct_entry(self, app):
         """PATCH /api/v1/emotional/<id>/correct — correct an entry."""
         with app.app_context():
-            client = app.test_client()
+            client = self._authed_client(app)
             svc = EmotionalContextService()
 
             r = svc.record(expression_type="frustration", person_id=1, tenant_id=99001,
@@ -541,7 +547,7 @@ class TestEndpoints:
     def test_delete_expire_entry(self, app):
         """DELETE /api/v1/emotional/<id> — expire an entry."""
         with app.app_context():
-            client = app.test_client()
+            client = self._authed_client(app)
             svc = EmotionalContextService()
 
             r = svc.record(expression_type="defer", person_id=1, tenant_id=99001,
@@ -562,7 +568,7 @@ class TestEndpoints:
         Non-existent items return 404 regardless.
         """
         with app.app_context():
-            client = app.test_client()
+            client = self._authed_client(app)
             svc = EmotionalContextService()
 
             svc.record(expression_type="frustration", person_id=1, tenant_id=99001,

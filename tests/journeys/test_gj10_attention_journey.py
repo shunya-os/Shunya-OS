@@ -49,6 +49,7 @@ class Http:
         self.base = base
         self.jar = http.cookiejar.CookieJar()
         self.identity_id = ""
+        self.workspace_id = ""
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(self.jar)
         )
@@ -56,6 +57,10 @@ class Http:
     def call(self, method: str, path: str, body=None, content_type="application/json"):
         data = json.dumps(body).encode() if body is not None else None
         headers = {"Content-Type": content_type} if content_type else {}
+        if self.identity_id:
+            headers["X-Identity-Id"] = self.identity_id
+        if self.workspace_id:
+            headers["X-Workspace-Id"] = self.workspace_id
         req = urllib.request.Request(
             f"{self.base}{path}", data=data, method=method, headers=headers,
         )
@@ -189,6 +194,7 @@ def test_gj10_attention_journey(server, journey_app):
          f"signin -> {status}")
     identity_id = body.get("identity_id") or ""
     http.identity_id = identity_id
+    http.workspace_id = WS_ID
 
     # 3. LIST attention → empty state
     status, listed = http.json("GET", "/api/v1/attention/")

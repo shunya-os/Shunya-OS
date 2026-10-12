@@ -32,8 +32,17 @@ def client(app):
     return app.test_client()
 
 
-def test_awareness_endpoint_has_no_shadowing_error(client):
-    resp = client.get("/api/v1/awareness")
+@pytest.fixture(scope="function")
+def auth_headers(app, client):
+    with client.session_transaction() as s:
+        s["identity_id"] = "test_user"
+        s["current_org_id"] = 1
+        s["user_id"] = "test_user"
+    return {"X-Identity-Id": "test_user"}
+
+
+def test_awareness_endpoint_has_no_shadowing_error(client, auth_headers):
+    resp = client.get("/api/v1/awareness", headers=auth_headers)
     assert resp.status_code == 200
     body = resp.get_json()
     assert "signals" in body and isinstance(body["signals"], list)
@@ -45,9 +54,9 @@ def test_awareness_endpoint_has_no_shadowing_error(client):
     assert "priorities" in body
 
 
-def test_awareness_signals_have_timestamps_when_present(client):
+def test_awareness_signals_have_timestamps_when_present(client, auth_headers):
     """When signals exist, every one carries a timestamp (the line that broke)."""
-    resp = client.get("/api/v1/awareness")
+    resp = client.get("/api/v1/awareness", headers=auth_headers)
     body = resp.get_json()
     for s in body.get("signals", []):
         assert "timestamp" in s

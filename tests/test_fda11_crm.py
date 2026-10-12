@@ -201,6 +201,7 @@ class TestCRMLifecycle:
 
     def test_sla_breach_detection(self, app, client):
         """D. SLA breach: lead past deadline is correctly detected."""
+        _setup_crm_auth(client)
         from app.models import Lead, set_lead_tenant_id
         from app import db
         from datetime import timedelta
@@ -226,6 +227,7 @@ class TestCRMLifecycle:
 
     def test_reassignment_after_sla_breach(self, app, client):
         """E. Reassignment: leads past SLA escalation deadline are reassigned."""
+        _setup_crm_auth(client)
         from app.models import Lead, set_lead_tenant_id
         from app import db
         from datetime import timedelta

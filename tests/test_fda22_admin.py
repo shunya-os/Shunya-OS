@@ -115,9 +115,9 @@ def seed_org(app):
 class TestPermissionDiscovery:
     """FDA22: Permission and role discovery."""
 
-    def test_list_permissions(self, client):
+    def test_list_permissions(self, client, auth_headers, seed_org):
         """List all available permission keys."""
-        resp = client.get("/api/v1/admin/permissions")
+        resp = client.get("/api/v1/admin/permissions", headers=auth_headers)
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True

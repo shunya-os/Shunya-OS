@@ -42,7 +42,8 @@ def test_ask_route_requires_authentication(client):
     resp = client.post("/api/v1/intelligence/ask", json={"question": "What needs attention?"})
     assert resp.status_code == 401, resp.get_data(as_text=True)[:200]
     body = resp.get_json()
-    assert body["success"] is False
+    assert body is not None
+    assert body.get("error") == "Authentication required"
 
 
 def test_orphaned_ambient_route_does_not_exist(app):

@@ -103,12 +103,24 @@ class TestRetention:
 class TestApiRoutes:
     def test_get_customer_profile_route(self, app, client, seeded_customer_id):
         cid, _ = seeded_customer_id
+        from tests.auth_helper import seed_rbac
+        from app import db as _db
+        org_id = seed_rbac(_db, identity_id="cx-profile@test.com")
+        with client.session_transaction() as s:
+            s["identity_id"] = "cx-profile@test.com"
+            s["current_org_id"] = org_id
         r = client.get(f"/api/v1/customer/profile/{cid}")
         assert r.status_code == 200
         data = r.get_json()
         assert data["name"] == "CX Test"
 
     def test_create_commitment_route(self, app, client):
+        from tests.auth_helper import seed_rbac
+        from app import db as _db
+        org_id = seed_rbac(_db, identity_id="cx-commit@test.com")
+        with client.session_transaction() as s:
+            s["identity_id"] = "cx-commit@test.com"
+            s["current_org_id"] = org_id
         r = client.post("/api/v1/customer/commitments", json={
             "title": "API commitment", "owner": "agent_1",
         })
@@ -117,6 +129,12 @@ class TestApiRoutes:
         assert data["status"] == "pending"
 
     def test_create_escalation_route(self, app, client):
+        from tests.auth_helper import seed_rbac
+        from app import db as _db
+        org_id = seed_rbac(_db, identity_id="cx-escalate@test.com")
+        with client.session_transaction() as s:
+            s["identity_id"] = "cx-escalate@test.com"
+            s["current_org_id"] = org_id
         r = client.post("/api/v1/customer/escalations", json={
             "relationship_id": 1, "summary": "API escalation",
         })
@@ -125,6 +143,12 @@ class TestApiRoutes:
         assert data["issue_type"] == "escalation"
 
     def test_create_issue_route(self, app, client):
+        from tests.auth_helper import seed_rbac
+        from app import db as _db
+        org_id = seed_rbac(_db, identity_id="cx-issue@test.com")
+        with client.session_transaction() as s:
+            s["identity_id"] = "cx-issue@test.com"
+            s["current_org_id"] = org_id
         r = client.post("/api/v1/customer/issues", json={
             "relationship_id": 1, "title": "API issue", "severity": "low",
         })

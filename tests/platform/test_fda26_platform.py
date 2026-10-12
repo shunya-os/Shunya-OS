@@ -331,7 +331,13 @@ class TestWebhookDelivery:
 
 
 class TestEvents:
-    def test_list_events(self, client):
+    def test_list_events(self, app, client):
+        from tests.auth_helper import seed_rbac
+        from app import db as _db
+        org_id = seed_rbac(_db, identity_id="events-test@test.com")
+        with client.session_transaction() as s:
+            s["identity_id"] = "events-test@test.com"
+            s["current_org_id"] = org_id
         resp = client.get("/api/v1/platform/events")
         assert resp.status_code == 200
         events = resp.get_json()["data"]["events"]
@@ -423,7 +429,13 @@ class TestHealth:
 
 
 class TestVersioning:
-    def test_versioning_summary(self, client):
+    def test_versioning_summary(self, app, client):
+        from tests.auth_helper import seed_rbac
+        from app import db as _db
+        org_id = seed_rbac(_db, identity_id="versioning-test@test.com")
+        with client.session_transaction() as s:
+            s["identity_id"] = "versioning-test@test.com"
+            s["current_org_id"] = org_id
         resp = client.get("/api/v1/platform/versioning")
         assert resp.status_code == 200
         data = resp.get_json()["data"]
