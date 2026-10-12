@@ -66,9 +66,13 @@ class TestAvailability:
         p = GroqProvider()
         assert p.is_available() is True
 
-    def test_groq_unavailable_no_key(self):
+    def test_groq_unavailable_no_key(self, monkeypatch):
         from app.ai.provider import GroqProvider
-        p = GroqProvider(api_key="")
+        # Create_app() -> load_dotenv() may have imported the host .env keys
+        # into os.environ; the constructor falls back to env, so the test must
+        # remove the key to prove "no key => unavailable".
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+        p = GroqProvider()
         assert p.is_available() is False
 
     def test_groq_key_but_retired_env_is_ok(self, monkeypatch):
