@@ -4,11 +4,17 @@
  * Two-factor authentication using TOTP (Google Authenticator, Authy, etc.).
  * Wired into the Settings panel Security tab.
  *
- * Backend endpoints:
- *   GET  /auth/mfa/status    — check MFA status
- *   POST /auth/mfa/setup     — generate secret + QR URI
- *   POST /auth/mfa/verify    — verify TOTP code to enable
- *   POST /auth/mfa/disable   — disable MFA (requires password)
+ * Backend endpoints (registered on auth_bp WITHOUT a url_prefix, so the
+ * canonical mount path is /mfa/* — NOT /auth/mfa/*):
+ *   GET  /mfa/status    — check MFA status
+ *   POST /mfa/setup     — generate secret + QR URI
+ *   POST /mfa/verify    — verify TOTP code to enable
+ *   POST /mfa/disable   — disable MFA (requires password)
+ *
+ * NOTE: the password-only login flows (api_founder_signin,
+ * auth_routes.login_page) do NOT yet challenge MFA after password
+ * verification. The backend /mfa/challenge route exists but is not wired
+ * into those flows — rebuilding the challenge is intentionally out of scope.
  */
 
 import { useState, useEffect } from 'react';
@@ -38,7 +44,7 @@ export function MfaSetup() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch('/auth/mfa/status', { credentials: 'include' })
+    fetch('/mfa/status', { credentials: 'include' })
       .then(r => r.json())
       .then(json => {
         if (json.success) setStatus(json.data);
@@ -50,7 +56,7 @@ export function MfaSetup() {
   const handleSetup = async () => {
     setError('');
     try {
-      const resp = await fetch('/auth/mfa/setup', {
+      const resp = await fetch('/mfa/setup', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -72,7 +78,7 @@ export function MfaSetup() {
     setVerifyError('');
     setVerifyLoading(true);
     try {
-      const resp = await fetch('/auth/mfa/verify', {
+      const resp = await fetch('/mfa/verify', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -97,7 +103,7 @@ export function MfaSetup() {
     setDisableError('');
     setDisableLoading(true);
     try {
-      const resp = await fetch('/auth/mfa/disable', {
+      const resp = await fetch('/mfa/disable', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

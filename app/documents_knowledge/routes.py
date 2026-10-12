@@ -53,18 +53,55 @@ def ingest():
     try:
         from app import db
         from app.document.models import DocumentRecord
-        from app.documents_knowledge.service import classify_document
+        from app.documents_knowledge.service import classify_document, ingest_document
         from app.evidence.models_db import EvidenceRecord
 
         classification = classify_document(title, data.get("content_type", ""))
 
+        # Extractable types: the governed pipeline can classify + extract them.
+        # Everything else is stored raw with an honest 'stored_unparsed' lifecycle
+        # (no fake success: empty extracted text is surfaced explicitly).
+        content_type_lower = (data.get("content_type") or "").lower()
+        extractable = any(
+            token in content_type_lower
+            for token in ("pdf", "csv", "text", "txt", "markdown", "md", "json")
+        ) or content_type_lower in ("", "text/plain", "application/json")
+
+        if extractable:
+            result = ingest_document(
+                organization_id=_tenant_id() or 0,
+                title=title,
+                filename=title,
+                content=content,
+                uploaded_by=_identity_id(),
+                content_type=data.get("content_type", "text/plain"),
+                source="api",
+                parsed=True,
+            )
+            return jsonify({
+                "success": True,
+                "data": {
+                    "id": result["id"],
+                    "title": title,
+                    "classification": result["classification"],
+                    "lifecycle": result["lifecycle"],
+                    "extracted_text_length": result["extracted_text_length"],
+                    "evidence_id": result["evidence_id"],
+                    "truth_classification": "observation",
+                },
+            }), 201
+
+        # Non-extractable: store raw content truthfully as stored_unparsed.
         doc = DocumentRecord(
+            tenant_id=_tenant_id(),
             original_filename=title,
             safe_display_name=title[:500],
             mime_type=data.get("content_type", "text/plain"),
             file_size=len(content.encode("utf-8")),
             classification=classification,
-            lifecycle="received",
+            lifecycle="stored_unparsed",
+            content=content,
+            extracted_text="",
             ingestion_mechanism="api",
             actor=_identity_id(),
         )
@@ -77,8 +114,9 @@ def ingest():
             raw_reference={
                 "title": title,
                 "classification": classification,
+                "lifecycle": "stored_unparsed",
                 "uploaded_by": _identity_id(),
-                "warning": "Document content is DATA, not AUTHORITY. No extracted claims are promoted to business truth.",
+                "warning": "Content stored but not parsed — extracted text is empty.",
             },
         )
         db.session.add(ev)
@@ -90,8 +128,11 @@ def ingest():
                 "id": doc.id,
                 "title": title,
                 "classification": classification,
+                "lifecycle": "stored_unparsed",
+                "analysis_summary": "",
                 "evidence_id": ev.id,
                 "truth_classification": "observation",
+                "warning": "Content stored but not parsed — extracted text is empty.",
             },
         }), 201
     except Exception as e:
@@ -156,7 +197,11 @@ def search():
     if classification:
         q = q.filter_by(classification=classification)
     if query:
-        q = q.filter(DocumentRecord.original_filename.ilike(f"%{query}%"))
+        q = q.filter(
+            DocumentRecord.original_filename.ilike(f"%{query}%")
+            | DocumentRecord.content.ilike(f"%{query}%")
+            | DocumentRecord.extracted_text.ilike(f"%{query}%")
+        )
     docs = q.order_by(DocumentRecord.created_at.desc()).limit(20).all()
 
     results = [{
@@ -166,6 +211,7 @@ def search():
         "lifecycle": d.lifecycle,
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "actor": d.actor,
+        "snippet": (d.content or d.extracted_text or "")[:200] if query else "",
     } for d in docs]
 
     return jsonify({

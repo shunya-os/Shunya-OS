@@ -2,7 +2,6 @@
 
 import json
 import secrets
-import uuid
 from datetime import datetime, timedelta, timezone
 from flask import jsonify, render_template, request, session, redirect, url_for
 
@@ -367,32 +366,45 @@ def api_invite_member(org_id: int):
         role=role,
         token=token,
         invited_by=_get_current_identity(),
+        status="pending",  # NOT auto-accepted — the invitee must accept
         expires_at=datetime.now(timezone.utc) + timedelta(days=7),
     )
     db.session.add(invitation)
     db.session.commit()
 
-    # For FOR-2, create the member immediately with a unique identity
-    # In production, the invited user would accept via email link
-    member_identity = f"invited_{uuid.uuid4().hex[:16]}"
-    new_member = OrgMember(
-        organization_id=org_id,
-        identity_id=member_identity,
-        name=name or email.split("@")[0],
-        email=email,
-        role=role,
-        invited_by=_get_current_identity(),
-    )
-    db.session.add(new_member)
-    invitation.status = "accepted"
-    invitation.accepted_at = datetime.now(timezone.utc)
-    db.session.commit()
+    # Deliver the invitation by email — the journey is not complete until the
+    # invitee receives the accept link. NO synthetic OrgMember is created for
+    # an unaccepted invite: a phantom member with an "invited_<hex>" identity
+    # would count as a real member for permissions, member limits, and
+    # visibility before the person ever accepted.
+    email_sent = False
+    email_status = "not_attempted"
+    try:
+        from app.email_service import build_invitation_email, send_email
+        org = db.session.get(Organization, org_id)
+        subject, body = build_invitation_email(
+            email, token, org_name=org.name if org else ""
+        )
+        result = send_email(
+            to=email,
+            subject=subject,
+            body=body,
+            notification_type="team_invitation",
+            business_event_id=f"invite:{org_id}:{token[:8]}",
+            category="security",
+        )
+        email_status = result.get("status", "unknown")
+        email_sent = email_status in ("accepted", "logged")
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "Failed to send invitation email to %s", email)
 
     return jsonify({
         "success": True,
-        "member": new_member.to_dict(),
         "invitation": invitation.to_dict(),
-        "note": "In production, an email invitation would be sent."
+        "email_sent": email_sent,
+        "email_status": email_status,
     }), 201
 
 

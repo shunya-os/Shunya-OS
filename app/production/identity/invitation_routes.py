@@ -232,10 +232,35 @@ def accept_invitation(token: str):
         invited_by=inv.invited_by,
     )
     db.session.add(member)
+    db.session.flush()  # member.id needed for the OrgMemberRole row
 
     # Ensure default roles exist for this organization (safe no-op if already seeded)
     from app.authz.services import seed_default_roles
     seed_default_roles(inv.organization_id)
+
+    # Wire the OrgMemberRole immediately so the Team page shows populated
+    # roles from the first request — no lazy auto-assignment at first
+    # permission check. "agent" is a valid invite role but is NOT seeded
+    # in DEFAULT_ROLES; fall back to "member" for the actual grant.
+    from app.authz.models import Role as AuthzRole, OrgMemberRole
+    role_name = inv.role if inv.role in ("owner", "admin", "manager", "member", "viewer") else "member"
+    role = AuthzRole.query.filter_by(
+        organization_id=inv.organization_id, name=role_name
+    ).first()
+    if role:
+        existing_grant = OrgMemberRole.query.filter_by(
+            organization_id=inv.organization_id,
+            member_id=member.id,
+            role_id=role.id,
+        ).first()
+        if not existing_grant:
+            db.session.add(OrgMemberRole(
+                organization_id=inv.organization_id,
+                member_id=member.id,
+                role_id=role.id,
+                scope="organization",
+                granted_by=inv.invited_by or "",
+            ))
 
     # Mark invitation as accepted
     inv.accepted_at = datetime.utcnow()

@@ -352,6 +352,11 @@ def chat():
     temperature = data.get('temperature', 0.7)
     max_tokens = data.get('max_tokens', 1024)
     web_search = data.get('web_search', False)
+    # User AI preference (persisted via PUT /api/v1/profile/ai-preference).
+    # Advisory only: the kernel/orchestrator still selects the final provider
+    # chain, and this is threaded through as request metadata for policy/audit.
+    preferred_provider = (data.get('preferred_provider') or '').strip()
+    preferred_model = (data.get('preferred_model') or '').strip()
 
     if not messages:
         return jsonify({'error': 'messages is required'}), 400
@@ -552,6 +557,8 @@ def chat():
                     'tenant_id': str(tenant_id),
                     'user_role': str(flask_session.get('user_role', '')),
                     'workspace_type': 'organization' if flask_session.get('current_org_id') else 'personal',
+                    'preferred_provider': preferred_provider,
+                    'preferred_model': preferred_model,
                 },
             )
             orch_response = orch.process(orch_request)

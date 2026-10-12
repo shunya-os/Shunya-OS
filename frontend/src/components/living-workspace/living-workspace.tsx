@@ -25,15 +25,23 @@ const CreateObjectModal: FC<{ onClose: () => void }> = ({ onClose }) => {
   const [name, setName] = useState('');
   const [type, setType] = useState('proposal');
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { fetchLivingObjects, fetchReality } = useLivingStore();
+  const { currentOrgId } = useActiveContext();
 
   const handleCreate = useCallback(async () => {
     if (!name.trim()) return;
     setCreating(true);
+    setError(null);
     try {
-      const resp = await fetch('/api/v1/composer', {
+      // Canonical create route — POST /api/v1/composer never existed.
+      // POST /api/v1/objects (app/objects/routes.py) is the real one, used
+      // by universal-object-workspace for the same payload shape.
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (currentOrgId) headers['X-Organization-Id'] = String(currentOrgId);
+      const resp = await fetch('/api/v1/objects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
           object_type: type,
@@ -46,13 +54,16 @@ const CreateObjectModal: FC<{ onClose: () => void }> = ({ onClose }) => {
         fetchLivingObjects();
         fetchReality();
         onClose();
+      } else {
+        setError(json.error || `Failed to create object (${resp.status})`);
       }
     } catch (e) {
       console.error('Create object failed:', e);
+      setError('Network error while creating the object.');
     } finally {
       setCreating(false);
     }
-  }, [name, type, fetchLivingObjects, fetchReality, onClose]);
+  }, [name, type, currentOrgId, fetchLivingObjects, fetchReality, onClose]);
 
   return (
     <div className="lw-modal-overlay" onClick={onClose}>
@@ -80,6 +91,7 @@ const CreateObjectModal: FC<{ onClose: () => void }> = ({ onClose }) => {
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
               placeholder="e.g. Q4 Marketing Proposal" autoFocus />
           </div>
+          {error && <div className="lw-modal-error">{error}</div>}
         </div>
         <div className="lw-modal-actions">
           <button className="lw-modal-btn lw-modal-btn-secondary" onClick={onClose}>Cancel</button>
@@ -100,8 +112,41 @@ function markSeen() {
 
 // ── Awakening ──────────────────────────────────────────────────────
 
-const Invitation: FC<{ onAccept: () => void }> = ({ onAccept }) => {
+const Invitation: FC<{ onAccept: (email: string) => Promise<void> }> = ({ onAccept }) => {
   const [showInput, setShowInput] = useState(false);
+  const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'done' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const submit = async () => {
+    const value = email.trim();
+    if (!value || sending) return;
+    // Keep the input's current value even when Enter is used.
+    const target = value;
+    setSending(true);
+    setErrorMsg('');
+    try {
+      await onAccept(target);
+      setStatus('done');
+    } catch (e: any) {
+      setStatus('error');
+      setErrorMsg(e?.message || 'Could not send the invitation.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (status === 'done') {
+    return (
+      <div className="lw-invitation">
+        <p className="lw-invitation-text lw-invitation-done">
+          ✓ Invitation sent to {email.trim() || 'your email'}. Check the inbox to claim this workspace.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="lw-invitation">
       {!showInput ? (
@@ -111,10 +156,15 @@ const Invitation: FC<{ onAccept: () => void }> = ({ onAccept }) => {
       ) : (
         <div className="lw-invitation-input-group">
           <input className="lw-invitation-input" type="email" placeholder="you@example.com" autoFocus
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLInputElement).value) onAccept(); }} />
-          <button className="lw-invitation-submit" onClick={onAccept}>Continue</button>
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} />
+          <button className="lw-invitation-submit" onClick={submit} disabled={sending}>
+            {sending ? 'Sending…' : 'Continue'}
+          </button>
         </div>
       )}
+      {status === 'error' && <p className="lw-invitation-error">{errorMsg}</p>}
     </div>
   );
 };
@@ -203,6 +253,7 @@ const LivingObjectsSection: FC<{ onCreateObject?: () => void; onOpenWorkspace?: 
 
 export const LivingWorkspace: FC = () => {
   const { startPolling, setCommandOpen } = useLivingStore();
+  const { currentOrgId } = useActiveContext();
   const [arrivalComplete, setArrivalComplete] = useState(false);
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -238,6 +289,27 @@ export const LivingWorkspace: FC = () => {
     return () => window.removeEventListener('keydown', h);
   }, [setCommandOpen]);
 
+  // "Make this yours?" — the invitation continuation. The old code was a
+  // no-op (onAccept={() => {}}); now it creates a real org invitation via
+  // POST /api/v1/orgs/<org_id>/invitations so the email actually gets one.
+  const handleInviteAccept = useCallback(async (email: string) => {
+    const orgId = currentOrgId;
+    if (!orgId) {
+      throw new Error('No active organization context — invitation cannot be sent.');
+    }
+    const resp = await fetch(`/api/v1/orgs/${orgId}/invitations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, role: 'member' }),
+    });
+    const json = await resp.json();
+    if (!resp.ok || !json.success) {
+      throw new Error(json.error || `Invitation failed (${resp.status})`);
+    }
+    return json;
+  }, [currentOrgId]);
+
   return (
     <div className="lw-workspace">
       {/* Search results overlay */}
@@ -253,7 +325,20 @@ export const LivingWorkspace: FC = () => {
                 <p className="lw-search-empty">No results found.</p>
               ) : (
                 searchResults.map((r: any, i: number) => (
-                  <div key={r.id || i} className="lw-search-item" onClick={() => setSearchResults(null)}>
+                  <div
+                    key={r.id || i}
+                    className="lw-search-item"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSearchResults(null);
+                      // Navigate to the result — the old code only cleared the
+                      // overlay, which made results dead-ends.
+                      const id = r.object_id || String(r.id);
+                      if (id) setWorkspaceObject({ id, type: r.object_type || 'object', name: r.name || 'Object' });
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLElement).click(); }}
+                  >
                     <span className="lw-search-item-name">{r.name}</span>
                     <span className="lw-search-item-type">{r.object_type}</span>
                   </div>
@@ -317,7 +402,7 @@ export const LivingWorkspace: FC = () => {
       </div>
 
       <CommandSurface />
-      {arrivalComplete && <Invitation onAccept={() => {}} />}
+      {arrivalComplete && <Invitation onAccept={handleInviteAccept} />}
     </div>
   );
 };

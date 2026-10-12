@@ -363,6 +363,11 @@ class CommercialProposal(db.Model):
     decision_id = db.Column(db.String(64), nullable=True)
     commitment_id = db.Column(db.String(64), nullable=True)  # ref to Commitment
 
+    # ── Token-gated sharing ──
+    # One-time-capability token for the public view/accept/decline page.
+    # The token IS the capability: possession grants view, not authentication.
+    share_token = db.Column(db.String(64), nullable=True, unique=True, index=True)
+
     # ── History ──
     rejection_reason = db.Column(db.Text, default="")
 
@@ -387,6 +392,7 @@ class CommercialProposal(db.Model):
             "title": self.title,
             "status": self.status,
             "proposal_type": self.proposal_type,
+            "share_token": self.share_token,
             "scope_description": (self.scope_description or "")[:500],
             "assumptions": (self.assumptions or "")[:500],
             "exclusions": (self.exclusions or "")[:500],

@@ -23,8 +23,10 @@ interface UploadItem {
   id: string;
   name: string;
   size: number;
-  status: 'pending' | 'uploading' | 'done' | 'error';
+  status: 'pending' | 'uploading' | 'done' | 'duplicate' | 'error';
   error?: string;
+  existingId?: string;
+  existingName?: string;
 }
 
 // ── Gmail OAuth (Google Identity Services — Free) ──
@@ -155,12 +157,24 @@ function UploadZone({ onUploadsChange }: { onUploadsChange: (count: number) => v
           .then((r) => r.json())
           .then((d) => {
             setUploads((prev) => {
-              const next = prev.map((u) =>
-                u.id === item.id
-                  ? { ...u, status: d.success ? ('done' as const) : ('error' as const), error: d.error }
-                  : u,
-              );
-              onUploadsChange(next.filter((u) => u.status !== 'error' && u.status !== 'done').length);
+              const next = prev.map((u) => {
+                if (u.id !== item.id) return u;
+                if (d.duplicate) {
+                  // Same file already in this workspace — surface it with a
+                  // link to the existing document instead of silently skipping.
+                  return {
+                    ...u,
+                    status: 'duplicate' as const,
+                    existingId: d.existing_id,
+                    existingName: d.existing_filename || u.name,
+                    error: d.summary,
+                  };
+                }
+                return d.success
+                  ? { ...u, status: 'done' as const }
+                  : { ...u, status: 'error' as const, error: d.error };
+              });
+              onUploadsChange(next.filter((u) => u.status !== 'error' && u.status !== 'done' && u.status !== 'duplicate').length);
               return next;
             });
           })
@@ -195,6 +209,7 @@ function UploadZone({ onUploadsChange }: { onUploadsChange: (count: number) => v
   const handleDragLeave = useCallback(() => setDragOver(false), []);
 
   const doneCount = uploads.filter((u) => u.status === 'done').length;
+  const dupCount = uploads.filter((u) => u.status === 'duplicate').length;
   const errorCount = uploads.filter((u) => u.status === 'error').length;
 
   return (
@@ -232,12 +247,28 @@ function UploadZone({ onUploadsChange }: { onUploadsChange: (count: number) => v
             <div key={u.id} className={`oi-upload-item oi-upload-${u.status}`}>
               <FileText size={14} />
               <span className="oi-upload-name">{u.name}</span>
-              <span className="oi-upload-status">
-                {u.status === 'pending' && 'Waiting…'}
-                {u.status === 'uploading' && <span className="oi-spinner" />}
-                {u.status === 'done' && <CheckCircle2 size={14} />}
-                {u.status === 'error' && <span title={u.error}><AlertCircle size={14} /></span>}
-              </span>
+              {u.status === 'duplicate' ? (
+                <span className="oi-upload-dup" title={u.error}>
+                  This file already exists —{' '}
+                  {u.existingId ? (
+                    <a
+                      href={`/workspace/documents/${u.existingId}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      open existing
+                    </a>
+                  ) : (
+                    <em>already in your workspace</em>
+                  )}
+                </span>
+              ) : (
+                <span className="oi-upload-status">
+                  {u.status === 'pending' && 'Waiting…'}
+                  {u.status === 'uploading' && <span className="oi-spinner" />}
+                  {u.status === 'done' && <CheckCircle2 size={14} />}
+                  {u.status === 'error' && <span title={u.error}><AlertCircle size={14} /></span>}
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -249,6 +280,14 @@ function UploadZone({ onUploadsChange }: { onUploadsChange: (count: number) => v
           <CheckCircle2 size={14} />
           <span>
             {doneCount} file{doneCount !== 1 ? 's' : ''} uploaded to your workspace
+          </span>
+        </div>
+      )}
+      {dupCount > 0 && (
+        <div className="oi-summary oi-summary-dup">
+          <FileText size={14} />
+          <span>
+            {dupCount} file{dupCount !== 1 ? 's were' : ' was'} already in your workspace — nothing new stored
           </span>
         </div>
       )}
@@ -360,12 +399,16 @@ export function StepImport({ onNext, onBack }: Props) {
         .oi-upload-pending .oi-upload-status { color: var(--sh-text-tertiary, rgba(26,28,29,0.35)); }
         .oi-upload-done .oi-upload-status { color: var(--sh-success, #2D6A4F); }
         .oi-upload-error .oi-upload-status { color: var(--sh-danger, #B91C1C); }
+        .oi-upload-dup { display: flex; align-items: center; gap: 6px; color: var(--sh-text-secondary, rgba(26,28,29,0.55)); }
+        .oi-upload-dup a { color: var(--sh-gold, #6C4AE2); font-weight: 600; text-decoration: underline; }
+        .oi-upload-dup em { font-style: italic; }
 
         .oi-spinner { width: 14px; height: 14px; border: 2px solid var(--sh-border, rgba(26,28,29,0.08)); border-top-color: var(--sh-gold, #6C4AE2); border-radius: 50%; animation: oi-spin 0.6s linear infinite; display: inline-block; }
         @keyframes oi-spin { to { transform: rotate(360deg); } }
 
         .oi-summary { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-top: 8px; }
         .oi-summary-done { background: rgba(45,106,79,0.06); color: var(--sh-success, #2D6A4F); }
+        .oi-summary-dup { background: rgba(108,74,226,0.06); color: var(--sh-gold, #6C4AE2); }
         .oi-summary-error { background: rgba(185,28,28,0.06); color: var(--sh-danger, #B91C1C); }
 
         .oi-gmail-section { padding: 4px 0; }

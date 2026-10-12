@@ -32,6 +32,11 @@ class Commitment(db.Model):
     issue_type = db.Column(db.String(60), nullable=True, default="")
     # issue_type: service, escalation, approval, onboarding, followup
 
+    # Reminder dedup: set when a due/overdue notification has been produced
+    # for this commitment. NULL = not yet reminded; each commitment fires at
+    # most one reminder so the bell never re-spams the same item.
+    reminded_at = db.Column(db.DateTime, nullable=True, default=None)
+
     meta = db.Column(db.JSON, default={})
 
     created_at = db.Column(

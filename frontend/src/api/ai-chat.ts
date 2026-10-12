@@ -15,6 +15,21 @@ export interface AIChatMessage {
   content: string;
 }
 
+/**
+ * Read the user's persisted AI provider preference (mirrored to localStorage
+ * by Settings → AI Model and canonically stored at
+ * PUT/GET /api/v1/profile/ai-preference). Returns the provider label (e.g.
+ * "Groq (default)") or '' when unset.
+ */
+export function getAIPreference(): { provider: string; model: string } {
+  try {
+    const provider = localStorage.getItem('shunya_ai_model') || '';
+    return { provider, model: '' };
+  } catch {
+    return { provider: '', model: '' };
+  }
+}
+
 export interface AIChatResult {
   content: string;
   model: string;
@@ -35,6 +50,10 @@ export async function aiChat(
   messages: AIChatMessage[],
   options?: { temperature?: number; max_tokens?: number; webSearch?: boolean },
 ): Promise<AIChatResult> {
+  // Thread the persisted AI preference as an advisory routing hint — the
+  // backend records it in orchestrator metadata (provider selection remains
+  // the orchestrator's fallback chain).
+  const pref = getAIPreference();
   const resp = await fetch('/api/v1/ai/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -43,6 +62,8 @@ export async function aiChat(
       temperature: options?.temperature ?? 0.7,
       max_tokens: options?.max_tokens ?? 1024,
       web_search: options?.webSearch ?? true,  // Web search enabled by default
+      ...(pref.provider ? { preferred_provider: pref.provider } : {}),
+      ...(pref.model ? { preferred_model: pref.model } : {}),
     }),
   });
 

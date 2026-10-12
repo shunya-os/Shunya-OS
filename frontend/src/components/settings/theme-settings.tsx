@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, Image } from 'lucide-react';
+import { SessionManager } from '../../api/session';
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -35,9 +36,16 @@ interface ThemeSettingsProps {
 // ── Org ID resolution ───────────────────────────────────────
 
 function getCurrentOrgId(): number | null {
-  // Try common patterns: current_org_id in session, or first org from API
-  // For now, default to org_id=1 for single-tenant setups
-  return 1;
+  // Prefer the session's org id; fall back to the first org from the API.
+  try {
+    const session = SessionManager.load();
+    const orgId = session?.orgId;
+    if (orgId) {
+      const parsed = Number(orgId);
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  return 1; // single-tenant fallback — the API also rejects invalid org ids
 }
 
 // ── API helpers ──────────────────────────────────────────────

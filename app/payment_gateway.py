@@ -1,15 +1,34 @@
 """
-SHUNYA OS — Payment Gateway (Simulated)
+SHUNYA OS — Payment Gateway (Stub — no fake payment processing).
 
-Simulated Razorpay/Stripe integration with in-memory payment store.
-Designed so switching to a real provider only requires replacing
-the mock store with API calls — the interface stays the same.
+THIS IS A STUB. It does NOT process payments and never will: the no-fake rule
+requires that a payment is only ever marked "paid" from a REAL provider
+transaction reference (e.g. a Razorpay ``pay_...`` payment id received through
+the signed webhook at POST /api/v1/payments/razorpay/webhook, which records a
+FinancePayment row keyed by that real id).
+
+  - create_payment_link() — records a payment *request* only. The record is
+    persisted in the ``gateway_payments`` table so state survives restarts.
+    It charges nobody.
+  - verify_payment()      — REFUSES to fabricate success. Returns verified=True
+    only when a REAL provider transaction reference is supplied AND a
+    persisted FinancePayment row (written by the webhook) confirms capture —
+    or the Razorpay API itself confirms the payment is captured. Fabricated /
+    unknown ids return an honest unverified error.
+  - process_refund()      — refuses (there is no real capture to refund).
+  - generate_receipt()    — informational only; never claims a payment is real
+    unless verified against a real provider transaction.
+
+Until a real provider flow is connected, all payment capture happens through
+the Razorpay webhook in app/razorpay/routes.py.
 """
 
 import uuid
-import random
+import logging
 from datetime import datetime, timezone
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -37,21 +56,81 @@ def _generate_refund_id() -> str:
 
 class PaymentGateway:
     """
-    Simulated payment gateway — drop-in for real Razorpay / Stripe integration.
+    Payment gateway STUB — drop-in replacement point for Razorpay / Stripe.
 
-    In production, replace the in-memory store methods with REST API calls:
+    No method here ever fabricates a successful payment. When a real provider
+    is connected:
         - create_payment_link  →  razorpay.payment_link.create(...)
-        - verify_payment       →  razorpay.payment.fetch(...)
+        - verify_payment       →  razorpay.payment.fetch(...) / persisted webhook rows
         - process_refund       →  razorpay.payment.refund(...)
 
     All methods accept and return plain dicts for maximum compatibility.
     """
 
-    PROVIDER = "simulated"  # Override this when integrating a real provider
+    PROVIDER = "stub"  # Real provider id once connected (e.g. "razorpay")
     CURRENCIES = ("INR", "USD", "EUR", "GBP")
 
     # ------------------------------------------------------------------
-    # Create a payment link
+    # Persistence — payment request state survives restarts
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _ensure_store_table():
+        """Create the gateway_payments table if it doesn't exist."""
+        from app import db
+        from sqlalchemy import text
+        db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS gateway_payments (
+                payment_id VARCHAR(64) PRIMARY KEY,
+                lead_id INTEGER,
+                amount NUMERIC(15, 2) NOT NULL DEFAULT 0,
+                currency VARCHAR(10) DEFAULT 'INR',
+                description TEXT DEFAULT '',
+                status VARCHAR(30) DEFAULT 'created',
+                transaction_reference VARCHAR(255) DEFAULT '',
+                created_at TIMESTAMP DEFAULT NOW(),
+                paid_at TIMESTAMP
+            )
+        """))
+        db.session.commit()
+
+    @staticmethod
+    def _persist_request(record: dict) -> None:
+        """Best-effort persistence of a payment *request* (charges nobody)."""
+        try:
+            from app import db
+            from sqlalchemy import text
+            PaymentGateway._ensure_store_table()
+            db.session.execute(text("""
+                INSERT INTO gateway_payments
+                    (payment_id, lead_id, amount, currency, description, status,
+                     transaction_reference, created_at)
+                VALUES (:pid, :lead_id, :amount, :currency, :description,
+                        :status, :txn, :created_at)
+                ON CONFLICT (payment_id) DO NOTHING
+            """), {
+                "pid": record["payment_id"],
+                "lead_id": record.get("lead_id"),
+                "amount": record.get("amount", 0),
+                "currency": record.get("currency", "INR"),
+                "description": record.get("description", ""),
+                "status": record.get("status", "created"),
+                "txn": record.get("transaction_reference") or "",
+                "created_at": record.get("created_at"),
+            })
+            db.session.commit()
+        except Exception:
+            logger.exception(
+                "PaymentGateway: failed to persist payment request %s "
+                "(in-memory copy remains)", record.get("payment_id"),
+            )
+            from app import db as _db
+            try:
+                _db.session.rollback()
+            except Exception:
+                pass
+
+    # ------------------------------------------------------------------
+    # Create a payment link (a *request*, never a charge)
     # ------------------------------------------------------------------
     def create_payment_link(
         self,
@@ -61,13 +140,16 @@ class PaymentGateway:
         currency: str = "INR",
     ) -> dict:
         """
-        Generate a payment link (simulated). In production this would
-        call Razorpay's /payment_links/ endpoint and return a hosted URL.
+        Record a payment link REQUEST (stub — no money moves).
+
+        The record is persisted (``gateway_payments`` table, survives
+        restart) with status ``created``. Nothing here marks it paid; only a
+        real provider transaction (Razorpay webhook) can do that.
 
         Returns:
             {
-                "payment_url":   str  — URL for the checkout page
-                "payment_id":    str  — unique gateway payment ID
+                "payment_url":   str  — URL for the (legacy) checkout page
+                "payment_id":    str  — local request id
                 "amount":        float
                 "currency":      str
                 "description":   str
@@ -96,6 +178,7 @@ class PaymentGateway:
             "paid_at": None,
         }
         _payment_store[payment_id] = record
+        self._persist_request(record)
         return {
             "payment_url": record["payment_url"],
             "payment_id": record["payment_id"],
@@ -108,118 +191,133 @@ class PaymentGateway:
         }
 
     # ------------------------------------------------------------------
-    # Verify a payment
+    # Verify a payment — REAL provider evidence only
     # ------------------------------------------------------------------
-    def verify_payment(self, payment_id: str) -> dict:
+    def verify_payment(
+        self,
+        payment_id: str,
+        *,
+        organization_id: Optional[int] = None,
+        identity_id: Optional[str] = None,
+    ) -> dict:
         """
-        Verify a payment's status. The simulated version "processes" the
-        payment on first verification call.
+        Verify a payment against REAL provider evidence. Never fabricates.
 
-        Returns:
-            {
-                "verified":        bool
-                "amount":          float
-                "transaction_id":  str
-                "status":          str
-                "payment_id":      str
-                "currency":        str
-                "paid_at":         str | None
-            }
+        Returns verified=True ONLY when:
+          1. a persisted FinancePayment row exists with
+             reference_number == payment_id (written by the Razorpay webhook
+             from a real captured transaction), or
+          2. the Razorpay API confirms the payment is captured (keys must be
+             resolvable — pass identity_id or have keys saved).
+
+        Any other id (fabricated, unknown, local stub) returns an honest
+        ``verified: False`` with a clear error. Callers MUST pass
+        ``organization_id`` for the persisted lookup.
         """
+        if not payment_id:
+            return self._unverified(
+                payment_id, "payment_id is required", status="invalid"
+            )
+
+        # 1. Persisted truth (written by the real webhook — survives restart)
+        if organization_id:
+            try:
+                from app.finance.models import FinancePayment
+                row = FinancePayment.query.filter_by(
+                    organization_id=organization_id,
+                    reference_number=payment_id,
+                ).first()
+            except Exception:
+                row = None
+            if row:
+                paid = row.status in ("confirmed", "allocated", "reconciled", "paid")
+                return {
+                    "verified": paid,
+                    "amount": float(row.amount or 0),
+                    "transaction_id": payment_id,
+                    "status": row.status or ("paid" if paid else "unverified"),
+                    "payment_id": payment_id,
+                    "currency": row.currency or "INR",
+                    "paid_at": row.payment_date.isoformat() if row.payment_date else None,
+                    "source": "persisted_webhook",
+                }
+
+        # 2. Stub requests are requests — never auto-'paid'.
         record = _payment_store.get(payment_id)
-        if not record:
-            return {
-                "verified": False,
-                "amount": 0,
-                "transaction_id": None,
-                "status": "not_found",
-                "payment_id": payment_id,
-                "currency": "INR",
-                "paid_at": None,
-            }
+        if record:
+            return self._unverified(
+                payment_id,
+                "This gateway is a stub: no real provider transaction exists for "
+                "this payment request. A payment is marked paid only from a real "
+                "provider webhook (Razorpay payment_id).",
+                status=record.get("status", "created"),
+                amount=float(record.get("amount", 0) or 0),
+                currency=record.get("currency", "INR"),
+            )
 
-        # First call — simulate payment processing
-        if record["status"] == "created":
-            record["status"] = "paid"
-            record["verified"] = True
-            record["transaction_id"] = _generate_transaction_id()
-            record["paid_at"] = datetime.now(timezone.utc).isoformat()
+        # 3. Real provider check — only when keys are resolvable.
+        try:
+            from app.razorpay.routes import _get_saved_keys
+            keys = _get_saved_keys(identity_id) if identity_id else None
+            if keys and str(payment_id).startswith("pay_"):
+                import razorpay
+                client = razorpay.Client(auth=(keys["key_id"], keys["key_secret"]))
+                pay = client.payment.fetch(payment_id)
+                captured = (pay or {}).get("status") == "captured"
+                return {
+                    "verified": captured,
+                    "amount": float((pay or {}).get("amount", 0) or 0) / 100,
+                    "transaction_id": payment_id,
+                    "status": (pay or {}).get("status", "unknown"),
+                    "payment_id": payment_id,
+                    "currency": (pay or {}).get("currency", "INR"),
+                    "paid_at": None,
+                }
+        except ImportError:
+            pass  # razorpay SDK not installed — fall through to honest refusal
+        except Exception as e:
+            # Provider/network errors are HONEST failures, never success.
+            logger.warning("verify_payment: provider check failed for %s: %s", payment_id, e)
+            return self._unverified(
+                payment_id, f"Provider verification failed: {e}", status="provider_error"
+            )
 
+        return self._unverified(
+            payment_id,
+            f"No real provider transaction reference matches '{payment_id}'. "
+            "Supply a real Razorpay payment id (pay_...) recorded by the webhook.",
+        )
+
+    @staticmethod
+    def _unverified(payment_id, error, status="not_found", amount=0, currency="INR"):
         return {
-            "verified": record["verified"],
-            "amount": record["amount"],
-            "transaction_id": record["transaction_id"],
-            "status": record["status"],
-            "payment_id": record["payment_id"],
-            "currency": record["currency"],
-            "paid_at": record["paid_at"],
+            "verified": False,
+            "amount": amount,
+            "transaction_id": None,
+            "status": status,
+            "payment_id": payment_id,
+            "currency": currency,
+            "paid_at": None,
+            "error": error,
         }
 
     # ------------------------------------------------------------------
-    # Process a refund
+    # Process a refund — refused (no real capture to refund)
     # ------------------------------------------------------------------
     def process_refund(self, payment_id: str, amount: Optional[float] = None) -> dict:
         """
-        Process a refund for the given payment.
+        Refuse refunds: there is no real provider capture to refund (stub).
 
-        Args:
-            payment_id:  The gateway payment ID to refund.
-            amount:      Optional partial refund amount. Full refund if omitted.
-
-        Returns:
-            {
-                "success":       bool
-                "refund_id":     str
-                "amount":        float
-                "payment_id":    str
-                "status":        str
-            }
+        Returns an honest ``success: False`` — never a fabricated refund.
         """
-        record = _payment_store.get(payment_id)
-        if not record:
-            return {
-                "success": False,
-                "refund_id": None,
-                "amount": 0,
-                "payment_id": payment_id,
-                "status": "payment_not_found",
-            }
-
-        if record["status"] != "paid":
-            return {
-                "success": False,
-                "refund_id": None,
-                "amount": 0,
-                "payment_id": payment_id,
-                "status": "cannot_refund_unpaid",
-            }
-
-        refund_amount = amount if amount is not None else record["amount"]
-        if refund_amount > record["amount"]:
-            return {
-                "success": False,
-                "refund_id": None,
-                "amount": refund_amount,
-                "payment_id": payment_id,
-                "status": "refund_exceeds_amount",
-            }
-
-        refund_id = _generate_refund_id()
-        refund_record = {
-            "refund_id": refund_id,
-            "payment_id": payment_id,
-            "amount": round(refund_amount, 2),
-            "status": "processed",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-        _refund_store[refund_id] = refund_record
-
         return {
-            "success": True,
-            "refund_id": refund_id,
-            "amount": refund_record["amount"],
+            "success": False,
+            "refund_id": None,
+            "amount": amount or 0,
             "payment_id": payment_id,
-            "status": "refund_processed",
+            "status": "refund_unavailable_stub",
+            "error": "This gateway is a stub — no real provider capture exists to "
+                     "refund. Connect a real provider (Razorpay) to process refunds.",
         }
 
     # ------------------------------------------------------------------
@@ -399,8 +497,9 @@ class PaymentGateway:
       </div>
     </div>
     <div class="receipt-footer">
-      <strong>SHUNYA OS</strong> &mdash; Internal Payment Receipt<br>
-      This is a simulated receipt. No real payment has been processed.
+      <strong>SHUNYA OS</strong> &mdash; Informational Receipt<br>
+      This gateway is a stub. A payment is confirmed only via a real provider
+      transaction (Razorpay webhook) — nothing here proves money moved.
     </div>
   </div>
 </body>

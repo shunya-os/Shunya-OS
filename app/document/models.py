@@ -41,6 +41,12 @@ class DocumentRecord(db.Model):
     original_filename = db.Column(db.String(500), default="")
     safe_display_name = db.Column(db.String(500), default="")
     mime_type = db.Column(db.String(100), default="")
+    # Full posted content — the canonical body of the ingested document.
+    # Search (GET /api/v1/knowledge/search) matches this column as well as the filename.
+    content = db.Column(db.Text, default="")
+    # Extracted text from file parsing (pdf/csv/text extraction pipeline).
+    # Empty when the file could not be parsed (honest 'stored_unparsed' lifecycle).
+    extracted_text = db.Column(db.Text, default="")
     content_hash = db.Column(db.String(128), nullable=True, index=True)
     file_size = db.Column(db.Integer, default=0)
     page_count = db.Column(db.Integer, default=0)

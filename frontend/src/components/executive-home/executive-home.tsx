@@ -31,6 +31,7 @@ import { UniversalSearchBar } from '../search/universal-search-bar';
 import { HomePage } from '../home/home-page';
 import { AIResidentPanel } from '../ui/ai-resident-panel';
 import { LivingPresence } from '../living-workspace/living-presence';
+import { NotificationBell } from '../notifications/notification-bell';
 import { KeyboardShortcuts } from '../help/keyboard-shortcuts';
 import {
   fetchAttentionItems,
@@ -87,6 +88,7 @@ const TeamPage = lazy(() => import('../team/team-page').then(m => ({ default: m.
 
 // ── NEW: System Tools — Settings, API Docs, Help, Shortcuts, Analytics ──
 const WorkspaceSettings = lazy(() => import('../workspace/workspace-settings').then(m => ({ default: m.WorkspaceSettings })));
+const NotificationHistoryPanel = lazy(() => import('../notifications/notification-history').then(m => ({ default: m.NotificationHistory })));
 const ApiExplorer = lazy(() => import('../dev/api-explorer').then(m => ({ default: m.ApiExplorer })));
 const HelpCenter = lazy(() => import('../help/help-center').then(m => ({ default: m.HelpCenter })));
 const AnalyticsPanel = lazy(() => import('../analytics/analytics-panel').then(m => ({ default: m.AnalyticsPanel })));
@@ -842,6 +844,7 @@ function PrimaryFocusArea() {
         />
         <div className="pw-focus-actions">
           <LivingPresence />
+          <NotificationBell />
           <LanguageSwitcher size="md" />
           {/* Workspace Settings gear */}
           <button
@@ -1066,6 +1069,11 @@ function DomainWorkspaceRouter() {
   // Workspace Settings
   if (active.identity.type === 'workspace-settings') {
     return <div className="pw-panel-container"><WorkspaceSettings /></div>;
+  }
+
+  // Notification History (opened from the header bell)
+  if (active.identity.type === 'notifications_history') {
+    return <div className="pw-panel-container"><NotificationHistoryPanel /></div>;
   }
 
   // API Docs

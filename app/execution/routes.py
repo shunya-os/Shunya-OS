@@ -1,7 +1,8 @@
 """Outcome Routes — API endpoints for the Outcome Runtime.
 
-Thin persistence layer. No step-based execution, no lifecycle progression.
-The canonical execution authority is the execution_engine.
+Thin persistence layer. The canonical execution authority is
+runtime/entry.py → execution_engine; outcomes created here are dispatched
+through it so the returned status is truthful (executed / failed).
 """
 import logging
 from flask import Blueprint, jsonify, request, session
@@ -25,7 +26,12 @@ def _get_identity() -> str | None:
 @execution_bp.route("", methods=["POST"])
 @require_permission("task.create")
 def create_outcome():
-    """Accept a new outcome. Returns immediately with outcome ID."""
+    """Accept a new outcome and dispatch it through the canonical execution authority.
+
+    Returns immediately with the outcome ID. The outcome's state records the
+    truthful dispatch result: 'executed' when process_event succeeded,
+    'failed' (with last_error) when the execution authority could not run it.
+    """
     identity_id = _get_identity()
     if not identity_id:
         return jsonify({"success": False, "error": "Authentication required"}), 401
@@ -38,10 +44,66 @@ def create_outcome():
     runtime = get_runtime()
     outcome = runtime.accept(identity_id, intention)
 
+    # Dispatch through the canonical execution authority (runtime/entry.py).
+    # The outcome must never claim 'executed' without a real execution.
+    result = _dispatch_outcome(outcome, identity_id, intention)
+
     return jsonify({
         "success": True,
         "data": outcome.to_dict(),
+        "execution": result,
     }), 201
+
+
+def _dispatch_outcome(outcome, identity_id: str, intention: str) -> dict:
+    """Run the outcome through runtime/entry.process_event and persist the result.
+
+    On failure the outcome is marked 'failed' truthfully (with the error),
+    never left claiming execution.
+    """
+    from app import db
+
+    try:
+        from app.runtime.entry import process_event
+
+        exec_result = process_event(
+            "outcome_accepted",
+            {
+                "id": outcome.outcome_id,
+                "intention": intention,
+                "identity_id": identity_id,
+            },
+            source="outcome_route",
+        )
+        state = dict(outcome.state or {})
+        state.update({
+            "stage": "executed",
+            "execution_status": exec_result.get("status", "completed"),
+            "execution_trace_id": exec_result.get("decision_trace_id"),
+            "execution_result": {
+                "status": exec_result.get("status"),
+                "entity_id": exec_result.get("entity_id"),
+                "decision_trace_id": exec_result.get("decision_trace_id"),
+            },
+        })
+        outcome.state = state
+        db.session.commit()
+        logger.info("Outcome %s executed via canonical authority", outcome.outcome_id)
+        return {"status": "executed",
+                "execution_status": exec_result.get("status"),
+                "decision_trace_id": exec_result.get("decision_trace_id")}
+    except Exception as e:  # noqa: BLE001 — truthful failure recording
+        db.session.rollback()
+        state = dict(outcome.state or {})
+        state.update({
+            "stage": "failed",
+            "execution_status": "failed",
+            "last_error": str(e),
+        })
+        outcome.state = state
+        db.session.commit()
+        logger.warning("Outcome %s failed to dispatch: %s", outcome.outcome_id, e)
+        return {"status": "failed", "error": str(e)}
 
 
 @execution_bp.route("/<outcome_id>", methods=["GET"])

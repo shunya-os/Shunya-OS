@@ -70,17 +70,20 @@ async function fetchConfigs(): Promise<Config[]> {
   return res.data ?? [];
 }
 
-async function connectProvider(provider: string): Promise<Config> {
+async function connectProvider(provider: string, apiKey: string): Promise<Config> {
   const res = await apiReq<{ success: boolean; data: Config }>(
     `/configs/${encodeURIComponent(provider)}`,
     {
       method: 'PUT',
       body: JSON.stringify({
-        config_value: 'connected_via_hub',
+        config_value: apiKey,
         label: provider,
       }),
     },
   );
+  if (!res.success) {
+    throw new Error((res as any).error || 'Failed to connect');
+  }
   return res.data;
 }
 
@@ -148,6 +151,13 @@ export function IntegrationHub() {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionProvider, setActionProvider] = useState<string | null>(null);
   const [syncProviderId, setSyncProviderId] = useState<string | null>(null);
+  // Connect modal — real credentials are REQUIRED (the old flow sent a
+  // placeholder 'connected_via_hub' token and showed "Connected" for a
+  // provider that was never actually configured).
+  const [connectTarget, setConnectTarget] = useState<Provider | null>(null);
+  const [connectKey, setConnectKey] = useState('');
+  const [connectSaving, setConnectSaving] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   // Build a lookup map: provider id -> Config
   const configMap = new Map<string, Config>();
@@ -175,21 +185,43 @@ export function IntegrationHub() {
     loadData();
   }, [loadData]);
 
-  const handleConnect = useCallback(async (providerId: string) => {
-    setActionProvider(providerId);
+  const openConnectModal = useCallback((prov: Provider) => {
+    setConnectTarget(prov);
+    setConnectKey('');
+    setConnectError(null);
+  }, []);
+
+  const closeConnectModal = useCallback(() => {
+    if (connectSaving) return; // never close mid-save
+    setConnectTarget(null);
+    setConnectKey('');
+    setConnectError(null);
+  }, [connectSaving]);
+
+  const submitConnect = useCallback(async () => {
+    if (!connectTarget) return;
+    const key = connectKey.trim();
+    if (!key) {
+      setConnectError('An API key or token is required to connect this provider.');
+      return;
+    }
+    setConnectSaving(true);
+    setConnectError(null);
     try {
-      const cfg = await connectProvider(providerId);
+      const cfg = await connectProvider(connectTarget.id, key);
       setConfigs(prev => {
-        const next = prev.filter(c => c.provider !== providerId);
+        const next = prev.filter(c => c.provider !== connectTarget.id);
         next.push(cfg);
         return next;
       });
+      setConnectTarget(null);
+      setConnectKey('');
     } catch (err: any) {
-      setError(err?.message || 'Failed to connect');
+      setConnectError(err?.message || 'Failed to connect — check the credentials and try again.');
     } finally {
-      setActionProvider(null);
+      setConnectSaving(false);
     }
-  }, []);
+  }, [connectTarget, connectKey]);
 
   const handleDisconnect = useCallback(async (providerId: string) => {
     setActionProvider(providerId);
@@ -390,7 +422,7 @@ export function IntegrationHub() {
                   ) : (
                     <button
                       className="ih2-btn ih2-btn-connect"
-                      onClick={() => handleConnect(prov.id)}
+                      onClick={() => openConnectModal(prov)}
                       disabled={isBusy || isSyncing}
                     >
                       <ExternalLink size={12} />
@@ -405,6 +437,47 @@ export function IntegrationHub() {
       )}
 
       <style>{ih2Css}</style>
+
+      {/* Connect modal — real credentials required */}
+      {connectTarget && (
+        <div className="ih2-modal-overlay" onClick={closeConnectModal}>
+          <div className="ih2-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Connect ${connectTarget.name}`}>
+            <div className="ih2-modal-header">
+              <span className="ih2-modal-icon">{getProviderIcon(connectTarget.icon)}</span>
+              <div>
+                <div className="ih2-modal-title">Connect {connectTarget.name}</div>
+                <div className="ih2-modal-sub">Enter your API key or token for this provider.</div>
+              </div>
+              <button className="ih2-modal-close" onClick={closeConnectModal} aria-label="Close">×</button>
+            </div>
+            <div className="ih2-modal-body">
+              <label className="ih2-modal-label" htmlFor="ih2-api-key">API Key / Token</label>
+              <input
+                id="ih2-api-key"
+                className="ih2-modal-input"
+                type="password"
+                autoComplete="off"
+                placeholder="sk-…"
+                value={connectKey}
+                onChange={(e) => setConnectKey(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submitConnect(); if (e.key === 'Escape') closeConnectModal(); }}
+                autoFocus
+              />
+              <p className="ih2-modal-hint">
+                Credentials are stored securely on the backend and never displayed again.
+                A provider cannot be marked Connected without a real credential.
+              </p>
+              {connectError && <div className="ih2-modal-error">{connectError}</div>}
+            </div>
+            <div className="ih2-modal-actions">
+              <button className="ih2-btn ih2-btn-ghost" onClick={closeConnectModal} disabled={connectSaving}>Cancel</button>
+              <button className="ih2-btn ih2-btn-connect" onClick={submitConnect} disabled={connectSaving || !connectKey.trim()}>
+                {connectSaving ? 'Connecting…' : 'Connect'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -492,4 +565,23 @@ const ih2Css = `
   .ih2-grid { grid-template-columns: 1fr; }
   .ih2-header { flex-direction: column; align-items: flex-start; }
 }
+
+/* Connect Modal */
+.ih2-modal-overlay { position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.ih2-modal { background: rgba(255,255,255,0.7); border: 1px solid rgba(26,28,29,0.06); border-radius: 14px; width: min(420px, 90vw); display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(26,28,29,0.08); }
+.ih2-modal-header { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid rgba(26,28,29,0.04); }
+.ih2-modal-icon { font-size: 24px; line-height: 1; flex-shrink: 0; }
+.ih2-modal-title { font-size: 15px; font-weight: 600; color: #1A1C1D; margin: 0; }
+.ih2-modal-sub { font-size: 11px; color: rgba(26,28,29,0.45); }
+.ih2-modal-close { background: none; border: none; font-size: 22px; color: rgba(26,28,29,0.3); cursor: pointer; padding: 0 4px; line-height: 1; margin-left: auto; }
+.ih2-modal-close:hover { color: #1A1C1D; }
+.ih2-modal-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+.ih2-modal-label { font-size: 11px; font-weight: 500; color: rgba(26,28,29,0.5); text-transform: uppercase; letter-spacing: 0.04em; }
+.ih2-modal-input { padding: 8px 12px; border: 1px solid rgba(108,74,226,0.15); border-radius: 8px; font-size: 14px; font-family: monospace; background: #fff; color: #1A1C1D; outline: none; width: 100%; }
+.ih2-modal-input:focus { border-color: #6C4AE2; }
+.ih2-modal-hint { font-size: 10px; color: rgba(26,28,29,0.35); margin: 4px 0 0; line-height: 1.4; }
+.ih2-modal-error { font-size: 11px; color: #B91C1C; padding: 6px 10px; background: rgba(185,28,28,0.06); border-radius: 6px; }
+.ih2-modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid rgba(26,28,29,0.04); }
+.ih2-btn-ghost { border-color: transparent; background: transparent; color: rgba(26,28,29,0.5); }
+.ih2-btn-ghost:hover:not(:disabled) { border-color: rgba(26,28,29,0.08); color: #1A1C1D; }
 `;

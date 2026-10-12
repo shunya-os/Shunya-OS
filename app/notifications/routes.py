@@ -285,6 +285,14 @@ def list_notifications():
     if not identity_id:
         return jsonify({"error": "Not authenticated"}), 401
 
+    # Produce due/overdue commitment reminders BEFORE listing, so the bell
+    # always reflects real overdue items on fetch. Idempotent per commitment.
+    try:
+        from app.commitments.reminders import raise_due_commitment_notifications
+        raise_due_commitment_notifications()
+    except Exception as exc:
+        logger.warning("reminder producer failed during bell fetch: %s", exc)
+
     limit = min(int(request.args.get("limit", 50)), 200)
     offset = int(request.args.get("offset", 0))
     unread_only = request.args.get("unread_only", "").lower() in ("true", "1")

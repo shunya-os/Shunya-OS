@@ -171,6 +171,8 @@ class FinancePayment(db.Model):
     invoice_id = db.Column(db.Integer, db.ForeignKey("fin_invoices.id"), nullable=True)
     relationship_id = db.Column(db.Integer, db.ForeignKey("rel_relationships.id"), nullable=True)
     type = db.Column(db.String(30), default="receipt")
+    # Payment lifecycle status — see PAYMENT_STATES in app/finance/governance.py.
+    status = db.Column(db.String(30), default="pending", nullable=False)
     amount = db.Column(Numeric(15, 2), nullable=False)
     currency = db.Column(db.String(10), default="INR")
     payment_date = db.Column(db.Date, nullable=False)
@@ -184,7 +186,8 @@ class FinancePayment(db.Model):
     def to_dict(self):
         return {"id": self.id, "organization_id": self.organization_id,
             "invoice_id": self.invoice_id, "relationship_id": self.relationship_id,
-            "type": self.type, "amount": float(self.amount or 0), "currency": self.currency,
+            "type": self.type, "status": self.status or "pending",
+            "amount": float(self.amount or 0), "currency": self.currency,
             "payment_date": self.payment_date.isoformat() if self.payment_date else None,
             "method": self.method, "reference_number": self.reference_number,
             "created_by": self.created_by}

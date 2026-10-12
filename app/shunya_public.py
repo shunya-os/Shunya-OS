@@ -125,6 +125,27 @@ def api_create_identity():
     session["user_id"] = legacy_user.id
     session["identity_id"] = identity.identity_id
 
+    # Verification: the account is created UNVERIFIED on purpose (verified gate
+    # blocks login until the inbox is proven). Previously no verify_token was
+    # minted and no email was sent — the next login was blocked forever.
+    # Mirror api_signup: mint a token and email it AFTER the session grant so
+    # the immediate flow keeps working while the user can verify and log in
+    # later.
+    import secrets
+    legacy_user.verify_token = secrets.token_hex(32)
+    db.session.commit()
+    try:
+        from app.email_service import build_verification_email, send_email
+        subject, body = build_verification_email(email, legacy_user.verify_token)
+        send_email(to=email, subject=subject, body=body,
+                   notification_type="email_verification",
+                   business_event_id=f"verify:{legacy_user.id}:{legacy_user.verify_token[:8]}",
+                   category="security")
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "Failed to send verification email to %s", email)
+
     return jsonify({
         "success": True,
         "identity_id": identity.identity_id,
@@ -435,3 +456,190 @@ def serve_audit_pdf(slug):
             return jsonify({"success": False, "error": "PDF not found"}), 404
     from flask import send_file
     return send_file(target, mimetype="application/pdf", as_attachment=False)
+
+
+# ---------------------------------------------------------------------------
+# Token-gated proposal view/accept/decline
+# The share token IS the capability — no session required. All rendered
+# content is HTML-escaped; transitions reuse the canonical commercial
+# service so the state machine and audit trail stay identical to the
+# authenticated path.
+# ---------------------------------------------------------------------------
+
+_PROPOSAL_STATUS_LABELS = {
+    "draft": "Draft", "ai_generating": "AI generating", "review": "In review",
+    "sent": "Sent", "viewed": "Viewed", "negotiating": "Negotiating",
+    "accepted": "Accepted", "declined": "Declined", "withdrawn": "Withdrawn",
+    "expired": "Expired",
+}
+
+_PROPOSAL_PAGE_CSS = """
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+       background: #F7F5F0; color: #1A1C1D; margin: 0; padding: 0; }
+.wrap { max-width: 640px; margin: 48px auto; padding: 0 20px; }
+.card { background: #fff; border: 1px solid rgba(26,28,29,0.08); border-radius: 12px;
+        padding: 28px; }
+.badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 10px;
+         border-radius: 999px; background: rgba(108,74,226,0.08); color: #6C4AE2; }
+h1 { font-size: 22px; font-weight: 600; margin: 12px 0 4px; }
+.meta { color: rgba(26,28,29,0.55); font-size: 13px; margin-bottom: 18px; }
+.section { margin: 14px 0; }
+.section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+              color: rgba(26,28,29,0.4); margin: 0 0 4px; }
+.section p { font-size: 14px; line-height: 1.55; margin: 0; white-space: pre-wrap; }
+.value { font-size: 24px; font-weight: 600; margin: 8px 0 18px; }
+.actions { display: flex; gap: 10px; margin-top: 22px; }
+.btn { flex: 1; text-align: center; padding: 11px 16px; border-radius: 8px;
+       font-size: 14px; font-weight: 600; cursor: pointer; border: 1px solid transparent;
+       text-decoration: none; font-family: inherit; }
+.btn-accept { background: #2D6A4F; color: #fff; }
+.btn-decline { background: #fff; color: #B91C1C; border-color: rgba(185,28,28,0.35); }
+.btn-done { background: rgba(45,106,79,0.1); color: #2D6A4F; }
+.btn-declined { background: rgba(185,28,28,0.08); color: #B91C1C; }
+.msg { margin-top: 14px; font-size: 14px; padding: 10px 14px; border-radius: 8px; }
+.msg-ok { background: rgba(45,106,79,0.08); color: #2D6A4F; }
+.msg-err { background: rgba(185,28,28,0.08); color: #B91C1C; }
+.foot { text-align: center; color: rgba(26,28,29,0.35); font-size: 11px; margin-top: 18px; }
+"""
+
+
+def _find_proposal_by_token(token: str):
+    from app.commercial.models import CommercialProposal
+    return CommercialProposal.query.filter_by(share_token=token).first()
+
+
+def _proposal_page(proposal, message: str = "", error: str = "") -> str:
+    from html import escape
+    title = escape(proposal.title or "Proposal")
+    status = _PROPOSAL_STATUS_LABELS.get(proposal.status, proposal.status or "")
+    status_esc = escape(status)
+    currency = escape(proposal.currency or "INR")
+    total = proposal.total_value if proposal.total_value is not None else 0
+    try:
+        value = f"{currency} {float(total):,.2f}"
+    except (TypeError, ValueError):
+        value = f"{currency} {total}"
+    value_esc = escape(value)
+    scope = escape((proposal.scope_description or "No scope provided.")[:2000])
+    terms = escape((proposal.terms or "")[:2000])
+    meta_bits = []
+    if proposal.valid_until:
+        meta_bits.append(f"Valid until {escape(proposal.valid_until.strftime('%d %b %Y'))}")
+    if proposal.proposal_type:
+        meta_bits.append(escape(proposal.proposal_type))
+    meta = " · ".join(meta_bits)
+
+    action_html = ""
+    if proposal.status in ("sent", "viewed", "negotiating"):
+        # "viewed" keeps the buttons too: the first open auto-advances
+        # sent → viewed (proposal_share_view), and the counterparty must
+        # still be able to accept/decline on that same page load.
+        action_html = (
+            f'<div class="actions">'
+            f'<form method="post" action="/proposal/{escape(proposal.share_token)}/accept" style="flex:1">'
+            f'<button class="btn btn-accept" type="submit">Accept</button></form>'
+            f'<form method="post" action="/proposal/{escape(proposal.share_token)}/decline" style="flex:1">'
+            f'<button class="btn btn-decline" type="submit">Decline</button></form>'
+            f'</div>'
+        )
+    elif proposal.status == "accepted":
+        action_html = '<div class="actions"><div class="btn btn-done">Accepted — thank you</div></div>'
+    elif proposal.status == "declined":
+        action_html = '<div class="actions"><div class="btn btn-declined">Declined</div></div>'
+
+    msg_html = ""
+    if message:
+        msg_html = f'<div class="msg msg-ok">{escape(message)}</div>'
+    if error:
+        msg_html = f'<div class="msg msg-err">{escape(error)}</div>'
+
+    return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title} · SHUNYA Proposal</title><style>{_PROPOSAL_PAGE_CSS}</style></head>
+<body><div class="wrap">
+  <div class="card">
+    <span class="badge">{status_esc}</span>
+    <h1>{title}</h1>
+    {f'<div class="meta">{meta}</div>' if meta else '<div class="meta">SHUNYA commercial proposal</div>'}
+    <div class="section"><h3>Summary</h3><p>{scope}</p></div>
+    <div class="value">{value_esc}</div>
+    {f'<div class="section"><h3>Terms</h3><p>{terms}</p></div>' if terms else ''}
+    {action_html}
+    {msg_html}
+  </div>
+  <div class="foot">Prepared with SHUNYA</div>
+</div></body></html>"""
+
+
+@shunya_bp.route("/proposal/<token>", methods=["GET"])
+def proposal_share_view(token: str):
+    """Token-gated public view of a proposal (token = the capability)."""
+    proposal = _find_proposal_by_token(token)
+    if not proposal:
+        return _proposal_page(_UnknownProposal(), error="This proposal link is invalid or no longer available."), 404
+
+    # Advance sent → viewed when the counterparty actually opens the page.
+    if proposal.status == "sent":
+        try:
+            from app.commercial.service import transition_proposal
+            transition_proposal(proposal, "viewed", reason="Counterparty opened share link", triggered_by=f"token:{token[:8]}")
+        except Exception:
+            pass
+
+    return _proposal_page(proposal)
+
+
+class _UnknownProposal:
+    """Stand-in for a missing proposal so the 404 renders the page shell."""
+    title = "Proposal not found"
+    status = "unknown"
+    proposal_type = ""
+    currency = ""
+    total_value = 0
+    scope_description = ""
+    terms = ""
+    valid_until = None
+    share_token = ""
+
+
+@shunya_bp.route("/proposal/<token>/accept", methods=["POST"])
+def proposal_share_accept(token: str):
+    """Token-gated accept (reuses the canonical proposal transition)."""
+    proposal = _find_proposal_by_token(token)
+    if not proposal:
+        return _proposal_page(_UnknownProposal(), error="This proposal link is invalid or no longer available."), 404
+    if proposal.status in ("accepted", "declined"):
+        return _proposal_page(proposal, error=f"This proposal has already been {proposal.status}.")
+
+    from app.commercial.service import transition_proposal
+    success, err, _decision = transition_proposal(
+        proposal,
+        "accepted",
+        reason="Accepted via share link",
+        triggered_by=f"token:{token[:8]}",
+    )
+    if not success:
+        return _proposal_page(proposal, error=err or "Could not accept this proposal."), 400
+    return _proposal_page(proposal, message="Thank you — the proposal has been accepted.")
+
+
+@shunya_bp.route("/proposal/<token>/decline", methods=["POST"])
+def proposal_share_decline(token: str):
+    """Token-gated decline (reuses the canonical proposal transition)."""
+    proposal = _find_proposal_by_token(token)
+    if not proposal:
+        return _proposal_page(_UnknownProposal(), error="This proposal link is invalid or no longer available."), 404
+    if proposal.status in ("accepted", "declined"):
+        return _proposal_page(proposal, error=f"This proposal has already been {proposal.status}.")
+
+    from app.commercial.service import transition_proposal
+    success, err, _decision = transition_proposal(
+        proposal,
+        "declined",
+        reason="Declined via share link",
+        triggered_by=f"token:{token[:8]}",
+    )
+    if not success:
+        return _proposal_page(proposal, error=err or "Could not decline this proposal."), 400
+    return _proposal_page(proposal, message="The proposal has been declined.")

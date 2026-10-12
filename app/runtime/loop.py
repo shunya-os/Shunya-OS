@@ -206,6 +206,18 @@ def _run_commitments(summary: dict):
         logger.error("Commitments section crashed: %s", e)
         summary["errors"].append({"section": "commitments", "error": str(e)})
 
+    # Due/overdue reminder producer — creates Notification rows for
+    # commitments past their due date that have not been reminded yet.
+    # Idempotent per commitment (reminded_at dedup).
+    try:
+        from app.commitments.reminders import raise_due_commitment_notifications
+        reminded = raise_due_commitment_notifications()
+        if reminded:
+            summary["reminders_created"] = summary.get("reminders_created", 0) + reminded
+    except Exception as e:
+        logger.error("Commitment reminder producer failed: %s", e)
+        summary["errors"].append({"section": "commitments_reminders", "error": str(e)})
+
 
 def run_cycle() -> dict:
     """Run one iteration of the execution loop with crash isolation.

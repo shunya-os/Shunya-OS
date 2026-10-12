@@ -77,6 +77,34 @@ export const ProposalDetail: FC<ProposalDetailProps> = ({ proposalId, onBack, on
   const [showTransitionForm, setShowTransitionForm] = useState(false);
   const [toState, setToState] = useState('');
   const [reason, setReason] = useState('');
+  const [shareCopied, setShareCopied] = useState(false);
+
+  const copyShareLink = useCallback(async () => {
+    if (!proposal) return;
+    let token = proposal.share_token;
+    if (!token) {
+      const r = await apiGet<any>(`/api/v1/commercial/proposals/${proposal.id}/share-link`);
+      if (r && r.share_token) {
+        token = r.share_token;
+        setProposal((p) => (p ? { ...p, share_token: token } : p));
+      }
+    }
+    if (!token) return;
+    const base = (window as any).SHUNYA_BASE_URL || window.location.origin;
+    const url = `${base}/proposal/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  }, [proposal]);
 
   const loadProposal = useCallback(async () => {
     setLoading(true);
@@ -115,15 +143,17 @@ export const ProposalDetail: FC<ProposalDetailProps> = ({ proposalId, onBack, on
     setTransitioning(false);
   };
 
+  // Aligned with app/commercial/service.py PROPOSAL_TRANSITIONS —
+  // accepted/declined are terminal on the backend, so no options are offered.
   const availableTransitions: Record<string, string[]> = {
-    draft: ['review', 'sent', 'withdrawn'],
+    draft: ['ai_generating', 'review', 'sent', 'withdrawn'],
     ai_generating: ['draft', 'review'],
     review: ['draft', 'sent', 'withdrawn'],
-    sent: ['negotiating', 'accepted', 'declined', 'withdrawn', 'expired'],
+    sent: ['viewed', 'negotiating', 'accepted', 'declined', 'withdrawn', 'expired'],
     viewed: ['negotiating', 'accepted', 'declined', 'withdrawn'],
-    negotiating: ['accepted', 'declined', 'sent', 'withdrawn'],
-    accepted: ['withdrawn', 'expired'],
-    declined: ['withdrawn'],
+    negotiating: ['sent', 'accepted', 'declined', 'withdrawn'],
+    accepted: [],
+    declined: [],
     withdrawn: ['draft'],
     expired: ['draft'],
   };
@@ -159,6 +189,9 @@ export const ProposalDetail: FC<ProposalDetailProps> = ({ proposalId, onBack, on
       <div className="proposal-detail-top">
         <button className="pw-tab-btn" onClick={onBack}>← Proposals</button>
         <div className="proposal-detail-top-actions">
+          <button className="pw-tab-btn" onClick={copyShareLink} title="Copy a token-gated view/accept link for the counterparty">
+            {shareCopied ? 'Link copied ✓' : 'Copy share link'}
+          </button>
           {!showTransitionForm && transitions.length > 0 && (
             <button className="pw-tab-btn" onClick={() => setShowTransitionForm(true)}>
               Change Status

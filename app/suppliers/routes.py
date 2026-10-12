@@ -79,9 +79,9 @@ def create_supplier():
     if not name:
         return jsonify({"success": False, "error": "Supplier name is required"}), 400
 
-    existing = Supplier.query.filter_by(name=name).first()
+    existing = Supplier.query.filter_by(name=name, tenant_id=org_id).first()
     if existing:
-        return jsonify({"success": False, "error": "Supplier with this name already exists"}), 409
+        return jsonify({"success": False, "error": "Supplier with this name already exists in this organization"}), 409
 
     now = datetime.now(timezone.utc)
     supplier = Supplier(
@@ -158,6 +158,19 @@ def update_supplier(supplier_id: int):
 
     if "name" in body and not (body.get("name") or "").strip():
         return jsonify({"success": False, "error": "Supplier name cannot be empty"}), 400
+
+    new_name = (body.get("name") or "").strip()
+    if new_name:
+        clash = Supplier.query.filter(
+            Supplier.name == new_name,
+            Supplier.tenant_id == org_id,
+            Supplier.id != supplier_id,
+        ).first()
+        if clash:
+            return jsonify({
+                "success": False,
+                "error": "Supplier with this name already exists in this organization",
+            }), 409
 
     supplier.updated_at = datetime.now(timezone.utc)
     db.session.commit()

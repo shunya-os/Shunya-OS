@@ -14,10 +14,18 @@ from app.auth_routes import login_required
 from app.production.identity import identity_bp
 
 # ---------------------------------------------------------------------------
-# Onboarding state — in-memory store per user
+# Onboarding state — DB-backed completion flag; in-memory dict is a cache
 # ---------------------------------------------------------------------------
+#
+# The AUTHORITATIVE, durable completion state is the DB-backed column
+# TeamMember.onboarding_completed (see mark_onboarding_complete /
+# check_onboarding_complete below). The _ONBOARDING dict below is only an
+# ephemeral per-process cache for in-progress step granularity; it is never
+# the source of truth for "has this user completed onboarding" — a restart
+# must not lose the completed state (previously the dict WAS the only store
+# and a restart silently reset every user to step "profile").
 
-_ONBOARDING: dict = {}  # user_id -> onboarding state
+_ONBOARDING: dict = {}  # user_id -> onboarding state (ephemeral step cache)
 
 _ONBOARDING_STEPS = [
     "profile",       # Complete personal profile
@@ -31,9 +39,24 @@ _ONBOARDING_STEPS = [
 @identity_bp.route("/onboarding/status", methods=["GET"])
 @login_required
 def get_onboarding_status():
-    """Get the current user's onboarding progress."""
+    """Get the current user's onboarding progress.
+
+    Completion is read from the DB flag first (durable across restarts);
+    in-progress step granularity falls back to the ephemeral cache.
+    """
     from flask import g
     user_id = g.user.id
+
+    if g.user.onboarding_completed:
+        return jsonify({
+            "success": True,
+            "data": {
+                "current_step": "complete",
+                "completed_steps": list(_ONBOARDING_STEPS),
+                "all_steps": _ONBOARDING_STEPS,
+                "is_complete": True,
+            },
+        })
 
     state = _ONBOARDING.get(user_id, {"step": "profile", "completed": []})
     return jsonify({
@@ -71,6 +94,12 @@ def update_onboarding_step(step: str):
 
     state["step"] = step
     _ONBOARDING[user_id] = state
+
+    # Persist the terminal state durably: reaching the "complete" step must
+    # survive a restart (previously this lived only in the in-memory dict).
+    if step == "complete" and not g.user.onboarding_completed:
+        g.user.onboarding_completed = True
+        db.session.commit()
 
     return jsonify({
         "success": True,
@@ -170,6 +199,12 @@ def mark_onboarding_complete():
         )
 
     db.session.commit()
+    if objects_created == 0:
+        current_app.logger.info(
+            "Onboarding complete for identity=%s resolved org=%s workspace=%s "
+            "— objects_created=0 (nothing was seeded).",
+            identity_id, org_id, workspace_id,
+        )
     return jsonify({
         "success": True,
         "data": {"onboarding_completed": True,
@@ -195,6 +230,9 @@ def reset_onboarding():
     from flask import g
     user_id = g.user.id
     _ONBOARDING.pop(user_id, None)
+    if g.user.onboarding_completed:
+        g.user.onboarding_completed = False
+        db.session.commit()
     return jsonify({
         "success": True,
         "data": {"current_step": "profile", "completed_steps": []},

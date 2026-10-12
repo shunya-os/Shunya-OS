@@ -108,6 +108,52 @@ def send_message(conv_id: str):
     return jsonify({"success": True, "data": msg.to_dict()}), 201
 
 
+@comm_bp.route("/conversations/<conv_id>/messages", methods=["GET"])
+@session_required
+def get_messages(conv_id: str):
+    """GET /api/v1/communication/conversations/<id>/messages — list messages.
+
+    Each message includes a UI-facing ``delivery_status`` (pending / sent /
+    delivered / failed / bounced) resolved from the outbox lifecycle and any
+    webhook delivery/bounce events recorded against the provider message id.
+    """
+    identity_id = _require_identity()
+    if not identity_id:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    from .delivery import resolve_delivery_status
+
+    rt = get_communication_runtime()
+    conv = rt.get_conversation(conv_id)
+    messages = []
+
+    seen_ids = set()
+    if conv:
+        for m in conv.messages:
+            seen_ids.add(m.message_id)
+            payload = m.to_dict()
+            payload["delivery_status"] = resolve_delivery_status(m)
+            messages.append(payload)
+
+    # Persisted provider messages (ExternalMessage rows) — may exist even when
+    # the runtime instance has no in-memory copy (process restart, inbound).
+    try:
+        adapter = rt.get_adapter(ChannelType.EMAIL)
+        if adapter is not None:
+            for m in adapter.history(conv_id, limit=200):
+                if m.message_id in seen_ids:
+                    continue
+                seen_ids.add(m.message_id)
+                payload = m.to_dict()
+                payload["delivery_status"] = resolve_delivery_status(m)
+                messages.append(payload)
+    except Exception:
+        pass
+
+    messages.sort(key=lambda x: x.get("timestamp") or "")
+    return jsonify({"success": True, "data": {"messages": messages}})
+
+
 @comm_bp.route("/search", methods=["GET"])
 @session_required
 def search_conversations():

@@ -1,6 +1,12 @@
 """Tests for Production Auth (Milestone X, D2).
 
 Password reset, email verification, MFA, session revocation.
+
+NOTE: the raw-token duplicate routes (/forgot-password, /reset-password/<token>,
+/request-verification, /verify-email/<token>) were RETIRED — they never sent
+email and leaked the raw token in the response body. These tests exercise the
+canonical, rate-limited flow in app/auth_routes.py (/api/v1/auth/*), and
+explicitly assert the token is NEVER returned to the client.
 """
 
 import pytest
@@ -48,83 +54,113 @@ def logged_in_client(app, client, admin_user):
 
 
 class TestPasswordReset:
-    """POST /auth/forgot-password and POST /auth/reset-password/<token>"""
+    """Canonical POST /api/v1/auth/forgot-password and /api/v1/auth/reset-password"""
 
     def test_forgot_password(self, client, admin_user):
-        resp = client.post("/forgot-password",
+        resp = client.post("/api/v1/auth/forgot-password",
                            json={"email": "admin4@test.com"})
         assert resp.status_code == 200
-        assert resp.get_json()["success"] is True
+        body = resp.get_json()
+        assert body["success"] is True
+        # The raw reset token must NEVER be returned to the client (security)
+        assert "_reset_token" not in body
+        assert "token" not in body
 
     def test_forgot_password_unknown(self, client):
-        resp = client.post("/forgot-password",
+        resp = client.post("/api/v1/auth/forgot-password",
                            json={"email": "unknown@test.com"})
         assert resp.status_code == 200  # don't reveal existence
 
     def test_forgot_password_missing_email(self, client):
-        resp = client.post("/forgot-password", json={})
+        resp = client.post("/api/v1/auth/forgot-password", json={})
         assert resp.status_code == 400
 
-    def test_reset_flow(self, client, admin_user):
-        # Request reset
-        reset_resp = client.post("/forgot-password",
+    def _latest_reset_token(self, _db):
+        from app.auth import PasswordResetToken
+        token_row = (
+            PasswordResetToken.query
+            .filter_by(email="admin4@test.com")
+            .order_by(PasswordResetToken.created_at.desc())
+            .first()
+        )
+        assert token_row is not None and not token_row.used
+        return token_row.token
+
+    def test_reset_flow(self, client, admin_user, _db):
+        # Request reset — token is stored server-side ONLY
+        reset_resp = client.post("/api/v1/auth/forgot-password",
                                  json={"email": "admin4@test.com"})
-        token = reset_resp.get_json()["_reset_token"]
+        assert reset_resp.status_code == 200
+        token = self._latest_reset_token(_db)
 
-        # Verify token
-        verify = client.get(f"/reset-password/{token}")
-        assert verify.status_code == 200
-
-        # Reset password
-        reset = client.post(f"/reset-password/{token}",
-                            json={"password": "newpassword"})
+        # Reset password with body token
+        reset = client.post("/api/v1/auth/reset-password",
+                            json={"token": token, "password": "newpassword"})
         assert reset.status_code == 200
 
-        # Verify old password no longer works
-        assert client.get(f"/reset-password/{token}").status_code == 404
+        # Token is single-use — second attempt fails
+        again = client.post("/api/v1/auth/reset-password",
+                            json={"token": token, "password": "newpassword"})
+        assert again.status_code == 400
 
     def test_reset_invalid_token(self, client):
-        resp = client.post("/reset-password/bad-token",
-                           json={"password": "newpassword"})
-        assert resp.status_code == 404
+        resp = client.post("/api/v1/auth/reset-password",
+                           json={"token": "bad-token", "password": "newpassword"})
+        assert resp.status_code == 400
 
-    def test_reset_short_password(self, client, admin_user):
-        reset_resp = client.post("/forgot-password",
-                                 json={"email": "admin4@test.com"})
-        token = reset_resp.get_json()["_reset_token"]
-        resp = client.post(f"/reset-password/{token}",
-                           json={"password": "12345"})
+    def test_reset_short_password(self, client, admin_user, _db):
+        client.post("/api/v1/auth/forgot-password",
+                    json={"email": "admin4@test.com"})
+        token = self._latest_reset_token(_db)
+        resp = client.post("/api/v1/auth/reset-password",
+                           json={"token": token, "password": "12345"})
         assert resp.status_code == 400
 
 
 class TestEmailVerification:
-    """POST /request-verification and GET /verify-email/<token>"""
+    """Canonical POST /api/v1/auth/request-verification and /api/v1/auth/verify-email"""
 
     def test_request_verification(self, client, admin_user):
-        resp = client.post("/request-verification",
+        resp = client.post("/api/v1/auth/request-verification",
                            json={"email": "admin4@test.com"})
         assert resp.status_code == 200
+        body = resp.get_json()
+        # The raw verification token must NEVER be returned to the client
+        assert "_verify_token" not in body
+        assert "token" not in body
 
-    def test_verify_flow(self, client, admin_user):
-        req = client.post("/request-verification",
+    def test_verify_flow(self, client, admin_user, _db):
+        from app.auth import TeamMember
+        req = client.post("/api/v1/auth/request-verification",
                           json={"email": "admin4@test.com"})
-        token = req.get_json()["_verify_token"]
+        assert req.status_code == 200
 
-        resp = client.get(f"/verify-email/{token}")
+        member = TeamMember.query.filter_by(email="admin4@test.com").first()
+        token = member.verify_token
+        assert token  # a token was minted server-side
+
+        resp = client.post("/api/v1/auth/verify-email", json={"token": token})
         assert resp.status_code == 200
-        assert resp.get_json()["message"] == "Email verified successfully"
+        assert "Email verified successfully" in resp.get_json()["message"]
+        _db.session.refresh(member)
+        assert member.verified is True
 
     def test_verify_invalid_token(self, client):
-        resp = client.get("/verify-email/bad-token")
-        assert resp.status_code == 404
+        resp = client.post("/api/v1/auth/verify-email", json={"token": "bad-token"})
+        assert resp.status_code == 400
 
     def test_verify_twice_fails(self, client, admin_user):
-        req = client.post("/request-verification",
-                          json={"email": "admin4@test.com"})
-        token = req.get_json()["_verify_token"]
-        client.get(f"/verify-email/{token}")
-        resp = client.get(f"/verify-email/{token}")
-        assert resp.status_code == 404
+        from app.auth import TeamMember
+        client.post("/api/v1/auth/request-verification",
+                    json={"email": "admin4@test.com"})
+        member = TeamMember.query.filter_by(email="admin4@test.com").first()
+        token = member.verify_token
+
+        first = client.post("/api/v1/auth/verify-email", json={"token": token})
+        assert first.status_code == 200
+        # Token is consumed — second attempt fails
+        second = client.post("/api/v1/auth/verify-email", json={"token": token})
+        assert second.status_code == 400
 
 
 class TestMFA:

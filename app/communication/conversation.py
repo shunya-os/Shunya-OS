@@ -51,6 +51,10 @@ class Message:
     attachments: list[dict] = field(default_factory=list)
     read: bool = False
     delivered: bool = False
+    # UI-facing delivery state: pending → sent → delivered | failed | bounced.
+    # Outbound messages start "pending" (async provider delivery); the delivery
+    # pipeline / webhook events advance it. Inbound messages are "delivered".
+    delivery_status: str = "pending"
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:

@@ -66,7 +66,9 @@ class TestInviteCreate:
             json={"email": "default@test.com"},
         )
         assert resp.status_code == 201
-        assert resp.get_json()["data"]["role"] == "agent"
+        # Default role is "member" (seeded in DEFAULT_ROLES); the old "agent"
+        # default granted invitees zero permissions because it is not seeded.
+        assert resp.get_json()["data"]["role"] == "member"
 
     def test_create_missing_email(self, logged_in_client, org):
         resp = logged_in_client.post(

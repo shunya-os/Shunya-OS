@@ -7,13 +7,14 @@ Extends the TeamMember model with organization scoping.
 import re
 from datetime import datetime
 
-from flask import request, jsonify
+from flask import request, jsonify, session
 from werkzeug.exceptions import NotFound, BadRequest
 
 from app import db
 from app.auth_routes import login_required
 from app.tenant import Tenant
 from app.auth import TeamMember, UserRole
+from app.models import OrgMember
 from app.production.identity import identity_bp
 
 
@@ -119,11 +120,29 @@ def create_user(org_id: int):
         phone=data.get("phone", "").strip(),
         role=role,
         is_active=True,
+        # Admin-created accounts are trusted: verified=True so the user can
+        # log in immediately with the password just set (a verified=False
+        # account with no verification email is a permanent login dead-end).
+        verified=True,
     )
     user.set_password(password)
     user.generate_token()
 
     db.session.add(user)
+    db.session.flush()
+
+    # Also create the OrgMember row: the URL names an organization, so the
+    # account must belong to it — previously NO OrgMember was created and the
+    # new user had no org context on login. Mirrors the invitation-accept flow.
+    db.session.add(OrgMember(
+        organization_id=org_id,
+        identity_id=str(user.id),
+        email=email,
+        name=name,
+        role=role,
+        is_active=True,
+        invited_by=session.get("identity_id") or str(session.get("user_id", "") or ""),
+    ))
     db.session.commit()
 
     return jsonify({"success": True, "data": _user_to_dict(user)}), 201

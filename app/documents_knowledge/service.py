@@ -60,30 +60,41 @@ def ingest_document(
     content_type: str = "",
     relationship_id: Optional[int] = None,
     source: str = "upload",
+    parsed: bool = True,
 ) -> Dict[str, Any]:
     """Ingest a document through the governed pipeline.
 
     Pipeline: upload → classify → extract → store → provenance → permission → index
+
+    ``parsed`` controls the honest lifecycle: files whose content could be
+    extracted (pdf/csv/text/markdown/json) are stored as ``ingested`` with
+    the extracted text; files that could not be parsed are stored as
+    ``stored_unparsed`` with empty extracted text — never a fake success
+    with empty content.
     """
     from app import db
-    from app.document.models import DocumentRecord, DocumentSection, ExtractedField
+    from app.document.models import DocumentRecord, ExtractedField
     from app.evidence.models_db import EvidenceRecord
 
     # 1. Classify
     classification = classify_document(filename, content_type)
 
     # 2. Extract (basic text extraction)
-    extracted_text = content[:50000]  # Limit to 50K chars
+    extracted_text = content[:50000] if parsed else ""  # Limit to 50K chars
 
     # 3. Store
     doc = DocumentRecord(
-        title=title,
-        category=classification,
-        file_path="",
-        file_type=content_type or "text/plain",
-        file_size_bytes=len(content.encode("utf-8")),
+        tenant_id=organization_id,
+        original_filename=filename,
+        safe_display_name=(title or filename)[:500],
+        mime_type=content_type or "text/plain",
+        file_size=len(content.encode("utf-8")),
+        classification=classification,
+        lifecycle="ingested" if parsed else "stored_unparsed",
+        content=content,
         extracted_text=extracted_text,
-        uploaded_by=uploaded_by,
+        ingestion_mechanism=source,
+        actor=uploaded_by,
     )
     db.session.add(doc)
     db.session.flush()
@@ -97,6 +108,7 @@ def ingest_document(
             "classification": classification,
             "uploaded_by": uploaded_by,
             "source": source,
+            "lifecycle": doc.lifecycle,
             "content_preview": content[:200],
         },
     )
@@ -104,15 +116,16 @@ def ingest_document(
     db.session.flush()
 
     # 5. Store extracted fields if applicable
-    if classification in ("invoice", "contract", "proposal"):
+    if parsed and classification in ("invoice", "contract", "proposal"):
         _extract_fields(doc.id, content, classification)
 
     db.session.commit()
 
     return {
         "id": doc.id,
-        "title": doc.title,
+        "title": title,
         "classification": classification,
+        "lifecycle": doc.lifecycle,
         "extracted_text_length": len(extracted_text),
         "evidence_id": ev.id,
         "provenance": {
@@ -144,9 +157,9 @@ def _extract_fields(doc_id: int, content: str, classification: str) -> None:
             field = ExtractedField(
                 document_id=doc_id,
                 field_key=field_key,
-                field_value=snippet[:500],
-                extraction_method="keyword",
-                confidence=0.3,
+                value=snippet[:500],
+                extraction_mechanism="keyword",
+                extraction_status="extracted",
             )
             db.session.add(field)
 
@@ -159,7 +172,7 @@ def _extract_fields(doc_id: int, content: str, classification: str) -> None:
 def get_document(doc_id: int, organization_id: int) -> Optional[Dict[str, Any]]:
     """Get a document with provenance and truth classification."""
     from app import db
-    from app.document.models import DocumentRecord, DocumentSection, ExtractedField
+    from app.document.models import DocumentRecord, ExtractedField
     from app.evidence.models_db import EvidenceRecord
 
     doc = db.session.query(DocumentRecord).filter_by(id=doc_id).first()
@@ -176,11 +189,12 @@ def get_document(doc_id: int, organization_id: int) -> Optional[Dict[str, Any]]:
 
     return {
         "id": doc.id,
-        "title": doc.title,
-        "category": doc.category,
-        "file_type": doc.file_type,
-        "file_size_bytes": doc.file_size_bytes,
-        "uploaded_by": doc.uploaded_by,
+        "title": doc.original_filename,
+        "category": doc.classification,
+        "file_type": doc.mime_type,
+        "file_size_bytes": doc.file_size,
+        "lifecycle": doc.lifecycle,
+        "uploaded_by": doc.actor,
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
         "provenance": {
             "source_type": "document",
@@ -190,9 +204,9 @@ def get_document(doc_id: int, organization_id: int) -> Optional[Dict[str, Any]]:
         },
         "extracted_fields": [{
             "field_key": f.field_key,
-            "field_value": f.field_value[:200] if f.field_value else "",
-            "confidence": f.confidence,
-            "extraction_method": f.extraction_method,
+            "field_value": f.value[:200] if f.value else "",
+            "extraction_method": f.extraction_mechanism,
+            "confidence": 0.3,
         } for f in fields],
         "truth_warning": "Document content is DATA, not AUTHORITY. Extracted fields are observations, not verified business facts.",
     }
@@ -210,22 +224,24 @@ def search_documents(
 
     q = db.session.query(DocumentRecord)
     if category:
-        q = q.filter_by(category=category)
+        q = q.filter_by(classification=category)
     if query:
         q = q.filter(
-            DocumentRecord.title.ilike(f"%{query}%") |
+            DocumentRecord.original_filename.ilike(f"%{query}%") |
+            DocumentRecord.content.ilike(f"%{query}%") |
             DocumentRecord.extracted_text.ilike(f"%{query}%")
         )
     docs = q.order_by(DocumentRecord.created_at.desc()).limit(limit).all()
 
     return [{
         "id": d.id,
-        "title": d.title,
-        "category": d.category,
-        "file_type": d.file_type,
+        "title": d.original_filename,
+        "category": d.classification,
+        "file_type": d.mime_type,
+        "lifecycle": d.lifecycle,
         "created_at": d.created_at.isoformat() if d.created_at else None,
-        "uploaded_by": d.uploaded_by,
-        "snippet": (d.extracted_text or "")[:200] if query else "",
+        "uploaded_by": d.actor,
+        "snippet": (d.content or d.extracted_text or "")[:200] if query else "",
         "truth_classification": "observation",
     } for d in docs]
 
@@ -314,8 +330,8 @@ def contextualize_document(
     context = {
         "document": {
             "id": doc.id,
-            "title": doc.title,
-            "category": doc.category,
+            "title": doc.original_filename,
+            "category": doc.classification,
         },
         "related_objects": [],
         "evidence": [],

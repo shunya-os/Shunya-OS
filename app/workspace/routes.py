@@ -109,6 +109,57 @@ def api_get_workspace(workspace_id):
 # ── Workspace Switching ────────────────────────────────────────────────
 
 
+@workspace_bp.route("", methods=["PATCH"])
+@require_permission("rel.edit")
+def api_update_workspace():
+    """Update the current workspace (name / description).
+
+    The workspace is resolved from the authenticated session's
+    ``current_workspace_id`` (never from a caller-chosen id), and the caller
+    must hold an active membership in it. This closes the dead-end where the
+    workspace settings UI sent PATCH /api/v1/workspace to a route that did not
+    exist (405/404).
+    """
+    uid = _require_auth()
+    if not uid:
+        return jsonify({"error": "Not authenticated"}), 401
+
+    data = request.get_json(silent=True) or {}
+    fields = {}
+    if "name" in data:
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"success": False, "error": "Workspace name cannot be empty."}), 400
+        fields["name"] = name
+    if "description" in data:
+        fields["description"] = (data.get("description") or "").strip()
+
+    if not fields:
+        return jsonify({"success": False,
+                        "error": "Nothing to update. Provide 'name' or 'description'."}), 400
+
+    wid = session.get("current_workspace_id") or data.get("workspace_id") or ""
+    if not wid:
+        return jsonify({"success": False, "error": "No current workspace in session."}), 400
+
+    membership = WorkspaceMembership.query.filter_by(
+        identity_id=uid, is_active=True
+    ).join(Workspace).filter(
+        Workspace.workspace_id == wid,
+        Workspace.status == "active",
+    ).first()
+    if not membership:
+        return jsonify({"success": False, "error": "Workspace not found or access denied."}), 404
+
+    ws = db.session.get(Workspace, membership.workspace_id)
+    for key, value in fields.items():
+        setattr(ws, key, value)
+    db.session.commit()
+
+    logger.info("Workspace %s updated by %s (fields=%s)", ws.workspace_id, uid, ",".join(fields))
+    return jsonify({"success": True, "data": ws.to_dict()})
+
+
 @workspace_bp.route("/switch", methods=["POST"])
 @require_permission("rel.view")
 def api_switch_workspace():

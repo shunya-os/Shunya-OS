@@ -161,12 +161,21 @@ def api_create_opportunity(lead_id: int):
 @crm_bp.route("/leads/<int:lead_id>/won", methods=["POST"])
 @require_permission("proposal.approve")
 def api_lead_won(lead_id: int):
-    """Convert a won lead to customer."""
+    """Convert a WON lead to customer (gated: only won/qualified leads)."""
     lead = db.session.get(Lead, lead_id)
     if not lead:
         return jsonify({"success": False, "error": "Lead not found"}), 404
     data = request.get_json(silent=True) or {}
     customer = convert_to_customer(lead, _resolve_tenant_from_session())
+    if customer is None:
+        return jsonify({
+            "success": False,
+            "error": (
+                f"Lead {lead.code} cannot be converted: status must be "
+                f"won/qualified/converted (current status={lead.status}, "
+                f"stage={lead.stage}). Mark the lead won first."
+            ),
+        }), 400
     return jsonify({
         "success": True,
         "customer": {"id": customer.id, "name": customer.name},

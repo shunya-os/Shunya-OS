@@ -231,3 +231,57 @@ def api_update_preferences():
     db.session.commit()
 
     return jsonify({"success": True, "data": profile.preferences_dict()})
+
+
+@profile_bp.route("/ai-preference", methods=["GET"])
+@session_required
+def api_get_ai_preference():
+    """GET /api/v1/profile/ai-preference — the user's chosen AI provider/model.
+
+    Stored in the existing per-identity IntegrationConfig table (provider
+    ``ai_preference``, config_json holds provider+model) so no schema change
+    is needed. The AI model picker in Settings used to persist only to
+    localStorage and nobody read it; this is the canonical read surface.
+    """
+    identity_id = _resolve_identity()
+    if not identity_id:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    from app.integration.models import IntegrationConfig
+
+    cfg = IntegrationConfig.query.filter_by(
+        identity_id=identity_id, provider="ai_preference", is_active=True
+    ).first()
+    config_json = (cfg.config_json or {}) if cfg else {}
+    return jsonify({
+        "success": True,
+        "data": {
+            "provider": config_json.get("provider") or "Groq (default)",
+            "model": config_json.get("model") or "",
+        },
+    })
+
+
+@profile_bp.route("/ai-preference", methods=["PUT"])
+@session_required
+def api_update_ai_preference():
+    """PUT /api/v1/profile/ai-preference — persist the AI provider/model choice."""
+    identity_id = _resolve_identity()
+    if not identity_id:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    data = request.get_json(silent=True) or {}
+    provider = (data.get("provider") or "").strip() or "Groq (default)"
+    model = (data.get("model") or "").strip()
+
+    from app.integration.service import save_config
+
+    save_config(
+        identity_id=identity_id,
+        provider="ai_preference",
+        config_value=provider,
+        config_json={"provider": provider, "model": model},
+        label="AI Model Preference",
+    )
+
+    return jsonify({"success": True, "data": {"provider": provider, "model": model}})

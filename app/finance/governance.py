@@ -18,7 +18,9 @@ from app.relationship.integration import record_event, update_ai_memory_from_eve
 INVOICE_STATES = {
     "draft":      {"next": ["under_review", "cancelled"],                      "label": "Draft"},
     "under_review": {"next": ["approved", "draft", "cancelled"],               "label": "Under Review"},
-    "approved":   {"next": ["posted", "draft", "cancelled"],                   "label": "Approved"},
+    "approved":   {"next": ["posted", "sent", "draft", "cancelled"],            "label": "Approved"},
+    "sent":       {"next": ["overdue", "partially_paid", "paid", "cancelled", "void"], "label": "Sent"},
+    "overdue":    {"next": ["partially_paid", "paid", "cancelled", "void"],     "label": "Overdue"},
     "posted":     {"next": ["partially_paid", "paid", "cancelled", "void"],    "label": "Posted"},
     "partially_paid": {"next": ["paid", "cancelled", "void"],                  "label": "Partially Paid"},
     "paid":       {"next": ["void"],                                           "label": "Paid"},

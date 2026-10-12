@@ -351,6 +351,36 @@ def get_proposal(proposal_id: int):
     return jsonify({"success": True, "proposal": proposal.to_dict()})
 
 
+@commercial_bp.route("/proposals/<int:proposal_id>/share-link", methods=["GET"])
+@require_permission("proposal.view")
+def get_proposal_share_link(proposal_id: int):
+    """Get (or lazily create) the token-gated share link for a proposal.
+
+    Returns the share_token — the capability for the public
+    /proposal/<token> view/accept/decline page. Generated at creation; a
+    legacy row without one gets it here.
+    """
+    org_id = _resolve_org_id()
+    proposal = CommercialProposal.query.filter_by(
+        id=proposal_id, organization_id=org_id
+    ).first()
+    if not proposal:
+        return jsonify({"success": False, "error": "Proposal not found"}), 404
+
+    if not proposal.share_token:
+        from app.commercial.service import generate_share_token
+        proposal.share_token = generate_share_token()
+        proposal.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+    from flask import request as _req
+    base = _req.headers.get("X-Forwarded-Proto", "http") if _req.headers.get("Host") else "http"
+    host = _req.headers.get("Host", "localhost")
+    url = f"{base}://{host}/proposal/{proposal.share_token}"
+
+    return jsonify({"success": True, "share_token": proposal.share_token, "url": url})
+
+
 @commercial_bp.route("/proposals/<int:proposal_id>/transition", methods=["POST"])
 @require_permission("proposal.update")
 def transition_proposal_route(proposal_id: int):

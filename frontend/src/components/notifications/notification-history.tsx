@@ -1,10 +1,14 @@
 /**
  * SHUNYA — Notification History Panel (Mantine Edition)
  *
- * Displays all past notifications (up to the last 50 kept in memory)
- * with clear-all button and individual dismiss.
+ * Hydrates from the canonical backend (GET /api/v1/notifications, polled
+ * every 30s) so the panel shows persisted in-app notifications, not just
+ * in-memory toasts. Context (toast) notifications are merged on top.
+ * Dismiss / Clear All call POST /api/v1/notifications/mark-read.
+ *
  * Uses Mantine Paper, Spoiler, Badge, ThemeIcon, Button.
  */
+import { useEffect, useState, useCallback } from 'react';
 import {
   Paper,
   Group,
@@ -20,8 +24,86 @@ import {
 import { Bell, X, Trash2 } from 'lucide-react';
 import { useNotifications, type Notification } from './notification-context';
 
+interface ApiNotification {
+  id: number;
+  title: string;
+  body?: string;
+  notification_type?: string;
+  is_read?: boolean;
+  created_at?: string | null;
+}
+
+const POLL_MS = 30_000;
+
+function mapType(nt: string | undefined): Notification['type'] {
+  const t = (nt || '').toLowerCase();
+  if (t.includes('fail') || t.includes('error')) return 'error';
+  if (t.includes('due') || t.includes('reminder') || t.includes('warning')) return 'warning';
+  if (t.includes('complete') || t.includes('success') || t.includes('status_change')) return 'success';
+  return 'info';
+}
+
+function toLocalNotification(n: ApiNotification): Notification {
+  const ts = n.created_at ? new Date(n.created_at).getTime() : Date.now();
+  return {
+    id: `api-${n.id}`,
+    type: mapType(n.notification_type),
+    title: n.title || 'Notification',
+    message: n.body || '',
+    timestamp: Number.isFinite(ts) ? ts : Date.now(),
+    duration: 0, // persisted notifications do not auto-dismiss
+  };
+}
+
 export function NotificationHistory() {
-  const { notifications, dismissNotification, clearAll } = useNotifications();
+  const { notifications: toastNotifications, dismissNotification, clearAll: clearAllToasts } = useNotifications();
+  const [apiNotifications, setApiNotifications] = useState<Notification[]>([]);
+
+  const fetchApi = useCallback(async () => {
+    try {
+      const resp = await fetch('/api/v1/notifications?limit=50', { credentials: 'include' });
+      if (!resp.ok) return;
+      const body = await resp.json();
+      const rows: ApiNotification[] = body?.notifications || [];
+      setApiNotifications(rows.map(toLocalNotification));
+    } catch { /* keep last known state */ }
+  }, []);
+
+  useEffect(() => {
+    fetchApi();
+    const interval = setInterval(fetchApi, POLL_MS);
+    return () => clearInterval(interval);
+  }, [fetchApi]);
+
+  const markRead = async (ids?: number[]) => {
+    try {
+      await fetch('/api/v1/notifications/mark-read', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ids ? { ids } : {}),
+      });
+      await fetchApi();
+    } catch { /* API unreachable — keep state */ }
+  };
+
+  const notifications = [...apiNotifications, ...toastNotifications];
+
+  const dismiss = (n: Notification) => {
+    if (n.id.startsWith('api-')) {
+      const id = Number(n.id.replace('api-', ''));
+      if (Number.isFinite(id)) markRead([id]);
+      setApiNotifications((prev) => prev.filter((x) => x.id !== n.id));
+    } else {
+      dismissNotification(n.id);
+    }
+  };
+
+  const clearAll = () => {
+    markRead();
+    setApiNotifications([]);
+    clearAllToasts();
+  };
 
   const typeConfig: Record<string, { color: string; label: string }> = {
     success: { color: 'green', label: 'Success' },
@@ -135,7 +217,7 @@ export function NotificationHistory() {
                         variant="subtle"
                         color="gray"
                         size="compact-xs"
-                        onClick={() => dismissNotification(n.id)}
+                        onClick={() => dismiss(n)}
                         aria-label="Dismiss"
                         style={{ opacity: 0.6 }}
                       >

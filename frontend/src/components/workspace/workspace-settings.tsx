@@ -54,16 +54,28 @@ export function WorkspaceSettings() {
   useEffect(() => {
     (async () => {
       try {
-        // Try loading from workspace API; fall back to defaults
+        // Try loading from workspace API; fall back to defaults.
+        // GET /api/v1/workspace returns {"data": {"workspaces": [...]}} —
+        // pick the session's current workspace (or the first) from the list.
         const r = await fetch('/api/v1/workspace', { credentials: 'include' });
         const d = await r.json();
         if (d.success && d.data) {
-          setWorkspace((prev) => ({
-            ...prev,
-            name: d.data.name || prev.name,
-            type: d.data.workspace_type || d.data.type || prev.type,
-            description: d.data.description || prev.description,
-          }));
+          if (Array.isArray(d.data.workspaces) && d.data.workspaces.length > 0) {
+            const current = d.data.workspaces[0];
+            setWorkspace((prev) => ({
+              ...prev,
+              name: current.name || prev.name,
+              type: current.workspace_type || current.type || prev.type,
+              description: current.description || prev.description,
+            }));
+          } else if (d.data.name) {
+            setWorkspace((prev) => ({
+              ...prev,
+              name: d.data.name || prev.name,
+              type: d.data.workspace_type || d.data.type || prev.type,
+              description: d.data.description || prev.description,
+            }));
+          }
         }
       } catch {
         // Use defaults

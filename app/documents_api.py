@@ -251,7 +251,20 @@ def ingest_file():
         })
 
     ext = os.path.splitext(f.filename)[1].lower()
-    file_type = "pdf" if ext == ".pdf" else ("xlsx" if ext == ".xlsx" else "csv" if ext == ".csv" else "text")
+    _TYPE_BY_EXT = {
+        ".pdf": "pdf",
+        ".csv": "csv",
+        ".md": "md",
+        ".json": "json",
+        ".txt": "text",
+        ".text": "text",
+        ".xlsx": "xlsx",
+        ".xls": "xlsx",
+        ".docx": "docx",
+        ".png": "image", ".jpg": "image", ".jpeg": "image",
+        ".gif": "image", ".webp": "image", ".bmp": "image",
+    }
+    file_type = _TYPE_BY_EXT.get(ext, "other")
 
     doc = Document(
         filename=f.filename,
@@ -269,6 +282,7 @@ def ingest_file():
     # Extract content for immediate analysis
     extracted_text = ""
     analysis_summary = ""
+    parsed_status = "parsed"  # honest: parsed | stored_unparsed
     try:
         if file_type == "pdf":
             import subprocess
@@ -285,11 +299,13 @@ def ingest_file():
             raw_out = (pdf_result.stdout or "").strip()
             if raw_out.startswith("[extraction"):
                 extracted_text = ""
-                analysis_summary = f"Content analysis limited: {raw_out}"
+                parsed_status = "stored_unparsed"
+                analysis_summary = f"PDF stored. Content analysis limited: {raw_out}"
             elif raw_out.startswith("No text could be extracted"):
                 extracted_text = ""
-                analysis_summary = ("PDF saved, but no text layer could be extracted — "
-                                    "it may be a scanned document.")
+                parsed_status = "stored_unparsed"
+                analysis_summary = ("PDF stored, but no text layer could be extracted — "
+                                    "it may be a scanned document. Status: stored_unparsed.")
             else:
                 extracted_text = raw_out
                 analysis_summary = f"PDF extracted: {len(extracted_text)} characters. "
@@ -310,10 +326,102 @@ def ingest_file():
                 extracted_text = txtf.read(5000)
                 word_count = len(extracted_text.split())
                 analysis_summary = f"Text file: approximately {word_count} words."
+        elif file_type == "md":
+            with open(file_path, 'r', errors='replace') as mdf:
+                extracted_text = mdf.read(5000)
+                word_count = len(extracted_text.split())
+                analysis_summary = f"Markdown document: approximately {word_count} words."
+        elif file_type == "json":
+            with open(file_path, 'r', errors='replace') as jsonf:
+                raw = jsonf.read(50000)
+            try:
+                import json as _json
+                parsed = _json.loads(raw)
+                extracted_text = _json.dumps(parsed, indent=2, ensure_ascii=False)[:20000]
+                keys = list(parsed.keys())[:8] if isinstance(parsed, dict) else []
+                analysis_summary = f"JSON document: top-level keys: {', '.join(keys) if keys else 'array/list'}."
+            except ValueError as json_err:
+                extracted_text = ""
+                parsed_status = "stored_unparsed"
+                analysis_summary = f"JSON stored, but the file is not valid JSON ({json_err}). Status: stored_unparsed."
+        elif file_type == "xlsx":
+            try:
+                import openpyxl  # noqa: F401
+            except ImportError:
+                extracted_text = ""
+                parsed_status = "stored_unparsed"
+                analysis_summary = ("Spreadsheet stored, but the xlsx parser (openpyxl) is not "
+                                    "installed — content not extracted. Status: stored_unparsed.")
+            else:
+                from openpyxl import load_workbook
+                wb = load_workbook(file_path, read_only=True, data_only=True)
+                cell_lines = []
+                sheet_names = []
+                for ws in wb.worksheets:
+                    if not ws.max_row:
+                        continue
+                    sheet_names.append(ws.title)
+                    for row in ws.iter_rows(values_only=True):
+                        vals = [str(c) for c in row if c is not None]
+                        if vals:
+                            cell_lines.append(", ".join(vals))
+                        if len(cell_lines) >= 80:
+                            break
+                wb.close()
+                extracted_text = "\n".join(cell_lines)[:20000]
+                if extracted_text.strip():
+                    analysis_summary = (f"Spreadsheet extracted: {len(sheet_names)} sheet(s) "
+                                        f"({', '.join(sheet_names[:3])}).")
+                else:
+                    parsed_status = "stored_unparsed"
+                    analysis_summary = ("Spreadsheet stored, but no cell content could be "
+                                        "extracted. Status: stored_unparsed.")
+        elif file_type == "docx":
+            try:
+                import docx  # noqa: F401  (python-docx)
+            except ImportError:
+                extracted_text = ""
+                parsed_status = "stored_unparsed"
+                analysis_summary = ("Word document stored, but the docx parser (python-docx) is "
+                                    "not installed — content not extracted. Status: stored_unparsed.")
+            else:
+                from docx import Document as DocxDocument
+                docx_doc = DocxDocument(file_path)
+                paragraphs = [p.text for p in docx_doc.paragraphs if p.text and p.text.strip()]
+                extracted_text = "\n".join(paragraphs)[:20000]
+                if extracted_text.strip():
+                    word_count = len(extracted_text.split())
+                    analysis_summary = f"Word document: approximately {word_count} words."
+                else:
+                    parsed_status = "stored_unparsed"
+                    analysis_summary = ("Word document stored, but no paragraph text could be "
+                                        "extracted. Status: stored_unparsed.")
+        else:
+            # image / other: no text layer — honest, never success-with-empty
+            parsed_status = "stored_unparsed"
+            analysis_summary = (f"{file_type.capitalize()} file stored — it has no extractable "
+                                "text layer. Status: stored_unparsed.")
     except Exception as ext_err:
-        analysis_summary = f"File stored. Content analysis limited: {ext_err}"
+        extracted_text = ""
+        parsed_status = "stored_unparsed"
+        analysis_summary = f"File stored. Content analysis limited: {ext_err}. Status: stored_unparsed."
 
     doc.extracted_text = extracted_text
+    # Honest parse status lives in structured_data (JSON) — surfaced by the
+    # ingest response and by /classify for unparsed documents.
+    try:
+        import json as _json
+        _struct = {}
+        if doc.structured_data:
+            try:
+                _struct = _json.loads(doc.structured_data)
+            except (ValueError, TypeError):
+                _struct = {}
+        _struct["status"] = parsed_status
+        _struct["analysis_summary"] = analysis_summary
+        doc.structured_data = _json.dumps(_struct)
+    except Exception:
+        pass
     # ── Document Intelligence (Block D): classify + extract, persisted ──
     try:
         from app.document.intelligence import analyse_document
@@ -335,6 +443,7 @@ def ingest_file():
         "filename": f.filename,
         "file_type": file_type,
         "size": file_size,
+        "status": parsed_status,
         "summary": summary,
         "context": ctx,
     })
@@ -400,11 +509,31 @@ def classify_document_route(doc_id):
         return jsonify({"success": False, "error": "Document not found"}), 404
 
     if not (doc.extracted_text or "").strip():
+        # Honest unparseable result: 200 with classification "unparseable"
+        # instead of a hard 422 — the document is stored, just not parsable.
+        try:
+            import json as _json
+            _struct = {}
+            if doc.structured_data:
+                try:
+                    _struct = _json.loads(doc.structured_data)
+                except (ValueError, TypeError):
+                    _struct = {}
+            _struct["status"] = "stored_unparsed"
+            _struct["last_classify_attempt"] = "unparseable"
+            doc.structured_data = _json.dumps(_struct)
+            db.session.commit()
+        except Exception:
+            pass
         return jsonify({
-            "success": False,
-            "error": "No extracted text available to identify — the file may be "
-                     "an image or unsupported format.",
-        }), 422
+            "success": True,
+            "document_id": doc.id,
+            "classification": "unparseable",
+            "intelligence": None,
+            "explanation": "The file has no extractable text layer (it may be a scanned "
+                           "image or an unsupported format). It is stored as 'stored_unparsed'.",
+            "truth_classification": "observation",
+        }), 200
 
     try:
         intel = analyse_document(doc, persist=True)

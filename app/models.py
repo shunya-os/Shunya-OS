@@ -244,10 +244,14 @@ class Supplier(db.Model):
     __table_args__ = (
         Index("ix_suppliers_city_category", "city", "category"),
         Index("ix_suppliers_tenant", "tenant_id", "status"),
+        # Name uniqueness is per-organization: an identical supplier name in
+        # another tenant is a DIFFERENT supplier, not a duplicate. A global
+        # unique(name) here silently blocked cross-tenant creation.
+        db.UniqueConstraint("tenant_id", "name", name="uq_suppliers_tenant_name"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), unique=True, nullable=False)
+    name = db.Column(db.String(255), nullable=False)
     category = db.Column(db.String(120))  # hotel / flight / transport / activity / venue
     contact = db.Column(db.String(255))
     email = db.Column(db.String(255))

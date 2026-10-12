@@ -214,16 +214,33 @@ def api_get_config(provider: str):
 @integration_bp.route("/configs/<provider>", methods=["PUT"])
 @require_permission("admin.manage_integrations")
 def api_save_config(provider: str):
-    """Save or update an API key config."""
+    """Save or update an API key config.
+
+    Credentials are REQUIRED: ``api_key`` / ``config_value`` (or an explicit
+    ``config_json``) must be provided. A connect without credentials must
+    never create a fake "Connected" config — that is exactly the dead-end
+    the Integration Hub used to produce (it PUT a placeholder
+    ``'connected_via_hub'`` token).
+    """
     if not _founder_required():
         return jsonify({"success": False, "error": "Not authenticated"}), 401
     identity_id = _get_identity_id()
     data = request.get_json(silent=True) or {}
+    api_key = (data.get("api_key") or data.get("config_value") or "").strip()
+    config_json = data.get("config_json")
+    if not api_key and not config_json:
+        return jsonify({
+            "success": False,
+            "error": (
+                f"Cannot connect '{provider}': no credentials provided. "
+                "Provide an API key or token (api_key / config_value)."
+            ),
+        }), 400
     result = save_config(
         identity_id=identity_id,
         provider=provider,
-        config_value=data.get("api_key") or data.get("config_value"),
-        config_json=data.get("config_json"),
+        config_value=api_key or data.get("config_value"),
+        config_json=config_json,
         label=data.get("label", ""),
     )
     return jsonify({"success": True, "data": result})

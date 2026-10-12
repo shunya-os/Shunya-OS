@@ -120,11 +120,6 @@ const CommitmentsSection: FC<{ data: any[] }> = ({ data }) => {
   );
 };
 
-const ExecutionSection: FC<{ data: any[] }> = ({ data }) => {
-  if (data.length === 0) return null;
-  return <div className="lw-ws-section"><div className="lw-ws-section-title">Execution</div></div>;
-};
-
 const ObservationsSection: FC<{ data: any[] }> = ({ data }) => {
   if (data.length === 0) return null;
   return (
@@ -142,17 +137,11 @@ const ObservationsSection: FC<{ data: any[] }> = ({ data }) => {
   );
 };
 
-const PredictionsSection: FC<{ data: any[] }> = ({ data }) => {
-  if (data.length === 0) return null;
-  return <div className="lw-ws-section"><div className="lw-ws-section-title">Predictions</div></div>;
-};
-
-const FilesSection: FC<{ data: any[] }> = ({ data }) => {
-  if (data.length === 0) return null;
-  return <div className="lw-ws-section"><div className="lw-ws-section-title">Files</div></div>;
-};
-
-// Map section IDs to renderers
+// Map section IDs to renderers.
+// NOTE: execution / predictions / files are intentionally NOT wired —
+// their panels used to render empty headers with no data source, which was a
+// false state. They render only when a real data source exists (see object
+// viewer data loading below); until then the dead panels are removed.
 const sectionRenderer: Record<string, FC<{ data: any; objectType: string }>> = {
   identity: IdentitySection,
   reality: RealitySection,
@@ -161,10 +150,7 @@ const sectionRenderer: Record<string, FC<{ data: any; objectType: string }>> = {
   evidence: EvidenceSection,
   conversation: ConversationSection,
   commitments: CommitmentsSection,
-  execution: ExecutionSection,
   observations: ObservationsSection,
-  predictions: PredictionsSection,
-  files: FilesSection,
 };
 
 // ── Main Workspace Component ──────────────────────────────────────
@@ -181,21 +167,96 @@ export const UniversalObjectWorkspace: FC<UniversalObjectWorkspaceProps> = ({
 }) => {
   const [workspace, setWorkspace] = useState<UniversalWorkspaceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/v1/workspace/${objectId}?type=${objectType}&name=${encodeURIComponent(objectName)}`, {
-      credentials: 'include',
-    })
-      .then((r) => r.json())
-      .then((json) => {
-        if (!cancelled && json.success) {
-          setWorkspace(json.data as UniversalWorkspaceData);
+    setLoadError('');
+
+    // The old viewer called GET /api/v1/workspace/<objectId> — object ids are
+    // NOT workspace ids, so every open failed with "Failed to load workspace".
+    // Load the canonical object + its timeline/graph/insights instead.
+    (async () => {
+      try {
+        const idPart = encodeURIComponent(objectId);
+        const [objResp, timelineResp, graphResp, insightsResp] = await Promise.all([
+          fetch(`/api/v1/objects/by-id/${idPart}`, { credentials: 'include' }),
+          fetch(`/api/v1/objects/${idPart}/timeline`, { credentials: 'include' }),
+          fetch(`/api/v1/objects/${idPart}/graph`, { credentials: 'include' }),
+          fetch(`/api/v1/objects/${idPart}/insights`, { credentials: 'include' }),
+        ]);
+
+        const objJson = await objResp.json();
+        const obj = objJson?.data;
+        if (!objJson?.success || !obj) {
+          throw new Error(objJson?.error || `Object not found (${objResp.status})`);
         }
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
+
+        const timelineJson = await timelineResp.json().catch(() => null);
+        const graphJson = await graphResp.json().catch(() => null);
+        const insightsJson = await insightsResp.json().catch(() => null);
+
+        const timelineEvents: any[] = timelineJson?.events ?? timelineJson?.data ?? [];
+        const graphEdges: any[] = graphJson?.edges ?? graphJson?.data?.edges ?? [];
+        const graphNodes: any[] = graphJson?.nodes ?? graphJson?.data?.nodes ?? [];
+        const insights: any[] = insightsJson?.insights ?? insightsJson?.data ?? [];
+
+        const nodeById = new Map<string, any>();
+        graphNodes.forEach((n: any) => nodeById.set(String(n.id), n));
+
+        if (!cancelled) {
+          setWorkspace({
+            identity: {
+              object_id: obj.object_id || objectId,
+              object_type: obj.object_type || objectType,
+              name: obj.name || objectName,
+              created_at: obj.created_at || '',
+              status: obj.status || 'active',
+            },
+            reality: [],
+            // Timeline events → {label, stage} consumed by TimelineSection.
+            timeline: timelineEvents.map((e: any) => ({
+              label: e.title || e.action || 'Event',
+              stage: e.type || 'activity',
+              timestamp: e.timestamp || '',
+            })),
+            // Graph edges → {object_name, object_id} consumed by RelationshipsSection.
+            relationships: graphEdges.map((e: any) => {
+              const target = nodeById.get(String(e.toId));
+              return {
+                object_name: target?.name || e.toId,
+                object_id: e.toId,
+                relation_type: e.type,
+              };
+            }),
+            evidence: [],
+            conversation: [],
+            commitments: [],
+            execution: [],
+            // Insights → {label, confidence} consumed by ObservationsSection.
+            observations: insights.map((ins: any) => ({
+              label: ins.title || ins.type || 'Insight',
+              detail: ins.body || '',
+              confidence: ins.confidence === 'high' ? 0.9 : ins.confidence === 'low' ? 0.3 : 0.6,
+            })),
+            predictions: [],
+            files: [],
+            actions: [],
+            // Only sections with real renderers and real data sources.
+            sections: ['identity', 'timeline', 'relationships', 'observations'],
+          });
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setWorkspace(null);
+          setLoadError(e?.message || 'Failed to load object');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
     return () => { cancelled = true; };
   }, [objectId, objectType, objectName]);
 
@@ -213,7 +274,7 @@ export const UniversalObjectWorkspace: FC<UniversalObjectWorkspaceProps> = ({
     return (
       <div className="lw-ws-overlay" onClick={onClose}>
         <div className="lw-ws-panel" onClick={(e) => e.stopPropagation()}>
-          <div className="lw-ws-error">Failed to load workspace</div>
+          <div className="lw-ws-error">{loadError || 'Failed to load object'}</div>
           <button onClick={onClose}>Close</button>
         </div>
       </div>

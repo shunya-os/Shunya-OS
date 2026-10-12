@@ -1,10 +1,13 @@
 /**
  * NotificationBell — Bell icon with unread count from the backend.
- * Polls /api/v1/integration/notifications/unread-count every 30s.
+ * Polls the canonical GET /api/v1/notifications/unread-count every 30s
+ * (standard notification permission, not integration admin). Clicking the
+ * bell opens the Notification History workspace panel.
  */
 import { useState, useEffect } from 'react';
 import { ActionIcon, Badge, Group } from '@mantine/core';
 import { Bell } from 'lucide-react';
+import { useWorkspaceStore } from '../../runtimes/workspace/store';
 
 export function NotificationBell() {
   const [unread, setUnread] = useState(0);
@@ -13,12 +16,12 @@ export function NotificationBell() {
     let cancelled = false;
     const fetchCount = async () => {
       try {
-        const resp = await fetch('/api/v1/integration/notifications/unread-count', {
+        const resp = await fetch('/api/v1/notifications/unread-count', {
           credentials: 'include',
         });
         if (!resp.ok) return;
         const body = await resp.json();
-        if (!cancelled) setUnread(body?.data?.unread_count ?? 0);
+        if (!cancelled) setUnread(body?.unread_count ?? 0);
       } catch { /* silent */ }
     };
     fetchCount();
@@ -26,9 +29,18 @@ export function NotificationBell() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
+  const openHistory = () => {
+    useWorkspaceStore.getState().open('Notification History', 'notifications_history');
+  };
+
   return (
     <Group gap={2} style={{ position: 'relative' }}>
-      <ActionIcon variant="subtle" color="gray" aria-label="Notifications">
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        aria-label={`Notifications${unread > 0 ? ` (${unread} unread)` : ''}`}
+        onClick={openHistory}
+      >
         <Bell size={14} />
       </ActionIcon>
       {unread > 0 && (

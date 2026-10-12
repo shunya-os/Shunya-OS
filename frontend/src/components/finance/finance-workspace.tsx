@@ -208,6 +208,10 @@ export const FinanceWorkspace: FC = () => {
   const [payBusy, setPayBusy] = useState(false);
   const [payError, setPayError] = useState('');
   const [payNotice, setPayNotice] = useState('');
+  // Send invoice (approved → sent) via POST /api/v1/finance/invoices/<id>/send
+  const [sendBusy, setSendBusy] = useState(false);
+  const [sendNotice, setSendNotice] = useState('');
+  const [sendError, setSendError] = useState('');
 
   const postJson = async <T,>(path: string, payload: Record<string, unknown>) => {
     try {
@@ -250,6 +254,23 @@ export const FinanceWorkspace: FC = () => {
       await loadData();
     } else {
       setInvError(body.error || `Could not record the invoice (HTTP ${status}).`);
+    }
+  };
+
+  const submitSend = async (invoiceId: number) => {
+    setSendError(''); setSendNotice('');
+    setSendBusy(true);
+    const { ok, status, body } = await postJson<{ invoice?: { number: string }; delivery?: string; error?: string }>(
+      `/api/v1/finance/invoices/${invoiceId}/send`,
+      {},
+    );
+    setSendBusy(false);
+    if (ok && body.invoice) {
+      const delivered = body.delivery === 'email_sent' ? ' Email sent.' : '';
+      setSendNotice(`Invoice ${body.invoice.number} marked as sent.${delivered}`);
+      await loadData();
+    } else {
+      setSendError(body.error || `Could not send the invoice (HTTP ${status}).`);
     }
   };
 
@@ -549,6 +570,8 @@ export const FinanceWorkspace: FC = () => {
             </button>
             {invNotice && <span style={{ fontSize: 12.5, color: '#2e7d32' }} role="status">{invNotice}</span>}
             {payNotice && <span style={{ fontSize: 12.5, color: '#2e7d32' }} role="status">{payNotice}</span>}
+            {sendNotice && <span style={{ fontSize: 12.5, color: '#2e7d32' }} role="status">{sendNotice}</span>}
+            {sendError && <span style={{ fontSize: 12.5, color: '#c0392b' }} role="alert">{sendError}</span>}
           </div>
 
           {showInvoiceForm && (
@@ -646,6 +669,16 @@ export const FinanceWorkspace: FC = () => {
                         }}
                       >
                         {payFor === inv.id ? 'Close' : 'Record payment'}
+                      </button>
+                    )}
+                    {inv.status === 'approved' && (
+                      <button
+                        className="pw-tab-btn"
+                        style={{ fontSize: 12, padding: '2px 10px', borderColor: '#2980b9' }}
+                        disabled={sendBusy}
+                        onClick={() => submitSend(inv.id)}
+                      >
+                        {sendBusy ? 'Sending…' : 'Send'}
                       </button>
                     )}
                   </div>

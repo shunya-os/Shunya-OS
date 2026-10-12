@@ -11,6 +11,27 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   created_at?: string;
+  delivery_status?: string; // pending | sent | delivered | failed | bounced
+}
+
+const DELIVERY_GLYPHS: Record<string, { glyph: string; title: string; cls: string }> = {
+  pending: { glyph: '🕓', title: 'Pending delivery', cls: 'conv-msg-delivery-pending' },
+  sent: { glyph: '✓', title: 'Sent', cls: 'conv-msg-delivery-sent' },
+  delivered: { glyph: '✓✓', title: 'Delivered', cls: 'conv-msg-delivery-delivered' },
+  failed: { glyph: '⚠', title: 'Delivery failed', cls: 'conv-msg-delivery-failed' },
+  bounced: { glyph: '⚠', title: 'Bounced', cls: 'conv-msg-delivery-failed' },
+};
+
+function DeliveryIndicator({ status }: { status?: string }) {
+  const s = (status || '').toLowerCase();
+  if (!s) return null;
+  const info = DELIVERY_GLYPHS[s];
+  if (!info) return null;
+  return (
+    <span className={`conv-msg-delivery ${info.cls}`} title={info.title}>
+      {info.glyph}
+    </span>
+  );
 }
 
 interface ConversationWorkspaceProps {
@@ -181,7 +202,10 @@ export const ConversationWorkspace: FC<ConversationWorkspaceProps> = ({ conversa
           )}
           {messages.map((m) => (
             <div key={m.id} className={`conv-msg conv-msg-${m.role}`}>
-              <div className="conv-msg-role">{m.role === 'user' ? 'You' : 'SHUNYA'}</div>
+              <div className="conv-msg-role">
+                {m.role === 'user' ? 'You' : 'SHUNYA'}
+                {m.role === 'user' && <DeliveryIndicator status={m.delivery_status} />}
+              </div>
               <div className="conv-msg-content">{m.content}</div>
               {m.created_at && (
                 <div className="conv-msg-time">{new Date(m.created_at).toLocaleTimeString()}</div>
@@ -259,6 +283,11 @@ export const ConversationWorkspace: FC<ConversationWorkspaceProps> = ({ conversa
 .conv-msg-user { align-self: flex-end; background: var(--sh-gold, #a4865f); color: #fff; }
 .conv-msg-assistant { align-self: flex-start; background: var(--sh-surface, #fff); border: 1px solid var(--sh-border); color: var(--sh-text); }
 .conv-msg-role { font-size: var(--sh-text-xs); font-weight: 600; margin-bottom: 4px; opacity: 0.7; }
+.conv-msg-delivery { margin-left: 6px; font-weight: 700; opacity: 1; }
+.conv-msg-delivery-sent { color: var(--sh-success, #2D6A4F); }
+.conv-msg-delivery-delivered { color: var(--sh-success, #2D6A4F); }
+.conv-msg-delivery-pending { color: var(--sh-text-secondary); }
+.conv-msg-delivery-failed { color: var(--sh-danger, #D1453B); }
 .conv-msg-content { font-size: var(--sh-text-md); line-height: 1.5; white-space: pre-wrap; }
 .conv-msg-time { font-size: var(--sh-text-xs); color: var(--sh-text-secondary); margin-top: 4px; text-align: right; opacity: 0.6; }
 .conv-typing { padding: var(--sh-space-3) var(--sh-space-4); font-size: var(--sh-text-sm); color: var(--sh-text-secondary); font-style: italic; align-self: flex-start; }

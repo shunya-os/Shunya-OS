@@ -95,6 +95,12 @@ class CommunicationRuntime:
 
         msg = adapter.send(conv, body, subject=subject)
         if msg:
+            # Synchronous channels (internal notes) are sent immediately; async
+            # channels (email/whatsapp/sms) stay pending until delivery events land.
+            if msg.delivery_status == "pending" and channel in (
+                ChannelType.INTERNAL, ChannelType.CHAT,
+            ):
+                msg.delivery_status = "sent"
             self._emit_reality(conv, "message_sent", msg)
         return msg
 

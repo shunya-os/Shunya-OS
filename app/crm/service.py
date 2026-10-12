@@ -396,10 +396,27 @@ def create_opportunity(lead: Lead, tenant_id: int, title: str = "") -> Proposal:
 
 
 def convert_to_customer(lead: Lead, tenant_id: int) -> Optional[Customer]:
-    """Convert a won lead to a customer.
+    """Convert a WON/QUALIFIED lead to a customer.
 
-    Uses the existing Customer model — no new customer store.
+    Gate: a lead must be demonstrably won or qualified before it may become a
+    customer — an arbitrary new/in-progress lead is never silently converted.
+    Accepted signals:
+      - lead.status in ("won", "qualified", "converted")  (canonical values)
+      - lead.stage == "qualified"  (stage set by qualify_lead_and_update)
+
+    Returns the Customer, or None when the lead is not eligible.
     """
+    eligible = (
+        lead.status in ("won", "qualified", LeadStatus.CONVERTED.value)
+        or lead.stage == "qualified"
+    )
+    if not eligible:
+        logger.warning(
+            "Lead %s (%s) conversion DENIED: status=%s stage=%s — must be "
+            "won/qualified first.", lead.code, lead.id, lead.status, lead.stage,
+        )
+        return None
+
     if lead.status != LeadStatus.CONVERTED.value:
         lead.status = LeadStatus.CONVERTED.value
         lead.stage = "customer"

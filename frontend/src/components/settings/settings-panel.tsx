@@ -502,11 +502,46 @@ function AiModelSection() {
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     try { return localStorage.getItem('shunya_ai_model') || 'Groq (default)'; } catch { return 'Groq (default)'; }
   });
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  const handleModelChange = (value: string | null) => {
+  // Load the canonical preference from the backend (PUT/GET
+  // /api/v1/profile/ai-preference) — the old picker only wrote localStorage
+  // and nothing ever read it.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch('/api/v1/profile/ai-preference', { credentials: 'include' });
+        const data = await resp.json();
+        if (!cancelled && data?.success && data.data?.provider) {
+          const provider = data.data.provider;
+          setSelectedModel(provider);
+          try { localStorage.setItem('shunya_ai_model', provider); } catch { /* noop */ }
+        }
+      } catch { /* keep local default */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleModelChange = async (value: string | null) => {
     const model = value || 'Groq (default)';
     setSelectedModel(model);
-    try { localStorage.setItem('shunya_ai_model', model); } catch { /* localStorage unavailable */ }
+    try { localStorage.setItem('shunya_ai_model', model); } catch { /* noop */ }
+    setSaveState('saving');
+    try {
+      const resp = await fetch('/api/v1/profile/ai-preference', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ provider: model }),
+      });
+      if (!resp.ok) throw new Error('Server rejected preference');
+      setSaveState('saved');
+      setTimeout(() => setSaveState('idle'), 2000);
+    } catch {
+      setSaveState('error');
+      setTimeout(() => setSaveState('idle'), 3000);
+    }
   };
 
   return (
@@ -562,10 +597,16 @@ function AiModelSection() {
             <Sparkles size={12} />
           </ThemeIcon>
           <span className="sp-ai-info-text">
-            {selectedModel === 'Groq (default)'
+            {saveState === 'saving' && 'Saving preference…'}
+            {saveState === 'saved' && 'Preference saved to your profile ✓'}
+            {saveState === 'error' && 'Could not save preference — check your connection.'}
+            {saveState === 'idle' && (selectedModel === 'Groq (default)'
               ? 'Fast AI with Groq LPUs. Change to use a different provider.'
-              : `Using ${selectedModel} for AI operations.`}
+              : `Using ${selectedModel} for AI operations.`)}
           </span>
+        </div>
+        <div className="sp-field">
+          <span className="sp-field-label">AI preference is persisted to your profile and sent as a routing hint to /api/v1/ai/chat.</span>
         </div>
       </div>
     </div>
@@ -616,15 +657,71 @@ export function SettingsPanel() {
     document.documentElement.style.setProperty('--sh-accent', themeColor);
   }, [themeColor]);
 
-  const handleNameChange = (name: string) => {
+  const handleNameChange = async (name: string) => {
     setProfile(p => ({ ...p, name, avatarInitial: name.charAt(0).toUpperCase() }));
     try {
       const session = SessionManager.load();
       if (session) {
         SessionManager.save({ ...session, name });
       }
-    } catch { /* ignore */ }
+      // Persist to the canonical profile store — the old code only wrote to
+      // localStorage/sessionStorage and never reached the backend.
+      const resp = await fetch('/api/v1/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ display_name: name }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: 'Server error' }));
+        throw new Error(err.error || 'Failed to save profile');
+      }
+      const data = await resp.json();
+      if (data?.data?.display_name) {
+        const saved = data.data.display_name;
+        setProfile(p => ({ ...p, name: saved, avatarInitial: saved.charAt(0).toUpperCase() }));
+        const s = SessionManager.load();
+        if (s) SessionManager.save({ ...s, name: saved });
+      }
+    } catch (e) {
+      // Revert to the last known-good value so the UI never lies about state.
+      console.warn('Profile save failed:', e);
+      setProfile(p => {
+        const session = SessionManager.load();
+        const fallback = session?.name || p.name;
+        return { ...p, name: fallback, avatarInitial: fallback.charAt(0).toUpperCase() };
+      });
+    }
   };
+
+  // Hydrate profile from the canonical backend on first open.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch('/api/v1/profile', { credentials: 'include' });
+        const data = await resp.json();
+        if (!cancelled && data?.success && data.data) {
+          const displayName = data.data.display_name || data.data.name || '';
+          const email = data.data.email || '';
+          setProfile(p => ({
+            name: displayName || p.name,
+            email: email || p.email,
+            avatarInitial: (displayName || email || p.name || 'U').charAt(0).toUpperCase(),
+          }));
+          const s = SessionManager.load();
+          if (s && (displayName || email)) {
+            SessionManager.save({
+              ...s,
+              name: displayName || s.name,
+              email: email || s.email,
+            });
+          }
+        }
+      } catch { /* keep sessionStorage values */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="sp-container">

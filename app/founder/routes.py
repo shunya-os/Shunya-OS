@@ -200,6 +200,13 @@ workspace._shunya_policy = "session:founder"
 
 @founder_bp.route("/api/v1/founder/signin", methods=["POST"])
 def api_founder_signin():
+    """Password sign-in for the founder/SPA flow.
+
+    NOTE (MFA): accounts with MFA enabled are not yet challenged here — the
+    backend /mfa/challenge route exists but is intentionally not wired into
+    this flow (rebuilding the MFA challenge is out of scope; only the
+    frontend fetch paths were corrected to /mfa/*).
+    """
     data = request.get_json(silent=True) or {}
     email = data.get("email", "").strip().lower()
     password = data.get("password", "")

@@ -38,32 +38,37 @@ export function StepTeam({ onNext, onBack }: Props) {
     setInviteError('');
 
     try {
-      // Try to send invite via API
-      const resp = await fetch('/api/v1/orgs/invite', {
+      // Send invite via the canonical team endpoint (POST /api/v1/team/invite).
+      // The invite is only ever added to the list when the server actually
+      // accepted it — a 404/4xx is shown as an error, never as "invited".
+      const resp = await fetch('/api/v1/team/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail.trim().toLowerCase() }),
+        body: JSON.stringify({
+          email: inviteEmail.trim().toLowerCase(),
+          name: '',
+          role: 'member',
+        }),
         credentials: 'include',
       });
-      const data = await resp.json();
+      let data: { success?: boolean; error?: string } = {};
+      try {
+        data = await resp.json();
+      } catch {
+        data = {};
+      }
       if (resp.ok && data.success) {
         setInvitedEmails((prev) => [...prev, inviteEmail.trim().toLowerCase()]);
         setInviteEmail('');
         setInvitePhase('sent');
         setTimeout(() => setInvitePhase('idle'), 2000);
       } else {
-        // Even if the API fails, don't block — just show the invite as queued
-        setInvitedEmails((prev) => [...prev, inviteEmail.trim().toLowerCase()]);
-        setInviteEmail('');
-        setInvitePhase('sent');
-        setTimeout(() => setInvitePhase('idle'), 2000);
+        setInvitePhase('error');
+        setInviteError(data.error || `Invitation failed (${resp.status})`);
       }
     } catch {
-      // Network error — still accept the email locally
-      setInvitedEmails((prev) => [...prev, inviteEmail.trim().toLowerCase()]);
-      setInviteEmail('');
-      setInvitePhase('sent');
-      setTimeout(() => setInvitePhase('idle'), 2000);
+      setInvitePhase('error');
+      setInviteError('Could not reach the server. Please try again.');
     }
   };
 

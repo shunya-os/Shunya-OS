@@ -419,3 +419,55 @@ def get_provenance(memory_id: int):
     except Exception:
         logger.exception("Error fetching provenance for memory %s", memory_id)
         return jsonify({"success": False, "error": "Internal error"}), 500
+
+
+@memory_bp.route("/health", methods=["GET"])
+@require_permission("ai.edit_memory")
+def memory_health():
+    """Report the memory bridge backend and DB record counts.
+
+    Truthful diagnostics: the runtime memory bridge may be DB-backed
+    (canonical MemoryRecord) or in-memory (fallback). Surfaces reading the
+    DB (this API, the UI memory panel) only see DB records — when the bridge
+    is in-memory, runtime writes never reach the DB and the panel shows an
+    empty store. This endpoint makes that state visible instead of silent.
+    """
+    if not _require_auth():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+
+    try:
+        from core.intelligence_runtime.integration import memory_bridge_backend
+
+        backend = memory_bridge_backend()
+    except Exception:
+        backend = "unknown"
+
+    db_counts = {"active": 0, "total": 0}
+    try:
+        from app.memory.models import MemoryRecord
+
+        tenant_id = _tenant_id()
+        q = MemoryRecord.query
+        db_counts["total"] = q.count()
+        active_q = MemoryRecord.query.filter_by(status="active")
+        if tenant_id is not None:
+            active_q = active_q.filter_by(tenant_id=tenant_id)
+        db_counts["active"] = active_q.count()
+    except Exception:
+        db_counts = {"active": 0, "total": 0, "error": "memory_records table unavailable"}
+
+    return jsonify({
+        "success": True,
+        "data": {
+            "bridge_backend": backend,
+            "db_backed": backend == "db",
+            "memory_records": db_counts,
+            "note": (
+                "API/UI read the DB (memory_records). When bridge_backend is "
+                "in_memory, runtime memory writes do not reach the DB."
+                if backend != "db" else
+                "Runtime memory is DB-backed — writes and reads share the "
+                "canonical memory_records store."
+            ),
+        },
+    })

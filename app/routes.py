@@ -635,14 +635,14 @@ def payments():
 @main.route("/payments/<int:payment_id>/delete", methods=["POST"])
 @login_required
 def payment_delete(payment_id):
-    p = Payment.query.get_or_404(payment_id)
-    lead_id = p.lead_id
-    db.session.delete(p)
-    db.session.commit()
-    if lead_id:
-        _log_activity(lead_id, "payment_removed", f"{p.type}: ₹{p.amount:.0f}")
-    flash("Payment deleted", "success")
-    return redirect(url_for("main.payments"))
+    # Legacy Payment model removed — the SPA manages payments through the
+    # finance API (/api/v1/finance/payments). No live UI consumer posts to
+    # this form route, so it serves the SPA shell instead of a NameError 500.
+    logger.warning(
+        "Legacy payment_delete called for id %s — legacy Payment model no "
+        "longer exists; serving SPA shell (no-op).", payment_id,
+    )
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 # ---------------------------------------------------------------------------
@@ -737,88 +737,27 @@ def payment_checkout(payment_id):
 @main.route("/payment/complete", methods=["POST"])
 @session_required
 def payment_complete():
-    """
-    Complete payment (simulated). Creates a Payment record in the DB,
-    logs activity, and triggers CompanionEngine celebration.
+    """Legacy simulated checkout — retired (no-fake rule).
+
+    The old handler "processed" payments through the in-memory simulated
+    gateway and wrote a legacy (now deleted) Payment row. Real payments are
+    captured ONLY through the Razorpay webhook
+    (POST /api/v1/payments/razorpay/webhook), which records FinancePayment
+    rows keyed by the real razorpay payment_id. This route now refuses
+    honestly and redirects to the SPA payments shell.
     """
     payment_id = request.form.get("payment_id", "")
-    if not payment_id:
-        flash("Missing payment reference.", "error")
-        return redirect(url_for("main.payments"))
-
-    from app.payment_gateway import PaymentGateway
-    gw = PaymentGateway()
-
-    # "Process" the payment
-    verification = gw.verify_payment(payment_id)
-    if not verification["verified"]:
-        flash("Payment verification failed.", "error")
-        return redirect(url_for("main.payment_checkout", payment_id=payment_id))
-
-    payment_data = gw.get_payment(payment_id)
-    if not payment_data:
-        flash("Payment record not found.", "error")
-        return redirect(url_for("main.payments"))
-
-    # Create a real Payment record in the database
-    p = Payment(
-        lead_id=payment_data.get("lead_id"),
-        type="guest_payment",
-        amount=payment_data["amount"],
-        method="online",
-        ref_number=verification["transaction_id"],
-        paid_at=datetime.now(timezone.utc),
-        notes=f"Online payment via {gw.PROVIDER}. Gateway ID: {payment_id}",
+    logger.warning(
+        "Legacy /payment/complete called (payment_id=%r) — refused: no real "
+        "provider transaction exists; payments are captured via the Razorpay "
+        "webhook only.", payment_id,
     )
-    db.session.add(p)
-    db.session.commit()
-
-    # Log activity
-    if p.lead_id:
-        _log_activity(
-            p.lead_id,
-            "payment_received",
-            f"Online payment: ₹{p.amount:.0f} · Txn: {p.ref_number}",
-        )
-
-    # Determine lead display code for messages
-    lead_display = p.lead.code if p.lead else f"Lead #{p.lead_id}"
-
-    # Companion celebration
-    try:
-        from app.companion import CompanionEngine
-        c = CompanionEngine()
-        celebration_msg = c.celebrate(
-            achievement=f"Payment of ₹{p.amount:,.0f} received for {lead_display}!",
-            name=getattr(g, "user", ""),
-        )
-        flash(celebration_msg, "success")
-    except Exception:
-        flash(f"Payment of ₹{p.amount:,.0f} completed successfully! 🎉", "success")
-
-    # Create a notification
-    try:
-        from app.notifications import NotificationManager
-        nm = NotificationManager()
-        nm.create_notification(
-            type="payment_received",
-            title="Payment Received",
-            message=f"Online payment of ₹{p.amount:,.0f} completed for {lead_display}",
-            lead_id=p.lead_id,
-            icon="💰",
-        )
-    except Exception:
-        pass
-
-    # Auto-celebrate via CelebrationEngine
-    try:
-        from app.celebrations import CelebrationEngine
-        ce = CelebrationEngine()
-        ce.celebrate_payment(p.lead_id, float(p.amount), user=getattr(g, "user", ""))
-    except Exception:
-        pass
-
-    return redirect(url_for("main.payment_receipt", payment_id=payment_id))
+    flash(
+        "This checkout flow has been retired. Payments are confirmed only "
+        "through the Razorpay payment gateway.",
+        "warning",
+    )
+    return redirect(url_for("main.payments"))
 
 
 @main.route("/payment/receipt/<payment_id>")
@@ -834,10 +773,14 @@ def payment_receipt(payment_id):
 
     lead = Lead.query.get(payment["lead_id"]) if payment.get("lead_id") else None
 
-    # Get the associated Payment record from DB
+    # Legacy Payment model removed — resolve any real captured payment from
+    # the finance module (FinancePayment), keyed by provider transaction id.
     db_payment = None
     if payment.get("transaction_id"):
-        db_payment = Payment.query.filter_by(ref_number=payment["transaction_id"]).first()
+        from app.finance.models import FinancePayment
+        db_payment = FinancePayment.query.filter_by(
+            reference_number=payment["transaction_id"]
+        ).first()
 
     return render_template(
         "payment_receipt.html",

@@ -13,6 +13,7 @@ from app import db
 from app.auth_routes import login_required
 from app.models import Organization, OrgMember
 from app.tenant import Tenant
+from app.runtime_config import uploads_dir
 
 from app.production.identity import identity_bp
 
@@ -269,3 +270,136 @@ def delete_org(org_id: int):
         "success": True,
         "data": {"id": org_id, "status": "deactivated"},
     })
+
+
+# ---------------------------------------------------------------------------
+# Org Theme + Logo — closes the dead-end where GET/PUT /orgs/<id>/theme and
+# POST /orgs/<id>/logo returned 404 while the frontend ThemeSettings modal
+# called them. Theme JSON is stored inside the Organization's existing
+# settings blob (ai_config, a JSON text column already present in production)
+# under the "theme" key — no schema change required. Branding columns stay
+# mirrored for other surfaces.
+# ---------------------------------------------------------------------------
+
+THEME_DEFAULTS = {
+    "primary_color": "#2563eb",
+    "accent_color": "#7c3aed",
+    "bg_color": "#f8fafc",
+    "sidebar_bg": "#0f172a",
+    "font_family": "Inter",
+    "logo_path": None,
+    "logo_style": "contain",
+    "welcome_message": "",
+    "company_motto": "",
+    "custom_css": "",
+}
+
+THEME_ALLOWED_FIELDS = frozenset({
+    "primary_color", "accent_color", "bg_color", "sidebar_bg",
+    "font_family", "logo_style", "welcome_message", "company_motto",
+    "custom_css", "logo_path",
+})
+
+
+def _org_theme(org: Organization) -> dict:
+    """Read the org theme, merging stored values over defaults."""
+    import json as _json
+    try:
+        stored = _json.loads(org.ai_config or "{}")
+    except Exception:
+        stored = {}
+    theme = dict(THEME_DEFAULTS)
+    theme.update((stored.get("theme") or {}) if isinstance(stored, dict) else {})
+    if not theme.get("logo_path"):
+        theme["logo_path"] = org.logo_url or None
+    return theme
+
+
+def _write_org_theme(org: Organization, theme: dict) -> None:
+    """Persist the theme dict into the org settings blob."""
+    import json as _json
+    try:
+        stored = _json.loads(org.ai_config or "{}")
+    except Exception:
+        stored = {}
+    if not isinstance(stored, dict):
+        stored = {}
+    stored["theme"] = theme
+    org.ai_config = _json.dumps(stored)
+    # Mirror onto brand columns consumed elsewhere.
+    org.logo_url = theme.get("logo_path") or org.logo_url
+    if theme.get("primary_color"):
+        org.brand_color = theme["primary_color"]
+    if theme.get("accent_color"):
+        org.brand_color_secondary = theme["accent_color"]
+
+
+@identity_bp.route("/<int:org_id>/theme", methods=["GET"])
+@login_required
+def get_org_theme(org_id: int):
+    """Get the organization's theme settings."""
+    org = db.session.get(Organization, org_id)
+    if not org or not org.is_active:
+        raise NotFound("Organization not found")
+    return jsonify({"success": True, "data": _org_theme(org)})
+
+
+@identity_bp.route("/<int:org_id>/theme", methods=["PUT"])
+@login_required
+def update_org_theme(org_id: int):
+    """Update the organization's theme settings."""
+    org = db.session.get(Organization, org_id)
+    if not org or not org.is_active:
+        raise NotFound("Organization not found")
+
+    data = _require_json()
+    theme = _org_theme(org)
+    updates = {k: v for k, v in data.items() if k in THEME_ALLOWED_FIELDS}
+    if not updates:
+        raise BadRequest("No valid theme fields provided")
+    theme.update(updates)
+    _write_org_theme(org, theme)
+    db.session.commit()
+
+    return jsonify({"success": True, "data": _org_theme(org)})
+
+
+@identity_bp.route("/<int:org_id>/logo", methods=["POST"])
+@login_required
+def upload_org_logo(org_id: int):
+    """Upload an organization logo; stores it under the uploads dir."""
+    import os
+
+    org = db.session.get(Organization, org_id)
+    if not org or not org.is_active:
+        raise NotFound("Organization not found")
+
+    if "logo" not in request.files:
+        return jsonify({"success": False, "error": "No logo file provided"}), 400
+
+    file = request.files["logo"]
+    if not file.filename:
+        return jsonify({"success": False, "error": "Empty filename"}), 400
+
+    allowed = {"image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"}
+    if file.content_type not in allowed:
+        return jsonify({
+            "success": False,
+            "error": "File type not allowed. Use PNG, JPG, GIF, SVG, or WebP.",
+        }), 400
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"):
+        ext = ".png"
+
+    filename = f"org_{org_id}_logo_{int(datetime.utcnow().timestamp())}{ext}"
+    logo_dir = uploads_dir()
+    file.save(os.path.join(logo_dir, filename))
+    logo_path = f"/uploads/{filename}"
+
+    theme = _org_theme(org)
+    theme["logo_path"] = logo_path
+    _write_org_theme(org, theme)
+    db.session.commit()
+
+    return jsonify({"success": True, "data": {"logo_path": logo_path}}), 201

@@ -1,6 +1,8 @@
 """File Upload API — routes for uploading, listing, and serving files with Job Manager integration."""
 import os, hashlib, uuid, json, logging
 from flask import Blueprint, jsonify, request, session, g
+from sqlalchemy import text
+from app import db
 from app.storage.provider import resolve_storage_provider
 from app.jobs.manager import create_job, get_job
 from app.authz.decorators import require_permission
@@ -50,8 +52,27 @@ def _process_upload(job, file_bytes: bytes, filename: str, content_type: str,
         ).fetchone()
 
         if existing:
-            job.update(stage="Duplicate detected", step=50,
-                       result={"duplicate": True, "existing_id": existing[0], "sha256": sha256})
+            existing_meta = None
+            try:
+                # Best-effort: pull display fields for a truthful duplicate notice.
+                row = db.session.execute(
+                    text("SELECT object_id, name, created_at FROM sh_objects "
+                         "WHERE object_id = :oid AND organization_id = :org AND workspace_id = :ws"),
+                    {"oid": existing[0], "org": organization_id, "ws": workspace_id}
+                ).fetchone()
+                if row:
+                    existing_meta = {
+                        "existing_id": row.object_id,
+                        "existing_filename": row.name,
+                        "existing_date": row.created_at.isoformat() if row.created_at else None,
+                    }
+            except Exception as e:
+                logger.warning("Failed to resolve duplicate metadata: %s", e)
+
+            dup = {"duplicate": True, "existing_id": existing[0], "sha256": sha256}
+            if existing_meta:
+                dup.update(existing_meta)
+            job.update(stage="Duplicate detected", step=50, result=dup)
             logger.info(f"Duplicate upload skipped: {sha256[:12]} for {filename}")
             return
 
@@ -133,8 +154,45 @@ def api_upload():
 
     # Capture organization context before it's lost in the background job
     from app.authz.decorators import _resolve_org_id
+    from sqlalchemy import text
     org_id = _resolve_org_id()
     workspace_id = session.get("workspace_id") or g.get("workspace_id") or ""
+
+    # ── Synchronous dedup: surface duplicates in the IMMEDIATE response so
+    # the SPA can show "this file already exists — open existing" instead of
+    # silently marking the upload done while the background job skips it.
+    # Mirrors app/documents_api.py's truthful duplicate response (success +
+    # duplicate + existing document identity). Scoped to the caller's own
+    # org + workspace (same canonical check the background job performs).
+    if org_id and workspace_id:
+        try:
+            sha256 = hashlib.sha256(file_bytes).hexdigest()
+            dup_row = db.session.execute(
+                text("SELECT object_id, name, created_at FROM sh_objects "
+                     "WHERE data LIKE :hash AND object_type='Document' "
+                     "AND is_deleted = false "
+                     "AND organization_id = :org AND workspace_id = :ws LIMIT 1"),
+                {"hash": f"%{sha256}%", "org": org_id, "ws": workspace_id}
+            ).fetchone()
+            if dup_row:
+                existing_date = dup_row.created_at.isoformat() if dup_row.created_at else None
+                return jsonify({
+                    "success": True,
+                    "duplicate": True,
+                    "existing_id": dup_row.object_id,
+                    "existing_filename": dup_row.name,
+                    "existing_date": existing_date,
+                    "summary": (
+                        f"'{f.filename}' is already in this workspace — identical file "
+                        f"(same SHA-256), added {existing_date or 'earlier'} as '{dup_row.name}'. "
+                        f"Nothing new was stored."
+                    ),
+                })
+        except Exception as e:
+            # Dedup must never block a legitimate upload — fall through to the
+            # background job which performs the same check.
+            logger.warning("Synchronous dedup check failed (non-blocking): %s", e)
+
     # Carry the authenticated identity into the background job: the job runs
     # after the request context is gone, so ownership context must be captured
     # here. The job does not rediscover ownership, and does not fall back to a

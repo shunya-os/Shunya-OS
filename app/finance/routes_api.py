@@ -1,7 +1,7 @@
 """FOR-2D: Finance Intelligence — API Routes."""
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from decimal import Decimal
-import json, os
+import json, os, logging
 from flask import jsonify, request, session, send_file
 from app import db
 from app.finance import finance_bp
@@ -11,7 +11,7 @@ from app.finance.models import JournalEntry, LedgerEntry, Budget
 from app.finance.accounting import seed_default_accounts, create_journal_entry, get_trial_balance
 from app.finance.services import create_invoice_from_proposal, record_payment
 from app.finance.services import get_receivables_aging, get_financial_summary
-from app.finance.governance import transition_invoice, create_credit_note, validate_transition, INVOICE_STATES
+from app.finance.governance import transition_invoice, create_credit_note, validate_transition, INVOICE_STATES, PAYMENT_STATES
 from app.finance.controls import (
     ApprovalRequest, ApprovalAction, Delegation, FinancialPeriod,
     request_approval, resolve_approval, create_delegation, revoke_delegation,
@@ -174,10 +174,18 @@ def api_payment_list():
     org_id = _org()
     if not org_id: return jsonify({"error": "No org"}), 400
     limit = request.args.get("limit", 20, type=int)
-    payments = Payment.query.order_by(Payment.created_at.desc()).limit(limit).all()
+    # SECURITY: payments are org-scoped — never list another organization's rows.
+    payments = (
+        Payment.query.filter_by(organization_id=org_id)
+        .order_by(Payment.created_at.desc())
+        .limit(limit)
+        .all()
+    )
     return jsonify({"payments": [{
         "id": p.id, "invoice_id": p.invoice_id, "amount": float(p.amount),
-        "method": p.payment_method or p.method or "bank_transfer",
+        "method": getattr(p, "payment_method", None) or p.method or "bank_transfer",
+        "reference": p.reference_number or "",
+        "status": p.status or "pending",
         "created_at": p.created_at.isoformat() if p.created_at else None,
     } for p in payments]})
 
@@ -247,6 +255,101 @@ def api_transition_invoice(inv_id):
     result = transition_invoice(inv_id, data.get("status", ""), org_id, _identity(), reason=data.get("reason", ""))
     if "error" in result: return jsonify(result), 400
     return jsonify(result)
+
+
+@finance_bp.route("/invoices/<int:inv_id>/send", methods=["POST"])
+@require_permission("finance.edit_invoice")
+def api_send_invoice(inv_id):
+    """Mark an invoice as sent: status → sent, sent_at stamped, email delivered.
+
+    The email is sent only when a customer email can be resolved (via the
+    invoice's CanonicalRelationship). When no email exists the invoice is
+    still marked sent (status + sent_at) — the transition is honest, no fake
+    delivery is claimed.
+    """
+    auth = _require_auth()
+    if auth: return auth
+    org_id = _org()
+    if not org_id: return jsonify({"error": "No org"}), 400
+    inv = db.session.get(Invoice, inv_id)
+    if not inv or inv.organization_id != org_id:
+        return jsonify({"error": "Invoice not found"}), 404
+
+    valid, err = validate_transition("invoice", inv.status, "sent")
+    if not valid:
+        return jsonify({"error": err}), 400
+
+    inv.status = "sent"
+    inv.sent_at = datetime.utcnow()
+
+    delivery_status = _deliver_invoice_email(inv)
+    db.session.commit()
+    return jsonify({"invoice": inv.to_dict(), "delivery": delivery_status})
+
+
+def _deliver_invoice_email(inv) -> str:
+    """Send a plain-text invoice notification to the customer email (if any)."""
+    from app.relationship.models import CanonicalRelationship
+    email = ""
+    if inv.relationship_id:
+        rel = db.session.get(CanonicalRelationship, inv.relationship_id)
+        email = (rel.email if rel else "") or ""
+    if not email:
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            "Invoice %s marked sent but no customer email resolvable "
+            "(relationship_id=%s) — delivery pending, not claimed as sent.",
+            inv.number, inv.relationship_id,
+        )
+        return "email_pending"
+    try:
+        from app.email_service import send_email
+        base_url = os.environ.get("SHUNYA_BASE_URL", "https://shunyaos.com").rstrip("/")
+        subject = f"Invoice {inv.number} — {inv.currency} {float(inv.total_amount or 0):,.2f}"
+        body = (
+            f"Hello,\n\n"
+            f"Invoice: {inv.number}\n"
+            f"Status: {inv.status}\n"
+            f"Amount due: {inv.currency} {float(inv.total_amount or 0):,.2f}\n"
+            f"Due date: {inv.due_date.isoformat() if inv.due_date else '—'}\n\n"
+            f"You can view this invoice in the SHUNYA workspace:\n"
+            f"{base_url}/workspace/finance\n\n"
+            f"— SHUNYA"
+        )
+        result = send_email(
+            to=email, subject=subject, body=body,
+            notification_type="invoice_sent", category="finance",
+            identity_id=_identity(),
+        )
+        status = str(result.get("status", "sent"))
+        return "email_sent" if status in ("accepted", "sent") else f"email_{status}"
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "Failed to send invoice %s notification", inv.number)
+        return "email_failed"
+
+
+@finance_bp.route("/payments/<int:pay_id>/transition", methods=["POST"])
+@require_permission("finance.edit_invoice")
+def api_transition_payment(pay_id):
+    """Transition a FinancePayment against PAYMENT_STATES (governance)."""
+    auth = _require_auth()
+    if auth: return auth
+    org_id = _org()
+    if not org_id: return jsonify({"error": "No org"}), 400
+    data = request.get_json(silent=True) or {}
+    target = data.get("status", "")
+    pay = db.session.get(Payment, pay_id)
+    if not pay or pay.organization_id != org_id:
+        return jsonify({"error": "Payment not found"}), 404
+    valid, err = validate_transition("payment", getattr(pay, "status", "pending") or "pending", target)
+    if not valid:
+        return jsonify({"error": err}), 400
+    if not getattr(pay, "status", None):
+        pay.status = "pending"
+    pay.status = target
+    db.session.commit()
+    return jsonify({"payment": pay.to_dict()})
 
 @finance_bp.route("/invoices/<int:inv_id>/credit-note", methods=["POST"])
 @require_permission("finance.edit_invoice")

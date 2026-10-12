@@ -1049,6 +1049,10 @@ def create_app(config_override: dict | None = None):
     from app.razorpay.routes import razorpay_bp
     app.register_blueprint(razorpay_bp)
 
+    # Razorpay webhook — real payment capture at POST /api/v1/payments/razorpay/webhook
+    from app.razorpay.routes import razorpay_webhook_bp
+    app.register_blueprint(razorpay_webhook_bp)
+
     # Execution Runtime — business execution, outcome ownership, recovery
     from app.execution.models import Outcome  # noqa: F401
     from app.execution.routes import execution_bp as execution_outcomes_bp

@@ -88,7 +88,11 @@ def api_onboarding_dashboard():
 @onboarding_bp.route("/complete", methods=["POST"])
 @session_required
 def api_onboarding_complete():
-    """Mark onboarding as complete and send confirmation email."""
+    """Mark onboarding as complete and send confirmation email.
+
+    Reports email_sent HONESTLY: False when no account resolves for the
+    session identity, or when the email service did not accept/log the send.
+    """
     uid = session.get("identity_id") or session.get("user_id") or ""
     org_id = session.get("current_org_id")
     if not uid or not org_id:
@@ -97,17 +101,27 @@ def api_onboarding_complete():
     from app.email_service import build_onboarding_complete_email, send_email
     from app.auth import TeamMember
     member = TeamMember.query.get(uid) if uid.isdigit() else TeamMember.query.filter_by(email=uid).first()
-    if member:
+    if not member:
+        # No account resolves for this identity — do NOT claim an email went out.
+        return jsonify({"status": "completed", "email_sent": False, "note": "no account"})
+
+    email_sent = False
+    try:
         subject, body = build_onboarding_complete_email(
             member.email,
             f"Your Personal SHUNYA"
         )
-        send_email(to=member.email, subject=subject, body=body,
-                   notification_type="onboarding_complete",
-                   business_event_id=f"onboarding:{member.id}",
-                   category="operational")
+        result = send_email(to=member.email, subject=subject, body=body,
+                            notification_type="onboarding_complete",
+                            business_event_id=f"onboarding:{member.id}",
+                            category="operational")
+        email_sent = result.get("status") in ("accepted", "logged")
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "Failed to send onboarding-complete email to %s", member.email)
 
-    return jsonify({"status": "completed", "email_sent": True})
+    return jsonify({"status": "completed", "email_sent": email_sent})
 
 
 def _is_onboarding_in_progress(org_id, uid):

@@ -9,6 +9,7 @@ Wires the universal commercial model to the existing canonical runtime:
 """
 
 import json
+import os
 import logging
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -32,6 +33,17 @@ logger = logging.getLogger(__name__)
 # ══════════════════════════════════════════════════════════════════════
 # OPPORTUNITY LIFECYCLE
 # ══════════════════════════════════════════════════════════════════════
+
+
+def generate_share_token() -> str:
+    """Generate a capability token for token-gated proposal sharing.
+
+    The token IS the capability — possession grants view/accept/decline on
+    the public page, with no further authentication. High-entropy and unique
+    (enforced by the model index).
+    """
+    import secrets
+    return secrets.token_urlsafe(24)
 
 
 def create_opportunity(
@@ -266,6 +278,8 @@ def create_proposal(
     """Create a canonical commercial proposal.
 
     One representation that multiple renderers can consume.
+    A share_token is generated at creation so the counterparty can be given
+    a token-gated view/accept link the moment the proposal exists.
     """
     proposal = CommercialProposal(
         organization_id=organization_id,
@@ -288,6 +302,7 @@ def create_proposal(
         created_by=created_by,
         updated_by=created_by,
     )
+    proposal.share_token = generate_share_token()
     db.session.add(proposal)
     db.session.flush()
 
@@ -317,6 +332,67 @@ def create_proposal(
 
     db.session.commit()
     return proposal
+
+
+def _deliver_proposal_notification(proposal, triggered_by: str) -> str:
+    """Deliver a plain-text proposal notification to the counterparty email.
+
+    Resolves the email from the proposal's CanonicalRelationship (the
+    commercial proposal model itself has no email field). Sends via
+    app.email_service (which logs when no provider is configured — the status
+    is reported honestly). When no email can be resolved, delivery is recorded
+    as ``email_pending`` — the proposal is never claimed as delivered.
+
+    Returns a short delivery status label: email_sent / email_logged /
+    email_pending / email_failed.
+    """
+    email = ""
+    if proposal.relationship_id:
+        try:
+            from app.relationship.models import CanonicalRelationship
+            rel = db.session.get(CanonicalRelationship, proposal.relationship_id)
+            email = (rel.email if rel else "") or ""
+        except Exception:
+            logger.exception("Failed to resolve relationship for proposal %s", proposal.id)
+
+    if not email:
+        logger.warning(
+            "Proposal %s marked sent but no counterparty email resolvable "
+            "(relationship_id=%s) — delivery pending, not claimed as sent.",
+            proposal.id, proposal.relationship_id,
+        )
+        return "email_pending"
+
+    base_url = os.environ.get("SHUNYA_BASE_URL", "https://shunyaos.com").rstrip("/")
+    subject = f"Proposal: {proposal.title}"
+    body = (
+        f"Hello,\n\n"
+        f"Proposal: {proposal.title}\n"
+        f"Status: {proposal.status}\n"
+        f"Value: {proposal.currency or 'INR'} {float(proposal.total_value or 0):,.2f}\n\n"
+        f"You can review the proposal in the SHUNYA workspace:\n"
+        f"{base_url}/workspace/commercial\n\n"
+        f"— SHUNYA"
+    )
+    try:
+        from app.email_service import send_email
+        result = send_email(
+            to=email,
+            subject=subject,
+            body=body,
+            notification_type="proposal_sent",
+            category="commercial",
+            identity_id=triggered_by or "",
+        )
+        status = str(result.get("status", "sent"))
+        # email_core returns 'logged' when no provider is configured — that is
+        # honest (recorded but not delivered via a provider).
+        label = "email_sent" if status in ("accepted", "sent") else f"email_{status}"
+        logger.info("Proposal %s notification -> %s (status=%s)", proposal.id, email, status)
+        return label
+    except Exception:
+        logger.exception("Failed to send proposal %s notification", proposal.id)
+        return "email_failed"
 
 
 def transition_proposal(
@@ -369,7 +445,9 @@ def transition_proposal(
 
     if to_state == "sent":
         proposal.sent_at = datetime.now(timezone.utc)
-        proposal.sent_via = triggered_by or "manual"
+        delivery_status = _deliver_proposal_notification(proposal, triggered_by)
+        # sent_via is VARCHAR(30) — keep the record short and honest.
+        proposal.sent_via = f"{triggered_by or 'manual'}:{delivery_status}"[:30]
 
     if to_state == "viewed":
         proposal.viewed_at = datetime.now(timezone.utc)

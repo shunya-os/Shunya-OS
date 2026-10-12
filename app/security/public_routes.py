@@ -53,8 +53,6 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset({
     ("POST", "/api/v1/auth/forgot-password"),
     ("POST", "/api/v1/auth/reset-password"),
     ("GET", "/api/v1/auth/session"),    # SPA session probe — itself returns 401 when unauth
-    ("POST", "/request-verification"),  # pre-auth verification request (legacy route)
-    ("POST", "/forgot-password"),       # pre-auth password reset request (legacy route)
     # --- SPA redirect stubs (no data; bounce to the canonical page) ---
     ("GET", "/ai-settings"),            # redirect → /settings
     ("GET", "/finance"),                # redirect → /
@@ -71,6 +69,7 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset({
     ("GET", "/whatsapp/webhook"),       # WhatsApp hub verification
     ("POST", "/whatsapp/webhook"),      # WhatsApp inbound messages (sig-verified)
     ("POST", "/telegram/webhook"),
+    ("POST", "/api/v1/payments/razorpay/webhook"),  # Razorpay payment events — signature-verified (HMAC-SHA256)
     ("GET", "/api/v1/reality/health"),  # reality engine health probe (status only)
     ("GET", "/api/v1/audit/health"),    # audit service health probe (status only)
     ("GET", "/system/health"),          # system health probe
@@ -100,14 +99,13 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset({
 PUBLIC_PREFIXES: frozenset[tuple[str, str]] = frozenset({
     ("GET", "/api/v1/orgs/invitations/"),   # invite token link (one-time, expiry enforced)
     ("POST", "/api/v1/orgs/invitations/"),  # invite acceptance (token consumed server-side)
-    ("GET", "/reset-password/"),            # password reset token page (token = capability)
-    ("POST", "/reset-password/"),           # password reset completion (token = capability)
-    ("GET", "/verify-email/"),              # email verification token page (token = capability)
     ("GET", "/admin/"),                     # /admin/* redirect stubs → /settings
     ("GET", "/audit/"),                     # public founding/constitution documents
     ("GET", "/payment/link/"),              # customer payment link page (Razorpay)
     ("GET", "/payment/checkout/"),          # customer checkout page
     ("GET", "/payment/receipt/"),           # customer payment receipt page
+    ("GET", "/proposal/"),                  # token-gated proposal view (token = capability)
+    ("POST", "/proposal/"),                 # token-gated proposal accept/decline (token = capability)
 })
 
 # Serve-only surfaces (no data, no handler-side authz needed).
@@ -144,8 +142,6 @@ PUBLIC_ROUTES_REASONS: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/auth/forgot-password"): "pre-auth password reset request",
     ("POST", "/api/v1/auth/reset-password"): "pre-auth password reset",
     ("GET", "/api/v1/auth/session"): "SPA session probe — 401 when unauthenticated",
-    ("POST", "/request-verification"): "pre-auth verification request (legacy route)",
-    ("POST", "/forgot-password"): "pre-auth password reset request (legacy route)",
     ("GET", "/ai-settings"): "redirect stub → /settings (no data)",
     ("GET", "/finance"): "redirect stub → / (no data)",
     ("GET", "/financial"): "redirect stub → / (no data)",
@@ -159,6 +155,7 @@ PUBLIC_ROUTES_REASONS: dict[tuple[str, str], str] = {
     ("GET", "/whatsapp/webhook"): "WhatsApp hub verification — verify_token enforced",
     ("POST", "/whatsapp/webhook"): "WhatsApp inbound — signature verified",
     ("POST", "/telegram/webhook"): "Telegram provider callback",
+    ("POST", "/api/v1/payments/razorpay/webhook"): "Razorpay payment events — handler verifies HMAC-SHA256 signature",
     ("GET", "/api/v1/reality/health"): "reality engine health probe — status only, no tenant data",
     ("GET", "/api/v1/audit/health"): "audit service health probe — status only",
     ("GET", "/system/health"): "system health probe (deploy verification)",
@@ -180,14 +177,13 @@ PUBLIC_ROUTES_REASONS: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/webhook/"): "generic ingestion — signature verification TODO (B16)",
     ("GET", "/api/v1/orgs/invitations/"): "invite token link — one-time token, expiry enforced server-side",
     ("POST", "/api/v1/orgs/invitations/"): "invite acceptance — token consumed server-side",
-    ("GET", "/reset-password/"): "password reset token page — token is the capability",
-    ("POST", "/reset-password/"): "password reset completion — token consumed server-side",
-    ("GET", "/verify-email/"): "email verification token page — token is the capability",
     ("GET", "/admin/"): "/admin/* redirect stubs → /settings (no data)",
     ("GET", "/audit/"): "public founding/constitution documents",
     ("GET", "/payment/link/"): "customer payment link page — Razorpay-hosted checkout",
     ("GET", "/payment/checkout/"): "customer checkout page",
     ("GET", "/payment/receipt/"): "customer payment receipt page",
+    ("GET", "/proposal/"): "token-gated proposal view — share token is the capability, content HTML-escaped",
+    ("POST", "/proposal/"): "token-gated proposal accept/decline — token consumed server-side via canonical transitions",
 }
 
 

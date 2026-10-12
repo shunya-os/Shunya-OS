@@ -303,7 +303,12 @@ def login_page():
 @auth_bp.route("/login/password", methods=["POST"])
 @limiter.limit("10 per minute")  # Auth rate limiting
 def login_password_json():
-    """JSON login endpoint (used by Shunya OS frontend)."""
+    """JSON login endpoint (used by Shunya OS frontend).
+
+    NOTE (MFA): MFA is not challenged after password verification — the
+    /mfa/challenge backend route exists but is not wired into this flow
+    (documented here; rebuilding the challenge is intentionally out of scope).
+    """
     return login_page()
 
 
@@ -411,7 +416,7 @@ def api_signup():
         return jsonify({"success": False, "error": "Password must be at least 8 characters."}), 400
 
     if TeamMember.query.filter_by(email=email).first():
-        return jsonify({"success": False, "error": "An account with this email already exists."}), 409
+        return jsonify({"success": False, "error": "An account with this email already exists. Would you like to sign in instead?"}), 409
 
     member = TeamMember(name=name, email=email, role=UserRole.ADMIN.value, is_active=True)
     # No tenant is assigned at signup. Canonical tenancy is established through
@@ -624,12 +629,12 @@ def api_reset_password():
     from datetime import datetime
     reset = PasswordResetToken.query.filter_by(token=token, used=False).first()
     if not reset:
-        return jsonify({"success": False, "error": "Invalid or expired reset token."}), 400
+        return jsonify({"success": False, "error": "Invalid or expired reset token — request a new link."}), 400
 
     if reset.expires_at < datetime.utcnow():
         reset.used = True  # Mark as used so it can't be retried even if expired
         db.session.commit()
-        return jsonify({"success": False, "error": "Reset token has expired. Please request a new one."}), 400
+        return jsonify({"success": False, "error": "Reset token has expired — request a new link."}), 400
 
     # Find the user and set new password
     member = db.session.get(TeamMember, reset.user_id)

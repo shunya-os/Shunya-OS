@@ -20,6 +20,7 @@ import { authStyles } from './components/auth/auth-styles';
 import { useWorkspaceHydration } from './hooks/workspace-hooks';
 import { useWorkspaceStore } from './runtimes/workspace/store';
 import { bus } from './runtimes/event-bus';
+import { subscribeSSE } from './runtimes/sse-runtime';
 import { useActiveContext } from './hooks/use-active-context';
 
 type Phase = 'public' | 'login' | 'onboarding' | 'booting' | 'ready';
@@ -519,9 +520,25 @@ function AuthenticatedWorkspace() {
   // content is shown inside it when no specific workspace is active.
   return (
     <TokenProvider>
+      <RealtimeEventsBridge />
       <PrimaryWorkspace />
     </TokenProvider>
   );
+}
+
+/**
+ * RealtimeEventsBridge — mounts the /api/v1/events/stream SSE subscription
+ * once the user is authenticated (phase === 'ready'), mirroring how the
+ * reality stream is wired. use-realtime-sync.ts's subscription was never
+ * imported by any component before this; mounting it here gives every
+ * authenticated session live object deltas on the event bus.
+ */
+function RealtimeEventsBridge() {
+  useEffect(() => {
+    const sse = subscribeSSE('events');
+    return () => sse.close();
+  }, []);
+  return null;
 }
 
 const styles = `

@@ -38,6 +38,83 @@ from app.execution.run_service import ExecutionRunService, get_run_service
 # ── Backward-compatible execution service (thin wrapper) ──
 
 
+def _dispatch_execution(
+    outcome,
+    identity_id: str,
+    intention: str,
+    run=None,
+    commitment_type: str = "",
+    commitment_id: str = "",
+    source: str = "business_execution",
+) -> dict:
+    """Dispatch an outcome through the canonical execution authority.
+
+    runtime/entry.process_event is the ONLY execution entry point. This helper
+    persists the truthful result:
+
+    - success → outcome state stage='executed' (+ trace id); run marked complete.
+    - unavailable/failure → outcome state stage='queued' with the recorded error.
+      The caller still succeeds (the outcome IS registered) but never claims
+      'activated'-implies-running — the status is explicitly 'queued'.
+    """
+    from app.runtime.entry import process_event as _process_event
+
+    try:
+        exec_result = _process_event(
+            "business_execution",
+            {
+                "id": outcome.outcome_id,
+                "intention": intention,
+                "identity_id": identity_id,
+                "commitment_type": commitment_type,
+                "commitment_id": commitment_id,
+            },
+            source=source,
+        )
+        state = dict(outcome.state or {})
+        state.update({
+            "stage": "executed",
+            "execution_status": exec_result.get("status", "completed"),
+            "execution_trace_id": exec_result.get("decision_trace_id"),
+            "execution_result": {
+                "status": exec_result.get("status"),
+                "entity_id": exec_result.get("entity_id"),
+                "decision_trace_id": exec_result.get("decision_trace_id"),
+            },
+        })
+        outcome.state = state
+        if run is not None:
+            try:
+                run.complete(
+                    result=exec_result.get("execution") or {},
+                    result_summary=f"Dispatched via canonical authority: {exec_result.get('status')}",
+                )
+            except Exception:
+                logger.warning("ExecutionRun %s could not be marked complete", run.execution_id, exc_info=True)
+        db.session.commit()
+        logger.info("Execution %s dispatched via canonical authority", outcome.outcome_id)
+        return {
+            "status": "executed",
+            "execution_status": exec_result.get("status"),
+            "decision_trace_id": exec_result.get("decision_trace_id"),
+        }
+    except Exception as e:  # noqa: BLE001
+        db.session.rollback()
+        state = dict(outcome.state or {})
+        state.update({
+            "stage": "queued",
+            "queue_note": (
+                "Execution authority unavailable at dispatch time — outcome is "
+                f"registered and will run when available. ({e})"
+            ),
+            "last_error": str(e),
+        })
+        outcome.state = state
+        db.session.commit()
+        logger.warning("Execution authority unavailable for %s — outcome queued: %s", outcome.outcome_id, e)
+        return {"status": "queued", "error": str(e)}
+
+
 class ExecutionService:
     """Backward-compatible wrapper — delegates to canonical execution_engine.
     
@@ -102,13 +179,37 @@ class ExecutionService:
                 return {"success": True, "exec_id": existing.outcome_id, "idempotent": True}
             raise
 
-        return {"success": True, "exec_id": outcome.outcome_id, "idempotent": False}
+        # Dispatch through the canonical execution authority. The returned
+        # status is truthful: 'executed' when the authority ran it, 'queued'
+        # when the authority was unavailable (the outcome is registered and
+        # will run when available) — never a claim of running that didn't happen.
+        dispatch = _dispatch_execution(
+            outcome,
+            identity_id=str(tenant_id),
+            intention=intention,
+            commitment_type=commitment_type,
+            commitment_id=commitment_id,
+            source="execution_service",
+        )
+        return {
+            "success": True,
+            "exec_id": outcome.outcome_id,
+            "idempotent": False,
+            "status": dispatch["status"],
+        }
 
     def inspect(self, execution_id: str = "", tenant_id: int = 1):
-        """Inspect execution status."""
+        """Inspect execution status — truthful, from the persisted outcome state."""
         outcome = self._runtime.get(execution_id)
         if outcome:
-            return {"status": "completed", "exec_id": execution_id}
+            stage = (outcome.state or {}).get("stage", "accepted")
+            status = {
+                "executed": "completed",
+                "queued": "queued",
+                "failed": "failed",
+                "accepted": "accepted",
+            }.get(stage, stage)
+            return {"status": status, "exec_id": execution_id}
         return {"status": "not_found", "exec_id": execution_id}
 
     def get_execution(self, commitment_id: str = "", tenant_id: int = 1):
@@ -215,13 +316,35 @@ class BusinessExecutionInstance:
         result = {"success": True, "exec_id": outcome.outcome_id, "idempotent": False}
         if run:
             result["execution_run_id"] = run.execution_id
+
+        # Dispatch through the canonical execution authority. The returned
+        # status is truthful: 'executed' when the authority ran it, 'queued'
+        # when the authority was unavailable (the outcome is registered and
+        # will run when available) — never a claim of running that didn't happen.
+        dispatch = _dispatch_execution(
+            outcome,
+            identity_id=str(effective_identity_id),
+            intention=intention,
+            run=run,
+            commitment_type=commitment_type,
+            commitment_id=commitment_id,
+            source="business_execution_instance",
+        )
+        result["status"] = dispatch["status"]
         return result
 
     def inspect(self, execution_id: str = "", tenant_id: int = 1):
-        """Inspect execution status."""
+        """Inspect execution status — truthful, from the persisted outcome state."""
         outcome = self._runtime.get(execution_id)
         if outcome:
-            return {"status": "completed", "exec_id": execution_id}
+            stage = (outcome.state or {}).get("stage", "accepted")
+            status = {
+                "executed": "completed",
+                "queued": "queued",
+                "failed": "failed",
+                "accepted": "accepted",
+            }.get(stage, stage)
+            return {"status": status, "exec_id": execution_id}
         return {"status": "not_found", "exec_id": execution_id}
 
     def get(self, outcome_id: str) -> Optional[Outcome]:

@@ -47,6 +47,7 @@ export interface ProposalData {
   updated_by: string;
   created_at: string;
   updated_at: string;
+  share_token?: string | null;
   can_accept?: boolean;
   can_decline?: boolean;
 }

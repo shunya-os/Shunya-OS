@@ -9,6 +9,7 @@ Every surface shall import this module.
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import defaultdict
 from typing import Any
@@ -57,6 +58,46 @@ def reset_telemetry() -> None:
 # ── Provider Wiring ───────────────────────────────────────────────────────
 
 _initialized = False
+_memory_fallback_warned = False
+
+
+def memory_bridge_backend() -> str:
+    """Report the effective memory bridge backend: 'db' or 'in_memory'.
+
+    Truthful observability for the UI/API: the DB bridge (MemoryRecord) may
+    fail to wire, in which case the runtime silently keeps its in-memory
+    store while surfaces reading the DB see stale/no data. This query lets
+    consumers (e.g. GET /api/v1/memory/health) surface which backend is live.
+    """
+    try:
+        from core.intelligence_runtime import get_runtime
+        from core.intelligence_runtime.memory_db import DBMemoryRepository
+        repo = get_runtime().memory.get_repository()
+        return "db" if isinstance(repo, DBMemoryRepository) else "in_memory"
+    except Exception:
+        return "in_memory"
+
+
+def _warn_memory_fallback(reason: str) -> None:
+    """Log a WARNING at the FIRST fallback to in-memory memory (not silent).
+
+    The DB bridge can fail at wiring time; the runtime then keeps its
+    in-memory store while UI surfaces may be reading the DB. The first
+    fallback is loud; subsequent wiring attempts of the same process log
+    at debug level to avoid log spam.
+    """
+    global _memory_fallback_warned
+    logger = logging.getLogger(__name__)
+    if not _memory_fallback_warned:
+        _memory_fallback_warned = True
+        logger.warning(
+            "Memory bridge fell back to IN-MEMORY storage (%s). UI surfaces "
+            "reading the DB will not see runtime memory until the DB bridge "
+            "is wired. memory_bridge_backend() reports the live backend.",
+            reason,
+        )
+    else:
+        logger.debug("Memory bridge fallback repeated (%s) — already warned", reason)
 
 
 def reset_runtime_wiring() -> None:
@@ -90,11 +131,8 @@ def ensure_runtime() -> None:
     try:
         from core.intelligence_runtime.memory_db import DBMemoryRepository
         runtime.memory.set_repository(DBMemoryRepository())
-    except Exception:
-        import logging
-        logging.getLogger(__name__).warning(
-            "DBMemoryRepository wiring skipped (fallback to in-memory)"
-        )
+    except Exception as exc:
+        _warn_memory_fallback(f"DBMemoryRepository wiring skipped: {exc}")
 
     # ── Business Graph Provider ──
     def _graph_search(query: str) -> list[dict]:
@@ -357,11 +395,8 @@ def ensure_runtime() -> None:
         from core.intelligence_runtime.memory_db import DBMemoryRepository
         repo = DBMemoryRepository()
         runtime.memory.set_repository(repo)
-    except Exception:
-        import logging
-        logging.getLogger(__name__).warning(
-            "DB memory repository unavailable — falling back to in-memory memory"
-        )
+    except Exception as exc:
+        _warn_memory_fallback(f"DB memory repository unavailable: {exc}")
 
     # ── LLM Provider (with FDA8 model orchestration) ──
     def _model_orchestrated_complete(messages: list[dict], temperature: float = 0.7,

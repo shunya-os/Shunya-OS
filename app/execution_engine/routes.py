@@ -5,7 +5,7 @@ Aggregates documents, proposals, and execution results into a unified
 output feed linked to execution context.
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 from app import db
 from app.models import Proposal
 from app.execution_log.models import ExecutionLog
@@ -68,6 +68,10 @@ def list_outputs():
             "file_size": payload.get("file_size", 0),
             "has_artifact": bool(payload.get("artifact_path")),
             "artifact_path": payload.get("artifact_path", ""),
+            "artifact_url": (
+                f"/api/v1/execution/artifacts/{log.id}/download?source=log"
+                if payload.get("artifact_path") else ""
+            ),
             "created_at": log.timestamp.isoformat() if log.timestamp else None,
             "drilldown": f"/api/v1/execution/logs/{log.object_id}",
         })
@@ -91,6 +95,10 @@ def list_outputs():
             "file_size": state.get("file_size", 0),
             "has_artifact": bool(state.get("file_path")),
             "artifact_path": state.get("file_path", ""),
+            "artifact_url": (
+                f"/api/v1/execution/artifacts/{doc.id}/download?source=object"
+                if state.get("file_path") else ""
+            ),
             "created_at": doc.created_at.isoformat() if doc.created_at else None,
         })
 
@@ -246,3 +254,78 @@ def list_work_items():
             "summary": summary,
         }
     })
+
+
+@execution_bp.route("/logs/<int:object_id>", methods=["GET"])
+@session_required
+def get_execution_logs(object_id: int):
+    """Return the ExecutionLog rows for an execution (object).
+
+    Backs the OutputsBrowser drilldown (`/api/v1/execution/logs/{id}`) that
+    the outputs feed advertises. Returns entries newest-first with payloads.
+    """
+    from app.authz.decorators import _resolve_org_id
+    tenant_id = _resolve_org_id()
+    if not tenant_id:
+        return jsonify({"success": False, "error": "No organization context"}), 400
+
+    limit = min(int(request.args.get("limit", 200)), 500)
+    rows = (
+        ExecutionLog.query
+        .filter_by(object_id=object_id)
+        .order_by(ExecutionLog.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+    return jsonify({
+        "success": True,
+        "data": {
+            "object_id": object_id,
+            "total": len(rows),
+            "logs": [r.to_dict() for r in rows],
+        }
+    })
+
+
+@execution_bp.route("/artifacts/<int:item_id>/download", methods=["GET"])
+@session_required
+def download_artifact(item_id: int):
+    """Download an artifact produced by an execution.
+
+    Resolution order by ``source`` query param (default: try both):
+      - source=log      → ExecutionLog row whose payload carries artifact_path
+      - source=object   → Object row whose state carries file_path
+    Returns 404 when no artifact storage path exists for the item.
+    """
+    import os
+
+    source = request.args.get("source", "").lower()
+    artifact_path = None
+    filename = None
+
+    try:
+        if source in ("", "object"):
+            from app.objects.models import Object as ShunyaObject
+            obj = ShunyaObject.query.get(item_id)
+            if obj and (obj.state or {}).get("file_path"):
+                artifact_path = (obj.state or {}).get("file_path")
+                filename = (obj.state or {}).get("name")
+        if artifact_path is None and source in ("", "log"):
+            log = ExecutionLog.query.get(item_id)
+            if log and (log.payload or {}).get("artifact_path"):
+                artifact_path = (log.payload or {}).get("artifact_path")
+                filename = (log.payload or {}).get("filename")
+    except Exception:
+        artifact_path = None
+
+    if not artifact_path or not os.path.isfile(artifact_path):
+        return jsonify({
+            "success": False,
+            "error": "No artifact file stored for this item.",
+        }), 404
+
+    return send_file(
+        artifact_path,
+        as_attachment=False,
+        download_name=filename or os.path.basename(artifact_path),
+    )

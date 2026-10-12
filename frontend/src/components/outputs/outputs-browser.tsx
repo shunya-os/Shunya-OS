@@ -22,6 +22,7 @@ interface OutputItem {
   currency?: string;
   has_artifact?: boolean;
   artifact_path?: string;
+  artifact_url?: string;
   created_at?: string | null;
   drilldown?: string;
 }
@@ -166,7 +167,25 @@ export const OutputsBrowser: FC = () => {
       {!loading && !error && filtered.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map((item) => (
-            <div key={item.id} className="out-item">
+            <div
+              key={item.id}
+              className="out-item"
+              style={{
+                cursor: item.drilldown ? 'pointer' : 'default',
+              }}
+              onClick={() => {
+                if (!item.drilldown) return;
+                window.open(item.drilldown, '_blank', 'noopener,noreferrer');
+              }}
+              role={item.drilldown ? 'link' : undefined}
+              tabIndex={item.drilldown ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (item.drilldown && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  window.open(item.drilldown, '_blank', 'noopener,noreferrer');
+                }
+              }}
+            >
               <div className="out-item-row">
                 <span className="out-item-icon">{TYPE_ICONS[item.type] || <IconPaperclip size={16} />}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -189,11 +208,35 @@ export const OutputsBrowser: FC = () => {
                 {item.value && item.value > 0 && <span>Value: {item.currency || 'USD'} {item.value.toLocaleString()}</span>}
                 {item.has_artifact && <span className="out-item-badge">Has artifact</span>}
                 {item.created_at && <span>{_timeAgo(item.created_at)}</span>}
+                {item.artifact_url && (
+                  <a
+                    href={item.artifact_url}
+                    className="out-item-action"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="View artifact file"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Artifact
+                  </a>
+                )}
                 {item.type === 'proposal' && (
                   <a href={`/api/v1/pdf/proposal/${item.id.replace('prop_', '')}`}
                     className="out-item-action" target="_blank" rel="noopener noreferrer"
-                    title="Download as PDF">
+                    title="Download as PDF" onClick={(e) => e.stopPropagation()}>
                     PDF
+                  </a>
+                )}
+                {item.drilldown && (
+                  <a
+                    href={item.drilldown}
+                    className="out-item-action"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="View execution logs"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Logs
                   </a>
                 )}
               </div>

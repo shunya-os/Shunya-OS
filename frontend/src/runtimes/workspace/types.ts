@@ -48,7 +48,7 @@ export type WorkspaceType =
   | 'team'
   | 'data-export'
   | 'sessions'
-  | 'notifications-preferences';
+  | 'notifications_history';
 
 export interface WorkspaceIdentity {
   id: string;

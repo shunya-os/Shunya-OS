@@ -347,6 +347,60 @@ def get_actions(object_type: str):
     })
 
 
+@ubme_bp.route("/actions/<object_type>/execute", methods=["POST"])
+@session_required
+def execute_action(object_type: str):
+    """Execute an action advertised for an object type.
+
+    UBME is a metadata engine: it declares ``ActionDef`` entries but no
+    business-execution runtime is registered yet. This endpoint validates the
+    action exists (404 only for unknown type/action) and then returns an
+    explicit 501 ``execution_not_wired`` — never a silent 404 — so the action
+    bar stops failing opaquely.
+    """
+    auth_err = _require_auth()
+    if auth_err:
+        return auth_err
+
+    found = ubme_engine.find_type_for_object_type(object_type)
+    if not found:
+        return jsonify({"error": f"Object type '{object_type}' not found"}), 404
+
+    _mod_key, ot = found
+    actions = ot.actions or []
+    data = request.get_json(silent=True) or {}
+    action_key = (data.get("action") or data.get("action_key") or "").strip()
+
+    action = next((a for a in actions if a.key == action_key), None) if action_key else None
+    if action_key and action is None:
+        return jsonify({
+            "error": f"Action '{action_key}' not found for type '{object_type}'",
+            "available": [a.key for a in actions],
+        }), 404
+    if action is None:
+        action = actions[0] if actions else None
+        if action is None:
+            return jsonify({
+                "success": False,
+                "error": f"No actions registered for type '{object_type}'",
+                "code": "no_actions",
+            }), 400
+
+    logger.info("UBME execute requested: type=%s action=%s (no runtime wired)",
+                object_type, action.key)
+    return jsonify({
+        "success": False,
+        "error": (
+            f"Action execution not wired for '{action.key}' ('{object_type}'). "
+            "The UBME engine declares this action but has no execution runtime "
+            "registered yet."
+        ),
+        "code": "execution_not_wired",
+        "status": 501,
+        "action": action.to_dict(),
+    }), 501
+
+
 # ── Dashboard ────────────────────────────────────────────────────────────────
 
 
