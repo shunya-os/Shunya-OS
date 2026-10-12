@@ -110,6 +110,40 @@ def invite_member():
 
     logger.info("Invitation created: org=%s email=%s role=%s", org_id, email, role_name)
 
+    # Deliver the invitation by email — the journey is NOT complete until the
+    # invitee receives the accept link (previously the record was created and
+    # nothing was ever sent: dead-end). Reuses the canonical email service.
+    try:
+        from app.email_service import build_invitation_email, send_email
+        org_name = org.name if (org := db.session.get(Organization, org_id)) else ""
+        inviter_name = ""
+        try:
+            from app.auth import TeamMember
+            inviter_id = g.identity_id or session.get("user_id")
+            if inviter_id:
+                inv_uid = str(inviter_id)
+                inviter = (TeamMember.query.get(int(inv_uid))
+                           if inv_uid.isdigit() else
+                           TeamMember.query.filter_by(email=inv_uid).first())
+                if inviter:
+                    inviter_name = inviter.name or inviter.email
+        except Exception:
+            logger.exception("Failed to resolve inviter name for invitation email")
+        subject, body = build_invitation_email(
+            email, token, org_name=org_name, inviter_name=inviter_name
+        )
+        email_result = send_email(
+            to=email,
+            subject=subject,
+            body=body,
+            notification_type="team_invitation",
+            business_event_id=f"invite:{org_id}:{token[:8]}",
+            category="security",
+        )
+        logger.info("Invitation email result: status=%s", email_result.get("status"))
+    except Exception:
+        logger.exception("Failed to send invitation email to %s", email)
+
     return jsonify({
         "success": True,
         "data": invitation.to_dict(),

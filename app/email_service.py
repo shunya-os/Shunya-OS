@@ -134,3 +134,30 @@ If you need help getting started, visit:
 — SHUNYA
 """
     return subject, body
+
+
+def build_invitation_email(to: str, token: str, org_name: str = "", inviter_name: str = "") -> tuple:
+    """Build a team-invitation email with a direct accept link.
+
+    The invitation accept journey lives on the SPA at ``/auth/invitation``
+    (app.tsx renders InvitationPage there); the token is delivered in the
+    query string. Returns (subject, body).
+    """
+    accept_url = f"{BASE_URL}/auth/invitation?token={token}"
+    org_line = f" to join {org_name}" if org_name else ""
+    inviter_line = (f"\n{inviter_name} has invited you" if inviter_name
+                    else "You have been invited")
+    subject = f"You've been invited{(' to join ' + org_name) if org_name else ''}"
+    body = f"""Hello,
+
+{inviter_line}{org_line}.
+
+Click the link below to accept the invitation and set up your account:
+
+{accept_url}
+
+This link is valid for a limited time and can only be used once.
+
+— SHUNYA
+"""
+    return subject, body
