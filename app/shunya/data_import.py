@@ -238,6 +238,7 @@ def import_data(
             lead = Lead(
                 source=LeadSource.API.value if tenant_id else LeadSource.MANUAL.value,
                 code=next_inquiry_code(db.session),
+                tenant_id=tenant_id,
                 status="new",
                 created_at=datetime.now(timezone.utc),
             )
@@ -254,6 +255,7 @@ def import_data(
             # Log activity
             log = ActivityLog(
                 lead_id=lead.id,
+                tenant_id=tenant_id,
                 action="imported",
                 detail=f"Imported via data import from {'tenant' if tenant_id else 'manual'} source",
                 user=user,

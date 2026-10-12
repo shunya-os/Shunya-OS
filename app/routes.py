@@ -44,16 +44,44 @@ def _flash_if_error(obj, success_msg="Saved successfully"):
 
 
 def _log_activity(lead_id: int, action: str, detail: str = ""):
-    """Create an ActivityLog entry for a lead."""
-    from app.models import ActivityLog
-    log = ActivityLog(
-        lead_id=lead_id,
-        action=action,
-        detail=detail[:500],
-        user=getattr(g, "user", ""),
-    )
-    db.session.add(log)
-    db.session.commit()
+    """Create an ActivityLog entry for a lead (tenant-attributed, fail-soft).
+
+    Production's activity_logs.tenant_id is NOT NULL (ZG-03 B1); the tenant
+    is resolved from the caller's canonical scope and set explicitly. Audit
+    failures never break the caller: they are logged and the session is
+    rolled back so the request stays usable.
+    """
+    try:
+        from app.models import ActivityLog
+
+        tenant_id = None
+        try:
+            from app.authz.workspace_context import resolve_tenant_scope
+            org_id, _accepted = resolve_tenant_scope(
+                session.get("identity_id", ""), session.get("current_org_id"))
+            tenant_id = int(org_id) if org_id else None
+        except Exception:
+            tenant_id = None
+
+        user = getattr(g, "user", "")
+        user = getattr(user, "email", None) or (str(user) if user else "")
+        log = ActivityLog(
+            lead_id=lead_id,
+            tenant_id=tenant_id,
+            action=action,
+            detail=detail[:500],
+            user=str(user)[:120],
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "activity log failed (lead_id=%s action=%s)", lead_id, action)
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
