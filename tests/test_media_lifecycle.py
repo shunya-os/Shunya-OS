@@ -397,14 +397,48 @@ class TestMediaWorkspaceContextContract:
         resp = self._generate(client, headers)
         assert resp.status_code == 200, resp.get_json()
 
-    def test_unauthorized_workspace_header_fails_closed(self, client, web_ctx):
+    def test_unauthorized_workspace_header_fails_closed(self, app, client, web_ctx):
+        """A REAL workspace id that is not authorized must deny (ZG-03).
+
+        The previous body used a made-up id ("ws_someone_elses"). ZG-03
+        clarified that ids which do not exist in sh_workspaces are SPA
+        namespace noise and are skipped, so the strict fail-closed path is
+        exercised here with a real workspace owned by another organization —
+        an explicit unauthorized selection must never resolve.
+        """
+        from app import db
+        from app.objects.legacy_models import Workspace
+
+        with app.app_context():
+            if not db.session.get(Workspace, "ws_zg03_foreign"):
+                db.session.add(Workspace(
+                    id="ws_zg03_foreign", name="Foreign WS",
+                    workspace_type="business", created_by="system",
+                    organization_id=991, status="active"))
+                db.session.commit()
+
         headers, _org, _ws = web_ctx
         # Clear session workspace_id so the X-Workspace-Id header is used
         with client.session_transaction() as sess:
             sess["workspace_id"] = None
         resp = self._generate(
-            client, {**headers, "X-Workspace-Id": "ws_someone_elses"})
+            client, {**headers, "X-Workspace-Id": "ws_zg03_foreign"})
         assert resp.status_code == 403, resp.get_json()
+
+    def test_foreign_namespace_header_id_is_skipped(self, client, web_ctx):
+        """An unknown user_workspaces-style id is skipped, not fatal (ZG-03 F1).
+
+        This is the production reproduction: the SPA sends ws_<hex> ids that
+        only exist in the older user_workspaces namespace. They must not be
+        forwarded as an explicit selection — the single authorized workspace
+        auto-resolves and the action succeeds.
+        """
+        headers, _org, _ws = web_ctx
+        with client.session_transaction() as sess:
+            sess["workspace_id"] = None
+        resp = self._generate(
+            client, {**headers, "X-Workspace-Id": "ws_869bef2639f8"})
+        assert resp.status_code == 200, resp.get_json()
 
     def test_missing_workspace_context_fails_closed(self, app, client):
         from app import db

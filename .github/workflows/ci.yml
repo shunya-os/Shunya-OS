@@ -40,7 +40,13 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
+      # fetch-depth 2: the execution-integrity milestone validator resolves
+      # the PR merge ref's second parent (the pushed PR head commit) on
+      # pull_request builds; a depth-1 checkout grafts the merge commit and
+      # hides its parents.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'

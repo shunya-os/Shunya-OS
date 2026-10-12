@@ -1710,12 +1710,19 @@ a:hover{background:#4338ca}
             recent_notifications = nm.get_recent_unread(user_id=user_id, limit=10)
         except Exception:
             pass
-        # Celebration context
+        # Celebration context (ZG-03: tenant-scoped, or zero — never a global
+        # cross-tenant count)
         celebration_count = 0
         try:
+            from flask import session as _session
+            from app.authz.workspace_context import resolve_tenant_scope
             from app.celebrations import CelebrationEngine
-            ce = CelebrationEngine()
-            celebration_count = ce.get_celebration_count_since()
+            _org_id, _accepted = resolve_tenant_scope(
+                _session.get("identity_id", ""), _session.get("current_org_id"))
+            if _org_id:
+                ce = CelebrationEngine()
+                celebration_count = ce.get_celebration_count_since(
+                    tenant_scope=_accepted)
         except Exception:
             pass
         return {

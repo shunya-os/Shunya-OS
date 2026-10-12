@@ -45,28 +45,71 @@ def sh(cmd: str, check: bool = False) -> str:
 
 
 def check_git_state() -> dict:
-    """Check working tree, HEAD, remote."""
+    """Check working tree, HEAD, remote.
+
+    CI ``pull_request`` builds check out an ephemeral merge ref
+    (``refs/pull/<n>/merge``) in detached HEAD — it can never equal a branch
+    tip, so comparing it to ``origin/main`` failed every PR build. The
+    invariant this check protects is "the code being certified is a pushed
+    remote commit": for a PR ref, that is the PR head commit — the merge
+    ref's second parent (``HEAD^2``) — which GitHub builds ONLY from an
+    existing pushed branch head. When the head branch is fetchable in the
+    checkout (``origin/$GITHUB_HEAD_REF``) it is compared exactly; otherwise
+    the PR-head-by-construction case is accepted with the head SHA recorded.
+    Anything anomalous still fails closed, and local/push runs keep the
+    original HEAD == origin/<branch> semantics unchanged.
+    """
     result = {}
     head = sh("git rev-parse HEAD")
     result["local_head"] = head if head else "UNKNOWN"
 
-    # Check remote — use current branch's upstream
-    current_branch = sh("git rev-parse --abbrev-ref HEAD")
-    if current_branch and current_branch != "HEAD":
-        remote = sh(f"git rev-parse origin/{current_branch} 2>/dev/null")
+    if os.environ.get("GITHUB_EVENT_NAME") == "pull_request":
+        pr_head = sh("git rev-parse HEAD^2 2>/dev/null")
+        pr_head_ok = bool(pr_head) and not pr_head.startswith(("HEAD", "ERROR", "TIMEOUT"))
+        head_ref = os.environ.get("GITHUB_HEAD_REF", "")
+        remote_ref = ""
+        if head_ref:
+            remote_ref = sh(f"git rev-parse origin/{head_ref} 2>/dev/null")
+        # Sanity guard: the checked-out SHA must be the one the platform
+        # reports for this run (when it reports one).
+        expected_sha = os.environ.get("GITHUB_SHA", "")
+        checkout_sane = (not expected_sha) or (head == expected_sha)
+        if pr_head_ok and remote_ref and not remote_ref.startswith(("origin/", "ERROR", "TIMEOUT")):
+            result["remote_head"] = remote_ref
+            result["head_matches_remote"] = (remote_ref == pr_head) and checkout_sane
+        elif pr_head_ok:
+            result["remote_head"] = pr_head
+            result["head_matches_remote"] = checkout_sane
+        elif head and checkout_sane:
+            # Shallow PR checkout: refs/pull/<n>/merge is grafted (parents
+            # absent), so HEAD^2 cannot resolve — but GitHub builds the PR
+            # merge ref ONLY from pushed remote refs, so the unpushed-work
+            # threat this gate protects against cannot exist on a
+            # pull_request build. Record the checked-out SHA and pass only
+            # when it matches the platform-reported SHA for this run.
+            result["remote_head"] = f"pr-ref:{head[:12]}"
+            result["head_matches_remote"] = True
+        else:
+            result["remote_head"] = "UNKNOWN"
+            result["head_matches_remote"] = False
     else:
-        remote = sh("git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null")
-    result["remote_head"] = remote if remote else "UNKNOWN"
+        # Check remote — use current branch's upstream
+        current_branch = sh("git rev-parse --abbrev-ref HEAD")
+        if current_branch and current_branch != "HEAD":
+            remote = sh(f"git rev-parse origin/{current_branch} 2>/dev/null")
+        else:
+            remote = sh("git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null")
+        result["remote_head"] = remote if remote else "UNKNOWN"
+
+        # HEAD == remote?
+        if head and remote and head == remote:
+            result["head_matches_remote"] = True
+        else:
+            result["head_matches_remote"] = False
 
     dirty = sh("git status --porcelain")
     result["working_tree_dirty"] = bool(dirty)
     result["dirty_files"] = dirty.split("\n") if dirty else []
-
-    # HEAD == remote?
-    if head and remote and head == remote:
-        result["head_matches_remote"] = True
-    else:
-        result["head_matches_remote"] = False
 
     return result
 

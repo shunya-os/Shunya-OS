@@ -236,6 +236,25 @@ def calendar_view():
     return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
+def _feed_tenant_scope():
+    """Canonical tenant scope for feed endpoints (ZG-03). Fail closed.
+
+    Returns ``(organization_id, accepted_tenant_ids)``; ``(None, [])`` when
+    the caller has no authorized organization context — callers then deny
+    the request or render an empty feed, never unfiltered data.
+    """
+    from app.authz.workspace_context import resolve_tenant_scope
+    identity_id = session.get("identity_id", "")
+    requested = session.get("current_org_id")
+    try:
+        return resolve_tenant_scope(identity_id, requested)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception(
+            "feed tenant scope resolution failed")
+        return None, []
+
+
 @api.route("/calendar/events")
 @session_required
 def calendar_events():
@@ -250,8 +269,11 @@ def calendar_events():
     except (ValueError, TypeError):
         return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
     from app.calendar_service import CalendarService
+    org_id, accepted = _feed_tenant_scope()
+    if not org_id:
+        return jsonify({"error": "No organization context"}), 403
     svc = CalendarService()
-    events = svc.get_events(start, end)
+    events = svc.get_events(start, end, tenant_scope=accepted)
     return jsonify(events)
 
 
@@ -1363,24 +1385,33 @@ def api_create_notification():
 @api.route("/celebrations", methods=["GET"])
 @session_required
 def api_get_celebrations():
-    """Get recent celebrations."""
+    """Get recent celebrations (tenant-scoped — ZG-03)."""
     from app.celebrations import CelebrationEngine
     limit = min(int(request.args.get("limit", 10)), 50)
+    org_id, accepted = _feed_tenant_scope()
+    if not org_id:
+        return jsonify({"error": "No organization context"}), 403
     ce = CelebrationEngine()
-    celebrations = ce.get_recent_celebrations(limit=limit)
-    count = ce.get_celebration_count_since()
+    celebrations = ce.get_recent_celebrations(limit=limit, tenant_scope=accepted)
+    count = ce.get_celebration_count_since(tenant_scope=accepted)
     return jsonify({"celebrations": celebrations, "count": count})
 
 
 @api.route("/celebrations/scan", methods=["GET"])
 @session_required
 def api_scan_celebrations():
-    """Scan for new wins and record any that haven't been recorded yet."""
+    """Scan for new wins and record any that haven't been recorded yet.
+
+    Tenant-scoped (ZG-03): only the caller's scope is scanned and returned.
+    """
     from app.celebrations import CelebrationEngine
+    org_id, accepted = _feed_tenant_scope()
+    if not org_id:
+        return jsonify({"error": "No organization context"}), 403
     ce = CelebrationEngine()
-    new_celebrations = ce.scan_and_record()
-    celebrations = ce.get_recent_celebrations(limit=10)
-    count = ce.get_celebration_count_since()
+    new_celebrations = ce.scan_and_record(tenant_scope=accepted)
+    celebrations = ce.get_recent_celebrations(limit=10, tenant_scope=accepted)
+    count = ce.get_celebration_count_since(tenant_scope=accepted)
     return jsonify({
         "new": new_celebrations,
         "celebrations": celebrations,
