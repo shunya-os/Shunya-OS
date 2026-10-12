@@ -485,20 +485,6 @@ def create_app(config_override: dict | None = None):
 
     # ---- Config -----------------------------------------------------------
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-in-production")
-    shunya_env = os.getenv("SHUNYA_ENVIRONMENT", "development")
-    if shunya_env == "production" and (
-        app.config["SECRET_KEY"] == "dev-secret-change-in-production"
-        or len(app.config["SECRET_KEY"]) < 20
-    ):
-        raise RuntimeError(
-            "SECRET_KEY must be set to a strong value (>20 chars) in production. "
-            "Set the SECRET_KEY environment variable."
-        )
-    elif shunya_env != "production" and app.config["SECRET_KEY"] == "dev-secret-change-in-production":
-        import logging
-        logging.getLogger(__name__).warning(
-            "SECRET_KEY is using the default dev value. Set SECRET_KEY in .env for production."
-        )
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
         "DATABASE_URL", "postgresql://shunya:***@localhost:5432/shunya_db"
     )
@@ -514,6 +500,32 @@ def create_app(config_override: dict | None = None):
     # Apply test/config overrides
     if config_override:
         app.config.update(config_override)
+
+    # ---- SECRET_KEY production guard (fail-closed) ------------------------
+    # Runs AFTER overrides so test harnesses (TESTING=True, or FLASK_ENV /
+    # SHUNYA_ENVIRONMENT of testing) are exempt; real production boots
+    # (wsgi.py -> create_app() with no overrides) are enforced. A production
+    # deployment with a weak/missing SECRET_KEY refuses to start rather than
+    # running on a predictable key.
+    _env = os.getenv("SHUNYA_ENVIRONMENT", os.getenv("FLASK_ENV", "development")).lower()
+    _is_test = bool(app.config.get("TESTING")) or _env in ("test", "testing", "development")
+    if (
+        not _is_test
+        and _env == "production"
+        and (
+            app.config["SECRET_KEY"] == "dev-secret-change-in-production"
+            or len(app.config["SECRET_KEY"]) < 20
+        )
+    ):
+        raise RuntimeError(
+            "SECRET_KEY must be set to a strong value (>20 chars) in production. "
+            "Set the SECRET_KEY environment variable."
+        )
+    elif not _is_test and app.config["SECRET_KEY"] == "dev-secret-change-in-production":
+        import logging
+        logging.getLogger(__name__).warning(
+            "SECRET_KEY is using the default dev value. Set SECRET_KEY in .env for production."
+        )
 
     # ---- Test / Certification Isolation Safety Check -------------------------
     # Fail-closed invariant: a test or certification harness must never use the
