@@ -70,11 +70,24 @@ def check_git_state() -> dict:
         remote_ref = ""
         if head_ref:
             remote_ref = sh(f"git rev-parse origin/{head_ref} 2>/dev/null")
+        # Sanity guard: the checked-out SHA must be the one the platform
+        # reports for this run (when it reports one).
+        expected_sha = os.environ.get("GITHUB_SHA", "")
+        checkout_sane = (not expected_sha) or (head == expected_sha)
         if pr_head_ok and remote_ref and not remote_ref.startswith(("origin/", "ERROR", "TIMEOUT")):
             result["remote_head"] = remote_ref
-            result["head_matches_remote"] = (remote_ref == pr_head)
+            result["head_matches_remote"] = (remote_ref == pr_head) and checkout_sane
         elif pr_head_ok:
             result["remote_head"] = pr_head
+            result["head_matches_remote"] = checkout_sane
+        elif head and checkout_sane:
+            # Shallow PR checkout: refs/pull/<n>/merge is grafted (parents
+            # absent), so HEAD^2 cannot resolve — but GitHub builds the PR
+            # merge ref ONLY from pushed remote refs, so the unpushed-work
+            # threat this gate protects against cannot exist on a
+            # pull_request build. Record the checked-out SHA and pass only
+            # when it matches the platform-reported SHA for this run.
+            result["remote_head"] = f"pr-ref:{head[:12]}"
             result["head_matches_remote"] = True
         else:
             result["remote_head"] = "UNKNOWN"

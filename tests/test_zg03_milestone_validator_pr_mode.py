@@ -30,10 +30,12 @@ def _load_validator():
 def _run_check(monkeypatch, env, fake_sh):
     mod = _load_validator()
     monkeypatch.setattr(mod, "sh", fake_sh)
-    # Hermetic: GitHub Actions sets GITHUB_EVENT_NAME/GITHUB_HEAD_REF in CI;
-    # clear them so each case fully controls the environment it exercises.
+    # Hermetic: GitHub Actions sets GITHUB_EVENT_NAME / GITHUB_HEAD_REF /
+    # GITHUB_SHA in CI; clear them so each case fully controls the
+    # environment it exercises.
     monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
     monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
+    monkeypatch.delenv("GITHUB_SHA", raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
     return mod.check_git_state()
@@ -98,6 +100,49 @@ def test_pr_ref_head_compare_mismatch_fails_closed(monkeypatch):
     res = _run_check(monkeypatch,
                      {"GITHUB_EVENT_NAME": "pull_request",
                       "GITHUB_HEAD_REF": "zero-gap-03"},
+                     fake_sh)
+    assert res["head_matches_remote"] is False
+
+
+def test_shallow_pr_checkout_passes_with_platform_sha_recorded(monkeypatch):
+    """Depth-1 PR checkout: HEAD^2 absent -> pass only with matching GITHUB_SHA."""
+    def fake_sh(cmd, check=False):
+        if cmd == "git rev-parse HEAD":
+            return "merge9876"
+        if cmd == "git rev-parse HEAD^2 2>/dev/null":
+            return "HEAD^2"  # rev-parse echo: second parent not present (grafted)
+        if cmd == "git rev-parse origin/zero-gap-03 2>/dev/null":
+            return "origin/zero-gap-03"  # ref not fetchable in shallow checkout
+        if cmd == "git status --porcelain":
+            return ""
+        return ""
+
+    res = _run_check(monkeypatch,
+                     {"GITHUB_EVENT_NAME": "pull_request",
+                      "GITHUB_HEAD_REF": "zero-gap-03",
+                      "GITHUB_SHA": "merge9876"},
+                     fake_sh)
+    assert res["head_matches_remote"] is True
+    assert res["remote_head"] == "pr-ref:merge9876"
+
+
+def test_shallow_pr_checkout_fails_on_platform_sha_mismatch(monkeypatch):
+    """Checkout SHA != platform-reported SHA -> fail closed."""
+    def fake_sh(cmd, check=False):
+        if cmd == "git rev-parse HEAD":
+            return "somethingelse"
+        if cmd == "git rev-parse HEAD^2 2>/dev/null":
+            return "HEAD^2"
+        if cmd == "git rev-parse origin/zero-gap-03 2>/dev/null":
+            return "origin/zero-gap-03"
+        if cmd == "git status --porcelain":
+            return ""
+        return ""
+
+    res = _run_check(monkeypatch,
+                     {"GITHUB_EVENT_NAME": "pull_request",
+                      "GITHUB_HEAD_REF": "zero-gap-03",
+                      "GITHUB_SHA": "merge9876"},
                      fake_sh)
     assert res["head_matches_remote"] is False
 
