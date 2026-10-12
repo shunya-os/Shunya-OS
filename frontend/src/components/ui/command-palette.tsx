@@ -17,6 +17,9 @@
  */
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { aiChat } from '../../api/ai-chat';
+import { useVoiceInput } from '../../hooks/use-voice-input';
+import { useI18n, speechRecognitionLang } from '../../lib/i18n';
+import { IconMicrophone } from '@tabler/icons-react';
 
 interface CmdItem {
   id: string;
@@ -40,6 +43,7 @@ interface Props {
 }
 
 export function CommandPalette({ onClose, recentItems = [], commands = [], workspaces = [], workspaceContext, onAskResult }: Props) {
+  const { t, lang } = useI18n();
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<'search' | 'command' | 'workspace' | 'shortcuts' | 'ai-result'>('search');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -48,6 +52,16 @@ export function CommandPalette({ onClose, recentItems = [], commands = [], works
   const [aiError, setAiError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Voice input for the Ask SHUNYA surface — language follows the UI language.
+  const voice = useVoiceInput(speechRecognitionLang(lang), {
+    continuous: false,
+    onFinal: (text) => handleInput(text.trim()),
+  });
+  useEffect(() => {
+    if (voice.transcript) handleInput(voice.transcript);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voice.transcript]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -180,7 +194,19 @@ export function CommandPalette({ onClose, recentItems = [], commands = [], works
               autoComplete="off"
             />
             <kbd className="sh-cmd-kbd">Esc</kbd>
+            <button
+              type="button"
+              className={`sh-cmd-mic${voice.listening ? ' sh-cmd-mic-listening' : ''}`}
+              onClick={() => (voice.listening ? voice.stop() : (voice.reset(), voice.start()))}
+              aria-label={voice.listening ? t('stopRecording') : t('voiceInput')}
+              title={voice.listening ? t('stopRecording') : t('voiceInput')}
+            >
+              <IconMicrophone size={14} />
+            </button>
           </div>
+        )}
+        {voice.error && (
+          <p className="sh-cmd-empty sh-cmd-error" role="alert">{t(voice.error)}</p>
         )}
 
         {/* Mode indicator */}
@@ -299,6 +325,31 @@ export function CommandPalette({ onClose, recentItems = [], commands = [], works
   padding: 2px 6px;
   border-radius: 4px;
   border: 1px solid var(--shunya-border, rgba(26,28,29,0.07));
+}
+.sh-cmd-mic {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.12));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.45));
+  cursor: pointer;
+  transition: all var(--shunya-duration-fast, 200ms);
+  flex-shrink: 0;
+}
+.sh-cmd-mic:hover {
+  border-color: var(--shunya-gold, #A4865F);
+  color: var(--shunya-text, #1A1C1D);
+}
+.sh-cmd-mic-listening {
+  border-color: #c0392b;
+  background: rgba(192, 57, 43, 0.08);
+  color: #c0392b;
+  animation: sh-cmd-mic-pulse 1.4s ease-in-out infinite;
+}
+@keyframes sh-cmd-mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.25); }
+  50% { box-shadow: 0 0 0 5px rgba(192, 57, 43, 0); }
 }
 .sh-cmd-mode {
   padding: 8px 20px;

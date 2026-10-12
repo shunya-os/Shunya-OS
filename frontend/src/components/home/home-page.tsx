@@ -25,6 +25,8 @@ import {
 import { TaskDetail } from './task-detail';
 import { IconRefresh, IconCheck, IconAlertTriangle, IconArrowRight, IconCircle } from '@tabler/icons-react';
 import { ShunyaAICommandBar } from '../ai/shunya-ai-command-bar';
+import { UniversalSearchBar } from '../search/universal-search-bar';
+import { LanguageSwitcher } from '../../lib/i18n';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -386,6 +388,10 @@ export function HomePage() {
           </div>
           <div className="hp-header-right">
             {name && <span className="hp-hello">{name}</span>}
+            <div className="hp-global-search">
+              <UniversalSearchBar width={340} />
+            </div>
+            <LanguageSwitcher size="md" />
             <button
               className="hp-signout"
               onClick={handleSignOut}
@@ -630,6 +636,13 @@ const homeStyles = `
   display: flex;
   align-items: center;
   gap: 16px;
+}
+.hp-global-search { display: flex; }
+@media (max-width: 920px) {
+  .hp-global-search { display: none; }
+}
+@media (max-width: 560px) {
+  .hp-hello { display: none; }
 }
 .hp-hello {
   font-size: 13px;

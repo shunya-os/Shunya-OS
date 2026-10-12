@@ -335,14 +335,145 @@ class ProtocolValidator:
         if obj.version < 1:
             report.add_error("protocol", "Versioning §18: version must be >= 1", obj.object_id)
 
-    def _check_relationships(self, obj: UniversalObject, report: ValidationReport) -> None:
-        pass  # Relationships are optional for most objects
+    def _check_relationships(self, obj: UniversalObject, report: ValidationReport) -> list[str]:
+        """Relationship §6: verify no dangling foreign-key references.
 
-    def _check_permissions(self, obj: UniversalObject, report: ValidationReport) -> None:
-        pass  # Permissions handled by runtime
+        Scans get_relationships() output and generic FK-style attributes
+        (entity_type/entity_id) for references that are set but unresolvable.
+        """
+        issues: list[str] = []
+        obj_id = obj.object_id
 
-    def _check_search(self, obj: UniversalObject, report: ValidationReport) -> None:
-        pass  # Search handled by search engine
+        # 1. Relationship graph references
+        if hasattr(obj, "get_relationships"):
+            try:
+                rels = obj.get_relationships()
+            except Exception as exc:
+                issues.append(f"Relationship §6: get_relationships() raised: {exc}")
+                rels = []
+            for rel in rels:
+                source_id = getattr(rel, "source_id", None)
+                target_id = getattr(rel, "target_id", None)
+                # Dangling: a reference that is set but empty/unresolvable
+                if source_id is not None and not str(source_id).strip():
+                    issues.append(f"Relationship §6: relationship has empty source_id")
+                if target_id is not None and not str(target_id).strip():
+                    issues.append(f"Relationship §6: relationship has empty/unresolvable target_id")
+                if (target_id == source_id == obj_id):
+                    report.add_warning("relationship", "Self-referential relationship", obj_id)
+        else:
+            issues.append("Relationship §6: object does not expose get_relationships()")
+
+        # 2. Generic FK pairs (entity_type/entity_id) — either both set or nullable
+        et = getattr(obj, "entity_type", None)
+        eid = getattr(obj, "entity_id", None)
+        if et is not None or eid is not None:
+            if et and not eid:
+                issues.append("Relationship §6: entity_type set but entity_id is null (dangling FK)")
+            elif eid is not None and not et:
+                issues.append("Relationship §6: entity_id set but entity_type is null (dangling FK)")
+
+        # 3. Nullable parent-style references that are set-but-empty
+        for fk_attr in ("parent_id", "owner_id", "tenant_id", "space_id"):
+            if hasattr(obj, fk_attr):
+                try:
+                    val = getattr(obj, fk_attr)
+                    if val is not None and (isinstance(val, str) and not val.strip()):
+                        issues.append(f"Relationship §6: {fk_attr} is set but empty (dangling FK)")
+                except Exception:
+                    continue
+
+        for msg in issues:
+            report.add_error("relationship", msg, obj_id)
+        return issues
+
+    def _check_permissions(self, obj: UniversalObject, report: ValidationReport) -> list[str]:
+        """Permissions §11: verify owner/org fields are present when required.
+
+        owner_id is mandatory for every object. Tenant/org scoping is required
+        for tenant-scoped object types when the attribute exists.
+        """
+        issues: list[str] = []
+        obj_id = obj.object_id
+
+        # §10 Ownership — owner_id mandatory
+        try:
+            owner_id = getattr(obj, "owner_id", None)
+        except Exception:
+            owner_id = None
+        if owner_id is None or (isinstance(owner_id, str) and not owner_id.strip()):
+            issues.append("Permissions §11: owner_id is required (Ownership §10)")
+        else:
+            # Owner reference must not be self-referential to the object id
+            if owner_id == obj_id:
+                report.add_warning("permissions", "Owner references the object itself", obj_id)
+
+        # Tenant / org scoping when the model type requires it
+        object_type = getattr(obj, "object_type", "")
+        tenant_required_types = {"workspace", "organization", "human", "document", "project", "object"}
+        if hasattr(obj, "tenant_id"):
+            try:
+                tenant_id = getattr(obj, "tenant_id", None)
+                if tenant_id is None or (isinstance(tenant_id, str) and not tenant_id.strip()):
+                    if object_type in tenant_required_types:
+                        issues.append(f"Permissions §11: tenant_id is required for object_type '{object_type}'")
+                    else:
+                        report.add_warning("permissions", "tenant_id is unset (nullable for this type)", obj_id)
+            except Exception:
+                pass
+
+        if hasattr(obj, "org_id") or hasattr(obj, "organization_id"):
+            org_attr = "org_id" if hasattr(obj, "org_id") else "organization_id"
+            try:
+                org_val = getattr(obj, org_attr, None)
+                if org_val is None or (isinstance(org_val, str) and not org_val.strip()):
+                    if object_type in tenant_required_types:
+                        issues.append(f"Permissions §11: {org_attr} is required for object_type '{object_type}'")
+            except Exception:
+                pass
+
+        # Explicit permissions payload present?
+        if hasattr(obj, "get_permissions"):
+            try:
+                perms = obj.get_permissions()
+                if perms is None or perms == [] or perms == {}:
+                    report.add_warning("permissions", "get_permissions() returned no access rules", obj_id)
+            except Exception as exc:
+                issues.append(f"Permissions §11: get_permissions() raised: {exc}")
+        elif hasattr(obj, "permissions") and not getattr(obj, "permissions", None):
+            report.add_warning("permissions", "No permissions defined on object", obj_id)
+
+        for msg in issues:
+            report.add_error("permissions", msg, obj_id)
+        return issues
+
+    def _check_search(self, obj: UniversalObject, report: ValidationReport) -> list[str]:
+        """Search §15: verify the object exposes a searchable name/title field."""
+        issues: list[str] = []
+        obj_id = obj.object_id
+
+        candidates = []
+        for attr in ("name", "title", "search_text", "label"):
+            if hasattr(obj, attr):
+                try:
+                    val = getattr(obj, attr)
+                    if val is not None:
+                        candidates.append((attr, str(val)))
+                except Exception:
+                    continue
+
+        if not candidates:
+            issues.append("Search §15: object must expose a searchable 'name' or 'title' field")
+        else:
+            for attr, val in candidates:
+                if not val.strip():
+                    report.add_warning("search", f"Search §15: {attr} is empty — not searchable", obj_id, attr)
+            if all(not v.strip() for _, v in candidates):
+                issues.append("Search §15: all searchable fields are empty")
+
+        for msg in issues:
+            report.add_error("search", msg, obj_id)
+        return issues
 
 
 class OntologyValidator:

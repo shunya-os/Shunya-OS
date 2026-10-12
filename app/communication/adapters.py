@@ -15,8 +15,12 @@ Supported adapters (planned):
 """
 
 from abc import ABC, abstractmethod
+import logging
+from datetime import datetime
 from typing import Optional
 from .conversation import ChannelType, Message, Conversation
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderAdapter(ABC):
@@ -160,10 +164,86 @@ class EmailAdapter(ProviderAdapter):
 
     def receive(self, conversation_id: str,
                 since: Optional[str] = None) -> list[Message]:
-        return []
+        """Receive new inbound messages for a conversation.
+
+        Queries the canonical local communication store (ExternalConversation /
+        ExternalMessage tables) for messages matching conversation_id.
+        In production with IMAP configured, this would poll the mail server;
+        the DB-backed store is the genuine fallback that returns persisted
+        inbound messages instead of silently returning [].
+        """
+        try:
+            rows = self._db_messages(conversation_id, inbound_only=True, since=since)
+        except Exception:
+            logger.warning("EmailAdapter.receive: DB store query failed", exc_info=True)
+            return []
+        return rows
 
     def history(self, conversation_id: str, limit: int = 50) -> list[Message]:
-        return []
+        """Get message history for a conversation from the canonical store.
+
+        Returns up to `limit` most recent messages (both directions) for the
+        conversation, ordered newest-first, from ExternalConversation /
+        ExternalMessage records. Falls back gracefully when the store is empty.
+        """
+        try:
+            rows = self._db_messages(conversation_id, inbound_only=False, limit=limit)
+        except Exception:
+            logger.warning("EmailAdapter.history: DB store query failed", exc_info=True)
+            return []
+        return rows[:limit]
+
+    def _db_messages(self, conversation_id: str, inbound_only: bool,
+                     since: Optional[str] = None,
+                     limit: Optional[int] = None) -> list[Message]:
+        """Query ExternalMessage/ExternalConversation for a conversation."""
+        from .conversation import Message as ConvMessage, ChannelType, MessageDirection
+        from app import db
+        from app.communication.models import ExternalConversation, ExternalMessage
+
+        conv_id = conversation_id
+        if since:
+            try:
+                since_dt = datetime.fromisoformat(since.replace("Z", "+00:00"))
+                if since_dt.tzinfo is None:
+                    from datetime import timezone
+                    since_dt = since_dt.replace(tzinfo=timezone.utc)
+            except ValueError:
+                since_dt = None
+        else:
+            since_dt = None
+
+        q = (
+            db.session.query(ExternalMessage)
+            .join(ExternalConversation, ExternalMessage.conversation_id == ExternalConversation.id)
+            .filter(
+                (ExternalConversation.provider_chat_id == conv_id)
+                | (ExternalConversation.subject == conv_id)
+            )
+        )
+        if inbound_only:
+            q = q.filter(ExternalMessage.direction == "inbound")
+        if since_dt is not None:
+            q = q.filter(ExternalMessage.received_at >= since_dt)
+        q = q.order_by(ExternalMessage.received_at.desc())
+        if limit:
+            q = q.limit(limit)
+        rows = q.all()
+
+        messages = []
+        for exm in rows:
+            messages.append(ConvMessage(
+                message_id=f"msg_ext_{exm.id}" if exm.id else exm.provider_message_id,
+                conversation_id=conv_id,
+                channel=ChannelType.EMAIL,
+                direction=MessageDirection.INBOUND if exm.direction != "outbound" else MessageDirection.OUTBOUND,
+                sender=str(exm.sender_participant_id or ""),
+                body=exm.body or "",
+                subject=exm.conversation.subject if exm.conversation else "",
+                timestamp=(exm.received_at or exm.original_timestamp).isoformat() if (exm.received_at or exm.original_timestamp) else "",
+                read=True,
+            ))
+        return messages
 
     def status(self) -> dict:
         return {"connected": self._connected, "channel": "email", "error": None}

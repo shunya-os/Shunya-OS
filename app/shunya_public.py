@@ -4,9 +4,10 @@ Public-facing routes for the SHUNYA homepage, identity creation,
 space selection, and pre-authentication conversation.
 """
 
+import os
 import uuid
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, send_from_directory
 
 from app import db
 from app.auth import TeamMember
@@ -14,6 +15,9 @@ from app.auth_routes import login_required
 from app.authz.decorators import session_required
 
 shunya_bp = Blueprint("shunya", __name__)
+
+# Canonical frontend is the React SPA (public HomePage handles anonymous visitors).
+_SPA_INDEX = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist", "index.html")
 
 
 # ---------------------------------------------------------------------------
@@ -37,7 +41,8 @@ def home():
     if "shunya_conversation" not in session:
         session["shunya_conversation"] = []
         session["shunya_thought_count"] = 0
-    return render_template("landing.html", year=datetime.now(timezone.utc).year)
+    # The React SPA has a public HomePage — serve the shell for unauthenticated visitors.
+    return send_from_directory(os.path.dirname(_SPA_INDEX), "index.html")
 
 
 # ---------------------------------------------------------------------------

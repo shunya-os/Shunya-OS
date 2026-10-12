@@ -12,9 +12,12 @@
  *   Conversational: Full conversation panel
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShunyaPresence } from '../ui/shunya-presence';
 import { api } from '../../api/client';
+import { useVoiceInput } from '../../hooks/use-voice-input';
+import { useI18n, speechRecognitionLang } from '../../lib/i18n';
+import { IconMicrophone } from '@tabler/icons-react';
 
 type PresenceMode = 'idle' | 'ambient' | 'active' | 'attention' | 'attentive' | 'processing' | 'success' | 'error' | 'recovery' | 'suggestive' | 'conversational';
 
@@ -38,6 +41,7 @@ interface ChatMessage {
 }
 
 export function AIResidentPanel({ initialMode = 'ambient', objectContext, suggestions = [] }: Props) {
+  const { t, lang } = useI18n();
   const [mode, setMode] = useState<PresenceMode>(initialMode);
   // A conversational surface must OPEN conversational. This previously defaulted
   // to false, so routing "Ask SHUNYA" here landed the human on a collapsed panel
@@ -47,6 +51,15 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+
+  // Voice input for the chat surface — speech language follows the UI language.
+  const voice = useVoiceInput(speechRecognitionLang(lang), {
+    continuous: false,
+    onFinal: (text) => setChatInput(text.trim()),
+  });
+  useEffect(() => {
+    if (voice.transcript) setChatInput(voice.transcript);
+  }, [voice.transcript]);
 
   const handleChatSend = async () => {
     if (!chatInput.trim() || chatSending) return;
@@ -168,7 +181,7 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
           <div className="sh-ai-chat-input-row">
             <input
               type="text"
-              placeholder="Ask anything…"
+              placeholder={t('askPlaceholder')}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => {
@@ -177,6 +190,15 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
               disabled={chatSending}
             />
             <button
+              className={`sh-ai-chat-mic ${voice.listening ? 'sh-ai-chat-mic-listening' : ''}`}
+              onClick={() => (voice.listening ? voice.stop() : (voice.reset(), voice.start()))}
+              disabled={chatSending}
+              aria-label={voice.listening ? t('stopRecording') : t('voiceInput')}
+              title={voice.listening ? t('stopRecording') : t('voiceInput')}
+            >
+              <IconMicrophone size={14} />
+            </button>
+            <button
               className="sh-ai-chat-send"
               onClick={handleChatSend}
               disabled={!chatInput.trim() || chatSending}
@@ -184,6 +206,9 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
               {chatSending ? '…' : '→'}
             </button>
           </div>
+          {voice.error && (
+            <p className="sh-ai-chat-error" role="alert">{t(voice.error)}</p>
+          )}
         </div>
       )}
 
@@ -348,6 +373,39 @@ export function AIResidentPanel({ initialMode = 'ambient', objectContext, sugges
   font-size: var(--shunya-text-sm, 12px);
   cursor: pointer;
   transition: opacity var(--shunya-duration-fast, 200ms);
+}
+.sh-ai-chat-mic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--shunya-border, rgba(26,28,29,0.12));
+  border-radius: var(--shunya-radius-sm, 8px);
+  background: transparent;
+  color: var(--shunya-text-tertiary, rgba(26,28,29,0.55));
+  cursor: pointer;
+  transition: all var(--shunya-duration-fast, 200ms);
+  flex-shrink: 0;
+}
+.sh-ai-chat-mic:hover:not(:disabled) {
+  border-color: var(--shunya-gold, #A4865F);
+  color: var(--shunya-text, #1A1C1D);
+}
+.sh-ai-chat-mic-listening {
+  border-color: #c0392b;
+  background: rgba(192, 57, 43, 0.08);
+  color: #c0392b;
+  animation: sh-mic-pulse 1.4s ease-in-out infinite;
+}
+@keyframes sh-mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.25); }
+  50% { box-shadow: 0 0 0 5px rgba(192, 57, 43, 0); }
+}
+.sh-ai-chat-mic:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 .sh-ai-chat-send:disabled {
   opacity: 0.4;

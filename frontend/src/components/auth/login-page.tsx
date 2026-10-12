@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import { SessionManager, type Session } from '../../api/session';
 import { authStyles } from './auth-styles';
+import { LanguageSwitcher, useI18n } from '../../lib/i18n';
 
 interface Props {
   onLogin: (session: Session) => void;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function LoginPage({ onLogin, onSignUp }: Props) {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<'intro' | 'form' | 'loading' | 'error'>('intro');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -64,13 +66,16 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
 
   return (
     <div className="sh-cinematic">
+      <div className="sh-lang-top">
+        <LanguageSwitcher size="md" />
+      </div>
       {phase === 'intro' && (
         <div className="sh-intro" onClick={handleSkipIntro}>
           <div className="sh-intro-dot" aria-hidden="true" />
           <div className="sh-intro-zero">शून्य</div>
           {showSub && <div className="sh-intro-sub fade-in">SHUNYA</div>}
           {showTagline && <div className="sh-intro-tagline fade-in">Infinite Intelligence. Zero Noise.</div>}
-          <div className="sh-intro-skip">Tap to continue</div>
+          <div className="sh-intro-skip">{t('tapToContinue')}</div>
         </div>
       )}
 
@@ -84,39 +89,39 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
             </div>
             <form className="sh-auth-form" onSubmit={handleSubmit} role="main" aria-label="Sign in">
               <div className="sh-auth-field">
-                <label htmlFor="email">Email</label>
+                <label htmlFor="email">{t('email')}</label>
                 <input id="email" type="email" value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@company.com" autoFocus
                   disabled={phase === 'loading'} />
               </div>
               <div className="sh-auth-field">
-                <label htmlFor="password">Password</label>
+                <label htmlFor="password">{t('password')}</label>
                 <input id="password" type="password" value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={t('password')}
                   disabled={phase === 'loading'} />
               </div>
               {phase === 'error' && <div className="sh-auth-error" role="alert">{errorMsg}</div>}
               <button className="sh-auth-btn" type="submit"
                 disabled={phase === 'loading' || !email.trim() || !password.trim()}>
-                {phase === 'loading' ? 'Signing in\u2026' : 'Sign In'}
+                {phase === 'loading' ? t('signInLoading') : t('signIn')}
               </button>
             </form>
             <div className="sh-auth-footer">
               <span onClick={() => window.location.href = '/auth/forgot-password'} className="sh-auth-link">
-                Forgot password?
+                {t('forgotPassword')}
               </span>
               {onSignUp && (
                 <>
                   <span style={{margin: '0 8px', color: 'var(--shunya-border, rgba(26,28,29,0.07))'}}>·</span>
-                  <span onClick={onSignUp} className="sh-auth-link">Create account</span>
+                  <span onClick={onSignUp} className="sh-auth-link">{t('createAccount')}</span>
                 </>
               )}
             </div>
 
             {/* ── OAuth Login ── */}
-            <div className="sh-auth-divider">OR</div>
+            <div className="sh-auth-divider">{t('or')}</div>
             <div className="sh-auth-oauth">
               <button
                 className="sh-auth-btn-oauth sh-auth-btn-oauth--google"
@@ -156,6 +161,12 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
   background: var(--shunya-bg, #FBF8F5);
   color: var(--shunya-text, #1A1C1D);
   font-family: var(--shunya-font-body, 'Inter', sans-serif);
+}
+.sh-lang-top {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 10;
 }
 .sh-intro {
   text-align: center; cursor: pointer; padding: 40px;

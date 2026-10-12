@@ -207,71 +207,6 @@ def living_spa_shell():
     """Serve the SPA shell for the LX-01 Living Workspace."""
     return _serve_spa_shell()
 
-    s = get_summary("today")
-    recent = Lead.query.order_by(Lead.created_at.desc()).limit(8).all()
-    # Companion greeting
-    companion_greeting = "Hey! Ready to make today productive? 🚀"
-    ai_insight = "Your team is active. Your pipeline is moving. Let's make today count."
-    ai_tip = "Your team's conversion rate improves when leads get first response within 5 minutes. Consider assigning a dedicated intake agent."
-    companion_suggestions_data = [
-        {"icon": "📋", "text": "Review pending leads", "action": "/leads"},
-        {"icon": "💰", "text": "Check payments", "action": "/payments"},
-        {"icon": "📊", "text": "View reports", "action": "/reports"},
-    ]
-    try:
-        from app.companion import CompanionEngine
-        c = CompanionEngine()
-        if g.user:
-            companion_greeting = c.greet(g.user.name).get("text", companion_greeting)
-            companion_suggestions_data = c.companion_suggestions(role=g.user.role)
-    except Exception:
-        pass
-    from app.models import ActivityLog
-    activities = ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(10).all()
-    
-    # Business-type adaptive data
-    from app.ontology import registry
-    business_type = "travel"  # Tenant-configured
-    ontology = registry.get(business_type)
-    lead_counts = {"new": 0, "active": 0, "won": 0}
-    for l in recent:
-        status = l.status or "new"
-        if status in ("new", "inquiry", "application"): lead_counts["new"] += 1
-        elif status in ("in_progress", "proposal", "negotiation", "active", "enrolled"): lead_counts["active"] += 1
-        elif status in ("converted", "booked", "completed", "graduated", "won"): lead_counts["won"] += 1
-    quick_actions = [{"icon": m.icon, "label": m.label, "route": m.route} for m in ontology.modules if m.enabled][:4]
-    
-    return render_template("dashboard.html", summary=s, recent=recent,
-                           greeting={
-                               "greeting": companion_greeting,
-                               "message": ai_insight,
-                               "suggestions": companion_suggestions_data,
-                               "reasoning_trace": None,
-                           },
-                           ai_insight=ai_insight, ai_tip=ai_tip,
-                           journey={
-                               "stages": [
-                                   {"stage": type("obj", (), {"value": "lead"}), "count": len(recent), "next_entity_type": "lead", "next_action": "Create Quote"},
-                                   {"stage": type("obj", (), {"value": "quote"}), "count": 0, "next_entity_type": "lead", "next_action": "Create Booking"},
-                                   {"stage": type("obj", (), {"value": "booking"}), "count": 0, "next_entity_type": "booking", "next_action": "Start Trip"},
-                                   {"stage": type("obj", (), {"value": "payment"}), "count": 0, "next_entity_type": "payment", "next_action": "Record Payment"},
-                                   {"stage": type("obj", (), {"value": "trip"}), "count": 0, "next_entity_type": "trip", "next_action": "Collect Feedback"},
-                                   {"stage": type("obj", (), {"value": "feedback"}), "count": 0, "next_entity_type": "feedback", "next_action": "Retention"},
-                                   {"stage": type("obj", (), {"value": "retention"}), "count": 0, "next_entity_type": "feedback", "next_action": "Campaign"},
-                               ],
-                               "current_focus": "conversion" if lead_counts.get("new", 0) > 0 else None,
-                               "total_active": lead_counts.get("new", 0),
-                           },
-                           vertical_metrics=[],
-                           def_counts={"lead": {"icon": "📋", "label": "Leads", "count": len(recent)}},
-                           next_actions=[],
-                           recent_activities=activities,
-                           tenant=None,
-                           companion_suggestions=companion_suggestions_data,
-                           activities=activities, ontology=ontology,
-                           lead_counts=lead_counts, quick_actions=quick_actions,
-                           recent_items=[{"name": l.customer_name, "detail": l.destination, "date": l.created_at.strftime('%d %b') if l.created_at else ''} for l in recent],)
-
 
 @main.route("/welcome")
 @login_required
@@ -286,21 +221,7 @@ def welcome():
         {"value": "₹45K", "label": "Revenue"},
         {"value": "6", "label": "Team Online"},
     ]
-    return render_template("welcome.html",
-        greeting=welcome_data["text"],
-        message="Your team is ready. Your pipeline is active. Let's make today count.",
-        voice_text=welcome_data["voice_text"],
-        stats=stats,
-        company_name="SHUNYA",
-        company_emoji="🏝️",
-        bg_color="#0f172a",
-        sidebar_bg="#1e293b",
-        primary_color="#2563eb",
-        accent_color="#7c3aed",
-        logo_style="circle",
-        logo_path="",
-        cta_text="Start Your Day",
-    )
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 # ---------------------------------------------------------------------------
@@ -311,8 +232,8 @@ def welcome():
 @main.route("/calendar")
 @login_required
 def calendar_view():
-    """Full-page calendar view showing trips, tasks, and events."""
-    return render_template("calendar.html")
+    """Full-page calendar view — SPA shell; the React SPA renders the calendar."""
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @api.route("/calendar/events")
@@ -371,38 +292,13 @@ def lead_new():
             _log_activity(obj.id, "created", f"Lead created via {obj.source}")
         return redirect(url_for("main.leads_list"))
     code = _cached_or_new_code(db.session)
-    return render_template("lead_form.html", code=code, lead=None)
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @main.route("/leads/<int:lead_id>")
 @login_required
 def lead_detail(lead_id):
-    lead = Lead.query.get_or_404(lead_id)
-    activities = lead.activities.order_by(Lead.activities.property.mapper.class_.created_at.desc()).limit(50).all()
-
-    # AI Coach insights
-    from app.coach import CoachEngine
-    coach = CoachEngine()
-    coach_insights = coach.get_insights({
-        "action": "lead_view",
-        "customer": {
-            "budget": str(lead.budget or 0),
-            "first_time_traveler": not bool(lead.destination and lead.destination.strip()),
-            "has_children": "kids" in (lead.pax or "").lower() or "child" in (lead.pax or "").lower(),
-        }
-    }, skill_level="new")
-
-    # Dynamic field values
-    try:
-        from app.dynamic_fields import DynamicFieldManager
-        dyn_fields = DynamicFieldManager.get_fields("lead")
-        dyn_values = DynamicFieldManager.get_values(lead_id, entity="lead")
-    except Exception:
-        dyn_fields = []
-        dyn_values = {}
-
-    return render_template("lead_detail.html", lead=lead, activities=activities,
-                           coach_insights=coach_insights, dyn_fields=dyn_fields, dyn_values=dyn_values)
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @main.route("/leads/<int:lead_id>/status", methods=["POST"])
@@ -649,8 +545,8 @@ def api_list_outcomes():
 @main.route("/leads/<int:lead_id>/edit", methods=["GET", "POST"])
 @login_required
 def lead_edit(lead_id):
-    lead = Lead.query.get_or_404(lead_id)
     if request.method == "POST":
+        lead = Lead.query.get_or_404(lead_id)
         f = request.form
         for attr in ("customer_name", "phone", "email", "destination", "pax",
                      "dates", "notes", "source", "assigned_to"):
@@ -664,7 +560,7 @@ def lead_edit(lead_id):
         _log_activity(lead_id, "updated", "Lead details updated")
         flash("Lead updated", "success")
         return redirect(url_for("main.lead_detail", lead_id=lead_id))
-    return render_template("lead_form.html", lead=lead, editing=True)
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @main.route("/itineraries")
@@ -712,9 +608,7 @@ def itinerary_builder():
                     "accommodation": day.accommodation or "",
                 })
 
-    return render_template("itinerary_builder.html", leads=leads,
-                           selected_lead=selected_lead, plan_days=plan_days,
-                           total_cost=total_cost, plan_name=plan_name)
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @main.route("/leads/<int:lead_id>/delete", methods=["POST"])
@@ -734,31 +628,8 @@ def lead_delete(lead_id):
 @main.route("/payments", methods=["GET", "POST"])
 @login_required
 def payments():
-    if request.method == "POST":
-        f = request.form
-        p = Payment(
-            lead_id=int(f["lead_id"]) if f.get("lead_id") else None,
-            type=f.get("type", "guest_payment"),
-            amount=float(f.get("amount") or 0),
-            method=f.get("method"),
-            ref_number=f.get("ref_number"),
-            notes=f.get("notes"),
-        )
-        obj = _flash_if_error(p)
-        if obj and obj.lead_id:
-            type_label = "Guest payment" if p.type == "guest_payment" else "Supplier payment"
-            _log_activity(obj.lead_id, "payment_received", f"{type_label}: ₹{p.amount:.0f}")
-            # Auto-celebrate
-            try:
-                from app.celebrations import CelebrationEngine
-                ce = CelebrationEngine()
-                ce.celebrate_payment(obj.lead_id, float(p.amount), user=getattr(g, "user", ""))
-            except Exception:
-                pass
-        return redirect(url_for("main.payments"))
-    payments = Payment.query.order_by(Payment.paid_at.desc()).limit(200).all()
-    leads = Lead.query.order_by(Lead.created_at.desc()).limit(300).all()
-    return render_template("payments.html", payments=payments, leads=leads)
+    # Legacy Payment model removed — the SPA handles payment workflows via API.
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @main.route("/payments/<int:payment_id>/delete", methods=["POST"])
@@ -984,46 +855,8 @@ def payment_receipt(payment_id):
 @main.route("/invoices", methods=["GET", "POST"])
 @login_required
 def invoices():
-    if request.method == "POST":
-        f = request.form
-        total = float(f.get("total_amount") or 0)
-        tax = float(f.get("tax") or 0)
-        discount = float(f.get("discount") or 0)
-        grand_total = total + tax - discount
-        inv = Invoice(
-            lead_id=int(f.get("lead_id")) if f.get("lead_id") else None,
-            invoice_number=f.get("invoice_number"),
-            total_amount=total,
-            tax=tax,
-            tax_rate=float(f.get("tax_rate") or 0),
-            discount=discount,
-            grand_total=grand_total,
-            status=f.get("status", "draft"),
-            currency=f.get("currency", "INR"),
-        )
-        try:
-            due = f.get("due_date")
-            if due:
-                inv.due_date = datetime.strptime(due, "%Y-%m-%d").date()
-        except (ValueError, TypeError):
-            pass
-        db.session.add(inv)
-        db.session.commit()
-        try:
-            os.makedirs("invoices", exist_ok=True)
-            inv.pdf_path = os.path.join("invoices", f"{inv.id}_{inv.invoice_number}.pdf")
-            _generate_invoice_pdf(inv.id, inv.pdf_path)
-            db.session.commit()
-            flash(f"Invoice {inv.invoice_number} created with PDF", "success")
-        except Exception as e:
-            flash(f"Invoice saved but PDF failed: {e}", "error")
-        if inv.lead_id:
-            _log_activity(inv.lead_id, "invoice_created",
-                          f"Inv #{inv.invoice_number} ₹{inv.grand_total:.0f}")
-        return redirect(url_for("main.invoices"))
-    invoices = Invoice.query.order_by(Invoice.raised_at.desc()).limit(200).all()
-    leads = Lead.query.order_by(Lead.created_at.desc()).limit(300).all()
-    return render_template("invoices.html", invoices=invoices, leads=leads)
+    # Legacy Invoice model removed — the SPA handles invoicing via API.
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @main.route("/invoices/<int:invoice_id>/pdf")
@@ -1066,7 +899,7 @@ def reports():
         .all()
     )
 
-    return render_template("reports.html", dest_counts=dest_counts, year=current_year)
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 # ---------------------------------------------------------------------------
@@ -1115,18 +948,7 @@ def tasks_list():
         {"icon": "💰", "text": "Check payments", "action": "/payments"},
     ]
 
-    return render_template("tasks.html",
-                           lists_data=lists_data,
-                           selected_list=selected_list,
-                           tasks=tasks,
-                           total_count=total_count,
-                           done_count=done_count,
-                           pending_count=pending_count,
-                           progress_pct=progress_pct,
-                           stats=stats,
-                           today=date.today(),
-                           companion_greeting=companion_greeting,
-                           companion_suggestions=companion_suggestions)
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @main.route("/tasks/create", methods=["POST"])
@@ -1278,7 +1100,7 @@ def settings():
         _flash_if_error(s)
         return redirect(url_for("main.settings"))
     suppliers = Supplier.query.order_by(Supplier.created_at.desc()).limit(200).all()
-    return render_template("settings.html", suppliers=suppliers)
+    return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")
 
 
 @main.route("/settings/fields/add", methods=["POST"])
@@ -2155,6 +1977,7 @@ SPA_INDEX = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist", "i
 @main.route("/pipeline")
 @main.route("/settings")
 @main.route("/itineraries")
+@main.route("/dashboard")
 def _legacy_spa_fallback(**kwargs):
     """Serve the SPA for legacy routes — eliminates module switching."""
     return send_from_directory(os.path.dirname(SPA_INDEX), "index.html")

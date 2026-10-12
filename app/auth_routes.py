@@ -9,13 +9,16 @@ import functools
 import os
 import secrets
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g, jsonify, send_from_directory
 from app import db, limiter
 from app.auth import TeamMember, UserRole, AuthLayer, PasswordResetToken
 from app.models import Person
 
 auth_bp = Blueprint("auth", __name__)
 auth = AuthLayer()
+
+# Canonical frontend is the React SPA — legacy Jinja shells are replaced by it.
+_SPA_INDEX = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist", "index.html")
 
 
 def _ensure_person_for_team_member(tm: TeamMember):
@@ -315,7 +318,7 @@ def logout():
 @admin_required
 def team_list():
     members = TeamMember.query.order_by(TeamMember.role, TeamMember.name).all()
-    return render_template("team.html", members=members, roles=UserRole)
+    return send_from_directory(os.path.dirname(_SPA_INDEX), "index.html")
 
 
 @auth_bp.route("/team/add", methods=["POST"])
@@ -656,9 +659,8 @@ def api_reset_password():
 @auth_bp.route("/gmail/connect", methods=["GET"])
 @login_required
 def gmail_connect_page():
-    """Render Gmail OAuth connection page."""
-    from flask import render_template
-    return render_template("gmail_connect.html")
+    """Gmail OAuth connection — served by the SPA shell (SPA owns the UI)."""
+    return send_from_directory(os.path.dirname(_SPA_INDEX), "index.html")
 
 
 @auth_bp.route("/gmail/oauth/initiate", methods=["POST"])

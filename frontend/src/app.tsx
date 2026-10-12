@@ -8,6 +8,7 @@ import { Signup } from './components/auth/signup';
 import { InvitationAccept } from './components/auth/invitation-accept';
 import { VerifyEmail } from './components/auth/verify-email';
 import { HomePage } from './components/public/homepage';
+import { LanguageProvider } from './lib/i18n';
 import { registerAllRuntimes } from './runtimes/registration';
 import { orchestrator } from './runtimes/orchestrator';
 import { ModuleRegistry } from './runtimes/module-registry';
@@ -581,4 +582,10 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export function App() { return <AppShell />; }
+export function App() {
+  return (
+    <LanguageProvider>
+      <AppShell />
+    </LanguageProvider>
+  );
+}

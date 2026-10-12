@@ -25,6 +25,9 @@ import { useActiveWorkspace } from '../../hooks/workspace-hooks';
 import { subscribeSSE } from '../../runtimes/sse-runtime';
 import { OperatingContextSelector } from '../workspace/context-selector';
 import { useActiveContext } from '../../hooks/use-active-context';
+import { useVoiceInput, type VoiceErrorKey } from '../../hooks/use-voice-input';
+import { useI18n, speechRecognitionLang, LanguageSwitcher } from '../../lib/i18n';
+import { UniversalSearchBar } from '../search/universal-search-bar';
 import { HomePage } from '../home/home-page';
 import { AIResidentPanel } from '../ui/ai-resident-panel';
 import { LivingPresence } from '../living-workspace/living-presence';
@@ -135,6 +138,7 @@ const ORGANIZATIONAL_DOMAINS: Domain[] = [
 // ═══════════════════════════════════════════════════════════════════
 
 function OrganizationalOrientation({ collapsed, onToggle, onOpenShortcuts }: { collapsed: boolean; onToggle: () => void; onOpenShortcuts: () => void }) {
+  const { t } = useI18n();
   const handleHomeClick = useCallback(() => {
     useWorkspaceStore.getState().open('Home', 'home');
   }, []);
@@ -155,8 +159,8 @@ function OrganizationalOrientation({ collapsed, onToggle, onOpenShortcuts }: { c
       aria-label="Organizational orientation"
     >
       <div className="pw-org-header">
-        <span className="pw-org-title">Home</span>
-        <button className="pw-org-toggle" onClick={onToggle} aria-label={collapsed ? 'Expand' : 'Collapse'}>
+        <span className="pw-org-title">{t('home')}</span>
+        <button className="pw-org-toggle" onClick={onToggle} aria-label={collapsed ? t('expand') : t('collapse')}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <polyline points={collapsed ? '9 4 5 7 9 10' : '5 4 9 7 5 10'} />
           </svg>
@@ -166,14 +170,14 @@ function OrganizationalOrientation({ collapsed, onToggle, onOpenShortcuts }: { c
         <button
           className="pw-org-home"
           onClick={handleHomeClick}
-          title="Return to the SHUNYA Home operating surface"
+          title={t('home')}
         >
           <span className="pw-org-home-icon"><IconHome size={16} /></span>
-          <span className="pw-org-home-label">Home</span>
+          <span className="pw-org-home-label">{t('home')}</span>
         </button>
       </div>
       <div className="pw-org-domains">
-        <p className="pw-org-hint">What's in your organization</p>
+        <p className="pw-org-hint">{t('whatsInOrg')}</p>
         {ORGANIZATIONAL_DOMAINS.map((domain) => (
           <button
             key={domain.id}
@@ -190,7 +194,7 @@ function OrganizationalOrientation({ collapsed, onToggle, onOpenShortcuts }: { c
         ))}
       </div>
       <div className="pw-org-tools">
-        <p className="pw-org-hint">Tools & Help</p>
+        <p className="pw-org-hint">{t('toolsAndHelp')}</p>
         <button className="pw-org-domain" onClick={() => useWorkspaceStore.getState().open('Analytics', 'analytics')} title="System analytics and dashboards">
           <span className="pw-org-domain-icon"><IconChartBar size={16} /></span>
           <span className="pw-org-domain-label">Analytics</span>
@@ -208,7 +212,7 @@ function OrganizationalOrientation({ collapsed, onToggle, onOpenShortcuts }: { c
           <span className="pw-org-domain-label">Shortcuts</span>
         </button>
       </div>
-      <p className="pw-org-footer">Ask SHUNYA or click to explore any area</p>
+      <p className="pw-org-footer">{t('orgFooter')}</p>
       <div className="pw-org-presence">
         <LivingPresence />
       </div>
@@ -523,114 +527,78 @@ function WorkVisibility() {
 
 // ═══════════════════════════════════════════════════════════════════
 // 8. VOICE INPUT — Draft/correction experience
+//    (SpeechRecognition logic now lives in the shared hook
+//     src/hooks/use-voice-input.ts — fixed for duplicate-text, stop,
+//     error handling, and language selection. The hook's `error` is a
+//     stable i18n key, translated here via t().)
 // ═══════════════════════════════════════════════════════════════════
-
-// Check if SpeechRecognition is available
-const HAS_SPEECH = typeof window !== 'undefined' && (
-  'SpeechRecognition' in window || 'webkitSpeechRecognition' in window
-);
 
 const HAS_TTS = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
 // ── TTS Output ──────────────────────────────────────────────
-function speakText(text: string) {
+function speakText(text: string, lang?: LangCodeParam) {
   if (!HAS_TTS) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 1.0;
   utterance.pitch = 1.0;
   utterance.volume = 1.0;
-  // Pick a voice
+  // Pick a voice matching the UI language when possible
   const voices = window.speechSynthesis.getVoices();
-  const preferred = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google')) || voices[0];
+  const speechLang = lang ? speechRecognitionLang(lang) : 'en-US';
+  const preferred =
+    voices.find((v) => speechLang && v.lang.replace('_', '-').toLowerCase().startsWith(speechLang.split('-')[0].toLowerCase())) ||
+    voices.find((v) => v.lang.startsWith('en') && v.name.includes('Google')) ||
+    voices[0];
   if (preferred) utterance.voice = preferred;
   window.speechSynthesis.speak(utterance);
 }
 
-function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) {
-  const [listening, setListening] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const recognitionRef = useRef<any>(null);
-  const clearErrorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+type LangCodeParam = 'en' | 'hi' | 'hinglish' | 'auto';
 
-  const showError = (_kind: 'unsupported' | 'permission' | 'generic', msg: string) => {
-    setError(msg);
-    // Auto-clear after 6s so the error doesn't become permanent on screen
-    if (clearErrorTimer.current) clearTimeout(clearErrorTimer.current);
-    clearErrorTimer.current = setTimeout(() => {
-      setError(null);
-    }, 6000);
-  };
+function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) {
+  const { t, lang } = useI18n();
+  const [draft, setDraft] = useState('');
+  // Continuous dictation: the hook commits ONLY final segments, so stopping
+  // never re-appends the last utterance (the duplicate-text bug). Interim is
+  // display-only and shown separately below the draft.
+  const { supported, listening, transcript, interim, error, start, stop, reset } =
+    useVoiceInput(speechRecognitionLang(lang), { continuous: true });
+
+  // Mirror committed finals into the editable draft.
+  useEffect(() => {
+    setDraft(transcript);
+  }, [transcript]);
 
   const toggleListening = useCallback(() => {
     if (listening) {
-      recognitionRef.current?.stop();
-      setListening(false);
+      stop();
       return;
     }
-    if (!HAS_SPEECH) {
-      showError('unsupported', 'Voice input is not supported in this browser.');
-      return;
-    }
-    setError(null);
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (event: any) => {
-      let final = '';
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) final += transcript;
-        else interim += transcript;
-      }
-      setDraft((prev) => prev + final + (interim ? ` (${interim}…)` : ''));
-    };
-
-    recognition.onerror = (event: any) => {
-      const code = event.error;
-      if (code === 'not-allowed' || code === 'service-not-allowed') {
-        showError('permission', 'Microphone permission is required for voice input. Click the audio icon in your browser address bar to allow access.');
-      } else if (code === 'audio-capture') {
-        showError('permission', 'No microphone detected. Connect a microphone and try again.');
-      } else if (code === 'network') {
-        showError('generic', 'Voice recognition requires a network connection. Check your connection and try again.');
-      } else if (code === 'aborted') {
-        // User cancelled — not an error
-        return;
-      } else {
-        showError('generic', `Voice input unavailable (${code}).`);
-      }
-      setListening(false);
-    };
-
-    recognition.onend = () => setListening(false);
-    recognition.start();
-    recognitionRef.current = recognition;
-    setListening(true);
-  }, [listening]);
+    reset();
+    start();
+  }, [listening, start, stop, reset]);
 
   const handleSubmit = () => {
     if (!draft.trim()) return;
     onTranscript(draft.trim());
     setDraft('');
+    reset();
   };
 
   const handleCorrect = (text: string) => {
     setDraft(text);
   };
 
+  const voiceError = error as VoiceErrorKey | null;
+
   return (
     <div className="pw-voice">
       <button
         className={`pw-voice-btn ${listening ? 'pw-voice-listening' : ''}`}
         onClick={toggleListening}
-        aria-label={listening ? 'Stop recording' : 'Start voice input'}
-        title={listening ? 'Stop recording' : 'Voice input'}
+        aria-label={listening ? t('stopRecording') : t('voiceInput')}
+        title={listening ? t('stopRecording') : t('voiceInput')}
       >
         {listening ? <IconCircle size={18} /> : <IconMicrophone size={18} />}
       </button>
@@ -646,21 +614,23 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
               className="pw-voice-textarea"
               value={draft}
               onChange={(e) => handleCorrect(e.target.value)}
-              placeholder="Your speech will appear here. You can edit it or correct by voice."
+              placeholder={t('draftPlaceholder')}
               rows={3}
-                          />
-                          <div className="pw-voice-actions">
-                            <button className="pw-voice-submit" onClick={handleSubmit}>Submit</button>
-                            <button className="pw-voice-clear" onClick={() => setDraft('')}>Clear</button>
-                            {HAS_TTS && draft.trim() && (
-                              <button className="pw-voice-tts" onClick={() => speakText(draft)} title="Preview aloud"><IconVolume size={16} /></button>
-                            )}
-                            {listening && <span className="pw-voice-recording">Recording… speak now</span>}
+            />
+            {listening && interim && <p className="pw-voice-interim">{interim}…</p>}
+            <div className="pw-voice-actions">
+              <button className="pw-voice-submit" onClick={handleSubmit}>{t('submit')}</button>
+              <button className="pw-voice-clear" onClick={() => { setDraft(''); reset(); }}>{t('clear')}</button>
+              {HAS_TTS && draft.trim() && (
+                <button className="pw-voice-tts" onClick={() => speakText(draft, lang)} title="Preview aloud"><IconVolume size={16} /></button>
+              )}
+              {listening && <span className="pw-voice-recording">{t('recording')}</span>}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-      {error && <p className="pw-voice-error">{error}</p>}
+      {voiceError && <p className="pw-voice-error" role="alert">{t(voiceError)}</p>}
+      {!supported && !voiceError && <p className="pw-voice-error">{t('voiceUnsupported')}</p>}
     </div>
   );
 }
@@ -670,6 +640,7 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
 // ═══════════════════════════════════════════════════════════════════
 
 function IntegratedCommand() {
+  const { t } = useI18n();
   const commandOpen = useLivingStore((s) => s.commandOpen);
   const setCommandOpen = useLivingStore((s) => s.setCommandOpen);
   const activeExecutions = useLivingStore((s) => s.activeExecutions);
@@ -734,7 +705,7 @@ function IntegratedCommand() {
                 ref={inputRef}
                 type="text"
                 className="pw-command-input"
-                placeholder="Ask SHUNYA or type a command…"
+                placeholder={t('askShunya')}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -764,7 +735,7 @@ function IntegratedCommand() {
                   ? `${activeExecutions.length} action${activeExecutions.length > 1 ? 's' : ''} in progress`
                   : observations.length > 0
                   ? `${observations.length} thing${observations.length > 1 ? 's' : ''} to discuss`
-                  : 'Ask SHUNYA or type a command…'}
+                  : t('askShunya')}
               </span>
               <span className="pw-command-kbd">⌘K</span>
             </button>
@@ -862,12 +833,16 @@ function PrimaryFocusArea() {
           <span className="pw-focus-brand-icon">शून्य</span>
           <span className="pw-focus-brand-label">SHUNYA</span>
         </div>
+        <div className="pw-focus-search">
+          <UniversalSearchBar />
+        </div>
         <OperatingContextSelector
           currentOrgId={currentOrgId}
           onSwitchContext={(orgId) => useActiveContext.getState().switchContext(orgId)}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="pw-focus-actions">
           <LivingPresence />
+          <LanguageSwitcher size="md" />
           {/* Workspace Settings gear */}
           <button
             className="pw-focus-settings-btn"
@@ -1400,6 +1375,22 @@ styles.textContent = `
   align-items: center;
   justify-content: space-between;
   padding-bottom: 28px;
+}
+.pw-focus-search {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 16px;
+}
+.pw-focus-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+@media (max-width: 1160px) {
+  .pw-focus-search { display: none; }
 }
 .pw-focus-brand {
   display: flex;
@@ -1937,6 +1928,13 @@ styles.textContent = `
 }
 .pw-voice-textarea:focus {
   border-color: var(--shunya-gold, #a4865f);
+}
+.pw-voice-interim {
+  font-size: 11px;
+  color: rgba(26,28,29,0.55);
+  font-style: italic;
+  margin: 6px 0 0;
+  min-height: 14px;
 }
 .pw-voice-actions {
   display: flex;

@@ -172,7 +172,38 @@ class AssetIntelligenceRuntime:
                 "asset.utilization", "asset.maintenance", "asset.risks", "asset.reality_integration"]
 
     def notify(self, notification: dict[str, Any]) -> None:
-        pass  # Placeholder for Reality integration
+        """Emit a canonical asset_intelligence notification event.
+
+        Publishes to the canonical EventBus (app.shunya.infrastructure.event_bus)
+        and forwards to registered reality listeners. If the bus is unavailable,
+        logs a structured warning — never silently drops the notification.
+        """
+        event = {
+            "type": "asset_intelligence_notification",
+            "payload": dict(notification or {}),
+        }
+        try:
+            from app.shunya.infrastructure.event_bus import CanonicalEvent, get_event_bus
+            bus = get_event_bus()
+            evt = CanonicalEvent(
+                event_type="asset_intelligence.notification",
+                actor_type="engine",
+                actor_name="asset_intelligence",
+                object_type="asset",
+                payload=event["payload"],
+            )
+            bus.publish(evt)
+            logger.debug("asset_intelligence notify published event %s", evt.event_id)
+        except Exception as exc:
+            logger.warning(
+                "asset_intelligence notify: event bus unavailable (%s); "
+                "notification type=%s payload=%s",
+                exc, event["type"], event["payload"],
+            )
+        try:
+            self._notify(event)
+        except Exception as exc:
+            logger.warning("asset_intelligence notify: reality listener failed: %s", exc)
 
     def _notify(self, n: dict) -> None:
         for l in self._reality_listeners:

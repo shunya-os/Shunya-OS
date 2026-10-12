@@ -308,6 +308,7 @@ class MigrationEngine:
                 started_at=report.started_at,
                 total=len(source_rows),
             )
+            inserted_records: list[MigrationRecord] = []
 
             for row in source_rows:
                 identity_hash = plan.identity_fn(row)
@@ -340,8 +341,29 @@ class MigrationEngine:
                 insert_sql = self._build_upsert_sql(plan, target_data)
                 db.session.execute(db.text(insert_sql), target_data)
 
-                # Record to ledger
+                # Record to ledger (persisted in-memory; durable table optional)
+                inserted_records.append(
+                    MigrationRecord(
+                        migration_id="",
+                        batch_id=batch.batch_id,
+                        source_table=plan.source.table_name,
+                        source_pk=plan.source.pk_column,
+                        source_pk_value=str(row.get(plan.source.pk_column, "")),
+                        source_tenant_id=(
+                            row.get(plan.source.tenant_column) if plan.source.tenant_column else None
+                        ),
+                        canonical_table=plan.target.table_name,
+                        canonical_pk_value=target_data.get(
+                            plan.target.pk_column, identity_hash[:32]
+                        ),
+                        target_tenant_id=tenant_id,
+                        identity_hash=identity_hash,
+                        status="committed",
+                    )
+                )
             db.session.commit()
+            for rec in inserted_records:
+                _log_to_ledger(rec)
 
             # Re-fetch to count actual target records
             result = db.session.execute(
@@ -365,15 +387,230 @@ class MigrationEngine:
 
     # ── Reconcile ────────────────────────────────────────────────────
 
-    def reconcile(self, plan: MigrationPlan) -> MigrationReport:
-        """Verify all source records exist in canonical target."""
-        raise NotImplementedError("Reconcile not yet implemented")
+    def reconcile(self, plan: MigrationPlan) -> dict:
+        """Verify all source records exist in the canonical target.
+
+        Compares source vs destination counts for the migration's entity
+        types and returns a real report dict::
+
+            {
+                "entity_type": <canonical target table>,
+                "source_count": <rows in source query>,
+                "destination_count": <rows in target table>,
+                "missing": [identity hashes present in source but not target],
+                "extra": [identity hashes present in target but not source],
+                "status": "ok" | "error",
+            }
+
+        On failure the same shape is returned with ``status="error"`` and the
+        exception message in ``error`` — reconcile never fabricates numbers.
+        """
+        try:
+            source_rows = self._fetch_source(plan)
+            # execute() persists identity_hash[:32] into the canonical target
+            # (see execute() — canonical_pk_value). Compare the same width.
+            src_identities = {plan.identity_fn(row)[:32] for row in source_rows}
+
+            tgt_values = db.session.execute(
+                db.text(
+                    f"SELECT {plan.target.identity_field} FROM {plan.target.table_name}"
+                )
+            ).scalars().all()
+            tgt_identities = {str(v) for v in tgt_values}
+
+            missing = sorted(src_identities - tgt_identities)
+            extra = sorted(tgt_identities - src_identities)
+            report = {
+                "entity_type": plan.target.table_name,
+                "source_count": len(source_rows),
+                "destination_count": len(tgt_identities),
+                "missing": missing,
+                "extra": extra,
+                "status": "ok",
+            }
+            logger.info(
+                "Reconcile %s: source=%d destination=%d missing=%d extra=%d",
+                plan.name,
+                report["source_count"],
+                report["destination_count"],
+                len(missing),
+                len(extra),
+            )
+            return report
+        except Exception as e:
+            logger.warning("Reconcile %s failed: %s", plan.name, e)
+            return {
+                "entity_type": plan.target.table_name,
+                "source_count": 0,
+                "destination_count": 0,
+                "missing": [],
+                "extra": [],
+                "status": "error",
+                "error": str(e),
+            }
 
     # ── Rollback ─────────────────────────────────────────────────────
 
     def rollback(self, plan: MigrationPlan) -> MigrationReport:
-        """Rollback a migration using the ledger."""
-        raise NotImplementedError("Rollback not yet implemented")
+        """Rollback the last completed migration batch using the ledger.
+
+        Migration records are looked up in a durable migration log/audit
+        table when one exists (``data_migration_ledger``, ``migration_ledger``,
+        ``data_migration_log``, ``migration_log``, ``migration_audit``),
+        otherwise in the in-memory ``MIGRATION_LEDGER``. The target rows of
+        the most recent committed batch are deleted and the records are
+        marked ``rolled_back``.
+
+        If no rollback source exists yet, the report carries an honest
+        message instead of raising ``NotImplementedError``.
+        """
+        report = MigrationReport(
+            plan_name=plan.name,
+            operation="rollback",
+            status=MigrationStatus.PENDING,
+            started_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+        try:
+            records, source = self._collect_committed_records(plan)
+
+            if not records:
+                report.status = MigrationStatus.FAILED
+                report.errors.append(
+                    "No rollback mechanism exists yet: no durable migration "
+                    "log/audit table is present and the in-memory migration "
+                    f"ledger holds no committed records for plan '{plan.name}' "
+                    f"(source {plan.source.table_name} → target "
+                    f"{plan.target.table_name}). Persist a migration ledger "
+                    "(e.g. a 'migration_ledger' table populated by execute()) "
+                    "to enable rollback."
+                )
+                report.completed_at = datetime.now(timezone.utc).isoformat()
+                return report
+
+            batch_id = records[0].batch_id
+            deleted = 0
+            for rec in records:
+                result = db.session.execute(
+                    db.text(
+                        f"DELETE FROM {plan.target.table_name} "
+                        f"WHERE {plan.target.pk_column} = :pk"
+                    ),
+                    {"pk": rec.canonical_pk_value},
+                )
+                deleted += result.rowcount or 0
+            db.session.commit()
+
+            now = datetime.now(timezone.utc).isoformat()
+            for rec in records:
+                rec.status = "rolled_back"
+                rec.rolled_back_at = now
+
+            report.records = records
+            report.batch = MigrationBatch(
+                batch_id=batch_id,
+                plan_name=plan.name,
+                started_at=records[0].created_at,
+                completed_at=now,
+                status="rolled_back",
+                total=len(records),
+                success=deleted,
+            )
+            report.status = MigrationStatus.ROLLED_BACK
+            logger.info(
+                "Rolled back batch %s (%s): deleted %d rows from %s",
+                batch_id, source, deleted, plan.target.table_name,
+            )
+        except Exception as e:
+            db.session.rollback()
+            report.status = MigrationStatus.FAILED
+            report.errors.append(str(e))
+
+        report.completed_at = datetime.now(timezone.utc).isoformat()
+        return report
+
+    # ── Rollback support helpers ─────────────────────────────────────
+
+    def _find_migration_log_table(self) -> Optional[str]:
+        """Return the name of a durable migration log/audit table if one exists."""
+        try:
+            from sqlalchemy import inspect as sa_inspect
+            tables = set(sa_inspect(db.engine).get_table_names())
+        except Exception:
+            return None
+        for candidate in (
+            "data_migration_ledger",
+            "migration_ledger",
+            "data_migration_log",
+            "migration_log",
+            "migration_audit",
+        ):
+            if candidate in tables:
+                return candidate
+        return None
+
+    def _collect_committed_records(
+        self, plan: MigrationPlan
+    ) -> tuple[list[MigrationRecord], str]:
+        """Collect committed migration records for *plan* (last batch).
+
+        Prefers a durable migration log/audit table; falls back to the
+        in-memory ``MIGRATION_LEDGER``. Returns ``(records, source)`` where
+        *source* describes where the records came from.
+        """
+        log_table = self._find_migration_log_table()
+        if log_table:
+            try:
+                rows = db.session.execute(
+                    db.text(
+                        f"SELECT * FROM {log_table} "
+                        f"WHERE status = 'committed' "
+                        f"AND source_table = :st AND canonical_table = :ct"
+                    ),
+                    {"st": plan.source.table_name, "ct": plan.target.table_name},
+                ).mappings().all()
+                if rows:
+                    records = [
+                        MigrationRecord(
+                            migration_id=str(r.get("migration_id", "") or ""),
+                            batch_id=str(r.get("batch_id", "") or ""),
+                            source_table=str(r.get("source_table", "") or ""),
+                            source_pk=str(r.get("source_pk", "") or ""),
+                            source_pk_value=str(r.get("source_pk_value", "") or ""),
+                            source_tenant_id=r.get("source_tenant_id"),
+                            canonical_table=str(r.get("canonical_table", "") or ""),
+                            canonical_pk_value=str(r.get("canonical_pk_value", "") or ""),
+                            target_tenant_id=r.get("target_tenant_id"),
+                            identity_hash=str(r.get("identity_hash", "") or ""),
+                            status="committed",
+                        )
+                        for r in rows
+                    ]
+                    records.sort(key=lambda rec: rec.created_at)
+                    batch_id = records[-1].batch_id
+                    return [r for r in records if r.batch_id == batch_id], (
+                        f"migration log table {log_table}"
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Durable migration log read failed (%s) — using in-memory ledger",
+                    exc,
+                )
+
+        committed = [
+            r
+            for r in MIGRATION_LEDGER
+            if r.status == "committed"
+            and r.source_table == plan.source.table_name
+            and r.canonical_table == plan.target.table_name
+        ]
+        if committed:
+            committed.sort(key=lambda rec: rec.created_at)
+            batch_id = committed[-1].batch_id
+            return [r for r in committed if r.batch_id == batch_id], (
+                "in-memory migration ledger"
+            )
+        return [], "no migration log/audit table"
 
     # ── Helpers ──────────────────────────────────────────────────────
 

@@ -485,6 +485,20 @@ def create_app(config_override: dict | None = None):
 
     # ---- Config -----------------------------------------------------------
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-in-production")
+    shunya_env = os.getenv("SHUNYA_ENVIRONMENT", "development")
+    if shunya_env == "production" and (
+        app.config["SECRET_KEY"] == "dev-secret-change-in-production"
+        or len(app.config["SECRET_KEY"]) < 20
+    ):
+        raise RuntimeError(
+            "SECRET_KEY must be set to a strong value (>20 chars) in production. "
+            "Set the SECRET_KEY environment variable."
+        )
+    elif shunya_env != "production" and app.config["SECRET_KEY"] == "dev-secret-change-in-production":
+        import logging
+        logging.getLogger(__name__).warning(
+            "SECRET_KEY is using the default dev value. Set SECRET_KEY in .env for production."
+        )
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
         "DATABASE_URL", "postgresql://shunya:***@localhost:5432/shunya_db"
     )
@@ -853,6 +867,10 @@ def create_app(config_override: dict | None = None):
     # Execution Engine — PROD-06
     from app.execution_engine.routes import execution_bp
     app.register_blueprint(execution_bp)
+    # Execution Log — PROD-06 companion (ExecutionLog model via app.execution_log.models;
+    # blueprint itself defines no routes — registered for completeness/ownership)
+    from app.execution_log import execution_log_bp
+    app.register_blueprint(execution_log_bp)
     # Entity API — PROD-49
     from app.api.entity_routes import entity_bp
     app.register_blueprint(entity_bp)
