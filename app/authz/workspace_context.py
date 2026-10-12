@@ -204,6 +204,59 @@ def resolve_current_workspace(identity_id: str, organization_id: int,
     )
 
 
+def resolve_request_workspace(identity_id: str, requested_organization_id,
+                              candidates) -> str:
+    """Resolve the request workspace, tolerating foreign-namespace candidates.
+
+    The SPA still carries workspace ids minted by the older
+    ``user_workspaces`` namespace (e.g. ``ws_869bef2639f8``) in its session
+    and ``X-Workspace-Id`` header. Those ids can never be a valid selection
+    here, but forwarding them to ``resolve_current_workspace`` as an explicit
+    request made every media/content action fail closed with no canonical
+    workspace context — even for a caller with exactly one authorized
+    workspace (ZG-03 root cause F1).
+
+    Semantics:
+
+    * ``requested_organization_id`` is canonicalized first
+      (``resolve_caller_organization`` tolerates a legacy tenant selection
+      such as the founder's session value 89 → organization 7).
+    * A candidate that does not exist in ``sh_workspaces`` is a foreign-
+      namespace or malformed value: it is SKIPPED — never forwarded, never an
+      error by itself.
+    * The first candidate that IS a canonical workspace id is evaluated
+      strictly by ``resolve_current_workspace``; unauthorized or cross-org
+      selections still fail closed and their errors PROPAGATE.
+    * When no candidate is a canonical id, resolution proceeds exactly as if
+      none had been supplied: a single authorized workspace auto-resolves;
+      anything else raises (fail closed).
+
+    Returns an ``sh_workspaces.id``; raises ``OwnershipContextError`` when
+    the caller has no valid workspace context.
+    """
+    from app.objects.legacy_models import Workspace
+
+    organization_id = resolve_caller_organization(
+        identity_id, requested_organization_id)
+    if not organization_id:
+        raise OwnershipContextError(
+            "no authorized organization context",
+            code="no_active_organization",
+        )
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        value = str(candidate)
+        if Workspace.query.filter_by(id=value).first() is None:
+            continue  # foreign namespace (user_workspaces) / unknown id
+        return resolve_current_workspace(
+            identity_id, organization_id, requested_workspace_id=value)
+
+    return resolve_current_workspace(
+        identity_id, organization_id, requested_workspace_id=None)
+
+
 def assert_object_access(identity_id: str, organization_id: int,
                          workspace_id: str) -> None:
     """Raise unless the identity is authorized for this org+workspace pair.

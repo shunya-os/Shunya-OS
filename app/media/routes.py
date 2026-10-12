@@ -62,24 +62,25 @@ def _workspace_id() -> str:
     Why the header is accepted here: media mutations originate from the SPA,
     which carries its active workspace as ``X-Workspace-Id`` — the same
     canonical carrier used by the object, upload, customer and supplier
-    routes. The value is never trusted directly: it is validated against the
-    canonical membership table below.
+    routes. The SPA may still send ids minted by the older ``user_workspaces``
+    namespace; those can never be valid selections, so they are skipped rather
+    than treated as a request (ZG-03). Every candidate that IS a canonical
+    workspace id is validated strictly against the membership table — nothing
+    is ever trusted directly.
     """
-    explicit = (
-        session.get("workspace_id")
-        or g.get("workspace_id")
-        or request.headers.get("X-Workspace-Id")
-        or ""
+    candidates = (
+        session.get("workspace_id"),
+        g.get("workspace_id"),
+        request.headers.get("X-Workspace-Id"),
     )
     identity_id = _identity_id()
     organization_id = _organization_id()
     if not identity_id or not organization_id:
         return ""
     try:
-        from app.authz.workspace_context import resolve_current_workspace
-        return resolve_current_workspace(
-            identity_id, organization_id,
-            requested_workspace_id=explicit or None,
+        from app.authz.workspace_context import resolve_request_workspace
+        return resolve_request_workspace(
+            identity_id, organization_id, candidates,
         )
     except Exception:
         logger.warning(

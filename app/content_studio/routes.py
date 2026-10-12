@@ -42,12 +42,35 @@ def _organization_id() -> int | None:
 
 
 def _workspace_id() -> str:
-    """Resolve the current workspace ID from session or flask.g."""
-    return (
-        session.get("workspace_id")
-        or g.get("workspace_id")
-        or ""
+    """Canonical workspace context for content writes (ZG-03).
+
+    Delegates to the canonical authority. The SPA may send workspace ids from
+    the older ``user_workspaces`` namespace; those are skipped rather than
+    treated as an explicit request, and every candidate that IS a canonical
+    workspace id is validated strictly. Returns "" when no workspace context
+    resolves — the same tolerance this route had before, with the value now
+    canonical instead of a raw session string.
+    """
+    candidates = (
+        session.get("workspace_id"),
+        g.get("workspace_id"),
+        request.headers.get("X-Workspace-Id"),
     )
+    identity_id = _identity_id()
+    organization_id = _organization_id()
+    if not identity_id or not organization_id:
+        return ""
+    try:
+        from app.authz.workspace_context import resolve_request_workspace
+        return resolve_request_workspace(
+            identity_id, int(organization_id), candidates,
+        )
+    except Exception:
+        logger.warning(
+            "content_studio workspace context resolution failed "
+            "(identity=%s org=%s)", identity_id, organization_id,
+        )
+        return ""
 
 
 def _derive_lifecycle_state(item) -> str:
