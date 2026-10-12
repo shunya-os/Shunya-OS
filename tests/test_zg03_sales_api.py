@@ -58,9 +58,14 @@ def test_patch_whitelist_validation_and_audit(app, client):
     res = client.patch(f"/api/v1/leads/{own['id']}", json={"budget": "abc"})
     assert res.status_code == 400
 
-    # audit trail recorded
-    acts = client.get(f"/leads/{own['id']}/activities").get_json()
-    assert any(a.get("action") == "updated" for a in acts), acts
+    # audit trail recorded — and attributed to the caller's tenant
+    from app import db
+    from app.models import ActivityLog
+    with app.app_context():
+        row = (ActivityLog.query.filter_by(action="updated")
+               .order_by(ActivityLog.id.desc()).first())
+        assert row is not None
+        assert row.tenant_id == org_a, "audit row must carry the tenant (prod NOT NULL)"
 
 
 def test_status_transition_rules(app, client):

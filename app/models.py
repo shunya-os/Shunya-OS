@@ -128,7 +128,8 @@ class Lead(db.Model):
         )
     def log_activity(self, action: str, detail: str = "", user: str = ""):
         """Helper: log an activity entry against this lead."""
-        log = ActivityLog(lead_id=self.id, action=action, detail=detail, user=user)
+        log = ActivityLog(lead_id=self.id, tenant_id=self.tenant_id,
+                          action=action, detail=detail, user=user)
         db.session.add(log)
         db.session.commit()
 
@@ -547,6 +548,10 @@ class ActivityLog(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=False)
+    # Tenant attribution: production's activity_logs carries tenant_id NOT
+    # NULL (enterprise lineage); the model keeps it nullable for legacy rows,
+    # but every writer must set it (ZG-03 B1 — audit inserts 500'd without it).
+    tenant_id = db.Column(db.Integer, nullable=True, index=True)
     action = db.Column(db.String(60), nullable=False)  # created / status_changed / payment_received / note_added / proposal_sent
     detail = db.Column(db.Text, default="")
     user = db.Column(db.String(120), default="")  # who performed the action

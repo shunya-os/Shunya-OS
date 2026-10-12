@@ -173,12 +173,18 @@ def _register_tasks(app):
         return path
 
     @app.task
-    def log_activity_async(lead_id: int, action: str, detail: str, user: str = ""):
+    def log_activity_async(lead_id: int, action: str, detail: str, user: str = "",
+                           tenant_id: int | None = None):
         """Async activity logging — non-blocking audit trail."""
         from app.models import ActivityLog
         from app import db
 
-        log = ActivityLog(lead_id=lead_id, action=action, detail=detail[:500], user=user)
+        if tenant_id is None:
+            from app.models import Lead
+            lead = db.session.get(Lead, lead_id)
+            tenant_id = lead.tenant_id if lead else None
+        log = ActivityLog(lead_id=lead_id, tenant_id=tenant_id,
+                          action=action, detail=detail[:500], user=user)
         db.session.add(log)
         db.session.commit()
         return log.id

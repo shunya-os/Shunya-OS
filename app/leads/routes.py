@@ -118,14 +118,15 @@ def _scoped_lead_or_none(lead_id: int):
     ).first()
 
 
-def _audit(lead_id: int, action: str, detail: str) -> None:
+def _audit(lead_id: int, action: str, detail: str, tenant_id: int | None = None) -> None:
     """Best-effort activity-log entry (the state change itself is committed).
 
     Writes directly rather than through the legacy ``_log_activity`` helper:
     that helper stores ``g.user`` as-is, which can be a TeamMember object —
     not a string — and poisons the session on insert (found by the ZG-03 B1
-    tests). The user is normalized to a string, and a failed audit rolls
-    back so the request session stays usable.
+    tests). The user is normalized to a string, the tenant is set explicitly
+    (production's activity_logs.tenant_id is NOT NULL), and a failed audit
+    rolls back so the request session stays usable.
     """
     try:
         from app.models import ActivityLog
@@ -139,8 +140,9 @@ def _audit(lead_id: int, action: str, detail: str) -> None:
         if not user:
             user = g.get("identity_id") or session.get("identity_id") or ""
 
-        log = ActivityLog(lead_id=lead_id, action=action,
-                          detail=(detail or "")[:500], user=str(user)[:120])
+        log = ActivityLog(lead_id=lead_id, tenant_id=tenant_id,
+                          action=action, detail=(detail or "")[:500],
+                          user=str(user)[:120])
         db.session.add(log)
         db.session.commit()
     except Exception:
@@ -209,7 +211,8 @@ def update_lead(lead_id: int):
         lead.updated_at = datetime.utcnow()
         db.session.commit()
         _audit(lead.id, "updated",
-               "Fields changed: " + ", ".join(sorted(changes)))
+               "Fields changed: " + ", ".join(sorted(changes)),
+               tenant_id=lead.tenant_id)
     return jsonify({"success": True, "lead": _serialize_lead(lead),
                     "changed": sorted(changes)})
 
@@ -248,7 +251,8 @@ def update_lead_status(lead_id: int):
     lead.stage = new_status
     lead.updated_at = datetime.utcnow()
     db.session.commit()
-    _audit(lead.id, "status_changed", f"{previous} → {new_status}")
+    _audit(lead.id, "status_changed", f"{previous} → {new_status}",
+           tenant_id=lead.tenant_id)
     return jsonify({"success": True, "lead_id": lead.id,
                     "status": new_status, "previous": previous})
 
