@@ -105,6 +105,44 @@ def test_create_binds_canonical_org_and_requires_context(app, client):
         assert lead.tenant_id == org_a  # canonical write id, never the body
 
 
+def test_lead_row_carries_tenant_before_flush(app):
+    """The Lead row must carry tenant_id BEFORE its first flush/insert.
+
+    Production's ``leads.tenant_id`` is NOT NULL (migration-constrained); the
+    previous code flushed the row first and assigned the tenant afterwards,
+    which SQLite (nullable column) tolerated and PostgreSQL rejected — every
+    production lead write 500'd even after the entity-definition fix (ZG-03
+    production verification, 2026-10-12). This pins the flush-order invariant
+    by observing the object at ``before_flush`` time.
+    """
+    from sqlalchemy import event
+    from sqlalchemy.orm import Session
+
+    from app import db
+    from app.models import Lead
+    from tests.auth_helper import seed_rbac
+
+    with app.app_context():
+        org = seed_rbac(db, identity_id="sid_zg03_flush")
+        seen = {}
+
+        def _capture(session, flush_context, instances):
+            for obj in session.new:
+                if isinstance(obj, Lead):
+                    seen.setdefault("tenant_at_flush", obj.tenant_id)
+
+        event.listen(Session, "before_flush", _capture)
+        try:
+            from app.crm.service import create_lead_with_identity
+            lead = create_lead_with_identity(
+                tenant_id=org, name="Flush Order", source="test")
+            assert lead.id is not None
+        finally:
+            event.remove(Session, "before_flush", _capture)
+
+        assert seen.get("tenant_at_flush") == org
+
+
 def test_no_org_context_is_denied(app, client):
     _login(client, "sid_zg03_no_org", None)
     assert client.get("/api/v1/leads/").status_code in (401, 403)

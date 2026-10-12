@@ -95,20 +95,37 @@ class WorkflowLayer:
         """Create a database lead record from an inquiry dict."""
         if not self._db:
             return None
-        from app.models import Lead, next_inquiry_code
+        from app.models import Lead, next_inquiry_code, clear_lead_tenant_id, set_lead_tenant_id
+        # System ingress: only project a Lead when a canonical tenant
+        # resolves — undocumented attribution is refused rather than
+        # fabricated (ZG-03). No tenant -> no lead; caller handles None.
+        try:
+            from app.authz.decorators import _resolve_org_id
+            tenant_id = _resolve_org_id()
+        except Exception:
+            tenant_id = None
+        if not tenant_id:
+            return None
         code = next_inquiry_code(self._db)
-        lead = Lead(
-            code=code,
-            source=inquiry.get("source", "telegram"),
-            customer_name=inquiry.get("customer_name", ""),
-            phone=inquiry.get("phone", ""),
-            email=inquiry.get("email", ""),
-            destination=inquiry.get("destination", ""),
-            pax=inquiry.get("pax", ""),
-            dates=inquiry.get("dates", ""),
-            budget=inquiry.get("budget", 0),
-            notes=inquiry.get("notes", ""),
-        )
+        try:
+            set_lead_tenant_id(int(tenant_id))
+            lead = Lead(
+                code=code,
+                # tenant bound at construction — never flushed without it
+                # (leads.tenant_id is NOT NULL in production; ZG-03)
+                tenant_id=int(tenant_id),
+                source=inquiry.get("source", "telegram"),
+                customer_name=inquiry.get("customer_name", ""),
+                phone=inquiry.get("phone", ""),
+                email=inquiry.get("email", ""),
+                destination=inquiry.get("destination", ""),
+                pax=inquiry.get("pax", ""),
+                dates=inquiry.get("dates", ""),
+                budget=inquiry.get("budget", 0),
+                notes=inquiry.get("notes", ""),
+            )
+        finally:
+            clear_lead_tenant_id()
         self._db.add(lead)
         self._db.commit()
         # Log activity

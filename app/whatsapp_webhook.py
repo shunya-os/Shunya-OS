@@ -116,19 +116,38 @@ def handle_whatsapp_incoming(payload: dict) -> tuple:
     with db.session.no_autoflush:
         code = _cached_or_new_code(db.session)
 
-    lead = Lead(
-        code=code, source="whatsapp",
-        customer_name=parsed.get("name") or sender_name or sender,
-        phone=sender, destination=parsed.get("destination"),
-        pax=(f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
-             if parsed.get("adults") or parsed.get("kids") else None),
-        dates=parsed.get("dates"), notes=text, status="new",
-        )
-    db.session.add(lead)
-    db.session.commit()
+    # System ingress: only project a Lead when a canonical tenant resolves —
+    # undocumented attribution is refused rather than fabricated (ZG-03).
+    resolved_tenant = None
+    try:
+        from app.authz.decorators import _resolve_org_id
+        resolved_tenant = _resolve_org_id()
+    except Exception:
+        resolved_tenant = None
+    if resolved_tenant:
+        from app.models import clear_lead_tenant_id, set_lead_tenant_id
+        try:
+            set_lead_tenant_id(int(resolved_tenant))
+            lead = Lead(
+                code=code, source="whatsapp",
+                tenant_id=int(resolved_tenant),
+                customer_name=parsed.get("name") or sender_name or sender,
+                phone=sender, destination=parsed.get("destination"),
+                pax=(f"{parsed.get('adults') or 0} adults, {parsed.get('kids') or 0} kids"
+                     if parsed.get("adults") or parsed.get("kids") else None),
+                dates=parsed.get("dates"), notes=text, status="new",
+                )
+        finally:
+            clear_lead_tenant_id()
+        db.session.add(lead)
+        db.session.commit()
 
-    from app.routes import _log_activity
-    _log_activity(lead.id, "created", f"Lead created via WhatsApp: {text[:200]}")
+        from app.routes import _log_activity
+        _log_activity(lead.id, "created", f"Lead created via WhatsApp: {text[:200]}")
+    else:
+        logger.warning(
+            "WhatsApp Lead projection skipped: no canonical tenant (sender %s)",
+            sender)
 
     reply_text = format_inquiry_reply(parsed, code)
     return jsonify({
