@@ -72,15 +72,31 @@ def classify_http_status(status: int, *, model: str = "", retired_models: tuple[
 
 
 def classify_exception(exc: BaseException) -> ErrorClass:
-    """Classify a transport-level exception (httpx/requests)."""
+    """Classify a transport-level exception (httpx/requests/HF client).
+
+    Works across all HTTP clients: if the exception carries a ``response``
+    object with a ``status_code`` (httpx.HTTPStatusError, requests.HTTPError
+    subclasses like huggingface_hub's HfHubHTTPError), classify by status.
+    Otherwise fall back to message fingerprints and connection-error names.
+    """
     name = type(exc).__name__
     if name in ("ConnectError", "ConnectTimeout", "ReadTimeout", "Timeout",
                 "RemoteProtocolError", "ConnectionError", "TimeoutError"):
         return ErrorClass.NETWORK_ERROR
-    if name == "HTTPStatusError":
-        status = getattr(exc, "response", None)
-        code = getattr(status, "status_code", 0) or 0
-        return classify_http_status(code)
+
+    # Generic status-carrying exceptions (any HTTP client).
+    response = getattr(exc, "response", None)
+    status_code = getattr(response, "status_code", None)
+    if isinstance(status_code, int):
+        return classify_http_status(status_code)
+
+    msg = str(exc)
+    if "402" in msg and ("Payment Required" in msg or "credits" in msg.lower()):
+        return ErrorClass.CREDITS_REQUIRED
+    if "429" in msg:
+        return ErrorClass.RATE_LIMITED
+    if "404" in msg:
+        return ErrorClass.BAD_REQUEST
     return ErrorClass.UNKNOWN
 
 

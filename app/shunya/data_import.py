@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from app import db
+from app.common.text_safety import sanitize_text
 from app.models import ActivityLog, Lead, LeadSource, next_inquiry_code
 
 
@@ -247,7 +248,10 @@ def import_data(
             for match in report["matched_columns"]:
                 value = row.get(match.source_column, "").strip()
                 if value:
-                    setattr(lead, match.target_field, value)
+                    # ZG-03 B3: NUL bytes (rejected by PostgreSQL text
+                    # columns) are stripped at the ingestion boundary so a
+                    # poisoned CSV cell cannot fail the whole import.
+                    setattr(lead, match.target_field, sanitize_text(value))
 
             db.session.add(lead)
             db.session.flush()  # get lead.id

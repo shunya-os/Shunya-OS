@@ -82,9 +82,10 @@ def api_update_profile():
         return jsonify({"success": False, "error": "No data provided"}), 400
 
     from .models import UserProfile
+    from app.common.text_safety import sanitize_dict_values
 
     profile = _get_or_create_profile(identity_id)
-    profile.update_from_dict(data)
+    profile.update_from_dict(sanitize_dict_values(data))  # NUL-strip (B3)
     db.session.commit()
 
     return jsonify({"success": True, "data": profile.to_dict()})
@@ -224,10 +225,11 @@ def api_update_preferences():
         ), 400
 
     from .models import UserProfile
+    from app.common.text_safety import sanitize_text
 
     profile = _get_or_create_profile(identity_id)
     for key, value in prefs.items():
-        setattr(profile, key, value)
+        setattr(profile, key, sanitize_text(value))  # NUL-strip (B3)
     db.session.commit()
 
     return jsonify({"success": True, "data": profile.preferences_dict()})

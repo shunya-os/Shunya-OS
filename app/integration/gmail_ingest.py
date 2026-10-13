@@ -23,6 +23,8 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from app.common.text_safety import sanitize_text
+
 logger = logging.getLogger(__name__)
 
 # ── OAuth / API Client ────────────────────────────────────────────────────
@@ -147,12 +149,12 @@ def _extract_email_data(msg: dict) -> Optional[dict]:
         return {
             "id": msg_id,
             "thread_id": thread_id,
-            "sender_raw": sender_raw,
-            "sender_name": sender_name,
-            "sender_email": sender_email,
-            "subject": headers.get("subject", "(no subject)"),
-            "body": body[:5000],  # Truncate very long bodies
-            "snippet": msg.get("snippet", ""),
+            "sender_raw": sanitize_text(sender_raw),
+            "sender_name": sanitize_text(sender_name),
+            "sender_email": sanitize_text(sender_email),
+            "subject": sanitize_text(headers.get("subject", "(no subject)")),
+            "body": sanitize_text(body[:5000]),  # Truncate very long bodies
+            "snippet": sanitize_text(msg.get("snippet", "")),
             "timestamp": timestamp.isoformat() if timestamp else None,
             "label_ids": msg.get("labelIds", []),
         }
