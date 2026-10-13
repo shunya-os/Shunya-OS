@@ -40,6 +40,30 @@ def _require_identity():
     return identity_id
 
 
+def _assert_org_claim(identity: str):
+    """Validate the claimed organization is a real membership (fail closed).
+
+    B16: a client may not attach a foreign ``current_org_id`` to their
+    session and have reality honour it. The claimed selection (and the
+    unselected single-membership fallback) must resolve through the canonical
+    ownership boundary; an invalid or foreign selection is a 403 denial, not
+    a request to serve.
+
+    Returns ``None`` when the claim is valid (proceed), else a Flask
+    response to return.
+    """
+    from app.authz.decorators import _resolve_org_or_denial, _SELECTION_REQUIRED_CODES
+    org_id, denial = _resolve_org_or_denial(identity)
+    if org_id:
+        g.current_org_id = org_id
+        return None
+    if denial in _SELECTION_REQUIRED_CODES:
+        return jsonify({"success": False, "error": "No organization selected",
+                        "code": denial}), 400
+    return jsonify({"success": False, "error": "Forbidden: no authorized organization",
+                    "code": denial or "organization_not_authorized"}), 403
+
+
 # ═════════════════════════════════════════════════════════════════════
 # Reality Snapshot — The canonical endpoint
 # ═════════════════════════════════════════════════════════════════════
@@ -67,6 +91,9 @@ def get_reality():
     identity_id = _require_identity()
     if not identity_id:
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+    denied = _assert_org_claim(identity_id)
+    if denied:
+        return denied
     engine = get_reality_engine()
     workspace_type = request.args.get("workspace_type", "founder")
     workspace_id = request.args.get("workspace_id", "default")
@@ -195,6 +222,10 @@ def get_projection(workspace_type: str):
     if not identity_id:
         return jsonify({"success": False, "error": "Not authenticated"}), 401
 
+    denied = _assert_org_claim(identity_id)
+    if denied:
+        return denied
+
     workspace_id = request.args.get("workspace_id", "default")
     engine = get_reality_engine()
 
@@ -228,6 +259,10 @@ def get_object_reality(object_id: str):
     identity_id = _require_identity()
     if not identity_id:
         return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    denied = _assert_org_claim(identity_id)
+    if denied:
+        return denied
 
     engine = get_reality_engine()
     graph = GraphQueryEngine()
