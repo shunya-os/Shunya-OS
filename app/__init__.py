@@ -402,7 +402,7 @@ def _register_health(app: Flask):
             from prometheus_client import generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST
             from prometheus_client import Gauge
             import psutil
-            import os
+            import os as _os
 
             registry = CollectorRegistry()
             py_uptime = Gauge("shunya_uptime_seconds", "Shunya OS uptime", registry=registry)
@@ -417,7 +417,7 @@ def _register_health(app: Flask):
                 py_db.set(0)
 
             py_mem = Gauge("shunya_memory_rss_bytes", "Memory RSS", registry=registry)
-            proc = psutil.Process(os.getpid())
+            proc = psutil.Process(_os.getpid())
             py_mem.set(proc.memory_info().rss)
 
             py_cpu = Gauge("shunya_cpu_percent", "CPU usage percent", registry=registry)
@@ -428,8 +428,8 @@ def _register_health(app: Flask):
         except ImportError:
             # Fallback JSON metrics
             import psutil
-            import os
-            proc = psutil.Process(os.getpid())
+            import os as _os
+            proc = psutil.Process(_os.getpid())
             return jsonify({
                 "shunya_uptime_seconds": int(__import__("time").time() - _APP_START_TIME),
                 "shunya_db_up": 1,
