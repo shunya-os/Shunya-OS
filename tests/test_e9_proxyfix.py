@@ -14,20 +14,19 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.test import EnvironBuilder
 
 
-def _proxy_env(**environ_base):
-    """Build a WSGI environ, wrap it through ProxyFix(x_for=1, x_proto=1),
-    return the modified environ."""
+def _proxy_env_via_app(app, **environ_base):
+    """Build a WSGI environ and exercise the ACTUAL app's ProxyFix wrapper.
+
+    Uses app.wsgi_app (already wrapped by the app factory) so the test
+    verifies the real production configuration — not a re-creation.
+    """
     builder = EnvironBuilder(path="/dummy", environ_base=environ_base)
     env = builder.get_environ()
 
     def _start_response(status, headers):
         pass
 
-    app = ProxyFix(
-        lambda e, s: ([b"ok"],),
-        x_for=1, x_proto=1, x_host=1, x_prefix=0,
-    )
-    list(app(env, _start_response))
+    list(app.wsgi_app(env, _start_response))
     return env
 
 
@@ -52,6 +51,22 @@ class TestProxyFixApplied:
             "otherwise key on 127.0.0.1 for every client behind nginx"
         )
 
+    def test_configuration_parameters(self, app):
+        """ProxyFix is configured with x_for=1, x_proto=1, x_host=1, x_prefix=0.
+
+        Verifies the actual app.wsgi_app ProxyFix configuration matches the
+        production nginx topology (one trusted hop). Without x_for=1 the
+        rightmost forwarded-for entry is not trusted; without x_proto=1 the
+        wsgi.url_scheme stays http behind nginx.
+        """
+        pf = app.wsgi_app
+        assert isinstance(pf, ProxyFix)
+        # ProxyFix stores trust values as: x_for, x_proto, x_host, x_port
+        assert pf.x_for == 1, f"expected x_for=1, got {pf.x_for}"
+        assert pf.x_proto == 1, f"expected x_proto=1, got {pf.x_proto}"
+        assert pf.x_host == 1, f"expected x_host=1, got {pf.x_host}"
+        assert pf.x_prefix == 0, f"expected x_prefix=0, got {pf.x_prefix}"
+
     def test_x_for_one_hop(self, app):
         """x_for=1: the RIGHTMOST X-Forwarded-For entry becomes REMOTE_ADDR.
 
@@ -60,7 +75,7 @@ class TestProxyFixApplied:
         real client IP. The leftmost entries may contain values set by the
         client or intermediate proxies that nginx preserves.
         """
-        env = _proxy_env(
+        env = _proxy_env_via_app(app,
             HTTP_X_FORWARDED_FOR="198.51.100.23, 192.168.1.1",
             REMOTE_ADDR="127.0.0.1",
         )
@@ -72,7 +87,7 @@ class TestProxyFixApplied:
 
     def test_x_proto_https(self, app):
         """x_proto=1: X-Forwarded-Proto sets wsgi.url_scheme to https."""
-        env = _proxy_env(
+        env = _proxy_env_via_app(app,
             HTTP_X_FORWARDED_FOR="203.0.113.42",
             HTTP_X_FORWARDED_PROTO="https",
             REMOTE_ADDR="127.0.0.1",
@@ -83,7 +98,7 @@ class TestProxyFixApplied:
 
     def test_no_header_fallback(self, app):
         """Without X-Forwarded-For, REMOTE_ADDR is unchanged."""
-        env = _proxy_env(REMOTE_ADDR="10.0.0.1")
+        env = _proxy_env_via_app(app, REMOTE_ADDR="10.0.0.1")
         assert env["REMOTE_ADDR"] == "10.0.0.1", (
             f"expected fallback 10.0.0.1, got {env['REMOTE_ADDR']}"
         )
@@ -99,7 +114,7 @@ class TestProxyFixApplied:
         'X-Forwarded-For: 1.2.3.4, <real_ip>' after nginx appends.
         ProxyFix uses <real_ip> (rightmost) and ignores 1.2.3.4.
         """
-        env = _proxy_env(
+        env = _proxy_env_via_app(app,
             HTTP_X_FORWARDED_FOR="1.2.3.4, 203.0.113.42",
             REMOTE_ADDR="127.0.0.1",
         )
