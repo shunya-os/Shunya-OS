@@ -150,6 +150,7 @@ export const useWorkspaceStore = create<StoreState & WorkspaceActions>((set, get
         'home', 'conversation', 'commitment', 'search', 'document', 'proposals',
         'calendar', 'analytics', 'audit', 'email', 'comparison', 'music',
         'workspace-settings', 'api-docs', 'help', 'shortcuts',
+        'profile', 'team', 'notifications_history',
         // 'ai' is the resident AI surface (AIResidentPanel). It is a
         // SELF-CONTAINED panel: it fetches its own data. Every type that renders
         // immediately MUST be listed here, or the workspace stays in 'loading'
