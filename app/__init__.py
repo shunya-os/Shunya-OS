@@ -497,6 +497,12 @@ def create_app(config_override: dict | None = None):
         static_folder=os.path.join(os.path.dirname(__file__), "..", "static"),
     )
 
+    # ---- ProxyFix (E9): trust nginx X-Forwarded-For so rate-limits
+    # key on real client IPs, not 127.0.0.1. One proxy hop (nginx → gunicorn).
+    # --------------------------------------------------------------------
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=0)
+
     # ---- Shunya OS primary template path with fallback to old templates ----
     templates_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
     app.jinja_loader = ChoiceLoader([
