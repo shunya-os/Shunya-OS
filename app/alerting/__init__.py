@@ -1,0 +1,1 @@
+"""SHUNYA Alerting — operational failure detection, dedup, delivery, recovery (E1)."""

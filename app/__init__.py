@@ -187,6 +187,16 @@ def _register_error_handlers(app: Flask):
             "request_id": rid,
             "error": str(e),
         })
+        # E1: feed the alert engine (best-effort; must never fail the path).
+        try:
+            from app.alerting.service import get_alert_engine
+            get_alert_engine().ingest_failure(
+                path=request.path,
+                exc_type_name=type(e).__name__,
+                request_id=rid,
+            )
+        except Exception:
+            app.logger.exception("alert engine hook failed")
         return _error_response(500, "Internal server error", "Contact support with request ID")
 
     @app.errorhandler(OwnershipContextError)
@@ -1010,6 +1020,16 @@ def create_app(config_override: dict | None = None):
     from app.media.routes import media_bp
     app.register_blueprint(media_bp)
 
+    # Alerting API — E1 operational alerting (list / test / simulate)
+    from app.alerting.models import AlertEvent  # noqa: F401  (table via create_all + migration r6b29)
+    from app.alerting.routes import alert_bp
+    app.register_blueprint(alert_bp)
+
+    # Alert engine hooks: failure detection on the global 500 handler and a
+    # background recovery-verification loop (see _start_loop_worker).
+    from app.alerting.service import get_alert_engine
+    app.extensions["alert_engine"] = get_alert_engine()
+
     # Knowledge API — document knowledge extraction and search
     from app.documents_knowledge.routes import doc_knowledge_bp
     app.register_blueprint(doc_knowledge_bp)
@@ -1829,6 +1849,26 @@ a:hover{background:#4338ca}
         thread = threading.Thread(target=_start_loop_worker, daemon=True, name="shunya-loop")
         thread.start()
         app.logger.info("Loop automation enabled (background thread)")
+
+    # ---- E1: Alert recovery-verification loop ------------------------------
+    # Runs unconditionally in real boots (unlike loop automation): the alert
+    # engine must verify recovery and deliver resolution messages even when
+    # the execution loop is disabled. Skipped under TESTING to keep the
+    # in-memory SQLite test DB single-threaded.
+    if not app.config.get("TESTING"):
+        import threading as _alert_threading
+
+        def _start_alert_worker():
+            from app.alerting.service import get_alert_engine
+            stop_event = _alert_threading.Event()
+            app.extensions["alert_stop_event"] = stop_event
+            with app.app_context():
+                get_alert_engine().run_loop(stop_event)
+
+        _alert_thread = _alert_threading.Thread(
+            target=_start_alert_worker, daemon=True, name="shunya-alerts")
+        _alert_thread.start()
+        app.logger.info("Alert recovery worker started (name=shunya-alerts)")
 
     @app.cli.command("run-loop")
     def run_loop_command():
