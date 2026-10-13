@@ -126,6 +126,7 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 | D10 | **P-007 keyboard/WCAG audit** | unverified | Schedule browser-level WCAG pass |
 | D11 | **F-001 billing deferral** | deferred | Re-affirm for public launch scope |
 | D12 | **P-02 client portal / P-03 payment flow priority** | tracker BLOCKERS, unverified this session | Verify current state; set priority or formally out-of-scope |
+| D13 | **Post-completion evolution: Sri Yantra × Tree of Life** | Deferred strategic product-evolution initiative. Integrate structural/symbolic/contemplative principles into SHUNYAOS. Requires research, design rationale, functional interaction spec, prototypes, usability + accessibility testing, and founder review. | Activate only after full certified completion (LB-001 signed, all mandatory gates verified). DEFERRED — NOT IMPLEMENTED OR CERTIFIED. |
 
 ---
 
