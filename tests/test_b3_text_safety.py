@@ -133,6 +133,18 @@ class TestMissingSchemaMigration:
         root = pathlib.Path(__file__).resolve().parents[1]
         return list((root / "migrations" / "versions").glob("*.py"))
 
+    @staticmethod
+    def _migration_revision(text: str):
+        import re
+        m = re.search(r'^revision\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        return m.group(1) if m else None
+
+    @staticmethod
+    def _migration_down(text: str):
+        import re
+        m = re.search(r'^down_revision\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        return m.group(1) if m else None
+
     def test_tables_created_by_migration_chain(self):
         sources = "".join(p.read_text(encoding="utf-8") for p in self._migration_sources())
         for table in self.REQUIRED_TABLES:
@@ -140,19 +152,29 @@ class TestMissingSchemaMigration:
                 f"migration chain must create {table}"
 
     def test_b3_migration_is_head(self):
-        """b3_missing_schema_tables must chain off activity_logs_tenant and
-        nothing may chain off it (single head, no orphaned branches)."""
+        """The migration chain is single-headed and b3 chains off
+        activity_logs_tenant.
+
+        B3 locked the head at b3_missing_schema_tables; E1 (r6b29_alert_events)
+        legitimately extends the chain. The invariant that matters is a
+        single canonical head with no orphaned branches — updated to assert
+        that, with the current head named explicitly.
+        """
         import pathlib
         root = pathlib.Path(__file__).resolve().parents[1]
         b3 = (root / "migrations" / "versions" / "b3_missing_schema_tables.py").read_text(encoding="utf-8")
         assert 'down_revision = "activity_logs_tenant"' in b3
-        others = ""
+        revisions = {}
         for p in self._migration_sources():
-            if p.name == "b3_missing_schema_tables.py":
-                continue
-            others += p.read_text(encoding="utf-8")
-        assert 'down_revision = "b3_missing_schema_tables"' not in others, \
-            "b3_missing_schema_tables must be the head revision"
+            text = p.read_text(encoding="utf-8")
+            rev = self._migration_revision(text)
+            down = self._migration_down(text)
+            if rev:
+                revisions[rev] = down
+        heads = [r for r, d in revisions.items() if r not in revisions.values()]
+        assert len(heads) == 1, f"expected single migration head, got {heads}"
+        assert heads[0] == "r6b29_alert_events", f"canonical head is {heads[0]}"
+        assert "b3_missing_schema_tables" in revisions
 
     def test_migration_is_idempotent_guarded(self):
         """The migration must guard with has_table so re-runs are no-ops."""
