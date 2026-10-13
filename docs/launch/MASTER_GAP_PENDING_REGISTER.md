@@ -1,7 +1,7 @@
 # SHUNYA — MASTER GAP & PENDING REGISTER (SUPERSET, ALL SOURCES)
 
-**Date:** 2026-10-13 (consolidated; baseline refreshed 2026-10-12 — ZG-03 Wave A; B2 wave 2026-10-13)
-**Repository:** shunya-os/Shunya-OS @ master **583598f** (CI_CERTIFIED run 38311203988, deployed; prior baselines: 26b592e (Wave A), 6b5767f)
+**Date:** 2026-10-13 (consolidated; B2 wave 2026-10-13; B3/B4/B5 + L-gate wave 2026-10-13)
+**Repository:** shunya-os/Shunya-OS @ master **9a5a37e** (releases: 583598f B1 baseline → ec0b691 B2 → 3b78e13 B3 → 9f3ed5a B4/B5/L2/L3 → 9a5a37e L3 hotfix; prior baselines 26b592e (Wave A), 6b5767f) — CI_CERTIFIED per release, deployed, live-verified
 **Sources merged:** (1) `docs/launch/SHUNYA_100_GAP_REGISTER.md` (session sweep, 5 perspectives), (2) `artifacts/SH_M6_M15_BLOCKER_REGISTER.md` (LB/S/P/F), (3) `SHUNYA_MASTER_MILESTONE_TRACKER.md` (G-gates, FDA gates, orphans, capability registry), (4) live production/host findings this session, (5) founder-pending decisions.
 **Rule:** this document is the single umbrella register. Child registers stay authoritative for their own detail; nothing here is closed without evidence.
 
@@ -91,7 +91,7 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 | H1 | fda30_security 2 local failures (invalid-session 403-vs-401; cross-tenant webhooks) | Pre-existing at HEAD (stash-proven); CI green both runs | Resolve test intent vs actual 403 semantics — treats unknown X-Identity-Id as forbidden; reconciliation task |
 | H2 | GJ-06 real-document journey fails on host, passes CI | pdfplumber/env divergence (stash-proven) | Host-only; CI is authority |
 | H3 | 3 vitest onboarding tests fail under node 26, pass under pinned node 22 | Documented in ci.yml | Host-only |
-| H4 | test_universal_research live-provider flake (DDG) | Failed once in CI on docs-only push; rerun green | **Make resilient:** provider-unavailable should skip or assert truthfully, not fail the deploy |
+| H4 | test_universal_research live-provider flake (DDG) | Failed once in CI on docs-only push; rerun green | FIXED (9f3ed5a): upstream refusal → truthful skip by default; strict provider-parity FAIL only under `SHUNYA_LIVE_NET_TEST=1`; offline normalization contract unchanged |
 | H5 | alembic offline `--sql` unusable (alembic.ini placeholder; offline path ignores DATABASE_URL) | env.py offline branch | Tooling gap — fix offline URL resolution |
 | H6 | Migration verification method | r6b28 verified via live alembic_version + columns post-deploy | Add a deploy-step column assertion for schema-bearing migrations |
 | H7 | Certification-tenant credential file stale (server rejects); vault login works | ~/.shunya/certification_login.txt vs vault_67340bf9c378 | Rotate/refresh the file to the vault credential |
@@ -103,10 +103,10 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 
 | # | Defect | Evidence | Sev |
 |---|--------|----------|-----|
-| L1 | `/api/v1/analytics/dashboard` returns 500: relation `ai_execution_records` does not exist — model/table drift, 12 errors/24h unalerted | journald (Oct 10 20:31–20:37); E1 context | P1 — fix + alerting |
-| L2 | "Background outcome review failed: Working outside of application context" recurring in journald | journald (Oct 11) | P2 — background task without app context |
-| L3 | Public /health + /metrics expose deployment metadata unauthenticated | live curl; HEALTH_TOKEN unset | P3 (E8) |
-| L4 | 8 user files (PII itineraries) git-tracked in uploads/, repo PUBLIC | git ls-files; gh visibility | P1 (E6) |
+| L1 | `/api/v1/analytics/dashboard` returns 500: relation `ai_execution_records` does not exist — model/table drift, 12 errors/24h unalerted | CLOSED (3b78e13): migration `b3_missing_schema_tables` created `ai_execution_records`/`user_profiles`/`feedback_signals`; live 500→200; alembic head verified — alerting remains E1 |
+| L2 | "Background outcome review failed: Working outside of application context" recurring in journald | FIXED (9f3ed5a): reviewer runs inside `current_app.app_context()` (nested-safe); journald 214 occurrences before, 0 since deploy |
+| L3 | Public /health + /metrics expose deployment metadata unauthenticated | FIXED (9f3ed5a + hotfix 9a5a37e): /metrics gated by HEALTH_TOKEN (403 no/wrong token, 200 with; live-verified); /health stays public per deploy smoke contract (status + git_commit); HEALTH_TOKEN set in prod .env (0600, random, never in git) |
+| L4 | 8 user files (PII itineraries) git-tracked in uploads/, repo PUBLIC | FIXED (9f3ed5a, index-only): 15 artifacts untracked via verified manifest; sha256-matched backup `/home/shunya-deploy/backups/legacy_repo_uploads_20261013/`; files on disk preserved; no rewrite/force-push/visibility change — history purge + repo privacy remain founder-pending (D4) |
 
 ---
 
@@ -196,11 +196,19 @@ change) + `docs/launch/ZG03_B2_CAPABILITY_INVENTORY.md` (add-on baseline).
   single live chain; inference_orchestrator/provider_registry now catalog-fed
   (no retired ids) but is still unwired (CANONICAL + MUST CONNECT — G3).
 
-**Next action:** merge PR #6 after green CI, deploy, verify production SHA +
-runtime (text generation real content; image generation real image via
-Pollinations; `/api/v1/content/providers` truthful), then proceed B3 (schema +
-NUL-byte), B4 (workspace listing + legacy tenant scope), B5 (external-provider
-test flake), then remaining launch/UX/reliability gates and full certification.
+**ZG-03 Waves B3/B4/B5 + L1–L4 (2026-10-13, all merged + deployed + live-verified):**
+
+| # | Item | Status |
+|---|------|--------|
+| B3-1 | Missing schemas: `ai_execution_records`, `user_profiles`, `feedback_signals` declared by models, absent live (L1 root cause) → migration `b3_missing_schema_tables` (idempotent, alembic chain head verified live) | IMPLEMENTED — 3b78e13, tables exist, analytics 200 |
+| B3-2 | NUL-byte ingestion: centralized sanitizer `app/common/text_safety.py` applied at import/documents/profile/gmail/webhook ingest (rejects NUL in text payloads) | IMPLEMENTED — tests green |
+| B4-1 | Workspace listing is membership-scoped; legacy tenant-scoped views hardened: `/api/v1/orgs/<org_id>/workspaces` CRUD gated by canonical OrgMember membership (was login-only → cross-tenant read/write) + reads scoped to canonical tenant union (org id + legacy_tenant_id bridge) | IMPLEMENTED — 9f3ed5a; live: org7 200→403, org278 200 |
+| B5-1 | Live-provider test flake (H4): upstream refusal → truthful skip; strict parity under `SHUNYA_LIVE_NET_TEST=1`; offline normalization contract retained | IMPLEMENTED — 9f3ed5a; CI stable |
+| L1–L4 | see Section 6 (all CLOSED/FIXED; remaining: E1 alerting, D4 history purge) | VERIFIED live 9a5a37e |
+
+**Full-suite regression (scrubbed, CI-equivalent, master):** 5723 passed / 128 skipped / 0 failed (30:09, output `/tmp/logs/b3b4b5_full_suite_master_final.log`); B2 branch was 5703/128/0; baseline 583598f was 5665/128/4 (fda25, fixed).
+
+**Next action (wave-complete):** founder walkthrough + LB-001 sign-off (D1) against Section 1 P1s (B16 auth middleware, D8 integration honesty, E1 alerting, D4 purge/privacy), then remaining Section 2 blockers. `PUBLIC_LAUNCH_READY = FALSE` until LB-001 + all mandatory gates verified.
 
 **L4 remediation (2026-10-13, narrowly scoped, index-only):**
 15 legacy artifacts were git-tracked under `uploads/`, `static/uploads/`,
