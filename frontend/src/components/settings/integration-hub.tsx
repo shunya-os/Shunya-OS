@@ -278,7 +278,7 @@ export function IntegrationHub() {
         </div>
         <div className="ih2-header-badges">
           <span className="ih2-badge ih2-badge-connected">
-            <Plug size={10} /> {connectedCount} Connected
+            <Plug size={10} /> {connectedCount} Configured
           </span>
           {errorState && (
             <span className="ih2-badge ih2-badge-error">
@@ -380,21 +380,22 @@ export function IntegrationHub() {
                 <div className="ih2-card-status-row">
                   {isConnected ? (
                     <span className="ih2-status ih2-status-connected">
-                      <CheckCircle2 size={12} /> Connected
+                      <CheckCircle2 size={12} /> Configured
                     </span>
                   ) : (
                     <span className="ih2-status ih2-status-disconnected">
-                      <XCircle size={12} /> Disconnected
+                      <XCircle size={12} /> Not configured
                     </span>
                   )}
                   <span className="ih2-card-cat-badge">{getCategory(prov.type)}</span>
                 </div>
 
-                {/* Last sync */}
+                {/* Last sync — updated_at is a CONFIG save time, not a verified sync;
+                    label it truthfully (D8: no misleading success affordance). */}
                 {isConnected && lastSync && (
                   <div className="ih2-card-sync">
                     <Clock size={10} />
-                    <span>Synced {formatTimeAgo(lastSync)}</span>
+                    <span>Updated {formatTimeAgo(lastSync)}</span>
                   </div>
                 )}
 
