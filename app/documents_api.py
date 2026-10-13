@@ -283,6 +283,7 @@ def ingest_file():
     extracted_text = ""
     analysis_summary = ""
     parsed_status = "parsed"  # honest: parsed | stored_unparsed
+    from app.common.text_safety import sanitize_text
     try:
         if file_type == "pdf":
             import subprocess
@@ -406,7 +407,7 @@ def ingest_file():
         parsed_status = "stored_unparsed"
         analysis_summary = f"File stored. Content analysis limited: {ext_err}. Status: stored_unparsed."
 
-    doc.extracted_text = extracted_text
+    doc.extracted_text = sanitize_text(extracted_text)  # NUL-strip at ingestion boundary (B3)
     # Honest parse status lives in structured_data (JSON) — surfaced by the
     # ingest response and by /classify for unparsed documents.
     try:
