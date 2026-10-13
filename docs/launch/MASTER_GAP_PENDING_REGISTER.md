@@ -202,6 +202,22 @@ Pollinations; `/api/v1/content/providers` truthful), then proceed B3 (schema +
 NUL-byte), B4 (workspace listing + legacy tenant scope), B5 (external-provider
 test flake), then remaining launch/UX/reliability gates and full certification.
 
+**L4 remediation (2026-10-13, narrowly scoped, index-only):**
+15 legacy artifacts were git-tracked under `uploads/`, `static/uploads/`,
+`app/static/uploads/` (3 founder itinerary PDFs, 1 audit PDF, 11 test/probe
+files; 699,867 bytes). Root cause: pre-ignore-era additions; the app's runtime
+storage root is `RUNTIME_DATA_ROOT` (shunya_data — outside the repo), so no
+live code path reads or writes these tracked files. Remediation on branch
+`zero-gap-03-b4-b5` (PR #9): index-untracked the exact 15 paths via a
+verified manifest (15 unique, tracked, intended dirs, 0 malformed); full
+backup snapshot with per-file sha256 verified before staging
+(`/home/shunya-deploy/backups/legacy_repo_uploads_20261013/`); after staging:
+0 files missing, 0 checksum mismatches, staged diff = exactly 15 deletions +
+register row, no unrelated changes. `.gitignore` already covers `uploads/`
+(any level) and `static/uploads/`. No file deleted, no history rewrite, no
+force-push, no visibility change. History purge + repo privacy remain
+founder-pending (D4).
+
 ---
 
 *Child-of-record:* this umbrella supersedes nothing; `SHUNYA_100_GAP_REGISTER.md`, `SH_M6_M15_BLOCKER_REGISTER.md`, `SHUNYA_MASTER_MILESTONE_TRACKER.md` remain the detailed authorities. Tracker BLOCKERS section-marked stale entries updated in the tracker on the next governance pass.
