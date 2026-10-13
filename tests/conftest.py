@@ -86,6 +86,7 @@ def app():
         from app.founder import models as _founder_models  # noqa: F401
         from app.communication import models as _comm_models  # noqa: F401
         from app.communication.email_models import EmailRecord  # noqa: F401
+        from app.alerting.models import AlertEvent  # noqa: F401
         from app.privacy import models as _privacy_models  # noqa: F401
         from app.human_context import models as _hc_models  # noqa: F401
         from app.human_context.emotional import EmotionalContextItem  # noqa: F401
