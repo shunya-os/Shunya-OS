@@ -117,7 +117,7 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 | D1 | **LB-001 founder acceptance** — walkthrough + sign-off ceremony | G12 empty | Schedule 1-day walkthrough against Section 1 P1s after remediation wave 1 |
 | D2 | **S-006 branch protection** | Verified absent | Enable: require CI status check + PR review on master, disable force-push |
 | D3 | **E18 KYC/age-verification method** | Gate records verification outcome only | Decide: documentary KYC provider vs self-attestation; until then policy is admin-attested |
-| D4 | **E6 secrets purge / repo privacy** | .env + PII in public history | Options: (a) purge history (filter-repo) + rotate, (b) make repo private; recommend (a)+(b) |
+| D4 | **E6 secrets purge / repo privacy** | VERIFIED NO LIVE CREDS IN HISTORY (all `.env` blobs placeholder; credentials.py clean); **REAL TELEGRAM TOKEN in initial commit**; PII (itineraries/audit) in history | Reversible containment applied 2026-10-13 (secret scanning + push protection ENABLED, read-back verified; `.env` untracked at HEAD). Remaining are founder-authorized: F-1 rotate telegram token, F-2 purge-or-private (recommend both), F-3 rotate flagged keys. Evidence: `docs/launch/D4_EXPOSURE_INVENTORY.md` |
 | D5 | **P-005 calendar mounting** | Component+API exist | Confirm navigation placement; then finish wiring (POST create + month/year params) |
 | D6 | **S-005 knowledge.edit roles** | admin-only today | Grant to manager/member or keep restricted |
 | D7 | **P-003 empty-state systematics** | PARTIAL | Adopt one empty-state pattern across all list panels |
