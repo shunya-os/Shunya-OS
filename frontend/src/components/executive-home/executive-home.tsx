@@ -186,6 +186,7 @@ function OrganizationalOrientation({ collapsed, onToggle, onOpenShortcuts }: { c
             className="pw-org-domain"
             onClick={() => handleDomainClick(domain)}
             title={domain.description}
+            aria-label={`${domain.label} — ${domain.description}`}
           >
             <span className="pw-org-domain-icon">{domain.icon}</span>
             <span className="pw-org-domain-label">{domain.label}</span>
@@ -197,19 +198,19 @@ function OrganizationalOrientation({ collapsed, onToggle, onOpenShortcuts }: { c
       </div>
       <div className="pw-org-tools">
         <p className="pw-org-hint">{t('toolsAndHelp')}</p>
-        <button className="pw-org-domain" onClick={() => useWorkspaceStore.getState().open('Analytics', 'analytics')} title="System analytics and dashboards">
+        <button className="pw-org-domain" onClick={() => useWorkspaceStore.getState().open('Analytics', 'analytics')} title="System analytics and dashboards" aria-label="Open Analytics">
           <span className="pw-org-domain-icon"><IconChartBar size={16} /></span>
           <span className="pw-org-domain-label">Analytics</span>
         </button>
-        <button className="pw-org-domain" onClick={() => useWorkspaceStore.getState().open('API Docs', 'api-docs')} title="API documentation explorer">
+        <button className="pw-org-domain" onClick={() => useWorkspaceStore.getState().open('API Docs', 'api-docs')} title="API documentation explorer" aria-label="Open API Docs">
           <span className="pw-org-domain-icon"><IconApi size={16} /></span>
           <span className="pw-org-domain-label">API Docs</span>
         </button>
-        <button className="pw-org-domain" onClick={() => useWorkspaceStore.getState().open('Help Center', 'help')} title="Help center and guides">
+        <button className="pw-org-domain" onClick={() => useWorkspaceStore.getState().open('Help Center', 'help')} title="Help center and guides" aria-label="Open Help Center">
           <span className="pw-org-domain-icon"><IconHelp size={16} /></span>
           <span className="pw-org-domain-label">Help</span>
         </button>
-        <button className="pw-org-domain" onClick={onOpenShortcuts} title="Keyboard shortcuts">
+        <button className="pw-org-domain" onClick={onOpenShortcuts} title="Keyboard shortcuts" aria-label="Open keyboard shortcuts">
           <span className="pw-org-domain-icon"><IconKeyboard size={16} /></span>
           <span className="pw-org-domain-label">Shortcuts</span>
         </button>
@@ -1652,7 +1653,7 @@ styles.textContent = `
 
 /* ── Organizational Orientation ───────────────────────────── */
 .pw-org-orientation {
-  width: 260px;
+  width: clamp(200px, 24vw, 260px);
   min-width: 0;
   overflow: hidden;
   border-right: 1px solid var(--shunya-border, rgba(26,28,29,0.07));

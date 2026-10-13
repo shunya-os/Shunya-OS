@@ -36,7 +36,7 @@ def pipeline():
     if not tenant_id:
         return jsonify({"error": "No organization context"}), 400
     result = si.pipeline_health(tenant_id)
-    return jsonify(result)
+    return jsonify({"data": result})
 
 
 @sales_bp.route("/forecast", methods=["GET"])
@@ -48,7 +48,7 @@ def forecast():
         return jsonify({"error": "No organization context"}), 400
     months = request.args.get("months", 3, type=int)
     result = si.forecast(tenant_id, months)
-    return jsonify(result)
+    return jsonify({"data": result})
 
 
 @sales_bp.route("/salesperson/<agent_id>", methods=["GET"])
@@ -66,4 +66,4 @@ def conversion():
     if not tenant_id:
         return jsonify({"error": "No organization context"}), 400
     result = si.conversion_analysis(tenant_id)
-    return jsonify(result)
+    return jsonify({"data": result})

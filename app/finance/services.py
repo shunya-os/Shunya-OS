@@ -4,7 +4,7 @@ from decimal import Decimal
 import json
 from app import db
 from app.finance.models import FinInvoice as Invoice, InvoiceItem
-from app.finance.models import FinancePayment as Payment, TaxProfile, Account, Budget
+from app.finance.models import FinancePayment as Payment, TaxProfile, Account, Budget, LedgerEntry
 from app.finance.accounting import create_journal_entry, get_trial_balance
 from app.models import Proposal
 from app.relationship.integration import record_event, update_ai_memory_from_event
@@ -138,8 +138,16 @@ def get_receivables_aging(organization_id):
 
 
 def get_financial_summary(organization_id):
-    """Get financial health summary."""
+    """Get financial health summary with canonical metrics.
+
+    Returns net_income (from ledger revenue - expense accounts),
+    total_receivables (unpaid invoices), total_payables (liability
+    accounts from ledger), cash_balance (cash account ledger balance),
+    plus existing invoice-based metrics.
+    """
     today = date.today()
+
+    # ── Invoice-based metrics ─────────────────────────────────────
     total_rev = db.session.query(db.func.coalesce(db.func.sum(Invoice.total_amount), 0)).filter(
         Invoice.organization_id == organization_id).scalar() or 0
     total_paid = db.session.query(db.func.coalesce(db.func.sum(Invoice.paid_amount), 0)).filter(
@@ -147,9 +155,98 @@ def get_financial_summary(organization_id):
     overdue = db.session.query(db.func.coalesce(db.func.sum(Invoice.total_amount - Invoice.paid_amount), 0)).filter(
         Invoice.organization_id == organization_id,
         Invoice.due_date < today, Invoice.status.in_(["sent", "overdue"])).scalar() or 0
+
+    # Receivables: unpaid invoices (sent, overdue, draft — exclude paid/cancelled/refunded)
+    total_receivables = db.session.query(
+        db.func.coalesce(db.func.sum(Invoice.total_amount - Invoice.paid_amount), 0)
+    ).filter(
+        Invoice.organization_id == organization_id,
+        ~Invoice.status.in_(["paid", "cancelled", "refunded"])
+    ).scalar() or 0
+
     inv_count = Invoice.query.filter_by(organization_id=organization_id).count()
     paid_count = Invoice.query.filter_by(organization_id=organization_id, status="paid").count()
 
-    return {"total_revenue": float(total_rev), "total_paid": float(total_paid),
+    # ── Ledger-based metrics ──────────────────────────────────────
+    # Cash balance: find cash-like accounts (type='asset', code starting
+    # with common cash prefixes) and sum their ledger balances.
+    cash_accounts = Account.query.filter(
+        Account.organization_id == organization_id,
+        Account.is_active == True,
+        Account.type == "asset",
+        Account.code.like("1%"),          # asset accounts typically start with 1
+    ).all()
+    cash_balance = Decimal("0.00")
+    for acct in cash_accounts:
+        q = LedgerEntry.query.filter_by(organization_id=organization_id, account_id=acct.id)
+        total_debit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.debit), 0)).filter(
+            LedgerEntry.account_id == acct.id
+        ).scalar() or Decimal("0.00")
+        total_credit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.credit), 0)).filter(
+            LedgerEntry.account_id == acct.id
+        ).scalar() or Decimal("0.00")
+        cash_balance += total_debit - total_credit  # asset accounts: debit = increase
+
+    # Net income: revenue account balances - expense account balances
+    revenue_accounts = Account.query.filter(
+        Account.organization_id == organization_id,
+        Account.is_active == True,
+        Account.type == "revenue",
+    ).all()
+    expense_accounts = Account.query.filter(
+        Account.organization_id == organization_id,
+        Account.is_active == True,
+        Account.type == "expense",
+    ).all()
+
+    total_revenue_ledger = Decimal("0.00")
+    for acct in revenue_accounts:
+        total_credit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.credit), 0)).filter(
+            LedgerEntry.account_id == acct.id
+        ).scalar() or Decimal("0.00")
+        total_debit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.debit), 0)).filter(
+            LedgerEntry.account_id == acct.id
+        ).scalar() or Decimal("0.00")
+        total_revenue_ledger += total_credit - total_debit  # revenue: credit = increase
+
+    total_expense_ledger = Decimal("0.00")
+    for acct in expense_accounts:
+        total_debit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.debit), 0)).filter(
+            LedgerEntry.account_id == acct.id
+        ).scalar() or Decimal("0.00")
+        total_credit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.credit), 0)).filter(
+            LedgerEntry.account_id == acct.id
+        ).scalar() or Decimal("0.00")
+        total_expense_ledger += total_debit - total_credit  # expense: debit = increase
+
+    net_income = total_revenue_ledger - total_expense_ledger
+
+    # Payables: liability/equity accounts from ledger
+    liability_accounts = Account.query.filter(
+        Account.organization_id == organization_id,
+        Account.is_active == True,
+        Account.type.in_(["liability", "equity"]),
+    ).all()
+    total_payables = Decimal("0.00")
+    for acct in liability_accounts:
+        total_credit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.credit), 0)).filter(
+            LedgerEntry.account_id == acct.id
+        ).scalar() or Decimal("0.00")
+        total_debit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.debit), 0)).filter(
+            LedgerEntry.account_id == acct.id
+        ).scalar() or Decimal("0.00")
+        total_payables += total_credit - total_debit  # liability/equity: credit = increase
+
+    return {
+        "total_revenue": float(total_rev),
+        "total_paid": float(total_paid),
         "outstanding": float(total_rev - total_paid),
-        "overdue": float(overdue), "invoice_count": inv_count, "paid_count": paid_count}
+        "overdue": float(overdue),
+        "invoice_count": inv_count,
+        "paid_count": paid_count,
+        "net_income": float(net_income),
+        "total_receivables": float(total_receivables),
+        "total_payables": float(total_payables),
+        "cash_balance": float(cash_balance),
+        "currency": "INR",
+    }

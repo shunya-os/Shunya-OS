@@ -172,7 +172,7 @@ function EntityCard({ entity, onClick }: { entity: EntityRecord; onClick: () => 
             <ThemeIcon size={28} radius="md" color={color} variant="light">
               {getIcon(entity.object_type, 14)}
             </ThemeIcon>
-            <Text size="sm" fw={600} lineClamp={1} style={{ flex: 1 }}>
+            <Text size="sm" fw={600} title={entity.name || 'Untitled'} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
               {entity.name || 'Untitled'}
             </Text>
           </Group>
@@ -184,9 +184,9 @@ function EntityCard({ entity, onClick }: { entity: EntityRecord; onClick: () => 
       {keyFields.length > 0 && (
         <Stack gap={4} mt="xs">
           {keyFields.map((field) => (
-            <Group key={field.label} gap={4} wrap="nowrap">
+            <Group key={field.label} gap={4} wrap="wrap">
               <Text size="xs" c="dimmed" style={{ minWidth: 60, flexShrink: 0 }}>{field.label}:</Text>
-              <Text size="xs" lineClamp={1}>{field.value}</Text>
+              <Text size="xs" style={{ wordBreak: 'break-word' }}>{field.value}</Text>
             </Group>
           ))}
         </Stack>

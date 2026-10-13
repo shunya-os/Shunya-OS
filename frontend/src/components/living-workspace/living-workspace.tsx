@@ -70,7 +70,7 @@ const CreateObjectModal: FC<{ onClose: () => void }> = ({ onClose }) => {
       <div className="lw-modal" onClick={(e) => e.stopPropagation()}>
         <div className="lw-modal-header">
           <h3 className="lw-modal-title">Create New Object</h3>
-          <button className="lw-modal-close" onClick={onClose}>×</button>
+          <button className="lw-modal-close" onClick={onClose} aria-label="Close modal">×</button>
         </div>
         <div className="lw-modal-body">
           <div className="lw-modal-field">
@@ -208,11 +208,11 @@ const TopBar: FC<{ onSearch?: (q: string) => void; onCreateObject?: () => void; 
       <div className="lw-topbar-right">
         {/* Create button */}
         {onCreateObject && (
-          <button className="lw-topbar-create" onClick={onCreateObject}>+ New</button>
+          <button className="lw-topbar-create" onClick={onCreateObject} aria-label="Create new object">+ New</button>
         )}
-        <button className="lw-topbar-cs-btn" onClick={() => onContentStudio && onContentStudio()}>✍ Content</button>
+        <button className="lw-topbar-cs-btn" onClick={() => onContentStudio && onContentStudio()} aria-label="Open Content Studio">✍ Content</button>
         <span className="lw-topbar-updated">Updated {fmt(lastUpdated)}</span>
-        <button className="lw-topbar-toggle" onClick={toggleSidebar}>
+        <button className="lw-topbar-toggle" onClick={toggleSidebar} aria-label="Toggle sidebar">
           <span style={{ display: 'inline-block', transform: `rotate(${sidebarCollapsed ? 0 : 180}deg)`, transition: 'transform 0.3s' }}>▸</span>
         </button>
       </div>
@@ -229,7 +229,7 @@ const LivingObjectsSection: FC<{ onCreateObject?: () => void; onOpenWorkspace?: 
         <div className="lw-objects-header-right">
           <span className="lw-objects-count">{livingObjects.length} type{livingObjects.length !== 1 ? 's' : ''}</span>
           {onCreateObject && (
-            <button className="lw-create-obj-btn" onClick={onCreateObject}>+ Create</button>
+            <button className="lw-create-obj-btn" onClick={onCreateObject} aria-label="Create new object">+ Create</button>
           )}
         </div>
       </div>
@@ -318,7 +318,7 @@ export const LivingWorkspace: FC = () => {
           <div className="lw-search-panel" onClick={(e) => e.stopPropagation()}>
             <div className="lw-search-panel-header">
               <span>Search results ({searchResults.length})</span>
-              <button onClick={() => setSearchResults(null)}>×</button>
+              <button onClick={() => setSearchResults(null)} aria-label="Close search results">×</button>
             </div>
             <div className="lw-search-panel-body">
               {searchResults.length === 0 ? (
@@ -358,7 +358,7 @@ export const LivingWorkspace: FC = () => {
           <div className="lw-modal lw-modal-wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '80vh', overflow: 'auto' }}>
             <div className="lw-modal-header">
               <h3 className="lw-modal-title">Content Studio 4.0</h3>
-              <button className="lw-modal-close" onClick={() => setShowContentStudio(false)}>×</button>
+              <button className="lw-modal-close" onClick={() => setShowContentStudio(false)} aria-label="Close Content Studio">×</button>
             </div>
             <div className="lw-modal-body" style={{ padding: '20px' }}>
               <ContentStudio />

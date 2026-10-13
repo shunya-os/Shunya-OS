@@ -1866,7 +1866,7 @@ const csCss = `
 
 .cs-meta { font-size: 10px; color: rgba(26,28,29,0.4); white-space: nowrap; }
 
-.cs-icon-btn { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: rgba(26,28,29,0.3); transition: all 0.15s; flex-shrink: 0; }
+.cs-icon-btn { width: 36px; height: 36px; min-width: 36px; min-height: 36px; border-radius: 6px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: rgba(26,28,29,0.3); transition: all 0.15s; flex-shrink: 0; }
 .cs-icon-btn:hover { background: rgba(26,28,29,0.04); color: #1A1C1D; }
 .cs-icon-danger:hover { color: #B91C1C; background: rgba(185,28,28,0.06); }
 

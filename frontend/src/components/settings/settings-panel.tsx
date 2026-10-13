@@ -239,6 +239,7 @@ function DataSection() {
             className="sp-btn sp-btn-primary"
             onClick={() => handleExport('json')}
             disabled={exporting !== null}
+            aria-label="Export data as JSON"
           >
             {exporting === 'json' ? <RefreshCw size={13} className="sp-spin" /> : <FileDown size={13} />}
             {exporting === 'json' ? 'Exporting...' : 'Export as JSON'}
@@ -247,6 +248,7 @@ function DataSection() {
             className="sp-btn sp-btn-primary"
             onClick={() => handleExport('csv')}
             disabled={exporting !== null}
+            aria-label="Export data as CSV"
           >
             {exporting === 'csv' ? <RefreshCw size={13} className="sp-spin" /> : <FileDown size={13} />}
             {exporting === 'csv' ? 'Exporting...' : 'Export as CSV'}

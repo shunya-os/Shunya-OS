@@ -55,8 +55,9 @@ export interface MediaAsset {
 }
 
 interface ProviderStatus {
-  huggingface: { available: boolean; model?: string; error?: string };
-  pollinations?: { available: boolean; model?: string; error?: string; note?: string };
+  huggingface?: { available?: boolean };
+  cloudflare?: { available?: boolean };
+  pollinations?: { available?: boolean };
 }
 
 // ── API calls ──
@@ -117,6 +118,7 @@ function providerLabel(provider?: string): string {
   if (!provider) return 'generated';
   if (provider.startsWith('pollinations')) return 'Pollinations';
   if (provider.startsWith('hf/')) return 'Hugging Face';
+  if (provider.startsWith('cloudflare')) return 'Cloudflare (FLUX)';
   return provider.split('/')[0] || provider;
 }
 
@@ -213,9 +215,10 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
   const isBusy = runtimeState === 'preparing_brief' || runtimeState === 'generating';
   // Truthful availability (B2): ANY ready provider means generation can work.
   const hfAvailable = providerStatus?.huggingface?.available ?? false;
+  const cfAvailable = providerStatus?.cloudflare?.available ?? false;
   const pollinationsAvailable = providerStatus?.pollinations?.available ?? false;
-  const providerAvail = hfAvailable || pollinationsAvailable;
-  const activeImageProvider = hfAvailable ? 'huggingface' : (pollinationsAvailable ? 'pollinations' : null);
+  const providerAvail = hfAvailable || cfAvailable || pollinationsAvailable;
+  const activeImageProvider = hfAvailable ? 'huggingface' : (cfAvailable ? 'cloudflare' : (pollinationsAvailable ? 'pollinations' : null));
 
   // Close overflow menu when clicking outside
   useEffect(() => {
@@ -575,10 +578,16 @@ export function MediaGenerator({ onAddToCampaign }: { onAddToCampaign?: (asset: 
             <span>Image generation providers unavailable — a visual concept (text) will be created instead of an image.</span>
           </div>
         )}
+        {providerAvail && activeImageProvider === 'cloudflare' && (
+          <div className="cs-media-note" style={{ fontSize: 12 }} role="status">
+            <IconSparkles size={13} />
+            <span>Hugging Face unavailable — using Cloudflare Workers AI (FLUX.1-schnell) free image generation.</span>
+          </div>
+        )}
         {providerAvail && activeImageProvider === 'pollinations' && (
           <div className="cs-media-note" style={{ fontSize: 12 }} role="status">
             <IconSparkles size={13} />
-            <span>Hugging Face unavailable — using the free Pollinations image fallback.</span>
+            <span>Primary providers unavailable — using Pollinations free fallback (basic quality).</span>
           </div>
         )}
         <button className="cs-btn cs-btn-primary" onClick={handleGenerate} disabled={!prompt.trim()}>
