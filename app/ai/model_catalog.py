@@ -300,6 +300,21 @@ PROVIDERS: dict[str, ProviderSpec] = {
         outage="credits_required",
         note="402 reproduced 2026-10-13 — free serverless image inference requires prepaid credits.",
     ),
+    "cloudflare_image": ProviderSpec(
+        id="cloudflare",
+        label="Cloudflare Workers AI (FLUX)",
+        category="image",
+        api_key_envs=("CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"),
+        base_url="https://api.cloudflare.com/client/v4",
+        default_model="@cf/black-forest-labs/flux-1-schnell",
+        valid_models=(
+            "@cf/black-forest-labs/flux-1-schnell",
+            "@cf/stabilityai/stable-diffusion-xl-base-1.0",
+        ),
+        retired_models=(),
+        free=True,
+        note="Free CF Workers AI tier — FLUX.1-schnell, no prepaid credits needed. Added 2026-10-13.",
+    ),
     "pollinations": ProviderSpec(
         id="pollinations",
         label="Pollinations",
@@ -334,7 +349,7 @@ PROVIDERS: dict[str, ProviderSpec] = {
 DEFAULT_TEXT_CHAIN = ["groq", "gemini", "openrouter", "cloudflare", "huggingface", "togetherai"]
 
 # Default image chain (tried in order by media generation).
-DEFAULT_IMAGE_CHAIN = ["huggingface", "pollinations"]
+DEFAULT_IMAGE_CHAIN = ["huggingface", "cloudflare_image"]
 
 PAID_PROVIDER_IDS = {"openai", "anthropic"}
 

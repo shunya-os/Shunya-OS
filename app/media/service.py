@@ -112,6 +112,48 @@ def _fetch_pollinations_bytes(prompt: str, width: int = 1024, height: int = 1024
     return resp.content
 
 
+def _generate_cloudflare_image(prompt: str, aspect_ratio: str = "1:1") -> bytes:
+    """Generate an image via Cloudflare Workers AI (FLUX.1-schnell, free tier).
+
+    Requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN env vars.
+    Returns raw PNG bytes. Raises on failure.
+    """
+    import base64
+    import httpx
+
+    token = os.environ.get("CLOUDFLARE_API_TOKEN") or os.environ.get("CLOUDFLARE_API_KEY")
+    if not token:
+        raise RuntimeError("CLOUDFLARE_API_TOKEN not configured")
+    account_id = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+    if not account_id:
+        raise RuntimeError("CLOUDFLARE_ACCOUNT_ID not configured")
+
+    w, h = ASPECT_MAP.get(aspect_ratio, (1024, 1024))
+    payload: dict[str, Any] = {
+        "prompt": prompt,
+        "num_steps": 4,
+        "guidance": 3.5,
+        "output_format": "png",
+    }
+    if w and h:
+        payload["size"] = {"width": w, "height": h}
+
+    resp = httpx.post(
+        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/black-forest-labs/flux-1-schnell",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json=payload,
+        timeout=httpx.Timeout(60.0, connect=10.0, read=55.0),
+    )
+    resp.raise_for_status()
+    result = resp.json()
+    if not result.get("success"):
+        raise RuntimeError(result.get("errors", [{}])[0].get("message", "Cloudflare API returned failure"))
+    image_b64 = result.get("result", {}).get("image")
+    if not image_b64:
+        raise RuntimeError("Cloudflare returned no image data")
+    return base64.b64decode(image_b64)
+
+
 def _generate_pollinations_image(prompt: str, aspect_ratio: str = "1:1") -> bytes:
     """Generate an image via Pollinations. Returns raw bytes. Raises on failure."""
     w, h = ASPECT_MAP.get(aspect_ratio, (1024, 1024))
@@ -139,7 +181,20 @@ def _generate_image_with_fallback(prompt: str, aspect_ratio: str = "1:1") -> tup
                 "error_class": classify_exception(e).value,
                 "reason": str(e),
             })
-    # 2) Pollinations (free, no key) — genuinely working fallback.
+    # 2) Cloudflare Workers AI (free FLUX.1-schnell, configured tokens required)
+    cf_token = os.environ.get("CLOUDFLARE_API_TOKEN") or os.environ.get("CLOUDFLARE_API_KEY")
+    cf_account = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+    if cf_token and cf_account:
+        try:
+            return _generate_cloudflare_image(prompt, aspect_ratio), "cloudflare/@cf/black-forest-labs/flux-1-schnell", []
+        except Exception as e:
+            errors.append({
+                "provider": "cloudflare_image",
+                "model": "@cf/black-forest-labs/flux-1-schnell",
+                "error_class": classify_exception(e).value,
+                "reason": str(e),
+            })
+    # 3) Pollinations (free, no key) — last-resort fallback.
     try:
         return _generate_pollinations_image(prompt, aspect_ratio), "pollinations/pollinations", []
     except Exception as e:
@@ -667,18 +722,34 @@ def get_hf_status() -> dict:
 def get_media_provider_status() -> dict:
     """Return truthful status for every configured image provider.
 
-    Hugging Face (outage/credits) + Pollinations (free, no key, genuinely
-    working). This is the source the UI and the diagnostics endpoint use.
+    Hugging Face (outage/credits) + Cloudflare Workers AI (free FLUX) +
+    Pollinations (free, no key). This is the source the UI and the
+    diagnostics endpoint use.
     """
+    cf_available = bool(
+        os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+        and (os.environ.get("CLOUDFLARE_API_TOKEN") or os.environ.get("CLOUDFLARE_API_KEY"))
+    )
     return {
         "huggingface": get_hf_status(),
+        "cloudflare": {
+            "available": cf_available,
+            "provider": "cloudflare",
+            "model": "@cf/black-forest-labs/flux-1-schnell",
+            "cost": "free",
+            "token_cost": 0,
+            "note": "Free CF Workers AI — FLUX.1-schnell, account+token configured."
+                      if cf_available
+                      else "CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN not set.",
+            "fallback_of": "huggingface" if cf_available else None,
+        },
         "pollinations": {
             "available": True,
             "provider": "pollinations",
             "model": "pollinations",
             "cost": "free",
             "token_cost": 0,
-            "note": "Free, no API key — verified returning real images 2026-10-13.",
-            "fallback_of": "huggingface",
+            "note": "Free, no API key — last-resort fallback.",
+            "fallback_of": "cloudflare",
         },
     }
