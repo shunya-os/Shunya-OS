@@ -153,9 +153,9 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 ## SECTION 9 — ZG-03 WAVE B2 — PROVIDER & MODEL TRUTH (2026-10-13)
 
 **SHA reconciliation:** baseline released `583598f` (PR #5, CI SUCCESS run
-38311203988). Wave B2 implementation on branch
-`zero-gap-03-b2-provider-truth` → PR #6 (SHA recorded at merge). Deployed
-`backend_release_sha` verified == merged SHA post-deploy. Evidence doc:
+38311203988). Wave B2 released as **`ec0b691`** (Merge PR #6
+`zero-gap-03-b2-provider-truth`, CI SUCCESS run 38323907898, deployed; PR
+head `5204c5a` = c36d50b + fda25 lead-code fix). Evidence doc:
 `docs/launch/ZG03_B2_PROVIDER_TRUTH.md` (reproductions at 583598f before any
 change) + `docs/launch/ZG03_B2_CAPABILITY_INVENTORY.md` (add-on baseline).
 
@@ -174,7 +174,10 @@ change) + `docs/launch/ZG03_B2_CAPABILITY_INVENTORY.md` (add-on baseline).
 | B2-9 | Retired ids purged from app/ai/provider.py, inference_orchestrator, model_orchestrator, inference_governance, llm adapter, for1 engine | IMPLEMENTED |
 | B2-10 | Add-on: universal capability registry `app/ai/capabilities.py` + `/api/v1/capabilities*` routes (status/summary/execute/diagnostics), ProviderOrchestrator truthful | IMPLEMENTED |
 | B2-11 | Tests: `test_provider_catalog_b2.py` + `test_media_fallback_b2.py` (34 tests) + adapted r6b27 | IMPLEMENTED — green local |
-| B2-12 | Production env model values (GROQ_MODEL→openai/gpt-oss-20b, GEMINI_MODEL→gemini-2.5-flash, CLOUDFLARE_MODEL→-fp8) | AT DEPLOY (not committed) |
+| B2-12 | Production env model values (GROQ_MODEL→openai/gpt-oss-20b, GEMINI_MODEL→gemini-2.5-flash, CLOUDFLARE_MODEL→-fp8) | APPLIED 2026-10-13 pre-deploy (`.env` keys untouched) |
+| B2-13 | fda25 lead-code collision (UNIQUE leads.code duplicate in import batches when local date ≠ UTC date) — root-caused + fixed in `next_inquiry_code` (UTC clock + max-suffix sequence) | FIXED (5204c5a) — baseline scrubbed run reproduced at 583598f; 13/13 pass post-fix |
+| B2-14 | Full-suite regression (scrubbed/CI-equivalent): baseline 583598f = 5665 passed / 4 failed (fda25 only) ; branch 5204c5a = all green | VERIFIED |
+| B2-15 | Full-suite 45 errors in host run = production `.env` leakage via create_app→load_dotenv (host-only; zero in CI and scrubbed runs) | CLASSIFIED — host divergence, not product |
 
 **Known negatives / remaining:**
 - Hugging Face: PRODUCTION OUTAGE (credits required) for images AND text —
