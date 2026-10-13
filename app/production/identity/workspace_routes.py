@@ -5,8 +5,8 @@ RESTful endpoints for managing workspaces within organizations.
 
 import re
 
-from flask import request, jsonify
-from werkzeug.exceptions import NotFound, BadRequest
+from flask import request, jsonify, session
+from werkzeug.exceptions import NotFound, BadRequest, Forbidden, Unauthorized
 
 from app import db
 from app.auth_routes import login_required
@@ -22,6 +22,61 @@ def _generate_slug(name: str) -> str:
     slug = re.sub(r"\s+", "-", slug)
     slug = re.sub(r"-+", "-", slug)
     return slug[:120] or "workspace"
+
+
+def _caller_identity_id() -> str:
+    """Resolve the canonical identity id from the authenticated session.
+
+    Prefers the canonical ``identity_id`` session key (set at login); falls
+    back to the TeamMember's canonical identity; last resort the legacy
+    user id. Never guesses.
+    """
+    sid = session.get("identity_id")
+    if sid:
+        return str(sid)
+    uid = session.get("user_id")
+    if not uid:
+        raise Unauthorized("Authentication required")
+    from app.auth import TeamMember
+    member = db.session.get(TeamMember, uid)
+    if member and getattr(member, "identity_id", None):
+        return member.identity_id
+    return str(uid)
+
+
+def _require_membership(org_id: int) -> str:
+    """Verify the caller is an ACTIVE member of the target organization.
+
+    ZG-03 B4: previously every /orgs/<org_id>/workspaces route only checked
+    ``login_required`` — ANY authenticated user could list, create, update or
+    soft-delete workspaces inside ANY organization (cross-tenant access).
+    Now the canonical OrgMember membership is enforced; non-members are
+    denied (403) even though the org exists.
+    """
+    from app.models import OrgMember
+    identity_id = _caller_identity_id()
+    om = OrgMember.query.filter_by(
+        organization_id=org_id,
+        identity_id=identity_id,
+        is_active=True,
+    ).first()
+    if om is None:
+        raise Forbidden("You are not a member of this organization")
+    return identity_id
+
+
+def _accepted_tenant_ids(identity_id: str, org_id: int) -> list[int]:
+    """Canonical tenant scoping for this org (org id + legacy bridge).
+
+    Mirrors ``authz.workspace_context.resolve_tenant_scope``: the D1.2 legacy
+    Workspace rows may legally carry either the canonical organization id or
+    the organization's recorded ``legacy_tenant_id``; reads accept the union
+    so a founder org with unfinished tenancy convergence sees its own rows on
+    both sides of the split.
+    """
+    from app.authz.workspace_context import resolve_tenant_scope
+    _org_id, accepted = resolve_tenant_scope(identity_id, org_id)
+    return accepted or [org_id]
 
 
 def _ensure_unique_slug(org_id: int, base_slug: str) -> str:
@@ -59,13 +114,18 @@ def _require_json() -> dict:
 @identity_bp.route("/<int:org_id>/workspaces", methods=["GET"])
 @login_required
 def list_workspaces(org_id: int):
-    """List all workspaces in an organization."""
+    """List all workspaces in an organization (membership-gated, B4)."""
     _get_org_or_404(org_id)
+    identity_id = _require_membership(org_id)
+    accepted = _accepted_tenant_ids(identity_id, org_id)
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     per_page = min(per_page, 100)
 
-    query = Workspace.query.filter_by(tenant_id=org_id, is_active=True)
+    query = Workspace.query.filter(
+        Workspace.tenant_id.in_(accepted),
+        Workspace.is_active.is_(True),
+    )
     pagination = query.order_by(Workspace.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
@@ -85,8 +145,9 @@ def list_workspaces(org_id: int):
 @identity_bp.route("/<int:org_id>/workspaces", methods=["POST"])
 @login_required
 def create_workspace(org_id: int):
-    """Create a new workspace in an organization."""
+    """Create a new workspace in an organization (membership-gated, B4)."""
     _get_org_or_404(org_id)
+    _require_membership(org_id)
     data = _require_json()
 
     name = data.get("name", "").strip()
@@ -113,10 +174,12 @@ def create_workspace(org_id: int):
 @identity_bp.route("/<int:org_id>/workspaces/<int:ws_id>", methods=["GET"])
 @login_required
 def get_workspace(org_id: int, ws_id: int):
-    """Get a single workspace by ID within an org."""
+    """Get a single workspace by ID within an org (membership-gated, B4)."""
     _get_org_or_404(org_id)
+    identity_id = _require_membership(org_id)
+    accepted = _accepted_tenant_ids(identity_id, org_id)
     ws = db.session.get(Workspace, ws_id)
-    if not ws or ws.tenant_id != org_id or not ws.is_active:
+    if not ws or ws.tenant_id not in accepted or not ws.is_active:
         raise NotFound("Workspace not found")
 
     return jsonify({"success": True, "data": ws.to_dict()})
@@ -125,10 +188,12 @@ def get_workspace(org_id: int, ws_id: int):
 @identity_bp.route("/<int:org_id>/workspaces/<int:ws_id>", methods=["PUT"])
 @login_required
 def update_workspace(org_id: int, ws_id: int):
-    """Update a workspace."""
+    """Update a workspace (membership-gated, B4)."""
     _get_org_or_404(org_id)
+    identity_id = _require_membership(org_id)
+    accepted = _accepted_tenant_ids(identity_id, org_id)
     ws = db.session.get(Workspace, ws_id)
-    if not ws or ws.tenant_id != org_id:
+    if not ws or ws.tenant_id not in accepted:
         raise NotFound("Workspace not found")
 
     data = _require_json()
@@ -151,10 +216,12 @@ def update_workspace(org_id: int, ws_id: int):
 @identity_bp.route("/<int:org_id>/workspaces/<int:ws_id>", methods=["DELETE"])
 @login_required
 def delete_workspace(org_id: int, ws_id: int):
-    """Soft-delete a workspace."""
+    """Soft-delete a workspace (membership-gated, B4)."""
     _get_org_or_404(org_id)
+    identity_id = _require_membership(org_id)
+    accepted = _accepted_tenant_ids(identity_id, org_id)
     ws = db.session.get(Workspace, ws_id)
-    if not ws or ws.tenant_id != org_id:
+    if not ws or ws.tenant_id not in accepted:
         raise NotFound("Workspace not found")
 
     ws.is_active = False

@@ -321,6 +321,24 @@ def _provider_available_text_to_speech(provider_id: str) -> tuple[bool, Optional
     return False, "NOT_INTEGRATED"
 
 
+def _provider_available_research(provider_id: str) -> tuple[bool, Optional[str]]:
+    """Research/search providers.
+
+    DuckDuckGo backs the live app/search surface (canonical web search) — it
+    requires no key and is available unless the network is down. SearXNG is
+    config-dependent (SEARXNG_URL).
+    """
+    if provider_id == "duckduckgo":
+        try:
+            from app.search.routes import _web_search  # noqa: F401  (importability = surface present)
+            return True, None
+        except Exception:
+            return False, "SEARCH_SURFACE_UNAVAILABLE"
+    if provider_id == "searxng":
+        return (True, None) if os.getenv("SEARXNG_URL") else (False, "AUTH_MISSING (SEARXNG_URL)")
+    return False, "NOT_INTEGRATED"
+
+
 def _provider_availability(provider_id: str, capability: Capability) -> tuple[bool, Optional[str]]:
     cap = capability.value
     if cap in ("text_chat", "text_generation"):
@@ -331,6 +349,8 @@ def _provider_availability(provider_id: str, capability: Capability) -> tuple[bo
         return _provider_available_speech_to_text(provider_id)
     if cap == "text_to_speech":
         return _provider_available_text_to_speech(provider_id)
+    if cap == "research":
+        return _provider_available_research(provider_id)
     return False, "NOT_INTEGRATED"
 
 
