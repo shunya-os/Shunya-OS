@@ -312,62 +312,71 @@ class BackgroundLearningReviewer:
 
         Queries the sh_outcomes table for outcomes in a completed/terminal
         state that haven't been reviewed yet.
+
+        ZG-03 (L2): the reviewer runs on its own daemon thread which may not
+        carry a Flask application context — SQLAlchemy then raises
+        "Working outside of application context" on every cycle. Pushing
+        ``current_app.app_context()`` here is nested-safe (a no-op when a
+        context already exists) and guarantees the DB work always has one.
         """
-        try:
-            from app import db
-            from app.execution.models import Outcome
+        from flask import current_app
 
-            # Find outcomes in terminal stages that haven't been reviewed
-            outcomes = Outcome.query.order_by(
-                Outcome.updated_at.desc()
-            ).limit(50).all()
+        with current_app.app_context():
+            try:
+                from app import db
+                from app.execution.models import Outcome
 
-            for outcome in outcomes:
-                if outcome.outcome_id in self._reviewed_outcomes:
-                    continue
+                # Find outcomes in terminal stages that haven't been reviewed
+                outcomes = Outcome.query.order_by(
+                    Outcome.updated_at.desc()
+                ).limit(50).all()
 
-                state = outcome.state or {}
-                stage = state.get("stage", "")
-                if stage not in ("completed", "fulfilled", "failed", "cancelled"):
-                    continue
+                for outcome in outcomes:
+                    if outcome.outcome_id in self._reviewed_outcomes:
+                        continue
 
-                # Mark as reviewed immediately (idempotent)
-                self._reviewed_outcomes.add(outcome.outcome_id)
+                    state = outcome.state or {}
+                    stage = state.get("stage", "")
+                    if stage not in ("completed", "fulfilled", "failed", "cancelled"):
+                        continue
 
-                # Ingest as memory
-                self._ingester.ingest_outcome(
-                    outcome_id=outcome.outcome_id,
-                    intention=outcome.intention,
-                    state=state,
-                    identity_id=outcome.identity_id,
-                )
+                    # Mark as reviewed immediately (idempotent)
+                    self._reviewed_outcomes.add(outcome.outcome_id)
 
-                # Feed into learning loop
-                expected = state.get("expected_result", outcome.intention)
-                actual = state.get("final_summary", stage)
-                self._loop.process_observation(
-                    observation=outcome.intention,
-                    expected_outcome=expected,
-                    actual_outcome=actual,
-                    identity_id=outcome.identity_id,
-                    source="background_learning_review",
-                    metadata={
-                        "outcome_id": outcome.outcome_id,
-                        "stage": stage,
-                    },
-                )
+                    # Ingest as memory
+                    self._ingester.ingest_outcome(
+                        outcome_id=outcome.outcome_id,
+                        intention=outcome.intention,
+                        state=state,
+                        identity_id=outcome.identity_id,
+                    )
 
-                logger.info(
-                    "Background review processed outcome %s (stage=%s)",
-                    outcome.outcome_id, stage,
-                )
+                    # Feed into learning loop
+                    expected = state.get("expected_result", outcome.intention)
+                    actual = state.get("final_summary", stage)
+                    self._loop.process_observation(
+                        observation=outcome.intention,
+                        expected_outcome=expected,
+                        actual_outcome=actual,
+                        identity_id=outcome.identity_id,
+                        source="background_learning_review",
+                        metadata={
+                            "outcome_id": outcome.outcome_id,
+                            "stage": stage,
+                        },
+                    )
 
-            # Keep the reviewed set bounded
-            if len(self._reviewed_outcomes) > 1000:
-                self._reviewed_outcomes = set(list(self._reviewed_outcomes)[-500:])
+                    logger.info(
+                        "Background review processed outcome %s (stage=%s)",
+                        outcome.outcome_id, stage,
+                    )
 
-        except Exception as exc:
-            logger.warning("Background outcome review failed: %s", exc)
+                # Keep the reviewed set bounded
+                if len(self._reviewed_outcomes) > 1000:
+                    self._reviewed_outcomes = set(list(self._reviewed_outcomes)[-500:])
+
+            except Exception as exc:
+                logger.warning("Background outcome review failed: %s", exc)
 
     def get_reviewed_count(self) -> int:
         return len(self._reviewed_outcomes)
