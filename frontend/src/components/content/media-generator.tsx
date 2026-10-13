@@ -55,8 +55,9 @@ export interface MediaAsset {
 }
 
 interface ProviderStatus {
-  huggingface: { available: boolean; model?: string; error?: string };
-  pollinations?: { available: boolean; model?: string; error?: string; note?: string };
+  huggingface?: { available?: boolean };
+  cloudflare?: { available?: boolean };
+  pollinations?: { available?: boolean };
 }
 
 // ── API calls ──
