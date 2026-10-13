@@ -386,7 +386,18 @@ def _register_health(app: Flask):
 
     @app.route("/metrics")
     def metrics():
-        """Prometheus-format /metrics endpoint exposing app metrics."""
+        """Prometheus-format /metrics endpoint exposing app metrics.
+
+        ZG-03: if HEALTH_TOKEN is configured, the caller must pass it as query
+        parameter ``?token=...`` or header ``X-Health-Token``. Otherwise the
+        endpoint returns 403. When HEALTH_TOKEN is unset the endpoint remains
+        public (legacy behaviour; set the token to gate it).
+        """
+        token_env = os.environ.get("HEALTH_TOKEN", "")
+        if token_env:
+            req_token = request.args.get("token") or request.headers.get("X-Health-Token", "")
+            if req_token != token_env:
+                return jsonify({"error": "Forbidden"}), 403
         try:
             from prometheus_client import generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST
             from prometheus_client import Gauge
