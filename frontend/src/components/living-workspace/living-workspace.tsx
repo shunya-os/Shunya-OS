@@ -70,7 +70,7 @@ const CreateObjectModal: FC<{ onClose: () => void }> = ({ onClose }) => {
       <div className="lw-modal" onClick={(e) => e.stopPropagation()}>
         <div className="lw-modal-header">
           <h3 className="lw-modal-title">Create New Object</h3>
-          <button className="lw-modal-close" onClick={onClose}>×</button>
+          <button className="lw-modal-close" onClick={onClose} aria-label="Close modal">×</button>
         </div>
         <div className="lw-modal-body">
           <div className="lw-modal-field">
@@ -318,7 +318,7 @@ export const LivingWorkspace: FC = () => {
           <div className="lw-search-panel" onClick={(e) => e.stopPropagation()}>
             <div className="lw-search-panel-header">
               <span>Search results ({searchResults.length})</span>
-              <button onClick={() => setSearchResults(null)}>×</button>
+              <button onClick={() => setSearchResults(null)} aria-label="Close search results">×</button>
             </div>
             <div className="lw-search-panel-body">
               {searchResults.length === 0 ? (
@@ -358,7 +358,7 @@ export const LivingWorkspace: FC = () => {
           <div className="lw-modal lw-modal-wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '80vh', overflow: 'auto' }}>
             <div className="lw-modal-header">
               <h3 className="lw-modal-title">Content Studio 4.0</h3>
-              <button className="lw-modal-close" onClick={() => setShowContentStudio(false)}>×</button>
+              <button className="lw-modal-close" onClick={() => setShowContentStudio(false)} aria-label="Close Content Studio">×</button>
             </div>
             <div className="lw-modal-body" style={{ padding: '20px' }}>
               <ContentStudio />

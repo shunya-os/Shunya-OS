@@ -112,7 +112,7 @@ export const SalesPipeline: FC = () => {
   const totalLeads = pipeline?.total_leads ?? 0;
 
   return (
-    <div className="pw-panel-container" style={{ padding: '24px 32px', maxWidth: 960 }}>
+    <div className="pw-panel-container" style={{ padding: '24px 32px', maxWidth: 'min(960px, 100%)' }}>
       <div className="pw-domain-header">
         <span className="pw-domain-icon">⬡</span>
         <h2 className="pw-domain-title">Sales Pipeline</h2>

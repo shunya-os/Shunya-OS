@@ -152,7 +152,7 @@ function GeneralSection({ profile, onUpdated }: { profile: UserProfile; onUpdate
           </div>
         </div>
         <div className="pp-actions">
-          <button className="pp-btn pp-btn-primary" onClick={handleSave} disabled={saving}>
+          <button className="pp-btn pp-btn-primary" onClick={handleSave} disabled={saving} aria-label="Save general settings">
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
           {msg && <span className="pp-msg">{msg}</span>}
@@ -268,7 +268,7 @@ function PreferencesSection({ profile, onUpdated }: { profile: UserProfile; onUp
           </div>
         </div>
         <div className="pp-actions">
-          <button className="pp-btn pp-btn-primary" onClick={handleSave} disabled={saving}>
+          <button className="pp-btn pp-btn-primary" onClick={handleSave} disabled={saving} aria-label="Save preferences">
             {saving ? 'Saving…' : 'Save Preferences'}
           </button>
           {msg && <span className="pp-msg">{msg}</span>}
@@ -340,7 +340,7 @@ function PasswordSection() {
           <input className="pp-input" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm new password" />
         </div>
         <div className="pp-actions">
-          <button className="pp-btn pp-btn-primary" onClick={handleChange} disabled={saving}>
+          <button className="pp-btn pp-btn-primary" onClick={handleChange} disabled={saving} aria-label="Update password">
             {saving ? 'Updating…' : 'Update Password'}
           </button>
           {msg && <span className="pp-msg">{msg}</span>}

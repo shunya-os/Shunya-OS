@@ -253,14 +253,20 @@ export function ThreeZoneShell({ leftPanel, centerPanel, rightPanel, showRightPa
 
 /* ── Responsive ──────────────────────────────────────────── */
 
-@media (max-width: 1024px) {
+@media (max-width: 1100px) {
   .shunya-zone-right { display: none; }
   .shunya-zone-left { width: 220px; min-width: 220px; }
 }
 
 @media (max-width: 768px) {
-  .shunya-zone-left { display: none; }
+  .shunya-zone-left { width: 200px; min-width: 200px; }
   .shunya-zone1 { height: 48px; padding: 0 12px; }
+}
+
+@media (max-width: 640px) {
+  .shunya-zone23 { flex-direction: column; }
+  .shunya-zone-left { width: 100%; min-width: 0; display: none; }
+  .shunya-zone-center { flex: 1; }
 }
       `}</style>
     </div>

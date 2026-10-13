@@ -172,7 +172,7 @@ function EntityCard({ entity, onClick }: { entity: EntityRecord; onClick: () => 
             <ThemeIcon size={28} radius="md" color={color} variant="light">
               {getIcon(entity.object_type, 14)}
             </ThemeIcon>
-            <Text size="sm" fw={600} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+            <Text size="sm" fw={600} title={entity.name || 'Untitled'} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
               {entity.name || 'Untitled'}
             </Text>
           </Group>
