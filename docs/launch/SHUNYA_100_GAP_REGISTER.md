@@ -5,7 +5,7 @@
 > live defects, CI hygiene, founder-pending decisions).
 
 **Date:** 2026-10-11
-**Repository:** shunya-os/Shunya-OS @ master (3a2d3d3)
+**Repository:** shunya-os/Shunya-OS @ master (20e3df2)
 **Method:** Five parallel read-only sweeps (frontend UI, backend/API, integrations, product journeys, operations/security) + independent verification of every P1 claim against source. 126 candidate findings deduplicated to exactly 100.
 **Scope:** Analysis only — no code changed. Every row cites file:line or observed live behavior.
 **Status legend:** UNWIRED = exists but never mounted/called; MOCK = fake data/success; BROKEN = wired but fails; MISSING = absent entirely; PARTIAL = works only sometimes; UNGUARDED = no auth/tenant scoping; OPEN = decision required.
@@ -56,15 +56,15 @@ Legend for severity: P1 = fixes before founder acceptance; P2 = before public la
 | B13 | CRM + knowledge-doc handlers return 500 with zero logging — failures untraceable | `app/crm/routes.py:52-53,79-80`; `app/documents_knowledge/routes.py:96-97` (no logging import) | P2 | STUB |
 | B14 | Import/export + admin handlers return 500 with zero logging | `app/import_export/routes.py:83-85,143,191`; `app/authz/admin_routes.py:104-105,142,219,289` | P2 | STUB |
 | B15 | Privacy/retention policy tables never written — gates evaluate vacuously | `app/privacy/models.py` (MemoryEligibilityPolicy) — zero instantiation, only queries | P2 | ORPHAN |
-| B16 | Global auth middleware exempts ALL `/api/*` and trusts unverified `X-Identity-Id` header — unguarded blueprints are directly exploitable | `app/__init__.py:1574-1576` whitelist, `:1561-1568` header identity | P1 | UNGUARDED |
-| B17 | Customer-experience routes unauthenticated and unscoped — profile/history/commitments of any customer | `app/customer_experience/routes.py:10-58` (no auth, no tenant filter) | P1 | UNGUARDED |
-| B18 | Marketing-intelligence reads cross-tenant by query param `tenant_id` | `app/marketing_intelligence/routes.py:13-16` (8 endpoints, no auth) | P1 | UNGUARDED |
-| B19 | Sales-intelligence routes expose lead/salesperson data without auth | `app/sales_intelligence/routes.py:8-22` | P1 | UNGUARDED |
-| B20 | Marketing-OS CRUD/content/lead-capture without authentication | `app/marketing_os/routes.py:11-18` (7 handlers) | P1 | UNGUARDED |
-| B21 | Entity API returns ALL tenants' entities — `Entity.query.all()`, no auth | `app/api/entity_routes.py:60-67` | P1 | UNGUARDED |
-| B22 | UOP kernel routes read/create by arbitrary tenant_id with no ownership check | `app/kernel/routes.py:82-110` | P1 | UNGUARDED |
-| B23 | Reality engine returns any identity's snapshot — falls back to spoofable header or DEMO_IDENTITY | `app/reality_engine/routes.py:34-37, 62-64` | P1 | UNGUARDED |
-| B24 | Export all-scope dumps every tenant's data — `Organization.query.all()`, header identity | `app/export/routes.py:62, 71-73, 92-94, 145-146` | P1 | UNGUARDED |
+| B16 | Global auth middleware exempts ALL `/api/*` and trusts unverified `X-Identity-Id` header — unguarded blueprints are directly exploitable | app/__init__.py:1574-1576 whitelist, :1561-1568 header identity | P1 | FIXED 2026-10-13 (wave B16): no /api/* exemption; authz decorators session-only; adversarial suite test_b16_blueprint_gates.py 32/32 + route-security inventory gate green; reality org-claim validation |
+| B17 | Customer-experience routes unauthenticated and unscoped — profile/history/commitments of any customer | `app/customer_experience/routes.py:10-58` (no auth, no tenant filter) | P1 | FIXED 2026-10-13 (wave B16): require_permission + org-scoped lookup, fail-closed 404; B16 suite green |
+| B18 | Marketing-intelligence reads cross-tenant by query param `tenant_id` | `app/marketing_intelligence/routes.py:13-16` (8 endpoints, no auth) | P1 | FIXED 2026-10-13 (wave B16): org context session-only; B16 suite green |
+| B19 | Sales-intelligence routes expose lead/salesperson data without auth | `app/sales_intelligence/routes.py:8-22` | P1 | FIXED 2026-10-13 (wave B16): 7/7 handlers permission-decorated + org-scoped; B16 suite green |
+| B20 | Marketing-OS CRUD/content/lead-capture without authentication | `app/marketing_os/routes.py:11-18` (7 handlers) | P1 | FIXED 2026-10-13 (wave B16): 7/7 handlers decorated + org-scoped; B16 suite green |
+| B21 | Entity API returns ALL tenants' entities — `Entity.query.all()`, no auth | `app/api/entity_routes.py:60-67` | P1 | FIXED 2026-10-13 (wave B16): require_permission + org-filtered `_scoped_entity`; B16 suite green |
+| B22 | UOP kernel routes read/create by arbitrary tenant_id with no ownership check | `app/kernel/routes.py:82-110` | P1 | FIXED 2026-10-13 (wave B16): scoped object access + decorators; B16 suite green |
+| B23 | Reality engine returns any identity's snapshot — falls back to spoofable header or DEMO_IDENTITY | `app/reality_engine/routes.py:34-37, 62-64` | P1 | FIXED 2026-10-13 (wave B16): session-only identity + org-claim validation; B16 suite green |
+| B24 | Export all-scope dumps every tenant's data — `Organization.query.all()`, header identity | `app/export/routes.py:62, 71-73, 92-94, 145-146` | P1 | FIXED 2026-10-13 (wave B16): org-scoped export data; B16 suite green |
 
 ## PERSPECTIVE C — INTEGRATIONS: EMAIL / WHATSAPP / CONNECTORS (20)
 
