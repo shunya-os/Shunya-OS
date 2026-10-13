@@ -17,7 +17,7 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 || B1–B24 | Backend/API/Security | 24 | B16–B24 **FIXED** (wave B16: no /api/* exemption, authz decorators session-only, adversarial suite 32/32, route-security inventory green); 5 missing routes; 2 unregistered blueprints; SMTP/outcome/execution stubs remain |
 | C1–C20 | Integrations (email/WhatsApp/connectors) | 20 | Email inbox no UI; no read/search/threads/attachments; 3 templates; WhatsApp outbound dead + no UI; hub 24/33 display-only; OAuth unusable |
 | D1–D20 | Product journeys | 20 | Profile desync; prefs not enforced; sessions fabricated; invites never emailed; analytics Math.random; leads/invoices cannot complete; object delete missing; MFA path mismatch |
-| E1–E18 | Ops/Security-ops | 18 | No alerting; backups unscheduled/restore untested/uploads unbacked; **secrets in public history (E6)**; rate-limit on proxy IP; no lockout/expiry; rollback degrades release; KYC undecided |
+|| E1–E18 | Ops/Security-ops | 18 | No alerting (E1 code merged, test-alert fires); backups unscheduled/restore untested/uploads unbacked; **secrets in public history (E6)**; rate-limit ProxyFix (E9 **FIXED** — deployed 31ce93f); no lockout/expiry; rollback degrades release; KYC undecided |
 
 ---
 
@@ -132,19 +132,20 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 
 ## SECTION 8 — RECOMMENDED EXECUTION ORDER (single next actions)
 
-**Wave 0 — stop-the-bleed (D2/D3/D4 sign-off; B16–B24 COMPLETE, no action needed):**
+**Wave 0 — stop-the-bleed (D2/D3/D4 sign-off; B16–B24 COMPLETE, E9 COMPLETE, no action needed):**
 1. B16 auth middleware + 9 blueprints **FIXED** (wave deployed, adversarial suite 32/32, route-security inventory green) — no further code changes needed
 2. Move the 5 missing-route gaps (B3–B7) into the hardening pass
 3. L1 analytics dashboard 500 → schema drift fix + E1 alerting hook (CLOSED per 3b78e13)
-4. E6 secrets: purge/rotate + repo privacy (D4)
+4. E9 ProxyFix **FIXED** (PR #18 merged 31ce93f, deployed CI_CERTIFIED, 5 targeted tests + full CI suite green; live /health ok)
+5. E6 secrets: purge/rotate + repo privacy (D4)
 
 **Wave 1 — founder-ask integrations (D8):**
-5. Email: inbound UI (C1–C4) + compose v1 (C5–C7) + real send path (B8)
-6. WhatsApp: outbound wiring (C10) + minimal reply surface (C11) + persistent setup (C12)
+6. Email: inbound UI (C1–C4) + compose v1 (C5–C7) + real send path (B8)
+7. WhatsApp: outbound wiring (C10) + minimal reply surface (C11) + persistent setup (C12)
 
 **Wave 2 — journey completion (D1 prep):**
-7. D10 lead lifecycle UI + D17 invoice-to-customer + D11 object delete + D12 workspace switcher
-8. D7 invites (real email), D6 sessions truth, D3 notifications enforcement
+8. D10 lead lifecycle UI + D17 invoice-to-customer + D11 object delete + D12 workspace switcher
+9. D7 invites (real email), D6 sessions truth, D3 notifications enforcement
 
 **Wave 3 — founder acceptance (D1) and G12.**
 
@@ -238,13 +239,25 @@ change) + `docs/launch/ZG03_B2_CAPABILITY_INVENTORY.md` (add-on baseline).
 
 These test runs demonstrate the in-memory test suite. Documentation-only CI does not certify production behavior — production verification is independently confirmed via live probes against 20e3df2 (see next section).
 
-**Live verification against deployed 20e3df2:**
+**Live verification against deployed 20e3df2 (pre-E9):**
 - Reality GET /api/v1/reality (unauth): 401
 - Reality GET /api/v1/reality (cert session): 200, own-org data only
 - Integrations GET /api/v1/integrations (cert session): 200, truthful status (email disconnected, no fake "connected")
 - Test alert POST /api/v1/system/alerts/test (cert session): 200, fired:true, delivery_state=unconfigured — no ops recipient configured
 
-**Remaining P1s (not closed by B16–B24):** E1 delivery channel configuration (authorized recipient), D8 connector wiring (beyond status truth), D4 history purge (founder-authorized), plus 19 other P1s across perspectives C/D/E.
+**E9 — ProxyFix for per-client rate-limits (2026-10-13, PR #18 -> master 31ce93f):**
+
+| Item | Evidence |
+|------|----------|
+| Code | app/__init__.py - ProxyFix(x_for=1, x_proto=1, x_host=1, x_prefix=0) after Flask constructor |
+| Configuration | One proxy hop (nginx -> gunicorn); x_for=1 trusts rightmost X-Forwarded-For entry |
+| Targeted tests | test_e9_proxyfix.py - 5/5: wrapping, IP resolution, HTTPS scheme, no-header fallback, trust boundary |
+| Full CI suite | PR #18: SUCCESS (run 38408694167 on wave-e9-proxyfix); master merge CI: SUCCESS (run 38411830264) |
+| Deploy | deploy.sh production 31ce93f - all 14 steps passed |
+| Production /health | status=ok, backend_sha=31ce93f, frontend matches, release_health_verified=true |
+| Provenance | build_identity_matches_running_build=true, release_type=CI_CERTIFIED, authorized_by=CI/CD |
+
+**Remaining P1s (not closed by B16-B24 or E9):** E1 delivery channel configuration (authorized recipient), D8 connector wiring (beyond status truth), D4 history purge (founder-authorized), plus 18 other P1s across perspectives C/D/E.
 
 ---
 
