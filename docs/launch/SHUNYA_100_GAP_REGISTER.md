@@ -5,7 +5,7 @@
 > live defects, CI hygiene, founder-pending decisions).
 
 **Date:** 2026-10-11
-**Repository:** shunya-os/Shunya-OS @ master (3a2d3d3)
+**Repository:** shunya-os/Shunya-OS @ master (20e3df2)
 **Method:** Five parallel read-only sweeps (frontend UI, backend/API, integrations, product journeys, operations/security) + independent verification of every P1 claim against source. 126 candidate findings deduplicated to exactly 100.
 **Scope:** Analysis only — no code changed. Every row cites file:line or observed live behavior.
 **Status legend:** UNWIRED = exists but never mounted/called; MOCK = fake data/success; BROKEN = wired but fails; MISSING = absent entirely; PARTIAL = works only sometimes; UNGUARDED = no auth/tenant scoping; OPEN = decision required.

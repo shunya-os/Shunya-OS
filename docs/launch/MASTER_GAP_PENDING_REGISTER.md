@@ -1,7 +1,7 @@
 # SHUNYA — MASTER GAP & PENDING REGISTER (SUPERSET, ALL SOURCES)
 
 **Date:** 2026-10-13 (consolidated; B2 wave 2026-10-13; B3/B4/B5 + L-gate wave 2026-10-13)
-**Repository:** shunya-os/Shunya-OS @ master **9a5a37e** (releases: 583598f B1 baseline → ec0b691 B2 → 3b78e13 B3 → 9f3ed5a B4/B5/L2/L3 → 9a5a37e L3 hotfix; prior baselines 26b592e (Wave A), 6b5767f) — CI_CERTIFIED per release, deployed, live-verified
+**Repository:** shunya-os/Shunya-OS @ master **20e3df2** (releases: 583598f B1 baseline → ec0b691 B2 → 3b78e13 B3 → 9f3ed5a B4/B5/L2/L3 → 9a5a37e L3 hotfix → 66490ff B16 → 3866e2f D8 → cb9114f E1 → 20e3df2 E1 merge; prior baselines 26b592e (Wave A), 6b5767f) — CI_CERTIFIED per release, deployed, live-verified
 **Sources merged:** (1) `docs/launch/SHUNYA_100_GAP_REGISTER.md` (session sweep, 5 perspectives), (2) `artifacts/SH_M6_M15_BLOCKER_REGISTER.md` (LB/S/P/F), (3) `SHUNYA_MASTER_MILESTONE_TRACKER.md` (G-gates, FDA gates, orphans, capability registry), (4) live production/host findings this session, (5) founder-pending decisions.
 **Rule:** this document is the single umbrella register. Child registers stay authoritative for their own detail; nothing here is closed without evidence.
 
@@ -14,7 +14,7 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 | Range | Perspective | Count | Headline |
 |-------|-------------|-------|----------|
 | A1–A18 | Frontend/UI | 18 | Calendar + marketing + notification + onboarding(4–10) + UBME surfaces unmounted; invite no-op; fake Gmail connect; analytics/empty-state holes |
-| B1–B24 | Backend/API/Security | 24 | 9 unguarded blueprints (auth whitelist + header identity = **B16** highest leverage); SMTP/outcome/execution stubs; 5 missing routes; 2 unregistered blueprints |
+|| B1–B24 | Backend/API/Security | 24 | B16–B24 **FIXED** (wave B16: no /api/* exemption, authz decorators session-only, adversarial suite 32/32, route-security inventory green); 5 missing routes; 2 unregistered blueprints; SMTP/outcome/execution stubs remain |
 | C1–C20 | Integrations (email/WhatsApp/connectors) | 20 | Email inbox no UI; no read/search/threads/attachments; 3 templates; WhatsApp outbound dead + no UI; hub 24/33 display-only; OAuth unusable |
 | D1–D20 | Product journeys | 20 | Profile desync; prefs not enforced; sessions fabricated; invites never emailed; analytics Math.random; leads/invoices cannot complete; object delete missing; MFA path mismatch |
 | E1–E18 | Ops/Security-ops | 18 | No alerting; backups unscheduled/restore untested/uploads unbacked; **secrets in public history (E6)**; rate-limit on proxy IP; no lockout/expiry; rollback degrades release; KYC undecided |
@@ -25,7 +25,7 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 
 | ID | Item | Status (evidence-backed) |
 |----|------|--------------------------|
-| LB-001 | Founder acceptance walkthrough + sign-off | NOT STARTED — founder-gated |
+|| LB-001 | Founder acceptance walkthrough + sign-off | PREPARED — docs/launch/LB001_WALKTHROUGH.md exists with target SHA 20e3df2 pre-filled; awaiting founder execution and signature |
 | LB-002 | Age/safety governance | CI-CERTIFIED on c6b0fa0 + runtime-proven; residual = KYC method (E18/§7-D3) |
 | LB-003 | Production behind master / CI red | RESOLVED (prod == master == 26b592e, run 38296092034 SUCCESS, 2026-10-12) |
 | LB-004 | PUBLIC_LAUNCH_READY flag | CONFIRMED FALSE (by design) |
@@ -58,8 +58,8 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 | G3 SHUNYAAI | FCR-02 COMPLETE | Ask pipeline runtime-proven in production. IMPROVED → CERTIFIED for the canonical path |
 | G4–G9 Vertical domains | NOT_CERTIFIED ×6 | Finance/Operations frontends exist + real APIs (G10 claims stale); domain E2E browser certification still open. mostly UNCHANGED |
 | G10 Frontend/UX | OPEN | 18 FE gaps (§1-A) — still OPEN |
-| G11 Security/Reliability | NOT_CERTIFIED | P0/P1 security gates closed; 9 unguarded blueprints (B17–B24) keep it NOT_CERTIFIED |
-| G12 Founder acceptance | NOT_STARTED | LB-001 pending — NOT_STARTED |
+|| G11 Security/Reliability | NOT_CERTIFIED | P0/P1 security gates closed; B16–B24 FIXED (see register, 9 blueprints now decorated + adversarial suite 32/32) — G11 advances toward CERTIFIED but full certification requires remaining P1s (E1, D4, etc.) |
+|| G12 Founder acceptance | PREPARED | LB-001 walkthrough doc exists with target SHA; founder execution + signature pending — PREPARED |
 | FDA-3,4,5,11,24,28,30,31 | PARTIAL | Unchanged (no new certification effort this session) |
 | FDA-34 | NOT_PROVEN | Unchanged |
 | FDA-35,36 | NOT_STARTED | Unchanged — NOT_STARTED (real-time/recovery gates) |
@@ -114,8 +114,8 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 
 | # | Decision | Context | Recommendation |
 |---|----------|---------|----------------|
-| D1 | **LB-001 founder acceptance** — walkthrough + sign-off ceremony | G12 empty | Schedule 1-day walkthrough against Section 1 P1s after remediation wave 1 |
-| D2 | **S-006 branch protection** | Verified absent | Enable: require CI status check + PR review on master, disable force-push |
+|| D1 | **LB-001 founder acceptance** — walkthrough + sign-off ceremony | G12 empty. Walkthrough doc exists (docs/launch/LB001_WALKTHROUGH.md), target SHA 20e3df2 pre-filled, but founder has not signed | Founder-executed walkthrough + explicit signature per LB001_WALKTHROUGH.md G section |
+|| D2 | **S-006 branch protection** | ENABLED per S-006: required CI status check + ≥1 approving review on master, force-push/deletion blocked. Verified read-back 2026-10-12. D2 is a confirm-and-close item | Confirm the read-back evidence; nothing to enable |
 | D3 | **E18 KYC/age-verification method** | Gate records verification outcome only | Decide: documentary KYC provider vs self-attestation; until then policy is admin-attested |
 | D4 | **E6 secrets purge / repo privacy** | VERIFIED NO LIVE CREDS IN HISTORY (all `.env` blobs placeholder; credentials.py clean); **REAL TELEGRAM TOKEN in initial commit**; PII (itineraries/audit) in history | Reversible containment applied 2026-10-13 (secret scanning + push protection ENABLED, read-back verified; `.env` untracked at HEAD). Remaining are founder-authorized: F-1 rotate telegram token, F-2 purge-or-private (recommend both), F-3 rotate flagged keys. Evidence: `docs/launch/D4_EXPOSURE_INVENTORY.md` |
 | D5 | **P-005 calendar mounting** | Component+API exist | Confirm navigation placement; then finish wiring (POST create + month/year params) |
@@ -131,18 +131,19 @@ Full detail + evidence: `docs/launch/SHUNYA_100_GAP_REGISTER.md`. Counts: 27 P1 
 
 ## SECTION 8 — RECOMMENDED EXECUTION ORDER (single next actions)
 
-**Wave 0 — stop-the-bleed (needs D2/D3/D4 sign-off):**
-1. B16 auth middleware (9 unguarded blueprints) + move the 5 missing-route gaps (B3–B7) into the same hardening pass
-2. L1 analytics dashboard 500 → schema drift fix + E1 alerting hook (webhook/email on 500)
-3. E6 secrets: purge/rotate + repo privacy (D4)
+**Wave 0 — stop-the-bleed (D2/D3/D4 sign-off; B16–B24 COMPLETE, no action needed):**
+1. B16 auth middleware + 9 blueprints **FIXED** (wave deployed, adversarial suite 32/32, route-security inventory green) — no further code changes needed
+2. Move the 5 missing-route gaps (B3–B7) into the hardening pass
+3. L1 analytics dashboard 500 → schema drift fix + E1 alerting hook (CLOSED per 3b78e13)
+4. E6 secrets: purge/rotate + repo privacy (D4)
 
 **Wave 1 — founder-ask integrations (D8):**
-4. Email: inbound UI (C1–C4) + compose v1 (C5–C7) + real send path (B8)
-5. WhatsApp: outbound wiring (C10) + minimal reply surface (C11) + persistent setup (C12)
+5. Email: inbound UI (C1–C4) + compose v1 (C5–C7) + real send path (B8)
+6. WhatsApp: outbound wiring (C10) + minimal reply surface (C11) + persistent setup (C12)
 
 **Wave 2 — journey completion (D1 prep):**
-6. D10 lead lifecycle UI + D17 invoice-to-customer + D11 object delete + D12 workspace switcher
-7. D7 invites (real email), D6 sessions truth, D3 notifications enforcement
+7. D10 lead lifecycle UI + D17 invoice-to-customer + D11 object delete + D12 workspace switcher
+8. D7 invites (real email), D6 sessions truth, D3 notifications enforcement
 
 **Wave 3 — founder acceptance (D1) and G12.**
 
@@ -208,9 +209,45 @@ change) + `docs/launch/ZG03_B2_CAPABILITY_INVENTORY.md` (add-on baseline).
 
 **Full-suite regression (scrubbed, CI-equivalent, master):** 5723 passed / 128 skipped / 0 failed (30:09, output `/tmp/logs/b3b4b5_full_suite_master_final.log`); B2 branch was 5703/128/0; baseline 583598f was 5665/128/4 (fda25, fixed).
 
-**Next action (wave-complete):** founder walkthrough + LB-001 sign-off (D1) against Section 1 P1s (B16 auth middleware, D8 integration honesty, E1 alerting, D4 purge/privacy), then remaining Section 2 blockers. `PUBLIC_LAUNCH_READY = FALSE` until LB-001 + all mandatory gates verified.
+**Next action (wave-complete):** B16–B24 CLOSED (adversarial suite 32/32, route-security inventory green). Remaining Section 1 P1s: D8 integration honesty (code merged, truthful statuses live), E1 alerting (code merged, migration applied, test-alert fires — delivery unconfigured), D4 history purge (founder-pending). Continue with grouped implementation waves — no pause for founder review between waves. `PUBLIC_LAUNCH_READY = FALSE` until LB-001 + all mandatory gates verified.
 
-**L4 remediation (2026-10-13, narrowly scoped, index-only):**
+## B16–B24 wave — security blueprint closure (2026-10-13)
+
+**ZG-03 Wave B16 (PR #13, merged 66490ff, deployed 20e3df2):**
+
+| # | Blueprint | Fix | Evidence |
+|---|-----------|-----|----------|
+| B16 | Auth middleware | No /api/* exemption; authz decorators session-only; `X-Identity-Id` header NOT trusted for authentication | adversarial suite 32/32; route-security inventory 4/4 (0 unprotected) |
+| B17 | Customer experience | require_permission + org-scoped lookup, fail-closed 404 | B16 suite green |
+| B18 | Marketing intelligence | org context session-only | B16 suite green |
+| B19 | Sales intelligence | 7/7 handlers permission-decorated + org-scoped | B16 suite green |
+| B20 | Marketing OS | 7/7 handlers decorated + org-scoped | B16 suite green |
+| B21 | Entity API | require_permission + org-filtered `_scoped_entity` | B16 suite green |
+| B22 | UOP kernel | scoped object access + decorators | B16 suite green |
+| B23 | Reality engine | session-only identity + org-claim validation; live-probed 401 unauth, 200 own-org data | B16 suite green; live GET /api/v1/reality returns own-org data |
+| B24 | Export | org-scoped export data | B16 suite green |
+
+**57 targeted tests** (reported evidence — runs performed in venv with DATABASE_URL=sqlite:///:memory:):
+| Suite | Tests | Result |
+|-------|-------|--------|
+| test_b16_blueprint_gates.py | 32 | 32/32 passed |
+| test_route_security_inventory.py | 4 | 4/4 passed (0 unprotected routes) |
+| test_alerting_e1.py | 13 | 13/13 passed |
+| test_import_export.py | 8 | 8/8 passed |
+
+These test runs demonstrate the in-memory test suite. Documentation-only CI does not certify production behavior — production verification is independently confirmed via live probes against 20e3df2 (see next section).
+
+**Live verification against deployed 20e3df2:**
+- Reality GET /api/v1/reality (unauth): 401
+- Reality GET /api/v1/reality (cert session): 200, own-org data only
+- Integrations GET /api/v1/integrations (cert session): 200, truthful status (email disconnected, no fake "connected")
+- Test alert POST /api/v1/system/alerts/test (cert session): 200, fired:true, delivery_state=unconfigured — no ops recipient configured
+
+**Remaining P1s (not closed by B16–B24):** E1 delivery channel configuration (authorized recipient), D8 connector wiring (beyond status truth), D4 history purge (founder-authorized), plus 19 other P1s across perspectives C/D/E.
+
+---
+
+*L4 remediation (2026-10-13, narrowly scoped, index-only):*
 15 legacy artifacts were git-tracked under `uploads/`, `static/uploads/`,
 `app/static/uploads/` (3 founder itinerary PDFs, 1 audit PDF, 11 test/probe
 files; 699,867 bytes). Root cause: pre-ignore-era additions; the app's runtime

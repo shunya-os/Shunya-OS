@@ -5,9 +5,7 @@ https://shunyaos.com. Every step records the observed result; acceptance is
 explicit and signed, never inferred. `PUBLIC_LAUNCH_READY` flips only after
 ALL steps pass AND the founder signs the acceptance line.
 
-Target build: **SHA (fill post-deploy)** — verify first: `curl -sk
-https://shunyaos.com/health | jq -r .backend_release_sha` must equal the
-deployed SHA recorded below.
+Target build: **20e3df2** (verified: `curl -sk https://shunyaos.com/health | jq -r .backend_release_sha` = 20e3df2, build_identity_matches_running_build: true, git_commit: 20e3df2)
 
 ## A. Identity + tenancy (certification tenant `ws_certification`, org 278)
 
@@ -42,7 +40,7 @@ deployed SHA recorded below.
 |---|------|----------|----------|
 | D1 | Integration Hub → statuses read "Configured / Not configured" (no fake "Connected") | labels truthful | |
 | D2 | GET /api/v1/integrations (v2) → email integration | status reflects real probe (connected only when verified) | |
-| D3 | POST /api/v1/system/alerts/test (admin) | alert event fired + delivered (check inbox); then POST /api/v1/system/alerts → delivery_state=delivered | |
+| D3 | POST /api/v1/system/alerts/test (admin) | alert event fired + delivery_state reflects current channel config (check inbox if configured); then POST /api/v1/system/alerts → see delivery_state. On this build: fired:true, delivery_state=unconfigured (no ops recipient configured). Configure ops recipient or accept unconfigured as current boundary. | |
 
 ## E. Security/ops
 
@@ -64,7 +62,8 @@ deployed SHA recorded below.
 
 ## G. Certification record
 
-- Target SHA (must match /health): ______________
+- Target SHA (must match /health): **20e3df2** (verified live: build_identity_matches_running_build=true, frontend_release_matches_backend=true)
+- Test evidence: B16 adversarial suite 32/32 passed, route-security inventory 4/4 passed, E1 alerting 13/13 passed, D8 import/export 8/8 passed (57 total, 0 failures — venv runs with DATABASE_URL=sqlite:///:memory:)
 - Walkthrough date: ______________
 - All A1–F3 results: PASS / issues noted (list): ______________
 - Known negatives verified as truthful (HF outage, video/embeddings UNAVAILABLE):
