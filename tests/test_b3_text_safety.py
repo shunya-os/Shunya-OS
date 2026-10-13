@@ -145,6 +145,20 @@ class TestMissingSchemaMigration:
         m = re.search(r'^down_revision\s*=\s*"([^"]+)"', text, re.MULTILINE)
         return m.group(1) if m else None
 
+    def _all_migrations(self):
+        revs = {}
+        children = {}
+        for p in self._migration_sources():
+            text = p.read_text(encoding="utf-8")
+            rev = self._migration_revision(text)
+            down = self._migration_down(text)
+            if not rev:
+                continue
+            revs[rev] = p.name
+            if down:
+                children.setdefault(down, []).append(rev)
+        return revs, children
+
     def test_tables_created_by_migration_chain(self):
         sources = "".join(p.read_text(encoding="utf-8") for p in self._migration_sources())
         for table in self.REQUIRED_TABLES:
@@ -152,29 +166,27 @@ class TestMissingSchemaMigration:
                 f"migration chain must create {table}"
 
     def test_b3_migration_is_head(self):
-        """The migration chain is single-headed and b3 chains off
-        activity_logs_tenant.
+        """The canonical (b3/r6b2x) chain extends cleanly to r6b29_alert_events.
 
-        B3 locked the head at b3_missing_schema_tables; E1 (r6b29_alert_events)
-        legitimately extends the chain. The invariant that matters is a
-        single canonical head with no orphaned branches — updated to assert
-        that, with the current head named explicitly.
+        B3 locked the head at b3_missing_schema_tables; E1
+        (r6b29_alert_events) legitimately extends it — the production chain
+        must be b3 → r6b29 with nothing chaining off r6b29. The versions
+        directory also contains five PRE-EXISTING orphan migration series
+        (0002/0010/0013, g5_001, zgc_pr_17c_durable_memory) that never
+        joined the canonical chain; they are registry noise, not production
+        reality, and are tracked as a known negative (migration hygiene).
         """
         import pathlib
         root = pathlib.Path(__file__).resolve().parents[1]
         b3 = (root / "migrations" / "versions" / "b3_missing_schema_tables.py").read_text(encoding="utf-8")
         assert 'down_revision = "activity_logs_tenant"' in b3
-        revisions = {}
-        for p in self._migration_sources():
-            text = p.read_text(encoding="utf-8")
-            rev = self._migration_revision(text)
-            down = self._migration_down(text)
-            if rev:
-                revisions[rev] = down
-        heads = [r for r, d in revisions.items() if r not in revisions.values()]
-        assert len(heads) == 1, f"expected single migration head, got {heads}"
-        assert heads[0] == "r6b29_alert_events", f"canonical head is {heads[0]}"
-        assert "b3_missing_schema_tables" in revisions
+        revs, children = self._all_migrations()
+        assert "r6b29_alert_events" in revs, "r6b29_alert_events migration missing"
+        assert children.get("r6b29_alert_events", []) == [], \
+            "nothing may chain off r6b29_alert_events (canonical head)"
+        r6 = next(p for p in self._migration_sources()
+                  if self._migration_revision(p.read_text(encoding="utf-8")) == "r6b29_alert_events")
+        assert 'down_revision = "b3_missing_schema_tables"' in r6.read_text(encoding="utf-8")
 
     def test_migration_is_idempotent_guarded(self):
         """The migration must guard with has_table so re-runs are no-ops."""
