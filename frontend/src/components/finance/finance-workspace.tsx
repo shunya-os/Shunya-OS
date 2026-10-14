@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, type FC } from 'react';
+import { InvoiceDetailModal } from './invoice-detail-modal';
 
 // ── Data Types ──────────────────────────────────────────────────────────
 
@@ -63,33 +64,6 @@ interface TrialBalanceEntry {
   balance: number;
 }
 
-// ── Invoice Detail Types ─────────────────────────────────────────────────
-
-interface InvoiceDetail {
-  id: number;
-  number: string;
-  status: string;
-  issue_date: string;
-  due_date: string;
-  total_amount: number;
-  paid_amount: number;
-  currency: string;
-  relationship_name?: string;
-  notes?: string;
-  created_by?: string;
-  created_at: string;
-}
-
-interface EvidenceItem {
-  id: number;
-  original_filename: string;
-  mime_type: string;
-  file_size_bytes: number;
-  status: string;
-  created_at: string;
-  notes?: string;
-}
-
 // ── API Helper ──────────────────────────────────────────────────────────
 
 async function api<T>(path: string): Promise<T | null> {
@@ -99,28 +73,6 @@ async function api<T>(path: string): Promise<T | null> {
     return (await r.json()) as T;
   } catch {
     return null;
-  }
-}
-
-// ── Attachment Upload Helper ─────────────────────────────────────────────
-
-async function uploadInvoiceAttachment(
-  invoiceId: number,
-  file: File,
-): Promise<{ success: boolean; url?: string; error?: string }> {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('invoice_id', String(invoiceId));
-  try {
-    const r = await fetch('/api/v1/finance/invoices/' + invoiceId + '/attachment', {
-      method: 'POST',
-      credentials: 'include',
-      body: form,
-    });
-    const body = await r.json();
-    return body;
-  } catch {
-    return { success: false, error: 'Upload failed' };
   }
 }
 
@@ -261,6 +213,8 @@ export const FinanceWorkspace: FC = () => {
   const [sendBusy, setSendBusy] = useState(false);
   const [sendNotice, setSendNotice] = useState('');
   const [sendError, setSendError] = useState('');
+  // Invoice detail modal
+  const [detailInvoiceId, setDetailInvoiceId] = useState<number | null>(null);
 
   const postJson = async <T,>(path: string, payload: Record<string, unknown>) => {
     try {
@@ -479,7 +433,7 @@ export const FinanceWorkspace: FC = () => {
           ) : (
             <div className="pw-commercial-list">
               {invoices.slice(0, 5).map((inv) => (
-                <div key={inv.id} className="pw-commercial-item">
+                <div key={inv.id} className="pw-commercial-item" style={{ cursor: 'pointer' }} onClick={() => setDetailInvoiceId(inv.id)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setDetailInvoiceId(inv.id)} aria-label={`Open invoice ${inv.number}`}>
                   <div className="pw-commercial-item-title">
                     {inv.number} — {inv.relationship_name || 'Unknown'}
                   </div>
@@ -695,7 +649,7 @@ export const FinanceWorkspace: FC = () => {
           ) : (
             <div className="pw-commercial-list">
               {invoices.map((inv) => (
-                <div key={inv.id} className="pw-commercial-item">
+                <div key={inv.id} className="pw-commercial-item" style={{ cursor: 'pointer' }} onClick={() => setDetailInvoiceId(inv.id)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setDetailInvoiceId(inv.id)} aria-label={`Open invoice ${inv.number}`}>
                   <div className="pw-commercial-item-title">
                     {inv.number} — {inv.relationship_name || 'Customer'}
                   </div>
@@ -833,6 +787,14 @@ export const FinanceWorkspace: FC = () => {
             </div>
           )}
         </>
+      )}
+      {/* Invoice detail modal */}
+      {detailInvoiceId !== null && (
+        <InvoiceDetailModal
+          invoiceId={detailInvoiceId}
+          onClose={() => { setDetailInvoiceId(null); loadData(); }}
+          onRefresh={loadData}
+        />
       )}
     </div>
   );
