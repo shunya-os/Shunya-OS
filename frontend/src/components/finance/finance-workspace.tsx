@@ -63,6 +63,33 @@ interface TrialBalanceEntry {
   balance: number;
 }
 
+// ── Invoice Detail Types ─────────────────────────────────────────────────
+
+interface InvoiceDetail {
+  id: number;
+  number: string;
+  status: string;
+  issue_date: string;
+  due_date: string;
+  total_amount: number;
+  paid_amount: number;
+  currency: string;
+  relationship_name?: string;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+}
+
+interface EvidenceItem {
+  id: number;
+  original_filename: string;
+  mime_type: string;
+  file_size_bytes: number;
+  status: string;
+  created_at: string;
+  notes?: string;
+}
+
 // ── API Helper ──────────────────────────────────────────────────────────
 
 async function api<T>(path: string): Promise<T | null> {
