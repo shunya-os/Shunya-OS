@@ -50,20 +50,24 @@ def upgrade() -> None:
             SELECT 1 FROM sh_workspaces WHERE id = 'ws_migrate_fallback'
         )
     """))
+    # Production defect discovered during deploy: all 12 orphan
+    # founder_conversations share object_id='conv_system' (one synthetic id),
+    # so a naive INSERT using fc.object_id duplicates the unique key. Each
+    # orphan gets a NEW unique sh_objects row and the conversation row is
+    # re-pointed to it. Conversations that already have a matching (un-deleted)
+    # sh_objects row are left untouched.
     conn.execute(sa.text("""
-        INSERT INTO sh_objects (object_id, workspace_id, organization_id,
-                                object_type, name, status, created_by, created_at,
-                                updated_at, is_deleted)
-        SELECT fc.object_id,
-               COALESCE(ws.id, 'ws_migrate_fallback'),
-               COALESCE(om.organization_id, ws.organization_id),
-               'conversation',
-               COALESCE(fc.title, 'AI Chat'),
-               'active',
-               COALESCE(fc.identity_id, 'system'),
-               fc.created_at, fc.created_at, false
+        CREATE TEMP TABLE conv_backfill AS
+        SELECT fc.id AS conv_db_id,
+               fc.object_id AS old_object_id,
+               gen_random_uuid()::text AS new_object_id,
+               COALESCE(ws.id, 'ws_migrate_fallback') AS workspace_id,
+               COALESCE(om.organization_id, ws.organization_id) AS organization_id,
+               COALESCE(fc.title, 'AI Chat') AS name,
+               COALESCE(fc.identity_id, 'system') AS created_by,
+               fc.created_at
         FROM founder_conversations fc
-        LEFT JOIN sh_objects o ON o.object_id = fc.object_id
+        LEFT JOIN sh_objects o ON o.object_id = fc.object_id AND o.is_deleted = false
         LEFT JOIN org_members om ON om.identity_id = fc.identity_id
             AND om.is_active = true
         LEFT JOIN sh_workspace_memberships wsm
@@ -73,6 +77,21 @@ def upgrade() -> None:
             AND (om.organization_id IS NULL
                  OR ws.organization_id = om.organization_id)
         WHERE o.object_id IS NULL
+    """))
+    conn.execute(sa.text("""
+        INSERT INTO sh_objects (object_id, workspace_id, organization_id,
+                                object_type, name, status, created_by, created_at,
+                                updated_at, is_deleted)
+        SELECT new_object_id, workspace_id, organization_id,
+               'conversation', name, 'active', created_by, created_at,
+               created_at, false
+        FROM conv_backfill
+    """))
+    conn.execute(sa.text("""
+        UPDATE founder_conversations fc
+        SET object_id = b.new_object_id
+        FROM conv_backfill b
+        WHERE fc.id = b.conv_db_id
     """))
     orphan_count = conn.execute(sa.text(
         "SELECT count(*) FROM founder_conversations fc "
