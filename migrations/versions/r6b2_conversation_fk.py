@@ -50,7 +50,16 @@ def upgrade() -> None:
             SELECT 1 FROM sh_workspaces WHERE id = 'ws_migrate_fallback'
         )
     """))
-    # Production defect discovered during deploy: all 12 orphan
+
+    # ── Step 2: Drop old FK (founder_conversations → founder_objects) ──
+    # MUST happen before the UPDATE below — the old FK prevents setting
+    # object_id values that don't exist in founder_objects.
+    conn.execute(sa.text(
+        "ALTER TABLE founder_conversations "
+        "DROP CONSTRAINT IF EXISTS founder_conversations_object_id_fkey"
+    ))
+
+    # ── Step 3: Backfill sh_objects for orphan conversations ──
     # founder_conversations share object_id='conv_system' (one synthetic id),
     # so a naive INSERT using fc.object_id duplicates the unique key. Each
     # orphan gets a NEW unique sh_objects row and the conversation row is
@@ -102,15 +111,7 @@ def upgrade() -> None:
         f"{orphan_count} orphan founder_conversations remain — migration is blocked"
     )
 
-    # ── Step 2: Drop old FK (founder_conversations → founder_objects) ──
-    # PostgreSQL names the FK constraint automatically from the model
-    # definition. We use the standard naming convention.
-    conn.execute(sa.text(
-        "ALTER TABLE founder_conversations "
-        "DROP CONSTRAINT IF EXISTS founder_conversations_object_id_fkey"
-    ))
-
-    # ── Step 3: Add new FK (founder_conversations → sh_objects) ──
+    # ── Step 4: Add new FK (founder_conversations → sh_objects) ──
     conn.execute(sa.text(
         "ALTER TABLE founder_conversations "
         "ADD CONSTRAINT founder_conversations_object_id_fkey "
