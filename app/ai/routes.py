@@ -426,35 +426,11 @@ def chat():
                     organization_id=tenant_id, workspace_id=workspace.id,
                     created_by=identity_id, data={}, identity_id=identity_id)
                 conv_object_id = created['object_id']
-            # FK: founder_conversations.object_id references founder_objects.object_id.
-            # The founder_objects row must exist before the conversation row is inserted.
-            if conv_object_id:
-                from app.founder.models import FounderObject, FounderSpace
-                if not FounderObject.query.filter_by(object_id=conv_object_id).first():
-                    _fo_space = FounderSpace.query.filter_by(identity_id=identity_id).order_by(
-                        FounderSpace.created_at.asc()).first()
-                    if not _fo_space:
-                        _fo_space = FounderSpace.query.filter_by(space_id='space_system').first()
-                    if not _fo_space:
-                        _fo_space = FounderSpace(
-                            space_id='space_system',
-                            name='System Space',
-                            space_type='system',
-                            identity_id=identity_id,
-                            status='active',
-                        )
-                        _db.session.add(_fo_space)
-                        _db.session.flush()
-                    from datetime import datetime as _dt
-                    _db.session.add(FounderObject(
-                        object_id=conv_object_id,
-                        space_id=_fo_space.space_id,
-                        object_type='conversation',
-                        name=user_messages[-1]['content'][:100],
-                        status='active',
-                        created_by=identity_id,
-                        created_at=_dt.utcnow(),
-                    ))
+            # FK: founder_conversations.object_id references sh_objects.object_id (canonical).
+            # The ShunyaObject was created via ObjectService.create() above (or existed
+            # from a prior canonical path), so the FK target row is present. No separate
+            # FounderObject row is needed — the legacy founder_objects store is retired
+            # per R6B-2 (GATE 7: zero production writes).
             conv = FounderConversation(conv_id=conversation_id, object_id=conv_object_id,
                     title=user_messages[-1]['content'][:100], identity_id=identity_id, status='active')
             _db.session.add(conv)

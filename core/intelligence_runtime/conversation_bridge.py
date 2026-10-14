@@ -6,6 +6,16 @@ process restarts.
 
 The bridge is intentionally thin — it is a persistence adapter between the
 runtime's session_id-based message model and the DB's conv_id-based model.
+
+Canonical arch (R6B-2): founder_conversations.object_id FK → sh_objects.object_id.
+No FounderObject writes are permitted outside the model definition (GATE 7).
+A ShunyaObject row must exist in sh_objects before the conversation row can be
+inserted. This bridge creates one via ObjectService when a real identity context
+is available, and skips persistence gracefully when no context exists (background
+operations without an authenticated user).
+
+The caller (ConversationRuntime.add_message) wraps the save in try/except, so a
+skip or failure is non-fatal — the in-memory conversation continues to work.
 """
 
 from __future__ import annotations
@@ -17,86 +27,155 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def _ensure_founder_object(object_id: str, title: str, identity_id: str = "") -> None:
-    """Ensure a FounderObject exists so the FounderConversation FK is satisfied.
+def _resolve_context(identity_id: str = "") -> str | None:
+    """Resolve an authenticated identity_id from available context.
 
-    founder_conversations.object_id carries a FK constraint to
-    founder_objects.object_id — an object row MUST exist before the
-    conversation row can be inserted. This helper creates one when
-    missing, attaching it to the identity's first space (fallback:
-    the system space).
+    Priority:
+      1. Explicit identity_id argument.
+      2. Flask request context (g.identity_id).
+      3. Flask session (identity_id, user_id).
+
+    Returns the identity_id string, or None when no real context is available.
+    Never fabricates synthetic identity values.
     """
-    from app.founder.models import FounderObject, FounderSpace
+    _id = identity_id
+
+    if not _id:
+        try:
+            from flask import g as _g
+            _id = str(getattr(_g, "identity_id", "") or "")
+        except (Exception, RuntimeError):
+            pass
+
+    if not _id:
+        try:
+            from flask import session as _sess
+            _id = str(_sess.get("identity_id", _sess.get("user_id", "")) or "")
+        except (Exception, RuntimeError):
+            pass
+
+    if not _id:
+        return None  # No identity — cannot create tenant-scoped objects
+
+    return _id
+
+
+def _find_org_for_identity(identity_id: str) -> tuple[int, str] | None:
+    """Find the identity's first active organization membership + workspace.
+
+    Returns (org_id, workspace_id) or None if not found.
+    Written with deferred imports to avoid circular imports at module load.
+    """
     from app import db
-    from datetime import datetime, timezone
+    from sqlalchemy import text as _sql
 
-    if FounderObject.query.filter_by(object_id=object_id).first():
-        return  # already exists
-
-    space_id: str | None = None
-    if identity_id:
-        sp = FounderSpace.query.filter_by(identity_id=identity_id).order_by(
-            FounderSpace.created_at.asc()
+    try:
+        row = db.session.execute(
+            _sql(
+                "SELECT om.organization_id, wsm.workspace_id "
+                "FROM org_members om "
+                "JOIN sh_workspace_memberships wsm ON wsm.identity_id = om.identity_id "
+                "JOIN sh_workspaces w ON w.id = wsm.workspace_id "
+                "WHERE om.identity_id = :id "
+                "AND om.is_active = true "
+                "AND wsm.is_active = true "
+                "AND w.status = 'active' "
+                "ORDER BY om.created_at ASC LIMIT 1"
+            ),
+            {"id": identity_id},
         ).first()
-        if sp:
-            space_id = sp.space_id
-    if not space_id:
-        system = FounderSpace.query.filter_by(space_id="space_system").first()
-        if system:
-            space_id = system.space_id
-        else:
-            system = FounderSpace(
-                space_id="space_system",
-                name="System Space",
-                space_type="system",
-                identity_id=identity_id or "system",
-                status="active",
-            )
-            db.session.add(system)
-            db.session.flush()
-            space_id = system.space_id
+        if row:
+            return int(row[0]), str(row[1])
+    except Exception:
+        logger.warning("Context resolution for identity %s failed", identity_id, exc_info=True)
+    return None
 
-    obj = FounderObject(
-        object_id=object_id,
-        space_id=space_id,
+
+def _ensure_canonical_object(identity_id: str, org_id: int, workspace_id: str,
+                              title: str) -> str:
+    """Create a ShunyaObject row via ObjectService.
+
+    Returns the object_id string. The row is committed by ObjectService.create().
+    """
+    from core.object_service import get_object_service
+
+    created = get_object_service().create(
         object_type="conversation",
         name=title or "AI Chat",
-        status="active",
-        created_by=identity_id or "",
-        created_at=datetime.now(timezone.utc),
+        organization_id=org_id,
+        workspace_id=workspace_id,
+        created_by=identity_id,
+        data={},
+        identity_id=identity_id,
     )
-    db.session.add(obj)
+    return created["object_id"]
 
 
 def _ensure_conversation(session_id: str, identity_id: str = "") -> str:
     """Ensure a FounderConversation exists for this session_id (= conv_id).
 
-    A FounderObject is created first (via _ensure_founder_object) so the
-    founder_conversations.object_id → founder_objects.object_id FK constraint
-    is satisfied. Previously the object_id was a synthetic "conv_<session>"
-    string with NO matching founder_objects row — that is exactly the FK
-    violation seen in production ("conv_conv_convers..." / object not found).
+    Creates a ShunyaObject in the canonical store first (via ObjectService) so
+    the founder_conversations.object_id → sh_objects.object_id FK constraint is
+    satisfied.
 
-    Returns the conv_id (same as session_id).
+    When the identity context cannot be resolved (no authenticated user), the
+    conversation is NOT persisted — the in-memory conversation continues to work
+    via ConversationRuntime's default in-memory store.
+
+    Returns the conv_id (same as session_id), or empty string when skipped.
     """
     from app.founder.models import FounderConversation
     from app import db
     from datetime import datetime, timezone
 
     conv = FounderConversation.query.filter_by(conv_id=session_id).first()
-    if conv is None:
-        object_id = str(uuid.uuid4())
-        _ensure_founder_object(object_id=object_id, title="AI Chat", identity_id=identity_id)
-        conv = FounderConversation(
-            conv_id=session_id,
-            object_id=object_id,
-            title="AI Chat",
-            identity_id=identity_id or "",
-            status="active",
-            created_at=datetime.now(timezone.utc),
+    if conv is not None:
+        return session_id
+
+    # Resolve identity context
+    _identity = _resolve_context(identity_id)
+    if _identity is None:
+        logger.warning(
+            "Conversation persistence skipped (no identity context): session=%s",
+            session_id,
         )
-        db.session.add(conv)
-        db.session.commit()
+        return ""
+
+    # Resolve org + workspace from DB memberships
+    org_ws = _find_org_for_identity(_identity)
+    if org_ws is None:
+        logger.warning(
+            "Conversation persistence skipped (no org/workspace for %s): session=%s",
+            _identity,
+            session_id,
+        )
+        return ""
+
+    org_id, ws_id = org_ws
+
+    try:
+        object_id = _ensure_canonical_object(
+            identity_id=_identity, org_id=org_id, workspace_id=ws_id,
+            title="AI Chat",
+        )
+    except Exception:
+        logger.warning(
+            "Conversation persistence skipped (object creation failed): session=%s",
+            session_id,
+            exc_info=True,
+        )
+        return ""
+
+    conv = FounderConversation(
+        conv_id=session_id,
+        object_id=object_id,
+        title="AI Chat",
+        identity_id=_identity,
+        status="active",
+        created_at=datetime.now(timezone.utc),
+    )
+    db.session.add(conv)
+    db.session.commit()
     return session_id
 
 
@@ -107,15 +186,16 @@ def save_message(session_id: str, role: str, content: str, identity_id: str = ""
         session_id: Used as conv_id in FounderConversation/FounderMessage.
         role: 'human' or 'assistant'.
         content: The message text.
-        identity_id: Owner identity, threaded through to FounderObject so
-                     the row is attributed (and space-resolved) correctly.
+        identity_id: Owner identity; if empty, resolved from the request context.
     """
     from app.founder.models import FounderMessage
     from app import db
     from datetime import datetime, timezone
 
     try:
-        _ensure_conversation(session_id, identity_id)
+        conv_id = _ensure_conversation(session_id, identity_id)
+        if not conv_id:
+            return  # Skipped — in-memory path handles it
         msg = FounderMessage(
             conv_id=session_id,
             role="human" if role == "user" else "assistant",
