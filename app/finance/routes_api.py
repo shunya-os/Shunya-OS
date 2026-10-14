@@ -543,28 +543,38 @@ def api_upload_invoice_evidence(inv_id):
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
     file = request.files["file"]
-    if file.filename == "" or not file.filename:
+    if not file.filename or file.filename.strip() == "":
         return jsonify({"error": "Empty filename"}), 400
 
-    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"}
-    if file.content_type not in allowed:
-        return jsonify({"error": "File type not allowed. Use JPEG, PNG, WebP, GIF or PDF."}), 400
-
+    # Validate and store the file (content-based, not header-trusted)
     from app.finance.evidence import _store_file
+
+    try:
+        rel_path, safe_name, validated_mime = _store_file(file, org_id, "invoice", inv_id)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    # Guard for type narrowing (validated_mime is always a str on success)
+    if not validated_mime:
+        return jsonify({"error": "File validation failed"}), 400
+
+    # Get actual file size from stored file
+    from app.finance.evidence import STORAGE_ROOT
+    stored_path = os.path.join(STORAGE_ROOT, rel_path)
+    actual_size = os.path.getsize(stored_path) if os.path.exists(stored_path) else 0
 
     evidence = FinancialEvidence(
         organization_id=org_id, reference_type="invoice", reference_id=inv_id,
-        evidence_type="attachment", status="active",
-        original_filename=file.filename, mime_type=file.content_type or "application/octet-stream",
-        file_size_bytes=0, description=f"Payment evidence for invoice {inv.number}",
+        evidence_type="image" if validated_mime.startswith("image/") else "pdf",
+        status="uploaded",
+        original_filename=safe_name,
+        mime_type=validated_mime,
+        file_path=rel_path,
+        file_size_bytes=actual_size,
+        description=f"Payment evidence for invoice {inv.number}",
         created_by=_identity(),
     )
     db.session.add(evidence)
-    db.session.flush()
-
-    rel_path, orig_name, mime = _store_file(file, org_id, "invoice", inv_id)
-    evidence.file_path = rel_path
-    evidence.file_size_bytes = os.fstat(file.fileno()).st_size if hasattr(file, "fileno") else 0
     db.session.commit()
 
     return jsonify({"success": True, "evidence": evidence.to_dict()}), 201
