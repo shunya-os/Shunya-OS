@@ -44,10 +44,10 @@ def upgrade() -> None:
     conn.execute(sa.text("""
         INSERT INTO sh_workspaces (id, name, workspace_type, created_by,
                                    created_at, status, organization_id)
-        SELECT 'ws_migration_fallback', 'Migration Fallback', 'system',
+        SELECT 'ws_migrate_fallback', 'Migration Fallback', 'system',
                'system', now(), 'active', NULL
         WHERE NOT EXISTS (
-            SELECT 1 FROM sh_workspaces WHERE id = 'ws_migration_fallback'
+            SELECT 1 FROM sh_workspaces WHERE id = 'ws_migrate_fallback'
         )
     """))
     conn.execute(sa.text("""
@@ -55,7 +55,7 @@ def upgrade() -> None:
                                 object_type, name, status, created_by, created_at,
                                 updated_at, is_deleted)
         SELECT fc.object_id,
-               COALESCE(ws.id, 'ws_migration_fallback'),
+               COALESCE(ws.id, 'ws_migrate_fallback'),
                COALESCE(om.organization_id, ws.organization_id),
                'conversation',
                COALESCE(fc.title, 'AI Chat'),
