@@ -75,6 +75,28 @@ async function api<T>(path: string): Promise<T | null> {
   }
 }
 
+// ── Attachment Upload Helper ─────────────────────────────────────────────
+
+async function uploadInvoiceAttachment(
+  invoiceId: number,
+  file: File,
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('invoice_id', String(invoiceId));
+  try {
+    const r = await fetch('/api/v1/finance/invoices/' + invoiceId + '/attachment', {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+    });
+    const body = await r.json();
+    return body;
+  } catch {
+    return { success: false, error: 'Upload failed' };
+  }
+}
+
 // ── Inline Styles ───────────────────────────────────────────────────────
 
 function formatCurrency(val: number | string, currency = 'INR'): string {

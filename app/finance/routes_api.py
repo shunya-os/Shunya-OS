@@ -392,6 +392,76 @@ def api_invoice_history(inv_id):
         "ledger_entries": [l.to_dict() for l in ledger],
     })
 
+# ── Invoice Attachment Routes ────────────────────────────────────────────
+# Uses the existing FinancialEvidence system (reference_type="invoice", reference_id=inv_id)
+
+
+@finance_bp.route("/invoices/<int:inv_id>/evidence", methods=["POST"])
+@require_permission("finance.edit_invoice")
+def api_upload_invoice_evidence(inv_id):
+    """Upload an optional evidence file (screenshot, receipt) for an invoice.
+
+    File types: JPEG, PNG, WebP, GIF, PDF. Max size: 16 MB.
+    The evidence is linked to the invoice via reference_type='invoice'.
+    Attaching evidence is recommended for payment records but not mandatory.
+    """
+    auth = _require_auth()
+    if auth:
+        return auth
+    org_id = _org()
+    if not org_id:
+        return jsonify({"error": "No org"}), 400
+
+    inv = db.session.get(Invoice, inv_id)
+    if not inv or inv.organization_id != org_id:
+        return jsonify({"error": "Invoice not found"}), 404
+
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    file = request.files["file"]
+    if file.filename == "" or not file.filename:
+        return jsonify({"error": "Empty filename"}), 400
+
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"}
+    if file.content_type not in allowed:
+        return jsonify({"error": "File type not allowed. Use JPEG, PNG, WebP, GIF or PDF."}), 400
+
+    from app.finance.evidence import _store_file
+
+    evidence = FinancialEvidence(
+        organization_id=org_id, reference_type="invoice", reference_id=inv_id,
+        evidence_type="attachment", status="active",
+        original_filename=file.filename, mime_type=file.content_type or "application/octet-stream",
+        file_size_bytes=0, description=f"Payment evidence for invoice {inv.number}",
+        created_by=_identity(),
+    )
+    db.session.add(evidence)
+    db.session.flush()
+
+    rel_path, orig_name, mime = _store_file(file, org_id, "invoice", inv_id)
+    evidence.file_path = rel_path
+    evidence.file_size_bytes = os.fstat(file.fileno()).st_size if hasattr(file, "fileno") else 0
+    db.session.commit()
+
+    return jsonify({"success": True, "evidence": evidence.to_dict()}), 201
+
+
+@finance_bp.route("/invoices/<int:inv_id>/evidence", methods=["GET"])
+@require_permission("finance.view")
+def api_list_invoice_evidence(inv_id):
+    """List evidence attachments for an invoice."""
+    auth = _require_auth()
+    if auth:
+        return auth
+    org_id = _org()
+    if not org_id:
+        return jsonify({"error": "No org"}), 400
+    items = FinancialEvidence.query.filter_by(
+        organization_id=org_id, reference_type="invoice", reference_id=inv_id
+    ).order_by(FinancialEvidence.created_at.desc()).all()
+    return jsonify({"evidence": [e.to_dict() for e in items]})
+
+
 # ── Governance Control Routes ──────────────────────────────────────────
 
 @finance_bp.route("/approval-policies", methods=["GET"])
