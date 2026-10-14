@@ -734,6 +734,27 @@ def api_start_conversation(object_id: str):
     identity_id = session.get("identity_id")
     import uuid
     conv_id = f"conv_{uuid.uuid4().hex[:16]}"
+    # FK: founder_conversations.object_id references founder_objects.object_id —
+    # ensure the object exists there before inserting the conversation row.
+    from app.founder.models import FounderObject as _FO, FounderSpace as _FS
+    if not _FO.query.filter_by(object_id=object_id).first():
+        _fo_space = _FS.query.filter_by(identity_id=identity_id).order_by(
+            _FS.created_at.asc()).first()
+        if not _fo_space:
+            _fo_space = _FS.query.filter_by(space_id='space_system').first()
+        if not _fo_space:
+            _fo_space = _FS(
+                space_id='space_system', name='System Space',
+                space_type='system', identity_id=identity_id, status='active',
+            )
+            db.session.add(_fo_space)
+            db.session.flush()
+        from datetime import datetime as _dt
+        db.session.add(_FO(
+            object_id=object_id, space_id=_fo_space.space_id,
+            object_type='conversation', name=f"About {obj_name}",
+            status='active', created_by=identity_id, created_at=_dt.utcnow(),
+        ))
     conversation = FounderConversation(conv_id=conv_id, object_id=object_id, title=f"About {obj_name}", identity_id=identity_id)
     db.session.add(conversation)
     db.session.commit()

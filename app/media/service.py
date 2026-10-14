@@ -97,13 +97,21 @@ def _fetch_pollinations_bytes(prompt: str, width: int = 1024, height: int = 1024
     Raises on transport or non-image responses. Verified 2026-10-13 returning
     a genuine JPEG at zero cost — this is the working free image fallback
     (ZG-03 B2) when Hugging Face serverless inference is unavailable.
+
+    Pollinations returns 404 on prompts containing newlines/control chars;
+    the prompt is aggressively sanitised (spaces-only, no line breaks).
     """
     import httpx
     from urllib.parse import quote
 
+    # Sanitise: collapse whitespace, strip control chars, truncate.
+    import re
+    clean = " ".join(re.sub(r"[\x00-\x1f]", "", prompt).split())
+    clean = clean[:300].strip()
+
     url = (
         "https://image.pollinations.ai/prompt/"
-        f"{quote(prompt[:500])}?width={int(width)}&height={int(height)}&nologo=true"
+        f"{quote(clean)}?width={int(width)}&height={int(height)}&nologo=true"
     )
     resp = httpx.get(url, timeout=httpx.Timeout(60.0, connect=10.0, read=55.0), follow_redirects=True)
     resp.raise_for_status()
@@ -129,14 +137,15 @@ def _generate_cloudflare_image(prompt: str, aspect_ratio: str = "1:1") -> bytes:
         raise RuntimeError("CLOUDFLARE_ACCOUNT_ID not configured")
 
     w, h = ASPECT_MAP.get(aspect_ratio, (1024, 1024))
+    # FLUX.1-schnell on Workers AI accepts: prompt, steps (max 8), seed.
+    # `num_steps`, `guidance`, `output_format`, and `size` are NOT part of
+    # this model's schema and cause HTTP 400 "Invalid request body" — the
+    # exact production failure previously logged as "CF 400".
     payload: dict[str, Any] = {
         "prompt": prompt,
-        "num_steps": 4,
-        "guidance": 3.5,
-        "output_format": "png",
+        "steps": 4,
+        "seed": 0,
     }
-    if w and h:
-        payload["size"] = {"width": w, "height": h}
 
     resp = httpx.post(
         f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/@cf/black-forest-labs/flux-1-schnell",
@@ -201,6 +210,20 @@ def _generate_image_with_fallback(prompt: str, aspect_ratio: str = "1:1") -> tup
         errors.append({
             "provider": "pollinations",
             "model": "pollinations",
+            "error_class": classify_exception(e).value,
+            "reason": str(e),
+        })
+    # 4) Local procedural fallback — zero cost, no API key, no credits.
+    # Generates a real (non-AI) abstract image from the prompt's hash.
+    # Ensures image generation NEVER degrades to a text-only concept when
+    # every remote provider is unavailable.
+    try:
+        local_bytes = _generate_local_procedural(prompt, aspect_ratio)
+        return local_bytes, "local/procedural", []
+    except Exception as e:
+        errors.append({
+            "provider": "local",
+            "model": "procedural",
             "error_class": classify_exception(e).value,
             "reason": str(e),
         })

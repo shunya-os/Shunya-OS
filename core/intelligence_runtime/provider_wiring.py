@@ -193,17 +193,16 @@ def financial_search(query: str, org_id: int | None = None) -> list[dict]:
             inv_query = inv_query.filter(FinInvoice.organization_id == org_id)
         for inv in inv_query.filter(
             db.or_(
-                FinInvoice.invoice_number.ilike(f"%{query}%"),
-                FinInvoice.customer_name.ilike(f"%{query}%"),
+                FinInvoice.number.ilike(f"%{query}%"),
                 FinInvoice.status.ilike(f"%{query}%"),
             )
         ).limit(10).all():
             results.append({
-                "name": inv.invoice_number or f"Invoice #{inv.id}",
+                "name": inv.number or f"Invoice #{inv.id}",
                 "type": "invoice",
                 "status": inv.status or "draft",
                 "summary": (
-                    f"Invoice {inv.invoice_number} — {inv.customer_name}"
+                    f"Invoice {inv.number}"
                     f" {f'({inv.total_amount})' if inv.total_amount else ''}"
                 ),
                 "confidence": 0.9,
@@ -211,8 +210,7 @@ def financial_search(query: str, org_id: int | None = None) -> list[dict]:
                 "metadata": {
                     "id": inv.id,
                     "organization_id": inv.organization_id,
-                    "invoice_number": inv.invoice_number,
-                    "customer_name": inv.customer_name,
+                    "invoice_number": inv.number,
                     "status": inv.status,
                     "total_amount": float(inv.total_amount) if inv.total_amount else 0,
                     "due_date": str(inv.due_date) if inv.due_date else "",
@@ -232,7 +230,7 @@ def financial_search(query: str, org_id: int | None = None) -> list[dict]:
                 "status": bud.period or "unknown",
                 "summary": (
                     f"Budget: {bud.name}"
-                    f" ({float(bud.total_planned or 0):.2f} planned)"
+                    f" ({float(bud.amount or 0):.2f} planned)"
                 ),
                 "confidence": 0.85,
                 "relevance": 0.7,
@@ -240,7 +238,7 @@ def financial_search(query: str, org_id: int | None = None) -> list[dict]:
                     "id": bud.id,
                     "organization_id": bud.organization_id,
                     "name": bud.name,
-                    "total_planned": float(bud.total_planned or 0),
+                    "total_planned": float(bud.amount or 0),
                     "period": bud.period,
                 },
             })

@@ -1209,6 +1209,13 @@ def create_app(config_override: dict | None = None):
     except ValueError:
         pass  # Already registered (test isolation)
 
+    # Taxation rules engine — auto-refreshing govt-sourced tax/business rules
+    from app.taxation import taxation_bp
+    try:
+        app.register_blueprint(taxation_bp)
+    except ValueError:
+        pass
+
     # FDA25 — Import / Export / Migration API
     from app.import_export.routes import import_bp
     app.register_blueprint(import_bp)
