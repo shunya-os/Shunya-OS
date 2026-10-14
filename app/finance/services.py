@@ -4,7 +4,7 @@ from decimal import Decimal
 import json
 from app import db
 from app.finance.models import FinInvoice as Invoice, InvoiceItem
-from app.finance.models import FinancePayment as Payment, TaxProfile, Account, Budget, LedgerEntry
+from app.finance.models import FinancePayment as Payment, TaxProfile, Account, Budget, LedgerEntry, JournalEntry
 from app.finance.accounting import create_journal_entry, get_trial_balance
 from app.models import Proposal
 from app.relationship.integration import record_event, update_ai_memory_from_event
@@ -168,22 +168,29 @@ def get_financial_summary(organization_id):
     paid_count = Invoice.query.filter_by(organization_id=organization_id, status="paid").count()
 
     # ── Ledger-based metrics ──────────────────────────────────────
-    # Cash balance: find cash-like accounts (type='asset', code starting
-    # with common cash prefixes) and sum their ledger balances.
+    # Only include POSTED journal entries (exclude drafts, reversals pending)
+    _posted_je_subq = db.session.query(JournalEntry.id).filter(
+        JournalEntry.organization_id == organization_id,
+        JournalEntry.status == "posted",
+    ).subquery()
+
+    # Cash balance: cash (1000) and bank (1200) accounts only — NOT all assets.
+    # Accounts Receivable (1100), inventory, etc. are NOT cash equivalents.
     cash_accounts = Account.query.filter(
         Account.organization_id == organization_id,
         Account.is_active == True,
         Account.type == "asset",
-        Account.code.like("1%"),          # asset accounts typically start with 1
+        Account.code.in_(["1000", "1200"]),
     ).all()
     cash_balance = Decimal("0.00")
     for acct in cash_accounts:
-        q = LedgerEntry.query.filter_by(organization_id=organization_id, account_id=acct.id)
         total_debit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.debit), 0)).filter(
-            LedgerEntry.account_id == acct.id
+            LedgerEntry.account_id == acct.id,
+            LedgerEntry.journal_entry_id.in_(db.session.query(_posted_je_subq.c.id)),
         ).scalar() or Decimal("0.00")
         total_credit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.credit), 0)).filter(
-            LedgerEntry.account_id == acct.id
+            LedgerEntry.account_id == acct.id,
+            LedgerEntry.journal_entry_id.in_(db.session.query(_posted_je_subq.c.id)),
         ).scalar() or Decimal("0.00")
         cash_balance += total_debit - total_credit  # asset accounts: debit = increase
 
@@ -202,40 +209,46 @@ def get_financial_summary(organization_id):
     total_revenue_ledger = Decimal("0.00")
     for acct in revenue_accounts:
         total_credit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.credit), 0)).filter(
-            LedgerEntry.account_id == acct.id
+            LedgerEntry.account_id == acct.id,
+            LedgerEntry.journal_entry_id.in_(db.session.query(_posted_je_subq.c.id)),
         ).scalar() or Decimal("0.00")
         total_debit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.debit), 0)).filter(
-            LedgerEntry.account_id == acct.id
+            LedgerEntry.account_id == acct.id,
+            LedgerEntry.journal_entry_id.in_(db.session.query(_posted_je_subq.c.id)),
         ).scalar() or Decimal("0.00")
         total_revenue_ledger += total_credit - total_debit  # revenue: credit = increase
 
     total_expense_ledger = Decimal("0.00")
     for acct in expense_accounts:
         total_debit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.debit), 0)).filter(
-            LedgerEntry.account_id == acct.id
+            LedgerEntry.account_id == acct.id,
+            LedgerEntry.journal_entry_id.in_(db.session.query(_posted_je_subq.c.id)),
         ).scalar() or Decimal("0.00")
         total_credit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.credit), 0)).filter(
-            LedgerEntry.account_id == acct.id
+            LedgerEntry.account_id == acct.id,
+            LedgerEntry.journal_entry_id.in_(db.session.query(_posted_je_subq.c.id)),
         ).scalar() or Decimal("0.00")
         total_expense_ledger += total_debit - total_credit  # expense: debit = increase
 
     net_income = total_revenue_ledger - total_expense_ledger
 
-    # Payables: liability/equity accounts from ledger
+    # Payables: liability accounts only — equity (owner investments) is NOT a payable.
     liability_accounts = Account.query.filter(
         Account.organization_id == organization_id,
         Account.is_active == True,
-        Account.type.in_(["liability", "equity"]),
+        Account.type == "liability",
     ).all()
     total_payables = Decimal("0.00")
     for acct in liability_accounts:
         total_credit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.credit), 0)).filter(
-            LedgerEntry.account_id == acct.id
+            LedgerEntry.account_id == acct.id,
+            LedgerEntry.journal_entry_id.in_(db.session.query(_posted_je_subq.c.id)),
         ).scalar() or Decimal("0.00")
         total_debit = db.session.query(db.func.coalesce(db.func.sum(LedgerEntry.debit), 0)).filter(
-            LedgerEntry.account_id == acct.id
+            LedgerEntry.account_id == acct.id,
+            LedgerEntry.journal_entry_id.in_(db.session.query(_posted_je_subq.c.id)),
         ).scalar() or Decimal("0.00")
-        total_payables += total_credit - total_debit  # liability/equity: credit = increase
+        total_payables += total_credit - total_debit  # liability: credit = increase
 
     return {
         "total_revenue": float(total_rev),
