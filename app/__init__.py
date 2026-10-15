@@ -1335,7 +1335,7 @@ def create_app(config_override: dict | None = None):
     if not app.config.get('TESTING', False):
         try:
             from core.intelligence_runtime.learning import start_learning_loop
-            start_learning_loop()
+            start_learning_loop(app=app)
             app.logger.info("G3 Phase 5: Background learning loop started")
         except Exception:
             app.logger.warning("G3 Phase 5: Learning loop start skipped")
