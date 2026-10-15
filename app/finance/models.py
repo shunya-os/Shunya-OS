@@ -121,6 +121,12 @@ class FinInvoice(db.Model):
     created_by = db.Column(db.String(64), default="")
     sent_at = db.Column(db.DateTime, nullable=True)
     paid_at = db.Column(db.DateTime, nullable=True)
+    # Lock mechanism: admin/assignee locks the invoice, editing after lock requires permission
+    locked_by = db.Column(db.String(64), nullable=True)
+    locked_at = db.Column(db.DateTime, nullable=True)
+    # Versioning: chain of edits preserves history
+    version_number = db.Column(db.Integer, default=1)
+    parent_invoice_id = db.Column(db.Integer, db.ForeignKey("fin_invoices.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -135,7 +141,12 @@ class FinInvoice(db.Model):
             "total_amount": float(self.total_amount or 0),
             "paid_amount": float(self.paid_amount or 0),
             "balance_due": float((self.total_amount or 0) - (self.paid_amount or 0)),
-            "created_by": self.created_by}
+            "created_by": self.created_by,
+            "locked_by": self.locked_by,
+            "locked_at": self.locked_at.isoformat() if self.locked_at else None,
+            "version_number": self.version_number,
+            "parent_invoice_id": self.parent_invoice_id,
+        }
 
 
 class InvoiceItem(db.Model):

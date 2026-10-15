@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, type FC } from 'react';
+import { InvoiceDetailModal } from './invoice-detail-modal';
 
 // ── Data Types ──────────────────────────────────────────────────────────
 
@@ -212,6 +213,8 @@ export const FinanceWorkspace: FC = () => {
   const [sendBusy, setSendBusy] = useState(false);
   const [sendNotice, setSendNotice] = useState('');
   const [sendError, setSendError] = useState('');
+  // Invoice detail modal
+  const [detailInvoiceId, setDetailInvoiceId] = useState<number | null>(null);
 
   const postJson = async <T,>(path: string, payload: Record<string, unknown>) => {
     try {
@@ -430,7 +433,7 @@ export const FinanceWorkspace: FC = () => {
           ) : (
             <div className="pw-commercial-list">
               {invoices.slice(0, 5).map((inv) => (
-                <div key={inv.id} className="pw-commercial-item">
+                <div key={inv.id} className="pw-commercial-item" style={{ cursor: 'pointer' }} onClick={() => setDetailInvoiceId(inv.id)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setDetailInvoiceId(inv.id)} aria-label={`Open invoice ${inv.number}`}>
                   <div className="pw-commercial-item-title">
                     {inv.number} — {inv.relationship_name || 'Unknown'}
                   </div>
@@ -646,7 +649,7 @@ export const FinanceWorkspace: FC = () => {
           ) : (
             <div className="pw-commercial-list">
               {invoices.map((inv) => (
-                <div key={inv.id} className="pw-commercial-item">
+                <div key={inv.id} className="pw-commercial-item" style={{ cursor: 'pointer' }} onClick={() => setDetailInvoiceId(inv.id)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setDetailInvoiceId(inv.id)} aria-label={`Open invoice ${inv.number}`}>
                   <div className="pw-commercial-item-title">
                     {inv.number} — {inv.relationship_name || 'Customer'}
                   </div>
@@ -784,6 +787,14 @@ export const FinanceWorkspace: FC = () => {
             </div>
           )}
         </>
+      )}
+      {/* Invoice detail modal */}
+      {detailInvoiceId !== null && (
+        <InvoiceDetailModal
+          invoiceId={detailInvoiceId}
+          onClose={() => { setDetailInvoiceId(null); loadData(); }}
+          onRefresh={loadData}
+        />
       )}
     </div>
   );
