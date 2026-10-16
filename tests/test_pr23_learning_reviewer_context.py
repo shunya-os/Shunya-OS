@@ -231,46 +231,62 @@ class TestExceptionHandling:
     def test_exception_logged(self):
         """A cycle exception is logged, not silently swallowed.
 
-        The inner try/except in _review_completed_outcomes catches DB and
-        processing errors and logs them.  This test verifies that path.
+        Forces an error inside _review_completed_outcomes by making the
+        Outcome model query raise and verifies the error is logged at
+        WARNING level with the expected message, proving the inner
+        try/except path is live.
         """
         import logging
+        from unittest.mock import patch
 
         app = _make_app()
-        with app.app_context():
-            from app import db
-            from sqlalchemy import text
-            # The query inside _review_completed_outcomes accesses
-            # sh_outcomes which won't exist in the memory DB if
-            # Outcome model wasn't imported.  This is fine — the
-            # SQLAlchemy error will be caught by the inner
-            # try/except and logged, not crash the process.
-            pass
-
         reviewer = _make_reviewer_without_start(app)
         handler, records = _capture_logs()
         logger = logging.getLogger("core.intelligence_runtime.learning")
         logger.addHandler(handler)
+
         try:
-            reviewer._review_completed_outcomes()
+            # Patch the Outcome class so Outcome.query.order_by raises.
+            # We patch the source module to avoid the SQLAlchemy descriptor
+            # that requires an app context on getattr(Outcome, "query").
+            with patch(
+                "app.execution.models.Outcome",
+            ) as mock_outcome_cls:
+                mock_outcome_cls.query.order_by.side_effect = RuntimeError(
+                    "simulated DB failure"
+                )
+                reviewer._review_completed_outcomes()
         finally:
             logger.removeHandler(handler)
 
-        # The method should have completed without raising —
-        # any exceptions inside are caught by the inner
-        # try/except and logged as warnings.
         warning_messages = [
             r.getMessage() for r in records
             if "Background outcome review failed" in r.getMessage()
         ]
-        # Whether a warning appears depends on whether the
-        # outcome DB query actually encounters an error.
-        # The key assertion is that no exception propagates.
-        # The log is supplementary evidence.
-        if warning_messages:
-            assert any(
-                "Background outcome review failed" in m for m in warning_messages
+        assert any(
+            "Background outcome review failed" in m for m in warning_messages
+        ), (
+            "Expected 'Background outcome review failed' log message for "
+            "exception caught in the review cycle, got none.\n"
+            f"All records: {[(r.levelname, r.getMessage()) for r in records]}"
+        )
+
+    def test_exception_does_not_propagate(self):
+        """A cycle exception is caught and does not propagate to the caller."""
+        from unittest.mock import patch
+
+        app = _make_app()
+        reviewer = _make_reviewer_without_start(app)
+
+        # Patch the Outcome class so Outcome.query.order_by raises.
+        with patch(
+            "app.execution.models.Outcome",
+        ) as mock_outcome_cls:
+            mock_outcome_cls.query.order_by.side_effect = RuntimeError(
+                "simulated"
             )
+            # Must not raise — the inner try/except catches it.
+            reviewer._review_completed_outcomes()
 
 
 # ══════════════════════════════════════════════════════════════════════════
