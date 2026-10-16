@@ -18,7 +18,9 @@ import {
   IconHome,
   IconChartBar,
   IconSettings,
+  IconRobot,
 } from '@tabler/icons-react';
+import { aiChat } from '../../api/ai-chat';
 import '@mantine/spotlight/styles.css';
 
 type PaletteAction = {
@@ -34,7 +36,35 @@ function dispatch(detail: string) {
   window.dispatchEvent(new CustomEvent('shunya:action', { detail }));
 }
 
-export const commandActions: PaletteAction[] = [
+// ── AI query state ───────────────────────────────────────────────────
+
+let _aiResult: { status: 'idle' | 'loading' | 'done' | 'error'; text: string }
+    = { status: 'idle', text: '' };
+
+/** Exposed so callers can render AI results outside the palette. */
+export function getAiResult() { return _aiResult; }
+
+/** Called before opening the palette to reset AI state. */
+export function resetAiResult() {
+  _aiResult = { status: 'idle', text: '' };
+}
+
+async function askAi(query: string): Promise<void> {
+  _aiResult = { status: 'loading', text: '' };
+  try {
+    const result = await aiChat(
+      [{ role: 'user', content: query }],
+      { webSearch: true },
+    );
+    _aiResult = result.error
+      ? { status: 'error', text: result.error }
+      : { status: 'done', text: result.content };
+  } catch (e: any) {
+    _aiResult = { status: 'error', text: e?.message || 'Request failed' };
+  }
+}
+
+const navActions: PaletteAction[] = [
   {
     id: 'home',
     label: 'Home',
@@ -125,11 +155,37 @@ export const commandActions: PaletteAction[] = [
   },
 ];
 
+// ── Dynamic action list (navigation + AI query) ──────────────────────
+
+function actionsFor(query: string): PaletteAction[] {
+  const result = [...navActions];
+  const trimmed = query.trim();
+  if (trimmed.length > 0) {
+    // Check whether any nav action already matches this query.
+    const ql = trimmed.toLowerCase();
+    const alreadyMatched = navActions.some(a =>
+      a.label.toLowerCase().includes(ql) ||
+      a.keywords?.toLowerCase().includes(ql)
+    );
+    // Show AI action for multi-word or unmatched queries.
+    if (!alreadyMatched || trimmed.split(/\s+/).length >= 3) {
+      result.unshift({
+        id: 'ask-ai',
+        label: `Ask AI: ${trimmed}`,
+        description: 'Send this query to the SHUNYA AI assistant',
+        leftSection: <IconRobot size={18} />,
+        onClick: () => { askAi(trimmed); },
+      });
+    }
+  }
+  return result;
+}
+
 export function CommandPalette() {
   return (
     <Spotlight
-      actions={commandActions}
-      searchProps={{ placeholder: 'Search commands or type...' }}
+      actions={actionsFor}
+      searchProps={{ placeholder: 'Search commands or ask a question...' }}
       shortcut="mod + k"
       nothingFound="No results found"
       highlightQuery
