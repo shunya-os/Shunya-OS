@@ -38,29 +38,27 @@ function dispatch(detail: string) {
 
 // ── AI query state ───────────────────────────────────────────────────
 
-let _aiResult: { status: 'idle' | 'loading' | 'done' | 'error'; text: string }
-    = { status: 'idle', text: '' };
-
-/** Exposed so callers can render AI results outside the palette. */
-export function getAiResult() { return _aiResult; }
-
-/** Called before opening the palette to reset AI state. */
-export function resetAiResult() {
-  _aiResult = { status: 'idle', text: '' };
+/** Dispatch shunya:ai-result events so the app shell can render results. */
+function dispatchAiResult(status: 'loading' | 'done' | 'error', text: string, query: string) {
+  window.dispatchEvent(new CustomEvent('shunya:ai-result', {
+    detail: { status, text, query },
+  }));
 }
 
 async function askAi(query: string): Promise<void> {
-  _aiResult = { status: 'loading', text: '' };
+  dispatchAiResult('loading', '', query);
   try {
     const result = await aiChat(
       [{ role: 'user', content: query }],
       { webSearch: true },
     );
-    _aiResult = result.error
-      ? { status: 'error', text: result.error }
-      : { status: 'done', text: result.content };
+    if (result.error) {
+      dispatchAiResult('error', result.error, query);
+    } else {
+      dispatchAiResult('done', result.content, query);
+    }
   } catch (e: any) {
-    _aiResult = { status: 'error', text: e?.message || 'Request failed' };
+    dispatchAiResult('error', e?.message || 'Request failed', query);
   }
 }
 

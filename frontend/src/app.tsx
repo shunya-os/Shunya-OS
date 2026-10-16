@@ -524,7 +524,91 @@ function AuthenticatedWorkspace() {
       <RealtimeEventsBridge />
       <PrimaryWorkspace />
       <CommandPalette />
+      <AiResultBanner />
     </TokenProvider>
+  );
+}
+
+/**
+ * AiResultBanner — displays AI query results dispatched by CommandPalette.
+ *
+ * Listens for `shunya:ai-result` CustomEvent and renders an overlay
+ * banner showing loading state, the AI response, or an error message.
+ * The user dismisses it by clicking the close button or pressing Escape.
+ */
+function AiResultBanner() {
+  const [state, setState] = useState<{
+    status: 'idle' | 'loading' | 'done' | 'error';
+    text: string;
+    query: string;
+  }>({ status: 'idle', text: '', query: '' });
+
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      const d = e.detail || {};
+      // A new loading state clears any previous result for a new query.
+      // A done/error state from a stale (superseded) request is ignored.
+      if (d.status === 'loading') {
+        setState({ status: 'loading', text: '', query: d.query || '' });
+      } else if (d.status === 'done' || d.status === 'error') {
+        // If we're not in loading state, ignore — stale response.
+        const current = state;
+        if (current.status === 'loading') {
+          setState({ status: d.status, text: d.text || '', query: current.query });
+        }
+      }
+    };
+    window.addEventListener('shunya:ai-result', handler as EventListener);
+    return () => window.removeEventListener('shunya:ai-result', handler as EventListener);
+  }, []);
+
+  const dismiss = () => setState({ status: 'idle', text: '', query: '' });
+
+  // Keyboard dismiss (Escape)
+  useEffect(() => {
+    if (state.status === 'idle') return;
+    const kd = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismiss();
+    };
+    window.addEventListener('keydown', kd);
+    return () => window.removeEventListener('keydown', kd);
+  }, [state.status]);
+
+  if (state.status === 'idle') return null;
+
+  const isError = state.status === 'error';
+  const isLoading = state.status === 'loading';
+
+  return (
+    <div
+      className="sh-ai-result"
+      role={isError ? 'alert' : isLoading ? 'status' : 'region'}
+      aria-live={isLoading ? 'polite' : 'assertive'}
+      onClick={() => { if (!isLoading) dismiss(); }}
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Escape') dismiss(); }}
+    >
+      <div className="sh-ai-result-inner">
+        {isLoading ? (
+          <div className="sh-ai-loading">
+            <span className="sh-ai-spinner" aria-label="AI is thinking…" />
+            <span className="sh-ai-loading-text">AI is thinking…</span>
+          </div>
+        ) : (
+          <>
+            <p className="sh-ai-query">You asked: {state.query}</p>
+            <div className={`sh-ai-${isError ? 'error' : 'answer'}`}>
+              {isError ? (
+                <span className="sh-ai-error-icon" aria-label="Error">⚠</span>
+              ) : null}
+              {state.text}
+            </div>
+            <button className="sh-ai-dismiss" onClick={dismiss}
+              aria-label="Dismiss AI result">✕</button>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -583,6 +667,56 @@ body {
   transition: top var(--shunya-duration-fast, 200ms) var(--shunya-ease, cubic-bezier(0.22,1,0.36,1));
 }
 .sh-skip-link:focus { top: 0; outline: 2px solid var(--shunya-gold, #A4865F); }
+
+/* ── AI Result Banner (CommandPalette) ── */
+.sh-ai-result {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  z-index: 9998;
+  background: var(--shunya-surface, #FFFFFF);
+  border-top: 1px solid var(--shunya-border, rgba(0,0,0,0.08));
+  padding: 12px 20px;
+  font-family: var(--shunya-font-body, 'Inter', sans-serif);
+  font-size: var(--shunya-text-sm, 13px);
+  line-height: 1.6;
+  color: var(--shunya-text, #1A1C1D);
+  max-height: 45vh;
+  overflow-y: auto;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+}
+.sh-ai-result-inner {
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.sh-ai-loading {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--shunya-text-secondary, rgba(26,28,29,0.55));
+}
+.sh-ai-spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid var(--shunya-gold, #A4865F);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: sh-spin 0.6s linear infinite;
+}
+@keyframes sh-spin { to { transform: rotate(360deg); } }
+.sh-ai-query {
+  font-weight: 600; margin: 0 0 4px;
+  font-size: var(--shunya-text-sm, 12px);
+  color: var(--shunya-text-secondary, rgba(26,28,29,0.55));
+}
+.sh-ai-answer { flex: 1; white-space: pre-wrap; word-break: break-word; }
+.sh-ai-error {
+  flex: 1; color: var(--shunya-danger, #C13D1F);
+  white-space: pre-wrap;
+}
+.sh-ai-error-icon { margin-right: 6px; font-size: 16px; }
+.sh-ai-dismiss {
+  background: none; border: none; cursor: pointer;
+  padding: 4px 8px;
+  font-size: 16px; line-height: 1;
+  color: var(--shunya-text, #1A1C1D);
+  opacity: 0.6;
+}
+.sh-ai-dismiss:hover { opacity: 1; }
 `;
 
 if (typeof document !== 'undefined') {
