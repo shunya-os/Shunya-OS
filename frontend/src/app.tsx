@@ -543,19 +543,28 @@ function AiResultBanner() {
     query: string;
   }>({ status: 'idle', text: '', query: '' });
 
+  // Monotonically increasing request counter — the consumer accepts
+  // done/error events only when their requestId matches the last
+  // loading event.  An older request completing after a newer one
+  // started cannot overwrite the active result.
+  let _acceptedRequestId = 0;
+
   useEffect(() => {
     const handler = (e: CustomEvent) => {
       const d = e.detail || {};
-      // A new loading state clears any previous result for a new query.
-      // A done/error state from a stale (superseded) request is ignored.
+      const id = d.requestId as number | undefined;
       if (d.status === 'loading') {
+        _acceptedRequestId = id || 0;
         setState({ status: 'loading', text: '', query: d.query || '' });
-      } else if (d.status === 'done' || d.status === 'error') {
-        // If we're not in loading state, ignore — stale response.
-        const current = state;
-        if (current.status === 'loading') {
-          setState({ status: d.status, text: d.text || '', query: current.query });
+      } else if ((d.status === 'done' || d.status === 'error') && id !== undefined) {
+        // Accept done/error only if it matches the last loading request.
+        if (id === _acceptedRequestId) {
+          setState({
+            status: d.status, text: d.text || '',
+            query: state.query || d.query || '',
+          });
         }
+        // else: stale response from an older request — silently discard.
       }
     };
     window.addEventListener('shunya:ai-result', handler as EventListener);

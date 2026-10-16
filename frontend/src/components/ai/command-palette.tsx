@@ -38,27 +38,31 @@ function dispatch(detail: string) {
 
 // ── AI query state ───────────────────────────────────────────────────
 
+let _requestId = 0;
+
 /** Dispatch shunya:ai-result events so the app shell can render results. */
-function dispatchAiResult(status: 'loading' | 'done' | 'error', text: string, query: string) {
+function dispatchAiResult(status: 'loading' | 'done' | 'error', text: string,
+                          query: string, requestId?: number) {
   window.dispatchEvent(new CustomEvent('shunya:ai-result', {
-    detail: { status, text, query },
+    detail: { status, text, query, requestId },
   }));
 }
 
 async function askAi(query: string): Promise<void> {
-  dispatchAiResult('loading', '', query);
+  const id = ++_requestId;
+  dispatchAiResult('loading', '', query, id);
   try {
     const result = await aiChat(
       [{ role: 'user', content: query }],
       { webSearch: true },
     );
     if (result.error) {
-      dispatchAiResult('error', result.error, query);
+      dispatchAiResult('error', result.error, query, id);
     } else {
-      dispatchAiResult('done', result.content, query);
+      dispatchAiResult('done', result.content, query, id);
     }
   } catch (e: any) {
-    dispatchAiResult('error', e?.message || 'Request failed', query);
+    dispatchAiResult('error', e?.message || 'Request failed', query, id);
   }
 }
 
