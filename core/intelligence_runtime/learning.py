@@ -256,19 +256,25 @@ class BackgroundLearningReviewer:
 
     def __init__(self, ingester: OutcomeMemoryIngester | None = None,
                  loop: ControlledLearningLoop | None = None,
-                 interval_seconds: int = 3600):
+                 interval_seconds: int = 3600,
+                 app=None):
         self._ingester = ingester or OutcomeMemoryIngester()
         self._loop = loop or get_learning_loop()
         self._interval = interval_seconds
         self._thread: threading.Thread | None = None
         self._running = False
         self._reviewed_outcomes: set[str] = set()
+        self._app = app
 
     def set_ingester(self, ingester: OutcomeMemoryIngester) -> None:
         self._ingester = ingester
 
     def set_loop(self, loop: ControlledLearningLoop) -> None:
         self._loop = loop
+
+    def set_app(self, app) -> None:
+        """Set the Flask application instance for app_context()."""
+        self._app = app
 
     # ── Lifecycle ─────────────────────────────────────────────────────────
 
@@ -315,13 +321,16 @@ class BackgroundLearningReviewer:
 
         ZG-03 (L2): the reviewer runs on its own daemon thread which may not
         carry a Flask application context — SQLAlchemy then raises
-        "Working outside of application context" on every cycle. Pushing
-        ``current_app.app_context()`` here is nested-safe (a no-op when a
-        context already exists) and guarantees the DB work always has one.
+        "Working outside of application context" on every cycle. Using
+        ``self._app.app_context()`` enters a fresh context from the real
+        Flask instance (passed at startup) rather than proxied ``current_app``
+        which requires an already-active context.
         """
-        from flask import current_app
+        if self._app is None:
+            logger.error("BackgroundLearningReviewer has no Flask app — cannot enter app context")
+            return
 
-        with current_app.app_context():
+        with self._app.app_context():
             try:
                 from app import db
                 from app.execution.models import Outcome
@@ -496,11 +505,16 @@ def reset_learning_components() -> None:
 # ── Wire convenience — called from integration.ensure_runtime() ───────────
 
 
-def ensure_learning_system(memory_engine: MemoryEngine | None = None) -> dict[str, Any]:
+def ensure_learning_system(memory_engine: MemoryEngine | None = None,
+                            app=None) -> dict[str, Any]:
     """Wire all Phase 5 learning components.
 
     Called once at app startup. Wires the memory engine into all components
     and starts the background reviewer.
+
+    Args:
+        memory_engine: Optional memory engine override.
+        app: Flask application instance for background thread app_context().
 
     Returns a status dict showing which components were wired.
     """
@@ -540,6 +554,8 @@ def ensure_learning_system(memory_engine: MemoryEngine | None = None) -> dict[st
     reviewer = get_background_reviewer()
     reviewer.set_ingester(ingester)
     reviewer.set_loop(get_learning_loop())
+    if app is not None:
+        reviewer.set_app(app)
     if not reviewer.is_running():
         reviewer.start()
         status["reviewer_started"] = True
@@ -717,15 +733,18 @@ def _awareness_engine_provider(query: str, identity_id: str = "",
         pass
     return observations
 
-def start_learning_loop() -> None:
+def start_learning_loop(app=None) -> None:
     """Start the background learning loop. Called from app factory (G3 Phase 5).
 
     Initializes all Phase 5 learning components: memory ingester, evidence
     bridge, feedback loop with 8 intelligence engines, and the background
     reviewer thread. Safe to call multiple times (idempotent).
+
+    Args:
+        app: Flask application instance for background thread app_context().
     """
     try:
-        ensure_learning_system()
+        ensure_learning_system(app=app)
         logger.info("G3 Phase 5: Learning loop started")
     except Exception as e:
         logger.warning("G3 Phase 5: Learning loop start failed: %s", e)
