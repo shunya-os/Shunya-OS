@@ -157,34 +157,35 @@ const navActions: PaletteAction[] = [
 
 // ── Dynamic action list (navigation + AI query) ──────────────────────
 
-function actionsFor(query: string): PaletteAction[] {
-  const result = [...navActions];
+function actionsFor(query: string, actions: any[]): any[] {
   const trimmed = query.trim();
   if (trimmed.length > 0) {
-    // Check whether any nav action already matches this query.
     const ql = trimmed.toLowerCase();
     const alreadyMatched = navActions.some(a =>
       a.label.toLowerCase().includes(ql) ||
-      a.keywords?.toLowerCase().includes(ql)
+      (a.keywords && a.keywords.toLowerCase().includes(ql))
     );
-    // Show AI action for multi-word or unmatched queries.
     if (!alreadyMatched || trimmed.split(/\s+/).length >= 3) {
-      result.unshift({
+      // Prepend AI action — Spotlight displays it first.
+      actions.unshift({
         id: 'ask-ai',
         label: `Ask AI: ${trimmed}`,
         description: 'Send this query to the SHUNYA AI assistant',
         leftSection: <IconRobot size={18} />,
-        onClick: () => { askAi(trimmed); },
+        onClick: (() => { askAi(trimmed); }) as any,
       });
     }
   }
-  return result;
+  return actions;
 }
+
+const allActions = [...navActions];
 
 export function CommandPalette() {
   return (
     <Spotlight
-      actions={actionsFor}
+      actions={allActions}
+      filter={actionsFor}
       searchProps={{ placeholder: 'Search commands or ask a question...' }}
       shortcut="mod + k"
       nothingFound="No results found"
