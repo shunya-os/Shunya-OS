@@ -440,9 +440,22 @@ def _register_health(app: Flask):
             import psutil
             import os as _os
             proc = psutil.Process(_os.getpid())
+            # G1.28: database health must be observed, never assumed. This used to
+            # hardcode ``shunya_db_up: 1``, so a dead database still reported up.
+            # A bounded probe decides the value; the check itself is reported so a
+            # consumer can distinguish "up" from "could not be established".
+            _db_state = "error"
+            try:
+                from sqlalchemy import text as _sql_text
+                with db.engine.connect() as _probe:
+                    _probe.execute(_sql_text("SELECT 1"))
+                _db_state = "ok"
+            except Exception as _exc:  # noqa: BLE001 - health must never raise
+                current_app.logger.warning("metrics json fallback: db probe failed: %s", _exc)
             return jsonify({
                 "shunya_uptime_seconds": int(__import__("time").time() - _APP_START_TIME),
-                "shunya_db_up": 1,
+                "shunya_db_up": 1 if _db_state == "ok" else 0,
+                "shunya_db_check": _db_state,
                 "shunya_memory_rss_bytes": proc.memory_info().rss,
                 "shunya_cpu_percent": proc.cpu_percent(interval=0),
                 "shunya_version": "1.0.0",

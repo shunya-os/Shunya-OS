@@ -21,7 +21,7 @@ interface Props {
 
 export function LoginPage({ onLogin, onSignUp }: Props) {
   const { t } = useI18n();
-  const [phase, setPhase] = useState<'intro' | 'form' | 'loading' | 'error'>('intro');
+  const [phase, setPhase] = useState<'intro' | 'form' | 'loading' | 'error' | 'mfa'>('intro');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -29,6 +29,10 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
   const [showTagline, setShowTagline] = useState(false);
   const [resending, setResending] = useState(false);
   const [resentMsg, setResentMsg] = useState('');
+  // G1.29: second-factor step. The server decides whether it is required; the UI
+  // only reflects that decision.
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaBusy, setMfaBusy] = useState(false);
 
   useEffect(() => {
     if (phase !== 'intro') return;
@@ -38,22 +42,31 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [phase]);
 
+  const completeSignIn = (resp: any) => {
+    const session: Session = { identityId: resp.identity_id || '', email: email.trim().toLowerCase() };
+    SessionManager.save(session);
+    if (resp.onboarding_complete) {
+      window.sessionStorage.setItem('shunya_onboarding_complete', 'true');
+      window.localStorage.setItem('shunya_onboarding_complete', 'true');
+    }
+    onLogin(session);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) return;
     setPhase('loading');
     setErrorMsg('');
     try {
-      const resp = await api.signin(email.trim().toLowerCase(), password);
+      const resp: any = await api.signin(email.trim().toLowerCase(), password);
+      if (resp.success && resp.mfa_required) {
+        // The password step succeeded but the session is not issued yet.
+        setMfaCode('');
+        setPhase('mfa');
+        return;
+      }
       if (resp.success) {
-        const session: Session = { identityId: resp.identity_id || '', email: email.trim().toLowerCase() };
-        SessionManager.save(session);
-        // If user already has workspace/org, skip onboarding
-        if (resp.onboarding_complete) {
-          window.sessionStorage.setItem('shunya_onboarding_complete', 'true');
-          window.localStorage.setItem('shunya_onboarding_complete', 'true');
-        }
-        onLogin(session);
+        completeSignIn(resp);
       } else {
         setPhase('error');
         setErrorMsg(resp.error ?? 'Sign in failed.');
@@ -61,6 +74,51 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
     } catch {
       setPhase('error');
       setErrorMsg('Could not connect.');
+    }
+  };
+
+  /**
+   * Submit the authenticator code against the pending transaction the password
+   * step opened. The code alone is never enough: if the pending transaction has
+   * expired, the server refuses and we send the user back to the password step.
+   */
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaCode.trim()) return;
+    setMfaBusy(true);
+    setErrorMsg('');
+    try {
+      const res = await fetch('/mfa/challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email: email.trim().toLowerCase(), code: mfaCode.trim() }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body.success) {
+        // The challenge set the session cookie; read the identity from the server
+        // rather than trusting client state.
+        const checkRes = await fetch('/api/v1/auth/session', { credentials: 'same-origin' });
+        const check = await checkRes.json().catch(() => ({} as any));
+        completeSignIn({
+          success: true,
+          identity_id: check?.identity_id,
+          onboarding_complete: check?.onboarding_complete,
+        });
+        return;
+      }
+      if (res.status === 403) {
+        // Pending transaction gone or expired — restart at the password step.
+        setPhase('form');
+        setPassword('');
+        setErrorMsg(body.error || 'Your sign-in expired. Enter your password again.');
+        return;
+      }
+      setErrorMsg(body.error || 'That code was not accepted.');
+    } catch {
+      setErrorMsg('Could not reach the server. Try again.');
+    } finally {
+      setMfaBusy(false);
     }
   };
 
@@ -100,6 +158,38 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
       <div className="sh-lang-top">
         <LanguageSwitcher size="md" />
       </div>
+      {phase === 'mfa' && (
+        <div className="sh-auth">
+          <div className="sh-auth-card sh-auth-fade-in">
+            <div className="sh-auth-header">
+              <div className="sh-auth-zero">शून्य</div>
+              <div className="sh-auth-sub">SHUNYA</div>
+              <div className="sh-auth-gold-dot" aria-hidden="true" />
+            </div>
+            <form className="sh-auth-form" onSubmit={handleMfaSubmit} role="main" aria-label="Two-factor verification">
+              <p className="sh-auth-info" role="status">
+                Enter the 6-digit code from your authenticator app for {email}.
+              </p>
+              <div className="sh-auth-field">
+                <label htmlFor="mfa-code">Verification code</label>
+                <input id="mfa-code" inputMode="numeric" autoComplete="one-time-code"
+                  value={mfaCode} onChange={(e) => setMfaCode(e.target.value)}
+                  placeholder="123456" autoFocus disabled={mfaBusy} maxLength={10} />
+              </div>
+              {errorMsg && <div className="sh-auth-error" role="alert">{errorMsg}</div>}
+              <button className="sh-auth-btn" type="submit" disabled={mfaBusy || !mfaCode.trim()}>
+                {mfaBusy ? 'Verifying…' : 'Verify'}
+              </button>
+              <button type="button" className="sh-auth-link"
+                onClick={() => { setPhase('form'); setPassword(''); setMfaCode(''); setErrorMsg(''); }}>
+                Use a different account
+              </button>
+            </form>
+            <style>{authStyles}</style>
+          </div>
+        </div>
+      )}
+
       {phase === 'intro' && (
         <div className="sh-intro" onClick={handleSkipIntro} role="button" tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSkipIntro(); } }}

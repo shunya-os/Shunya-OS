@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from flask import jsonify, request, session
 from werkzeug.exceptions import BadRequest
 
-from app import db
+from app import db, limiter
 from app.auth import TeamMember
 from app.auth_routes import auth_bp, login_required
 from app.production.auth.mfa_models import MFAConfig
@@ -170,39 +170,73 @@ def mfa_disable():
 
 
 @auth_bp.route("/mfa/challenge", methods=["POST"])
+@limiter.limit("5 per 5 minutes")
 def mfa_challenge():
-    """Verify MFA code during login (after primary auth)."""
-    data = request.get_json(silent=True) or {}
-    email = data.get("email", "").strip().lower()
-    code = data.get("code", "")
-    recovery_code = data.get("recovery_code", "")
+    """Second factor for a login that already passed primary authentication.
 
-    user = TeamMember.query.filter_by(email=email, is_active=True).first()
+    G1.29: the session comes only from a pending transaction that the password
+    step opened (``mfa_state.begin``). The request body cannot name a different
+    user, cannot upgrade a pending transaction by claiming one, and cannot replay a
+    completed one. Attempts are capped inside the transaction, and the endpoint is
+    rate limited per client as well.
+    """
+    from app.production.auth import mfa_state
+
+    data = request.get_json(silent=True) or {}
+    code = str(data.get("code", "") or "")
+    recovery_code = str(data.get("recovery_code", "") or "")
+    claimed_email = str(data.get("email", "") or "").strip().lower()
+
+    pending_id = mfa_state.pending_user_id()
+    if not pending_id:
+        return jsonify({
+            "success": False,
+            "mfa_required": False,
+            "error": "Your sign-in expired. Enter your password again.",
+        }), 403
+
+    user = TeamMember.query.filter_by(id=pending_id, is_active=True).first()
     if not user:
-        return jsonify({"success": False, "error": "Invalid credentials"}), 401
+        mfa_state.clear()
+        return jsonify({"success": False, "error": "Invalid request"}), 401
+
+    # The transaction is bound to the pending user; a body naming someone else is
+    # refused rather than followed.
+    if claimed_email and claimed_email != (user.email or "").lower():
+        mfa_state.clear()
+        return jsonify({"success": False, "error": "Your sign-in expired. Enter your password again."}), 403
 
     config = MFAConfig.query.filter_by(user_id=user.id).first()
     if not config or not config.enabled:
+        # Nothing to satisfy: the pending transaction was opened for an account
+        # that no longer has a factor. Authenticate it rather than trap the user.
+        mfa_state.consume()
+        session["user_id"] = user.id
         return jsonify({"success": True, "message": "MFA not required"})
 
-    # Try recovery code first
     if recovery_code:
-        codes = config.recovery_codes or []
-        if recovery_code in codes:
-            codes.remove(recovery_code)
-            config.recovery_codes = codes
-            config.enabled = False
-            config.updated_at = datetime.utcnow()
-            db.session.commit()
-            session["user_id"] = user.id
-            return jsonify({
-                "success": True,
-                "message": "Recovery code accepted. Please re-enable MFA.",
-            })
-        return jsonify({"success": False, "error": "Invalid recovery code"}), 401
+        codes = list(config.recovery_codes or [])
+        if recovery_code not in codes:
+            if not mfa_state.register_failure():
+                return jsonify({"success": False, "error": "Too many attempts. Sign in again."}), 429
+            return jsonify({"success": False, "error": "Invalid recovery code"}), 401
+        codes.remove(recovery_code)
+        config.recovery_codes = codes
+        config.enabled = False  # a used recovery code invalidates the factor
+        config.updated_at = datetime.utcnow()
+        db.session.commit()
+        mfa_state.consume()
+        session["user_id"] = user.id
+        return jsonify({
+            "success": True,
+            "message": "Recovery code accepted. Please re-enable MFA.",
+        })
 
     if not _validate_totp(config.secret, code):
+        if not mfa_state.register_failure():
+            return jsonify({"success": False, "error": "Too many attempts. Sign in again."}), 429
         return jsonify({"success": False, "error": "Invalid verification code"}), 401
 
+    mfa_state.consume()  # single use: a replay has no transaction left
     session["user_id"] = user.id
     return jsonify({"success": True, "message": "MFA verified"})

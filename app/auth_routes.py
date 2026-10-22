@@ -143,6 +143,22 @@ def _ensure_personal_workspace_for_user(user):
 # ---------------------------------------------------------------------------
 
 
+def _mfa_enforced_for(user) -> bool:
+    """True when this account has an enabled TOTP configuration.
+
+    G1.29: a lookup failure returns True (fail closed). Locking an operator out is
+    recoverable; letting a second-factor-enrolled account through on a database
+    error is a bypass, which is not.
+    """
+    try:
+        from app.production.auth.mfa_models import MFAConfig
+        config = MFAConfig.query.filter_by(user_id=user.id).first()
+        return bool(config and config.enabled)
+    except Exception:  # noqa: BLE001 - never let the check silently pass
+        current_app.logger.exception("MFA state lookup failed; refusing to issue a session")
+        return True
+
+
 @auth_bp.route("/login", methods=["GET", "POST"])
 @limiter.limit("10 per minute")  # Auth rate limiting
 def login_page():
@@ -175,6 +191,19 @@ def login_page():
         # Phase 2: Gate on email verification — unverified accounts cannot log in
         if not user.verified:
             return jsonify({"success": False, "error": "Please verify your email before logging in."}), 403
+
+        # Phase 3 (G1.29): an MFA-enrolled account does not get a session from the
+        # password alone. A pending, session-bound transaction is opened instead;
+        # only /mfa/challenge can complete it.
+        if _mfa_enforced_for(user):
+            from app.production.auth import mfa_state
+            mfa_state.begin(user.id)
+            return jsonify({
+                "success": True,
+                "mfa_required": True,
+                "email": user.email,
+                "expires_in": mfa_state.MFA_PENDING_TTL_SECONDS,
+            }), 200
 
         # Phase 3: Authenticated — create session
         session["user_id"] = user.id
@@ -254,6 +283,19 @@ def login_page():
         # Phase 2: Gate on email verification
         if not user.verified:
             return jsonify({"success": False, "error": "Please verify your email before logging in."}), 403
+
+        # Phase 3 (G1.29): an MFA-enrolled account does not get a session from the
+        # password alone. A pending, session-bound transaction is opened instead;
+        # only /mfa/challenge can complete it.
+        if _mfa_enforced_for(user):
+            from app.production.auth import mfa_state
+            mfa_state.begin(user.id)
+            return jsonify({
+                "success": True,
+                "mfa_required": True,
+                "email": user.email,
+                "expires_in": mfa_state.MFA_PENDING_TTL_SECONDS,
+            }), 200
 
         # Phase 3: Authenticated — create session
         session["user_id"] = user.id

@@ -202,10 +202,10 @@ workspace._shunya_policy = "session:founder"
 def api_founder_signin():
     """Password sign-in for the founder/SPA flow.
 
-    NOTE (MFA): accounts with MFA enabled are not yet challenged here — the
-    backend /mfa/challenge route exists but is intentionally not wired into
-    this flow (rebuilding the MFA challenge is out of scope; only the
-    frontend fetch paths were corrected to /mfa/*).
+    G1.29: an MFA-enrolled account does not receive a session here either. This is
+    the route the SPA actually calls, so gating only ``/login`` and
+    ``/login/password`` would have left the real user journey — and its bypass —
+    untouched.
     """
     data = request.get_json(silent=True) or {}
     email = data.get("email", "").strip().lower()
@@ -223,6 +223,18 @@ def api_founder_signin():
         # Existing user — MUST validate password
         if not tm.check_password(password):
             return jsonify({"success": False, "error": "Invalid email or password"}), 401
+
+        # G1.29: second factor required before any session is issued.
+        from app.auth_routes import _mfa_enforced_for
+        if _mfa_enforced_for(tm):
+            from app.production.auth import mfa_state
+            mfa_state.begin(tm.id)
+            return jsonify({
+                "success": True,
+                "mfa_required": True,
+                "email": tm.email,
+                "expires_in": mfa_state.MFA_PENDING_TTL_SECONDS,
+            }), 200
 
         # Authenticated — resolve identity and organization DELIBERATELY.
         session["user_id"] = tm.id
