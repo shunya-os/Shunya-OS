@@ -48,7 +48,7 @@ export interface AIChatResult {
  */
 export async function aiChat(
   messages: AIChatMessage[],
-  options?: { temperature?: number; max_tokens?: number; webSearch?: boolean },
+  options?: { temperature?: number; max_tokens?: number; webSearch?: boolean; requestId?: number },
 ): Promise<AIChatResult> {
   // Thread the persisted AI preference as an advisory routing hint — the
   // backend records it in orchestrator metadata (provider selection remains
@@ -62,6 +62,7 @@ export async function aiChat(
       temperature: options?.temperature ?? 0.7,
       max_tokens: options?.max_tokens ?? 1024,
       web_search: options?.webSearch ?? true,  // Web search enabled by default
+      ...(options?.requestId ? { request_id: options.requestId } : {}),
       ...(pref.provider ? { preferred_provider: pref.provider } : {}),
       ...(pref.model ? { preferred_model: pref.model } : {}),
     }),

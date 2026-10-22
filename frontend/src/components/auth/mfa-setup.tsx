@@ -133,8 +133,16 @@ export function MfaSetup() {
     return (
       <div className="mfa-section">
         <div className="mfa-section-title">Two-Factor Authentication</div>
-        <div className="mfa-status-badge mfa-enabled">✓ Enabled</div>
-        <p className="mfa-description">Your account is protected with TOTP two-factor authentication.</p>
+        <div className="mfa-status-badge mfa-enabled">✓ Configured</div>
+        {/* G1.25 truthfulness: the TOTP secret and recovery codes are stored, but
+            the sign-in flow does not yet challenge for a code, so this setting
+            does not currently add a second factor. Saying "protected" would be
+            false. Enforcement is tracked as a launch blocker. */}
+        <p className="mfa-description">
+          A TOTP authenticator is configured for this account. Sign-in does{' '}
+          <strong>not</strong> yet ask for a code, so this does not currently add a
+          second factor. Keep your recovery codes safe.
+        </p>
         <div className="mfa-disable-form">
           <input
             type="password"

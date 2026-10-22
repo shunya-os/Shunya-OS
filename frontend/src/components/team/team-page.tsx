@@ -154,6 +154,23 @@ export function TeamPage() {
         setInviteName('');
         setInviteRole('member');
         await Promise.all([fetchMembers(), fetchInvitations()]);
+        // Truthful outcome. `accepted` means a mail server took the message;
+        // it is not inbox delivery, and the copy says so. Anything else means
+        // the email did not leave — hand the admin the link instead of a lie.
+        const delivery = d.data?.delivery || {};
+        if (delivery.accepted === true) {
+          setActionMsg(
+            'Invitation created. The mail server accepted the message — inbox ' +
+            'delivery is confirmed only when the recipient accepts it.',
+          );
+          setInviteLink('');
+        } else {
+          setActionMsg('');
+          setInviteLink(d.data?.invite_url || '');
+          setActionErr(
+            `Invitation created, but the email was not sent (status: ${delivery.status || 'unknown'}).`,
+          );
+        }
       } else if (r.status === 409) {
         // Duplicate pending invitation — surface it instead of dead-ending.
         setShowInvite(false);
@@ -173,6 +190,9 @@ export function TeamPage() {
   const [resending, setResending] = useState<number | null>(null);
   const [actionMsg, setActionMsg] = useState('');
   const [actionErr, setActionErr] = useState('');
+  // G1.24: set when an invitation exists but the email did not leave the
+  // building. The admin gets the accept link instead of a false "sent".
+  const [inviteLink, setInviteLink] = useState('');
 
   const handleResend = async (invId: number) => {
     setResending(invId);
@@ -185,7 +205,17 @@ export function TeamPage() {
       });
       const d: ApiResponse<any> = await r.json();
       if (d.success) {
-        setActionMsg('Invitation email re-sent.');
+        // Same truthfulness rule as the initial invite: acceptance is reported
+        // as acceptance, never as inbox delivery.
+        const delivery = d.data?.delivery || {};
+        if (delivery.accepted === true) {
+          setActionMsg('Invitation email accepted by the mail server. Inbox delivery is not confirmed.');
+          setInviteLink('');
+        } else {
+          setActionMsg('');
+          setInviteLink(d.data?.invite_url || '');
+          setActionErr(`The email was not sent (status: ${delivery.status || 'unknown'}).`);
+        }
         await fetchInvitations();
       } else {
         setActionErr(d.error || 'Failed to resend invitation');
@@ -300,6 +330,17 @@ export function TeamPage() {
         <div className="tm-banner tm-banner-error" role="alert">
           <span>{actionErr}</span>
           <button className="tm-banner-close" onClick={() => setActionErr('')} aria-label="Dismiss">
+            <IconX size={14} />
+          </button>
+        </div>
+      )}
+      {inviteLink && (
+        <div className="tm-banner tm-banner-info" role="status">
+          <span>
+            Invitation created, but the email was not sent. Share the accept link directly:{' '}
+            <a href={inviteLink} className="tm-banner-link">{inviteLink}</a>
+          </span>
+          <button className="tm-banner-close" onClick={() => setInviteLink('')} aria-label="Dismiss">
             <IconX size={14} />
           </button>
         </div>
@@ -991,6 +1032,20 @@ const teamStyles = `
   background: rgba(106,159,106,0.08);
   border: 1px solid rgba(106,159,106,0.2);
   color: #3d7a3d;
+}
+/* G1.24 — an invitation that exists but whose email did not send: informational,
+   not an error, and it carries a usable accept link. */
+.tm-banner-info {
+  background: rgba(90,120,190,0.07);
+  border: 1px solid rgba(90,120,190,0.18);
+  color: #3b5687;
+  gap: 8px;
+}
+.tm-banner-info span { min-width: 0; overflow-wrap: anywhere; }
+.tm-banner-link {
+  color: inherit;
+  text-decoration: underline;
+  word-break: break-all;
 }
 
 /* ── Responsive ──────────────────────────────────── */

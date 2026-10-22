@@ -30,9 +30,16 @@ def _founder_required() -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _web_search(query: str, max_results: int = 8) -> list[dict]:
-    """Search the web via DuckDuckGo. Returns [{title, snippet, url}, ...]."""
+def _web_search(query: str, max_results: int = 8, diagnostics: dict | None = None) -> list[dict]:
+    """Search the web via DuckDuckGo. Returns [{title, snippet, url}, ...].
+
+    G1.25: a provider failure and a genuine "no matches" were indistinguishable —
+    both returned ``[]``, and the route reported ``success: true``. Callers that
+    pass ``diagnostics`` now get the failure reason so the API can say "search
+    unavailable" instead of silently showing an empty result list.
+    """
     results = []
+    failure = None
 
     # --- Primary: duckduckgo_search / ddgs library ---
     try:
@@ -53,10 +60,13 @@ def _web_search(query: str, max_results: int = 8) -> list[dict]:
                 }
             )
         if results:
+            if diagnostics is not None:
+                diagnostics.update({"provider": "ddgs", "error": None})
             return results
     except ImportError:
         logger.info("duckduckgo_search not installed — falling back to requests API")
     except Exception as e:
+        failure = f"ddgs: {e}"
         logger.warning(f"duckduckgo_search failed: {e}")
 
     # --- Fallback: requests-based DuckDuckGo instant answer API ---
@@ -111,6 +121,7 @@ def _web_search(query: str, max_results: int = 8) -> list[dict]:
                 )
 
     except Exception as e:
+        failure = failure or f"instant_answer: {e}"
         logger.warning(f"DuckDuckGo API fallback failed: {e}")
 
     # Deduplicate by URL
@@ -121,7 +132,15 @@ def _web_search(query: str, max_results: int = 8) -> list[dict]:
             seen_urls.add(r["url"])
             deduped.append(r)
 
-    return deduped[:max_results]
+    deduped = deduped[:max_results]
+    if diagnostics is not None:
+        diagnostics.update({
+            "provider": "instant_answer" if deduped else "none",
+            # ``error`` is only set when a provider actually raised. An empty
+            # answer with no exception is a truthful "no matches".
+            "error": None if deduped else failure,
+        })
+    return deduped
 
 
 # ---------------------------------------------------------------------------
@@ -149,9 +168,22 @@ def api_search():
     if not q or len(q) < 2:
         return jsonify({"success": True, "data": []})
 
-    results = _web_search(q)
+    diagnostics: dict = {}
+    results = _web_search(q, diagnostics=diagnostics)
 
-    return jsonify({"success": True, "data": results})
+    # G1.25 truthfulness: a provider failure is not an empty result set. Reporting
+    # 200 with [] made an outage look like "nothing matched", which the UI renders
+    # as "No results found".
+    if not results and diagnostics.get("error"):
+        logger.warning("Web search unavailable: %s", diagnostics.get("error"))
+        return jsonify({
+            "success": False,
+            "degraded": True,
+            "error": "Web search is temporarily unavailable. Try again shortly.",
+            "data": [],
+        }), 503
+
+    return jsonify({"success": True, "data": results, "provider": diagnostics.get("provider")})
 
 
 @search_bp.route("/ai/analyze", methods=["POST"])

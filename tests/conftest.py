@@ -39,6 +39,21 @@ if not _HAS_DATABASE_URL:
         "or set DATABASE_URL=postgresql://user:***@host:port/testdb for PostgreSQL."
     )
 
+# Canonical test environment for EVERY app fixture, including module-scoped
+# fixtures that call create_app() without config_override. Without this, the
+# production secret-key guard rejects those apps and 45+ tests error at setup.
+# setdefault keeps an explicitly provided stronger value; production checks are
+# not weakened — tests simply declare the environment they run in.
+#
+# G1.21: this block now runs BEFORE the isolation guard below. The guard checks
+# the *execution context* (a PostgreSQL URL is refused outside a declared test
+# run), so declaring the context afterwards would have made every PostgreSQL
+# certification run look like a production process.
+os.environ.setdefault("FLASK_ENV", "testing")
+os.environ.setdefault("SHUNYA_ENV", "test")
+os.environ.setdefault("SECRET_KEY", "test-secret-key-long-enough-for-guard")
+os.environ.setdefault("DISABLE_RATE_LIMIT", "true")
+
 # Canonical predicate lives in app/safety/db_guard.py (R6B-2.7 §8 regression
 # guard: 344 object_type='test' rows were once written into production org 7 by
 # tests run against the production URL). Fail closed via the shared guard.
@@ -51,8 +66,59 @@ _assert_isolated(_DATABASE_URL, context="pytest/conftest")
 # Real provider tests must explicitly override this env var.
 os.environ.setdefault("SHUNYA_AI_PROVIDERS", "local")
 
+# Prevent uncontrolled external EMAIL delivery during tests (G1.22).
+#
+# Observed during G1.22 verification: with a RESEND_API_KEY present in the host
+# environment, a signup inside the test suite issued a REAL call to
+# api.resend.com for a synthetic @g122.test address ("Email accepted by Resend …",
+# plus 429 retries). Tests must never reach a mail provider.
+#
+# Forced (not setdefault): the SMTP code path with no credentials returns
+# status "logged" and performs no network I/O, which is the project's own
+# documented non-sending mode. Real delivery tests must opt back in explicitly on
+# a dedicated, isolated marker — never by inheriting host credentials.
+os.environ["EMAIL_PROVIDER"] = "smtp"
+for _secret_var in ("RESEND_API_KEY", "EMAIL_USER", "EMAIL_PASSWORD"):
+    os.environ.pop(_secret_var, None)
+
+# Clearing the environment is NOT sufficient: ``create_app()`` calls
+# ``load_dotenv()``, which re-reads the host `.env` and puts the production
+# RESEND_API_KEY back into os.environ after the lines above ran. That is how the
+# G1.22 guard caught a live key present mid-suite. The email module reads its
+# provider settings at import time, so the module state is neutralised here and
+# re-asserted before every test.
+def _neutralise_email_transport():
+    os.environ["EMAIL_PROVIDER"] = "smtp"
+    for var in ("RESEND_API_KEY", "EMAIL_USER", "EMAIL_PASSWORD"):
+        os.environ.pop(var, None)
+    try:
+        from app.communication import email_core
+    except Exception:  # app not importable yet — the import-time values will be
+        return         # neutralised by the fixture below once it is
+    email_core._PROVIDER = "smtp"
+    email_core._RESEND_API_KEY = ""
+    email_core._USER = ""
+    email_core._PASSWORD = ""
+
+
+_neutralise_email_transport()
+
 import pytest
 from app import create_app, db
+
+
+@pytest.fixture(autouse=True)
+def _no_external_email():
+    """Neutralise the email transport before EVERY test.
+
+    ``create_app()`` reloads `.env` (``load_dotenv()``), so the production
+    RESEND_API_KEY reappears in os.environ and in ``email_core``'s module state as
+    soon as an app is created. Re-asserting here guarantees no test can reach a
+    mail provider, whatever an earlier test or the host environment did.
+    """
+    _neutralise_email_transport()
+    yield
+    _neutralise_email_transport()
 
 
 # ---------------------------------------------------------------------------

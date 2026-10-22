@@ -4,8 +4,23 @@ from app import db
 from app.authz.models import Role, OrgMemberRole, DEFAULT_ROLES
 
 
-def seed_default_roles(organization_id: int):
-    """Seed default roles for a new organization."""
+def seed_default_roles(organization_id: int, *, commit: bool = True):
+    """Seed default roles for a new organization.
+
+    ``commit=False`` makes the call transaction-neutral: the roles are flushed
+    into the caller's unit of work and nothing is committed.
+
+    Why this parameter exists (G1.21 fault injection): the organization-creation
+    routes call this helper between creating the organization and provisioning its
+    canonical workspace. While it committed unconditionally, a failure in the
+    workspace step left the organization, owner membership and roles **persisted**
+    with no workspace — the exact invariant violation G1.19 closed, reachable
+    through the error path. Every caller that is already inside a larger
+    transaction must pass ``commit=False``.
+
+    Standalone callers (tests, the on-demand ``/authz/seed`` endpoint) keep the
+    historical behaviour.
+    """
     if Role.query.filter_by(organization_id=organization_id).count() > 0:
         return
     import json
@@ -13,7 +28,46 @@ def seed_default_roles(organization_id: int):
         r = Role(organization_id=organization_id, name=name, display_name=cfg["display_name"],
             description=cfg["description"], permissions=json.dumps(cfg["permissions"]), is_system=cfg["is_system"])
         db.session.add(r)
-    db.session.commit()
+    if commit:
+        db.session.commit()
+    else:
+        db.session.flush()
+
+
+# Canonical org-scoped role vocabulary (authorization truth).
+CANONICAL_ROLES = ("owner", "admin", "manager", "member", "viewer")
+# Legacy TeamMember.role vocabulary (identity-layer compatibility only).
+_LEGACY_FOR_CANONICAL = {
+    "owner": "admin",
+    "admin": "admin",
+    "manager": "manager",
+    "member": "agent",
+    "viewer": "agent",
+}
+_LEGACY_ALIASES = {"agent": "member"}
+_LEGACY_VALID = {"admin", "agent", "manager"}
+
+
+def normalize_role(role: str | None) -> tuple[str, str]:
+    """Return ``(canonical_role, legacy_team_member_role)``.
+
+    One canonical internal representation for authorization (OrgMember.role),
+    with a deterministic legacy mapping for the identity-layer TeamMember.role
+    column. Unknown labels raise ValueError — the caller returns 400. No
+    permission is inferred from a label here; permissions come from the seeded
+    canonical role for the organization.
+    """
+    raw = (role or "").strip().lower()
+    if raw in CANONICAL_ROLES:
+        return raw, _LEGACY_FOR_CANONICAL[raw]
+    if raw in _LEGACY_ALIASES:
+        canonical = _LEGACY_ALIASES[raw]
+        return canonical, _LEGACY_FOR_CANONICAL[canonical]
+    if raw in _LEGACY_VALID:
+        return raw, raw
+    raise ValueError(
+        f"Invalid role '{role}'. Valid roles: {', '.join(CANONICAL_ROLES)}"
+    )
 
 
 def check_permission(organization_id: int, identity_id: str, permission: str) -> bool:

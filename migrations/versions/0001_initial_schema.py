@@ -94,6 +94,30 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(), nullable=True),
     )
 
+    # ── org_members ──
+    # Base-schema table: OrgMember.organization_id references organizations.id and
+    # later revisions (0010 auth_delegations) carry FKs to org_members. The chain
+    # previously omitted this table entirely (SQLite's create_all hid it); on
+    # PostgreSQL the first FK-bearing CREATE failed with UndefinedTable.
+    op.create_table(
+        "org_members",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("organization_id", sa.Integer(), sa.ForeignKey("organizations.id"), nullable=False),
+        sa.Column("identity_id", sa.String(64), nullable=False),
+        sa.Column("name", sa.String(255), server_default=sa.text("''")),
+        sa.Column("email", sa.String(255), server_default=sa.text("''")),
+        sa.Column("phone", sa.String(60), server_default=sa.text("''")),
+        sa.Column("role", sa.String(30), server_default=sa.text("'member'")),
+        sa.Column("designation", sa.String(120), server_default=sa.text("''")),
+        sa.Column("department_id", sa.Integer(), nullable=True),
+        sa.Column("is_active", sa.Boolean(), server_default=sa.text("'true'")),
+        sa.Column("joined_at", sa.DateTime(), nullable=False),
+        sa.Column("invited_by", sa.String(64), server_default=sa.text("''")),
+    )
+    op.create_index("ix_orgmem_org", "org_members", ["organization_id"])
+    op.create_index("ix_orgmem_identity", "org_members", ["identity_id"])
+    op.create_index("ix_orgmem_org_identity", "org_members", ["organization_id", "identity_id"], unique=True)
+
     # ── leads ──
     op.create_table(
         "leads",

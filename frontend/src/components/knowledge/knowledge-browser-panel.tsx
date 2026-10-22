@@ -51,6 +51,14 @@ interface EntityRecord {
   data: Record<string, any>;
   created_at: string;
   updated_at: string;
+  /**
+   * G1.24: how the row came to exist. `onboarding_seed` means SHUNYA
+   * provisioned it as an example; it is NOT the organization's own record.
+   * The backend is the authority — the UI only labels what it is told.
+   */
+  provenance?: string | null;
+  is_example?: boolean;
+  provenance_label?: string;
 }
 
 interface EntityTypeEntry {
@@ -176,9 +184,21 @@ function EntityCard({ entity, onClick }: { entity: EntityRecord; onClick: () => 
               {entity.name || 'Untitled'}
             </Text>
           </Group>
-          <Badge variant="light" color={color} size="sm" styles={{ label: { textTransform: 'capitalize' } }}>
-            {humanize(entity.object_type)}
-          </Badge>
+          <Group gap={6} wrap="nowrap">
+            {entity.is_example && (
+              <Badge
+                variant="outline"
+                color="gray"
+                size="sm"
+                title="Provisioned example — not your organization's data"
+              >
+                Example
+              </Badge>
+            )}
+            <Badge variant="light" color={color} size="sm" styles={{ label: { textTransform: 'capitalize' } }}>
+              {humanize(entity.object_type)}
+            </Badge>
+          </Group>
         </Group>
       </Card.Section>
       {keyFields.length > 0 && (
@@ -224,12 +244,23 @@ function EntityDetail({ entity, onBack }: { entity: EntityRecord; onBack: () => 
           </ThemeIcon>
           <div>
             <Text size="sm" fw={600}>{entity.name || 'Untitled'}</Text>
-            <Badge variant="light" color={color} size="sm" styles={{ label: { textTransform: 'capitalize' } }}>
-              {humanize(entity.object_type)}
-            </Badge>
+            <Group gap={6}>
+              <Badge variant="light" color={color} size="sm" styles={{ label: { textTransform: 'capitalize' } }}>
+                {humanize(entity.object_type)}
+              </Badge>
+              {entity.is_example && (
+                <Badge variant="outline" color="gray" size="sm">Example</Badge>
+              )}
+            </Group>
           </div>
         </Group>
       </Group>
+      {entity.is_example && (
+        <Text size="xs" c="dimmed" mb="md" role="note">
+          This is a provisioned example. It shows how a {humanize(entity.object_type).toLowerCase()} record
+          works — it is not one of your organization&rsquo;s records, and SHUNYA does not treat it as one.
+        </Text>
+      )}
       <Divider mb="md" />
       <ScrollArea h={400} type="auto">
         <Stack gap="md">
@@ -308,6 +339,9 @@ export function KnowledgeBrowserPanel() {
               data: item.data || {},
               created_at: item.created_at,
               updated_at: item.updated_at,
+              provenance: item.provenance ?? null,
+              is_example: item.is_example ?? (item.provenance === 'onboarding_seed'),
+              provenance_label: item.provenance_label,
             });
           }
         }
@@ -351,6 +385,10 @@ export function KnowledgeBrowserPanel() {
     for (const e of entities) counts[e.object_type] = (counts[e.object_type] || 0) + 1;
     return counts;
   }, [entities]);
+
+  // First-use truth: the workspace contains provisioned examples and nothing
+  // the user has supplied. Say so plainly instead of implying real activity.
+  const onlyExamples = entities.length > 0 && entities.every((e) => e.is_example === true);
 
   if (selectedEntity) {
     return <Stack gap="md" style={{ width: '100%' }}>
@@ -406,6 +444,23 @@ export function KnowledgeBrowserPanel() {
   }
 
   return <Stack gap="md" style={{ width: '100%' }}>
+    {onlyExamples && (
+      <Paper p="sm" radius="md" withBorder role="status" aria-live="polite">
+        <Group gap="xs" wrap="nowrap" align="flex-start">
+          <ThemeIcon size={24} radius="md" color="gray" variant="light">
+            <Database size={14} />
+          </ThemeIcon>
+          <div>
+            <Text size="sm" fw={600}>These are examples</Text>
+            <Text size="xs" c="dimmed">
+              SHUNYA created them so you can see how each kind of record works. They are not
+              your organization&rsquo;s data, and SHUNYA will not describe them as your business.
+              Create or import your first record to begin.
+            </Text>
+          </div>
+        </Group>
+      </Paper>
+    )}
     <TextInput
       placeholder="Search entities by name, type, or field value..."
       leftSection={<Search size={14} />}
@@ -417,7 +472,11 @@ export function KnowledgeBrowserPanel() {
     {entityTypes.length > 0 && (
       <ScrollArea h={36} type="never">
         <Group gap="xs" wrap="nowrap">
-          <Badge variant={typeFilter === null ? 'filled' : 'light'} color="violet" size="lg"
+          {/* Real buttons (not clickable divs): keyboard users must be able to
+              reach and activate the filters, and the horizontally scrollable
+              strip needs focusable content for WCAG 2.1.1. */}
+          <Badge component="button" type="button" aria-pressed={typeFilter === null}
+            variant={typeFilter === null ? 'filled' : 'light'} color="violet" size="lg"
             style={{ cursor: 'pointer', textTransform: 'capitalize' }}
             onClick={() => setTypeFilter(null)}>
             All ({entities.length})
@@ -425,11 +484,13 @@ export function KnowledgeBrowserPanel() {
           {entityTypes.map(({ type }) => {
             const count = typeCounts[type] || 0;
             if (count === 0 && !typeFilter) return null;
-            return <Badge key={type} variant={typeFilter === type ? 'filled' : 'light'} color={getColor(type)} size="lg"
+            return <Badge key={type} component="button" type="button"
+              aria-pressed={typeFilter === type}
+              variant={typeFilter === type ? 'filled' : 'light'} color={getColor(type)} size="lg"
               style={{ cursor: 'pointer', textTransform: 'capitalize' }}
               onClick={() => setTypeFilter(typeFilter === type ? null : type)}>
               {humanize(type)} ({count})
-            </Badge>;
+            </Badge>
           })}
         </Group>
       </ScrollArea>

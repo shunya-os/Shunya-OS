@@ -27,7 +27,8 @@ class ObjectService:
                status: str = "active", workspace_id: Optional[str] = None,
                object_id: Optional[str] = None,
                identity_id: Optional[str] = None,
-               system_scope: bool = False) -> dict:
+               system_scope: bool = False,
+               provenance: Optional[str] = None) -> dict:
         """Create a canonical object. Returns the created record.
 
         Rejects missing/synthetic ownership. Callers are responsible for
@@ -87,15 +88,28 @@ class ObjectService:
                 "ObjectService.create() received contradictory authorization "
                 "context: identity_id and system_scope are mutually exclusive."
             )
+        # Provenance (G1.24, D-1 = B): the origin of the row is stored at write
+        # time, because it cannot be reconstructed later. Default is honest:
+        # an identity-authenticated call is a user action, a system_scope call is
+        # a system action, and an explicit value always wins. ``None`` is only
+        # passed deliberately by migration tooling that has no evidence.
+        from app.objects.provenance import normalise_provenance
+        if provenance is not None:
+            provenance = normalise_provenance(provenance)
+        elif identity_id:
+            provenance = "user"
+        else:
+            provenance = "system"
+
         from sqlalchemy import text
         now = datetime.now(timezone.utc)
         oid = object_id or str(uuid.uuid4())
         result = self.db.session.execute(
             text("""
                 INSERT INTO sh_objects
-                    (object_id, object_type, name, status, workspace_id, organization_id, data, created_by, created_at, updated_at, is_deleted)
+                    (object_id, object_type, name, status, workspace_id, organization_id, data, created_by, created_at, updated_at, is_deleted, provenance)
                 VALUES
-                    (:oid, :object_type, :name, :status, :workspace_id, :organization_id, :data, :created_by, :created_at, :updated_at, false)
+                    (:oid, :object_type, :name, :status, :workspace_id, :organization_id, :data, :created_by, :created_at, :updated_at, false, :provenance)
                 RETURNING id
             """),
             {
@@ -109,6 +123,7 @@ class ObjectService:
                 "created_by": created_by or "",
                 "created_at": now,
                 "updated_at": now,
+                "provenance": provenance,
             }
         )
         obj_id = result.scalar()
@@ -119,7 +134,9 @@ class ObjectService:
             _text("SELECT object_id FROM sh_objects WHERE id = :id"), {"id": obj_id}
         ).first()
         object_id = row[0] if row else ""
-        return {"id": obj_id, "object_id": object_id, "object_type": object_type, "name": name, "status": status, "organization_id": organization_id}
+        return {"id": obj_id, "object_id": object_id, "object_type": object_type,
+                "name": name, "status": status, "organization_id": organization_id,
+                "provenance": provenance}
 
     def get(self, obj_id: int, organization_id: int = 0,
             identity_id: Optional[str] = None,
@@ -392,7 +409,7 @@ class ObjectService:
                 # errors must surface rather than masquerade as "denied".
                 return False
 
-        updates = {"updated_at": datetime.now(timezone.utc)}
+        updates: dict = {"updated_at": datetime.now(timezone.utc)}
         if "name" in kwargs:
             updates["name"] = kwargs["name"]
         if "object_type" in kwargs:
@@ -403,6 +420,15 @@ class ObjectService:
             updates["data"] = json.dumps(kwargs["data"])
         if "is_deleted" in kwargs:
             updates["is_deleted"] = kwargs["is_deleted"]
+
+        # A user who edits a provisioned example has supplied business content:
+        # the row stops being an example (G1.24, D-1). Lifecycle-only writes
+        # (archive/trash/restore) do NOT promote it — they change state, not
+        # content, and promoting them would inflate "first business data".
+        from app.objects.provenance import PROVENANCE_ONBOARDING_SEED, PROVENANCE_USER
+        content_edit = ("name" in kwargs) or ("data" in kwargs)
+        if content_edit and (row.provenance or "") == PROVENANCE_ONBOARDING_SEED:
+            updates["provenance"] = PROVENANCE_USER
 
         set_clause = ", ".join(f"{k} = :{k}" for k in updates)
         updates["id"] = obj_id
@@ -621,6 +647,9 @@ class ObjectService:
                     organization_id=int(row_org) if row_org else organization_id,
                     data=data,
                     status=row_status,
+                    # Legacy records being migrated into the canonical store are
+                    # imported data, not user-typed in this system.
+                    provenance="import",
                 )
                 mapping.append({"source_id": source_id, "canonical_id": obj["id"], "action": "migrated"})
                 migrated += 1

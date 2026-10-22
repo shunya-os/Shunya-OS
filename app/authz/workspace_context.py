@@ -345,8 +345,11 @@ def resolve_workspace_scope(identity_id: str) -> WorkspaceScope:
         Identity is an active member of at least one organization (OrgMember).
 
     PERSONAL:
-        Identity owns at least one personal FounderSpace (space_type='personal',
-        status='active'). Only checked when no organization context exists.
+        Identity owns at least one personal workspace — checked against BOTH
+        the canonical workspace store (user_workspaces, created at email
+        verification by ``_ensure_personal_workspace``) AND the legacy personal
+        FounderSpace. Canonical personal workspaces must be recognized or a
+        fresh verified user has no scope and every API call is denied.
 
     NONE:
         Identity has neither a personal workspace nor any organization
@@ -367,6 +370,50 @@ def resolve_workspace_scope(identity_id: str) -> WorkspaceScope:
     if org_count > 0:
         return WorkspaceScope.ORGANIZATION
 
+    # Canonical personal workspace (created for every verified user).
+    # Identity reconciliation: the session may carry the email (no-org users)
+    # while the workspace owner_identity_id is the numeric TeamMember id (see
+    # auth_routes._ensure_personal_workspace). Resolve both forms plus the
+    # membership email so a fresh verified user is not left scoped to NONE.
+    from app.auth import TeamMember
+    from app.workspace.models import Workspace, WorkspaceType
+    ident_str = str(identity_id)
+    identity_ids = {ident_str}
+    tm = None
+    if "@" in ident_str:
+        tm = TeamMember.query.filter_by(email=ident_str.lower()).first()
+    else:
+        try:
+            from app import db as _db
+            tm = _db.session.get(TeamMember, int(ident_str))
+        except (TypeError, ValueError):
+            tm = None
+    if tm is not None:
+        identity_ids.add(str(tm.id))
+        identity_ids.add(tm.email or "")
+    identity_ids.discard("")
+    canonical_personal = Workspace.query.filter(
+        Workspace.owner_identity_id.in_(identity_ids),
+        Workspace.workspace_type == WorkspaceType.PERSONAL.value,
+        Workspace.status == "active",
+    ).first()
+    if canonical_personal is None:
+        # Fall back to a membership row keyed by the email/identity (the
+        # workspace row may predate identity convergence).
+        from app.workspace.models import WorkspaceMembership
+        membership = WorkspaceMembership.query.filter(
+            WorkspaceMembership.email.in_(identity_ids) |
+            WorkspaceMembership.identity_id.in_(identity_ids),
+            WorkspaceMembership.is_active.is_(True),
+        ).first()
+        if membership is not None:
+            canonical_personal = Workspace.query.filter_by(
+                id=membership.workspace_id, status="active",
+            ).first()
+    if canonical_personal is not None:
+        return WorkspaceScope.PERSONAL
+
+    # Legacy personal FounderSpace (older accounts).
     from app.founder.models import FounderSpace
     personal = FounderSpace.query.filter_by(
         identity_id=str(identity_id),

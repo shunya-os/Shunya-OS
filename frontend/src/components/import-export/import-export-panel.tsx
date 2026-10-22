@@ -13,7 +13,7 @@
  * Wired into workspace via workspace-container.tsx and executive-home.tsx.
  */
 
-import { useState, useRef, type FC } from 'react';
+import { useState, useRef, useEffect, type FC } from 'react';
 import { IconDownload, IconUpload, IconFileText, IconCheck, IconX, IconPlus, IconRefresh, IconAlertTriangle, IconBolt, IconHistory, IconArrowRight } from '@tabler/icons-react';
 import { useWorkspaceStore } from '../../runtimes/workspace/store';
 
@@ -203,6 +203,16 @@ export const ImportExportPanel: FC = () => {
   const [contentType, setContentType] = useState('csv');
   const fileRef = useRef<HTMLInputElement>(null);
   const sessionRef = useRef<string>('');
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Move keyboard focus into the panel when it opens; otherwise focus stays on
+  // the CTA behind the panel and Tab order surprises the user.
+  useEffect(() => { panelRef.current?.focus(); }, []);
+  // Reset moves the flow back to the input step; focus must follow it, or the
+  // previous action's element disappears and keyboard focus falls to <body>
+  // (KB-01: keyboard recovery after a rejected import could not continue).
+  useEffect(() => {
+    if (step === 'input') panelRef.current?.focus();
+  }, [step]);
 
   // Provenance drawer state
   const [provFor, setProvFor] = useState<{ type: string; id: number } | null>(null);
@@ -318,6 +328,31 @@ export const ImportExportPanel: FC = () => {
     setLoading(false);
   };
 
+  /**
+   * G1.25: "Export" used to render three records and download nothing — the
+   * panel was a preview with an export label. This writes the returned records
+   * to a real file so the button does what it says.
+   */
+  const downloadExport = () => {
+    if (!exportResult) return;
+    const rows = Array.isArray(exportResult.records) ? exportResult.records : [];
+    const payload = {
+      target_type: exportType,
+      record_count: exportResult.record_count ?? rows.length,
+      exported_at: new Date().toISOString(),
+      records: rows,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `shunya-${exportType}-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const openProvenance = async (type: string, id: number) => {
     setProvFor({ type, id }); setProv(null); setProvError('');
     setCorrField(''); setCorrValue(''); setCorrReason(''); setCorrError(''); setCorrNotice('');
@@ -365,20 +400,20 @@ export const ImportExportPanel: FC = () => {
     });
   };
 
-  const resetFlow = () => { setStep('input'); setPreview(null); setResult(null); setError(''); setFileName(''); setOverrides({}); setProvFor(null); setCorrNotice(''); };
+  const resetFlow = () => { setStep('input'); setPreview(null); setResult(null); setError(''); setFileName(''); setOverrides({}); setProvFor(null); setCorrNotice(''); setCsvText(''); };
 
   const unresolvedAmbiguities = (preview?.ambiguities || []).filter(a =>
     a.code === 'multiple_candidates' || a.code.startsWith('unmapped_') || a.code === 'conflicting_duplicate');
   const reviewNotes = (preview?.ambiguities || []).filter(a => a.code === 'similar_existing_entity');
 
   return (
-    <div className="wksp-import">
+    <div className="wksp-import" ref={panelRef} tabIndex={-1}>
       <div className="wksp-admin-tabs">
         <button className={`wksp-admin-tab ${view === 'import' ? 'active' : ''}`} onClick={() => setView('import')}><IconDownload size={14} /> Import</button>
         <button className={`wksp-admin-tab ${view === 'export' ? 'active' : ''}`} onClick={() => setView('export')}><IconUpload size={14} /> Export</button>
       </div>
 
-      {error && <div className="wksp-import-error">{error}</div>}
+      {error && <div className="wksp-import-error" role="alert">{error}</div>}
 
       {view === 'import' && (
         <div className="wksp-import-section">
@@ -526,7 +561,7 @@ export const ImportExportPanel: FC = () => {
 
           {step === 'result' && result && (
             <div className="wksp-import-result">
-              <h4>{result.status === 'completed' ? <><IconCheck size={14} /> Import Complete</> : result.status === 'partial' ? <><IconAlertTriangle size={14} /> Partial Import</> : result.status === 'noop' ? <><IconRefresh size={14} /> Nothing New</> : <><IconX size={14} /> Import Failed</>}</h4>
+              <h4 role="status" aria-live="polite">{result.status === 'completed' ? <><IconCheck size={14} /> Import Complete</> : result.status === 'partial' ? <><IconAlertTriangle size={14} /> Partial Import</> : result.status === 'noop' ? <><IconRefresh size={14} /> Nothing New</> : <><IconX size={14} /> Import Failed</>}</h4>
               <div className="wksp-import-stats">
                 <span className="wksp-stat">Created: {result.created || 0}</span>
                 {result.duplicates_skipped > 0 && <span className="wksp-stat">Already existed: {result.duplicates_skipped}</span>}
@@ -668,6 +703,9 @@ export const ImportExportPanel: FC = () => {
               <h4><IconUpload size={14} /> Export: {String(exportResult.record_count ?? 0)} records</h4>
               <pre className="wksp-export-json">{JSON.stringify((exportResult.records as unknown[] | undefined)?.slice(0, 3), null, 2)}</pre>
               <p className="wksp-muted">Showing first 3 of {String(exportResult.record_count ?? 0)} records.</p>
+              <button onClick={downloadExport} className="wksp-btn" type="button">
+                Download JSON ({String(exportResult.record_count ?? 0)} records)
+              </button>
             </div>
           )}
         </div>
@@ -677,7 +715,7 @@ export const ImportExportPanel: FC = () => {
 .wksp-import { padding: var(--shunya-spacing-md); }
 .wksp-import-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--shunya-text); }
 .wksp-import-method-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
-.wksp-import-method { padding: 6px 14px; font-size: 12px; background: var(--shunya-surface-2); border: 1px solid var(--shunya-surface-1); border-radius: 4px; cursor: pointer; }
+.wksp-import-method { padding: 6px 14px; font-size: 12px; background: var(--shunya-surface-2); color: var(--shunya-text-primary, #1A1C1D); border: 1px solid var(--shunya-surface-1); border-radius: 4px; cursor: pointer; }
 .wksp-import-method.active { background: var(--shunya-color-accent, #7c3aed); color: #fff; border-color: var(--shunya-color-accent, #7c3aed); }
 .wksp-import-dropzone { border: 2px dashed var(--shunya-surface-1); border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; margin-bottom: 8px; transition: border-color .2s; }
 .wksp-import-dropzone:hover { border-color: var(--shunya-color-accent, #7c3aed); }

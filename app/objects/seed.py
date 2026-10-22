@@ -121,6 +121,10 @@ def _create_objects(objects_data: list[dict], workspace_id: str, identity_id: st
             status='active',  # lifecycle status — always active for new seed data
             data=data,        # business status stays inside the JSON column
             created_by=identity_id,
+            # G1.24 (D-1 = B): these rows are sample content ("Tesla Motors",
+            # "INV-001", …), not the tenant's own records. Marking them keeps
+            # them out of first-use and out of AI organizational grounding.
+            provenance='onboarding_seed',
         )
         db.session.add(obj)
         created.append(obj)

@@ -136,3 +136,35 @@ def test_same_identity_cannot_cross_organization_scope(client, chat_scope):
     db.session.commit()
     assert client.get('/api/v1/ai/conversations/conv_other').status_code == 404
     assert client.get('/api/v1/ai/conversations').json['data'] == []
+
+
+def test_malformed_workspace_identifier_fails_closed(client, chat_scope):
+    """A non-string/empty workspace identifier is a client error, never a 5xx."""
+    with client.session_transaction() as sess:
+        sess['workspace_id'] = ''
+    response = client.post('/api/v1/ai/chat', json={
+        'workspace_id': {'not': 'a-string'},
+        'messages': [{'role': 'user', 'content': 'Hello'}],
+    })
+    assert response.status_code in (400, 422)
+    assert chat_scope[2] == []
+
+
+def test_foreign_workspace_request_fails_closed(client, chat_scope):
+    """A workspace id from another organization must be refused before inference."""
+    from app.models import Organization
+    from app.objects.legacy_models import Workspace
+    other = Organization(name='Foreign', slug='foreign-chat-org')
+    from app import db
+    db.session.add(other)
+    db.session.flush()
+    foreign = Workspace(id='ws_foreign_test', name='Foreign', workspace_type='business',
+                        organization_id=other.id, created_by='sid_foreign')
+    db.session.add(foreign)
+    db.session.commit()
+    response = client.post('/api/v1/ai/chat', json={
+        'workspace_id': 'ws_foreign_test',
+        'messages': [{'role': 'user', 'content': 'Hello'}],
+    })
+    assert response.status_code == 400
+    assert chat_scope[2] == []

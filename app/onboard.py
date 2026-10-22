@@ -94,6 +94,10 @@ def onboard(identity_id: str) -> dict:
                 # request, so it declares system scope explicitly rather than
                 # silently omitting identity.
                 system_scope=True,
+                # G1.24 (D-1 = B): these are provisioned examples, not data the
+                # user supplied, so they must not satisfy the first-use predicate
+                # or become AI organizational facts.
+                provenance="onboarding_seed",
             )
             objects_created.append(obj_data["name"])
 

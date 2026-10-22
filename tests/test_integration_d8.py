@@ -79,26 +79,52 @@ class TestEmailIntegrationVerification:
         assert "SMTP probe failed" in sync["error"]
         assert intg._last_sync_at is None  # no fake synced timestamp
 
-    def test_resend_probe_success(self, monkeypatch):
+    def test_resend_connects_from_configuration_without_admin_probe(self, monkeypatch):
+        """A Resend sending key is verified by presence — never by probing /keys.
+
+        G1.16/G1.17 root cause: `/keys` is an account-administration endpoint and
+        rejects ordinary sending keys, producing a false HTTP 401 while the send
+        path (`POST /emails`) accepts mail. Connect-time verification must not
+        manufacture a rejection that the send path contradicts; a genuinely
+        rejected credential surfaces at send time (acceptance vocabulary pinned in
+        tests/test_email_config.py). The previous version of this test asserted
+        the superseded /keys probe and therefore had to fail once the false 401
+        was removed.
+        """
         import app.integration.providers.email_integration as mod
-        class _Resp:
-            status_code = 200
-        monkeypatch.setattr(mod.requests, "get", lambda *a, **k: _Resp())
-        intg = self._integration(monkeypatch, {"RESEND_API_KEY": "re_key_val"})
+        probes = []
+
+        def _forbidden(*a, **k):
+            probes.append(a)
+            raise AssertionError("Resend must not probe an account-administration endpoint")
+
+        monkeypatch.setattr(mod.requests, "get", _forbidden)
+        intg = self._integration(monkeypatch, {"RESEND_API_KEY": "re_sending_key"})
+        assert intg.connect() is True
+        assert intg._status == "connected"
+        assert probes == []
+        sync = intg.sync()
+        assert sync["status"] == "synced"
+        assert "acceptance verified on send" in sync["note"]
+
+    def test_resend_connect_does_not_send_a_message_to_verify(self, monkeypatch):
+        """Verifying configuration must not perform a real send.
+
+        A connect-time send would deliver mail as a side effect of opening
+        settings; acceptance is only established when the user actually sends.
+        """
+        import app.integration.providers.email_integration as mod
+        sent = []
+
+        def _forbidden_post(*a, **k):
+            sent.append(a)
+            raise AssertionError("connect() must not send mail to verify credentials")
+
+        monkeypatch.setattr(mod.requests, "post", _forbidden_post)
+        intg = self._integration(monkeypatch, {"RESEND_API_KEY": "re_bad_key"})
         assert intg.connect() is True
         assert intg.sync()["status"] == "synced"
-
-    def test_resend_probe_rejected_is_error(self, monkeypatch):
-        import app.integration.providers.email_integration as mod
-        class _Resp:
-            status_code = 401
-        monkeypatch.setattr(mod.requests, "get", lambda *a, **k: _Resp())
-        intg = self._integration(monkeypatch, {"RESEND_API_KEY": "re_bad_key"})
-        assert intg.connect() is False
-        assert intg._status == "disconnected"
-        sync = intg.sync()
-        assert sync["status"] == "error"
-        assert "401" in sync["error"]
+        assert sent == []
 
     def test_gmail_oauth_without_token_not_connected(self, monkeypatch):
         # A stored client id/secret alone is NOT a connection.

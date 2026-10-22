@@ -27,6 +27,12 @@ class UserProfile(db.Model):
     theme_preference = db.Column(
         db.String(16), default="system", nullable=False
     )  # light / dark / system
+    # Onboarding resume state (G1.21). Nullable: existing rows keep their current
+    # behaviour (treated as "not started"). The terminal completion flag stays on
+    # TeamMember.onboarding_completed; these columns carry the in-progress step so
+    # a reload, a new session or a different worker can resume the questionnaire.
+    onboarding_step = db.Column(db.String(30), nullable=True)
+    onboarding_completed_steps = db.Column(db.Text, nullable=True)  # JSON array
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )

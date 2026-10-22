@@ -8,20 +8,38 @@ import re
 from datetime import datetime
 
 from flask import request, jsonify, session
-from werkzeug.exceptions import NotFound, BadRequest
+from werkzeug.exceptions import NotFound, BadRequest, Forbidden
 
 from app import db
 from app.auth_routes import login_required
-from app.tenant import Tenant
+from app.models import Organization
 from app.auth import TeamMember, UserRole
 from app.models import OrgMember
 from app.production.identity import identity_bp
 
 
-def _get_org_or_404(org_id: int) -> Tenant:
-    org = db.session.get(Tenant, org_id)
+def _get_org_or_404(org_id: int) -> Organization:
+    # Canonical organization model. Organization-creation routes write
+    # Organization rows; resolving Tenant here produced a false 404 for every
+    # organization created through the supported API.
+    org = db.session.get(Organization, org_id)
     if not org or not org.is_active:
         raise NotFound("Organization not found")
+
+    # Cross-tenant boundary: every user-administration route resolves its org
+    # through here, so the caller MUST be an active member of THIS organization.
+    # Without this check any authenticated user could read or create users in
+    # any organization by id.
+    identity = str(session.get("identity_id") or "")
+    uid = session.get("user_id")
+    tm = db.session.get(TeamMember, uid) if uid else None
+    email = tm.email if tm else ""
+    q = OrgMember.query.filter_by(organization_id=org_id, is_active=True)
+    member = q.filter(OrgMember.identity_id == identity).first() if identity else None
+    if not member and email:
+        member = q.filter(OrgMember.email == email).first()
+    if not member:
+        raise Forbidden("Not a member of this organization")
     return org
 
 
@@ -107,7 +125,12 @@ def create_user(org_id: int):
         raise BadRequest("'email' is required")
     if not password or len(password) < 6:
         raise BadRequest("'password' must be at least 6 characters")
-    role = _validate_role(role)
+    # Canonical org role + deterministic legacy role for TeamMember.role.
+    try:
+        from app.authz.services import normalize_role
+        canonical_role, legacy_role = normalize_role(role)
+    except ValueError as exc:
+        raise BadRequest(str(exc))
 
     # Check for duplicate email
     existing = TeamMember.query.filter_by(email=email).first()
@@ -118,7 +141,7 @@ def create_user(org_id: int):
         name=name,
         email=email,
         phone=data.get("phone", "").strip(),
-        role=role,
+        role=legacy_role,
         is_active=True,
         # Admin-created accounts are trusted: verified=True so the user can
         # log in immediately with the password just set (a verified=False
@@ -139,7 +162,7 @@ def create_user(org_id: int):
         identity_id=str(user.id),
         email=email,
         name=name,
-        role=role,
+        role=canonical_role,
         is_active=True,
         invited_by=session.get("identity_id") or str(session.get("user_id", "") or ""),
     ))

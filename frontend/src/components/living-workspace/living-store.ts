@@ -603,7 +603,10 @@ export const useLivingStore = create<LivingStore>((set, get) => ({
             label: evt.title,
             description: evt.description,
             status: 'in_progress' as const,
-            progress: 0.3,
+            // G1.25: an in-flight execution has no measured completion. 0 marks
+            // "unknown/started" rather than the fabricated 0.3 that implied a
+            // third of the work was done. Completion sets 1.0, failure 0.0.
+            progress: 0,
             started_at: data.timestamp || new Date().toISOString(),
           };
           set({ activeExecutions: [...existing, exec] });

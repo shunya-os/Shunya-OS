@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
-"""Debug space creation on PostgreSQL."""
+"""Debug space creation on PostgreSQL.
+
+Requires DATABASE_URL to be set in the environment. Exits with an
+error message before importing the application if it is missing or
+empty, preventing accidental connection to a real database.
+"""
 import os
-os.environ['DATABASE_URL'] = 'postgresql://shunya-deploy:@localhost:5433/shunya_db'
+import sys
+
+_DB_URL = os.environ.get("DATABASE_URL", "")
+if not _DB_URL:
+    sys.exit(
+        "ERROR: DATABASE_URL is not set.\n\n"
+        "This script requires an explicit database URL. Set it before running:\n\n"
+        "  DATABASE_URL=postgresql://user:***@host:port/dbname  \\\n"
+        "  python3 scripts/debug_space_creation.py\n"
+    )
+
 os.environ['SECRET_KEY'] = 'test-secret'
 os.environ['DISABLE_RATE_LIMIT'] = 'true'
 os.environ['WTF_CSRF_ENABLED'] = 'False'
@@ -11,7 +26,7 @@ from app.founder.models import FounderSpace, FounderObject
 
 app = create_app(config_override={
     'TESTING': True,
-    'SQLALCHEMY_DATABASE_URI': 'postgresql://shunya-deploy:@localhost:5433/shunya_db',
+    'SQLALCHEMY_DATABASE_URI': _DB_URL,
     'SECRET_KEY': 'test-secret',
     'DISABLE_RATE_LIMIT': 'true',
     'WTF_CSRF_ENABLED': False,

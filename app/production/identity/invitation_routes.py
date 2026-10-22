@@ -4,20 +4,66 @@ Email-based invitation workflow for adding users to organizations.
 Uses canonical OrgInvitation model and creates OrgMember on acceptance.
 """
 
+import logging
 import secrets
 from datetime import datetime, timedelta
 
 from flask import jsonify, request, session
-from werkzeug.exceptions import BadRequest, NotFound
+from werkzeug.exceptions import BadRequest, Forbidden, NotFound, Unauthorized
 
 from app import db
 from app.auth_routes import login_required
 from app.models import Organization, OrgMember, OrgInvitation
 from app.production.identity import identity_bp
 
+# Only these organization roles may see or issue invitations. An invitation
+# carries a capability token: whoever reads it can accept and join the tenant, so
+# listing invitations is an administrative operation, not a member one.
+_INVITE_ROLES = {"owner", "admin"}
+
 
 def _generate_token() -> str:
     return secrets.token_urlsafe(32)
+
+
+def _caller_identity_id() -> str:
+    """Canonical identity id from the session, or raise Unauthorized."""
+    sid = session.get("identity_id")
+    if sid:
+        return str(sid)
+    uid = session.get("user_id")
+    if not uid:
+        raise Unauthorized("Authentication required")
+    from app.auth import TeamMember
+    member = db.session.get(TeamMember, uid)
+    if member and getattr(member, "identity_id", None):
+        return member.identity_id
+    return str(uid)
+
+
+def _require_org_admin(org_id: int) -> str:
+    """Require the caller to be an ACTIVE owner/admin of ``org_id``.
+
+    G1.21: ``list_invitations``, ``create_invitation`` and ``revoke_invitation``
+    were guarded by ``@login_required`` alone, so **any** authenticated user could
+    (a) enumerate another tenant's invitations together with their acceptance
+    tokens, (b) invite themselves into any organization, and (c) revoke another
+    tenant's invitations. The list endpoint returned the raw ``token`` for every
+    invitation, which turns (a) into a direct account-takeover path for the
+    invited address.
+
+    Membership is the canonical ``OrgMember`` row; the role gate prevents a plain
+    member from managing invitations. Returns the canonical identity id.
+    """
+    identity_id = _caller_identity_id()
+    membership = OrgMember.query.filter_by(
+        organization_id=org_id, identity_id=identity_id, is_active=True
+    ).first()
+    if membership is None:
+        raise Forbidden("You are not a member of this organization")
+    if str(membership.role or "").lower() not in _INVITE_ROLES:
+        raise Forbidden("Only organization owners or admins can manage invitations")
+    return identity_id
 
 
 def _get_org_or_404(org_id: int) -> Organization:
@@ -82,22 +128,32 @@ def _invitation_to_dict(inv: OrgInvitation) -> dict:
 @identity_bp.route("/<int:org_id>/invitations", methods=["GET"])
 @login_required
 def list_invitations(org_id: int):
-    """List invitations for an organization."""
+    """List invitations for an organization (owner/admin only)."""
     _get_org_or_404(org_id)
+    _require_org_admin(org_id)
     invites = OrgInvitation.query.filter_by(organization_id=org_id).order_by(
         OrgInvitation.created_at.desc()
     ).all()
+    # The raw acceptance token is a capability, not list metadata: it is returned
+    # once, to the admin who created the invitation, and never re-broadcast.
+    payload = []
+    for inv in invites:
+        item = _invitation_to_dict(inv)
+        item.pop("token", None)
+        item["token_present"] = bool(inv.token)
+        payload.append(item)
     return jsonify({
         "success": True,
-        "data": [_invitation_to_dict(inv) for inv in invites],
+        "data": payload,
     })
 
 
 @identity_bp.route("/<int:org_id>/invitations", methods=["POST"])
 @login_required
 def create_invitation(org_id: int):
-    """Create an invitation to join an organization."""
+    """Create an invitation to join an organization (owner/admin only)."""
     _get_org_or_404(org_id)
+    _require_org_admin(org_id)
     data = _require_json()
 
     email = data.get("email", "").strip().lower()
@@ -127,13 +183,19 @@ def create_invitation(org_id: int):
 
     # Deliver the invitation by email — the journey is NOT complete until the
     # invitee receives the accept link (mirrors app/team/routes.py invite_member).
+    #
+    # G1.22: the send result is reported, not assumed. "accepted" means a provider
+    # took the message; "logged"/"failed"/"blocked" means it was NOT delivered and
+    # the invitation exists only as a record. The response therefore distinguishes
+    # provider acceptance from actual delivery instead of implying both.
+    delivery = {"status": "not_attempted", "accepted": False, "delivered": False}
     try:
         from app.email_service import build_invitation_email, send_email
         org = db.session.get(Organization, org_id)
         subject, body = build_invitation_email(
             email, token, org_name=org.name if org else ""
         )
-        send_email(
+        result = send_email(
             to=email,
             subject=subject,
             body=body,
@@ -141,14 +203,32 @@ def create_invitation(org_id: int):
             business_event_id=f"invite:{org_id}:{token[:8]}",
             category="security",
         )
+        status = str(result.get("status") or "unknown")
+        # Acceptance is NOT delivery (G1.24 truthfulness): a provider or MTA
+        # taking the message proves the send path worked, not that the message
+        # reached an inbox. `delivered` therefore stays false until there is
+        # real delivery evidence; `accepted` is the honest, narrower claim.
+        delivery = {
+            "status": status,
+            "accepted": status == "accepted",
+            "delivered": False,
+            "record_id": result.get("record_id"),
+        }
+        if status != "accepted":
+            # Never log the body or the token — the reason is enough.
+            logging.getLogger(__name__).warning(
+                "invitation %s created but NOT delivered (email status=%s, to=%s)",
+                invitation.id, status, email)
     except Exception:
-        import logging
+        delivery = {"status": "error", "delivered": False}
         logging.getLogger(__name__).exception(
             "Failed to send invitation email to %s", email)
 
+    payload = _invitation_to_dict(invitation)
+    payload["delivery"] = delivery
     return jsonify({
         "success": True,
-        "data": _invitation_to_dict(invitation),
+        "data": payload,
     }), 201
 
 
@@ -209,10 +289,18 @@ def accept_invitation(token: str):
     if existing_user:
         raise BadRequest(f"User with email '{inv.email}' already exists")
 
+    # Normalize the invitation's role label into the canonical org role and the
+    # legacy identity-layer role; grants use the canonical name only.
+    from app.authz.services import normalize_role
+    try:
+        canonical_role, legacy_role = normalize_role(inv.role)
+    except ValueError:
+        canonical_role, legacy_role = "member", "agent"
+
     user = TeamMember(
         name=name,
         email=inv.email,
-        role=inv.role,
+        role=legacy_role,
         is_active=True,
         verified=True,  # The emailed accept link proves ownership of the inbox
     )
@@ -221,14 +309,29 @@ def accept_invitation(token: str):
     db.session.add(user)
     db.session.flush()
 
-    # Create OrgMember record
+    # Create OrgMember record using the CANONICAL identity id (sid_*), matching
+    # what login resolves. Writing str(TeamMember.id) here left accepted
+    # invitations unable to resolve their membership in authorization checks.
     identity_id = str(user.id)
+    try:
+        from app.production.identity_repository import IdentityRepository
+        repo = IdentityRepository()
+        canonical = repo.find_by_auth("email", inv.email)
+        if canonical:
+            identity_id = canonical.identity_id
+        else:
+            identity = repo.create(display_name=name, primary_email=inv.email)
+            repo.add_auth_method(identity.identity_id, "email", inv.email, is_primary=True)
+            identity_id = identity.identity_id
+        user.identity_id = identity_id
+    except Exception:  # identity service unavailable — keep legacy id, login repairs it
+        pass
     member = OrgMember(
         organization_id=inv.organization_id,
         identity_id=identity_id,
         name=name,
         email=inv.email,
-        role=inv.role,
+        role=canonical_role,
         invited_by=inv.invited_by,
     )
     db.session.add(member)
@@ -236,14 +339,17 @@ def accept_invitation(token: str):
 
     # Ensure default roles exist for this organization (safe no-op if already seeded)
     from app.authz.services import seed_default_roles
-    seed_default_roles(inv.organization_id)
+    # commit=False: invitation acceptance is one transaction (membership + role
+    # grant + invitation state); a partial commit here would leave a member with
+    # no role and an invitation still pending.
+    seed_default_roles(inv.organization_id, commit=False)
 
     # Wire the OrgMemberRole immediately so the Team page shows populated
     # roles from the first request — no lazy auto-assignment at first
     # permission check. "agent" is a valid invite role but is NOT seeded
     # in DEFAULT_ROLES; fall back to "member" for the actual grant.
     from app.authz.models import Role as AuthzRole, OrgMemberRole
-    role_name = inv.role if inv.role in ("owner", "admin", "manager", "member", "viewer") else "member"
+    role_name = canonical_role
     role = AuthzRole.query.filter_by(
         organization_id=inv.organization_id, name=role_name
     ).first()
@@ -261,6 +367,26 @@ def accept_invitation(token: str):
                 scope="organization",
                 granted_by=inv.invited_by or "",
             ))
+
+    # Grant access to the organization's canonical workspace(s) in the same
+    # transaction. OrgMember alone is not authorization for canonical objects:
+    # resolve_current_workspace() requires an active ShWorkspaceMembership row,
+    # so without this an invitee could accept, log in, and still receive
+    # `403 no_authorized_workspace` on every object surface (measured in G1.21).
+    # A failure here must abort the acceptance (the commit below is the single
+    # transaction), so an organisation can never report a joined member who has
+    # no access. An organization with zero active workspaces is a pre-existing
+    # invariant violation, not an acceptance failure: it is recorded instead of
+    # blocking the invitee.
+    from app.authz.org_provisioning import grant_workspace_access
+
+    granted = grant_workspace_access(inv.organization_id, identity_id, commit=False)
+    if not granted:
+        import logging
+        logging.getLogger(__name__).warning(
+            "invitation %s accepted but organization %s has no active workspace; "
+            "member %s will receive no_authorized_workspace until it is repaired",
+            inv.id, inv.organization_id, identity_id)
 
     # Mark invitation as accepted
     inv.accepted_at = datetime.utcnow()
@@ -281,8 +407,9 @@ def accept_invitation(token: str):
 @identity_bp.route("/<int:org_id>/invitations/<int:inv_id>", methods=["DELETE"])
 @login_required
 def revoke_invitation(org_id: int, inv_id: int):
-    """Revoke a pending invitation."""
+    """Revoke a pending invitation (owner/admin only)."""
     _get_org_or_404(org_id)
+    _require_org_admin(org_id)
     inv = db.session.get(OrgInvitation, inv_id)
     if not inv or inv.organization_id != org_id:
         raise NotFound("Invitation not found")

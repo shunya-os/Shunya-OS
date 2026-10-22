@@ -37,16 +37,49 @@ def logged_in_client(app, client, admin_user, _db):
 
 
 @pytest.fixture(scope="function")
-def org(app, _db):
+def org(app, _db, logged_in_client):
+    """The organization the acting identity administers.
+
+    G1.21: the invitation endpoints now require an active owner/admin membership
+    of the target organization. This fixture used to return an *unrelated*
+    Organization row, which only worked because the endpoints had no membership
+    check — any authenticated user could invite into any organization. It now
+    returns the organization that ``seed_rbac`` created for the session identity
+    (role ``admin``, with a canonical workspace).
+    """
     from app.models import Organization
-    o = Organization(name="Invite Org", slug="invite-org", is_active=True)
-    _db.session.add(o)
-    _db.session.commit()
-    return o
+    with logged_in_client.session_transaction() as session:
+        org_id = session.get("current_org_id")
+    assert org_id, "logged_in_client must seed an organization for its identity"
+    return _db.session.get(Organization, org_id)
 
 
 class TestInviteCreate:
     """POST /api/v1/orgs/<id>/invitations"""
+
+    def test_non_member_cannot_invite(self, logged_in_client, _db):
+        """G1.21 authorization boundary: membership is required to invite.
+
+        Before this fix any authenticated user could invite into any organization
+        and read its invitation tokens. The product now refuses a non-member, and
+        nothing is persisted.
+        """
+        from app.models import Organization, OrgInvitation
+
+        foreign = Organization(name="Foreign Org", slug="foreign-org-g121",
+                               is_active=True)
+        _db.session.add(foreign)
+        _db.session.commit()
+
+        resp = logged_in_client.post(
+            f"/api/v1/orgs/{foreign.id}/invitations",
+            json={"email": "intruder@test.com"},
+        )
+        assert resp.status_code == 403
+        assert OrgInvitation.query.filter_by(organization_id=foreign.id).first() is None
+
+        listing = logged_in_client.get(f"/api/v1/orgs/{foreign.id}/invitations")
+        assert listing.status_code == 403
 
     def test_create_success(self, logged_in_client, org):
         resp = logged_in_client.post(

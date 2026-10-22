@@ -59,10 +59,13 @@ def upgrade():
     # may also have created a constraint named ``suppliers_name_key``.
     # Drop whichever form is present, then add the per-org composite.
     for legacy_name in ("uq_suppliers_name", "suppliers_name_key"):
-        if g.has_index(legacy_name):
-            g.drop_index(legacy_name)
+        # A UNIQUE constraint owns its index on PostgreSQL; dropping the index
+        # first fails with DependentObjectsStillExist. Drop the constraint form
+        # first, then a bare index if one exists.
         if g.has_constraint(legacy_name, "suppliers"):
             g.drop_constraint(legacy_name, "suppliers")
+        elif g.has_index(legacy_name):
+            g.drop_index(legacy_name)
     g.create_unique_constraint(
         "uq_suppliers_tenant_name", "suppliers", ["tenant_id", "name"]
     )

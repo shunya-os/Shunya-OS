@@ -56,7 +56,37 @@ def logged_in_client(app, client, admin_user):
 class TestPasswordReset:
     """Canonical POST /api/v1/auth/forgot-password and /api/v1/auth/reset-password"""
 
-    def test_forgot_password(self, client, admin_user):
+    @pytest.fixture
+    def mail_configured(self, monkeypatch):
+        """Declare a configured mail transport for the token-lifecycle tests.
+
+        G1.25 made an unconfigured transport a truthful 503 instead of "link has
+        been sent". These tests assert the reset *token* lifecycle (creation,
+        single use, expiry, minimum length), so they declare the configured case;
+        the unconfigured case has its own test below. No message is sent: the
+        suite's transport is non-sending by design.
+        """
+        from app.communication import email_transport_guard as guard
+
+        monkeypatch.setattr(
+            guard, "email_transport_state",
+            lambda core=None: {
+                "provider": "resend", "host": "", "has_resend_key": True,
+                "has_smtp_credentials": False, "host_is_loopback": False,
+            },
+        )
+        monkeypatch.setattr(guard, "isolation_verdict", lambda state: (True, "resend_with_key"))
+
+    def test_forgot_password_unconfigured_mail_is_reported(self, client, admin_user):
+        """Without a mail transport the endpoint must not claim an email was sent."""
+        resp = client.post("/api/v1/auth/forgot-password",
+                           json={"email": "admin4@test.com"})
+        assert resp.status_code == 503
+        body = resp.get_json()
+        assert body["success"] is False
+        assert body["delivery"] == "unconfigured"
+
+    def test_forgot_password(self, client, admin_user, mail_configured):
         resp = client.post("/api/v1/auth/forgot-password",
                            json={"email": "admin4@test.com"})
         assert resp.status_code == 200
@@ -66,7 +96,7 @@ class TestPasswordReset:
         assert "_reset_token" not in body
         assert "token" not in body
 
-    def test_forgot_password_unknown(self, client):
+    def test_forgot_password_unknown(self, client, mail_configured):
         resp = client.post("/api/v1/auth/forgot-password",
                            json={"email": "unknown@test.com"})
         assert resp.status_code == 200  # don't reveal existence
@@ -86,7 +116,7 @@ class TestPasswordReset:
         assert token_row is not None and not token_row.used
         return token_row.token
 
-    def test_reset_flow(self, client, admin_user, _db):
+    def test_reset_flow(self, client, admin_user, _db, mail_configured):
         # Request reset — token is stored server-side ONLY
         reset_resp = client.post("/api/v1/auth/forgot-password",
                                  json={"email": "admin4@test.com"})
@@ -108,7 +138,7 @@ class TestPasswordReset:
                            json={"token": "bad-token", "password": "newpassword"})
         assert resp.status_code == 400
 
-    def test_reset_short_password(self, client, admin_user, _db):
+    def test_reset_short_password(self, client, admin_user, _db, mail_configured):
         client.post("/api/v1/auth/forgot-password",
                     json={"email": "admin4@test.com"})
         token = self._latest_reset_token(_db)

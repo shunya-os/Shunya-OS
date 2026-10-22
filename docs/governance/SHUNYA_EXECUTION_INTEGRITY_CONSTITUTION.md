@@ -189,6 +189,30 @@ This is not optional. The register is the development system's institutional mem
 
 ---
 
+## Rule 9 — PRODUCT BEHAVIOUR OVER GREEN CHECKLISTS
+
+SHUNYA OS must never be implemented merely to make tests pass, make a build
+green, satisfy a checklist, or produce a favourable status report. Every
+implementation must be logically justified, correctly integrated, secure,
+persistent where required, and fully wired from backend to frontend. A complete
+user journey must remain unbroken, understandable, responsive, recoverable, and
+truthful.
+
+Tests must verify real product behaviour and meaningful failure conditions. A
+passing test is evidence only for the behaviour it actually exercises. No
+mocks, stubs, fixtures, synthetic success states, or test-only bypasses may be
+presented as proof of production capability.
+
+Preserve the product's established business-agnostic architecture, UI/UX
+constitution, visual quality, real-time feedback principles, and existing
+working functionality.
+
+A test may not be weakened, skipped, or rewritten to conceal a real defect.
+A root cause is closed only when the implementation is corrected and the
+evidence demonstrates the intended behaviour — not when a test first passes.
+
+---
+
 ## Enforcement
 
 This constitution is enforced by:

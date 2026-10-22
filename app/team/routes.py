@@ -20,6 +20,30 @@ logger = logging.getLogger(__name__)
 team_bp = Blueprint("team", __name__, url_prefix="/api/v1/team")
 
 
+def _delivery_payload(result: dict | None) -> dict:
+    """Truthful delivery report: acceptance is not delivery (G1.24).
+
+    ``accepted`` means a provider or MTA took the message. ``delivered`` stays
+    false: no inbox confirmation exists, and claiming one would be a fabricated
+    success. The UI uses this to avoid telling an admin "sent" when nothing left
+    the building.
+    """
+    status = str((result or {}).get("status") or "unknown")
+    return {
+        "status": status,
+        "accepted": status == "accepted",
+        "delivered": False,
+        "record_id": (result or {}).get("record_id"),
+    }
+
+
+def _invite_url(token: str) -> str:
+    """The SPA accept link for an invitation token (same URL the email carries)."""
+    from app.email_service import BASE_URL
+
+    return f"{BASE_URL}/auth/invitation?token={token}"
+
+
 # ---------------------------------------------------------------------------
 # GET /api/v1/team/members — list all active members of the current org
 # ---------------------------------------------------------------------------
@@ -113,6 +137,11 @@ def invite_member():
     # Deliver the invitation by email — the journey is NOT complete until the
     # invitee receives the accept link (previously the record was created and
     # nothing was ever sent: dead-end). Reuses the canonical email service.
+    #
+    # A send failure does not undo the invitation: the record is already
+    # committed, and reporting 500 here would invite a retry that hits the
+    # duplicate-pending guard. The outcome is reported instead (G1.24).
+    delivery = {"status": "not_attempted", "accepted": False, "delivered": False}
     try:
         from app.email_service import build_invitation_email, send_email
         org_name = org.name if (org := db.session.get(Organization, org_id)) else ""
@@ -140,13 +169,23 @@ def invite_member():
             business_event_id=f"invite:{org_id}:{token[:8]}",
             category="security",
         )
-        logger.info("Invitation email result: status=%s", email_result.get("status"))
+        delivery = _delivery_payload(email_result)
+        logger.info("Invitation email result: status=%s", delivery["status"])
     except Exception:
+        delivery = {"status": "error", "accepted": False, "delivered": False}
         logger.exception("Failed to send invitation email to %s", email)
 
+    # G1.24 (truthful delivery): report what actually happened. `accepted` means
+    # a mail server took the message; it is NOT inbox delivery, so `delivered`
+    # stays false. The accept link is returned to the admin who created the
+    # invitation (the same rule the org-scoped invitation route uses), so a
+    # failed send has a recovery path instead of a dead end.
+    payload = invitation.to_dict()
+    payload["delivery"] = delivery
+    payload["invite_url"] = _invite_url(token)
     return jsonify({
         "success": True,
-        "data": invitation.to_dict(),
+        "data": payload,
     }), 201
 
 
@@ -298,13 +337,22 @@ def resend_invitation(inv_id):
             business_event_id=f"invite-resend:{org_id}:{inv.token[:8]}",
             category="security",
         )
+        delivery = _delivery_payload(email_result)
     except Exception:
         logger.exception("Failed to resend invitation email to %s", inv.email)
         return jsonify({"success": False, "error": "Invitation email could not be sent"}), 500
 
     logger.info("Invitation resent: org=%s id=%s email=%s status=%s",
-                org_id, inv_id, inv.email, email_result.get("status"))
-    return jsonify({"success": True, "data": {"id": inv.id, "status": inv.status}}), 200
+                org_id, inv_id, inv.email, delivery["status"])
+    return jsonify({
+        "success": True,
+        "data": {
+            "id": inv.id,
+            "status": inv.status,
+            "delivery": delivery,
+            "invite_url": _invite_url(inv.token),
+        },
+    }), 200
 
 
 # ---------------------------------------------------------------------------

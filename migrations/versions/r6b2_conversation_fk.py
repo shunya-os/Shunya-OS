@@ -112,6 +112,24 @@ def upgrade() -> None:
     )
 
     # ── Step 4: Add new FK (founder_conversations → sh_objects) ──
+    # PostgreSQL requires the referenced column to be backed by a UNIQUE
+    # constraint/index; SQLite does not enforce this, so the chain worked there
+    # and failed on PostgreSQL with InvalidForeignKey.
+    insp = sa.inspect(conn)
+    if insp.has_table("sh_objects"):
+        uniques = insp.get_unique_constraints("sh_objects")
+        indexes = insp.get_indexes("sh_objects")
+        has_unique = any(
+            set(u.get("column_names") or []) == {"object_id"} for u in uniques
+        ) or any(
+            i.get("unique") and set(i.get("column_names") or []) == {"object_id"}
+            for i in indexes
+        )
+        if not has_unique:
+            conn.execute(sa.text(
+                "ALTER TABLE sh_objects ADD CONSTRAINT uq_sh_objects_object_id UNIQUE (object_id)"
+            ))
+
     conn.execute(sa.text(
         "ALTER TABLE founder_conversations "
         "ADD CONSTRAINT founder_conversations_object_id_fkey "

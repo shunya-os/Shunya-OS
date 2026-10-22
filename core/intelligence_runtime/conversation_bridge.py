@@ -80,7 +80,7 @@ def _find_org_for_identity(identity_id: str) -> tuple[int, str] | None:
                 "AND om.is_active = true "
                 "AND wsm.is_active = true "
                 "AND w.status = 'active' "
-                "ORDER BY om.created_at ASC LIMIT 1"
+                "ORDER BY om.joined_at ASC LIMIT 1"
             ),
             {"id": identity_id},
         ).first()
@@ -107,6 +107,9 @@ def _ensure_canonical_object(identity_id: str, org_id: int, workspace_id: str,
         created_by=identity_id,
         data={},
         identity_id=identity_id,
+        # G1.24: created by the AI runtime for this conversation, not typed by
+        # the user. Recorded so the origin is never inferred later.
+        provenance="ai",
     )
     return created["object_id"]
 

@@ -479,6 +479,53 @@ def _seed_default_workspaces():
     db.session.commit()
 
 
+_TEST_ENVIRONMENTS = {"test", "testing", "ci", "cert", "certification"}
+
+# Environment-name variables, in the precedence the rest of the application
+# already uses (``SHUNYA_ENVIRONMENT`` first — it is what ``/health`` reports and
+# what the SECRET_KEY production guard reads — then ``SHUNYA_ENV``, then
+# ``FLASK_ENV``). G1.24: the G1.23 predicate read only the last two, so a process
+# that declared itself a test run *only* through ``SHUNYA_ENVIRONMENT=testing``
+# was exempt from the SECRET_KEY guard but still had the host ``.env`` loaded —
+# the two guards disagreed about what a test run is.
+_DECLARED_ENV_VARS = ("SHUNYA_ENVIRONMENT", "SHUNYA_ENV", "FLASK_ENV")
+
+
+def declared_environment_name() -> str:
+    """The first declared environment name among the canonical variables."""
+    for var in _DECLARED_ENV_VARS:
+        value = (os.getenv(var) or "").strip().lower()
+        if value:
+            return value
+    return ""
+
+
+def declared_test_environment(config_override: dict | None = None) -> bool:
+    """True when this process has declared itself a test / CI run.
+
+    G1.23 root-cause fix for the incident where a production ``RESEND_API_KEY``
+    reached a test log: ``create_app()`` called ``load_dotenv()`` unconditionally,
+    and ``load_dotenv`` FILLS IN missing variables — so a harness that had just
+    cleared ``RESEND_API_KEY`` had it silently restored from the host ``.env``,
+    along with any other production secret it did not override.
+
+    The declaration can come from three places, in the order a test usually
+    provides it: the ``config_override`` passed to the factory (``TESTING``), the
+    environment name (``SHUNYA_ENVIRONMENT`` / ``SHUNYA_ENV`` / ``FLASK_ENV``), or
+    pytest itself (``PYTEST_CURRENT_TEST``). Nothing here inspects credentials.
+
+    Precedence matters: an explicit environment name wins over pytest, so a
+    process that says ``production`` is treated as production even if some
+    ancestor exported ``PYTEST_CURRENT_TEST``.
+    """
+    if config_override and config_override.get("TESTING"):
+        return True
+    env = declared_environment_name()
+    if env:
+        return env in _TEST_ENVIRONMENTS
+    return bool(os.getenv("PYTEST_CURRENT_TEST"))
+
+
 def create_app(config_override: dict | None = None):
     """
     Flask application factory.
@@ -489,7 +536,16 @@ def create_app(config_override: dict | None = None):
 
     For testing, pass config_override to override DATABASE_URL etc.
     """
-    load_dotenv()
+    _is_test = declared_test_environment(config_override)
+    if _is_test:
+        # G1.23: do NOT load the host .env in a declared test run. Loading it
+        # reintroduced production secrets (email provider keys, database URLs)
+        # that the test harness had deliberately removed, which is how a live
+        # provider key ended up in a test log. Development and production keep
+        # the historical behaviour below.
+        pass
+    else:
+        load_dotenv()
 
     app = Flask(
         __name__,
@@ -567,6 +623,20 @@ def create_app(config_override: dict | None = None):
             app.config.get("SQLALCHEMY_DATABASE_URI", ""),
             context="create_app(TESTING/SHUNYA_REQUIRE_ISOLATED_DB)",
         )
+
+    # ---- Test / Certification Email Isolation Safety Check -------------------
+    # G1.24: a declared test run must not boot with a live external email
+    # transport. G1.22 INC-5 happened because a test process inherited the
+    # production Resend key and sent a real message; the harness fix removes the
+    # key, but the factory is the last boundary that can refuse. This refuses to
+    # start rather than silently sending. A loopback capture server
+    # (127.0.0.1/localhost/::1) is allowed: that is the documented non-production
+    # delivery-verification path, and it cannot reach the internet.
+    if _is_test:
+        from app.communication.email_transport_guard import (
+            assert_isolated_email_transport,
+        )
+        assert_isolated_email_transport()
 
     # ---- Extensions -------------------------------------------------------
     db.init_app(app)
@@ -677,6 +747,8 @@ def create_app(config_override: dict | None = None):
     from app.evidence import models_db  # noqa: F401 — EvidenceRecord
     from app.evidence import decision_trace  # noqa: F401 — DecisionTrace
     from app.automation import models  # noqa: F401 — AutomationRule
+    from app.alerting.models import AlertEvent  # noqa: F401 — sh_alert_events (must be registered BEFORE create_all)
+    from app.onboarding.models import OnboardingSessionState  # noqa: F401 — onboarding_sessions (r6b37)
     from app.intelligence import memory_store  # noqa: F401 — LearningWeight
     from app.execution.models import Outcome  # noqa: F401
     from app.execution.core_models import ExecutionRun, ExecutionStateTransition  # noqa: F401

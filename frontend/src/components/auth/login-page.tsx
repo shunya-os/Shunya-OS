@@ -27,6 +27,8 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
   const [errorMsg, setErrorMsg] = useState('');
   const [showSub, setShowSub] = useState(false);
   const [showTagline, setShowTagline] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resentMsg, setResentMsg] = useState('');
 
   useEffect(() => {
     if (phase !== 'intro') return;
@@ -64,13 +66,44 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
 
   const handleSkipIntro = () => setPhase('form');
 
+  /**
+   * Start an OAuth sign-in only when the server can actually honour it.
+   * G1.25: the buttons navigated the whole tab to `/api/v1/auth/<p>/login`,
+   * which returns raw JSON 501 when the provider is not configured — the user
+   * was stranded on a JSON error page. Now an unconfigured provider produces an
+   * inline message and nothing is navigated.
+   */
+  const startOAuth = async (provider: 'google' | 'github') => {
+    setErrorMsg('');
+    try {
+      const res = await fetch(`/api/v1/auth/${provider}/login`, {
+        method: 'GET',
+        redirect: 'manual',
+        credentials: 'same-origin',
+      });
+      // A configured provider answers with a redirect (opaqueredirect under
+      // manual mode) or a 2xx. Anything else is a real, non-navigable failure.
+      if (res.type === 'opaqueredirect' || res.redirected || res.ok) {
+        window.location.href = `/api/v1/auth/${provider}/login`;
+        return;
+      }
+      setPhase('error');
+      setErrorMsg(`${provider === 'google' ? 'Google' : 'GitHub'} sign-in is not configured on this server. Use your email and password.`);
+    } catch {
+      setPhase('error');
+      setErrorMsg('Could not reach the sign-in service. Use your email and password.');
+    }
+  };
+
   return (
     <div className="sh-cinematic">
       <div className="sh-lang-top">
         <LanguageSwitcher size="md" />
       </div>
       {phase === 'intro' && (
-        <div className="sh-intro" onClick={handleSkipIntro}>
+        <div className="sh-intro" onClick={handleSkipIntro} role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSkipIntro(); } }}
+          aria-label="Skip intro and continue to sign in">
           <div className="sh-intro-dot" aria-hidden="true" />
           <div className="sh-intro-zero">शून्य</div>
           {showSub && <div className="sh-intro-sub fade-in">SHUNYA</div>}
@@ -103,19 +136,46 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
                   disabled={phase === 'loading'} />
               </div>
               {phase === 'error' && <div className="sh-auth-error" role="alert">{errorMsg}</div>}
+              {phase === 'error' && errorMsg?.includes('verify') && (
+                <div style={{ textAlign: 'center', marginTop: 8 }}>
+                  <button type="button" className="sh-auth-link" disabled={resending}
+                    onClick={async () => {
+                      if (!email.trim()) return;
+                      setResending(true);
+                      setResentMsg('');
+                      try {
+                        const res = await fetch('/api/v1/auth/request-verification', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email: email.trim().toLowerCase() }),
+                        });
+                        // Honest outcome: a non-2xx is not "re-sent".
+                        setResentMsg(res.ok
+                          ? 'Verification email accepted by the mail server.'
+                          : `Could not resend (status ${res.status}).`);
+                      } catch {
+                        setResentMsg('Could not resend — network error.');
+                      }
+                      setResending(false);
+                    }}>
+                    {resending ? 'Sending…' : 'Resend verification email'}
+                  </button>
+                  {resentMsg && <div className="sh-auth-info">{resentMsg}</div>}
+                </div>
+              )}
               <button className="sh-auth-btn" type="submit"
                 disabled={phase === 'loading' || !email.trim() || !password.trim()}>
                 {phase === 'loading' ? t('signInLoading') : t('signIn')}
               </button>
             </form>
             <div className="sh-auth-footer">
-              <span onClick={() => window.location.href = '/auth/forgot-password'} className="sh-auth-link">
+              <a href="/auth/forgot-password" className="sh-auth-link">
                 {t('forgotPassword')}
-              </span>
+              </a>
               {onSignUp && (
                 <>
-                  <span style={{margin: '0 8px', color: 'var(--shunya-border, rgba(26,28,29,0.07))'}}>·</span>
-                  <span onClick={onSignUp} className="sh-auth-link">{t('createAccount')}</span>
+                  <span aria-hidden="true" style={{margin: '0 8px', color: 'var(--shunya-border, rgba(26,28,29,0.07))'}}>·</span>
+                  <button type="button" onClick={onSignUp} className="sh-auth-link">{t('createAccount')}</button>
                 </>
               )}
             </div>
@@ -125,7 +185,7 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
             <div className="sh-auth-oauth">
               <button
                 className="sh-auth-btn-oauth sh-auth-btn-oauth--google"
-                onClick={() => window.location.href = '/api/v1/auth/google/login'}
+                onClick={() => startOAuth('google')}
                 type="button"
                 disabled={phase === 'loading'}
               >
@@ -139,7 +199,7 @@ export function LoginPage({ onLogin, onSignUp }: Props) {
               </button>
               <button
                 className="sh-auth-btn-oauth sh-auth-btn-oauth--github"
-                onClick={() => window.location.href = '/api/v1/auth/github/login'}
+                onClick={() => startOAuth('github')}
                 type="button"
                 disabled={phase === 'loading'}
               >

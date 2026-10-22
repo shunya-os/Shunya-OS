@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from flask import Blueprint, g, jsonify, request, send_file
+from flask import Blueprint, current_app, g, jsonify, request, send_file
 
 from app import db
 from app.authz.decorators import require_permission
@@ -32,7 +32,10 @@ export_bp = Blueprint("export", __name__, url_prefix="/api/v1/export")
 EXPORT_JOBS: dict[str, dict[str, Any]] = {}
 
 SCOPES = ["all", "contacts", "documents", "finance", "commercial", "marketing", "sales", "notifications"]
-FORMATS = ["json", "csv", "zip"]
+# G1.25: "zip" was advertised and validated, but the generator only ever wrote
+# JSON bytes and the download served them as application/zip. An unimplemented
+# format is no longer offered; add it back only with a real archive writer.
+FORMATS = ["json", "csv"]
 
 EXPORT_DIR = os.environ.get("EXPORT_DOWNLOAD_DIR", "/tmp/shunya_exports")
 os.makedirs(EXPORT_DIR, exist_ok=True)
@@ -160,7 +163,7 @@ def create_export():
       { "scope": "all", "format": "json" }
 
     scope: all | contacts | documents | finance | commercial | marketing | sales | notifications
-    format: json | csv | zip
+    format: json | csv
 
     B24: identity comes from the verified session via ``g.identity_id``
     (never the ``X-Identity-Id`` header) and all data is scoped to the
@@ -195,10 +198,16 @@ def create_export():
         "completed_at": None,
     }
 
-    def _run_export(jid: str, id_: str, org: int, sc: str, fm: str):
+    def _run_export(jid: str, id_: str, org: int, sc: str, fm: str, app=None):
+        # G1.25: this runs on a plain thread, so it has no Flask application
+        # context. Flask-SQLAlchemy's session requires one; without it every job
+        # died with "Working outside of application context" and was reported as
+        # failed — the export API could never produce a file. The app object is
+        # passed in explicitly (current_app is a proxy and is unbound here).
         try:
-            with db.session.no_autoflush:
-                path = _generate_export_data(id_, org, sc, fm)
+            with app.app_context():
+                with db.session.no_autoflush:
+                    path = _generate_export_data(id_, org, sc, fm)
             EXPORT_JOBS[jid].update({
                 "status": "completed",
                 "progress": 100,
@@ -216,7 +225,7 @@ def create_export():
 
     t = threading.Thread(
         target=_run_export,
-        args=(job_id, identity_id, org_id, scope, fmt),
+        args=(job_id, identity_id, org_id, scope, fmt, current_app._get_current_object()),
         daemon=True,
     )
     t.start()
@@ -276,7 +285,7 @@ def download_export(job_id: str):
         return jsonify({"error": "Export file not found on disk"}), 404
 
     ext = job.get("format", "json")
-    mime = "application/json" if ext == "json" else "text/csv" if ext == "csv" else "application/zip"
+    mime = "application/json" if ext == "json" else "text/csv"
     fname = f"shunya_export_{job_id[:8]}.{ext}"
 
     return send_file(

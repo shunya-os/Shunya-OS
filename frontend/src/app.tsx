@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TokenProvider } from './tokens/token-provider';
 import { PrimaryWorkspace } from './components/executive-home/executive-home';
 import { LoginPage } from './components/auth/login-page';
@@ -20,6 +20,7 @@ import { decidePostAuthPhase, normalizeAuthUrlAfterSignIn, resolveOnboardingComp
 import { authStyles } from './components/auth/auth-styles';
 import { useWorkspaceHydration } from './hooks/workspace-hooks';
 import { useWorkspaceStore } from './runtimes/workspace/store';
+import { resolvePaletteAction } from './lib/palette-actions';
 import { bus } from './runtimes/event-bus';
 import { subscribeSSE } from './runtimes/sse-runtime';
 import { useActiveContext } from './hooks/use-active-context';
@@ -110,7 +111,12 @@ function InvitationPage({ token, onBackToLogin }: { token: string; onBackToLogin
         if (resp.success && resp.data) {
           setInvite({ email: resp.data.email, orgName: resp.data.org_name });
         } else {
-          setError(resp.error ?? 'Invalid or expired invitation.');
+          // The generic 404 body carries the specific reason in `detail`
+          // ("already been accepted", "expired"). Showing only "Not found"
+          // tells the invitee nothing they can act on, so prefer the detail —
+          // with Werkzeug's "404 Not Found: " prefix removed.
+          const detail = (resp.detail || '').replace(/^\d{3}\s+[^:]+:\s*/, '').trim();
+          setError(detail || resp.error || 'Invalid or expired invitation.');
         }
       } catch {
         if (!cancelled) setError('Could not connect. Check that the server is running.');
@@ -298,15 +304,57 @@ function AppShell() {
   useEffect(() => {
     // If user has a session and navigates directly to /, go to workspace
     const saved = SessionManager.load();
+
+    // Shared: restore identity from the backend session cookie (Flask
+    // session). Used on entry pages when localStorage is empty AND on the
+    // auth entry pages, so an already-authenticated visitor (e.g. who just
+    // verified their email) is not forced to sign in again.
+    const restoreFromBackend = async () => {
+      try {
+        const r = await fetch('/api/v1/auth/session', { credentials: 'include' });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!data.authenticated) return;
+        SessionManager.save({
+          identityId: data.identity_id || '',
+          email: data.email || '',
+          name: data.name || '',
+          orgId: String(data.org_id || ''),
+          orgName: data.org_name || '',
+        });
+        if (data.onboarding_complete) {
+          sessionStorage.setItem('shunya_onboarding_complete', 'true');
+          localStorage.setItem('shunya_onboarding_complete', 'true');
+        }
+        if (isOnboardingComplete()) {
+          bootstrap();
+        } else {
+          goToOnboarding(setPhase);
+        }
+      } catch {
+        /* backend unreachable — stay on the current phase */
+      }
+    };
+
+    // Auth entry pages: render the form, but if a valid backend session
+    // already exists the visitor should enter the workspace, not re-login.
+    // Special flows (password reset, invitation, verify-email) keep the form
+    // so their own session transitions are not disrupted.
+    const AUTO_ENTER_AUTH_PATHS = ['/auth', '/auth/', '/auth/login', '/auth/signup'];
     if (window.location.pathname.startsWith('/auth/')) {
-      // Auth routes handled by AuthRouter below — phase stays 'public' until
-      // the route is determined, but we ensure the auth page renders.
       setPhase('login');
+      if (AUTO_ENTER_AUTH_PATHS.includes(window.location.pathname)) {
+        void restoreFromBackend();
+      }
       return;
     }
     // Direct navigation to /onboarding with a session: restore onboarding phase
     if (window.location.pathname === '/onboarding' && saved) {
-      goToOnboarding(setPhase);
+      if (isOnboardingComplete()) {
+        bootstrap();
+      } else {
+        goToOnboarding(setPhase);
+      }
       return;
     }
     if (saved) {
@@ -318,35 +366,7 @@ function AppShell() {
       }
     } else {
       // Try restoring from backend Flask session cookie
-      (async () => {
-        try {
-          const r = await fetch('/api/v1/auth/session', { credentials: 'include' });
-          if (r.ok) {
-            const data = await r.json();
-            if (data.authenticated) {
-              SessionManager.save({
-                identityId: data.identity_id || '',
-                email: data.email || '',
-                name: data.name || '',
-                orgId: String(data.org_id || ''),
-                orgName: data.org_name || '',
-              });
-              // Set onboarding complete flag if backend confirms it
-              if (data.onboarding_complete) {
-                sessionStorage.setItem('shunya_onboarding_complete', 'true');
-                localStorage.setItem('shunya_onboarding_complete', 'true');
-              }
-              if (isOnboardingComplete()) {
-                bootstrap();
-              } else {
-                goToOnboarding(setPhase);
-              }
-              return;
-            }
-          }
-        } catch { /* No backend session — stay on public page */ }
-        // Otherwise stay on public homepage
-      })();
+      void restoreFromBackend();
     }
   }, []);
 
@@ -359,8 +379,8 @@ function AppShell() {
     const token = params.get('token') || '';
 
     const goToLogin = () => {
-      window.history.pushState({}, '', '/auth/login');
-      window.dispatchEvent(new PopStateEvent('popstate'));
+      // Full navigation so the bootstrap session check re-triggers
+      window.location.href = '/auth/login';
     };
 
     // Single post-authentication decision, shared by every path that can sign a
@@ -522,11 +542,41 @@ function AuthenticatedWorkspace() {
   return (
     <TokenProvider>
       <RealtimeEventsBridge />
+      <PaletteActionsBridge />
       <PrimaryWorkspace />
       <CommandPalette />
       <AiResultBanner />
     </TokenProvider>
   );
+}
+
+/**
+ * PaletteActionsBridge — the consumer for `shunya:action`.
+ *
+ * G1.25: the command palette dispatched `shunya:action` on the window and
+ * nothing listened, so every navigation command in the palette (Home, Tasks,
+ * Settings, …) closed the palette and did nothing. This bridge maps each
+ * palette action id to the same navigation call the sidebar uses
+ * (`useWorkspaceStore.open`), which also pushes URL state.
+ *
+ * Only ids with a real surface are handled. An unknown id is ignored rather
+ * than routed to a fallback, because silently rendering the dashboard would
+ * look like the command worked.
+ */
+function PaletteActionsBridge() {
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const target = resolvePaletteAction((event as CustomEvent).detail);
+      if (!target) return; // unknown / malformed: no fallback surface
+      const opts = target.objectType
+        ? { objectType: target.objectType, objectId: target.objectId }
+        : undefined;
+      useWorkspaceStore.getState().open(target.name, target.type, opts);
+    };
+    window.addEventListener('shunya:action', handler);
+    return () => window.removeEventListener('shunya:action', handler);
+  }, []);
+  return null;
 }
 
 /**
@@ -543,35 +593,39 @@ function AiResultBanner() {
     query: string;
   }>({ status: 'idle', text: '', query: '' });
 
-  // Monotonically increasing request counter — the consumer accepts
-  // done/error events only when their requestId matches the last
-  // loading event.  An older request completing after a newer one
-  // started cannot overwrite the active result.
-  let _acceptedRequestId = 0;
+  // Refs for mutable state shared between the event handler (mount-only
+  // closure, no deps) and the dismiss callback (re-created every render).
+  // Local variables would capture different render scopes, causing stale
+  // closure bugs: the handler and dismiss() would write to/read from
+  // DIFFERENT variable bindings.
+  const ref = useRef({ acceptedRequestId: 0, dismissed: false });
 
   useEffect(() => {
+    const r = ref.current;
     const handler = (e: CustomEvent) => {
       const d = e.detail || {};
       const id = d.requestId as number | undefined;
       if (d.status === 'loading') {
-        _acceptedRequestId = id || 0;
+        r.acceptedRequestId = id || 0;
+        r.dismissed = false;
         setState({ status: 'loading', text: '', query: d.query || '' });
       } else if ((d.status === 'done' || d.status === 'error') && id !== undefined) {
-        // Accept done/error only if it matches the last loading request.
-        if (id === _acceptedRequestId) {
-          setState({
-            status: d.status, text: d.text || '',
-            query: state.query || d.query || '',
-          });
+        // Accept done/error only if it matches the last loading request
+        // AND the banner has not been dismissed since loading started.
+        if (id === r.acceptedRequestId && !r.dismissed) {
+          setState({ status: d.status, text: d.text || '', query: d.query || '' });
         }
-        // else: stale response from an older request — silently discard.
+        // else: stale or post-dismissal response — silently discard.
       }
     };
     window.addEventListener('shunya:ai-result', handler as EventListener);
     return () => window.removeEventListener('shunya:ai-result', handler as EventListener);
   }, []);
 
-  const dismiss = () => setState({ status: 'idle', text: '', query: '' });
+  const dismiss = () => {
+    ref.current.dismissed = true;
+    setState({ status: 'idle', text: '', query: '' });
+  };
 
   // Keyboard dismiss (Escape)
   useEffect(() => {

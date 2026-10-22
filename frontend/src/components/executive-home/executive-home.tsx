@@ -506,9 +506,9 @@ function WorkVisibility() {
                 <span className="pw-work-status"><IconRefresh size={14} /></span>
                 <span className="pw-work-text">{exec.label}</span>
                 <span className="pw-work-owner">SHUNYA</span>
-                <span className="pw-work-track">
-                  <span className="pw-work-fill" style={{ width: `${Math.round(exec.progress * 100)}%` }} />
-                </span>
+                {/* G1.25: no progress track for in-flight work — the system has
+                    no measured completion, and a bar implied a number it never
+                    had. The status glyph and label carry the truth. */}
               </div>
             ))}
             {executionHistory.slice(-3).reverse().map((exec) => (
@@ -2203,12 +2203,12 @@ styles.textContent = `
   padding: 1px 8px;
   border-radius: 4px;
   background: rgba(26,28,29,0.04);
-  color: rgba(26,28,29,0.55);
+  color: #4A4A4A; /* was rgba(26,28,29,0.55) → 3.76:1 on the panel surface */
 }
-.pw-status-sent { color: #e67e22; }
-.pw-status-accepted { color: #6a9f6a; }
-.pw-status-active { color: #6a9f6a; }
-.pw-status-lead { color: #a4865f; }
+.pw-status-sent { color: #8A4B0F; }
+.pw-status-accepted { color: #2E6B2E; }
+.pw-status-active { color: #2E6B2E; }
+.pw-status-lead { color: #6B4E2A; }
 .pw-commercial-date {
   font-size: 11px;
   color: var(--shunya-text-tertiary, rgba(26,28,29,0.66));

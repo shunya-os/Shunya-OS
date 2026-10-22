@@ -6,14 +6,14 @@ All endpoints require authentication. Responses use standard envelope.
 
 import re
 from datetime import datetime
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, current_app
 from werkzeug.exceptions import NotFound, BadRequest, Forbidden
 
 from app import db
 from app.auth_routes import login_required
 from app.models import Organization, OrgMember
-from app.tenant import Tenant
 from app.runtime_config import uploads_dir
+from sqlalchemy.exc import IntegrityError
 
 from app.production.identity import identity_bp
 
@@ -23,24 +23,22 @@ from app.production.identity import identity_bp
 # ---------------------------------------------------------------------------
 
 def _generate_slug(company_name: str) -> str:
-    """Generate a URL-safe slug from a company name."""
-    slug = company_name.lower().strip()
-    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
-    slug = re.sub(r"\s+", "-", slug)
-    slug = re.sub(r"-+", "-", slug)
-    return slug[:120] or "org"
+    """Generate a URL-safe slug from a company name.
+
+    G1.21: delegated to ``app.authz.org_slug`` so every organization-creation
+    path uses one implementation (the SPA route previously did not sanitize or
+    de-duplicate at all).
+    """
+    from app.authz.org_slug import generate_org_slug
+
+    return generate_org_slug(company_name)
 
 
 def _ensure_unique_slug(base_slug: str) -> str:
-    """Append a counter if the slug already exists."""
-    slug = base_slug
-    counter = 1
-    while Organization.query.filter_by(slug=slug).first() is not None:
-        suffix = str(counter)
-        max_base = 120 - len(suffix) - 1
-        slug = f"{base_slug[:max_base]}-{suffix}"
-        counter += 1
-    return slug
+    """Append a counter if the slug already exists (shared implementation)."""
+    from app.authz.org_slug import ensure_unique_org_slug
+
+    return ensure_unique_org_slug(base_slug)
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +168,19 @@ def create_org():
         max_members=data.get("max_team_members", 10),
     )
     db.session.add(org)
-    db.session.flush()  # get org.id before creating member
+    try:
+        db.session.flush()  # get org.id before creating member
+    except IntegrityError:
+        # Unique slug index is the authority; a competing request that won the
+        # race must produce 409, not a driver error.
+        db.session.rollback()
+        current_app.logger.warning(
+            "organization creation conflicted at insert (slug)")
+        return jsonify({
+            "success": False,
+            "code": "organization_conflict",
+            "error": "An organization with these details already exists",
+        }), 409
 
     # Create owner membership for the current user
     identity_id = str(session.get("identity_id", "") or session.get("user_id", "") or "")
@@ -187,15 +197,60 @@ def create_org():
 
     # Seed default roles for this organization
     from app.authz.services import seed_default_roles
-    seed_default_roles(org.id)
+    seed_default_roles(org.id, commit=False)  # same transaction as the workspace
 
-    db.session.commit()
+    # Provision the organization's first canonical workspace in the SAME
+    # transaction (G1.19). Without it the tenant owns no sh_workspaces row, so
+    # every canonical object surface fails closed (`403 no_authorized_workspace`
+    # on GET /api/v1/objects, onboarding seeding, uploads, media, AI creation).
+    # The helper is idempotent, membership-gated and never elevates a role.
+    from app.authz.org_provisioning import (
+        WorkspaceProvisioningError,
+        ensure_organization_workspace,
+    )
+
+    if not identity_id:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "error": "An authenticated identity is required to create an organization",
+        }), 400
+
+    try:
+        workspace = ensure_organization_workspace(
+            org.id, identity_id, name=org.name, commit=False
+        )
+    except WorkspaceProvisioningError:
+        db.session.rollback()
+        current_app.logger.exception(
+            "organization provisioning failed: org=%s identity=%s", org.id, identity_id
+        )
+        return jsonify({
+            "success": False,
+            "code": "workspace_provisioning_failed",
+            "error": "Organization could not be provisioned with a workspace",
+        }), 500
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Same concurrency guarantee as the SPA route: the unique slug index is
+        # the authority, and the caller receives 409 rather than a stack trace.
+        db.session.rollback()
+        current_app.logger.warning(
+            "organization creation conflicted (slug or duplicate org)")
+        return jsonify({
+            "success": False,
+            "code": "organization_conflict",
+            "error": "An organization with these details already exists",
+        }), 409
 
     return jsonify({
         "success": True,
         "data": _org_to_dict(org),
         "org_id": org.id,
         "org_name": org.name,
+        "workspace_id": workspace["workspace_id"],
     }), 201
 
 

@@ -97,6 +97,18 @@ class OnboardingSession:
 
         # Build canonical models from answers
         results = self._process_answers()
+
+        # Persist the position and answers (G1.21): the response below is only
+        # useful if a reload / another worker can resume from here.
+        try:
+            persist_session(self)
+        except Exception:  # noqa: BLE001 — a persistence error must be visible
+            import logging
+            logging.getLogger(__name__).exception(
+                "onboarding: failed to persist session for org=%s identity=%s",
+                self.org_id, self.identity_id)
+            raise
+
         return {"stage": self.stage, "completed_stages": sorted(self.completed_stages),
             "next_question": self.current_question(), "built": results}
 
@@ -143,22 +155,82 @@ class OnboardingSession:
 
 
 # ── Session Store ──────────────────────────────────────────────────────
+#
+# G1.21: the questionnaire is persisted in ``onboarding_sessions`` (one row per
+# organization+identity). The previous store was a module-level dict
+# ("In-memory for now; persists within a session"), which meant a reload on
+# another worker, or any restart, restarted the questionnaire at question one and
+# discarded every answer. The dict below is only a read-through cache; the row is
+# authoritative.
 
-_sessions = {}  # In-memory for now; persists within a session
+_sessions = {}
+
+
+def _load_persisted(org_id, identity_id):
+    """Return a populated OnboardingSession from the database, or None."""
+    import json
+
+    from app.onboarding.models import OnboardingSessionState
+
+    row = OnboardingSessionState.query.filter_by(
+        organization_id=int(org_id), identity_id=str(identity_id)).first()
+    if row is None:
+        return None
+    sess = OnboardingSession(org_id, identity_id)
+    sess.stage = int(row.stage or 1)
+    sess.question_index = int(row.question_index or 0)
+    try:
+        sess.answers = json.loads(row.answers_json or "{}")
+    except (TypeError, ValueError):
+        sess.answers = {}
+    try:
+        sess.completed_stages = set(json.loads(row.completed_stages_json or "[]"))
+    except (TypeError, ValueError):
+        sess.completed_stages = set()
+    return sess
+
+
+def persist_session(sess):
+    """Write the questionnaire position and answers for ``sess``."""
+    import json
+
+    from app.onboarding.models import OnboardingSessionState
+
+    row = OnboardingSessionState.query.filter_by(
+        organization_id=int(sess.org_id), identity_id=str(sess.identity_id)).first()
+    if row is None:
+        row = OnboardingSessionState(
+            organization_id=int(sess.org_id), identity_id=str(sess.identity_id))
+        db.session.add(row)
+    row.stage = int(sess.stage)
+    row.question_index = int(sess.question_index)
+    row.answers_json = json.dumps(sess.answers, default=str)
+    row.completed_stages_json = json.dumps(sorted(sess.completed_stages))
+    db.session.commit()
+    _sessions[f"{sess.org_id}:{sess.identity_id}"] = sess
 
 
 def get_or_create_session(org_id, identity_id):
-    """Get existing onboarding session or create a new one."""
+    """Get the persisted session, or start a new one."""
     key = f"{org_id}:{identity_id}"
-    if key not in _sessions:
-        _sessions[key] = OnboardingSession(org_id, identity_id)
-    return _sessions[key]
+    if key in _sessions:
+        return _sessions[key]
+    sess = _load_persisted(org_id, identity_id)
+    if sess is None:
+        sess = OnboardingSession(org_id, identity_id)
+    _sessions[key] = sess
+    return sess
 
 
 def reset_session(org_id, identity_id):
-    """Reset onboarding progress."""
+    """Reset onboarding progress (durably)."""
+    from app.onboarding.models import OnboardingSessionState
+
     key = f"{org_id}:{identity_id}"
     _sessions.pop(key, None)
+    OnboardingSessionState.query.filter_by(
+        organization_id=int(org_id), identity_id=str(identity_id)).delete()
+    db.session.commit()
 
 
 # ── Day-One Dashboard ──────────────────────────────────────────────────

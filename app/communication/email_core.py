@@ -26,6 +26,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import smtplib
 import time
 from datetime import datetime, timezone
@@ -67,6 +68,21 @@ def _build_idempotency_key(business_event_id: str, notification_type: str, recip
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
+# Resend tag name/value charset: ASCII letters, numbers, underscores, dashes.
+# Anything else (e.g. the ':' in business_event_id like "verify:5:abc...") is
+# rejected by the provider with HTTP 422. Sanitize deterministically so the
+# tag is informative while remaining within the provider contract.
+_TAG_SAFE = re.compile(r"[^A-Za-z0-9_-]")
+
+
+def _resend_tag_value(value: str, max_len: int = 128) -> str:
+    """Return a Resend-safe tag value (ASCII alnum, underscore, dash)."""
+    if value is None:
+        return ""
+    sanitized = _TAG_SAFE.sub("_", str(value))
+    return sanitized[:max_len]
+
+
 def _send_via_resend(
     record: EmailRecord,
     body: str,
@@ -91,9 +107,9 @@ def _send_via_resend(
         "subject": record.subject,
         "text": body,
         "tags": [
-            {"name": "category", "value": record.category},
-            {"name": "business_event_id", "value": record.business_event_id},
-            {"name": "notification_type", "value": record.notification_type},
+            {"name": "category", "value": _resend_tag_value(record.category)},
+            {"name": "business_event_id", "value": _resend_tag_value(record.business_event_id)},
+            {"name": "notification_type", "value": _resend_tag_value(record.notification_type)},
         ],
     }
 
@@ -294,7 +310,12 @@ def send(
 
         # No API key configured — log instead
         logger.warning("EMAIL_PROVIDER=resend but RESEND_API_KEY not set — logging")
-        logger.info("[EMAIL LOG] To: %s | Subject: %s | Body: %s", recipient, subject, body[:200])
+        # G1.22: never log the body. It carries one-time capability tokens
+        # (invitation accept links, verification links, password-reset links), so
+        # logging a prefix of it writes a usable secret into the application log.
+        # Recipient + subject + type are enough to prove the send was attempted.
+        logger.info("[EMAIL LOG] To: %s | Subject: %s | Type: %s | Body: <redacted>",
+                    recipient, subject, notification_type)
         if record:
             record.set_state(EmailDeliveryState.FAILED, "RESEND_API_KEY not configured")
             db.session.commit()
@@ -311,7 +332,9 @@ def send(
     # ── Provider 2: SMTP ──
     if not _USER or not _PASSWORD:
         logger.warning("EMAIL_USER/PASSWORD not set — logging instead of sending")
-        logger.info("[EMAIL LOG] To: %s | Subject: %s | Body: %s", recipient, subject, body[:200])
+        # G1.22: body redacted — see the Resend branch above (capability tokens).
+        logger.info("[EMAIL LOG] To: %s | Subject: %s | Type: %s | Body: <redacted>",
+                    recipient, subject, notification_type)
         if record:
             record.set_state(EmailDeliveryState.FAILED, "SMTP credentials not configured")
             db.session.commit()

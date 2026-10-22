@@ -25,6 +25,16 @@ PERSONAL_SCOPE_BLUEPRINT_PREFIXES = frozenset({
 PERSONAL_SCOPE_ROUTES = frozenset({
     "/",
     "/living",
+    # Org bootstrap: a verified user with no membership must be able to create
+    # their first organization (the route authenticates and assigns ownership
+    # itself; this only lets the request reach it).
+    "/orgs",
+})
+
+# Prefixes that support personal scope (invitation acceptance must reach its
+# handler for a signed-in user who has no organization yet).
+PERSONAL_SCOPE_PATH_PREFIXES = frozenset({
+    "/api/v1/orgs/invitations/",
 })
 
 
@@ -37,6 +47,9 @@ def supports_personal_scope(path: str) -> bool:
     """
     if path in PERSONAL_SCOPE_ROUTES:
         return True
+    for prefix in PERSONAL_SCOPE_PATH_PREFIXES:
+        if path.startswith(prefix):
+            return True
     for prefix in PERSONAL_SCOPE_BLUEPRINT_PREFIXES:
         if path.startswith(prefix):
             return True

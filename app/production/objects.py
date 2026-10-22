@@ -283,6 +283,9 @@ def get_typed_object(object_type: str, object_id: str):
     if not sh:
         return jsonify({"success": False, "error": "Object not found"}), 404
 
+    # G1.24: expose the stored provenance so the viewer can label an example
+    # instead of presenting it as the organization's own record.
+    from app.objects.provenance import is_example, provenance_label
     return jsonify({
         "success": True,
         "data": {
@@ -291,6 +294,9 @@ def get_typed_object(object_type: str, object_id: str):
             "object_type": sh.object_type,
             "content": str(sh.data or {}),
             "status": sh.status,
+            "provenance": sh.provenance,
+            "is_example": is_example(sh.provenance),
+            "provenance_label": provenance_label(sh.provenance),
             "created_at": sh.created_at.isoformat() if sh.created_at else None,
             "updated_at": sh.updated_at.isoformat() if sh.updated_at else None,
         }

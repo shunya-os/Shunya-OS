@@ -328,6 +328,51 @@ def test_send_via_resend_rate_limited_then_retry(mock_post, app):
         assert record.state == EmailDeliveryState.ACCEPTED.value
 
 
+@patch("app.communication.email_core._RESEND_API_KEY", "re_test_12345")
+@patch("app.communication.email_core._PROVIDER", "resend")
+@patch("app.communication.email_core.requests.post")
+def test_send_via_resend_tags_sanitized(mock_post, app):
+    """Business-event IDs containing colons (e.g. 'verify:5:c8fd5f68') must
+    not cause a Resend 422 — tag values must only contain ASCII letters,
+    numbers, underscores, or dashes."""
+    mock_post.return_value.status_code = 200
+    mock_post.return_value.json.return_value = {"id": "sanitized_tags_001"}
+
+    with app.app_context():
+        EmailRecord.query.delete()
+        db.session.commit()
+
+        result = send(
+            recipient="test@example.com",
+            subject="Test",
+            body="Hello",
+            notification_type="email_verification",
+            business_event_id="verify:5:c8fd5f685c74cb563fc021a55bb845a9",
+            is_human_triggered=True,
+        )
+        assert result["status"] == "accepted"
+
+        # Verify the request payload had sanitized tag values
+        import json as _json
+        call_args, call_kwargs = mock_post.call_args
+        sent_payload = call_kwargs.get("json", {})
+        tags = sent_payload.get("tags", [])
+        assert len(tags) >= 3
+        for tag in tags:
+            name = tag.get("name", "")
+            value = tag.get("value", "")
+            assert name, f"Tag name is empty: {tag}"
+            # Reject any tag name/value containing invalid Resend chars
+            import re
+            assert re.fullmatch(r"[A-Za-z0-9_-]+", name), f"Tag name '{name}' not allowed by Resend"
+            assert re.fullmatch(r"[A-Za-z0-9_-]*", value), f"Tag value '{value}' not allowed by Resend (business_event_id={sent_payload['tags']})"
+
+        # Specifically: the business_event_id tag should have its colons replaced
+        be_tag = next((t for t in tags if t["name"] == "business_event_id"), None)
+        assert be_tag is not None
+        assert ":" not in be_tag["value"], f"business_event_id tag still has colons: {be_tag['value']}"
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Query methods
 # ═══════════════════════════════════════════════════════════════════════

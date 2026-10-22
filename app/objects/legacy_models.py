@@ -68,6 +68,11 @@ class ShunyaObject(db.Model):
     object_type = db.Column(db.String(50), nullable=False)
     name = db.Column(db.String(500), nullable=False)
     status = db.Column(db.String(30), default='active')
+    # G1.24 (decision D-1 = Option B): how this row came to exist. NULL means
+    # "unknown history" — rows written before the field existed — and is never
+    # rewritten by guesswork. See app/objects/provenance.py for the vocabulary
+    # and for the D-2 ground rule that provisioned examples are not AI facts.
+    provenance = db.Column(db.String(32), nullable=True)
     data = db.Column(db.JSON, default=dict)
     created_by = db.Column(db.String(64), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -81,6 +86,7 @@ class ShunyaObject(db.Model):
             'id': self.id, 'object_id': self.object_id, 'workspace_id': self.workspace_id,
             'organization_id': self.organization_id,
             'object_type': self.object_type, 'name': self.name, 'status': self.status,
+            'provenance': self.provenance,
             'data': self.data or {}, 'created_by': self.created_by,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,

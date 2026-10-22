@@ -116,7 +116,26 @@ def test_invalid_verification_token_denied(client):
     assert resp.get_json()["success"] is False
 
 
-def test_forgot_password_no_enumeration(client):
+def _declare_mail_configured(monkeypatch):
+    """G1.26: a declared test run has no sending transport, so /forgot-password
+    answers 503 by design (it used to claim "link sent" while discarding the send
+    result). These tests assert the token lifecycle and the non-enumeration
+    contract, so they declare the configured case. No message is sent: the suite
+    transport is non-sending."""
+    from app.communication import email_transport_guard as guard
+
+    monkeypatch.setattr(
+        guard, "email_transport_state",
+        lambda core=None: {
+            "provider": "resend", "host": "", "has_resend_key": True,
+            "has_smtp_credentials": False, "host_is_loopback": False,
+        },
+    )
+    monkeypatch.setattr(guard, "isolation_verdict", lambda state: (True, "resend_with_key"))
+
+
+def test_forgot_password_no_enumeration(client, monkeypatch):
+    _declare_mail_configured(monkeypatch)
     # Both existing and non-existing email return same generic message
     client.post("/api/v1/auth/signup", json={
         "name": "T", "email": "t4@x.com", "password": "Password123!",
@@ -127,7 +146,8 @@ def test_forgot_password_no_enumeration(client):
         assert "if an account exists" in resp.get_json()["message"].lower()
 
 
-def test_reset_password_single_use_and_invalidates_old(client):
+def test_reset_password_single_use_and_invalidates_old(client, monkeypatch):
+    _declare_mail_configured(monkeypatch)
     client.post("/api/v1/auth/signup", json={
         "name": "T", "email": "t5@x.com", "password": "Password123!",
     })

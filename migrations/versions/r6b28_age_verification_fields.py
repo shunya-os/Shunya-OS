@@ -17,11 +17,20 @@ import sqlalchemy as sa
 
 
 def upgrade() -> None:
-    op.add_column(
+    # Guarded so this revision can also run against a schema that was created by
+    # ``db.create_all()`` at boot (which already has both columns). Without the
+    # guard, ``alembic upgrade head`` on a boot-created database died with
+    # ``DuplicateColumn: column "birth_date" of relation "team_members" already
+    # exists`` — measured on the G1.21 disposable cluster. Same effect on a
+    # correctly migrated database: add once, no-op thereafter.
+    from migrations.guarded import guarded_op
+
+    gop = guarded_op()
+    gop.add_column(
         "team_members",
         sa.Column("birth_date", sa.Date(), nullable=True),
     )
-    op.add_column(
+    gop.add_column(
         "team_members",
         sa.Column(
             "age_verified",

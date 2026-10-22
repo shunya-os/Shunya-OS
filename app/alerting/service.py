@@ -142,9 +142,15 @@ class AlertEngine:
                     "delivery_state": "failed", "reason": "engine_error"}
 
     def _maybe_redeliver(self, event) -> dict:
-        """Re-deliver an active event only if past the cooldown window."""
+        """Re-deliver an active event only if past the cooldown window.
+
+        G1.25: the reference point must be the last *delivery*, not the last
+        occurrence. ``fire_alert`` sets ``last_seen = now`` immediately before
+        calling this, so the old comparison was always false and a continuing
+        flood was never re-notified.
+        """
         from app.alerting.models import AlertEvent
-        last = event.last_seen or event.first_seen
+        last = event.delivered_at or event.first_seen
         if datetime.utcnow() - last > timedelta(seconds=COOLDOWN_SECONDS):
             self._deliver_with_retry(event)
         return {"alert_id": event.id, "rule": event.rule,

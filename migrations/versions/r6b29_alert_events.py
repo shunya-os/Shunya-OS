@@ -13,6 +13,15 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Guarded: r6b30 also creates this table, and a boot-created schema already
+    # has it from ``db.create_all()``. Unguarded, ``alembic upgrade head`` on a
+    # boot-created database failed with
+    # ``DuplicateTable: relation "sh_alert_events" already exists`` (measured on
+    # the G1.21 disposable cluster). Guarding changes nothing on a database that
+    # reaches this revision in the normal order.
+    from migrations.guarded import guarded_op
+
+    op = guarded_op()
     op.create_table(
         "sh_alert_events",
         sa.Column("id", sa.Integer(), primary_key=True),

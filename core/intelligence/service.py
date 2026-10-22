@@ -156,17 +156,32 @@ class IntelligenceService:
                 from app import db
                 from sqlalchemy import text
                 result = db.session.execute(
-                    text("SELECT name, content, status, created_at FROM sh_objects "
+                    text("SELECT name, content, status, created_at, provenance "
+                         "FROM sh_objects "
                          "WHERE object_id = :oid AND organization_id = :org"),
                     {"oid": request.context_object_id, "org": request.tenant_id},
                 ).fetchone()
                 if result:
-                    sources.append(EvidenceSource(
-                        type="company_data",
-                        source="sh_objects",
-                        timestamp=str(result.created_at) if result.created_at else "",
-                        detail=f"Current object: {result.name} ({result.status})",
-                    ))
+                    # G1.24 (D-2 = No): a provisioned placeholder must never be
+                    # presented as a fact about the organization. It is still
+                    # offered — the user may be looking at it — but classified as
+                    # an example so the model cannot mistake it for company data.
+                    from app.objects.provenance import is_example
+                    if is_example(getattr(result, "provenance", None)):
+                        sources.append(EvidenceSource(
+                            type="example",
+                            source="sh_objects",
+                            timestamp=str(result.created_at) if result.created_at else "",
+                            detail=(f"Provisioned example placeholder (NOT organizational "
+                                    f"data): {result.name}"),
+                        ))
+                    else:
+                        sources.append(EvidenceSource(
+                            type="company_data",
+                            source="sh_objects",
+                            timestamp=str(result.created_at) if result.created_at else "",
+                            detail=f"Current object: {result.name} ({result.status})",
+                        ))
             except Exception as e:
                 logger.warning("Context retrieval failed: %s", e)
 
@@ -251,10 +266,14 @@ class IntelligenceService:
                 try:
                     from app import db
                     from sqlalchemy import text
-                    # Get object counts by type
+                    from app.objects.provenance import grounding_allowed_clause
+                    # Get object counts by type. G1.24 (D-2 = No): provisioned
+                    # examples are not organizational facts, so they are excluded
+                    # from the count the model is told is a fact.
                     rows = db.session.execute(
                         text("SELECT object_type, COUNT(*) as cnt FROM sh_objects "
                              "WHERE is_deleted = false AND organization_id = :org "
+                             "AND " + grounding_allowed_clause("provenance") + " "
                              "GROUP BY object_type ORDER BY cnt DESC LIMIT 10"),
                         {"org": request.tenant_id},
                     ).fetchall()
@@ -262,7 +281,7 @@ class IntelligenceService:
                     return {
                         "type": "comparison",
                         "result": counts,
-                        "description": f"Object counts: {counts}",
+                        "description": _counts_description(counts, request.tenant_id),
                     }
                 except Exception:
                     return None
@@ -275,15 +294,22 @@ class IntelligenceService:
         try:
             from app import db
             from sqlalchemy import text
-            # Count objects
+            from app.objects.provenance import grounding_allowed_clause
+            # Count objects. G1.24 (D-2 = No): the count the model is told is a
+            # FACT excludes provisioned examples — otherwise a brand-new tenant
+            # is "told" it has 26 objects and one of each type, which is a claim
+            # about business activity that never happened.
+            groundable = grounding_allowed_clause("provenance")
             total = db.session.execute(
                 text("SELECT COUNT(*) FROM sh_objects "
-                     "WHERE is_deleted = false AND organization_id = :org"),
+                     "WHERE is_deleted = false AND organization_id = :org "
+                     "AND " + groundable),
                 {"org": request.tenant_id},
             ).scalar() or 0
             by_type = db.session.execute(
                 text("SELECT object_type, COUNT(*) as cnt FROM sh_objects "
                      "WHERE is_deleted = false AND organization_id = :org "
+                     "AND " + groundable + " "
                      "GROUP BY object_type ORDER BY cnt DESC"),
                 {"org": request.tenant_id},
             ).fetchall()
@@ -291,7 +317,8 @@ class IntelligenceService:
             return {
                 "type": "calculation",
                 "result": {"total_objects": total, "by_type": type_counts},
-                "description": f"Total objects: {total}. Types: {type_counts}",
+                "description": _counts_description(type_counts, request.tenant_id,
+                                                   total=total),
             }
         except Exception:
             return None
@@ -357,6 +384,14 @@ class IntelligenceService:
                 system_parts.append(f"[{c.type}] {c.detail} (source: {c.source})")
         else:
             system_parts.append("No company data available for this query.")
+
+        # D-2 = No. The retrieval boundary already excludes provisioned examples
+        # from company facts; this line only tells the model how to read a row
+        # the user is *currently looking at*, which is labelled [example].
+        system_parts.append(
+            "Entries labelled [example] are provisioned workspace placeholders, "
+            "not organizational facts. Never present them as the organization's "
+            "customers, invoices, activity or results.")
 
         if det_result:
             system_parts.append("")
@@ -443,6 +478,37 @@ class IntelligenceService:
             elif line.startswith("[RECOMMENDATION]"):
                 claims.append({"statement": line[16:].strip(), "status": "recommendation", "confidence": 0.5})
         return claims
+
+
+def _counts_description(counts: dict, tenant_id, total: int | None = None) -> str:
+    """Describe object counts truthfully, naming any excluded examples.
+
+    G1.24 (D-2 = No): the model receives this string as a FACT. It must not
+    imply business activity that never happened, and it must not hide the
+    provisioned examples either — they exist and the user can see them, so the
+    only honest sentence names both numbers.
+    """
+    resolved_total = total if total is not None else sum(counts.values())
+    text_out = f"Total user-supplied objects: {resolved_total}. Types: {counts}"
+    examples = 0
+    try:
+        from app import db
+        from sqlalchemy import text
+        from app.objects.provenance import PROVENANCE_ONBOARDING_SEED
+
+        examples = db.session.execute(
+            text("SELECT COUNT(*) FROM sh_objects WHERE is_deleted = false "
+                 "AND organization_id = :org AND provenance = :prov"),
+            {"org": tenant_id, "prov": PROVENANCE_ONBOARDING_SEED},
+        ).scalar() or 0
+    except Exception:  # a diagnostic count must never break the answer
+        examples = 0
+    if examples:
+        text_out += (
+            f". {examples} provisioned example placeholder(s) are excluded: they "
+            "demonstrate the workspace and are not records the organization supplied."
+        )
+    return text_out
 
 
 # ── Module-level convenience ──────────────────────────────────────────

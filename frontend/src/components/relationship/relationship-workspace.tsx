@@ -104,7 +104,16 @@ export const RelationshipWorkspace: FC = () => {
               <div key={rel.id}>
                 <div
                   className="pw-commercial-item"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={expandedId === rel.id}
                   onClick={() => handleExpand(rel.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleExpand(rel.id);
+                    }
+                  }}
                   style={{ cursor: 'pointer' }}
                 >
                   <div className="pw-commercial-item-title">{name}</div>

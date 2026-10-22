@@ -25,7 +25,65 @@ from app.production.identity import identity_bp
 # must not lose the completed state (previously the dict WAS the only store
 # and a restart silently reset every user to step "profile").
 
-_ONBOARDING: dict = {}  # user_id -> onboarding state (ephemeral step cache)
+_ONBOARDING: dict = {}  # user_id -> onboarding state (process-local cache only)
+# G1.21: the durable store is user_profiles.onboarding_step /
+# onboarding_completed_steps. This dict is no longer authoritative — the helpers
+# below read/write the database and keep the cache as a same-process shortcut.
+
+
+def _onboarding_identity(user) -> str:
+    """Canonical identity key for persisted onboarding state."""
+    return str(
+        getattr(user, "identity_id", None)
+        or getattr(user, "email", None)
+        or getattr(user, "id", "")
+    )
+
+
+def _load_onboarding(user) -> tuple[str, list[str]]:
+    """Return (step, completed_steps) from the durable store.
+
+    Falls back to the process cache, then to the first step. A user whose row has
+    no persisted state is genuinely "not started" — this never invents progress.
+    """
+    import json
+
+    from app.profile.models import UserProfile
+
+    key = _onboarding_identity(user)
+    profile = db.session.get(UserProfile, key)
+    if profile is not None and profile.onboarding_step:
+        try:
+            completed = json.loads(profile.onboarding_completed_steps or "[]")
+        except (TypeError, ValueError):
+            completed = []
+        return str(profile.onboarding_step), [str(s) for s in completed]
+
+    cached = _ONBOARDING.get(getattr(user, "id", None))
+    if cached:
+        return str(cached.get("step", "profile")), list(cached.get("completed", []))
+    return "profile", []
+
+
+def _save_onboarding(user, step: str, completed: list[str]) -> None:
+    """Persist (step, completed) for the caller, creating the profile if absent."""
+    import json
+
+    from app.profile.models import UserProfile
+
+    key = _onboarding_identity(user)
+    profile = db.session.get(UserProfile, key)
+    if profile is None:
+        profile = UserProfile(
+            identity_id=key,
+            display_name=getattr(user, "name", "") or "",
+            email=getattr(user, "email", "") or "",
+        )
+        db.session.add(profile)
+    profile.onboarding_step = step
+    profile.onboarding_completed_steps = json.dumps(completed)
+    _ONBOARDING[getattr(user, "id", None)] = {"step": step, "completed": completed}
+    db.session.commit()
 
 _ONBOARDING_STEPS = [
     "profile",       # Complete personal profile
@@ -58,14 +116,14 @@ def get_onboarding_status():
             },
         })
 
-    state = _ONBOARDING.get(user_id, {"step": "profile", "completed": []})
+    step, completed = _load_onboarding(g.user)
     return jsonify({
         "success": True,
         "data": {
-            "current_step": state["step"],
-            "completed_steps": state["completed"],
+            "current_step": step,
+            "completed_steps": completed,
             "all_steps": _ONBOARDING_STEPS,
-            "is_complete": state.get("step") == "complete",
+            "is_complete": step == "complete",
         },
     })
 
@@ -80,23 +138,23 @@ def update_onboarding_step(step: str):
     if step not in _ONBOARDING_STEPS:
         raise BadRequest(f"Invalid step '{step}'. Valid steps: {_ONBOARDING_STEPS}")
 
-    state = _ONBOARDING.get(user_id, {"step": "profile", "completed": []})
+    current_step, completed = _load_onboarding(g.user)
 
-    # Add the current step to completed if moving forward
-    current_idx = _ONBOARDING_STEPS.index(state["step"])
+    # Add the traversed steps to completed when moving forward
+    current_idx = _ONBOARDING_STEPS.index(current_step)
     target_idx = _ONBOARDING_STEPS.index(step)
 
     if target_idx >= current_idx:
         for i in range(current_idx, target_idx):
             completed_step = _ONBOARDING_STEPS[i]
-            if completed_step not in state["completed"]:
-                state["completed"].append(completed_step)
+            if completed_step not in completed:
+                completed.append(completed_step)
 
-    state["step"] = step
-    _ONBOARDING[user_id] = state
+    # Durable step + traversed list (G1.21): a reload, a new session or another
+    # worker resumes here instead of restarting at "profile".
+    _save_onboarding(g.user, step, completed)
 
-    # Persist the terminal state durably: reaching the "complete" step must
-    # survive a restart (previously this lived only in the in-memory dict).
+    # The terminal flag is separate and idempotent.
     if step == "complete" and not g.user.onboarding_completed:
         g.user.onboarding_completed = True
         db.session.commit()
@@ -104,8 +162,8 @@ def update_onboarding_step(step: str):
     return jsonify({
         "success": True,
         "data": {
-            "current_step": state["step"],
-            "completed_steps": state["completed"],
+            "current_step": step,
+            "completed_steps": completed,
             "is_complete": step == "complete",
         },
     })
@@ -127,16 +185,48 @@ def mark_onboarding_complete():
         OwnershipContextError, resolve_current_organization,
         resolve_current_workspace,
     )
-    identity_id = str(user.id)
     email = getattr(user, "email", "") or ""
-    # ONE canonical identity, resolved once. The previous version tried
-    # (email, identity_id) in turn and kept whichever happened to resolve,
-    # which is arbitrary resolution: two different identities could both be
-    # "the caller" depending on data. The canonical identity for authorization
-    # is the email when present (that is what OrgMember.identity_id holds),
-    # otherwise the user id — and if that single identity has no authorized
-    # context, this fails closed rather than silently trying another identity.
-    canonical_identity = email or identity_id
+    # ONE canonical identity, resolved once, in a fixed priority order:
+    #   TeamMember.identity_id (sid_*, written at signup/login and by POST /orgs)
+    #   → email (legacy rows whose membership was keyed by address)
+    #   → the TeamMember id (last resort; never a synthetic identity).
+    # G1.21 defect: this used ``str(user.id)`` and then preferred the *email*,
+    # but OrgMember.identity_id holds the sid_* canonical id, so onboarding
+    # completion resolved no organization for a normal signup and silently seeded
+    # zero foundational objects ("objects_created=0 — nothing was seeded").
+    identity_id = str(getattr(user, "identity_id", None) or user.id)
+    canonical_identity = identity_id or email
+
+    # G1.19: onboarding can only attach foundational objects to an organization
+    # that owns a canonical workspace. Organizations created before `POST /orgs`
+    # provisioned one (or by an integration) are repaired here — idempotently,
+    # and only through the membership-gated provisioning helper, which refuses
+    # any identity that is not an active owner/admin of the organization.
+    try:
+        from app.authz.org_provisioning import ensure_organization_workspace
+        from app.models import OrgMember
+
+        for candidate in (identity_id, canonical_identity):
+            if not candidate:
+                continue
+            membership = OrgMember.query.filter_by(
+                identity_id=str(candidate), is_active=True
+            ).first()
+            if membership:
+                ensure_organization_workspace(
+                    membership.organization_id,
+                    str(candidate),
+                    name=getattr(membership, "name", "") or "",
+                )
+                break
+    except Exception:  # noqa: BLE001 — repair is best-effort; resolution below
+        from flask import current_app
+
+        current_app.logger.warning(
+            "onboarding: canonical workspace provisioning skipped for identity=%s",
+            identity_id, exc_info=True,
+        )
+
     org_id = workspace_id = None
     try:
         org_id = resolve_current_organization(canonical_identity)
@@ -180,8 +270,22 @@ def mark_onboarding_complete():
         # Canonical object creation via ObjectService (R6B-2 convergence)
         # replaces legacy FounderObject + ShunyaObject dual-write
         from core.object_service import get_object_service
+        from app.objects.legacy_models import ShunyaObject
+
         svc = get_object_service()
+
+        # Idempotency (G1.21): completion used to create all 26 placeholders on
+        # every call, so a retried/abandoned-and-resubmitted onboarding produced
+        # 52, 78, … "customers". Only missing placeholders are created; existing
+        # ones are never duplicated, renamed or deleted.
+        already = {
+            (o.object_type, o.name)
+            for o in ShunyaObject.query.filter_by(
+                workspace_id=workspace_id, is_deleted=False).all()
+        }
         for obj_name, obj_type in FOUNDATIONAL_OBJECTS:
+            if (obj_type, obj_name) in already:
+                continue
             svc.create(
                 object_type=obj_type,
                 name=obj_name,
@@ -190,6 +294,10 @@ def mark_onboarding_complete():
                 created_by=identity_id[:12],
                 workspace_id=workspace_id,
                 identity_id=identity_id,
+                # G1.24 (D-1 = B): a provisioned placeholder is NOT user-supplied
+                # business data. The marker is written at creation because it
+                # cannot be reconstructed afterwards.
+                provenance="onboarding_seed",
             )
             objects_created += 1
     else:
@@ -197,6 +305,26 @@ def mark_onboarding_complete():
             "Onboarding complete for identity=%s but no canonical organization/"
             "workspace context — foundational objects not created.", identity_id,
         )
+
+    # Persist the terminal step in the durable resume state as well, so a status
+    # read after completion is consistent with the flag.
+    _cur_step, _completed = _load_onboarding(user)
+    if "complete" not in _completed:
+        _completed = list(_ONBOARDING_STEPS)
+    from app.profile.models import UserProfile
+
+    _profile_key = _onboarding_identity(user)
+    _profile = db.session.get(UserProfile, _profile_key)
+    if _profile is None:
+        _profile = UserProfile(
+            identity_id=_profile_key,
+            display_name=getattr(user, "name", "") or "",
+            email=email,
+        )
+        db.session.add(_profile)
+    _profile.onboarding_step = "complete"
+    import json as _json
+    _profile.onboarding_completed_steps = _json.dumps(_completed)
 
     db.session.commit()
     if objects_created == 0:
@@ -230,9 +358,19 @@ def reset_onboarding():
     from flask import g
     user_id = g.user.id
     _ONBOARDING.pop(user_id, None)
+
+    # Clear the durable resume state as well, otherwise the next status read
+    # would answer from the database and the reset would silently not apply.
+    from app.profile.models import UserProfile
+
+    profile = db.session.get(UserProfile, _onboarding_identity(g.user))
+    if profile is not None:
+        profile.onboarding_step = None
+        profile.onboarding_completed_steps = None
+
     if g.user.onboarding_completed:
         g.user.onboarding_completed = False
-        db.session.commit()
+    db.session.commit()
     return jsonify({
         "success": True,
         "data": {"current_step": "profile", "completed_steps": []},

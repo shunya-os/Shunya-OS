@@ -119,14 +119,23 @@ export function OnboardingFlow({ onComplete }: Props) {
   };
 
   const renderStepIndicator = () => (
-    <div className="sh-onboarding-steps" role="navigation" aria-label="Onboarding progress">
+    // role="list": each step is a distinct item. A bare <div> may not carry
+    // aria-label (axe: aria-prohibited-attr), and the dot itself is decorative —
+    // its meaning is exposed by the listitem's name and aria-current.
+    <div className="sh-onboarding-steps" role="list" aria-label="Onboarding progress">
       {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        <div
+          key={i}
+          role="listitem"
+          aria-label={`Step ${i + 1}: ${STEP_LABELS[i]}${i === step ? ' (current)' : ''}`}
+          aria-current={i === step ? 'step' : undefined}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+        >
           <div
             className={`sh-onboarding-step-dot ${i === step ? 'active' : ''} ${i < step ? 'completed' : ''}`}
-            aria-label={`Step ${i + 1}: ${STEP_LABELS[i]}${i === step ? ' (current)' : ''}`}
+            aria-hidden="true"
           />
-          <span className="sh-onboarding-step-label" style={{ color: i === step ? '#D4A84B' : i < step ? '#4ade80' : '#555' }}>
+          <span className="sh-onboarding-step-label" style={{ color: i === step ? '#E0B75C' : i < step ? '#4ade80' : '#8b8b9e' }}>
             {STEP_LABELS[i]}
           </span>
         </div>

@@ -16,9 +16,21 @@ export const onboardingStyles = `
 }
 
 /* ── Step Indicator Bar ───────────────────────────────────── */
+/* G1.21: the indicator is rendered by onboarding-flow as a SIBLING of the step,
+   and every step component is a full-screen opaque .sh-onboarding surface
+   (position: fixed, inset: 0, #0a0a0f). In normal flow the strip was therefore
+   painted *behind* that surface: present in the DOM (so screen readers read it)
+   but never visible — measured with document.elementFromPoint(), which returned
+   .sh-onboarding-content at the strip's own centre. It also inherited the light
+   page background (#FBF8F5) for contrast purposes, which is why its colours
+   failed WCAG AA (1.79:1 and 3.16:1).
+   The strip is part of the dark onboarding chrome, so it is pinned above the
+   step surface on the same #0a0a0f background it was designed for. */
 .sh-onboarding-steps {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+  background: #0a0a0f;
   display: flex; align-items: center; justify-content: center;
-  gap: 10px; padding: 24px 16px 12px;
+  gap: 10px; padding: 14px 16px 12px;
   flex-shrink: 0;
 }
 .sh-onboarding-step-dot {
@@ -32,14 +44,19 @@ export const onboardingStyles = `
   background: #4ade80; opacity: 0.6;
 }
 .sh-onboarding-step-label {
-  font-size: 0.7rem; color: #555; text-align: center;
+  /* G1.21 contrast fix: #555 on the #0f0f14 surface was ~3:1 and failed
+     WCAG 2.1 AA for small text (axe: color-contrast). #8b8b9e is ~4.9:1. */
+  font-size: 0.7rem; color: #8b8b9e; text-align: center;
   letter-spacing: 0.05em; margin-top: 4px;
 }
 
 /* ── Step Content ─────────────────────────────────────────── */
 .sh-onboarding-content {
   flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: 24px 20px 32px;
+  justify-content: center;
+  /* Top padding clears the fixed progress strip (G1.21) so no content can sit
+     underneath it on short viewports. */
+  padding: 64px 20px 32px;
   max-width: 500px; width: 100%; margin: 0 auto;
   gap: 24px; animation: sh-onb-fade-in 0.4s ease-out both;
 }
@@ -229,7 +246,9 @@ export const onboardingStyles = `
   font-size: 1rem; width: 24px; text-align: center; flex-shrink: 0;
 }
 .sh-onboarding-note {
-  font-size: 0.8rem; color: #777; text-align: center; line-height: 1.5;
+  /* G1.21 contrast fix: #777 failed AA on the tinted surface; #b4b4c2 passes
+     while keeping the note visually secondary. */
+  font-size: 0.8rem; color: #b4b4c2; text-align: center; line-height: 1.5;
   padding: 8px 12px;
   background: rgba(212, 168, 75, 0.05); border-radius: 6px;
   width: 100%;
@@ -254,8 +273,8 @@ export const onboardingStyles = `
 
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 480px) {
-  .sh-onboarding-content { padding: 20px 16px 24px; gap: 18px; }
-  .sh-onboarding-steps { padding: 16px 12px 8px; }
+  .sh-onboarding-content { padding: 56px 16px 24px; gap: 18px; }
+  .sh-onboarding-steps { padding: 10px 12px 8px; }
   .sh-onboarding-field input,
   .sh-onboarding-field select,
   .sh-onboarding-textarea { padding: 12px 14px; font-size: 16px; }

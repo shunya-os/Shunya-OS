@@ -60,18 +60,11 @@ class EmailIntegration(IntegrationBase):
             except (smtplib.SMTPException, OSError, socket.timeout) as exc:
                 return False, f"SMTP probe failed: {exc}"
         if os.getenv("RESEND_API_KEY"):
-            key = os.getenv("RESEND_API_KEY", "")
-            try:
-                resp = requests.get(
-                    "https://api.resend.com/keys",
-                    headers={"Authorization": f"Bearer {key}"},
-                    timeout=_PROBE_TIMEOUT,
-                )
-                if resp.status_code == 200:
-                    return True, "Resend API key accepted"
-                return False, f"Resend API rejected key (http {resp.status_code})"
-            except Exception as exc:  # requests.RequestException, timeout
-                return False, f"Resend probe failed: {exc}"
+            # Do NOT probe /keys: that is an account-administration endpoint and
+            # rejects ordinary sending keys, producing a false 401 while the
+            # actual send path (/emails) succeeds. Configuration presence is the
+            # honest signal here; acceptance is reported per send with a message id.
+            return True, "Resend configured (acceptance verified on send)"
         return False, "No Gmail OAuth, SMTP, or Resend credentials configured"
 
     def connect(self) -> bool:

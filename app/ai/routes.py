@@ -396,6 +396,7 @@ def chat():
         safety_error[0]['conversation_id'] = data.get('conversation_id') or ''
         return jsonify(safety_error[0]), safety_error[1]
     conv = None
+    persisted = False
     try:
         if conversation_id:
             conv = _owned_conversation(conversation_id)
@@ -410,35 +411,137 @@ def chat():
                 return jsonify({'error': 'Conversation object not available in this organization'}), 404
         workspace_id = obj.workspace_id if obj else (
             data.get('workspace_id') or flask_session.get('workspace_id'))
+        # A malformed identifier must be rejected before it reaches any query
+        # (SQLAlchemy would otherwise bind a non-string type and fail later as
+        # a misleading 503 "persistence failed" instead of a 400 client error).
+        if workspace_id is not None and not isinstance(workspace_id, str):
+            return jsonify({'error': 'workspace_id must be a string'}), 400
         workspaces = Workspace.query.filter_by(organization_id=tenant_id, status='active')
+        workspace = None
         if workspace_id:
             workspace = workspaces.filter_by(id=workspace_id).first()
         else:
             candidates = workspaces.limit(2).all()
             workspace = candidates[0] if len(candidates) == 1 else None
+        # Personal-scope resolution: a verified user with only a personal
+        # workspace (no organization) must still be able to use AI chat. The
+        # canonical personal workspace (created at email verification) is owned
+        # by the TeamMember and keyed by identity — not by organization_id.
+        if workspace is None:
+            from app.workspace.models import Workspace as CanonicalWorkspace
+            from app.workspace.models import WorkspaceType, WorkspaceMembership
+            ident_str = str(identity_id)
+
+            # An EXPLICIT workspace request that does not resolve must fail
+            # closed. Silently substituting an unrelated personal workspace
+            # let an AI request run outside the workspace the caller named and
+            # then surfaced an authorization contradiction as HTTP 503.
+            requested_ws = data.get('workspace_id') or flask_session.get('workspace_id')
+            if requested_ws is not None and not isinstance(requested_ws, str):
+                return jsonify({'error': 'workspace_id must be a string'}), 400
+            if requested_ws:
+                owned = CanonicalWorkspace.query.filter_by(id=requested_ws, status='active').first()
+                allowed = False
+                if owned is not None:
+                    if str(owned.owner_identity_id) == ident_str:
+                        allowed = True
+                    else:
+                        allowed = WorkspaceMembership.query.filter_by(
+                            workspace_id=owned.id, identity_id=ident_str, is_active=True
+                        ).first() is not None
+                if not allowed:
+                    return jsonify({'error': 'Workspace not found or not accessible'}), 400
+            # Identity reconciliation: session may carry the email (no-org
+            # users) while the workspace owner_identity_id is the numeric
+            # TeamMember id (see auth_routes._ensure_personal_workspace).
+            from app.auth import TeamMember
+            identity_ids = {ident_str}
+            tm = None
+            if "@" in ident_str:
+                tm = TeamMember.query.filter_by(email=ident_str.lower()).first()
+            else:
+                try:
+                    tm = _db.session.get(TeamMember, int(ident_str))
+                except (TypeError, ValueError):
+                    tm = None
+            if tm is not None:
+                identity_ids.add(str(tm.id))
+                identity_ids.add(tm.email or "")
+            identity_ids.discard("")
+            ws = CanonicalWorkspace.query.filter(
+                CanonicalWorkspace.owner_identity_id.in_(identity_ids),
+                CanonicalWorkspace.workspace_type == WorkspaceType.PERSONAL.value,
+                CanonicalWorkspace.status == "active",
+            ).first()
+            if ws is None:
+                membership = WorkspaceMembership.query.filter(
+                    WorkspaceMembership.identity_id.in_(identity_ids) |
+                    WorkspaceMembership.email.in_(identity_ids),
+                    WorkspaceMembership.is_active.is_(True),
+                ).first()
+                ws = CanonicalWorkspace.query.filter_by(
+                    id=membership.workspace_id, status="active"
+                ).first() if membership else None
+            if ws is not None:
+                # Bridge the canonical workspace to the legacy sh_workspaces row
+                # the rest of this handler writes conversation objects against.
+                # Create it (persistently) when it does not yet exist.
+                workspace = Workspace.query.filter_by(
+                    id=ws.workspace_id
+                ).first()
+                if workspace is None:
+                    workspace = Workspace(
+                        id=ws.workspace_id[:20], name=ws.name,
+                        workspace_type="personal",
+                        organization_id=tenant_id if tenant_id else None,
+                        created_by=identity_id, status='active',
+                    )
+                    _db.session.add(workspace)
+                    _db.session.flush()
         if workspace is None:
             return jsonify({'error': 'Select an active workspace for this organization'}), 400
         if conv is None:
             conversation_id = f"conv_{_uuid.uuid4().hex[:16]}"
-            if obj is None:
-                created = get_object_service().create(
-                    object_type='conversation', name=user_messages[-1]['content'][:100],
-                    organization_id=tenant_id, workspace_id=workspace.id,
-                    created_by=identity_id, data={}, identity_id=identity_id)
-                conv_object_id = created['object_id']
-            # FK: founder_conversations.object_id references sh_objects.object_id (canonical).
-            # The ShunyaObject was created via ObjectService.create() above (or existed
-            # from a prior canonical path), so the FK target row is present. No separate
-            # FounderObject row is needed — the legacy founder_objects store is retired
-            # per R6B-2 (GATE 7: zero production writes).
-            conv = FounderConversation(conv_id=conversation_id, object_id=conv_object_id,
-                    title=user_messages[-1]['content'][:100], identity_id=identity_id, status='active')
-            _db.session.add(conv)
-            _db.session.flush()
+            if tenant_id:
+                # Organization scope: canonical object + conversation rows.
+                if obj is None:
+                    created = get_object_service().create(
+                        object_type='conversation', name=user_messages[-1]['content'][:100],
+                        organization_id=tenant_id, workspace_id=workspace.id,
+                        created_by=identity_id, data={}, identity_id=identity_id,
+                        # G1.24: the AI created this container on the user's
+                        # behalf — recorded as such rather than as a user write.
+                        provenance="ai")
+                    conv_object_id = created['object_id']
+                # FK: founder_conversations.object_id references sh_objects.object_id (canonical).
+                # The ShunyaObject was created via ObjectService.create() above (or existed
+                # from a prior canonical path), so the FK target row is present. No separate
+                # FounderObject row is needed — the legacy founder_objects store is retired
+                # per R6B-2 (GATE 7: zero production writes).
+                conv = FounderConversation(conv_id=conversation_id, object_id=conv_object_id,
+                        title=user_messages[-1]['content'][:100], identity_id=identity_id, status='active')
+                _db.session.add(conv)
+                _db.session.flush()
+                persisted = True
+            else:
+                # Personal scope (no org): identity-keyed persistence only.
+                # founder_conversations.object_id is NOT NULL with an FK to
+                # sh_objects.object_id and ObjectService fail-closes on
+                # organization_id=None, so no canonical object/conversation row
+                # exists for a personal-only identity. This mirrors
+                # core/intelligence_runtime/conversation_bridge, which skips
+                # persistence (in-memory conversation continues) when no
+                # org/workspace context can be resolved.
+                conv_object_id = None
+                persisted = False
+        elif conv is not None:
+            persisted = True
+            conv_object_id = conv.object_id
         # Request history is context, not permission to replay all prior writes.
-        _db.session.add(FounderMessage(conv_id=conversation_id, role='human',
-                                      content=user_messages[-1]['content']))
-        _db.session.commit()
+        if persisted:
+            _db.session.add(FounderMessage(conv_id=conversation_id, role='human',
+                                          content=user_messages[-1]['content']))
+            _db.session.commit()
     except Exception:
         _db.session.rollback()
         logger.exception('Conversation persistence failed before inference')
@@ -719,7 +822,7 @@ def chat():
         from app.founder.models import FounderMessage
         from app import db as _db2
         ai_content = result.get('content', '')
-        if ai_content:
+        if ai_content and persisted:
             fm = FounderMessage(
                 conv_id=conversation_id,
                 role='assistant',

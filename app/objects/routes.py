@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, g, current_app
 from core.object_service import get_object_service
 from app.authz.decorators import require_permission
 from app.authz.workspace_context import (
@@ -65,6 +65,7 @@ def create():
         "object_type": obj["object_type"],
         "name": obj["name"],
         "organization_id": obj["organization_id"],
+        "provenance": obj.get("provenance"),
     })
 
 
@@ -211,7 +212,12 @@ def _read_context():
             identity_id, request.headers.get("X-Organization-Id")
         )
     except OwnershipContextError as exc:
-        return None, None, (_deny(exc),)
+        # ``_deny`` already returns ``(response, 403)``. The previous
+        # ``(_deny(exc),)`` wrapped that in a 1-tuple, so ``return error`` handed
+        # Flask an invalid view return value: every ambiguity/denial on this path
+        # surfaced as HTTP 500 instead of the intended 403 (measured with a two-
+        # organization identity and no selected organization).
+        return None, None, _deny(exc)
     return identity_id, organization_id, None
 
 
@@ -276,6 +282,8 @@ def list_by_type(object_type):
         return _deny(exc)
     except ValueError:
         return jsonify({"error": "Ownership context incomplete", "success": False}), 400
+    from app.objects.provenance import annotate
+    objects = [annotate(o) for o in objects]
     total = counts.get(object_type, len(objects))
     payload = {"objects": objects, "total": total,
                "page": (offset // limit) + 1, "per_page": limit,
@@ -312,9 +320,58 @@ def collection():
         return _deny(exc)
     except ValueError:
         return jsonify({"error": "Ownership context incomplete", "success": False}), 400
+    from app.objects.provenance import annotate
+    objects = [annotate(o) for o in objects]
     return jsonify({"success": True, "data": objects, "objects": objects,
                     "total": len(objects), "page": (offset // limit) + 1,
                     "per_page": limit, "query": query})
+
+
+@objects_bp.route("/first-object-state", methods=["GET"])
+@require_permission("knowledge.view")
+def first_object_state():
+    """Authoritative empty-workspace predicate for the first-object CTA (G1.18).
+
+    Organization-level existence read, not a workspace listing: an organization
+    that exists but has no provisioned workspace must still get a truthful
+    answer instead of an authorization error that the UI would have to treat as
+    "unknown". ``require_permission`` has already validated an active membership
+    and the permission, and set ``g.current_org_id`` (organization resolution
+    does not require a workspace).
+
+    Status contract — the caller can distinguish every case:
+      200 — authoritative answer, ``has_business_data`` true or false
+      400 — no organization context (unknown; the UI must not claim empty)
+      401 — unauthenticated
+      403 — authenticated but not entitled
+      503 — the read failed (never reported as an empty workspace)
+
+    The definition of the predicate, the stores it reads and the lifecycle
+    semantics live in ``app/objects/first_object_state.py``. This route performs
+    no writes and creates no projection of any record.
+    """
+    from app.objects.first_object_state import get_first_object_state
+
+    organization_id = getattr(g, "current_org_id", None)
+    if not organization_id:
+        return jsonify({
+            "success": False,
+            "code": "no_organization_context",
+            "error": "No organization context — first-object state unknown",
+        }), 400
+
+    try:
+        state = get_first_object_state(int(organization_id))
+    except Exception:  # noqa: BLE001 — a failed read is not an empty workspace
+        current_app.logger.exception(
+            "first-object-state read failed for organization %s", organization_id
+        )
+        return jsonify({
+            "success": False,
+            "error": "First-object state unavailable",
+        }), 503
+
+    return jsonify({"success": True, **state})
 
 
 # ---------------------------------------------------------------------------
@@ -351,7 +408,8 @@ def get_by_object_id(object_id: str):
     obj = _resolve_object_for_read(object_id, svc, identity_id, organization_id)
     if not obj:
         return jsonify({"error": "Not found", "success": False}), 404
-    return jsonify({"success": True, "data": obj})
+    from app.objects.provenance import annotate
+    return jsonify({"success": True, "data": annotate(obj)})
 
 
 def _object_edge_payload(obj: dict) -> dict:

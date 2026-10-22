@@ -266,11 +266,14 @@ interface Capability {
   open: () => void;
 }
 
-function buildCapabilities(hasActive: boolean, hasAttention: boolean, hasCompleted: boolean): Capability[] {
+function buildCapabilities(hasActive: boolean, hasAttention: boolean, hasCompleted: boolean, hasNoBusinessData?: boolean): Capability[] {
   const openDomain = (label: string, objectId: string) => () => {
     useWorkspaceStore.getState().open(label, 'object', { objectType: objectId, objectId });
   };
   const caps: Capability[] = [];
+  if (hasNoBusinessData) {
+    caps.push({ label: 'Create your first business object', description: 'Start tracking customers, invoices, notes and more in SHUNYA.', open: () => useWorkspaceStore.getState().open('Create first object', 'import-export') });
+  }
   if (hasActive) {
     caps.push({ label: 'Follow live work', description: 'Open the Work area and watch executions as they progress.', open: openDomain('Work', 'work') });
   }
@@ -293,6 +296,31 @@ export function HomePage() {
     isLoading, error, lastUpdated, startPolling, refreshActive,
   } = useHomeStore();
   const [selected, setSelected] = useState<TaskLifecycle | null>(null);
+  // Business-record existence drives the first-object CTA. Task counts are NOT
+  // a proxy for business data: a populated workspace can legitimately have no
+  // tasks. The answer comes from the authoritative emptiness predicate
+  // (`GET /api/v1/objects/first-object-state`), which reads every canonical
+  // business store — universal objects, relationships, leads, suppliers. The
+  // previous source, `/api/v1/uop/objects`, is a migration-compatibility store
+  // that new writes never touch, so it reported "empty" for ever (KB-02).
+  // null = not yet known (loading, failed, unauthorized, malformed) → CTA stays
+  // hidden so we never show a false "empty workspace" state.
+  const [hasBusinessData, setHasBusinessData] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/v1/objects/first-object-state', { credentials: 'include' });
+        if (!r.ok) throw new Error(String(r.status));
+        const data = await r.json();
+        if (typeof data?.has_business_data !== 'boolean') throw new Error('malformed');
+        if (!cancelled) setHasBusinessData(data.has_business_data);
+      } catch {
+        if (!cancelled) setHasBusinessData(null); // unknown ≠ empty
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [openReviewId, setOpenReviewId] = useState<number | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewError, setReviewError] = useState('');
@@ -361,6 +389,7 @@ export function HomePage() {
     activeTasks.length > 0,
     needsHuman > 0,
     completedTasks.length > 0,
+    hasBusinessData === false, // only when a successful fetch proved the workspace is empty
   );
 
   const handleOpenDetail = useCallback((t: TaskLifecycle) => setSelected(t), []);
@@ -410,6 +439,10 @@ export function HomePage() {
               ? `SHUNYA is working on ${activeTasks.length} thing${activeTasks.length > 1 ? 's' : ''} right now.`
               : needsHuman > 0
               ? 'A few things need you.'
+              : error
+              /* G1.25: a failed fetch is not calm. Claiming calm during an
+                 outage contradicts the Reconnecting pulse in the header. */
+              ? 'Cannot see what SHUNYA is doing right now.'
               : 'Everything is calm.'}
           </h1>
           {completedTasks.length > 0 && (
@@ -561,10 +594,19 @@ export function HomePage() {
         </HomeSection>
 
         <footer className="hp-footer">
-          <button className="hp-footer-btn" onClick={() => refreshActive()} title="Refresh now">
+          <button className="hp-footer-btn" onClick={() => refreshActive()} title="Refresh now" aria-label="Refresh active work">
             Refresh
           </button>
-          {lastUpdated && <span className="hp-footer-updated">Live · updated {_timeAgo(new Date(lastUpdated).toISOString())}</span>}
+          {/* G1.25: "Live" may only be claimed while the last poll succeeded.
+              `lastUpdated` survives a failure, so the failure state is what
+              decides the wording — not the presence of a timestamp. */}
+          {lastUpdated && (
+            <span className="hp-footer-updated">
+              {error
+                ? `Not live — last successful update ${_timeAgo(new Date(lastUpdated).toISOString())}`
+                : `Live · updated ${_timeAgo(new Date(lastUpdated).toISOString())}`}
+            </span>
+          )}
         </footer>
       </div>
 

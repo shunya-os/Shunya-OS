@@ -12,12 +12,12 @@ import { authStyles } from './auth-styles';
 interface Props {
   onBackToLogin: () => void;
   onSignupSuccess?: () => void;
-  onSubmit?: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  onSubmit?: (name: string, email: string, password: string) => Promise<{ success: boolean; email_status?: string; identity_id?: string; error?: string }>;
 }
 
 type Phase = 'form' | 'loading' | 'success' | 'error';
 
-async function defaultSignup(name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> {
+async function defaultSignup(name: string, email: string, password: string): Promise<{ success: boolean; email_status?: string; identity_id?: string; error?: string }> {
   const resp = await fetch('/api/v1/auth/signup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,7 +26,7 @@ async function defaultSignup(name: string, email: string, password: string): Pro
   });
   const data = await resp.json();
   if (!resp.ok) return { success: false, error: data.error ?? 'Failed to create account.' };
-  return { success: true };
+  return { success: true, email_status: data.email_status, identity_id: data.identity_id };
 }
 
 export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
@@ -36,6 +36,9 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [emailDelivery, setEmailDelivery] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState('');
 
   const getValidationError = (): string | null => {
     if (!name.trim()) return 'Name is required.';
@@ -61,6 +64,7 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
       const result = await fn(name.trim(), email.trim().toLowerCase(), password);
       if (result.success) {
         setPhase('success');
+        setEmailDelivery(result.email_status ?? 'unknown');
         onSignupSuccess?.();
       } else {
         setPhase('error');
@@ -79,7 +83,7 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
   };
 
   return (
-    <div className="sh-auth" onKeyDown={handleKeyDown}>
+    <main className="sh-auth" onKeyDown={handleKeyDown}>
       <div className="sh-auth-card sh-auth-fade-in">
         {/* ── Header ── */}
         <div className="sh-auth-header">
@@ -90,9 +94,38 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
         {/* ── Success ── */}
         {phase === 'success' && (
           <>
-            <div className="sh-auth-success">
-              Account created! Check your email to verify your address.
+            <div className="sh-auth-success" role="status">
+              {emailDelivery === 'accepted' || emailDelivery === 'sent'
+                ? 'Account created! Check your email to verify your address.'
+                : 'Account created, but the verification email was not sent. Use the button below to retry, and check that your address is correct.'}
             </div>
+            {emailDelivery !== 'accepted' && emailDelivery !== 'sent' && (
+              <button className="sh-auth-btn" type="button"
+                disabled={resending}
+                onClick={async () => {
+                  setResending(true);
+                  setResendMsg('');
+                  try {
+                    const res = await fetch('/api/v1/auth/request-verification', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email }),
+                    });
+                    // Honest outcome: only a 2xx may be described as re-sent.
+                    setResendMsg(res.ok
+                      ? 'Verification email accepted by the mail server. Check your inbox.'
+                      : `Verification email could not be sent (status ${res.status}). Try again shortly.`);
+                  } catch {
+                    setResendMsg('Verification email could not be sent — network error. Try again.');
+                  }
+                  setResending(false);
+                }}>
+                {resending ? 'Sending…' : 'Resend verification email'}
+              </button>
+            )}
+            {resendMsg && (
+              <div className="sh-auth-info" style={{marginTop: 8}}>{resendMsg}</div>
+            )}
             <button className="sh-auth-btn" onClick={onBackToLogin} type="button" autoFocus>
               Sign in
             </button>
@@ -102,7 +135,7 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
         {/* ── Form ── */}
         {(phase === 'form' || phase === 'loading' || phase === 'error') && (
           <>
-            <form className="sh-auth-form" onSubmit={handleSubmit} role="main" aria-label="Create account">
+            <form className="sh-auth-form" onSubmit={handleSubmit} aria-label="Create account">
               <div className="sh-auth-field">
                 <label htmlFor="signup-name">Full name</label>
                 <input
@@ -194,6 +227,6 @@ export function Signup({ onBackToLogin, onSignupSuccess, onSubmit }: Props) {
       </div>
 
       <style>{authStyles}</style>
-    </div>
+    </main>
   );
 }

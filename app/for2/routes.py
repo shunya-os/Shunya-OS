@@ -192,7 +192,7 @@ def api_create_organization():
 
     # Seed default roles for this organization
     from app.authz.services import seed_default_roles
-    seed_default_roles(org.id)
+    seed_default_roles(org.id, commit=False)  # same transaction as the org
 
     db.session.commit()
 

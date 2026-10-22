@@ -192,17 +192,20 @@ export const authStyles = `
 .sh-auth-link {
   color: var(--shunya-text, #1A1C1D);
   text-decoration: underline;
-  text-decoration-color: var(--shunya-border, rgba(26,28,29,0.07));
   text-underline-offset: 2px;
   cursor: pointer;
+  font-family: inherit;
+  background: none;
+  border: none;
+  padding: 2px 0;
   font-size: var(--shunya-text-sm, 12px);
   transition: text-decoration-color var(--shunya-duration-fast, 200ms) var(--shunya-ease, cubic-bezier(0.22,1,0.36,1));
 }
 .sh-auth-link:hover {
-  text-decoration-color: var(--shunya-text, #1A1C1D);
+  text-decoration-color: var(--shunya-gold-accessible, #7A6848);
 }
 .sh-auth-link:focus-visible {
-  outline: 2px solid var(--shunya-gold, #A4865F);
+  outline: 2px solid var(--shunya-text, #1A1C1D);
   outline-offset: 2px;
   border-radius: 2px;
 }

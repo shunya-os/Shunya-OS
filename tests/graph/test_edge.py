@@ -384,20 +384,38 @@ class TestInMemoryEdgeStore:
 # =========================================================================
 
 class TestEdgeStorePerformance:
-    """Acceptance criteria: 1000 edges created in < 1s."""
+    """Acceptance criteria: 1000 edges created in < 1s.
+
+    G1.20 — measurement methodology. A single wall-clock sample made this test
+    fail under host contention (it failed once inside the full suite while the
+    isolated app server, a disposable PostgreSQL cluster and a browser were
+    running) even though the operation takes ~6-11 ms: measured isolated
+    min 6.4 ms / median 7.5 ms, and under four CPU burners min 5.4 ms /
+    median 10.8 ms (10 samples each). The budget is ~130x the median, so the
+    only way to exceed 1 s is a scheduling stall, not a code regression.
+
+    The guarantee is preserved as throughput capability: the fastest of three
+    clean samples must be under the 1 s budget, and every sample must create
+    exactly 1000 edges. A stall can only add time, so a best-of-three result
+    cannot hide a real slowdown; it only removes single-sample scheduling noise.
+    Correctness is asserted on every sample, independently of timing.
+    """
+
+    SAMPLES = 3
+    BUDGET_SECONDS = 1.0
 
     def setup_method(self):
         reset_node_store()
         reset_edge_store()
 
-    def test_1000_edges_under_1s(self):
-        """1000 Edges created in < 1 second."""
+    def _time_edge_creation(self) -> float:
+        """One clean run: 500 nodes, then time 1000 edge creations."""
         import time
         node_store = get_node_store()
         edge_store = get_edge_store()
 
-        # Create 251 source nodes and 251 target nodes (prime-based,
-        # guarantees no triple collisions with 7 edge types across 1000 edges)
+        # 251 sources / 251 targets (prime-based) guarantee no triple collisions
+        # with 7 edge types across 1000 edges.
         sources = []
         targets = []
         for i in range(251):
@@ -413,16 +431,29 @@ class TestEdgeStorePerformance:
                       EdgeType.SUPPORTS, EdgeType.CONTRADICTS,
                       EdgeType.VERSION_OF]
 
-        start = time.time()
+        start = time.perf_counter()
         for i in range(1000):
-            src = sources[i % 251]
-            tgt = targets[i % 251]
-            etype = edge_types[i % 7]
             edge_store.create(Edge(
-                source_id=src.node_id,
-                target_id=tgt.node_id,
-                edge_type=etype,
+                source_id=sources[i % 251].node_id,
+                target_id=targets[i % 251].node_id,
+                edge_type=edge_types[i % 7],
             ))
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
+
         assert edge_store.count() == 1000
-        assert elapsed < 1.0, f"1000 edges took {elapsed:.3f}s (limit: 1.0s)"
+        return elapsed
+
+    def test_1000_edges_under_1s(self):
+        samples = []
+        for _ in range(self.SAMPLES):
+            reset_node_store()
+            reset_edge_store()
+            samples.append(self._time_edge_creation())
+
+        best = min(samples)
+        rendered = ", ".join(f"{s:.3f}s" for s in samples)
+        assert best < self.BUDGET_SECONDS, (
+            f"1000 edges never completed inside the {self.BUDGET_SECONDS:.1f}s "
+            f"budget across {self.SAMPLES} samples ({rendered}); this is a real "
+            f"throughput regression, not scheduling noise."
+        )

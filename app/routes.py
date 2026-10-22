@@ -9,7 +9,7 @@ import os
 import pdfkit
 import logging
 from datetime import datetime, date, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, g, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, g, session, current_app
 from app import db
 from app.models import (
     Lead, Supplier, TaskList, Task, Document,
@@ -19,6 +19,7 @@ from app.services import parse_inquiry_text, get_summary, _cached_or_new_code, f
 from app.runtime_config import uploads_dir
 from app.authz.decorators import session_required, require_permission
 from app.auth_routes import login_required
+from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +108,37 @@ def api_create_org():
     if not identity_id:
         return jsonify({"success": False, "error": "Not authenticated"}), 401
 
+    # Canonicalize the identity exactly as login does. Before this, a user with
+    # no membership yet carried a fallback identity (email/team id) and the
+    # OrgMember row written here could never be resolved by authorization after
+    # the next login switched to sid_*.
+    from app.auth import TeamMember
+    from app.production.identity_repository import IdentityRepository
+    member_email = ""
+    uid = session.get("user_id")
+    tm = db.session.get(TeamMember, uid) if uid else None
+    if tm:
+        member_email = tm.email or ""
+        repo = IdentityRepository()
+        canonical = repo.find_by_auth("email", tm.email) if tm.email else None
+        if canonical:
+            identity_id = canonical.identity_id
+        else:
+            identity = repo.create(display_name=tm.name or tm.email, primary_email=tm.email)
+            repo.add_auth_method(identity.identity_id, "email", tm.email, is_primary=True)
+            identity_id = identity.identity_id
+        tm.identity_id = identity_id
+        db.session.commit()
+
     # Create the organization
-    slug = company_name.lower().replace(" ", "-")[:50]
+    # G1.21: the slug is the organization's URL identity and is now unique at the
+    # database level (r6b34_identity_integrity). This route previously built it
+    # with `lower().replace(" ","-")[:50]` — no sanitizing, no uniqueness check —
+    # so a second organization with the same name raised IntegrityError and
+    # returned HTTP 500. Same helper as the identity blueprint now.
+    from app.authz.org_slug import ensure_unique_org_slug, generate_org_slug
+
+    slug = ensure_unique_org_slug(generate_org_slug(company_name))
     org = Organization(
         name=company_name,
         slug=slug,
@@ -121,15 +151,40 @@ def api_create_org():
         currency=data.get("currency", "USD"),
     )
     db.session.add(org)
-    db.session.flush()
+    try:
+        db.session.flush()
+    except IntegrityError:
+        # The unique slug index is the authority. This flush (not only the final
+        # commit) can be the first statement that collides when a competing
+        # request won the race; a raw DriverError/500 is not an acceptable answer.
+        db.session.rollback()
+        current_app.logger.warning(
+            "organization creation conflicted at insert (slug)")
+        return jsonify({
+            "success": False,
+            "code": "organization_conflict",
+            "error": "An organization with these details already exists",
+        }), 409
 
     # Add founder as org member
     member = OrgMember(
         organization_id=org.id,
         identity_id=identity_id,
+        name=company_name,
+        email=member_email,
         role="owner",
     )
     db.session.add(member)
+
+    # Seed the canonical default roles/permissions for this organization.
+    # Without them the owner has no org-scoped permissions and every
+    # permission-gated route (UOP create, import, etc.) returns 403.
+    from app.authz.services import seed_default_roles
+    # commit=False: this runs inside the organization + workspace transaction.
+    # See seed_default_roles' docstring — committing here is what allowed a
+    # workspace-provisioning failure to leave a usable-looking tenant with no
+    # canonical workspace.
+    seed_default_roles(org.id, commit=False)
 
     # Create a FounderSpace for this org
     space = FounderSpace(
@@ -140,12 +195,55 @@ def api_create_org():
         member_count=1,
     )
     db.session.add(space)
-    db.session.commit()
+
+    # Provision the organization's first canonical workspace in the SAME
+    # transaction (G1.19). This route — not the identity blueprint — is what the
+    # SPA onboarding flow calls, and it previously produced an organization with
+    # no ``sh_workspaces`` row: the canonical object API then failed closed with
+    # ``403 no_authorized_workspace``, onboarding could not seed foundational
+    # objects, and uploads/media/AI creation had nowhere to write. The helper is
+    # idempotent, membership-gated and never elevates a role.
+    from app.authz.org_provisioning import (
+        WorkspaceProvisioningError,
+        ensure_organization_workspace,
+    )
+
+    try:
+        workspace = ensure_organization_workspace(
+            org.id, identity_id, name=company_name, commit=False
+        )
+    except WorkspaceProvisioningError:
+        db.session.rollback()
+        current_app.logger.exception(
+            "organization provisioning failed: org=%s identity=%s", org.id, identity_id
+        )
+        return jsonify({
+            "success": False,
+            "code": "workspace_provisioning_failed",
+            "error": "Organization could not be provisioned with a workspace",
+        }), 500
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Concurrency guard: two requests naming the same organization can both
+        # pass the pre-flight uniqueness check. The unique index decides; the
+        # caller gets a truthful 409 instead of a stack trace, and nothing is
+        # left half-written because the whole transaction is rolled back.
+        db.session.rollback()
+        current_app.logger.warning(
+            "organization creation conflicted (slug or duplicate org)")
+        return jsonify({
+            "success": False,
+            "code": "organization_conflict",
+            "error": "An organization with these details already exists",
+        }), 409
 
     return jsonify({
         "success": True,
         "org_id": str(org.id),
         "org_name": org.name,
+        "workspace_id": workspace["workspace_id"],
     }), 201
 
 

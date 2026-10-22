@@ -63,6 +63,12 @@ def upgrade():
         "suppliers",
         sa.Column("updated_at", sa.DateTime(), nullable=True),
     )
+    # The model declares tenant_id; the base 0001 table predates tenant scoping
+    # and 0008 does not add it to suppliers. Ensure it before indexing.
+    op.add_column(
+        "suppliers",
+        sa.Column("tenant_id", sa.Integer(), nullable=True),
+    )
     # The model declares Index("ix_suppliers_tenant", "tenant_id", "status");
     # it could not have been created while `status` was absent.
     op.create_index(

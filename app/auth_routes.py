@@ -9,7 +9,7 @@ import functools
 import os
 import secrets
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, g, jsonify, send_from_directory
+from flask import Blueprint, current_app, render_template, request, redirect, url_for, flash, session, g, jsonify, send_from_directory
 from app import db, limiter
 from app.auth import TeamMember, UserRole, AuthLayer, PasswordResetToken
 from app.models import Person
@@ -204,6 +204,16 @@ def login_page():
         # Resolve identity_id from TeamMember.identity_id (canonical)
         if user.identity_id:
             session["identity_id"] = user.identity_id
+            # Compatibility repair: memberships written before canonical identity
+            # resolution (notably invitation acceptance) may still carry the
+            # legacy numeric TeamMember id. Re-point this user's rows to the
+            # canonical identity so authorization can resolve them.
+            from app.models import OrgMember as _OrgMember
+            _OrgMember.query.filter(
+                _OrgMember.identity_id == str(user.id),
+                _OrgMember.email == user.email,
+            ).update({"identity_id": user.identity_id}, synchronize_session=False)
+            db.session.commit()
         # Resolve current_org_id from OrgMember
         from app.models import OrgMember, Organization
         org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
@@ -274,6 +284,16 @@ def login_page():
         # Resolve identity_id from TeamMember.identity_id (canonical)
         if user.identity_id:
             session["identity_id"] = user.identity_id
+            # Compatibility repair: memberships written before canonical identity
+            # resolution (notably invitation acceptance) may still carry the
+            # legacy numeric TeamMember id. Re-point this user's rows to the
+            # canonical identity so authorization can resolve them.
+            from app.models import OrgMember as _OrgMember
+            _OrgMember.query.filter(
+                _OrgMember.identity_id == str(user.id),
+                _OrgMember.email == user.email,
+            ).update({"identity_id": user.identity_id}, synchronize_session=False)
+            db.session.commit()
         from app.models import OrgMember, Organization
         org_members = OrgMember.query.filter_by(email=email, is_active=True).all()
         if org_members:
@@ -436,23 +456,30 @@ def api_signup():
 
     # Send verification email (logs URL in dev, SMTP in production)
     # Wrapped in try/except — signup should succeed even if email delivery fails
+    email_status = "unknown"
     try:
         from app.email_service import build_verification_email, send_email
         subject, body = build_verification_email(email, member.verify_token)
-        send_email(to=email, subject=subject, body=body,
-                   notification_type="email_verification",
-                   business_event_id=f"verify:{member.id}:{member.verify_token[:8]}",
-                   category="security")
+        result_send = send_email(to=email, subject=subject, body=body,
+                                 notification_type="email_verification",
+                                 business_event_id=f"verify:{member.id}:{member.verify_token[:8]}",
+                                 category="security")
+        email_status = result_send.get("status", "sent") if isinstance(result_send, dict) else "unknown"
     except Exception as email_err:
         import logging
         logging.getLogger(__name__).warning("Signup email failed (non-fatal): %s", email_err)
+        email_status = "failed"
 
     # Do NOT set session["user_id"] — verification required first
+    msg = "Account created! Check your email to verify your address."
+    if email_status not in ("accepted", "sent", "logged"):
+        msg = "Account created, but the verification email could not be sent. Use the button below to send a new one."
     return jsonify({
         "success": True,
         "identity_id": str(member.id),
         "verified": False,
-        "message": "Account created! Check your email to verify your address."
+        "email_status": email_status,
+        "message": msg,
     }), 201
 
 
@@ -462,6 +489,7 @@ def api_signup():
 
 
 @auth_bp.route("/api/v1/auth/request-verification", methods=["POST"])
+@limiter.limit("5 per hour")  # Rate limit consistent with signup
 def api_request_verification():
     """Request a new verification email."""
     data = request.get_json(silent=True) or {}
@@ -474,7 +502,9 @@ def api_request_verification():
         return jsonify({"success": True, "message": "If the account exists, a verification email has been sent."}), 200
     if member.verified:
         return jsonify({"success": True, "message": "Email already verified."}), 200
+    from datetime import datetime
     member.verify_token = secrets.token_hex(32)
+    member.created_at = datetime.utcnow()  # Reset 24h expiry clock for this token
     db.session.commit()
     # Send verification email via canonical service
     from app.email_service import build_verification_email, send_email
@@ -496,6 +526,14 @@ def api_verify_email():
     member = TeamMember.query.filter_by(verify_token=token).first()
     if not member:
         return jsonify({"success": False, "error": "Invalid or expired verification token."}), 400
+
+    # Enforce 24-hour token expiry (created_at is reset on each request-verification)
+    from datetime import datetime, timedelta
+    if member.created_at and member.created_at < datetime.utcnow() - timedelta(hours=24):
+        member.verify_token = None
+        db.session.commit()
+        return jsonify({"success": False, "error": "Verification link has expired. Request a new one."}), 400
+
     member.verified = True
     member.verify_token = None
     db.session.commit()
@@ -571,6 +609,20 @@ def api_forgot_password():
     if not email:
         return jsonify({"success": False, "error": "Email is required."}), 400
 
+    # G1.25: if the mail transport cannot send at all, say so — for every caller,
+    # before any account lookup. This is independent of whether the address
+    # exists, so it adds no enumeration signal, and it stops the endpoint from
+    # reporting "link has been sent" while every send is impossible.
+    from app.communication.email_transport_guard import email_transport_state, isolation_verdict
+    _safe, _reason = isolation_verdict(email_transport_state())
+    if _reason in ("resend_without_key_logs_only", "smtp_without_credentials_logs_only"):
+        current_app.logger.error("Password reset requested while no mail transport is configured")
+        return jsonify({
+            "success": False,
+            "error": "Email delivery is not configured on this server, so password reset is unavailable. Contact your administrator.",
+            "delivery": "unconfigured",
+        }), 503
+
     member = TeamMember.query.filter_by(email=email).first()
     if not member:
         # Do NOT reveal whether email exists
@@ -600,10 +652,19 @@ def api_forgot_password():
     # Send reset email via canonical service
     from app.email_service import build_reset_email, send_email
     subject, body = build_reset_email(email, reset_token)
-    send_email(to=email, subject=subject, body=body,
-               notification_type="password_reset",
-               business_event_id=f"pw_reset:{member.id}:{reset_token[:8]}",
-               category="security")
+    send_result = send_email(to=email, subject=subject, body=body,
+                             notification_type="password_reset",
+                             business_event_id=f"pw_reset:{member.id}:{reset_token[:8]}",
+                             category="security")
+    # G1.25: the send outcome is recorded. The HTTP response stays uniform (no
+    # enumeration signal), but a silent delivery failure is now visible to an
+    # operator instead of looking identical to success.
+    _status = (send_result or {}).get("status") if isinstance(send_result, dict) else None
+    if _status != "accepted":
+        current_app.logger.warning(
+            "Password reset email not accepted (status=%s) — the link was not delivered",
+            _status,
+        )
 
     return jsonify({
         "success": True,

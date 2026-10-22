@@ -67,6 +67,8 @@ export const api = {
       success: boolean;
       data?: { email?: string; name?: string; org_name?: string; role?: string; status?: string; expires_at?: string | null };
       error?: string;
+      /** Specific reason from the server (e.g. "already been accepted"). */
+      detail?: string;
     }>(`/orgs/invitations/${encodeURIComponent(token)}`),
 
   /** Accept an invitation — set name and password.

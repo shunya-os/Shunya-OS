@@ -10,9 +10,12 @@ The adapter follows the architectural principle:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from core.os import get_os
+
+logger = logging.getLogger(__name__)
 
 
 def process_intent(
@@ -369,15 +372,29 @@ def get_executive_home(identity_id: str) -> dict[str, Any]:
         })
 
     # Priority 5: Empty state guidance
-    if object_summary["total"] == 0:
-        priorities.append({
-            "id": "getting_started",
-            "title": "Welcome to SHUNYA",
-            "reason": "Your organization has no business objects yet",
-            "affected_objects": 0,
-            "urgency": "low",
-            "recommended_action": "Create your first business object to begin",
-        })
+    # Uses the SAME authoritative emptiness predicate as the first-object CTA
+    # (G1.18 / KB-02). Canonical object counts alone are not the whole answer:
+    # an import-only organization owns relationships/leads/suppliers and no
+    # universal objects, so counting objects would tell it — falsely — that it
+    # has created nothing. Unknown (no organization context, failed read) is
+    # never reported as empty.
+    if org_id:
+        has_business_data = True  # unknown ≠ empty
+        try:
+            from app.objects.first_object_state import get_first_object_state
+
+            has_business_data = get_first_object_state(org_id)["has_business_data"]
+        except Exception:  # noqa: BLE001 — a failed read must not claim emptiness
+            logger.exception("os_adapter: first-object state read failed for org %s", org_id)
+        if not has_business_data:
+            priorities.append({
+                "id": "getting_started",
+                "title": "Welcome to SHUNYA",
+                "reason": "Your organization has no business objects yet",
+                "affected_objects": 0,
+                "urgency": "low",
+                "recommended_action": "Create your first business object to begin",
+            })
 
     return {
         "success": True,

@@ -7,9 +7,18 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-# Load .env so DATABASE_URL is available to alembic
-from dotenv import load_dotenv
-load_dotenv()
+# Load .env so DATABASE_URL is available to alembic — EXCEPT in a declared test
+# run. Alembic is a configuration entry point in its own right: loading the host
+# .env here would reintroduce the production secrets that tests/conftest.py
+# removed, bypassing the G1.23 factory fix entirely (a migration run during a
+# test would silently regain RESEND_API_KEY and a production DATABASE_URL).
+# Production and development invocations are unchanged: nothing declared means
+# .env is loaded.
+from app import declared_test_environment
+
+if not declared_test_environment():
+    from dotenv import load_dotenv
+    load_dotenv()
 
 config = context.config
 if config.config_file_name is not None:
