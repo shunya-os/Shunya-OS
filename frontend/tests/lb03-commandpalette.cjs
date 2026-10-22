@@ -56,7 +56,7 @@ try {
     console.error('FATAL: VITE_PROXY_TARGET port ' + proxyPort + ' must match TEST_BACKEND_PORT ' + PORT + '. Got: ' + PROXY_TARGET_RAW);
     process.exit(1);
   }
-} catch (e) {
+} catch (_e) {
   console.error('FATAL: VITE_PROXY_TARGET is not a valid URL. Got: ' + PROXY_TARGET_RAW);
   process.exit(1);
 }
@@ -117,7 +117,7 @@ async function main() {
     for (const c of login.cookies) {
       const parts = c.split(';'); const eq = parts[0].indexOf('=');
       if (eq < 0) continue;
-      try { context.addCookies([{ name: parts[0].substring(0, eq).trim(), value: parts[0].substring(eq + 1), domain: '127.0.0.1', path: '/', httpOnly: true, secure: false, sameSite: 'Lax' }]); } catch(e) {}
+      try { context.addCookies([{ name: parts[0].substring(0, eq).trim(), value: parts[0].substring(eq + 1), domain: '127.0.0.1', path: '/', httpOnly: true, secure: false, sameSite: 'Lax' }]); } catch(_e) {}
     }
 
     const page = await context.newPage();

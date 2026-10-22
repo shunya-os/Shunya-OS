@@ -13,7 +13,7 @@
  *
  * Env: BASE (loopback test server), VIEWPORT, OWNER_EMAIL/OWNER_PASSWORD unused.
  */
-const crypto = require('crypto');
+const nodeCrypto = require('crypto');
 const http = require('http');
 const path = require('path');
 
@@ -50,7 +50,7 @@ function totp(secret, step = 30, digits = 6, at = Date.now()) {
   const buf = Buffer.alloc(8);
   buf.writeUInt32BE(Math.floor(counter / 2 ** 32), 0);
   buf.writeUInt32BE(counter % 2 ** 32, 4);
-  const digest = crypto.createHmac('sha1', base32Decode(secret)).update(buf).digest();
+  const digest = nodeCrypto.createHmac('sha1', base32Decode(secret)).update(buf).digest();
   const offset = digest[digest.length - 1] & 0xf;
   const binary = ((digest[offset] & 0x7f) << 24) | (digest[offset + 1] << 16) |
     (digest[offset + 2] << 8) | digest[offset + 3];
@@ -158,7 +158,7 @@ async function provisionUser(client, tag, withMfa) {
   const AXE = path.join(REPO, 'frontend', 'node_modules', 'axe-core', 'axe.min.js');
   await page.addScriptTag({ path: AXE });
   const axeResult = await page.evaluate(async () => {
-    // @ts-ignore injected by addScriptTag
+    // @ts-expect-error injected by addScriptTag
     return await window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] });
   });
   ok('a11y', 'MFA code step: 0 axe violations',

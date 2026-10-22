@@ -1,12 +1,12 @@
 {
-  "sha": "9066f25",
+  "sha": "7926135",
   "date": "2026-10-22",
-  "total": 482,
+  "total": 478,
   "errors": 0,
   "by_rule": {
     "@typescript-eslint/no-explicit-any": 432,
     "no-console": 22,
-    "@typescript-eslint/no-unused-vars": 15,
+    "@typescript-eslint/no-unused-vars": 11,
     "react-hooks/exhaustive-deps": 13
   }
 }

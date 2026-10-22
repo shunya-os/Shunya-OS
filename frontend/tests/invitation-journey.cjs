@@ -220,7 +220,7 @@ function tokenFromUrl(url) {
     const errText = (await recipient.textContent('[role="alert"]').catch(() => '')) || '';
     record('journey', 'Mismatched passwords produce a truthful client error',
       /do not match/i.test(errText), errText.slice(0, 60));
-    const stillPending = await owner.evaluate(async (org) => {
+    const stillPending = await owner.evaluate(async (_org) => {
       const r = await fetch(`/api/v1/team/invitations`, { credentials: 'include' });
       const j = await r.json().catch(() => ({}));
       const row = (j.data || []).find((x) => x.status === 'pending');

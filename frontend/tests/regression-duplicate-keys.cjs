@@ -46,7 +46,6 @@ function loginApi() {
 
 async function run() {
   const browser = await chromium.launch({ headless: true });
-  let exitCode = 0;
 
   try {
     const login = await loginApi();
@@ -122,7 +121,6 @@ async function run() {
 
   } catch (err) {
     fail('Fatal: ' + err.message);
-    exitCode = 1;
   } finally {
     await browser.close();
     if (failures.length > 0) {

@@ -14,6 +14,8 @@ export default [
       'axe-results/',
       'screenshots/',
       'audit/',
+      'probe-*',
+      'axe-comprehensive.mjs',
     ],
   },
   js.configs.recommended,
@@ -81,6 +83,25 @@ export default [
     },
     rules: {
       'no-console': 'off',
+    },
+  },
+  // Playwright browser-test suites (*.cjs). These files legitimately use
+  // require() (CommonJS) and reference document/window/navigator globals.
+  {
+    files: ['tests/**/*.cjs'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+        ...globals.es2021,
+      },
+      sourceType: 'commonjs',
+    },
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' }],
     },
   },
 ];

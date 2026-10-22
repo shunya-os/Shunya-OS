@@ -45,7 +45,7 @@ try {
     console.error('FATAL: VITE_PROXY_TARGET port ' + proxyPort + ' must match TEST_BACKEND_PORT ' + PORT + '. Got: ' + PROXY_TARGET_RAW);
     process.exit(1);
   }
-} catch (e) {
+} catch (_e) {
   console.error('FATAL: VITE_PROXY_TARGET is not a valid URL. Got: ' + PROXY_TARGET_RAW);
   process.exit(1);
 }
@@ -80,7 +80,7 @@ function loginApi() {
   });
 }
 
-async function dispatchAIChat(page, query) {
+async function _dispatchAIChat(page, query) {
   // Trigger the ask-ai action by typing into the spotlight and clicking the AI action
   const si = await page.$('input[placeholder*="question"]');
   if (!si) return false;
