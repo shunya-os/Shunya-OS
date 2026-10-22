@@ -18,9 +18,19 @@ if (!existsSync(BASELINE_PATH)) {
   process.exit(1);
 }
 
-// Run ESLint and capture output. maxBuffer is large because axe-audit.mjs
-// embeds a large inline source string that inflates the JSON output.
-const stdout = execSync('npx eslint . --format=json', { encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024 });
+// ESLint exits non-zero when it finds errors OR warnings, but the JSON
+// output on stdout is still valid. Catch the throw and read stdout from
+// the error object so the governance comparison below can run.
+let stdout;
+try {
+  stdout = execSync('npx eslint . --format=json', { encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024 });
+} catch (e) {
+  stdout = e.stdout;
+  if (!stdout) {
+    console.error('❌ ESLint failed without producing JSON output:', e.stderr?.toString() || e.message);
+    process.exit(1);
+  }
+}
 const current = JSON.parse(stdout);
 
 const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8'));
