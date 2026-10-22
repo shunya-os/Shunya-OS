@@ -59,3 +59,9 @@ openpyxl>=3.1
 google-api-python-client>=2.100
 google-auth>=2.30
 google-auth-oauthlib>=1.2
+
+# System metrics — psutil is imported at runtime by the /metrics endpoint
+# (app/__init__.py process monitoring). Without it the metrics endpoint falls
+# back to JSON output, but the Prometheus metrics path silently drops process
+# memory and CPU metrics.
+psutil>=6.0
