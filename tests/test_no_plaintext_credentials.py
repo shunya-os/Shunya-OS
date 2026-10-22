@@ -73,12 +73,23 @@ CONFIG_SUFFIXES = {".yml", ".yaml", ".env", ".ini", ".cfg", ".conf", ".toml",
                    ".properties", ".service", ".sh"}
 CONFIG_NAMES = {"Dockerfile", "docker-compose.yml", "Makefile"}
 DOC_SUFFIXES = {".md", ".html", ".rst", ".txt"}
+LOG_SUFFIXES = {".log"}
 
 _PGPASSWORD = re.compile(r"""PGPASSWORD\s*=\s*(['"])(?P<val>[^'"]+)\1""")
 
 _CONN_URL = re.compile(
     r"""(?:postgres|postgresql|mysql|mariadb|redis|rediss|mongodb|amqp|amqps)"""
     r"""://(?P<user>[^/\s:@]+):(?P<val>[^@\s/]+)@"""
+)
+
+# Connection URL with NO password component -- user@host:port. Applied only to
+# .log files where even the username + host = infrastructure exposure.
+# Has NO val group: the match itself is the violation (no credential value to
+# evaluate as placeholder). The regex requires a DB-like scheme plus a non-
+# empty user segment.
+_CONN_URL_NOPASS = re.compile(
+    r"""(?:postgres|postgresql|mysql|mariadb|redis|rediss|mongodb|amqp|amqps)"""
+    r"""://[a-z][a-z0-9_.-]+@"""
 )
 
 _KV_SECRET = re.compile(
@@ -140,10 +151,13 @@ def _rules_for(rel: str) -> list[tuple[re.Pattern, str]]:
              (_CONN_URL, "inline credential in connection URL"),
              (_KV_SECRET, "hard-coded password literal")]
     name = Path(rel).name
-    if Path(rel).suffix.lower() in CONFIG_SUFFIXES or name in CONFIG_NAMES:
+    suffix = Path(rel).suffix.lower()
+    if suffix in CONFIG_SUFFIXES or name in CONFIG_NAMES:
         rules.append((_UNQUOTED_SECRET, "unquoted credential assignment"))
-    if Path(rel).suffix.lower() in DOC_SUFFIXES:
+    if suffix in DOC_SUFFIXES:
         rules.append((_DOC_DISCLOSURE, "secret disclosed in prose"))
+    if suffix in LOG_SUFFIXES:
+        rules.append((_CONN_URL_NOPASS, "connection URL in log file"))
     return rules
 
 
@@ -152,15 +166,19 @@ def _violations_in_line(line: str, rel: str = "config.yml") -> list[str]:
     found: list[str] = []
     for pattern, label in _rules_for(rel):
         for m in pattern.finditer(line):
-            val = m.groupdict().get("val") or ""
-            if _is_allowed(val):
-                continue
-            # The environment-reference allowance is scoped to the config rule.
-            # Applied globally it would let an all-caps secret through the
-            # connection-URL rule (postgresql://user:MY_SECRET_VALUE@host).
-            if (label == "unquoted credential assignment"
-                    and _ENV_REFERENCE.match(val.strip())):
-                continue
+            # Patterns with a val group get the placeholder/template allowance.
+            # Patterns WITHOUT a val group (e.g. _CONN_URL_NOPASS) always flag:
+            # the match itself is the violation.
+            val = m.groupdict().get("val")
+            if val is not None:
+                if _is_allowed(val):
+                    continue
+                # The environment-reference allowance is scoped to the config rule.
+                # Applied globally it would let an all-caps secret through the
+                # connection-URL rule (postgresql://user:***@host).
+                if (label == "unquoted credential assignment"
+                        and _ENV_REFERENCE.match(val.strip())):
+                    continue
             found.append(label)
     return found
 
@@ -240,7 +258,7 @@ def test_guard_allows_placeholders_and_templated_values():
         ("os.environ['DATABASE_URL'] = "
          "'postgresql://shunya:***@127.0.0.1:5433/shunya_db'", "x.py"),
         ('password=os.environ.get("SHUNYA_DEMO_PASSWORD", "")', "x.py"),
-        ("'postgresql://user:password@host:5432/db'", "x.py"),
+        ("'postgresql://user:***@host:5432/db'", "x.py"),
         ("'postgresql://user:***@host:5432/db'", "x.py"),
         ("    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?must be set}", "docker-compose.yml"),
         ("    api_key_env: OPENROUTER_API_KEY", "config/inference.yaml"),
@@ -249,3 +267,33 @@ def test_guard_allows_placeholders_and_templated_values():
     for line, rel in allowed:
         assert not _violations_in_line(line, rel), (
             f"guard FALSE POSITIVE on placeholder: {line[:44]}")
+
+
+def test_guard_detects_connection_url_without_password_in_log():
+    """A DB connection URL without password in a .log file must be flagged.
+
+    This is the pattern that was found in committed certification log artifacts
+    (postgresql://shunya@127.0.0.1:5433/shunya_db) -- the username + host alone
+    is an infrastructure exposure even without a password.
+    """
+    line = ("2026-10-16 09:48:26,123 INFO "
+            "postgresql://shunya@127.0.0.1:5433/shunya_db")
+    assert _violations_in_line(line, "artifacts/cert.log"), (
+        "guard FAILED to detect a connection URL without password in a .log file")
+
+    # Same pattern with a different scheme must also flag.
+    line2 = "redis://mystore@some.internal:6379/0"
+    assert _violations_in_line(line2, "runtime.log"), (
+        "guard FAILED to detect a redis connection URL without password in .log")
+
+
+def test_guard_connection_url_nopass_does_not_flag_non_log_files():
+    """The no-password connection URL rule must NOT apply to .py and .yml files,
+    where a postgresql://user@host pattern may appear in test fixtures or config
+    templates with a straightforward placeholder allowance.
+    """
+    line = "postgresql://shunya@localhost:5433/shunya_db"
+    # In a .py file the pattern must NOT flag (the nopass rule is log-only).
+    violations = _violations_in_line(line, "config.py")
+    assert "connection URL in log file" not in violations, (
+        "guard FALSE POSITIVE: nopass pattern fired in a non-log file")
